@@ -96,8 +96,8 @@ Forma is a premium macOS file organization app that intelligently organizes file
 
 1. **Clone/Open the project**
    ```bash
-   git clone <repo-url>
-   cd <repo-root>
+   git clone https://github.com/jrf25906/forma-file-organizer.git
+   cd forma-file-organizer
    open "Forma File Organizing.xcodeproj"
    ```
 

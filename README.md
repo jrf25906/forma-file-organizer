@@ -2,6 +2,13 @@
 
 A premium macOS application for intelligent file organization.
 
+## Links
+
+| Resource | URL |
+|----------|-----|
+| **Marketing Site** | [formafiles.com](https://formafiles.com) |
+| **GitHub Repo** | [github.com/jrf25906/forma-file-organizer](https://github.com/jrf25906/forma-file-organizer) (private) |
+
 ## Overview
 
 Forma helps you organize files from Desktop, Downloads, and other folders using intelligent rule-based automation. Built with SwiftUI and SwiftData for macOS 14+.
@@ -156,6 +163,25 @@ Forma File Organizing/
 - **Persistence**: SwiftData
 - **Architecture**: MVVM with Service Layer
 - **Minimum**: macOS 14.0+, Swift 5.9+
+
+## Marketing Site
+
+The marketing site at [formafiles.com](https://formafiles.com) is a Next.js app located in `forma-marketing-site/`.
+
+| Stack | Details |
+|-------|---------|
+| **Framework** | Next.js 16 |
+| **Hosting** | Vercel (auto-deploys from `main` branch) |
+| **Domain** | formafiles.com (DNS via Cloudflare) |
+
+To run locally:
+```bash
+cd forma-marketing-site
+npm install
+npm run dev
+```
+
+Changes pushed to `main` automatically deploy to production via Vercel's GitHub integration.
 
 ## License
 

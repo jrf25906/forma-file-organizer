@@ -44,8 +44,8 @@
 
 ```bash
 # 1. Clone the repository
-git clone <repo-url>
-cd <repo-root>
+git clone https://github.com/jrf25906/forma-file-organizer.git
+cd forma-file-organizer
 
 # 2. Open in Xcode
 open "Forma File Organizing.xcodeproj"
