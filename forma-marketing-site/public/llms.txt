@@ -1,0 +1,31 @@
+# Forma
+
+> "File organization that actually works."
+
+## Product Summary
+Forma is a native macOS application that intelligently organizes files using local context and natural language processing. Unlike traditional tools that sort strictly by file type (e.g., all PDFs in one folder), Forma understands project relationships (e.g., a "brief.pdf" belongs with "logo_v1.png").
+
+## Key Features
+
+### 1. Context-Aware Organization
+- **Recognition:** Forma identifies relationships between files based on content, project names, and time, not just file extensions.
+- **Visual Feedback:** Users see connections drawn between related files before any move happens.
+
+### 2. Natural Language Control
+- **Voice/Text Commands:** Users can give complex instructions like: "Move screenshots older than a week to Archive."
+- **No Regex:** Eliminates the need for complex rule-building interfaces.
+
+### 3. Safety & Privacy
+- **100% Local:** All processing happens on-device. No file data is sent to the cloud.
+- **Undo Forever:** Every action preserves a complete history that can be reversed with a single click.
+- **Approvals:** The user must explicitly approve actions before files are moved.
+
+## Technical Specifications
+- **Platform:** macOS 14+ (Sonoma and later)
+- **Architecture:** Native Swift (Not Electron/Web-wrapper)
+- **Performance:** "Zero CPU idle" philosophy.
+- **Pricing:** Free during Public Beta.
+
+## Links
+- **Beta Access:** https://testflight.apple.com/join/YOUR_LINK
+- **Contact:** hello@forma.app

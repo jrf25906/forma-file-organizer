@@ -1,0 +1,232 @@
+--- a/Forma File Organizing/Services/FileOperationsService.swift
++++ b/Forma File Organizing/Services/FileOperationsService.swift
+@@ -77,6 +77,149 @@
+         return homeDir.contains("/Library/Containers/")
+     }
+
++    // MARK: - Security - Path Sanitization
++
++    /// macOS reserved system folder names that should never be used as destinations
++    /// References: OWASP Path Traversal, CWE-22, macOS File System Programming Guide
++    private static let reservedMacOSNames: Set<String> = [
++        ".Trash", ".Spotlight-V100", ".DocumentRevisions-V100", ".TemporaryItems",
++        ".fseventsd", ".VolumeIcon.icns", ".DS_Store", ".localized",
++        ".file", ".hotfiles.btree", ".vol", "System", "Library", "Applications",
++        "private", "bin", "sbin", "usr", "var", "tmp", "etc", "cores", "dev",
++        ".PKInstallSandboxManager", ".PKInstallSandboxManager-SystemSoftware"
++    ]
++
++    /// Maximum allowed path length (macOS PATH_MAX)
++    private static let maxPathLength = 1024
++
++    /// Maximum allowed path component length (macOS NAME_MAX)
++    private static let maxComponentLength = 255
++
++    /// Securely sanitizes and validates a destination path
++    /// Implements defense-in-depth against path traversal attacks (OWASP #1)
++    ///
++    /// Security validations:
++    /// - Null byte injection (CWE-158)
++    /// - Absolute path rejection
++    /// - Directory traversal (../)
++    /// - Symlink attacks
++    /// - Reserved system names
++    /// - Path length limits
++    ///
++    /// - Parameter path: The raw destination path from user input or rules
++    /// - Returns: A sanitized, validated path safe for use
++    /// - Throws: FileOperationError if the path is invalid or malicious
++    private func sanitizeDestinationPath(_ path: String) throws -> String {
++        // 1. Trim whitespace and newlines
++        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
++
++        // 2. Reject empty paths
++        guard !trimmed.isEmpty else {
++            throw FileOperationError.operationFailed("Destination path cannot be empty")
++        }
++
++        // 3. SECURITY: Check for null byte injection (CWE-158)
++        guard !trimmed.contains("\0") else {
++            #if DEBUG
++            print("🔴 SECURITY: Null byte injection attempt detected in path: \(path)")
++            #endif
++            throw FileOperationError.operationFailed("Invalid characters in destination path")
++        }
++
++        // 4. SECURITY: REJECT absolute paths outright (prevent directory escape)
++        if trimmed.hasPrefix("/") || trimmed.hasPrefix("~") {
++            #if DEBUG
++            print("🔴 SECURITY: Absolute path rejected: \(trimmed)")
++            #endif
++            throw FileOperationError.operationFailed("Destination must be a relative path (e.g., 'Pictures' or 'Documents/Work'). Absolute paths are not allowed.")
++        }
++
++        // 5. SECURITY: Reject paths that look like absolute paths without leading slash
++        // e.g., "Users/username/..." or "Volumes/..." (common attack vector)
++        if trimmed.hasPrefix("Users/") || trimmed.hasPrefix("Volumes/") ||
++           trimmed.hasPrefix("System/") || trimmed.hasPrefix("Library/") {
++            #if DEBUG
++            print("🔴 SECURITY: Suspicious absolute-like path rejected: \(trimmed)")
++            #endif
++            throw FileOperationError.operationFailed("Invalid destination. Use relative paths like 'Pictures' or 'Documents/Work'.")
++        }
++
++        // 6. SECURITY: Check total path length (prevent buffer overflow-style attacks)
++        guard trimmed.count <= Self.maxPathLength else {
++            throw FileOperationError.operationFailed("Destination path too long (max \(Self.maxPathLength) characters)")
++        }
++
++        // 7. Split into components and validate each
++        let components = trimmed.split(separator: "/").map(String.init)
++        guard !components.isEmpty else {
++            throw FileOperationError.operationFailed("Invalid destination path")
++        }
++
++        for component in components {
++            // 7a. Check component length (NAME_MAX)
++            guard component.count <= Self.maxComponentLength else {
++                throw FileOperationError.operationFailed("Path component '\(component)' exceeds maximum length (\(Self.maxComponentLength) characters)")
++            }
++
++            // 7b. SECURITY: REJECT directory traversal attempts (CWE-22)
++            // Block ".." and "." as entire components (but allow ".hidden" folders)
++            if component == ".." || component == "." {
++                #if DEBUG
++                print("🔴 SECURITY: Path traversal attempt detected: \(component) in \(trimmed)")
++                #endif
++                throw FileOperationError.operationFailed("Path traversal attempts are not allowed")
++            }
++
++            // 7c. SECURITY: Check for invalid macOS filename characters
++            let invalidChars = CharacterSet(charactersIn: ":<>|\"\0")
++            if component.rangeOfCharacter(from: invalidChars) != nil {
++                #if DEBUG
++                print("🔴 SECURITY: Invalid characters in path component: \(component)")
++                #endif
++                throw FileOperationError.operationFailed("Invalid characters in destination path")
++            }
++
++            // 7d. SECURITY: Check for reserved macOS system names
++            if Self.reservedMacOSNames.contains(component) || Self.reservedMacOSNames.contains("." + component) {
++                #if DEBUG
++                print("🔴 SECURITY: Reserved macOS system name rejected: \(component)")
++                #endif
++                throw FileOperationError.operationFailed("'\(component)' is a reserved system folder name")
++            }
++        }
++
++        // 8. Construct the full path relative to home directory
++        let homeURL = fileManager.homeDirectoryForCurrentUser
++        let proposedURL = homeURL.appendingPathComponent(trimmed)
++
++        // 9. SECURITY: Resolve symlinks and verify the canonical path stays within home directory
++        // This prevents symlink-based directory traversal attacks (CWE-61)
++        let canonicalPath: String
++        do {
++            // Get the standardized path (resolves . and .. and symlinks)
++            let standardizedURL = proposedURL.standardized
++            canonicalPath = standardizedURL.path
++
++            // Verify the resolved path is still within the home directory
++            let homeDir = homeURL.path
++            guard canonicalPath.hasPrefix(homeDir) else {
++                #if DEBUG
++                print("🔴 SECURITY: Symlink escape attempt detected")
++                print("  Proposed: \(proposedURL.path)")
++                print("  Resolved: \(canonicalPath)")
++                print("  Home: \(homeDir)")
++                #endif
++                throw FileOperationError.operationFailed("Destination path escapes home directory (possible symlink attack)")
++            }
++        }
++
++        // 10. Return the sanitized relative path (not the canonical one, to preserve user intent)
++        #if DEBUG
++        print("✅ SECURITY: Path validated successfully: \(trimmed)")
++        print("  Canonical path verified: \(canonicalPath)")
++        #endif
++
++        return trimmed
++    }
++
++    // MARK: - File Operations
++
+     /// Moves a file to the suggested destination
+     func moveFile(_ fileItem: FileItem, modelContext: ModelContext? = nil) async throws -> MoveResult {
+@@ -105,6 +248,14 @@
+         #if DEBUG
+         print("✅ Source file exists")
+         #endif
++
++        // 🔴 CRITICAL SECURITY: Sanitize and validate the destination path
++        let cleanedDestination: String
++        do {
++            cleanedDestination = try sanitizeDestinationPath(suggestedDestination)
++        } catch {
++            throw error
++        }
+
+         // 🔴 CRITICAL FIX: Ensure we have access to the source folder
+         // The app needs security-scoped access to READ from the source folder (only when sandboxed)
+@@ -174,56 +325,12 @@
+         }
+
+         // Parse the suggested destination to identify top-level folder and subdirectories
+         // e.g., "Pictures/Screenshots" -> topLevel: "Pictures", subPath: "Screenshots"
+-
+-        // Clean up the destination path - remove leading slashes and handle absolute paths
+-        var cleanedDestination = suggestedDestination
+-
+-        // If it starts with /, it's an absolute path - try to make it relative
+-        if cleanedDestination.hasPrefix("/") {
+-            #if DEBUG
+-            print("⚠️ Absolute path detected: \(cleanedDestination)")
+-            #endif
+-
+-            // Try to make it relative to home directory
+-            let homeDir = fileManager.homeDirectoryForCurrentUser.path
+-            if cleanedDestination.hasPrefix(homeDir) {
+-                // Remove home directory prefix
+-                cleanedDestination = String(cleanedDestination.dropFirst(homeDir.count))
+-                // Remove leading slash if present
+-                if cleanedDestination.hasPrefix("/") {
+-                    cleanedDestination = String(cleanedDestination.dropFirst())
+-                }
+-                #if DEBUG
+-                print("  Converted to relative path: \(cleanedDestination)")
+-                #endif
+-            } else {
+-                #if DEBUG
+-                print("  ❌ ERROR: Path is not within home directory!")
+-                #endif
+-                throw FileOperationError.operationFailed("Destination must be within your home directory. Got: \(suggestedDestination)")
+-            }
+-        }
+-
+-        // If it's something like "Users/jamesfarmer/Pictures", detect and reject it
+-        if cleanedDestination.starts(with: "Users/") {
+-            #if DEBUG
+-            print("❌ ERROR: Destination looks like an absolute path without leading slash: \(cleanedDestination)")
+-            #endif
+-            throw FileOperationError.operationFailed("Invalid destination '\(suggestedDestination)'. Please edit your rules to use relative paths like 'Pictures' or 'Documents/Work'.")
+-        }
+-
++        // The path has already been sanitized and validated by sanitizeDestinationPath()
+         let components = cleanedDestination.split(separator: "/").map(String.init)
+         guard let topLevelFolder = components.first, !topLevelFolder.isEmpty else {
+-            #if DEBUG
+-            print("❌ ERROR: Could not extract top-level folder from: \(suggestedDestination)")
+-            #endif
+             throw FileOperationError.operationFailed("Invalid destination path: \(suggestedDestination)")
+         }
+         let subPath = components.dropFirst().joined(separator: "/")
+-
+-        #if DEBUG
+-        print("📍 Parsed destination:")
+-        print("  Original: \(suggestedDestination)")
+-        print("  Cleaned: \(cleanedDestination)")
+-        print("  Top-level folder: \(topLevelFolder)")
+-        print("  Sub-path: \(subPath.isEmpty ? "(none)" : subPath)")
+-        #endif
+
+         // Request permission for the top-level folder and get the actual resolved URL

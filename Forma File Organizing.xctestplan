@@ -1,0 +1,31 @@
+{
+  "configurations" : [
+    {
+      "id" : "8BDD1A3D-CC1F-4BAB-AD79-5230F3BE24E3",
+      "name" : "All Tests",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Forma File Organizing.xcodeproj",
+        "identifier" : "50A492862ECC4C4A006868D5",
+        "name" : "Forma File OrganizingTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Forma File Organizing.xcodeproj",
+        "identifier" : "50A492902ECC4C4A006868D5",
+        "name" : "Forma File OrganizingUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

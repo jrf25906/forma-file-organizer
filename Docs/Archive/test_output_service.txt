@@ -1,0 +1,167 @@
+NOTE: Archived `xcodebuild` output; paths and signing identities may be machine-specific.
+
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -scheme "Forma File Organizing" -destination platform=macOS -project "Forma File Organizing.xcodeproj" "-only-testing:Forma File OrganizingTests/RuleServiceTests"
+
+2025-11-19 12:08:17.464 xcodebuild[84253:1330690]  DVTDeviceOperation: Encountered a build number "" that is incompatible with DVTBuildVersion.
+2025-11-19 12:08:18.087 xcodebuild[84253:1330613] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006030-001C28322128001C, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00006030-001C28322128001C, name:My Mac }
+2025-11-19 12:08:21.421 xcodebuild[84253:1330613] [MT] DVTDeviceOperation: Encountered a build number "" that is incompatible with DVTBuildVersion.
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (3 targets)
+    Target 'Forma File OrganizingUITests' in project 'Forma File Organizing'
+        ➜ Explicit dependency on target 'Forma File Organizing' in project 'Forma File Organizing'
+    Target 'Forma File OrganizingTests' in project 'Forma File Organizing'
+        ➜ Explicit dependency on target 'Forma File Organizing' in project 'Forma File Organizing'
+    Target 'Forma File Organizing' in project 'Forma File Organizing' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 3cb0b8da2c27a26eb116ddf9c8a50680
+Build description path: /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/XCBuildData/3cb0b8da2c27a26eb116ddf9c8a50680.xcbuilddata
+ProcessProductPackaging /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing/Forma\ File\ Organizing/Forma_File_Organizing.entitlements /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/Forma\ File\ Organizing.app.xcent (in target 'Forma File Organizing' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    
+    Entitlements:
+    
+    {
+    "com.apple.security.app-sandbox" = 1;
+    "com.apple.security.files.bookmarks.app-scope" = 1;
+    "com.apple.security.files.downloads.read-write" = 1;
+    "com.apple.security.files.user-selected.read-write" = 1;
+    "com.apple.security.get-task-allow" = 1;
+}
+    
+    builtin-productPackagingUtility /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing/Forma\ File\ Organizing/Forma_File_Organizing.entitlements -entitlements -format xml -o /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/Forma\ File\ Organizing.app.xcent
+
+ProcessProductPackagingDER /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/Forma\ File\ Organizing.app.xcent /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/Forma\ File\ Organizing.app.xcent.der (in target 'Forma File Organizing' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    /usr/bin/derq query -f xml -i /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/Forma\ File\ Organizing.app.xcent -o /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/Forma\ File\ Organizing.app.xcent.der --raw
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk /Users/username/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.1-25B74-3ae1261907bdadc328169391a47051a6.sdkstatcache
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing/Forma\ File\ Organizing.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -o /Users/username/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.1-25B74-3ae1261907bdadc328169391a47051a6.sdkstatcache
+
+CopySwiftLibs /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app (in target 'Forma File Organizing' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    builtin-swiftStdLibTool --copy --verbose --sign DA08F597E272E556EF6481322DE933DC119CE150 --scan-executable /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/MacOS/Forma\ File\ Organizing.debug.dylib --scan-folder /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/Frameworks --scan-folder /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/PlugIns --scan-folder /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/Library/SystemExtensions --scan-folder /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/Extensions --platform macosx --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+
+ProcessInfoPlistFile /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/Info.plist /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/empty-Forma\ File\ Organizing.plist (in target 'Forma File Organizing' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    builtin-infoPlistUtility /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/empty-Forma\ File\ Organizing.plist -producttype com.apple.product-type.application -genpkginfo /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/PkgInfo -expandbuildsettings -platform macosx -additionalcontentfile /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/assetcatalog_generated_info.plist -o /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/Info.plist
+
+ProcessProductPackaging "" /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/Forma\ File\ OrganizingUITests.xctest.xcent (in target 'Forma File OrganizingUITests' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    
+    Entitlements:
+    
+    {
+    "com.apple.application-identifier" = "TEAMID.com.yourteam.Forma-File-OrganizingUITests.xctrunner";
+    "com.apple.security.app-sandbox" = 1;
+    "com.apple.security.get-task-allow" = 1;
+    "com.apple.security.network.client" = 1;
+    "com.apple.security.temporary-exception.files.absolute-path.read-only" =     (
+        "/"
+    );
+    "com.apple.security.temporary-exception.mach-lookup.global-name" =     (
+        "com.apple.testmanagerd",
+        "com.apple.dt.testmanagerd.runner",
+        "com.apple.coresymbolicationd",
+        "com.apple.coredevice.version",
+        "com.apple.coredevice.service",
+        "com.apple.remoted"
+    );
+    "com.apple.security.temporary-exception.mach-lookup.local-name" =     (
+        "com.apple.axserver"
+    );
+    "com.apple.security.temporary-exception.sbpl" =     (
+        "(allow hid-control)",
+        "(allow signal)"
+    );
+}
+    
+    builtin-productPackagingUtility -entitlements -format xml -o /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/Forma\ File\ OrganizingUITests.xctest.xcent
+
+ProcessProductPackagingDER /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/Forma\ File\ OrganizingUITests.xctest.xcent /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/Forma\ File\ OrganizingUITests.xctest.xcent.der (in target 'Forma File OrganizingUITests' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    /usr/bin/derq query -f xml -i /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/Forma\ File\ OrganizingUITests.xctest.xcent -o /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/Forma\ File\ OrganizingUITests.xctest.xcent.der --raw
+
+ProcessInfoPlistFile /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/PlugIns/Forma\ File\ OrganizingTests.xctest/Contents/Info.plist /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingTests.build/empty-Forma\ File\ OrganizingTests.plist (in target 'Forma File OrganizingTests' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    builtin-infoPlistUtility /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingTests.build/empty-Forma\ File\ OrganizingTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -platform macosx -o /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app/Contents/PlugIns/Forma\ File\ OrganizingTests.xctest/Contents/Info.plist
+
+CodeSign /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app (in target 'Forma File Organizing' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    
+    Signing Identity:     "Apple Development: developer@example.com (TEAMID)"
+    
+    /usr/bin/codesign --force --sign DA08F597E272E556EF6481322DE933DC119CE150 -o runtime --entitlements /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ Organizing.build/Forma\ File\ Organizing.app.xcent --timestamp\=none --generate-entitlement-der /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app
+/Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma File Organizing.app: replacing existing signature
+
+Validate /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app (in target 'Forma File Organizing' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    builtin-validationUtility /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app -no-validate-extension -infoplist-subpath Contents/Info.plist
+
+RegisterWithLaunchServices /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app (in target 'Forma File Organizing' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ Organizing.app
+
+ProcessInfoPlistFile /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ OrganizingUITests-Runner.app/Contents/PlugIns/Forma\ File\ OrganizingUITests.xctest/Contents/Info.plist /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/empty-Forma\ File\ OrganizingUITests.plist (in target 'Forma File OrganizingUITests' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    builtin-infoPlistUtility /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/empty-Forma\ File\ OrganizingUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -platform macosx -additionalcontentfile /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ OrganizingUITests-Runner.app/Contents/PlugIns/Forma\ File\ OrganizingUITests.xctest/Contents/Info.plist
+
+CodeSign /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ OrganizingUITests-Runner.app/Contents/PlugIns/Forma\ File\ OrganizingUITests.xctest (in target 'Forma File OrganizingUITests' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    
+    Signing Identity:     "Apple Development: developer@example.com (TEAMID)"
+    
+    /usr/bin/codesign --force --sign DA08F597E272E556EF6481322DE933DC119CE150 --entitlements /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/Forma\ File\ OrganizingUITests.xctest.xcent --timestamp\=none --generate-entitlement-der /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ OrganizingUITests-Runner.app/Contents/PlugIns/Forma\ File\ OrganizingUITests.xctest
+/Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma File OrganizingUITests-Runner.app/Contents/PlugIns/Forma File OrganizingUITests.xctest: replacing existing signature
+
+CodeSign /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ OrganizingUITests-Runner.app (in target 'Forma File OrganizingUITests' from project 'Forma File Organizing')
+    cd /Users/username/Application\ Prototype/Forma\ --\ File\ Organizing\ App/Forma\ File\ Organizing
+    
+    Signing Identity:     "Apple Development: developer@example.com (TEAMID)"
+    
+    /usr/bin/codesign --force --sign DA08F597E272E556EF6481322DE933DC119CE150 --entitlements /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Intermediates.noindex/Forma\ File\ Organizing.build/Debug/Forma\ File\ OrganizingUITests.build/Forma\ File\ OrganizingUITests.xctest.xcent --timestamp\=none --generate-entitlement-der /Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma\ File\ OrganizingUITests-Runner.app
+/Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Build/Products/Debug/Forma File OrganizingUITests-Runner.app: replacing existing signature
+
+2025-11-19 12:09:27.906 xcodebuild[84253:1330613] [MT] IDETestOperationsObserverDebug: 61.001 elapsed -- Testing started completed.
+2025-11-19 12:09:27.907 xcodebuild[84253:1330613] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2025-11-19 12:09:27.907 xcodebuild[84253:1330613] [MT] IDETestOperationsObserverDebug: 61.001 sec, +61.001 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/username/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-byxmdtphtjbstbhhxslujaxojkow/Logs/Test/Test-Forma File Organizing-2025.11.19_12-08-18--0800.xcresult
+
+** TEST FAILED **
+
+Testing started
+Test suite 'RuleServiceTests' started on 'My Mac - Forma File Organizing (84310)'
+Test case 'RuleServiceTests.testAddRule()' failed on 'My Mac - Forma File Organizing (84310)' (0.000 seconds)
+Test case 'RuleServiceTests.testDeleteRule()' failed on 'My Mac - Forma File Organizing (84314)' (0.000 seconds)
+Test case 'RuleServiceTests.testFetchRules()' failed on 'My Mac - Forma File Organizing (84396)' (0.000 seconds)
+Test case 'RuleServiceTests.testSeedDefaultRules()' failed on 'My Mac - Forma File Organizing (84397)' (0.000 seconds)
+Test case 'RuleServiceTests.testSeedDefaultRulesOnlyOnce()' failed on 'My Mac - Forma File Organizing (84404)' (0.000 seconds)

@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forma UI Concepts - Opus One Inspired</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+            background: #1a1a1a;
+            color: #fafaf8;
+            padding: 40px;
+            min-height: 100vh;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #fafaf8;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #888;
+            margin-bottom: 48px;
+        }
+
+        .concepts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 32px;
+            margin-bottom: 64px;
+        }
+
+        .concept-card {
+            background: #242424;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+
+        .concept-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #333;
+        }
+
+        .concept-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .concept-header p {
+            font-size: 13px;
+            color: #888;
+        }
+
+        .concept-preview {
+            padding: 24px;
+            min-height: 500px;
+        }
+
+        /* ========================================
+           DIRECTION A: The Organized Desk
+           ======================================== */
+        .desk-concept {
+            background:
+                linear-gradient(180deg, rgba(139, 90, 43, 0.1) 0%, transparent 100%),
+                url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"),
+                linear-gradient(135deg, #3d2b1f 0%, #2a1f17 100%);
+        }
+
+        .desk-sidebar {
+            width: 72px;
+            background: linear-gradient(180deg, #4a3728 0%, #3d2b1f 100%);
+            border-radius: 8px 0 0 8px;
+            padding: 12px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: inset -2px 0 8px rgba(0,0,0,0.3);
+        }
+
+        .drawer-handle {
+            background: linear-gradient(180deg, #c9a86c 0%, #a8894d 100%);
+            border-radius: 4px;
+            padding: 12px 8px;
+            text-align: center;
+            font-size: 18px;
+            box-shadow:
+                0 2px 4px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .drawer-handle:hover {
+            transform: translateX(4px);
+        }
+
+        .drawer-handle.active {
+            background: linear-gradient(180deg, #5b7c99 0%, #4a6a85 100%);
+        }
+
+        .desk-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .manila-folder {
+            background: linear-gradient(180deg, #f5e6c8 0%, #e8d4a8 100%);
+            border-radius: 8px;
+            padding: 16px;
+            color: #2a1f17;
+            position: relative;
+            box-shadow:
+                0 4px 12px rgba(0,0,0,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.5);
+        }
+
+        .manila-folder::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 20px;
+            width: 80px;
+            height: 24px;
+            background: linear-gradient(180deg, #e8d4a8 0%, #dcc69a 100%);
+            border-radius: 8px 8px 0 0;
+            transform: translateY(-20px);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .folder-tab {
+            position: absolute;
+            right: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 48px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .folder-tab.documents { background: #6B8CA8; }
+        .folder-tab.images { background: #C97E66; }
+        .folder-tab.downloads { background: #8BA688; }
+
+        .folder-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .folder-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(42, 31, 23, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .folder-info h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .folder-info p {
+            font-size: 12px;
+            color: #5a4a3a;
+        }
+
+        .folder-corner {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, transparent 50%, #dcc69a 50%);
+            border-radius: 0 0 8px 0;
+        }
+
+        .cork-board {
+            background:
+                url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E"),
+                linear-gradient(135deg, #c4956a 0%, #a67c52 100%);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .post-it {
+            background: #fff9b1;
+            padding: 12px;
+            border-radius: 2px;
+            transform: rotate(-2deg);
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.15);
+            color: #333;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .post-it.blue { background: #a8d4ff; }
+        .post-it.pink { background: #ffb8d4; }
+
+        .pushpin {
+            width: 12px;
+            height: 12px;
+            background: radial-gradient(circle at 30% 30%, #ff6b6b, #c44);
+            border-radius: 50%;
+            margin: -8px auto 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* ========================================
+           DIRECTION B: Glass + Paper Hybrid
+           ======================================== */
+        .hybrid-concept {
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(91, 124, 153, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(122, 157, 126, 0.1) 0%, transparent 50%),
+                linear-gradient(180deg, #1e2328 0%, #171a1d 100%);
+        }
+
+        .glass-sidebar {
+            width: 200px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px;
+        }
+
+        .tab-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+
+        .tab-divider:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-divider.active {
+            background: rgba(91, 124, 153, 0.2);
+        }
+
+        .tab-notch {
+            position: absolute;
+            left: -16px;
+            width: 8px;
+            height: 32px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .tab-notch.home { background: #5b7c99; }
+        .tab-notch.desktop { background: #7a9d7e; }
+        .tab-notch.downloads { background: #c97e66; }
+
+        .tab-icon {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+
+        .tab-label {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .paper-card {
+            background:
+                url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5'/%3E%3CfeDiffuseLighting in='turbulence' lighting-color='%23fff' surfaceScale='2'%3E%3CfeDistantLight azimuth='45' elevation='60'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='0.03'/%3E%3C/svg%3E"),
+                linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px;
+            position: relative;
+        }
+
+        .category-strip {
+            position: absolute;
+            left: 0;
+            top: 12px;
+            bottom: 12px;
+            width: 4px;
+            border-radius: 0 2px 2px 0;
+        }
+
+        .category-strip.documents { background: #6B8CA8; }
+        .category-strip.images { background: #C97E66; }
+
+        .card-content {
+            margin-left: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .file-thumb {
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .file-details h3 {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .file-details p {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .ready-corner {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 28px 28px 0;
+            border-color: transparent #7a9d7e transparent transparent;
+            border-radius: 0 12px 0 0;
+        }
+
+        .ready-check {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            font-size: 10px;
+            color: white;
+        }
+
+        /* ========================================
+           DIRECTION C: Refined Details
+           ======================================== */
+        .refined-concept {
+            background:
+                radial-gradient(ellipse at 30% 0%, rgba(91, 124, 153, 0.08) 0%, transparent 50%),
+                linear-gradient(180deg, #fafaf8 0%, #f0efe8 100%);
+        }
+
+        .refined-sidebar {
+            width: 220px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            padding: 16px;
+            box-shadow:
+                0 1px 3px rgba(0,0,0,0.04),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        .refined-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #1a1a1a;
+            transition: all 0.15s ease;
+        }
+
+        .refined-item:hover {
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .refined-item.active {
+            background: linear-gradient(135deg, rgba(91, 124, 153, 0.12) 0%, rgba(91, 124, 153, 0.06) 100%);
+            box-shadow: inset 0 1px 2px rgba(91, 124, 153, 0.1);
+        }
+
+        .refined-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            box-shadow:
+                0 1px 2px rgba(0,0,0,0.08),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        .refined-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .refined-card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            padding: 16px;
+            box-shadow:
+                0 2px 8px rgba(0,0,0,0.04),
+                inset 0 1px 0 rgba(255,255,255,1);
+            color: #1a1a1a;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .refined-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #5b7c99, #7a9d7e);
+        }
+
+        .progress-section {
+            margin-bottom: 20px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #e8e8e8;
+            border-radius: 3px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #5b7c99, #7a9d7e);
+            border-radius: 3px;
+            width: 65%;
+        }
+
+        .metric-pills {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .metric-pill {
+            background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            color: #666;
+            box-shadow:
+                0 1px 2px rgba(0,0,0,0.06),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        /* Layout helpers */
+        .app-layout {
+            display: flex;
+            gap: 16px;
+            height: 100%;
+        }
+
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #888;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .dark-label {
+            color: #666;
+        }
+
+        /* ========================================
+           Component Showcase Section
+           ======================================== */
+        .components-section {
+            margin-top: 64px;
+        }
+
+        .components-section h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .component-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 48px;
+        }
+
+        .component-box {
+            background: #242424;
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid #333;
+        }
+
+        .component-box h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #888;
+        }
+
+        /* File card variants */
+        .file-card-showcase {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .showcase-manila {
+            background: linear-gradient(180deg, #f5e6c8 0%, #e8d4a8 100%);
+            border-radius: 10px;
+            padding: 14px;
+            color: #2a1f17;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .showcase-hybrid {
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(8px);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+        }
+
+        .showcase-refined {
+            background: white;
+            border-radius: 10px;
+            border: 1px solid rgba(0,0,0,0.08);
+            padding: 14px;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+
+        /* Button variants */
+        .button-showcase {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-desk {
+            background: linear-gradient(180deg, #5b7c99 0%, #4a6a85 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow:
+                0 2px 8px rgba(91, 124, 153, 0.3),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+
+        .btn-paper {
+            background:
+                url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='0.02'/%3E%3C/svg%3E"),
+                linear-gradient(180deg, #7a9d7e 0%, #6a8d6e 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(122, 157, 126, 0.3);
+        }
+
+        .btn-refined {
+            background: linear-gradient(180deg, #fafafa 0%, #f0f0f0 100%);
+            color: #333;
+            border: 1px solid rgba(0,0,0,0.1);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow:
+                0 1px 3px rgba(0,0,0,0.08),
+                inset 0 1px 0 rgba(255,255,255,1);
+        }
+
+        /* Sidebar tab variants */
+        .tabs-showcase {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tab-manila {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: linear-gradient(90deg, #f5e6c8 0%, #e8d4a8 100%);
+            border-radius: 0 8px 8px 0;
+            color: #2a1f17;
+            font-size: 13px;
+            font-weight: 500;
+            position: relative;
+            margin-left: -14px;
+            padding-left: 28px;
+        }
+
+        .tab-glass {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 8px;
+            border-left: 3px solid #5b7c99;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .tab-refined {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, rgba(91, 124, 153, 0.1) 0%, rgba(91, 124, 153, 0.05) 100%);
+            border-radius: 8px;
+            color: #333;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        /* Color palette */
+        .palette {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        .swatch {
+            aspect-ratio: 1;
+            border-radius: 8px;
+            display: flex;
+            align-items: flex-end;
+            padding: 8px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .swatch.dark { color: white; }
+        .swatch.light { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Forma UI Concepts</h1>
+    <p class="subtitle">Inspired by Opus One's skeuomorphic planner aesthetic — Three directions for bringing tactile warmth to file organization</p>
+
+    <div class="concepts-grid">
+        <!-- Direction A: The Organized Desk -->
+        <div class="concept-card">
+            <div class="concept-header">
+                <h2>Direction A: The Organized Desk</h2>
+                <p>Full skeuomorphic — Wood desk, filing cabinet, manila folders, cork board</p>
+            </div>
+            <div class="concept-preview desk-concept">
+                <div class="app-layout">
+                    <div class="desk-sidebar">
+                        <div class="drawer-handle active">🏠</div>
+                        <div class="drawer-handle">🖥️</div>
+                        <div class="drawer-handle">⬇️</div>
+                        <div class="drawer-handle">📋</div>
+                    </div>
+                    <div class="desk-main">
+                        <div class="manila-folder">
+                            <div class="folder-tab documents"></div>
+                            <div class="folder-content">
+                                <div class="folder-icon">📄</div>
+                                <div class="folder-info">
+                                    <h3>Q4-Report-Final.pdf</h3>
+                                    <p>→ Documents/Work/Reports</p>
+                                </div>
+                            </div>
+                            <div class="folder-corner"></div>
+                        </div>
+                        <div class="manila-folder">
+                            <div class="folder-tab images"></div>
+                            <div class="folder-content">
+                                <div class="folder-icon">🖼️</div>
+                                <div class="folder-info">
+                                    <h3>vacation-photo-032.jpg</h3>
+                                    <p>→ Pictures/2024/Travel</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="cork-board">
+                            <div class="post-it">
+                                <div class="pushpin"></div>
+                                💡 12 PDFs could use a rule
+                            </div>
+                            <div class="post-it blue" style="transform: rotate(1deg);">
+                                <div class="pushpin"></div>
+                                ✓ 8 files organized today
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direction B: Glass + Paper Hybrid -->
+        <div class="concept-card">
+            <div class="concept-header">
+                <h2>Direction B: Glass + Paper Hybrid</h2>
+                <p>Modern glassmorphism with paper textures, colored tabs, folded corners</p>
+            </div>
+            <div class="concept-preview hybrid-concept">
+                <div class="app-layout">
+                    <div class="glass-sidebar">
+                        <p class="section-label">Locations</p>
+                        <div class="tab-divider active">
+                            <div class="tab-notch home"></div>
+                            <span class="tab-icon">🏠</span>
+                            <span class="tab-label">Home</span>
+                        </div>
+                        <div class="tab-divider">
+                            <div class="tab-notch desktop"></div>
+                            <span class="tab-icon">🖥️</span>
+                            <span class="tab-label">Desktop</span>
+                        </div>
+                        <div class="tab-divider">
+                            <div class="tab-notch downloads"></div>
+                            <span class="tab-icon">⬇️</span>
+                            <span class="tab-label">Downloads</span>
+                        </div>
+                    </div>
+                    <div class="main-area">
+                        <div class="paper-card">
+                            <div class="category-strip documents"></div>
+                            <div class="ready-corner"></div>
+                            <span class="ready-check">✓</span>
+                            <div class="card-content">
+                                <div class="file-thumb">📄</div>
+                                <div class="file-details">
+                                    <h3>Q4-Report-Final.pdf</h3>
+                                    <p>→ Documents/Work/Reports</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="paper-card">
+                            <div class="category-strip images"></div>
+                            <div class="card-content">
+                                <div class="file-thumb">🖼️</div>
+                                <div class="file-details">
+                                    <h3>vacation-photo-032.jpg</h3>
+                                    <p>Needs destination</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="paper-card">
+                            <div class="card-content">
+                                <div class="file-thumb" style="background: rgba(122,157,126,0.2);">💡</div>
+                                <div class="file-details">
+                                    <h3>12 PDFs could use a rule</h3>
+                                    <p>Create rule →</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direction C: Refined Details -->
+        <div class="concept-card">
+            <div class="concept-header">
+                <h2>Direction C: Refined Skeuomorphic Details</h2>
+                <p>Clean aesthetic with subtle inner shadows, embossed elements, warmer tones</p>
+            </div>
+            <div class="concept-preview refined-concept">
+                <div class="app-layout">
+                    <div class="refined-sidebar">
+                        <p class="section-label dark-label">Locations</p>
+                        <div class="refined-item active">
+                            <div class="refined-icon">🏠</div>
+                            <span class="refined-label">Home</span>
+                        </div>
+                        <div class="refined-item">
+                            <div class="refined-icon">🖥️</div>
+                            <span class="refined-label">Desktop</span>
+                        </div>
+                        <div class="refined-item">
+                            <div class="refined-icon">⬇️</div>
+                            <span class="refined-label">Downloads</span>
+                        </div>
+                    </div>
+                    <div class="main-area">
+                        <div class="refined-card">
+                            <div class="progress-section">
+                                <div class="progress-label">
+                                    <span style="font-weight: 600;">Good afternoon!</span>
+                                    <span style="color: #888;">65% organized</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill"></div>
+                                </div>
+                            </div>
+                            <div class="metric-pills">
+                                <span class="metric-pill">📄 12 Documents</span>
+                                <span class="metric-pill">🖼️ 8 Images</span>
+                                <span class="metric-pill">⬇️ 4 Downloads</span>
+                            </div>
+                        </div>
+                        <div class="refined-card" style="padding: 12px 16px;">
+                            <div class="card-content" style="margin-left: 0;">
+                                <div class="refined-icon" style="width: 36px; height: 36px;">📄</div>
+                                <div class="file-details">
+                                    <h3 style="color: #1a1a1a;">Q4-Report-Final.pdf</h3>
+                                    <p>→ Documents/Work/Reports</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Component Showcase -->
+    <div class="components-section">
+        <h2>Component Library Variants</h2>
+
+        <div class="component-row">
+            <!-- File Cards -->
+            <div class="component-box">
+                <h3>File Card Styles</h3>
+                <div class="file-card-showcase">
+                    <div class="showcase-manila">
+                        <div class="folder-icon" style="background: rgba(42,31,23,0.1);">📄</div>
+                        <div>
+                            <div style="font-weight: 600; font-size: 13px;">Manila Folder Style</div>
+                            <div style="font-size: 11px; color: #5a4a3a;">Paper texture, warm tones</div>
+                        </div>
+                    </div>
+                    <div class="showcase-hybrid">
+                        <div class="file-thumb">📄</div>
+                        <div>
+                            <div style="font-weight: 500; font-size: 13px;">Glass + Paper Hybrid</div>
+                            <div style="font-size: 11px; color: #888;">Subtle texture, category strip</div>
+                        </div>
+                    </div>
+                    <div class="showcase-refined">
+                        <div class="refined-icon" style="width: 36px; height: 36px;">📄</div>
+                        <div>
+                            <div style="font-weight: 500; font-size: 13px;">Refined Clean</div>
+                            <div style="font-size: 11px; color: #888;">Inner shadows, embossed</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="component-box">
+                <h3>Button Styles</h3>
+                <div class="button-showcase">
+                    <button class="btn-desk">Organize Files (Desk)</button>
+                    <button class="btn-paper">Organize Files (Paper)</button>
+                    <button class="btn-refined">Organize Files (Refined)</button>
+                </div>
+            </div>
+
+            <!-- Sidebar Tabs -->
+            <div class="component-box">
+                <h3>Sidebar Tab Styles</h3>
+                <div class="tabs-showcase">
+                    <div class="tab-manila">
+                        <span>🏠</span> Home (Manila Tab)
+                    </div>
+                    <div class="tab-glass">
+                        <span>🏠</span> Home (Glass + Notch)
+                    </div>
+                    <div class="tab-refined">
+                        <span>🏠</span> Home (Refined)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Color Palettes -->
+            <div class="component-box">
+                <h3>Warmer Color Palette Option</h3>
+                <div class="palette">
+                    <div class="swatch dark" style="background: #3d2b1f;">Walnut</div>
+                    <div class="swatch light" style="background: #f5e6c8;">Manila</div>
+                    <div class="swatch light" style="background: #c4956a;">Cork</div>
+                    <div class="swatch dark" style="background: #5b7c99;">Steel</div>
+                    <div class="swatch dark" style="background: #7a9d7e;">Sage</div>
+                </div>
+                <div style="margin-top: 12px;">
+                    <p style="font-size: 11px; color: #666;">vs. Current Forma palette:</p>
+                </div>
+                <div class="palette" style="margin-top: 8px;">
+                    <div class="swatch dark" style="background: #1a1a1a;">Obsidian</div>
+                    <div class="swatch light" style="background: #fafaf8;">Bone</div>
+                    <div class="swatch dark" style="background: #5b7c99;">Steel</div>
+                    <div class="swatch dark" style="background: #7a9d7e;">Sage</div>
+                    <div class="swatch dark" style="background: #c97e66;">Orange</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 64px; padding: 32px; background: #242424; border-radius: 16px; border: 1px solid #333;">
+        <h2 style="margin-bottom: 16px;">For Figma Make</h2>
+        <p style="color: #888; line-height: 1.6;">
+            Screenshot this page or individual sections to use as visual references in Figma Make.
+            You can also describe these concepts:
+        </p>
+        <ul style="color: #aaa; margin-top: 16px; line-height: 1.8; padding-left: 20px;">
+            <li><strong>Direction A prompt:</strong> "macOS file organizer app with wood desk texture background, manila folder file cards with paper grain, filing cabinet drawer sidebar, cork board insights panel with post-it notes"</li>
+            <li><strong>Direction B prompt:</strong> "macOS file organizer with glassmorphism and paper texture hybrid, colored category tab notches on sidebar, file cards with subtle paper grain and folded corner badges for ready files"</li>
+            <li><strong>Direction C prompt:</strong> "Clean macOS file organizer with subtle skeuomorphic details, inner shadows on cards, embossed icon backgrounds, warm cream tones, refined progress indicators"</li>
+        </ul>
+    </div>
+</body>
+</html>

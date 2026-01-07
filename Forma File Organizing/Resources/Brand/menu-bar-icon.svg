@@ -1,0 +1,14 @@
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simplified grid for menu bar - template rendering -->
+  <!-- Top left -->
+  <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor" />
+
+  <!-- Top right -->
+  <rect x="10" y="2" width="6" height="6" rx="1" fill="currentColor" />
+
+  <!-- Bottom left -->
+  <rect x="2" y="10" width="6" height="6" rx="1" fill="currentColor" />
+
+  <!-- Bottom right -->
+  <rect x="10" y="10" width="6" height="6" rx="1" fill="currentColor" />
+</svg>

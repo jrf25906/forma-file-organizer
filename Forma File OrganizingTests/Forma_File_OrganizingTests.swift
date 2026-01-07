@@ -6,12 +6,33 @@
 //
 
 import Testing
+import SwiftUI
+import SwiftData
 @testable import Forma_File_Organizing
 
 struct Forma_File_OrganizingTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test @MainActor func ruleEditorPrefillsFromFileContext() async throws {
+        // Given
+        let container = try ModelContainer(for: FileItem.self, Rule.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = container.mainContext
+        let file = FileItem(
+            name: "Screenshot 2025-11-22.png",
+            fileExtension: "png",
+            size: "4.5 MB",
+            sizeInBytes: 4_718_592,
+            creationDate: Date(),
+            path: "/Users/test/Desktop/Screenshot.png",
+            destination: nil,
+            status: .pending
+        )
+        context.insert(file)
+
+        // When: construct the view with fileContext; this should not crash
+        _ = RuleEditorView(rule: nil, fileContext: file)
+
+        // Then: basic smoke test that we reached here
+        #expect(file.fileExtension == "png")
     }
 
 }

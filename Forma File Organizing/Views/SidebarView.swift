@@ -1,161 +1,329 @@
 import SwiftUI
+import SwiftData
 
 struct SidebarView: View {
     @EnvironmentObject var nav: NavigationViewModel
-    @Environment(\.openSettings) private var openSettings
-    @Binding var isCollapsed: Bool
-    @State private var showingRuleEditor = false
-    
+    @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject var services: AppServices
+    @Environment(\.modelContext) private var modelContext
+    @Binding var shouldFocusSearch: Bool
+
+    @StateObject private var customFolderManager = CustomFolderManager()
+    @State private var isAddingFolder = false
+    @State private var isKeyWindow = true
+
     var body: some View {
+        // Sidebar content
         VStack(alignment: .leading, spacing: 0) {
-            // Logo Area
-            HStack(spacing: DesignSystem.Spacing.standard) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: DesignSystem.Layout.cornerRadiusMedium)
-                        .fill(DesignSystem.Colors.steelBlue)
-                        .frame(width: 36, height: 36)
-                    
-                    Image(systemName: "square.grid.2x2.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(.white)
-                }
-                
-                if !isCollapsed {
-                    Text("Forma")
-                        .font(DesignSystem.Typography.formaH2)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                }
-            }
-            .padding(.horizontal, isCollapsed ? 18 : DesignSystem.Spacing.generous)
-            .padding(.vertical, DesignSystem.Spacing.generous)
-            
+            // Spacer to position content below traffic lights (Apple pattern)
+            // Fixed height of 54pt to match standard Unified Toolbar height
+            Color.clear.frame(height: 54)
+
+            // Search Bar (Moved to top)
+            SidebarSearchBar(
+                text: $nav.searchText,
+                shouldFocus: $shouldFocusSearch
+            )
+            .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
+            .padding(.bottom, FormaSpacing.standard)
+
             // Navigation
             ScrollView {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.tight) {
-                    // Locations
-                    sectionHeader("LOCATIONS")
-                    
-                    sidebarItem("Home", icon: "house", selection: .home)
-                    sidebarItem("Desktop", icon: "display", selection: .desktop)
-                    sidebarItem("Downloads", icon: "arrow.down.circle", selection: .downloads)
-                    
-                    // Categories
-                    sectionHeader("CATEGORIES")
-                    
-                    ForEach(FileTypeCategory.allCases, id: \.self) { category in
-                        if category != .all { 
-                            sidebarItem(category.displayName, icon: category.iconName, selection: .category(category))
+                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                    // Locations - dynamically populated from granted permissions
+                    HStack {
+                        sectionHeader("LOCATIONS")
+                        Spacer()
+                        Button(action: { addNewLocation() }) {
+                            Image(systemName: "plus")
+                                .font(.formaCaptionBold)
+                                .foregroundColor(Color.formaTertiaryLabel) // Match section header color
+                                .frame(width: 20, height: 20)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isAddingFolder)
+                        .help("Add a new location")
+                        .padding(.top, FormaSpacing.standard)
+                        .padding(.bottom, FormaSpacing.micro)
+                    }
+                    .padding(.trailing, FormaLayout.Sidebar.expandedHorizontalPadding)
+
+                    // Show custom folders that have granted permissions
+                    if dashboardViewModel.customFolders.isEmpty {
+                        // Empty state - prompt to add locations
+                        emptyLocationsPrompt
+                    } else {
+                        ForEach(dashboardViewModel.customFolders) { folder in
+                            customFolderItem(folder)
                         }
                     }
+
+
+
+                    // TOOLS SECTION (Grouped per user feedback)
+                    sectionHeader("TOOLS")
                     
-                    // Rules
-                    sectionHeader("SMART RULES")
-                    
-                    Button(action: { showingRuleEditor = true }) {
-                        HStack(spacing: DesignSystem.Spacing.standard) {
-                            ZStack {
-                                Circle()
-                                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [3]))
-                                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                                    .frame(width: 18, height: 18)
-                                Image(systemName: "plus")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                            }
-                            .frame(width: 20)
-                            
-                            if !isCollapsed {
-                                Text("Create Rule")
-                                    .font(DesignSystem.Typography.formaBody)
-                            }
+                    // Smart Rules
+                    sidebarItem("Smart Rules", icon: "list.bullet.rectangle.fill", selection: .rules)
+
+                    // Analytics (if enabled)
+                    if services.featureFlags.isEnabled(.analyticsAndInsights) {
+                        sidebarItem("Analytics", icon: "chart.pie.fill", selection: .analytics)
+                    }
+
+                    // Create Rule Convenience Button
+                    Button(action: {
+                        dashboardViewModel.showRuleBuilderPanel()
+                    }) {
+                        HStack(spacing: FormaSpacing.standard) {
+                            Image(systemName: "plus")
+                                .font(.formaCaptionBold)
+                                .foregroundColor(Color.formaSecondaryLabel)
+                                .frame(width: 20, alignment: .center)
+
+                            Text("New Rule")
+                                .font(.formaBody)
                             Spacer()
                         }
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
+                        .foregroundColor(Color.formaSecondaryLabel)
+                        .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
+                        .padding(.vertical, FormaSpacing.tight)
                     }
                     .buttonStyle(.plain)
+                    .help("Create a new organization rule (R)")
                 }
-                .padding(.horizontal, isCollapsed ? 8 : DesignSystem.Spacing.large)
+                .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
             }
-            
-            Spacer()
-            
-            // Bottom Actions
-            VStack(spacing: 4) {
-                Divider()
-                    .overlay(DesignSystem.Colors.border)
-                    .padding(.bottom, DesignSystem.Spacing.large)
-                
-                Button(action: { openSettings() }) {
-                    HStack(spacing: DesignSystem.Spacing.standard) {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 17))
-                            .frame(width: 20)
-                        
-                        if !isCollapsed {
-                            Text("Settings")
-                                .font(DesignSystem.Typography.formaBody)
-                        }
-                        Spacer()
-                    }
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, isCollapsed ? 8 : DesignSystem.Spacing.large)
-            .padding(.bottom, DesignSystem.Spacing.large)
+
         }
-        .background(DesignSystem.Colors.sidebarBackground)
-        .overlay(
-            Rectangle()
-                .frame(width: 1)
-                .foregroundColor(DesignSystem.Colors.sidebarBorder),
-            alignment: .trailing
+        // Native Flush/Replica Sidebar:
+        .background {
+            SidebarGlassOverlay(isKeyWindow: isKeyWindow)
+        }
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: FormaLayout.FloatingCard.cornerRadius,
+                style: .continuous
+            )
         )
-        .sheet(isPresented: $showingRuleEditor) {
-            RuleEditorView()
-                .presentationBackground(.ultraThinMaterial)
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: FormaLayout.FloatingCard.cornerRadius,
+                style: .continuous
+            )
+            .strokeBorder(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(isKeyWindow ? 0.5 : 0.3),
+                        Color.white.opacity(isKeyWindow ? 0.1 : 0.05)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 1
+            )
+        }
+        .overlay(alignment: .trailing) {
+            EmptyView()
+        }
+        .overlay {
+            WindowKeyObserver(isKeyWindow: $isKeyWindow)
+                .frame(width: 0, height: 0)
         }
     }
     
     @ViewBuilder
     private func sectionHeader(_ title: String) -> some View {
-        if !isCollapsed {
-            Text(title)
-                .font(DesignSystem.Typography.formaCaption)
-                .foregroundColor(DesignSystem.Colors.textMuted)
-                .tracking(1.0)
-                .padding(.horizontal, 16)
-                .padding(.top, DesignSystem.Spacing.large)
-                .padding(.bottom, DesignSystem.Spacing.tight)
-        }
+        Text(title)
+            .font(.formaCaption)
+            .foregroundColor(Color.formaTertiaryLabel)
+            .tracking(1.0)
+            .padding(.top, FormaSpacing.standard)
+            .padding(.bottom, FormaSpacing.micro)
     }
     
     @ViewBuilder
     private func sidebarItem(_ title: String, icon: String, selection: NavigationSelection) -> some View {
         Button(action: { nav.select(selection) }) {
-            HStack(spacing: DesignSystem.Spacing.standard) {
+            HStack(spacing: FormaSpacing.standard) {
                 Image(systemName: icon)
-                    .font(.system(size: 17))
+                    .font(.formaH3)
                     .frame(width: 20, alignment: .center)
-                
-                if !isCollapsed {
-                    Text(title)
-                        .font(DesignSystem.Typography.formaBody)
-                }
+
+                Text(title)
+                    .font(.formaBody)
                 Spacer()
             }
-            .foregroundColor(nav.selection == selection ? DesignSystem.Colors.sidebarTextActive : DesignSystem.Colors.sidebarText)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .foregroundColor(nav.selection == selection ? Color.formaLabel : Color.formaSecondaryLabel)
+            .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
+            .padding(.vertical, FormaSpacing.tight)
             .background(
-                RoundedRectangle(cornerRadius: DesignSystem.Layout.cornerRadiusMedium)
-                    .fill(nav.selection == selection ? DesignSystem.Colors.sidebarBackgroundActive : Color.clear)
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .fill(nav.selection == selection ? Color.formaSteelBlue.opacity(Color.FormaOpacity.medium) : Color.clear)
             )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Custom Folder Item
+
+    @ViewBuilder
+    private func customFolderItem(_ folder: CustomFolder) -> some View {
+        let selection = NavigationSelection.custom(folder)
+        let isSelected = isCustomFolderSelected(folder)
+
+        Button(action: { nav.select(selection) }) {
+            HStack(spacing: FormaSpacing.standard) {
+                Image(systemName: iconForFolder(folder))
+                    .font(.formaH3)
+                    .frame(width: 20, alignment: .center)
+
+                Text(folder.name)
+                    .font(.formaBody)
+                    .lineLimit(1)
+                Spacer()
+            }
+            .foregroundColor(isSelected ? Color.formaLabel : Color.formaSecondaryLabel)
+            .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
+            .padding(.vertical, FormaSpacing.tight)
+            .background(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .fill(isSelected ? Color.formaSteelBlue.opacity(Color.FormaOpacity.medium) : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                removeFolder(folder)
+            } label: {
+                Label("Remove Location", systemImage: "minus.circle")
+            }
+        }
+    }
+
+    /// Check if a custom folder is currently selected
+    private func isCustomFolderSelected(_ folder: CustomFolder) -> Bool {
+        if case .custom(let selectedFolder) = nav.selection {
+            return selectedFolder.id == folder.id
+        }
+        return false
+    }
+
+    /// Get appropriate icon for a folder based on its path
+    private func iconForFolder(_ folder: CustomFolder) -> String {
+        let path = folder.path.lowercased()
+        if path.contains("/desktop") { return "desktopcomputer" }
+        if path.contains("/downloads") { return "arrow.down.circle" }
+        if path.contains("/documents") { return "doc.fill" }
+        if path.contains("/pictures") || path.contains("/photos") { return "photo.fill" }
+        if path.contains("/music") { return "music.note" }
+        if path.contains("/movies") || path.contains("/videos") { return "film" }
+        return "folder.fill"
+    }
+
+    // MARK: - Empty State
+
+    @ViewBuilder
+    private var emptyLocationsPrompt: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: "folder.badge.questionmark")
+                    .font(.formaBodyLarge)
+                    .foregroundColor(Color.formaTertiaryLabel)
+                Text("No locations added")
+                    .font(.formaCaption)
+                    .foregroundColor(Color.formaTertiaryLabel)
+            }
+            Text("Add folders to organize")
+                .font(.formaSmall)
+                .foregroundColor(Color.formaTertiaryLabel.opacity(Color.FormaOpacity.high))
+        }
+        .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
+        .padding(.vertical, FormaSpacing.tight)
+    }
+
+    // MARK: - Add Location Button
+
+    @ViewBuilder
+    private var addLocationButton: some View {
+        Button(action: { addNewLocation() }) {
+            HStack(spacing: FormaSpacing.standard) {
+                Image(systemName: "plus")
+                    .font(.formaCompactSemibold)
+                    .foregroundColor(Color.formaSecondaryLabel)
+                    .frame(width: 20)
+
+                Text("Add Location")
+                    .font(.formaBody)
+                Spacer()
+            }
+            .foregroundColor(Color.formaSecondaryLabel)
+            .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
+            .padding(.vertical, FormaSpacing.tight)
+            .background(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .strokeBorder(
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                    )
+                    .foregroundColor(Color.formaSecondaryLabel.opacity(Color.FormaOpacity.strong))
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isAddingFolder)
+    }
+
+    // MARK: - Folder Management Actions
+
+    private func addNewLocation() {
+        isAddingFolder = true
+        Task {
+            defer { isAddingFolder = false }
+            do {
+                let folders = try await customFolderManager.createCustomFolders()
+                for folder in folders {
+                    modelContext.insert(folder)
+                }
+                try modelContext.save()
+                dashboardViewModel.loadCustomFolders(from: modelContext)
+
+                // Auto-select the first newly added folder
+                if let firstFolder = folders.first {
+                    nav.select(.custom(firstFolder))
+                }
+
+                // Rescan to include new folders
+                await dashboardViewModel.scanFiles(context: modelContext)
+            } catch CustomFolderManager.CustomFolderError.userCancelled {
+                // User cancelled - do nothing
+            } catch {
+                Log.error("SidebarView: Failed to add location - \(error.localizedDescription)", category: .filesystem)
+                dashboardViewModel.errorMessage = "Failed to add location: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func removeFolder(_ folder: CustomFolder) {
+        let folderName = folder.name
+        modelContext.delete(folder)
+        do {
+            try modelContext.save()
+            dashboardViewModel.loadCustomFolders(from: modelContext)
+
+            // If we were viewing this folder, navigate away
+            if isCustomFolderSelected(folder) {
+                if let firstRemaining = dashboardViewModel.customFolders.first {
+                    nav.select(.custom(firstRemaining))
+                } else {
+                    nav.select(.rules) // Fallback to rules if no locations remain
+                }
+            }
+
+            Log.info("SidebarView: Removed location '\(folderName)'", category: .filesystem)
+        } catch {
+            Log.error("SidebarView: Failed to remove location '\(folderName)' - \(error.localizedDescription)", category: .filesystem)
+            modelContext.insert(folder) // Re-insert on failure
+            dashboardViewModel.errorMessage = "Failed to remove location"
+        }
     }
 }

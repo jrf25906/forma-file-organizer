@@ -1,0 +1,24 @@
+# Lottie Animations Directory
+
+Place your Lottie JSON animation files here.
+
+## Usage
+
+```tsx
+import { LottieAnimation } from "@/components/animation";
+
+// Basic usage
+<LottieAnimation animationPath="my-animation.json" />
+
+// Play on hover
+<LottieAnimation animationPath="icon.json" playOnHover loop={false} />
+
+// Play when scrolled into view
+<LottieAnimation animationPath="scroll-reveal.json" playOnView />
+```
+
+## File Format
+
+- Export animations from After Effects using the Bodymovin plugin
+- Use JSON format (not dotLottie)
+- Keep file sizes reasonable (optimize assets)

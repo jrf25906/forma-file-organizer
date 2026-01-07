@@ -1,0 +1,41 @@
+# Xcode
+DerivedData*/
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+
+# Build artifacts
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Node/NPM
+node_modules/
+.next/
+.vercel/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Package manager locks (keep package-lock.json, but ignore in subdirs for cleaner diff)
+# Uncomment if you want to ignore locks: package-lock.json
+
+# Temporary files
+*.tmp
+*.temp
+claude-oracle/
