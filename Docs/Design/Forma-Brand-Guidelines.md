@@ -235,37 +235,38 @@ If Forma were a person, they would be:
 
 ### Logo & App Icon
 
-#### **Custom Icon Design**
+#### **The Forma Mark**
 
-Forma's icon should reflect the brand's premium minimalist aesthetic.
+The Forma logo is a 3×3 grid of rounded rectangles with a vertical opacity gradient — representing structure, organization, and progressive refinement.
 
-**Design Direction:**
-- Single geometric form (cube, rectangular prism, or structured shape)
-- Perspective view showing depth and dimension
-- Monochromatic with subtle gradients
-- Brushed metal or matte finish
-- Hard edges (minimal rounding)
-- Recognizable at 16x16px (menu bar size)
+**Design:**
+- 3×3 grid of 96×96px rounded rectangles (8px corner radius)
+- 16px gap between elements
+- Row 1: 100% opacity (full structure)
+- Row 2: 70% opacity (transition)
+- Row 3: 40% opacity (fading chaos)
 
-**Concept: The Form**
-- A single perfect geometric object
-- Represents structure, organization, precision
-- Dark obsidian tones with subtle highlights
-- 3D rendered in Blender for photorealism
-- Clean, modern, sophisticated
+**Variants:**
+- **Dark variant** (`logo-mark.svg`): #1A1A1A (Obsidian) fills — for light backgrounds
+- **Light variant** (`logo-mark-light.svg`): #FAFAF8 (Bone White) fills — for dark backgrounds
+
+**Concept: Structure Emerging**
+- The opacity gradient represents structure emerging from chaos
+- Top row is fully formed; bottom row is still forming
+- Reflects the brand promise: "Give your files form"
+- Clean, minimal, systematic
 
 **Technical Requirements:**
-- 1024x1024px master
-- Export to ICNS with all sizes (16x16 through 1024x1024)
-- Template image for menu bar (22x22pt)
-- Light/dark mode variants
-- Matte finish, no glossy effects
+- 512×512px canvas
+- Export as SVG for web, PNG for app assets
+- Light/dark mode variants for all contexts
+- Minimum size: 24px (web), 16pt (macOS menu bar)
 
-**Menu Bar Icon:**
-- 22x22pt template image
-- Simple geometric symbol derived from app icon
-- Works in both light and dark menu bar
-- Badge state for file counts
+**Usage:**
+- Website: `/public/logo-mark.svg` and `/logo-mark-light.svg`
+- App: `/Resources/Brand/logo-mark.svg`
+- Always include wordmark "Forma" alongside logo mark on first introduction
+- Logo mark may appear alone in constrained spaces (icons, favicons)
 
 ---
 
@@ -532,20 +533,31 @@ Bold (700):       Hero text, primary emphasis (use sparingly)
 
 ---
 
-#### **Type Pairing (Phase 2)**
+#### **Website Typography (Implemented)**
 
-Once brand is established, consider adding a display font for marketing/personality:
+The marketing website uses a distinctive typography pairing:
 
-**Recommended: Inter**
-- Free, versatile, modern
-- Excellent for headings and marketing
-- Pairs perfectly with SF Pro
-- Use for: Website, blog, promotional materials
-- [Download: rsms.me/inter](https://rsms.me/inter/)
+**Display Font: Libre Baskerville**
+- Elegant serif with excellent readability
+- Used for: Headlines, hero text, section headers
+- Weights: 400 (Regular), 700 (Bold), 400 Italic
+- [Google Fonts: Libre Baskerville](https://fonts.google.com/specimen/Libre+Baskerville)
 
-**Usage:**
-- Inter: Headlines, marketing, personality
-- SF Pro: All in-app UI, body text
+**Body Font: Inter**
+- Clean, modern sans-serif
+- Used for: Body text, UI elements, descriptions
+- Weights: 400, 500, 600, 700
+- [Google Fonts: Inter](https://fonts.google.com/specimen/Inter)
+
+**Why Libre Baskerville:**
+- Sophisticated without being ornate
+- Distinctive — avoids the "AI-generated" sameness of all-sans-serif designs
+- Highly readable at display sizes
+- Works well for the "structural, not intelligent" brand positioning
+
+**Typography Context Summary:**
+- **macOS App:** SF Pro (system font) — native feel, accessibility
+- **Website:** Libre Baskerville (display) + Inter (body) — marketing distinction
 
 ---
 
@@ -1612,11 +1624,11 @@ Design to prevent mistakes rather than recovering from them.
 
 **Standard State:**
 ```
-Icon: Custom geometric symbol (from app icon)
+Icon: Forma 3×3 grid mark (simplified for small size)
 Color: System tint (adapts to menu bar)
 Size: 22x22pt
 Appearance: Template image (auto-adapts to dark mode)
-Style: Minimal, geometric, precise
+Style: Minimal, grid-based, precise
 ```
 
 **Active/Badge State:**

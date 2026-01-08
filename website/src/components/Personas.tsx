@@ -168,7 +168,7 @@ export default function Personas() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="font-display font-bold text-4xl md:text-5xl text-forma-bone mb-6"
           >
-            Built for People Who <span className="gradient-text">Care</span>
+            Built for People Who <span className="text-forma-sage">Care</span>
           </motion.h2>
 
           <motion.p

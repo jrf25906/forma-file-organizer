@@ -1,0 +1,19 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Forma Logo: Pure Grid V2 - Light variant for dark backgrounds -->
+  <!-- Canonical logo as of January 2025 -->
+
+  <!-- Row 1: Full opacity -->
+  <rect x="96" y="96" width="96" height="96" rx="8" fill="#FAFAF8"/>
+  <rect x="208" y="96" width="96" height="96" rx="8" fill="#FAFAF8"/>
+  <rect x="320" y="96" width="96" height="96" rx="8" fill="#FAFAF8"/>
+
+  <!-- Row 2: 70% opacity -->
+  <rect x="96" y="208" width="96" height="96" rx="8" fill="#FAFAF8" opacity="0.7"/>
+  <rect x="208" y="208" width="96" height="96" rx="8" fill="#FAFAF8" opacity="0.7"/>
+  <rect x="320" y="208" width="96" height="96" rx="8" fill="#FAFAF8" opacity="0.7"/>
+
+  <!-- Row 3: 40% opacity -->
+  <rect x="96" y="320" width="96" height="96" rx="8" fill="#FAFAF8" opacity="0.4"/>
+  <rect x="208" y="320" width="96" height="96" rx="8" fill="#FAFAF8" opacity="0.4"/>
+  <rect x="320" y="320" width="96" height="96" rx="8" fill="#FAFAF8" opacity="0.4"/>
+</svg>

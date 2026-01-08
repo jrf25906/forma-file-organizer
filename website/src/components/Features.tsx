@@ -99,11 +99,12 @@ function FeatureCard({
       initial={{ opacity: 0, y: 40, scale: 0.95 }}
       animate={isInView ? { opacity: 1, y: 0, scale: 1 } : {}}
       transition={{
-        duration: 0.7,
+        type: "spring",
+        stiffness: 200,
+        damping: 20,
         delay: index * 0.1,
-        ease: [0.16, 1, 0.3, 1],
       }}
-      whileHover={{ y: -8 }}
+      whileHover={{ y: -8, transition: { type: "spring", stiffness: 400, damping: 15 } }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       className="group relative"
@@ -116,7 +117,7 @@ function FeatureCard({
             scale: 1.1,
             rotate: [0, -5, 5, 0],
           }}
-          transition={{ duration: 0.4 }}
+          transition={{ type: "spring", stiffness: 400, damping: 10 }}
         >
           <div className="w-full h-full rounded-xl bg-forma-obsidian/80 flex items-center justify-center backdrop-blur-sm group-hover:bg-forma-obsidian/60 transition-colors">
             <motion.div
@@ -133,7 +134,7 @@ function FeatureCard({
         <motion.h3
           initial={{ opacity: 0, x: -10 }}
           animate={isInView ? { opacity: 1, x: 0 } : {}}
-          transition={{ delay: index * 0.1 + 0.2, duration: 0.4 }}
+          transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.1 + 0.2 }}
           className="font-display font-bold text-xl text-forma-bone mb-3 group-hover:text-forma-steel-blue transition-colors"
         >
           {feature.title}
@@ -141,7 +142,7 @@ function FeatureCard({
         <motion.p
           initial={{ opacity: 0, x: -10 }}
           animate={isInView ? { opacity: 1, x: 0 } : {}}
-          transition={{ delay: index * 0.1 + 0.3, duration: 0.4 }}
+          transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.1 + 0.3 }}
           className="text-forma-bone/60 leading-relaxed"
         >
           {feature.description}
@@ -155,7 +156,7 @@ function FeatureCard({
               opacity: isHovered ? 1 : 0,
               height: isHovered ? "auto" : 0,
             }}
-            transition={{ duration: 0.3 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
             className="mt-4 pt-4 border-t border-white/10 overflow-hidden"
           >
             <DemoComponent />
@@ -167,7 +168,7 @@ function FeatureCard({
           className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${feature.gradient}`}
           initial={{ opacity: 0 }}
           whileHover={{ opacity: 0.08 }}
-          transition={{ duration: 0.3 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
           style={{ zIndex: -1 }}
         />
 
@@ -210,7 +211,7 @@ export default function Features() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6 }}
+            transition={{ type: "spring", stiffness: 100, damping: 15 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
           >
             <span className="w-2 h-2 rounded-full bg-forma-sage animate-pulse" />
@@ -222,18 +223,18 @@ export default function Features() {
           <motion.h2
             initial={{ opacity: 0, y: 30 }}
             animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.1 }}
+            transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.1 }}
             className="font-display font-bold text-4xl md:text-5xl text-forma-bone mb-6"
           >
             Everything You Need to
             <br />
-            <span className="gradient-text-warm">Master Your Files</span>
+            <span className="text-forma-sage">Master Your Files</span>
           </motion.h2>
 
           <motion.p
             initial={{ opacity: 0, y: 30 }}
             animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.2 }}
             className="text-lg text-forma-bone/60"
           >
             Forma combines rule-based automation with intuitive controls,
@@ -253,7 +254,7 @@ export default function Features() {
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
           className="glass-card-strong rounded-2xl p-8 relative overflow-hidden"
         >
           {/* Background shimmer */}
@@ -266,14 +267,15 @@ export default function Features() {
                 initial={{ opacity: 0, x: index === 0 ? -20 : 20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.2 + index * 0.15, duration: 0.5 }}
-                whileHover={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.2 + index * 0.15 }}
+                whileHover={{ scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 10 } }}
+                whileTap={{ scale: 0.98 }}
                 className="flex items-start gap-4 group cursor-default"
               >
                 <motion.div
                   className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-white/10 transition-colors"
                   whileHover={{ rotate: [0, -10, 10, 0] }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
                 >
                   <feature.icon className="w-5 h-5 text-forma-bone/70 group-hover:text-forma-steel-blue transition-colors" />
                 </motion.div>

@@ -21,7 +21,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ["Inter", "system-ui", "sans-serif"],
+        display: ["Libre Baskerville", "Georgia", "serif"],
         body: ["Inter", "system-ui", "sans-serif"],
       },
       backgroundImage: {
@@ -75,12 +75,14 @@ const config: Config = {
         xs: "2px",
       },
       boxShadow: {
-        "glass": "0 8px 32px rgba(0, 0, 0, 0.12)",
-        "glass-lg": "0 16px 48px rgba(0, 0, 0, 0.15)",
-        "glass-xl": "0 24px 64px rgba(0, 0, 0, 0.2)",
+        // Enhanced glass shadows - less blur, more offset for tactile depth
+        "glass": "0 10px 40px -10px rgba(0, 0, 0, 0.2)",
+        "glass-lg": "0 20px 60px -15px rgba(0, 0, 0, 0.25)",
+        "glass-xl": "0 30px 80px -20px rgba(0, 0, 0, 0.3)",
         "inner-light": "inset 0 1px 0 rgba(255, 255, 255, 0.1)",
         "glow-blue": "0 0 40px rgba(91, 124, 153, 0.3)",
         "glow-sage": "0 0 40px rgba(122, 157, 126, 0.3)",
+        "glow-orange": "0 0 40px rgba(201, 126, 102, 0.3)",
       },
     },
   },

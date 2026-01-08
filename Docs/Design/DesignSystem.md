@@ -175,6 +175,10 @@ NSColor.formaSteelBlue
 
 **File:** `DesignSystem/FormaTypography.swift`
 
+### macOS App: SF Pro
+
+The macOS app uses SF Pro (system font) for native feel and accessibility compliance.
+
 ### Type Scale (SF Pro)
 
 All sizes follow Brand Guidelines v2.0:
@@ -262,6 +266,34 @@ Text("Organize 47 files")
 
 Text("Last updated 5m ago")
     .formaMetadataStyle()
+```
+
+### Website Typography
+
+The marketing website uses a distinct typography pairing for visual distinction:
+
+**Display Font:** Libre Baskerville (serif)
+- Use for: Headlines, hero text, section headers
+- Character: Elegant, readable, distinctive without being decorative
+- Weights: 400 (Regular), 700 (Bold), 400 Italic
+
+**Body Font:** Inter (sans-serif)
+- Use for: Body text, UI labels, descriptions, navigation
+- Character: Clean, modern, excellent readability at all sizes
+- Weights: 400, 500, 600, 700
+
+**Why this pairing:**
+- Libre Baskerville brings sophistication and warmth to headlines
+- Inter provides excellent readability for body content
+- The serif/sans-serif contrast creates clear visual hierarchy
+- Both fonts are Google Fonts, freely available
+
+**Tailwind Configuration:**
+```javascript
+fontFamily: {
+  display: ["Libre Baskerville", "Georgia", "serif"],
+  body: ["Inter", "system-ui", "sans-serif"],
+}
 ```
 
 ### Line Height & Spacing
@@ -547,8 +579,8 @@ FormaLogo(style: .mark, height: 32)
 ```
 
 **Styles:**
-- `.mark` - Geometric icon only
-- `.lockup` - Icon + "Forma" wordmark (not implemented)
+- `.mark` - 3×3 grid logo only
+- `.lockup` - Logo + "Forma" wordmark (not implemented)
 
 ### Icons
 

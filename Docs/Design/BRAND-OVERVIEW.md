@@ -112,7 +112,9 @@ Forma uses a **layered material design** approach:
 | Soft Green | `#8BA688` | Downloads/Archives category |
 
 ### Typography
-**Font:** SF Pro (macOS system font)
+
+#### macOS App
+**Font:** SF Pro (system font)
 
 | Style | Size | Weight | Usage |
 |-------|------|--------|-------|
@@ -122,6 +124,17 @@ Forma uses a **layered material design** approach:
 | H3 | 17pt | Medium | Card titles |
 | Body | 13pt | Regular | Body text, UI |
 | Small | 11pt | Regular | Metadata, captions |
+
+#### Website
+**Display Font:** Libre Baskerville (serif) — Headlines, hero text, marketing emphasis
+**Body Font:** Inter (sans-serif) — Body text, UI labels, descriptions
+
+| Style | Font | Weight | Usage |
+|-------|------|--------|-------|
+| Hero | Libre Baskerville | Bold | Page headlines, hero sections |
+| H1-H3 | Libre Baskerville | Regular/Bold | Section headers |
+| Body | Inter | Regular | Body text, descriptions |
+| UI Text | Inter | Medium/Semibold | Buttons, labels, navigation |
 
 ### Spacing
 **System:** 8pt grid (FormaSpacing)

@@ -192,7 +192,8 @@ function StepVisual({ type }: { type: string }) {
             initial={{ opacity: 0, x: -10 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ delay: i * 0.15 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20, delay: i * 0.15 }}
+            whileHover={{ scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 10 } }}
             className="flex items-center gap-3 p-3 rounded-lg bg-white/5"
           >
             <div className="w-8 h-8 rounded-lg bg-forma-steel-blue/20 flex items-center justify-center">
@@ -223,7 +224,8 @@ function StepVisual({ type }: { type: string }) {
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ delay: i * 0.15 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20, delay: i * 0.15 }}
+            whileHover={{ scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 10 } }}
             className="flex items-center gap-3 p-3 rounded-lg bg-white/5"
           >
             <div className="flex-1">
@@ -258,14 +260,15 @@ function StepVisual({ type }: { type: string }) {
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            transition={{ delay: i * 0.15 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20, delay: i * 0.15 }}
+            whileHover={{ scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 10 } }}
             className="flex items-center gap-3 p-3 rounded-lg bg-white/5"
           >
             <motion.div
               initial={{ scale: 0 }}
               whileInView={{ scale: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.3 + i * 0.15, type: "spring" }}
+              transition={{ type: "spring", stiffness: 400, damping: 15, delay: 0.3 + i * 0.15 }}
               className="w-6 h-6 rounded-full bg-forma-sage/20 flex items-center justify-center"
             >
               <CheckCircle2 className="w-4 h-4 text-forma-sage" />
@@ -277,7 +280,7 @@ function StepVisual({ type }: { type: string }) {
           </motion.div>
         ))}
         <motion.button
-          whileHover={{ scale: 1.02 }}
+          whileHover={{ scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 10 } }}
           whileTap={{ scale: 0.98 }}
           className="w-full mt-2 btn-primary text-forma-bone text-sm"
         >
@@ -303,7 +306,8 @@ function StepVisual({ type }: { type: string }) {
           initial={{ opacity: 0, scale: 0.95 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          transition={{ delay: i * 0.15 }}
+          transition={{ type: "spring", stiffness: 200, damping: 20, delay: i * 0.15 }}
+          whileHover={{ scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 10 } }}
           className="flex items-center gap-3 p-3 rounded-lg bg-white/5"
         >
           <div className="flex-1">
@@ -311,7 +315,7 @@ function StepVisual({ type }: { type: string }) {
             <div className="text-xs text-forma-bone/50">{item.time}</div>
           </div>
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.05, transition: { type: "spring", stiffness: 400, damping: 10 } }}
             whileTap={{ scale: 0.95 }}
             className="px-3 py-1 rounded-lg bg-forma-steel-blue/20 text-xs text-forma-steel-blue flex items-center gap-1"
           >
@@ -350,7 +354,7 @@ export default function HowItWorks() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6 }}
+            transition={{ type: "spring", stiffness: 100, damping: 15 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
           >
             <span className="w-2 h-2 rounded-full bg-forma-sage animate-pulse" />
@@ -362,7 +366,7 @@ export default function HowItWorks() {
           <motion.h2
             initial={{ opacity: 0, y: 30 }}
             animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.1 }}
+            transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.1 }}
             className="font-display font-bold text-4xl md:text-5xl text-forma-bone mb-6"
           >
             You Define. You Preview.
@@ -373,7 +377,7 @@ export default function HowItWorks() {
           <motion.p
             initial={{ opacity: 0, y: 30 }}
             animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.2 }}
             className="text-lg text-forma-bone/60"
           >
             Nothing moves without your permission. Preview every change before it happens.
@@ -392,7 +396,7 @@ export default function HowItWorks() {
               initial={{ opacity: 0, y: 60 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ type: "spring", stiffness: 80, damping: 18 }}
               className={`grid lg:grid-cols-2 gap-12 items-center ${
                 index % 2 === 1 ? "lg:flex-row-reverse" : ""
               }`}
@@ -432,7 +436,7 @@ export default function HowItWorks() {
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: 0.4, duration: 0.5 }}
+                  transition={{ type: "spring", stiffness: 100, damping: 15, delay: 0.4 }}
                   className="font-display font-bold text-3xl text-forma-bone mb-4"
                 >
                   {step.title}
@@ -442,7 +446,7 @@ export default function HowItWorks() {
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
+                  transition={{ type: "spring", stiffness: 100, damping: 15, delay: 0.5 }}
                   className="text-lg text-forma-bone/60 leading-relaxed"
                 >
                   {step.description}
@@ -455,7 +459,7 @@ export default function HowItWorks() {
                 initial={{ opacity: 0, scale: 0.9, x: index % 2 === 1 ? -30 : 30 }}
                 whileInView={{ opacity: 1, scale: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.3, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ type: "spring", stiffness: 100, damping: 18, delay: 0.3 }}
               >
                 <div className="relative">
                   <div className="app-mockup-glow">

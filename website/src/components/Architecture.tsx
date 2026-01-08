@@ -91,7 +91,7 @@ function ArchitectureLayer({
       ref={ref}
       initial={{ opacity: 0, y: 30, scale: 0.95 }}
       animate={isInView ? { opacity: 1, y: 0, scale: 1 } : {}}
-      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ type: "spring", stiffness: 100, damping: 18, delay }}
       className={`relative ${isMiddle ? "z-10" : ""}`}
     >
       {/* Glow effect for middle layer */}
@@ -123,7 +123,7 @@ function ArchitectureLayer({
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
-            transition={{ delay: delay + 0.3 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20, delay: delay + 0.3 }}
             className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-forma-sage/20 border border-forma-sage/30"
           >
             <span className="text-xs font-medium text-forma-sage uppercase tracking-wider">
@@ -140,8 +140,7 @@ function ArchitectureLayer({
               background: `linear-gradient(135deg, ${color}30, ${color}10)`,
               border: `1px solid ${color}40`,
             }}
-            whileHover={{ scale: 1.05, rotate: 2 }}
-            transition={{ type: "spring", stiffness: 300 }}
+            whileHover={{ scale: 1.05, rotate: 2, transition: { type: "spring", stiffness: 400, damping: 10 } }}
           >
             <Icon className="w-7 h-7 md:w-8 md:h-8" style={{ color }} />
           </motion.div>
@@ -162,7 +161,7 @@ function ArchitectureLayer({
                   key={feature}
                   initial={{ opacity: 0, x: -10 }}
                   animate={isInView ? { opacity: 1, x: 0 } : {}}
-                  transition={{ delay: delay + 0.2 + i * 0.1 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 20, delay: delay + 0.2 + i * 0.1 }}
                   className="flex items-center gap-2 text-sm text-forma-bone/70"
                 >
                   <div
@@ -200,7 +199,7 @@ function TrustIndicators() {
       ref={ref}
       initial={{ opacity: 0, y: 20 }}
       animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.6, delay: 0.8 }}
+      transition={{ type: "spring", stiffness: 100, damping: 15, delay: 0.8 }}
       className="flex flex-wrap justify-center gap-6 md:gap-10 mt-12"
     >
       {indicators.map((item, i) => (
@@ -208,7 +207,8 @@ function TrustIndicators() {
           key={item.label}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={isInView ? { opacity: 1, scale: 1 } : {}}
-          transition={{ delay: 0.9 + i * 0.1 }}
+          transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.9 + i * 0.1 }}
+          whileHover={{ scale: 1.05, transition: { type: "spring", stiffness: 400, damping: 10 } }}
           className="flex items-center gap-3"
         >
           <div className="w-10 h-10 rounded-lg bg-forma-steel-blue/20 flex items-center justify-center">
@@ -304,7 +304,7 @@ export default function Architecture() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6 }}
+            transition={{ type: "spring", stiffness: 100, damping: 15 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
           >
             <Layers className="w-4 h-4 text-forma-sage" />
@@ -316,18 +316,18 @@ export default function Architecture() {
           <motion.h2
             initial={{ opacity: 0, y: 30 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.1 }}
+            transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.1 }}
             className="font-display font-bold text-3xl md:text-5xl text-forma-bone mb-6"
           >
             Where Forma Lives in
             <br />
-            <span className="gradient-text">Your System</span>
+            <span className="text-forma-bone">Your System</span>
           </motion.h2>
 
           <motion.p
             initial={{ opacity: 0, y: 30 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.2 }}
             className="text-lg text-forma-bone/60 max-w-2xl mx-auto"
           >
             Forma uses native macOS file APIs to organize your files directly —
@@ -366,7 +366,8 @@ export default function Architecture() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, delay: 1 }}
+          transition={{ type: "spring", stiffness: 100, damping: 15, delay: 1 }}
+          whileHover={{ scale: 1.01, transition: { type: "spring", stiffness: 400, damping: 15 } }}
           className="mt-12 p-6 rounded-xl bg-gradient-to-r from-forma-steel-blue/10 via-forma-sage/10 to-forma-warm-orange/10 border border-white/10"
         >
           <p className="text-center text-forma-bone/80 text-lg font-medium">
