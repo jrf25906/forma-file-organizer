@@ -3,6 +3,8 @@ import {
   Hero,
   LogoMarquee,
   Features,
+  UglyReality,
+  Architecture,
   Personas,
   Privacy,
   Comparison,
@@ -21,6 +23,8 @@ export default function Home() {
       <Hero />
       <LogoMarquee />
       <Features />
+      <UglyReality />
+      <Architecture />
       <Personas />
       <Privacy />
       <Comparison />

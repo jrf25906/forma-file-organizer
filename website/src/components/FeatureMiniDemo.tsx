@@ -41,57 +41,43 @@ export function SmartRulesDemo() {
   );
 }
 
-export function AIPatternDemo() {
-  // Neural network nodes connecting
-  const nodes = [
-    { x: 10, y: 6 },
-    { x: 30, y: 20 },
-    { x: 50, y: 8 },
-    { x: 70, y: 18 },
-    { x: 90, y: 6 },
+export function PatternMatchingDemo() {
+  // Pattern matching visualization - files being categorized
+  const patterns = [
+    { ext: ".pdf", color: "bg-forma-steel-blue", x: 15 },
+    { ext: ".jpg", color: "bg-forma-sage", x: 50 },
+    { ext: ".pdf", color: "bg-forma-steel-blue", x: 85 },
   ];
 
   return (
-    <div className="relative h-12 w-full">
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 28">
-        {/* Connection lines */}
-        {nodes.slice(0, -1).map((node, i) => (
-          <motion.line
-            key={i}
-            x1={node.x}
-            y1={node.y}
-            x2={nodes[i + 1].x}
-            y2={nodes[i + 1].y}
-            stroke="rgb(91, 124, 153)"
-            strokeWidth="1"
-            initial={{ pathLength: 0, opacity: 0 }}
-            animate={{ pathLength: 1, opacity: [0, 0.6, 0.6, 0] }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              delay: i * 0.2,
-            }}
-          />
-        ))}
+    <div className="relative h-12 w-full overflow-hidden">
+      {patterns.map((pattern, i) => (
+        <motion.div
+          key={i}
+          className="absolute top-1/2 -translate-y-1/2"
+          style={{ left: `${pattern.x}%`, transform: "translate(-50%, -50%)" }}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: [0, 1, 1, 0], y: [-10, 0, 0, 10] }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            delay: i * 0.3,
+          }}
+        >
+          <div className={`px-2 py-1 rounded ${pattern.color}/30 text-xs font-mono text-forma-bone/70`}>
+            {pattern.ext}
+          </div>
+        </motion.div>
+      ))}
 
-        {/* Nodes */}
-        {nodes.map((node, i) => (
-          <motion.circle
-            key={i}
-            cx={node.x}
-            cy={node.y}
-            r="4"
-            fill="rgb(122, 157, 126)"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: [0, 1, 1, 0], opacity: [0, 1, 1, 0] }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              delay: i * 0.15,
-            }}
-          />
-        ))}
-      </svg>
+      {/* Match indicator */}
+      <motion.div
+        className="absolute left-1/2 -translate-x-1/2 bottom-0"
+        animate={{ opacity: [0, 1, 0] }}
+        transition={{ duration: 2, repeat: Infinity, delay: 0.8 }}
+      >
+        <span className="text-xs text-forma-sage/60">matched</span>
+      </motion.div>
     </div>
   );
 }
@@ -245,8 +231,8 @@ export function SafeReversibleDemo() {
 
 // Map feature titles to their demos
 export const featureDemos: Record<string, React.FC> = {
-  "Smart Rules Engine": SmartRulesDemo,
-  "AI Pattern Detection": AIPatternDemo,
+  "Declarative Rule Builder": SmartRulesDemo,
+  "Pattern Matching": PatternMatchingDemo,
   "Storage Analytics": StorageAnalyticsDemo,
   "Duplicate Detection": DuplicateDetectionDemo,
   "Instant Organization": InstantOrganizationDemo,

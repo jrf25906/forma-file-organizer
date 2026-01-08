@@ -2,38 +2,44 @@
 
 **Last Updated:** January 2025
 **Status:** Design System Implemented, Visual Identity Finalized
+**Strategic Foundation:** See [BRAND-POSITIONING.md](BRAND-POSITIONING.md) for messaging source of truth
 
 ---
 
 ## Quick Reference
 
 **Brand Name:** Forma
-**Positioning:** "Give your files form"
-**Target Audience:** Creative professionals who value design excellence
-**Personality:** Design-forward • Confident • Sophisticated
+**Tagline:** "Give your files form"
+**Positioning:** A structural system layer for macOS files — not a replacement for Finder, but an executor of your intent
+**Target Behavior:** People whose files outgrow folders — where screenshots, documents, assets, and ideas pile up faster than folders can handle
 
 ---
 
-## Current Status Summary
+## The Core Reframe
 
-### ✅ Completed (100%)
-- **Brand Strategy** - Positioning, attributes, target audience defined
-- **Design System** - Colors, typography, spacing, materials implemented in code
-- **Core Functionality** - Full file organization engine with rules, keyboard navigation, multiple view modes
-- **UI Architecture** - Three-panel layout with frosted glass materials, floating action bars
-- **Documentation** - Brand guidelines and implementation docs
+**Forma is STRUCTURAL, not INTELLIGENT.**
 
-### ✅ Completed (100%)
-- **Visual Identity** - Pure Grid V2 logo finalized (see `BRAND_ASSETS.md`)
-- **UI Polish** - Core components refined, micro-interactions ongoing
-- **Copy & Voice** - Guidelines exist, implementation consistent
+Users don't ask: "Is this smart?"
+They ask: "Where does this sit in my system?"
 
-### ❌ Not Started (0%)
-- **Domain & Web** - forma.app preferred
-- **Marketing Materials** - Screenshots, App Store assets
-- **Landing Page** - Brand-aligned web presence
+**Forma is:**
+- A **system layer** on top of Finder, not a replacement
+- An **executor of intent**, not an autonomous actor
+- A **bounded tool**, not a magical one
 
-**Overall Progress:** ~75% Complete
+**Winning Posture:**
+> You give the orders. Forma executes them — and only after you approve.
+
+---
+
+## Trust Hierarchy (Messaging Order)
+
+Lead with control. Follow with capability.
+
+1. **You approve. It executes.** — Nothing moves without explicit approval
+2. **Undo everything. Always.** — Full reversibility, complete action history
+3. **Declarative rules.** — You define the logic in plain language
+4. **Context awareness.** — Forma infers structure but never assumes
 
 ---
 
@@ -43,14 +49,43 @@
 - ✨ **Design-forward** - Proudly visual, confident in its aesthetics
 - 🎯 **Confident** - Opinionated defaults, no hedging or uncertainty
 - 💎 **Sophisticated** - Layered depth, thoughtful materials, refined details
-- 🧠 **Intelligent** - Pattern recognition, smart suggestions, learns behavior
+- 🔧 **Precise** - Pattern-matched suggestions, inspectable logic
 - ⚡ **Capable** - Powerful features accessible through elegant UI
 
 ### Emotional Journey
-1. **Impressed** → The app looks and feels premium from first launch
-2. **Empowered** → Powerful tools feel accessible, not overwhelming
-3. **Satisfied** → Organization feels good, progress is visible
-4. **Trusted** → Preview before commit, undo available, no surprises
+1. **Trusted** → Preview before commit, undo available, no surprises
+2. **Impressed** → The app looks and feels premium from first launch
+3. **Empowered** → Powerful tools feel accessible, not overwhelming
+4. **Satisfied** → Organization feels good, progress is visible
+
+---
+
+## Language Guidelines
+
+### Avoid "Ghost of AI" Language
+
+| Avoid | Use Instead |
+|-------|-------------|
+| "Talk to it like a human" | "Declarative rules" or "Intent-based commands" |
+| "AI-powered organization" | "Rule-based organization" |
+| "Smart suggestions" | "Pattern-matched suggestions" |
+| "Learns your preferences" | "Adapts to your corrections" |
+| "Understands your files" | "Infers structure from patterns" |
+
+### Replace Absolutes with Capabilities
+
+| Avoid | Use Instead |
+|-------|-------------|
+| "Never lose anything again" | "Full action history with one-click rollback" |
+| "Zero files lost. Ever." | "Preview every change before it happens" |
+| "Always organizes perfectly" | "Suggests destinations based on your rules" |
+
+### Voice Principles
+- **Clear, not clever** - Function over wordplay
+- **Specific, not vague** - "Move to Documents" not "Organize"
+- **Active voice** - Imperative mood ("Move file" not "File will be moved")
+- **Sentence case** - No Title Case, No ALL CAPS
+- **Confident tone** - No hedging ("will" not "should")
 
 ---
 
@@ -108,46 +143,21 @@ Forma uses a **layered material design** approach:
 
 ---
 
-## Critical Next Steps
+## Value Pillars (With Proof)
 
-### High Priority (Blocking Launch)
-1. ~~**Design App Icon**~~ - ✅ Pure Grid V2 finalized (see `BRAND_ASSETS.md`)
-2. **Secure Domain** - forma.app preferred
-3. **App Store Assets** - Screenshots showcasing the UI
-4. **Final UI polish** - Ensure Apple Design Award quality
-
-### Medium Priority (Pre-Launch)
-5. **Landing Page** - Simple, brand-aligned web presence
-6. **Copy Audit** - Ensure voice consistency throughout
-7. **Accessibility Pass** - VoiceOver, keyboard nav, contrast
-8. **Performance Optimization** - Smooth 60fps animations
-
----
-
-## Voice Guidelines
-
-### Principles
-- **Clear, not clever** - Function over wordplay
-- **Specific, not vague** - "Move to Documents" not "Organize"
-- **Active voice** - Imperative mood ("Move file" not "File will be moved")
-- **Sentence case** - No Title Case, No ALL CAPS
-- **Confident tone** - No hedging ("will" not "should")
-
-### Example Copy
-✅ **Good:**
-- "Move to Documents"
-- "All caught up"
-- "23 files ready to organize"
-
-❌ **Bad:**
-- "Let's organize your files!" (too chatty)
-- "FILE MOVED SUCCESSFULLY!" (all caps, exclamation)
-- "Your files have been organized" (passive voice)
+| Pillar | Proof |
+|--------|-------|
+| **Mac-native** | Uses native file APIs. No Electron. |
+| **Private** | On-device processing. Files never leave your Mac. |
+| **Fast** | Launches and previews in milliseconds on Apple Silicon. |
+| **Reversible** | Full action history with one-click rollback. |
+| **Transparent** | Preview every change before it happens. |
 
 ---
 
 ## What Forma IS
 
+✅ **Structural** - A system layer, not autonomous AI
 ✅ **Design-forward** - Visual sophistication is part of the product
 ✅ **Layered & material** - Uses depth, glass, translucency intentionally
 ✅ **Keyboard-first** - Power users can fly through with shortcuts
@@ -156,50 +166,26 @@ Forma uses a **layered material design** approach:
 
 ## What Forma Is NOT
 
+❌ An AI that "understands" your files
+❌ An autonomous organizer that acts on its own
+❌ A replacement for your file system
 ❌ Playful or cute (no cartoon illustrations)
 ❌ Overwhelming (progressive disclosure, focused views)
 ❌ Chatty (direct and precise communication)
-❌ Flat or sterile (uses materials and depth thoughtfully)
-❌ Generic (distinctive visual identity)
 
 ---
 
-## File Organization
+## Document Hierarchy
 
-### Detailed Documentation
-For comprehensive information, see:
+| Document | Purpose |
+|----------|---------|
+| **BRAND-POSITIONING.md** | Strategic messaging foundation (source of truth) |
+| **BRAND-OVERVIEW.md** (this) | Quick reference for developers/designers |
+| **Forma-Brand-Guidelines.md** | Comprehensive implementation guide |
+| **Forma-App-Store-Description.md** | App Store copy |
+| **Forma-Onboarding-Flow.md** | In-app copy and flows |
 
-- **Brand Assets** → `BRAND_ASSETS.md` (Logo files, usage guide, deprecated files)
-- **Brand Guidelines** → `Forma-Brand-Guidelines.md` (2,135 lines, authoritative reference)
-- **Implementation TODO** → `FORMA-BRAND-TODO.md` (Task tracker with validation checkpoints)
-- **HIG Compliance** → `CHANGELOG-HIG-COMPLIANCE.md` (macOS compliance updates)
-- **Brand Status** → Archived (historical status snapshots)
-
-### This Document's Purpose
-This overview provides quick reference for developers and designers. For:
-- **Strategic decisions** → See Brand Guidelines
-- **Implementation tasks** → See Brand TODO
-- **Technical compliance** → See HIG Compliance Changelog
-
----
-
-## Validation Checkpoints
-
-### Week 1 - Name Validation ✅
-- [x] Live with "Forma" name for 3-5 days
-- [x] Test in various contexts
-- [x] Final decision: COMMITTED (Jan 17, 2025)
-
-### Month 1 - Design Validation (Pending)
-- [ ] Show icon to 3-5 designers for feedback
-- [ ] Test icon recognition at 16x16px
-- [ ] Verify "premium minimalist" perception
-- [ ] Validate color palette in practice
-
-### Month 2 - User Validation (Planned)
-- [ ] Show prototype to 5-10 creative professionals
-- [ ] Gather brand perception feedback
-- [ ] Test pricing positioning ($49-99 range)
+When conflicts arise, defer to BRAND-POSITIONING.md.
 
 ---
 
@@ -219,6 +205,5 @@ This overview provides quick reference for developers and designers. For:
 
 ---
 
-**Next Review:** December 2025
-**Next Milestone:** App icon finalized + domain acquisition
-**Launch Target:** Q1 2025
+**Next Review:** Q2 2025
+**Strategic Foundation:** See BRAND-POSITIONING.md

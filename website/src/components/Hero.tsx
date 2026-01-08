@@ -77,7 +77,7 @@ export default function Hero() {
             >
               <Sparkles className="w-4 h-4 text-forma-sage" />
               <span className="text-sm font-medium text-forma-bone/80">
-                AI-Powered File Organization
+                Preview-First Organization
               </span>
             </motion.div>
 
@@ -95,6 +95,16 @@ export default function Hero() {
               Into Clarity
             </motion.h1>
 
+            {/* Trust Statement */}
+            <motion.p
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.15 }}
+              className="text-xl md:text-2xl font-display font-semibold text-forma-sage mb-4"
+            >
+              You approve. It executes.
+            </motion.p>
+
             {/* Subheadline */}
             <motion.p
               initial={{ opacity: 0, y: 30 }}
@@ -102,8 +112,8 @@ export default function Hero() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-lg md:text-xl text-forma-bone/70 max-w-xl mx-auto lg:mx-0 mb-8"
             >
-              Forma uses intelligent rules and machine learning to automatically
-              organize your files. Spend less time searching, more time creating.
+              Forma uses declarative rules you define to organize your files with
+              your approval. Nothing moves without preview. Everything can be undone.
             </motion.p>
 
             {/* Time Comparison - NEW */}
@@ -194,7 +204,7 @@ export default function Hero() {
                     />
                     <span className="text-xs font-medium text-forma-bone/70">
                       {animationPhase === "scattered" && "Messy Downloads folder"}
-                      {animationPhase === "scanning" && "AI analyzing patterns..."}
+                      {animationPhase === "scanning" && "Matching patterns..."}
                       {animationPhase === "organizing" && "Organizing files..."}
                       {animationPhase === "organized" && "All organized!"}
                     </span>
@@ -368,7 +378,7 @@ export default function Hero() {
               </div>
             </div>
 
-            {/* Floating AI Badge */}
+            {/* Floating Rule Badge */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -380,7 +390,7 @@ export default function Hero() {
                   <Sparkles className="w-4 h-4 text-forma-sage" />
                 </div>
                 <div>
-                  <div className="text-xs text-forma-bone/50">Pattern Found</div>
+                  <div className="text-xs text-forma-bone/50">Rule Matched</div>
                   <div className="text-sm font-medium text-forma-bone">
                     Screenshots → Desktop
                   </div>
@@ -400,7 +410,7 @@ export default function Hero() {
                   ✓
                 </div>
                 <div>
-                  <div className="text-xs text-forma-bone/50">Auto-organized</div>
+                  <div className="text-xs text-forma-bone/50">Approved & moved</div>
                   <div className="text-sm font-medium text-forma-bone">
                     847 files this week
                   </div>

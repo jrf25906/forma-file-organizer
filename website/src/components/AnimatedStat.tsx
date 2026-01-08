@@ -6,6 +6,7 @@ import { motion, useInView } from "framer-motion";
 interface AnimatedStatProps {
   value: number;
   suffix: string;
+  prefix?: string;
   description: string;
   color: string;
   personaKey: string; // Used to re-trigger animation on persona change
@@ -17,6 +18,7 @@ const easeOutQuart = (t: number): number => 1 - Math.pow(1 - t, 4);
 export default function AnimatedStat({
   value,
   suffix,
+  prefix = "",
   description,
   color,
   personaKey,
@@ -25,6 +27,9 @@ export default function AnimatedStat({
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: false, margin: "-50px" });
   const animationRef = useRef<number | null>(null);
+
+  // Determine if we should show decimal places based on the value
+  const showDecimals = value % 1 !== 0 || value < 10;
 
   useEffect(() => {
     // Reset and animate when persona changes or comes into view
@@ -67,6 +72,11 @@ export default function AnimatedStat({
     };
   }, [isInView, value, personaKey]);
 
+  // Format the display value
+  const formattedValue = showDecimals
+    ? displayValue.toFixed(1)
+    : Math.round(displayValue).toString();
+
   return (
     <motion.div
       ref={ref}
@@ -85,7 +95,8 @@ export default function AnimatedStat({
           transition={{ duration: 0.3, ease: "easeOut" }}
           className={`text-2xl font-display font-bold text-forma-${color}`}
         >
-          {displayValue.toFixed(1)}
+          {formattedValue}
+          {prefix && <span className="text-lg">{prefix}</span>}
         </motion.span>
       </div>
       <div>

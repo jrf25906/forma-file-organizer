@@ -1,8 +1,11 @@
 # Forma - Brand Guidelines
 
-**Version:** 2.0
-**Last Updated:** November 17, 2025
-**Status:** Foundation Document
+**Version:** 2.1
+**Last Updated:** January 2025
+**Status:** Implementation Guide
+**Strategic Foundation:** See [BRAND-POSITIONING.md](BRAND-POSITIONING.md) for messaging source of truth
+
+> When conflicts arise between this document and BRAND-POSITIONING.md, defer to BRAND-POSITIONING.md.
 
 ---
 
@@ -24,7 +27,9 @@
 
 **"Give your files form."**
 
-Forma isn't just another file organizer. It's a beautifully designed tool for anyone who wants to get organized. While the app is crafted with the attention to detail that design-conscious users will appreciate, it's built for everyone who values a clean, well-organized digital life. Forma brings order to chaos through intelligent, refined organization that feels native to macOS.
+Forma isn't just another file organizer. It's a system layer for macOS files — beautifully designed, but fundamentally structural. Nothing moves without your approval. Everything can be undone.
+
+Forma is built for people whose files outgrow folders — where screenshots, documents, assets, and ideas pile up faster than folders can handle. It brings order to chaos through declarative rules and preview-first execution.
 
 ---
 
@@ -65,13 +70,13 @@ Users experience refined organization:
 ---
 
 #### **Phase 2: TRUSTED** *(Ongoing Use)*
-**The Feeling:** "It understands my work"
+**The Feeling:** "It does exactly what I ask"
 
 Users develop confidence:
-- Recognizes intelligent pattern matching
-- Trusts the system's decisions
-- Feels the app respects their workflow
-- Relies on it as a refined tool
+- Recognizes pattern-matched suggestions
+- Trusts the preview-first execution
+- Feels the app respects their approval
+- Relies on it as a precise, reversible tool
 
 **Design Implication:** Consistent, predictable, transparent; respects user intelligence
 
@@ -152,7 +157,7 @@ These three attributes define everything we create:
 **Manifests as:**
 - Declarative copy (not questions)
 - Strong visual hierarchy
-- Smart defaults with easy override
+- Opinionated defaults with easy override
 - Professional, assured tone
 
 **Avoid:**
@@ -195,7 +200,7 @@ If Forma were a person, they would be:
 |------------|----------|----------|---------------|
 | **Hazel** | Powerful rules engine | Complex, dated UI | Design-forward, premium feel |
 | **CleanMyMac** | Marketing, brand recognition | Cleanup not organization | Actual file management |
-| **Manual organizing** | Free, complete control | Time-consuming, error-prone | Intelligent precision |
+| **Manual organizing** | Free, complete control | Time-consuming, error-prone | Precise, transparent execution |
 | **Default Folders X** | Helps during save | Doesn't fix existing mess | Retroactive organization |
 
 **Our Unique Position:**
@@ -1099,9 +1104,9 @@ if reduceMotion {
 - No slang or casual language
 - Respectful of user's time
 
-**Intelligent** (but not pretentious)
-- Demonstrates understanding
-- Explains reasoning when helpful
+**Precise** (but not pretentious)
+- Explains exactly what will happen
+- Shows reasoning when helpful
 - Avoids unnecessary jargon
 - Accessible to all skill levels
 
@@ -1288,7 +1293,7 @@ We'll help you tame the chaos on your Desktop and
 Downloads folder - no more "I'll organize this later"
 
 • Learn your filing patterns
-• Suggest smart destinations  
+• Suggest pattern-matched destinations  
 • Save you hours of manual sorting
 
 [Let's Get Started]
@@ -1553,11 +1558,11 @@ Embrace macOS patterns. Don't reinvent what Apple already perfected.
 ### 6. **Opinionated Defaults, Flexible Options**
 
 **What it means:**
-Make smart decisions for users, but let them override anything.
+Make informed decisions for users, but let them override anything.
 
 **In practice:**
 - Suggest rules based on file analysis
-- Pre-fill forms with intelligent guesses
+- Pre-fill forms with pattern-matched suggestions
 - Allow customization of everything
 - Remember user's choices
 

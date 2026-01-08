@@ -4,7 +4,7 @@ import { motion, useInView } from "framer-motion";
 import { useRef, useState } from "react";
 import {
   Wand2,
-  Brain,
+  Puzzle,
   BarChart3,
   FolderSearch,
   Zap,
@@ -18,17 +18,17 @@ import ParallaxOrb from "./ParallaxOrb";
 const features = [
   {
     icon: Wand2,
-    title: "Smart Rules Engine",
+    title: "Declarative Rule Builder",
     description:
-      "Create powerful organization rules with conditions based on file type, name, date, size, and more. Watch as files automatically move to their perfect home.",
+      "Create organization rules with conditions based on file type, name, date, size, and more. Define your intent in plain language — Forma executes it precisely.",
     color: "steel-blue",
     gradient: "from-forma-steel-blue to-forma-muted-blue",
   },
   {
-    icon: Brain,
-    title: "AI Pattern Detection",
+    icon: Puzzle,
+    title: "Pattern Matching",
     description:
-      "Forma learns from your behavior and suggests organization patterns you might have missed. It gets smarter the more you use it.",
+      "Forma infers structure from file extensions, naming patterns, dates, and sizes. Correct a suggestion once — Forma adapts.",
     color: "sage",
     gradient: "from-forma-sage to-forma-soft-green",
   },
@@ -44,7 +44,7 @@ const features = [
     icon: FolderSearch,
     title: "Duplicate Detection",
     description:
-      "Automatically find and manage duplicate files across your system. Reclaim gigabytes of storage with intelligent similarity matching.",
+      "Find and manage duplicate files across your system. Reclaim gigabytes of storage with content-based similarity matching.",
     color: "muted-blue",
     gradient: "from-forma-muted-blue to-forma-steel-blue",
   },
@@ -236,7 +236,7 @@ export default function Features() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg text-forma-bone/60"
           >
-            Forma combines intelligent automation with intuitive controls,
+            Forma combines rule-based automation with intuitive controls,
             giving you the power to organize without the overhead.
           </motion.p>
         </div>

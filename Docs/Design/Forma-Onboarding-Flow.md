@@ -3,7 +3,8 @@
 **Document Purpose:** Complete onboarding flow with all screens and navigation paths
 **Status:** Design Phase
 **Date Created:** November 10, 2025
-**Updated:** November 17, 2025 (Rebrand to Forma)
+**Updated:** January 2025 (Messaging alignment with BRAND-POSITIONING.md)
+**Strategic Foundation:** See [BRAND-POSITIONING.md](BRAND-POSITIONING.md) for messaging guidelines
 
 ---
 
@@ -113,7 +114,7 @@
 
 ### Journey 1: Trust & Speed User
 
-**Persona:** Wants it done fast, trusts smart defaults
+**Persona:** Wants it done fast, trusts suggested rules
 
 **Flow:**
 1. **Welcome** → Click "Let's Get Started"
@@ -187,7 +188,7 @@
 │                                                             │
 │                                                             │
 │    • Learn your filing patterns                            │
-│    • Suggest smart destinations                            │
+│    • Suggest pattern-matched destinations                  │
 │    • Save you hours of manual sorting                      │
 │                                                             │
 │                                                             │
@@ -694,7 +695,7 @@ struct OrganizationPreview {
 ```
 
 **Elements:**
-- **Icon:** ✨ (sparkles, magic happening)
+- **Icon:** ✨ (sparkles, progress indicator)
 - **Title:** "Organizing your files..." (20pt)
 - **Progress bar:** Visual indicator (0-100%)
 - **Status text:** Current action + count
@@ -915,12 +916,12 @@ Task {
 │    📦 Archives (198)                                        │
 │    [... and 794 others]                                    │
 │                                                             │
-│    [🤖 Use Smart Defaults]  [✏️ Create Rules Anyway]       │
+│    [🤖 Use Suggested Rules]  [✏️ Create Rules Anyway]      │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Recommendation:** Steer toward smart defaults for large file counts
+**Recommendation:** Steer toward suggested rules for large file counts
 
 ---
 
@@ -943,7 +944,7 @@ Task {
 │                                                             │
 │    What would you like to do?                              │
 │                                                             │
-│    [🤖 Get Smart Suggestions]                              │
+│    [🤖 Get Suggestions]                                    │
 │    [✏️ Create My First Rule]                                │
 │    [⏭️ I'll Do This Later]                                  │
 │                                                             │
@@ -1105,7 +1106,7 @@ struct OnboardingTransition: ViewModifier {
 
 **Precise and clear:**
 - ✅ "28 files → Pictures/Screenshots"
-- ❌ "We'll magically organize your screenshots!"
+- ❌ "We'll magically organize your screenshots!" (avoid "magic" language)
 
 **Direct on permissions:**
 - ✅ "Your files stay on your Mac"
@@ -1233,10 +1234,10 @@ struct OnboardingTransition: ViewModifier {
 
 ### Phase 2 Additions
 
-**AI-Powered Suggestions:**
-- Analyze file contents (OCR, metadata)
-- Learn from user's organization patterns
-- Suggest new rules based on behavior
+**Pattern-Based Suggestions:**
+- Analyze file metadata and structure
+- Adapt to user's corrections over time
+- Suggest new rules based on file patterns
 
 **Onboarding Variations:**
 - Short path for power users
@@ -1293,7 +1294,7 @@ struct OnboardingTransition: ViewModifier {
 - **Measure:** Welcome → Success screen time
 
 ### Path Distribution
-- **Smart defaults:** Expected 60-70%
+- **Suggested rules:** Expected 60-70%
 - **Manual rules:** Expected 30-40%
 - **Review mode:** Expected 70%+
 - **Auto-organize:** Expected 30%

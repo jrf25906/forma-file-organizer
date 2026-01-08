@@ -4,108 +4,103 @@ import { motion } from "framer-motion";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useInView } from "framer-motion";
 import {
-  Palette,
-  Code,
-  Camera,
-  GraduationCap,
-  Briefcase,
-  Video,
-  FileText,
-  Microscope,
+  Download,
+  FileStack,
+  BookOpen,
+  FileQuestion,
+  Inbox,
+  FolderSync,
 } from "lucide-react";
 import AnimatedStat from "./AnimatedStat";
 import PersonaFileDemo from "./PersonaFileDemo";
 import MorphingFileTypes from "./MorphingFileTypes";
 import ParallaxOrb from "./ParallaxOrb";
 
+// Behavior-based personas - targeting patterns, not job titles
 const personas = [
   {
-    id: "designer",
-    icon: Palette,
-    title: "Designers",
-    subtitle: "UI/UX, Graphic, Product",
-    painPoint: "Drowning in .sketch, .fig, and .psd files across 50 projects",
-    solution: "Auto-sort by project, client, or file type. Find that mockup in seconds.",
-    fileTypes: ["Figma", "Sketch", "PSD", "AI"],
+    id: "downloads-chaos",
+    icon: Download,
+    title: "Downloads Folder Hostage",
+    subtitle: "When your productivity depends on a mess",
+    painPoint:
+      "Your Downloads folder is where files go to disappear. Screenshots from last week, that PDF you need right now, invoices from three months ago - all in one infinite scroll.",
+    solution:
+      "Declarative rules that route files as they arrive. Screenshots to dated folders, invoices detected and filed, documents sorted by project pattern.",
+    fileTypes: ["PDF", "PNG", "ZIP", "DMG"],
     color: "warm-orange",
-    stat: "4.2 hrs saved/week",
+    stat: "47 files",
+    statSuffix: "organized daily",
   },
   {
-    id: "developer",
-    icon: Code,
-    title: "Developers",
-    subtitle: "Frontend, Backend, Mobile",
-    painPoint: "Screenshots, logs, exports scattered across Downloads",
-    solution: "Smart rules for repos, debug files, and documentation.",
-    fileTypes: ["ZIP", "JSON", "LOG", "SQL"],
+    id: "version-hell",
+    icon: FileStack,
+    title: "Final_v2_FINAL_FOR-REAL.mov",
+    subtitle: "Version control without the control",
+    painPoint:
+      "You've named a file 'final' more than once this week. Your Desktop has three versions of the same pitch deck, and you're not sure which one you actually sent.",
+    solution:
+      "Pattern-based organization that detects versions and consolidates them. Clear naming, dated folders, and a history you can actually trace.",
+    fileTypes: ["DOCX", "PDF", "MOV", "PSD"],
     color: "steel-blue",
-    stat: "3.8 hrs saved/week",
+    stat: "12 versions",
+    statSuffix: "consolidated",
   },
   {
-    id: "photographer",
-    icon: Camera,
-    title: "Photographers",
-    subtitle: "Portrait, Commercial, Events",
-    painPoint: "Thousands of RAW files with cryptic camera names",
-    solution: "Organize by date, shoot, or metadata. Batch rename included.",
-    fileTypes: ["RAW", "CR3", "NEF", "DNG"],
+    id: "research-buried",
+    icon: BookOpen,
+    title: "Buried in PDFs",
+    subtitle: "Research that disappears into folders",
+    painPoint:
+      "Papers, exports, screenshots of charts, notes in three different formats. You know you saved that study somewhere - you just can't remember where.",
+    solution:
+      "Topic-based rules that organize research materials automatically. PDFs by source, notes by project, exports by date. Find anything in seconds.",
+    fileTypes: ["PDF", "CSV", "PNG", "MD"],
     color: "sage",
-    stat: "6.1 hrs saved/week",
+    stat: "89%",
+    statSuffix: "faster retrieval",
   },
   {
-    id: "researcher",
-    icon: Microscope,
-    title: "Researchers",
-    subtitle: "Academic, Scientific, Market",
-    painPoint: "PDFs, datasets, and citations in complete chaos",
-    solution: "Sort papers by topic, year, or citation status automatically.",
-    fileTypes: ["PDF", "CSV", "XLSX", "BIB"],
+    id: "pitch-deck-founder",
+    icon: FileQuestion,
+    title: "14 Pitch Decks, No Canonical",
+    subtitle: "When every version might be 'the one'",
+    painPoint:
+      "Investor deck, board deck, team deck. V1, V2, 'final', 'actually final'. Each in a different folder, and you're never quite sure which is current.",
+    solution:
+      "Project-based organization with version tracking. Latest versions surface automatically, old versions archived but accessible.",
+    fileTypes: ["PPTX", "PDF", "KEY", "XLSX"],
     color: "muted-blue",
-    stat: "5.3 hrs saved/week",
+    stat: "1 source",
+    statSuffix: "of truth",
   },
   {
-    id: "creator",
-    icon: Video,
-    title: "Content Creators",
-    subtitle: "YouTube, Podcast, Social",
-    painPoint: "B-roll, audio clips, and thumbnails everywhere",
-    solution: "Project-based organization with automatic asset detection.",
-    fileTypes: ["MP4", "MOV", "WAV", "PNG"],
+    id: "inbox-overflow",
+    icon: Inbox,
+    title: "Attachment Avalanche",
+    subtitle: "Email attachments scattered everywhere",
+    painPoint:
+      "Every email attachment lands in Downloads. Contracts, receipts, that document your colleague sent last month - all mixed together with everything else.",
+    solution:
+      "Intelligent routing based on file patterns. Contracts to legal folders, receipts to expenses, documents matched to existing projects.",
+    fileTypes: ["PDF", "DOCX", "XLSX", "PNG"],
     color: "warm-orange",
-    stat: "4.7 hrs saved/week",
+    stat: "4.2 hrs",
+    statSuffix: "saved weekly",
   },
   {
-    id: "writer",
-    icon: FileText,
-    title: "Writers",
-    subtitle: "Authors, Journalists, Bloggers",
-    painPoint: "Drafts named 'final_final_v3_REAL.docx' scattered everywhere",
-    solution: "Version tracking and project folders that make sense.",
-    fileTypes: ["DOCX", "MD", "TXT", "PDF"],
-    color: "soft-green",
-    stat: "3.2 hrs saved/week",
-  },
-  {
-    id: "student",
-    icon: GraduationCap,
-    title: "Students",
-    subtitle: "Undergrad, Graduate, PhD",
-    painPoint: "Assignments, readings, and notes from 6 different courses",
-    solution: "Semester → Course → Assignment hierarchy, automatically.",
-    fileTypes: ["PDF", "DOCX", "PPTX", "ZIP"],
+    id: "screenshot-graveyard",
+    icon: FolderSync,
+    title: "Screenshot Archaeologist",
+    subtitle: "Important captures lost in time",
+    painPoint:
+      "Screenshots of bugs, receipts, reference designs, conversation snippets. All with cryptic timestamps, all in one folder, all impossible to find.",
+    solution:
+      "Date-based organization with smart renaming. Screenshots sorted by month, duplicates detected, important captures surfaced.",
+    fileTypes: ["PNG", "JPG", "HEIC", "GIF"],
     color: "steel-blue",
-    stat: "2.9 hrs saved/week",
-  },
-  {
-    id: "freelancer",
-    icon: Briefcase,
-    title: "Freelancers",
-    subtitle: "Consultants, Contractors",
-    painPoint: "Client files, invoices, and contracts in one messy pile",
-    solution: "Client-based folders with automatic invoice detection.",
-    fileTypes: ["PDF", "XLSX", "DOCX", "PNG"],
-    color: "sage",
-    stat: "4.5 hrs saved/week",
+    stat: "156 files",
+    statSuffix: "auto-sorted monthly",
   },
 ];
 
@@ -163,7 +158,7 @@ export default function Personas() {
           >
             <span className="w-2 h-2 rounded-full bg-forma-steel-blue animate-pulse" />
             <span className="text-sm font-medium text-forma-bone/80">
-              Built For Professionals
+              Sound Familiar?
             </span>
           </motion.div>
 
@@ -173,7 +168,7 @@ export default function Personas() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="font-display font-bold text-4xl md:text-5xl text-forma-bone mb-6"
           >
-            Who Uses <span className="gradient-text">Forma</span>?
+            Built for People Who <span className="gradient-text">Care</span>
           </motion.h2>
 
           <motion.p
@@ -182,7 +177,8 @@ export default function Personas() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg text-forma-bone/60"
           >
-            From creative professionals to researchers, Forma adapts to how you work.
+            Not for a job title. For anyone whose files outgrow folders faster
+            than they can organize them.
           </motion.p>
         </div>
 
@@ -232,7 +228,9 @@ export default function Personas() {
                       : "text-forma-bone/60"
                   }`}
                 >
-                  {persona.title}
+                  {persona.title.length > 20
+                    ? persona.title.slice(0, 20) + "..."
+                    : persona.title}
                 </span>
                 {/* Progress bar for active item */}
                 {activePersona.id === persona.id && !isHovering && !isPaused && (
@@ -269,20 +267,26 @@ export default function Personas() {
             {/* Left - Problem */}
             <div className="p-6 md:p-8 border-b md:border-b-0 md:border-r border-white/10">
               <div className="flex items-center gap-3 mb-4">
-                <div className={`w-10 h-10 rounded-xl bg-forma-${activePersona.color}/20 flex items-center justify-center`}>
-                  <activePersona.icon className={`w-5 h-5 text-forma-${activePersona.color}`} />
+                <div
+                  className={`w-10 h-10 rounded-xl bg-forma-${activePersona.color}/20 flex items-center justify-center`}
+                >
+                  <activePersona.icon
+                    className={`w-5 h-5 text-forma-${activePersona.color}`}
+                  />
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-lg text-forma-bone">
                     {activePersona.title}
                   </h3>
-                  <p className="text-xs text-forma-bone/50">{activePersona.subtitle}</p>
+                  <p className="text-xs text-forma-bone/50">
+                    {activePersona.subtitle}
+                  </p>
                 </div>
               </div>
 
               <div className="mb-4">
                 <div className="text-xs uppercase tracking-wider text-forma-bone/40 mb-1.5">
-                  The Problem
+                  The Reality
                 </div>
                 <p className="text-forma-bone/70 leading-relaxed text-sm">
                   {activePersona.painPoint}
@@ -300,7 +304,7 @@ export default function Personas() {
             <div className={`p-6 md:p-8 bg-forma-${activePersona.color}/5`}>
               <div className="mb-4">
                 <div className="text-xs uppercase tracking-wider text-forma-bone/40 mb-1.5">
-                  The Forma Solution
+                  How Forma Helps
                 </div>
                 <p className="text-forma-bone/80 leading-relaxed">
                   {activePersona.solution}
@@ -309,9 +313,10 @@ export default function Personas() {
 
               {/* Stat */}
               <AnimatedStat
-                value={parseFloat(activePersona.stat.split(' ')[0])}
-                suffix={activePersona.stat.split(' ').slice(1).join(' ')}
-                description={`average for ${activePersona.title.toLowerCase()}`}
+                value={parseFloat(activePersona.stat.replace(/[^0-9.]/g, ""))}
+                suffix={activePersona.statSuffix}
+                prefix={activePersona.stat.replace(/[0-9.]/g, "").trim()}
+                description="with Forma automation"
                 color={activePersona.color}
                 personaKey={activePersona.id}
               />
@@ -328,7 +333,8 @@ export default function Personas() {
           className="text-center mt-16"
         >
           <p className="text-forma-bone/50 mb-6">
-            Don&apos;t see your profession? Forma&apos;s rules adapt to any workflow.
+            The unifying thread isn&apos;t profession. It&apos;s care - for your
+            work and your time.
           </p>
           <motion.a
             href="#pricing"
@@ -336,8 +342,8 @@ export default function Personas() {
             whileTap={{ scale: 0.98 }}
             className="inline-flex items-center gap-2 btn-primary text-forma-bone px-8 py-3"
           >
-            Try it free for your use case
-            <span>→</span>
+            Join the beta
+            <span>-&gt;</span>
           </motion.a>
         </motion.div>
       </div>

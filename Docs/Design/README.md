@@ -12,9 +12,10 @@
 
 | Document | Description | Priority |
 |----------|-------------|----------|
-| [DesignSystem.md](DesignSystem.md) | **Start here** - Design tokens, colors, typography | Core |
+| [BRAND-POSITIONING.md](BRAND-POSITIONING.md) | **Strategic source of truth** - Messaging, positioning, voice | Core |
+| [DesignSystem.md](DesignSystem.md) | Design tokens, colors, typography | Core |
 | [UI-GUIDELINES.md](UI-GUIDELINES.md) | UI implementation patterns | Core |
-| [Forma-Brand-Guidelines.md](Forma-Brand-Guidelines.md) | Brand identity guidelines | Core |
+| [Forma-Brand-Guidelines.md](Forma-Brand-Guidelines.md) | Comprehensive brand implementation | Reference |
 
 ---
 
@@ -26,8 +27,9 @@
 - **[microanimations.md](microanimations.md)** - Animation patterns, timing, and easing
 
 ### Brand & Identity
-- **[Forma-Brand-Guidelines.md](Forma-Brand-Guidelines.md)** - Brand identity, voice, visual language
-- **[BRAND-OVERVIEW.md](BRAND-OVERVIEW.md)** - Brand summary
+- **[BRAND-POSITIONING.md](BRAND-POSITIONING.md)** - Strategic source of truth for messaging (all docs defer to this)
+- **[BRAND-OVERVIEW.md](BRAND-OVERVIEW.md)** - Quick reference for developers/designers
+- **[Forma-Brand-Guidelines.md](Forma-Brand-Guidelines.md)** - Comprehensive implementation guide
 - **[BRAND_ASSETS.md](BRAND_ASSETS.md)** - Brand asset inventory
 - **[LOGO_DESIGN_BRIEF.md](LOGO_DESIGN_BRIEF.md)** - Logo specifications
 - **[FORMA-BRAND-TODO.md](FORMA-BRAND-TODO.md)** - Brand tasks

@@ -7,85 +7,85 @@ import { Check, X, Minus } from "lucide-react";
 
 const comparisonFeatures = [
   {
-    feature: "Smart rule-based organization",
+    feature: "Declarative rule-based organization",
     forma: true,
-    sparkle: false,
+    folders: false,
+    tags: false,
     hazel: true,
-    finder: false,
-    dropzone: "partial",
+    raycast: false,
   },
   {
-    feature: "AI pattern detection",
+    feature: "Preview-first execution",
     forma: true,
-    sparkle: "partial",
+    folders: false,
+    tags: false,
     hazel: false,
-    finder: false,
-    dropzone: false,
+    raycast: false,
   },
   {
-    feature: "Natural language rules",
+    feature: "Full reversibility",
     forma: true,
-    sparkle: false,
+    folders: false,
+    tags: false,
     hazel: false,
-    finder: false,
-    dropzone: false,
+    raycast: false,
   },
   {
-    feature: "Visual review before moving",
+    feature: "Persistent organization",
     forma: true,
-    sparkle: true,
-    hazel: false,
-    finder: false,
-    dropzone: true,
+    folders: "partial",
+    tags: true,
+    hazel: true,
+    raycast: false,
   },
   {
-    feature: "Storage analytics & insights",
+    feature: "Low maintenance",
     forma: true,
-    sparkle: true,
-    hazel: false,
-    finder: false,
-    dropzone: false,
+    folders: false,
+    tags: false,
+    hazel: true,
+    raycast: true,
   },
   {
-    feature: "Duplicate file detection",
+    feature: "No technical expertise required",
     forma: true,
-    sparkle: true,
+    folders: true,
+    tags: true,
     hazel: false,
-    finder: false,
-    dropzone: false,
+    raycast: "partial",
   },
   {
     feature: "100% local processing",
     forma: true,
-    sparkle: "partial",
+    folders: true,
+    tags: true,
     hazel: true,
-    finder: true,
-    dropzone: true,
+    raycast: true,
   },
   {
-    feature: "Modern macOS design",
+    feature: "Native macOS experience",
     forma: true,
-    sparkle: true,
-    hazel: false,
-    finder: true,
-    dropzone: "partial",
+    folders: true,
+    tags: true,
+    hazel: "partial",
+    raycast: true,
   },
   {
     feature: "Free tier available",
     forma: true,
-    sparkle: false,
+    folders: true,
+    tags: true,
     hazel: false,
-    finder: true,
-    dropzone: false,
+    raycast: "partial",
   },
 ];
 
 const competitors = [
   { name: "Forma", highlight: true },
-  { name: "Sparkle", highlight: false },
+  { name: "Folders", highlight: false },
+  { name: "Tags", highlight: false },
   { name: "Hazel", highlight: false },
-  { name: "Finder", highlight: false },
-  { name: "Dropzone", highlight: false },
+  { name: "Raycast", highlight: false },
 ];
 
 function FeatureCheck({ value }: { value: boolean | string }) {
@@ -153,8 +153,9 @@ export default function Comparison() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg text-forma-bone/60"
           >
-            Forma combines the automation power of rule-based tools with modern
-            AI intelligence—all in a beautiful, native macOS experience.
+            Forma sits in the sweet spot: declarative rules you define,
+            preview-first execution, and full reversibility. No manual upkeep,
+            no fragile scripts.
           </motion.p>
         </div>
 
@@ -204,16 +205,16 @@ export default function Comparison() {
                   <FeatureCheck value={row.forma} />
                 </div>
                 <div className="flex justify-center">
-                  <FeatureCheck value={row.sparkle} />
+                  <FeatureCheck value={row.folders} />
+                </div>
+                <div className="flex justify-center">
+                  <FeatureCheck value={row.tags} />
                 </div>
                 <div className="flex justify-center">
                   <FeatureCheck value={row.hazel} />
                 </div>
                 <div className="flex justify-center">
-                  <FeatureCheck value={row.finder} />
-                </div>
-                <div className="flex justify-center">
-                  <FeatureCheck value={row.dropzone} />
+                  <FeatureCheck value={row.raycast} />
                 </div>
               </motion.div>
             ))}
@@ -228,7 +229,7 @@ export default function Comparison() {
           transition={{ delay: 0.3 }}
           className="text-center mt-8 text-sm text-forma-bone/40"
         >
-          Comparison based on publicly available features as of 2024. All products are trademarks of their respective owners.
+          Comparison based on typical use cases as of January 2025.
         </motion.p>
       </div>
     </section>

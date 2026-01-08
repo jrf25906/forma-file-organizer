@@ -2,7 +2,7 @@
 
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
-import { FolderOpen, Sparkles, CheckCircle2 } from "lucide-react";
+import { FolderOpen, FileText, CheckCircle2, RotateCcw } from "lucide-react";
 import ParallaxOrb from "./ParallaxOrb";
 
 // Animated connection line with flowing particles
@@ -22,11 +22,12 @@ function ConnectionFlow() {
     return () => unsubscribe();
   }, [lineProgress]);
 
-  // Colors for each step
+  // Colors for each step (now 4 steps)
   const stepColors = [
     "rgb(91, 124, 153)", // steel-blue
     "rgb(122, 157, 126)", // sage
     "rgb(204, 134, 99)", // warm-orange
+    "rgb(91, 124, 153)", // steel-blue (undo step)
   ];
 
   return (
@@ -96,9 +97,9 @@ function ConnectionFlow() {
       ))}
 
       {/* Step indicator nodes */}
-      {[0, 1, 2].map((i) => {
-        const topPosition = `${16.67 + i * 33.33}%`; // Position at 1/6, 1/2, 5/6
-        const isActive = progress > i * 0.33;
+      {[0, 1, 2, 3].map((i) => {
+        const topPosition = `${12.5 + i * 25}%`; // Position at 1/8, 3/8, 5/8, 7/8
+        const isActive = progress > i * 0.25;
 
         return (
           <motion.div
@@ -141,40 +142,53 @@ function ConnectionFlow() {
 const steps = [
   {
     number: "01",
-    icon: FolderOpen,
-    title: "Point to Your Folders",
+    icon: FileText,
+    title: "Define Your Rules",
     description:
-      "Select the locations Forma should watch—Downloads, Desktop, Documents, or any custom folders. Forma respects your privacy and only accesses folders you explicitly choose.",
-    visual: "scan",
+      "Create declarative rules in plain language: \"Move PDFs to Documents\" or \"Screenshots go to Pictures/Screenshots.\" You define the logic — Forma executes your intent.",
+    visual: "rules",
   },
   {
     number: "02",
-    icon: Sparkles,
-    title: "Review Smart Suggestions",
+    icon: FolderOpen,
+    title: "Preview Proposed Changes",
     description:
-      "Forma analyzes your files and suggests organization rules based on patterns it detects. Accept suggestions with one click, or create your own custom rules.",
-    visual: "suggest",
+      "Forma infers structure from file extensions, naming patterns, and dates. Every proposed move is shown before it happens — no surprises, no guessing.",
+    visual: "preview",
   },
   {
     number: "03",
     icon: CheckCircle2,
-    title: "Approve & Organize",
+    title: "You Approve. It Executes.",
     description:
-      "Review proposed file movements before they happen. Accept all, or pick and choose. Once approved, files move instantly to their new homes.",
+      "Nothing moves without your explicit permission. Review each change, accept all at once, or pick and choose. You stay in complete control.",
     visual: "approve",
+  },
+  {
+    number: "04",
+    icon: RotateCcw,
+    title: "Undo Everything. Always.",
+    description:
+      "Full action history with one-click rollback. Made a mistake? Changed your mind? Every single move is reversible. Your files, your safety net.",
+    visual: "undo",
   },
 ];
 
 function StepVisual({ type }: { type: string }) {
-  if (type === "scan") {
+  // Step 1: Define Your Rules
+  if (type === "rules") {
     return (
       <div className="glass-card rounded-xl p-4 space-y-3">
         <div className="text-xs text-forma-bone/50 uppercase tracking-wider">
-          Watched Locations
+          Your Rules
         </div>
-        {["~/Downloads", "~/Desktop", "~/Documents"].map((path, i) => (
+        {[
+          { rule: "Move PDFs to Documents/PDFs", active: true },
+          { rule: "Screenshots go to Pictures/Screenshots", active: true },
+          { rule: "Downloads older than 30 days to Archive", active: false },
+        ].map((item, i) => (
           <motion.div
-            key={path}
+            key={item.rule}
             initial={{ opacity: 0, x: -10 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
@@ -182,29 +196,30 @@ function StepVisual({ type }: { type: string }) {
             className="flex items-center gap-3 p-3 rounded-lg bg-white/5"
           >
             <div className="w-8 h-8 rounded-lg bg-forma-steel-blue/20 flex items-center justify-center">
-              <FolderOpen className="w-4 h-4 text-forma-steel-blue" />
+              <FileText className="w-4 h-4 text-forma-steel-blue" />
             </div>
-            <span className="text-sm text-forma-bone/80 font-mono">{path}</span>
-            <div className="ml-auto w-2 h-2 rounded-full bg-forma-sage animate-pulse" />
+            <span className="text-sm text-forma-bone/80 flex-1">{item.rule}</span>
+            <div className={`w-2 h-2 rounded-full ${item.active ? 'bg-forma-sage' : 'bg-forma-bone/30'}`} />
           </motion.div>
         ))}
       </div>
     );
   }
 
-  if (type === "suggest") {
+  // Step 2: Preview Proposed Changes
+  if (type === "preview") {
     return (
       <div className="glass-card rounded-xl p-4 space-y-3">
         <div className="text-xs text-forma-bone/50 uppercase tracking-wider">
-          Suggested Rules
+          Pending Review
         </div>
         {[
-          { pattern: "*.pdf", action: "→ Documents/PDFs", confidence: "94%" },
-          { pattern: "IMG_*.jpg", action: "→ Pictures/Camera", confidence: "89%" },
-          { pattern: "Screenshot*", action: "→ Pictures/Screenshots", confidence: "97%" },
-        ].map((rule, i) => (
+          { file: "report_final.pdf", from: "Downloads", to: "Documents/PDFs" },
+          { file: "Screenshot 2024-11-01.png", from: "Desktop", to: "Pictures/Screenshots" },
+          { file: "IMG_4521.jpg", from: "Downloads", to: "Pictures/Camera" },
+        ].map((item, i) => (
           <motion.div
-            key={rule.pattern}
+            key={item.file}
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -213,12 +228,12 @@ function StepVisual({ type }: { type: string }) {
           >
             <div className="flex-1">
               <div className="text-sm text-forma-bone font-mono">
-                {rule.pattern}
+                {item.file}
               </div>
-              <div className="text-xs text-forma-bone/50">{rule.action}</div>
+              <div className="text-xs text-forma-bone/50">{item.from} → {item.to}</div>
             </div>
-            <div className="px-2 py-1 rounded-full bg-forma-sage/20 text-xs text-forma-sage">
-              {rule.confidence}
+            <div className="px-2 py-1 rounded-full bg-forma-warm-orange/20 text-xs text-forma-warm-orange">
+              preview
             </div>
           </motion.div>
         ))}
@@ -226,46 +241,88 @@ function StepVisual({ type }: { type: string }) {
     );
   }
 
+  // Step 3: Approve
+  if (type === "approve") {
+    return (
+      <div className="glass-card rounded-xl p-4 space-y-3">
+        <div className="text-xs text-forma-bone/50 uppercase tracking-wider">
+          Ready to Organize
+        </div>
+        {[
+          { name: "report_final.pdf", dest: "Documents/PDFs" },
+          { name: "Screenshot 2024-11-01.png", dest: "Pictures/Screenshots" },
+          { name: "IMG_4521.jpg", dest: "Pictures/Camera" },
+        ].map((file, i) => (
+          <motion.div
+            key={file.name}
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.15 }}
+            className="flex items-center gap-3 p-3 rounded-lg bg-white/5"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              whileInView={{ scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 + i * 0.15, type: "spring" }}
+              className="w-6 h-6 rounded-full bg-forma-sage/20 flex items-center justify-center"
+            >
+              <CheckCircle2 className="w-4 h-4 text-forma-sage" />
+            </motion.div>
+            <div className="flex-1">
+              <div className="text-sm text-forma-bone">{file.name}</div>
+              <div className="text-xs text-forma-bone/50">→ {file.dest}</div>
+            </div>
+          </motion.div>
+        ))}
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="w-full mt-2 btn-primary text-forma-bone text-sm"
+        >
+          Approve All
+        </motion.button>
+      </div>
+    );
+  }
+
+  // Step 4: Undo / History
   return (
     <div className="glass-card rounded-xl p-4 space-y-3">
       <div className="text-xs text-forma-bone/50 uppercase tracking-wider">
-        Ready to Organize
+        Action History
       </div>
       {[
-        { name: "report_final.pdf", dest: "Documents/Work", status: "ready" },
-        { name: "vacation.jpg", dest: "Pictures/2024", status: "ready" },
-        { name: "backup.zip", dest: "Archives", status: "ready" },
-      ].map((file, i) => (
+        { action: "Moved 3 PDFs to Documents", time: "2 min ago", undoable: true },
+        { action: "Moved 12 screenshots to Pictures", time: "5 min ago", undoable: true },
+        { action: "Archived 8 old downloads", time: "1 hour ago", undoable: true },
+      ].map((item, i) => (
         <motion.div
-          key={file.name}
+          key={item.action}
           initial={{ opacity: 0, scale: 0.95 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ delay: i * 0.15 }}
           className="flex items-center gap-3 p-3 rounded-lg bg-white/5"
         >
-          <motion.div
-            initial={{ scale: 0 }}
-            whileInView={{ scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.3 + i * 0.15, type: "spring" }}
-            className="w-6 h-6 rounded-full bg-forma-sage/20 flex items-center justify-center"
-          >
-            <CheckCircle2 className="w-4 h-4 text-forma-sage" />
-          </motion.div>
           <div className="flex-1">
-            <div className="text-sm text-forma-bone">{file.name}</div>
-            <div className="text-xs text-forma-bone/50">→ {file.dest}</div>
+            <div className="text-sm text-forma-bone">{item.action}</div>
+            <div className="text-xs text-forma-bone/50">{item.time}</div>
           </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-3 py-1 rounded-lg bg-forma-steel-blue/20 text-xs text-forma-steel-blue flex items-center gap-1"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Undo
+          </motion.button>
         </motion.div>
       ))}
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="w-full mt-2 btn-primary text-forma-bone text-sm"
-      >
-        Organize All
-      </motion.button>
+      <div className="text-center pt-2 text-xs text-forma-bone/40">
+        Every action is reversible. Always.
+      </div>
     </div>
   );
 }
@@ -296,9 +353,9 @@ export default function HowItWorks() {
             transition={{ duration: 0.6 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
           >
-            <span className="w-2 h-2 rounded-full bg-forma-steel-blue animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-forma-sage animate-pulse" />
             <span className="text-sm font-medium text-forma-bone/80">
-              Simple Process
+              You Stay in Control
             </span>
           </motion.div>
 
@@ -308,9 +365,9 @@ export default function HowItWorks() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="font-display font-bold text-4xl md:text-5xl text-forma-bone mb-6"
           >
-            Get Organized in
+            You Define. You Preview.
             <br />
-            <span className="gradient-text">Three Simple Steps</span>
+            <span className="gradient-text">You Approve.</span>
           </motion.h2>
 
           <motion.p
@@ -319,8 +376,8 @@ export default function HowItWorks() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg text-forma-bone/60"
           >
-            No complex setup, no lengthy configuration. Start organizing your
-            files in under a minute.
+            Nothing moves without your permission. Preview every change before it happens.
+            Every action is reversible.
           </motion.p>
         </div>
 
