@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { LenisGSAPProvider } from "@/lib/animation";
 import { Header } from "@/components/Header";
 import { SpotlightCursor } from "@/components/ui/SpotlightCursor";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 // Editorial serif for dramatic headlines
 // adjustFontFallback: Reduces CLS by adjusting fallback font metrics
@@ -101,6 +102,21 @@ export default function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* FOUC Prevention: Apply theme before React hydration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                  document.documentElement.setAttribute('data-theme', theme);
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         className={clsx(
           "min-h-screen antialiased overflow-x-hidden font-body",
@@ -109,19 +125,20 @@ export default function RootLayout({
           jetbrainsMono.variable
         )}
       >
-        {/* Skip to main content link for keyboard/screen reader users */}
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-forma-obsidian focus:text-forma-bone focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-forma-steel-blue"
-        >
-          Skip to main content
-        </a>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-        <Header />
-        <LenisGSAPProvider
+        <ThemeProvider>
+          {/* Skip to main content link for keyboard/screen reader users */}
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-forma-obsidian focus:text-forma-bone focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-forma-steel-blue"
+          >
+            Skip to main content
+          </a>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          />
+          <Header />
+          <LenisGSAPProvider
           options={{
             lerp: 0.1,
             duration: 1.2,
@@ -135,6 +152,7 @@ export default function RootLayout({
           </main>
           <SpotlightCursor />
         </LenisGSAPProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

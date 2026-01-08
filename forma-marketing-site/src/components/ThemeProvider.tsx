@@ -2,58 +2,48 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "dark" | "light" | "system";
+type Theme = "dark" | "light";
 
 interface ThemeContextType {
   theme: Theme;
-  setTheme: (theme: Theme) => void;
-  resolvedTheme: "dark" | "light";
+  resolvedTheme: Theme;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
-  // Get system preference
+  // Always follow system preference
   useEffect(() => {
     setMounted(true);
-    const stored = localStorage.getItem("forma-theme") as Theme | null;
-    if (stored) {
-      setTheme(stored);
-    }
-  }, []);
 
-  // Resolve theme based on system preference
-  useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
-    const updateResolvedTheme = () => {
-      if (theme === "system") {
-        setResolvedTheme(mediaQuery.matches ? "dark" : "light");
-      } else {
-        setResolvedTheme(theme);
-      }
+    const updateTheme = () => {
+      const newTheme = mediaQuery.matches ? "dark" : "light";
+      setTheme(newTheme);
+      document.documentElement.setAttribute("data-theme", newTheme);
     };
 
-    updateResolvedTheme();
-    mediaQuery.addEventListener("change", updateResolvedTheme);
+    // Set initial theme
+    updateTheme();
 
-    return () => mediaQuery.removeEventListener("change", updateResolvedTheme);
-  }, [theme]);
+    // Listen for system preference changes
+    mediaQuery.addEventListener("change", updateTheme);
 
-  // Apply theme to document
+    return () => mediaQuery.removeEventListener("change", updateTheme);
+  }, []);
+
+  // Apply theme to document when it changes
   useEffect(() => {
     if (!mounted) return;
-
-    document.documentElement.setAttribute("data-theme", resolvedTheme);
-    localStorage.setItem("forma-theme", theme);
-  }, [resolvedTheme, theme, mounted]);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme, mounted]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme: theme }}>
       {children}
     </ThemeContext.Provider>
   );

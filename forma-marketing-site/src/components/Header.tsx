@@ -42,7 +42,7 @@ export function GridLogo({ size = 24, className }: { size?: number; className?: 
       {[1, 1, 1, 0.7, 0.7, 0.7, 0.4, 0.4, 0.4].map((opacity, i) => (
         <div
           key={i}
-          className="bg-forma-obsidian rounded-[1px]"
+          className="forma-logo-dot rounded-[1px]"
           style={{
             width: cellSize,
             height: cellSize,

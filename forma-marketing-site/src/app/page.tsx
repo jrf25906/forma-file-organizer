@@ -53,7 +53,7 @@ function GridLogo({ className = "", size = 48 }: { className?: string; size?: nu
       {[1, 1, 1, 0.7, 0.7, 0.7, 0.4, 0.4, 0.4].map((opacity, i) => (
         <div
           key={i}
-          className="bg-forma-obsidian rounded-[2px]"
+          className="forma-logo-dot"
           style={{
             width: cellSize,
             height: cellSize,
