@@ -1,5 +1,6 @@
 export { default as Navigation } from "./Navigation";
 export { default as Hero } from "./Hero";
+export { default as GridBackground } from "./GridBackground";
 export { default as LogoMarquee } from "./LogoMarquee";
 export { default as Features } from "./Features";
 export { default as UglyReality } from "./UglyReality";

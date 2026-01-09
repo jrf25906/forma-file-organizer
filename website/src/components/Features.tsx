@@ -100,11 +100,11 @@ function FeatureCard({
       animate={isInView ? { opacity: 1, y: 0, scale: 1 } : {}}
       transition={{
         type: "spring",
-        stiffness: 200,
-        damping: 20,
+        stiffness: 300,
+        damping: 25, // High damping = decisive, settled motion
         delay: index * 0.1,
       }}
-      whileHover={{ y: -8, transition: { type: "spring", stiffness: 400, damping: 15 } }}
+      whileHover={{ y: -6, transition: { type: "spring", stiffness: 400, damping: 28 } }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       className="group relative"
@@ -114,16 +114,16 @@ function FeatureCard({
         <motion.div
           className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} p-[1px] mb-6`}
           whileHover={{
-            scale: 1.1,
-            rotate: [0, -5, 5, 0],
+            scale: 1.05,
+            rotate: [0, -3, 3, 0],
           }}
-          transition={{ type: "spring", stiffness: 400, damping: 10 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
         >
           <div className="w-full h-full rounded-xl bg-forma-obsidian/80 flex items-center justify-center backdrop-blur-sm group-hover:bg-forma-obsidian/60 transition-colors">
             <motion.div
               initial={{ scale: 1 }}
-              whileHover={{ scale: 1.2, rotate: 10 }}
-              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
             >
               <feature.icon className={`w-6 h-6 text-forma-${feature.color}`} />
             </motion.div>
@@ -134,7 +134,7 @@ function FeatureCard({
         <motion.h3
           initial={{ opacity: 0, x: -10 }}
           animate={isInView ? { opacity: 1, x: 0 } : {}}
-          transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.1 + 0.2 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25, delay: index * 0.1 + 0.2 }}
           className="font-display font-bold text-xl text-forma-bone mb-3 group-hover:text-forma-steel-blue transition-colors"
         >
           {feature.title}
@@ -142,7 +142,7 @@ function FeatureCard({
         <motion.p
           initial={{ opacity: 0, x: -10 }}
           animate={isInView ? { opacity: 1, x: 0 } : {}}
-          transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.1 + 0.3 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25, delay: index * 0.1 + 0.3 }}
           className="text-forma-bone/60 leading-relaxed"
         >
           {feature.description}
@@ -156,7 +156,7 @@ function FeatureCard({
               opacity: isHovered ? 1 : 0,
               height: isHovered ? "auto" : 0,
             }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            transition={{ type: "spring", stiffness: 350, damping: 28 }}
             className="mt-4 pt-4 border-t border-white/10 overflow-hidden"
           >
             <DemoComponent />
@@ -168,7 +168,7 @@ function FeatureCard({
           className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${feature.gradient}`}
           initial={{ opacity: 0 }}
           whileHover={{ opacity: 0.08 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          transition={{ type: "spring", stiffness: 350, damping: 28 }}
           style={{ zIndex: -1 }}
         />
 
@@ -267,15 +267,15 @@ export default function Features() {
                 initial={{ opacity: 0, x: index === 0 ? -20 : 20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.2 + index * 0.15 }}
-                whileHover={{ scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 10 } }}
+                transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.2 + index * 0.15 }}
+                whileHover={{ scale: 1.01, transition: { type: "spring", stiffness: 400, damping: 28 } }}
                 whileTap={{ scale: 0.98 }}
                 className="flex items-start gap-4 group cursor-default"
               >
                 <motion.div
                   className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-white/10 transition-colors"
-                  whileHover={{ rotate: [0, -10, 10, 0] }}
-                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
                 >
                   <feature.icon className="w-5 h-5 text-forma-bone/70 group-hover:text-forma-steel-blue transition-colors" />
                 </motion.div>

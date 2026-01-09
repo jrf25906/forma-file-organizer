@@ -153,7 +153,7 @@ export default function Personas() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
           >
             <span className="w-2 h-2 rounded-full bg-forma-steel-blue animate-pulse" />
@@ -165,7 +165,7 @@ export default function Personas() {
           <motion.h2
             initial={{ opacity: 0, y: 30 }}
             animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.1 }}
             className="font-display font-bold text-4xl md:text-5xl text-forma-bone mb-6"
           >
             Built for People Who <span className="text-forma-sage">Care</span>
@@ -174,7 +174,7 @@ export default function Personas() {
           <motion.p
             initial={{ opacity: 0, y: 30 }}
             animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.2 }}
             className="text-lg text-forma-bone/60"
           >
             Not for a job title. For anyone whose files outgrow folders faster
@@ -187,7 +187,7 @@ export default function Personas() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
           className="mb-12"
         >
           <div
@@ -207,7 +207,7 @@ export default function Personas() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ type: "spring", stiffness: 350, damping: 28, delay: index * 0.05 }}
                 className={`relative flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full transition-all duration-300 overflow-hidden ${
                   activePersona.id === persona.id
                     ? `bg-forma-${persona.color}/20 border border-forma-${persona.color}/40`
@@ -252,7 +252,7 @@ export default function Personas() {
           key={activePersona.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          transition={{ type: "spring", stiffness: 350, damping: 28 }}
           className="glass-card-strong rounded-2xl overflow-hidden"
         >
           {/* Top - File Demo Animation */}
@@ -329,7 +329,7 @@ export default function Personas() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ delay: 0.3 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.3 }}
           className="text-center mt-16"
         >
           <p className="text-forma-bone/50 mb-6">
@@ -338,8 +338,9 @@ export default function Personas() {
           </p>
           <motion.a
             href="#pricing"
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
             className="inline-flex items-center gap-2 btn-primary text-forma-bone px-8 py-3"
           >
             Join the beta
