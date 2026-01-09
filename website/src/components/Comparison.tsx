@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useRef } from "react";
 import { useInView } from "framer-motion";
-import { Check, X, Minus } from "lucide-react";
+import { Check, X, Minus } from "@phosphor-icons/react";
 
 const comparisonFeatures = [
   {

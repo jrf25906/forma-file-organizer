@@ -2,7 +2,7 @@
 
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
-import { FolderOpen, FileText, CheckCircle2, RotateCcw } from "lucide-react";
+import { FolderOpen, FileText, CheckCircle, ArrowCounterClockwise } from "@phosphor-icons/react";
 import ParallaxOrb from "./ParallaxOrb";
 
 // Animated connection line with flowing particles
@@ -158,7 +158,7 @@ const steps = [
   },
   {
     number: "03",
-    icon: CheckCircle2,
+    icon: CheckCircle,
     title: "You Approve. It Executes.",
     description:
       "Nothing moves without your explicit permission. Review each change, accept all at once, or pick and choose. You stay in complete control.",
@@ -166,7 +166,7 @@ const steps = [
   },
   {
     number: "04",
-    icon: RotateCcw,
+    icon: ArrowCounterClockwise,
     title: "Undo Everything. Always.",
     description:
       "Full action history with one-click rollback. Made a mistake? Changed your mind? Every single move is reversible. Your files, your safety net.",
@@ -271,7 +271,7 @@ function StepVisual({ type }: { type: string }) {
               transition={{ type: "spring", stiffness: 400, damping: 15, delay: 0.3 + i * 0.15 }}
               className="w-6 h-6 rounded-full bg-forma-sage/20 flex items-center justify-center"
             >
-              <CheckCircle2 className="w-4 h-4 text-forma-sage" />
+              <CheckCircle className="w-4 h-4 text-forma-sage" />
             </motion.div>
             <div className="flex-1">
               <div className="text-sm text-forma-bone">{file.name}</div>
@@ -319,7 +319,7 @@ function StepVisual({ type }: { type: string }) {
             whileTap={{ scale: 0.95 }}
             className="px-3 py-1 rounded-lg bg-forma-steel-blue/20 text-xs text-forma-steel-blue flex items-center gap-1"
           >
-            <RotateCcw className="w-3 h-3" />
+            <ArrowCounterClockwise className="w-3 h-3" />
             Undo
           </motion.button>
         </motion.div>

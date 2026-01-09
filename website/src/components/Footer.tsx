@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Github, Twitter, Mail } from "lucide-react";
+import { GithubLogo, XLogo, Envelope } from "@phosphor-icons/react";
 
 const footerLinks = {
   product: [
@@ -24,9 +24,9 @@ const footerLinks = {
 };
 
 const socialLinks = [
-  { icon: Twitter, href: "https://twitter.com/formaapp", label: "Twitter" },
-  { icon: Github, href: "https://github.com/forma", label: "GitHub" },
-  { icon: Mail, href: "mailto:hello@forma.app", label: "Email" },
+  { icon: XLogo, href: "https://twitter.com/formaapp", label: "Twitter" },
+  { icon: GithubLogo, href: "https://github.com/forma", label: "GitHub" },
+  { icon: Envelope, href: "mailto:hello@forma.app", label: "Email" },
 ];
 
 export default function Footer() {

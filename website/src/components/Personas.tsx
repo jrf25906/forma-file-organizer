@@ -4,13 +4,13 @@ import { motion } from "framer-motion";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useInView } from "framer-motion";
 import {
-  Download,
-  FileStack,
-  BookOpen,
-  FileQuestion,
-  Inbox,
-  FolderSync,
-} from "lucide-react";
+  DownloadSimple,
+  Files,
+  BookOpenText,
+  FileMagnifyingGlass,
+  Tray,
+  ArrowsClockwise,
+} from "@phosphor-icons/react";
 import AnimatedStat from "./AnimatedStat";
 import PersonaFileDemo from "./PersonaFileDemo";
 import MorphingFileTypes from "./MorphingFileTypes";
@@ -20,7 +20,7 @@ import ParallaxOrb from "./ParallaxOrb";
 const personas = [
   {
     id: "downloads-chaos",
-    icon: Download,
+    icon: DownloadSimple,
     title: "Downloads Folder Hostage",
     subtitle: "When your productivity depends on a mess",
     painPoint:
@@ -34,7 +34,7 @@ const personas = [
   },
   {
     id: "version-hell",
-    icon: FileStack,
+    icon: Files,
     title: "Final_v2_FINAL_FOR-REAL.mov",
     subtitle: "Version control without the control",
     painPoint:
@@ -48,7 +48,7 @@ const personas = [
   },
   {
     id: "research-buried",
-    icon: BookOpen,
+    icon: BookOpenText,
     title: "Buried in PDFs",
     subtitle: "Research that disappears into folders",
     painPoint:
@@ -62,7 +62,7 @@ const personas = [
   },
   {
     id: "pitch-deck-founder",
-    icon: FileQuestion,
+    icon: FileMagnifyingGlass,
     title: "14 Pitch Decks, No Canonical",
     subtitle: "When every version might be 'the one'",
     painPoint:
@@ -76,7 +76,7 @@ const personas = [
   },
   {
     id: "inbox-overflow",
-    icon: Inbox,
+    icon: Tray,
     title: "Attachment Avalanche",
     subtitle: "Email attachments scattered everywhere",
     painPoint:
@@ -90,7 +90,7 @@ const personas = [
   },
   {
     id: "screenshot-graveyard",
-    icon: FolderSync,
+    icon: ArrowsClockwise,
     title: "Screenshot Archaeologist",
     subtitle: "Important captures lost in time",
     painPoint:

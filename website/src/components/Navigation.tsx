@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Sun, Moon } from "lucide-react";
+import { List, X, Sun, Moon } from "@phosphor-icons/react";
 import { useTheme } from "./ThemeProvider";
 
 const navLinks = [
@@ -108,7 +108,7 @@ export default function Navigation() {
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-menu"
             >
-              {mobileMenuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
+              {mobileMenuOpen ? <X size={24} aria-hidden="true" /> : <List size={24} aria-hidden="true" />}
             </button>
           </div>
         </div>

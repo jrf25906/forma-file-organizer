@@ -3,14 +3,14 @@
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
 import {
-  Sparkles,
+  Sparkle,
   Eye,
-  CheckCircle2,
-  RotateCcw,
-  Layers,
+  CheckCircle,
+  ArrowCounterClockwise,
+  Stack,
   HardDrive,
   ArrowDown,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import ParallaxOrb from "./ParallaxOrb";
 
 // Animated flowing connection between layers
@@ -187,11 +187,11 @@ function TrustIndicators() {
   const indicators = [
     { icon: Eye, label: "Preview First", description: "See before it moves" },
     {
-      icon: CheckCircle2,
+      icon: CheckCircle,
       label: "You Approve",
       description: "Nothing automatic",
     },
-    { icon: RotateCcw, label: "Always Reversible", description: "Undo anytime" },
+    { icon: ArrowCounterClockwise, label: "Always Reversible", description: "Undo anytime" },
   ];
 
   return (
@@ -241,7 +241,7 @@ export default function Architecture() {
         "Context from file types",
         "Your logic, your control",
       ],
-      icon: Sparkles,
+      icon: Sparkle,
       color: "rgb(91, 124, 153)", // steel-blue
       isMiddle: false,
     },
@@ -254,7 +254,7 @@ export default function Architecture() {
         "Waits for approval",
         "Maintains undo history",
       ],
-      icon: Layers,
+      icon: Stack,
       color: "rgb(122, 157, 126)", // sage
       isMiddle: true,
     },
@@ -307,7 +307,7 @@ export default function Architecture() {
             transition={{ type: "spring", stiffness: 100, damping: 15 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
           >
-            <Layers className="w-4 h-4 text-forma-sage" />
+            <Stack className="w-4 h-4 text-forma-sage" />
             <span className="text-sm font-medium text-forma-bone/80">
               A Layer, Not a Replacement
             </span>

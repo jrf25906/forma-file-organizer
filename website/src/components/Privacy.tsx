@@ -8,11 +8,11 @@ import {
   Cpu,
   Lock,
   Eye,
-  CloudOff,
+  CloudSlash,
   Fingerprint,
   HardDrive,
-  Server,
-} from "lucide-react";
+  Database,
+} from "@phosphor-icons/react";
 
 const privacyFeatures = [
   {
@@ -22,7 +22,7 @@ const privacyFeatures = [
       "All pattern detection and machine learning runs entirely on your Mac. Your files never leave your computer for processing.",
   },
   {
-    icon: CloudOff,
+    icon: CloudSlash,
     title: "No Cloud Required",
     description:
       "Forma works completely offline. No internet connection needed for any feature—your organization stays local.",
@@ -48,7 +48,7 @@ const techDetails = [
     value: "100% Local",
   },
   {
-    icon: Server,
+    icon: Database,
     label: "Data Uploaded",
     value: "Zero Bytes",
   },

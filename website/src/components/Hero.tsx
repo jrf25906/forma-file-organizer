@@ -1,15 +1,15 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowDown, Sparkles, FolderOpen, FileText, Image, FileSpreadsheet, Music, Video, Archive, Clock } from "lucide-react";
+import { ArrowDown, Sparkle, FolderOpen, FileText, Image, FileXls, MusicNote, Video, Archive, Clock } from "@phosphor-icons/react";
 import { useState, useEffect } from "react";
 
 // File types for the animation
 const scatteredFiles = [
   { id: 1, name: "IMG_2847.jpg", icon: Image, color: "warm-orange", x: -120, y: -80 },
   { id: 2, name: "report_final_v3.pdf", icon: FileText, color: "muted-blue", x: 80, y: -60 },
-  { id: 3, name: "budget_2024.xlsx", icon: FileSpreadsheet, color: "soft-green", x: -60, y: 40 },
-  { id: 4, name: "song_draft.mp3", icon: Music, color: "steel-blue", x: 100, y: 80 },
+  { id: 3, name: "budget_2024.xlsx", icon: FileXls, color: "soft-green", x: -60, y: 40 },
+  { id: 4, name: "song_draft.mp3", icon: MusicNote, color: "steel-blue", x: 100, y: 80 },
   { id: 5, name: "vacation_clip.mov", icon: Video, color: "warm-orange", x: -100, y: 100 },
   { id: 6, name: "project_backup.zip", icon: Archive, color: "sage", x: 60, y: -100 },
   { id: 7, name: "screenshot_423.png", icon: Image, color: "warm-orange", x: -40, y: -120 },
@@ -19,8 +19,8 @@ const scatteredFiles = [
 const organizedFolders = [
   { name: "Photos", icon: Image, color: "warm-orange", files: [1, 7] },
   { name: "Documents", icon: FileText, color: "muted-blue", files: [2, 8] },
-  { name: "Spreadsheets", icon: FileSpreadsheet, color: "soft-green", files: [3] },
-  { name: "Music", icon: Music, color: "steel-blue", files: [4] },
+  { name: "Spreadsheets", icon: FileXls, color: "soft-green", files: [3] },
+  { name: "Music", icon: MusicNote, color: "steel-blue", files: [4] },
   { name: "Videos", icon: Video, color: "warm-orange", files: [5] },
   { name: "Archives", icon: Archive, color: "sage", files: [6] },
 ];
@@ -75,7 +75,7 @@ export default function Hero() {
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-8"
             >
-              <Sparkles className="w-4 h-4 text-forma-sage" />
+              <Sparkle className="w-4 h-4 text-forma-sage" />
               <span className="text-sm font-medium text-forma-bone/80">
                 Preview-First Organization
               </span>
@@ -398,7 +398,7 @@ export default function Hero() {
             >
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-forma-sage/20 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-forma-sage" />
+                  <Sparkle className="w-4 h-4 text-forma-sage" />
                 </div>
                 <div>
                   <div className="text-xs text-forma-bone/50">Rule Matched</div>

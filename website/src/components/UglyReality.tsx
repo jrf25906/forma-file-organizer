@@ -2,7 +2,7 @@
 
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
-import { ArrowRight, Folder, FileVideo, Image, Camera } from "lucide-react";
+import { ArrowRight, Folder, FileVideo, Image, Camera } from "@phosphor-icons/react";
 import ParallaxOrb from "./ParallaxOrb";
 
 interface Transformation {

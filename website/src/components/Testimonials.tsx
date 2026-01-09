@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useRef, useState } from "react";
 import { useInView } from "framer-motion";
-import { Quote, ChevronLeft, ChevronRight, Star, Clock, HardDrive, FolderOpen, Zap } from "lucide-react";
+import { Quotes, CaretLeft, CaretRight, Star, Clock, HardDrive, FolderOpen, Lightning } from "@phosphor-icons/react";
 import TypewriterText from "./TypewriterText";
 import ParallaxOrb from "./ParallaxOrb";
 
@@ -38,7 +38,7 @@ const testimonials = [
     company: "Stripe",
     avatar: "EW",
     rating: 5,
-    stat: { value: "127", label: "rules created", icon: Zap },
+    stat: { value: "127", label: "rules created", icon: Lightning },
     highlight: "and counting",
   },
   {
@@ -156,7 +156,7 @@ export default function Testimonials() {
           >
             {/* Quote Icon */}
             <div className="absolute top-8 right-8 opacity-10">
-              <Quote className="w-24 h-24 text-forma-steel-blue" />
+              <Quotes className="w-24 h-24 text-forma-steel-blue" />
             </div>
 
             {/* Rating */}
@@ -230,7 +230,7 @@ export default function Testimonials() {
             onClick={prevTestimonial}
             className="w-12 h-12 rounded-full glass-card flex items-center justify-center text-forma-bone/60 hover:text-forma-bone transition-colors"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <CaretLeft className="w-5 h-5" />
           </motion.button>
 
           {/* Dots */}
@@ -254,7 +254,7 @@ export default function Testimonials() {
             onClick={nextTestimonial}
             className="w-12 h-12 rounded-full glass-card flex items-center justify-center text-forma-bone/60 hover:text-forma-bone transition-colors"
           >
-            <ChevronRight className="w-5 h-5" />
+            <CaretRight className="w-5 h-5" />
           </motion.button>
         </div>
 

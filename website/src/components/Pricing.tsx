@@ -2,7 +2,7 @@
 
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Sparkle } from "@phosphor-icons/react";
 import ParallaxOrb from "./ParallaxOrb";
 
 const plans = [
@@ -244,7 +244,7 @@ export default function Pricing() {
             transition={{ duration: 0.6 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
           >
-            <Sparkles className="w-4 h-4 text-forma-warm-orange" />
+            <Sparkle className="w-4 h-4 text-forma-warm-orange" />
             <span className="text-sm font-medium text-forma-bone/80">
               Simple Pricing
             </span>

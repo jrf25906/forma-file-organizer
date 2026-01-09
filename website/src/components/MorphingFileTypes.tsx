@@ -4,13 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FileImage,
   FileCode,
-  FileSpreadsheet,
+  FileXls,
   FileText,
   FileVideo,
   FileAudio,
   File,
-  FileArchive,
-} from "lucide-react";
+  FileZip,
+} from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 interface MorphingFileTypesProps {
@@ -30,7 +30,7 @@ const fileIconMap: Record<string, React.ComponentType<{ className?: string }>> =
   json: FileCode,
   sql: FileCode,
   log: FileText,
-  zip: FileArchive,
+  zip: FileZip,
   // Photography
   raw: FileImage,
   cr3: FileImage,
@@ -39,8 +39,8 @@ const fileIconMap: Record<string, React.ComponentType<{ className?: string }>> =
   // Documents
   pdf: FileText,
   docx: FileText,
-  xlsx: FileSpreadsheet,
-  csv: FileSpreadsheet,
+  xlsx: FileXls,
+  csv: FileXls,
   pptx: FileText,
   bib: FileText,
   md: FileCode,

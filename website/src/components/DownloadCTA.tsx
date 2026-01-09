@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useRef } from "react";
 import { useInView } from "framer-motion";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkle } from "@phosphor-icons/react";
 
 export default function DownloadCTA() {
   const ref = useRef(null);
@@ -33,7 +33,7 @@ export default function DownloadCTA() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-8"
           >
-            <Sparkles className="w-4 h-4 text-forma-sage" />
+            <Sparkle className="w-4 h-4 text-forma-sage" />
             <span className="text-sm font-medium text-forma-bone/80">
               Free to Get Started
             </span>
@@ -188,7 +188,7 @@ export default function DownloadCTA() {
                 }}
                 className="absolute -top-4 -right-4"
               >
-                <Sparkles className="w-6 h-6 text-forma-sage" />
+                <Sparkle className="w-6 h-6 text-forma-sage" />
               </motion.div>
 
               <motion.div
@@ -206,7 +206,7 @@ export default function DownloadCTA() {
                 }}
                 className="absolute -bottom-2 -left-6"
               >
-                <Sparkles className="w-5 h-5 text-forma-warm-orange" />
+                <Sparkle className="w-5 h-5 text-forma-warm-orange" />
               </motion.div>
 
               <motion.div
@@ -223,7 +223,7 @@ export default function DownloadCTA() {
                 }}
                 className="absolute top-1/2 -right-8"
               >
-                <Sparkles className="w-4 h-4 text-forma-steel-blue" />
+                <Sparkle className="w-4 h-4 text-forma-steel-blue" />
               </motion.div>
             </motion.div>
           </motion.div>

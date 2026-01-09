@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useRef, useState } from "react";
 import { useInView } from "framer-motion";
-import { Plus, Minus, HelpCircle } from "lucide-react";
+import { Plus, Minus, Question } from "@phosphor-icons/react";
 
 const faqs = [
   {
@@ -137,7 +137,7 @@ export default function FAQ() {
             transition={{ duration: 0.6 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
           >
-            <HelpCircle className="w-4 h-4 text-forma-muted-blue" />
+            <Question className="w-4 h-4 text-forma-muted-blue" weight="bold" />
             <span className="text-sm font-medium text-forma-bone/80">
               Got Questions?
             </span>

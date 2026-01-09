@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { File, FolderOpen, ArrowRight, Undo2 } from "lucide-react";
+import { File, FolderOpen, ArrowRight, ArrowUUpLeft } from "@phosphor-icons/react";
 
 // Each feature gets a unique mini-animation on hover
 export function SmartRulesDemo() {
@@ -212,7 +212,7 @@ export function SafeReversibleDemo() {
           animate={{ rotate: [0, 0, -10, 10, 0] }}
           transition={{ duration: 2, repeat: Infinity, times: [0, 0.5, 0.6, 0.7, 1] }}
         >
-          <Undo2 className="w-4 h-4 text-forma-steel-blue" />
+          <ArrowUUpLeft className="w-4 h-4 text-forma-steel-blue" />
         </motion.div>
       </motion.div>
 

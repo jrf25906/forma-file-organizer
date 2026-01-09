@@ -3,21 +3,21 @@
 import { motion, useInView } from "framer-motion";
 import { useRef, useState } from "react";
 import {
-  Wand2,
-  Puzzle,
-  BarChart3,
-  FolderSearch,
-  Zap,
+  MagicWand,
+  PuzzlePiece,
+  ChartBar,
+  MagnifyingGlass,
+  Lightning,
   Shield,
-  Layers,
+  Stack,
   Clock,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { featureDemos } from "./FeatureMiniDemo";
 import ParallaxOrb from "./ParallaxOrb";
 
 const features = [
   {
-    icon: Wand2,
+    icon: MagicWand,
     title: "Declarative Rule Builder",
     description:
       "Create organization rules with conditions based on file type, name, date, size, and more. Define your intent in plain language — Forma executes it precisely.",
@@ -25,7 +25,7 @@ const features = [
     gradient: "from-forma-steel-blue to-forma-muted-blue",
   },
   {
-    icon: Puzzle,
+    icon: PuzzlePiece,
     title: "Pattern Matching",
     description:
       "Forma infers structure from file extensions, naming patterns, dates, and sizes. Correct a suggestion once — Forma adapts.",
@@ -33,7 +33,7 @@ const features = [
     gradient: "from-forma-sage to-forma-soft-green",
   },
   {
-    icon: BarChart3,
+    icon: ChartBar,
     title: "Storage Analytics",
     description:
       "Visualize your file organization health with detailed analytics. Track trends, identify problem areas, and celebrate your progress.",
@@ -41,7 +41,7 @@ const features = [
     gradient: "from-forma-warm-orange to-forma-muted-blue",
   },
   {
-    icon: FolderSearch,
+    icon: MagnifyingGlass,
     title: "Duplicate Detection",
     description:
       "Find and manage duplicate files across your system. Reclaim gigabytes of storage with content-based similarity matching.",
@@ -49,7 +49,7 @@ const features = [
     gradient: "from-forma-muted-blue to-forma-steel-blue",
   },
   {
-    icon: Zap,
+    icon: Lightning,
     title: "Instant Organization",
     description:
       "Review and approve file movements in batches. One click organizes dozens of files while you stay in complete control.",
@@ -68,7 +68,7 @@ const features = [
 
 const secondaryFeatures = [
   {
-    icon: Layers,
+    icon: Stack,
     title: "Natural Language Rules",
     description: "Create rules by typing naturally: 'Move PDFs older than 30 days to Archives'",
   },
