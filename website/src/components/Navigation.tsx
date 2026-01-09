@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { List, X, Sun, Moon } from "@phosphor-icons/react";
 import { useTheme } from "./ThemeProvider";
 
 const navLinks = [
-  { name: "Features", href: "#features" },
-  { name: "How It Works", href: "#how-it-works" },
   { name: "Pricing", href: "#pricing" },
   { name: "FAQ", href: "#faq" },
 ];
@@ -31,29 +28,20 @@ export default function Navigation() {
 
   return (
     <>
-      <motion.nav
+      <nav
         aria-label="Main navigation"
-        initial={{ y: -100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          scrolled ? "py-3" : "py-5"
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          scrolled ? "py-3 bg-forma-obsidian/80 backdrop-blur-sm" : "py-5"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-6">
-          <div
-            className={`flex items-center justify-between transition-all duration-500 ${
-              scrolled
-                ? "glass-card rounded-2xl px-6 py-3"
-                : "bg-transparent"
-            }`}
-          >
+        <div className="max-w-2xl mx-auto px-6">
+          <div className="flex items-center justify-between">
             {/* Logo */}
-            <a href="#" className="flex items-center gap-3 group">
+            <a href="#" className="flex items-center gap-3">
               <img
                 src="/logo-mark-light.svg"
                 alt="Forma"
-                className="w-8 h-8 group-hover:opacity-90 transition-opacity duration-300"
+                className="w-8 h-8"
               />
               <span className="font-display font-bold text-xl text-forma-bone">
                 Forma
@@ -66,128 +54,74 @@ export default function Navigation() {
                 <a
                   key={link.name}
                   href={link.href}
-                  className="text-forma-bone/70 hover:text-forma-bone font-medium transition-colors duration-300 relative group"
+                  className="text-forma-bone/60 hover:text-forma-bone transition-colors"
                 >
                   {link.name}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-forma-steel-blue group-hover:w-full transition-all duration-300" />
                 </a>
               ))}
-            </div>
 
-            {/* Theme Toggle + CTA Button */}
-            <div className="hidden md:flex items-center gap-4">
-              <motion.button
+              <button
                 onClick={toggleTheme}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="p-2.5 rounded-xl glass-card text-forma-bone/70 hover:text-forma-bone transition-colors"
+                className="p-2 text-forma-bone/60 hover:text-forma-bone transition-colors"
                 aria-label="Toggle theme"
               >
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={resolvedTheme}
-                    initial={{ y: -10, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 10, opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    {resolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-                  </motion.div>
-                </AnimatePresence>
-              </motion.button>
-              <a href="#download" className="btn-primary text-forma-bone">
-                Download Free
-              </a>
+                {resolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
             </div>
 
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 text-forma-bone"
-              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
-              aria-controls="mobile-menu"
             >
-              {mobileMenuOpen ? <X size={24} aria-hidden="true" /> : <List size={24} aria-hidden="true" />}
+              {mobileMenuOpen ? <X size={24} /> : <List size={24} />}
             </button>
           </div>
         </div>
-      </motion.nav>
+      </nav>
 
       {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            id="mobile-menu"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Navigation menu"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 md:hidden"
-          >
-            <div
-              className="absolute inset-0 bg-forma-obsidian/90 backdrop-blur-xl"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="absolute right-0 top-0 bottom-0 w-72 glass-card-strong p-6 pt-24"
-            >
-              <div className="flex flex-col gap-4">
-                {navLinks.map((link, i) => (
-                  <motion.a
-                    key={link.name}
-                    href={link.href}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-forma-bone/80 hover:text-forma-bone font-display font-medium text-lg py-3 border-b border-white/10"
-                  >
-                    {link.name}
-                  </motion.a>
-                ))}
-                <motion.a
-                  href="#download"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 }}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div
+            className="absolute inset-0 bg-forma-obsidian/95"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="absolute right-0 top-0 bottom-0 w-64 bg-forma-obsidian p-6 pt-20">
+            <div className="flex flex-col gap-4">
+              {navLinks.map((link) => (
+                <a
+                  key={link.name}
+                  href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="btn-primary text-forma-bone text-center mt-4"
+                  className="text-forma-bone/70 hover:text-forma-bone text-lg py-2"
                 >
-                  Download Free
-                </motion.a>
+                  {link.name}
+                </a>
+              ))}
 
-                {/* Theme Toggle in Mobile */}
-                <motion.button
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 }}
-                  onClick={toggleTheme}
-                  className="flex items-center justify-center gap-3 py-3 mt-2 glass-card rounded-xl text-forma-bone/70 hover:text-forma-bone transition-colors"
-                >
-                  {resolvedTheme === "dark" ? (
-                    <>
-                      <Sun size={18} />
-                      <span>Light Mode</span>
-                    </>
-                  ) : (
-                    <>
-                      <Moon size={18} />
-                      <span>Dark Mode</span>
-                    </>
-                  )}
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <button
+                onClick={toggleTheme}
+                className="flex items-center gap-3 py-2 text-forma-bone/70 hover:text-forma-bone"
+              >
+                {resolvedTheme === "dark" ? (
+                  <>
+                    <Sun size={18} />
+                    <span>Light Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon size={18} />
+                    <span>Dark Mode</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
