@@ -33,6 +33,12 @@ struct MainContentView: View {
         // DashboardViewModel state rather than a local @Query.
     }
     
+    /// Whether the floating action bar should be displayed
+    private var shouldShowFAB: Bool {
+        dashboardViewModel.isSelectionMode ||
+        (dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.reviewableFiles.isEmpty)
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) { // Use ZStack as root for overlay alignment
             VStack(alignment: .leading, spacing: 0) {
@@ -506,7 +512,7 @@ struct MainContentView: View {
                 .id(dashboardViewModel.contentSearchResultsCount)
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
-            .padding(.bottom, FormaSpacing.huge + FormaSpacing.extraLarge + FormaSpacing.tight) // Add padding for floating action bar
+            .padding(.bottom, shouldShowFAB ? FormaSpacing.huge + FormaSpacing.extraLarge : FormaSpacing.generous)
         }
         .frame(maxHeight: .infinity) // Fill available space
         .background(Color.clear)
@@ -519,7 +525,7 @@ struct MainContentView: View {
                 listViewContent
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
-            .padding(.bottom, FormaSpacing.huge + FormaSpacing.extraLarge + FormaSpacing.tight)
+            .padding(.bottom, shouldShowFAB ? FormaSpacing.huge + FormaSpacing.extraLarge : FormaSpacing.generous)
         }
         .frame(maxHeight: .infinity)
         .background(Color.clear)
@@ -634,7 +640,7 @@ struct MainContentView: View {
                 .id(dashboardViewModel.contentSearchResultsCount)
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
-            .padding(.bottom, FormaSpacing.huge + FormaSpacing.extraLarge + FormaSpacing.tight) // Add padding for floating action bar
+            .padding(.bottom, shouldShowFAB ? FormaSpacing.huge + FormaSpacing.extraLarge : FormaSpacing.generous)
         }
         .frame(maxHeight: .infinity) // Fill available space
         .background(Color.clear)

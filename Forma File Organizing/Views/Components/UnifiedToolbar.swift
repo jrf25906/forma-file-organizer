@@ -35,10 +35,10 @@ struct UnifiedToolbar: View {
     @EnvironmentObject var viewModel: DashboardViewModel
     @Binding var showKeyboardHelp: Bool
     @Namespace private var animation
-    @Namespace private var filterGlassNamespace
 
     // Local state for dropdown visibility
     @State private var showGrouping: Bool = false
+    @State private var isToolbarHovered: Bool = false
     
     // Calculate compression level based on available width
     private var compressionLevel: CompressionLevel {
@@ -47,11 +47,10 @@ struct UnifiedToolbar: View {
         else { return .compact }
     }
     
-    // Compression logic for Row 2 buttons
+    // Compression logic for grouping row buttons
     private var shouldCompressGrouping: Bool {
-        // Compress grouping when filters are visible AND space is tight
-        // (grouping not actively expanded, but filters are showing)
-        return viewModel.reviewFilterMode == .all && !showGrouping && availableWidth < 650
+        // Compress when space is tight and grouping row is visible
+        return viewModel.reviewFilterMode == .all && availableWidth < 650
     }
 
     var body: some View {
@@ -70,31 +69,21 @@ struct UnifiedToolbar: View {
             .frame(maxWidth: .infinity)
             .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
 
-            // Secondary row - ALWAYS 48px, content visibility controlled via opacity
-            // Key: Use ZStack with fixed frame so the container size never changes
-            ZStack {
-                // Filter options (left side) - always laid out, visibility via opacity
-                HStack {
-                    filterOptionsRow
-                    Spacer()
-                }
-                .opacity(viewModel.reviewFilterMode == .all ? 1 : 0)
-                .allowsHitTesting(viewModel.reviewFilterMode == .all)
-
-                // Grouping options (right side) - always laid out, visibility via opacity
+            // Secondary row - only shows grouping options when expanded
+            if showGrouping {
                 HStack {
                     Spacer()
                     groupingOptionsRow
                 }
-                .opacity(showGrouping ? 1 : 0)
-                .allowsHitTesting(showGrouping)
+                .frame(height: FormaLayout.Toolbar.secondaryRowHeight)
+                .frame(maxWidth: .infinity)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            .frame(height: FormaLayout.Toolbar.secondaryRowHeight)
-            .frame(maxWidth: .infinity)
-            .animation(.easeInOut(duration: 0.15), value: viewModel.reviewFilterMode)
-            .animation(.easeInOut(duration: 0.15), value: showGrouping)
         }
         .frame(maxWidth: .infinity)
+        .onHover { hovering in
+            isToolbarHovered = hovering
+        }
     }
 
     private var centeredPills: some View {
@@ -130,15 +119,6 @@ struct UnifiedToolbar: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
 
-            Button(action: { showKeyboardHelp = true }) {
-                Image(systemName: "questionmark.circle")
-                    .font(.formaBodyLarge)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Keyboard Shortcuts (?)")
-
             // Right Panel Toggle
             Button(action: {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -157,6 +137,19 @@ struct UnifiedToolbar: View {
             }
             .buttonStyle(.plain)
             .help("Toggle Inspector (⌘I)")
+
+            // Help button - only visible on hover, positioned at far right
+            if isToolbarHovered {
+                Button(action: { showKeyboardHelp = true }) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.formaBodyLarge)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Keyboard Shortcuts (?)")
+                .transition(.opacity)
+            }
         }
     }
     
@@ -199,14 +192,14 @@ struct UnifiedToolbar: View {
 
     private var rightPill: some View {
         HStack(spacing: compressionLevel.spacing) {
-            // View Type Section - contracts to icon-only when grouping is expanded
+            // View Type Section - always icon-only for cleaner toolbar
             HStack(spacing: 4) {
                 ViewTypeButton(
                     isActive: viewModel.currentViewMode == .grid,
                     icon: "square.grid.2x2",
                     label: "Grid",
                     namespace: animation,
-                    compact: showGrouping
+                    compact: true  // Always icon-only
                 ) {
                     viewModel.currentViewMode = .grid
                 }
@@ -217,7 +210,7 @@ struct UnifiedToolbar: View {
                     icon: "list.bullet",
                     label: "List",
                     namespace: animation,
-                    compact: showGrouping
+                    compact: true  // Always icon-only
                 ) {
                     viewModel.currentViewMode = .list
                 }
@@ -228,7 +221,7 @@ struct UnifiedToolbar: View {
                     icon: "rectangle.grid.1x2",
                     label: "Tile",
                     namespace: animation,
-                    compact: showGrouping
+                    compact: true  // Always icon-only
                 ) {
                     viewModel.currentViewMode = .card
                 }
@@ -239,101 +232,30 @@ struct UnifiedToolbar: View {
 
             // Grouping section - only show in All Files mode
             if viewModel.reviewFilterMode == .all {
-                Divider()
-                    .frame(height: 24)
-
-                // Grouping Toggle - icon only when collapsed, expands with label when active
+                // Grouping Toggle - icon-only, opens options row below
                 Button(action: {
                     showGrouping.toggle()
                 }) {
-                    HStack(spacing: showGrouping ? 6 : 0) {
-                        Image(systemName: "square.stack.3d.up")
-                            .font(.formaBodyLarge)
-
-                        if showGrouping {
-                            Text("Grouping")
-                                .font(.formaBody)
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                                .transition(.opacity.combined(with: .scale(scale: 0.8)))
-
-                            Image(systemName: "chevron.up")
-                                .font(.formaCaptionSemibold)
-                                .transition(.opacity)
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.formaBodyLarge)
+                        .padding(.horizontal, FormaSpacing.tight + (FormaSpacing.micro / 2))
+                        .frame(height: 36)
+                        .foregroundColor(showGrouping ? .formaLabel : .formaSecondaryLabel)
+                        .background {
+                            ToolbarGlassyCapsuleBackground(
+                                tint: showGrouping ? Color.formaSteelBlue : nil,
+                                cornerRadius: 18
+                            )
                         }
-                    }
-                    .padding(.horizontal, showGrouping ? (FormaSpacing.standard - FormaSpacing.micro) : (FormaSpacing.tight + (FormaSpacing.micro / 2)))
-                    .frame(height: 36)
-                    // foregroundColor MUST come before background for proper glass blending
-                    .foregroundColor(showGrouping ? .formaLabel : .formaSecondaryLabel)
-                    .background {
-                        ToolbarGlassyCapsuleBackground(
-                            tint: showGrouping ? Color.formaSteelBlue : nil,
-                            cornerRadius: 18
-                        )
-                    }
                 }
                 .buttonStyle(.plain)
+                .help("Group files")
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
         .animation(.easeInOut(duration: 0.2), value: viewModel.reviewFilterMode)
     }
 
-    // MARK: - Filter Options Row (Left-aligned second row)
-    private var filterOptionsRow: some View {
-        Group {
-            if #available(macOS 26.0, *) {
-                GlassEffectContainer(spacing: 4) {
-                    HStack(spacing: 4) {
-                        filterTabsContent
-                    }
-                }
-                .padding(.horizontal, FormaSpacing.tight)
-            } else {
-                HStack(spacing: 4) {
-                    filterTabsContent
-                }
-                .padding(.horizontal, FormaSpacing.tight)
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private var filterTabsContent: some View {
-        SecondaryFilterTab(
-            filter: .none,
-            isSelected: viewModel.selectedSecondaryFilter == .none,
-            glassNamespace: filterGlassNamespace
-        ) {
-            viewModel.selectedSecondaryFilter = .none
-        }
-        
-        SecondaryFilterTab(
-            filter: .recent,
-            isSelected: viewModel.selectedSecondaryFilter == .recent,
-            glassNamespace: filterGlassNamespace
-        ) {
-            viewModel.selectedSecondaryFilter = .recent
-        }
-        
-        SecondaryFilterTab(
-            filter: .flagged,
-            isSelected: viewModel.selectedSecondaryFilter == .flagged,
-            glassNamespace: filterGlassNamespace
-        ) {
-            viewModel.selectedSecondaryFilter = .flagged
-        }
-        
-        SecondaryFilterTab(
-            filter: .largeFiles,
-            isSelected: viewModel.selectedSecondaryFilter == .largeFiles,
-            glassNamespace: filterGlassNamespace
-        ) {
-            viewModel.selectedSecondaryFilter = .largeFiles
-        }
-    }
-    
     // MARK: - Grouping Options Row (Right-aligned second row)
     private var groupingOptionsRow: some View {
         HStack(spacing: 4) {

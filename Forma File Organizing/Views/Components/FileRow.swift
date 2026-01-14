@@ -81,6 +81,7 @@ struct FileRow: View {
                 .fill(file.category.color.opacity(Color.FormaOpacity.prominent))
                 .frame(width: categoryBorderWidth)
                 .padding(.vertical, FormaSpacing.standard)
+                .help("Category: \(file.category.displayName)")
 
             HStack(spacing: FormaSpacing.standard) {
                 // Selection Checkbox - appears on hover/selection
@@ -93,10 +94,10 @@ struct FileRow: View {
                     .frame(width: 24)
                 }
 
-                // Premium Thumbnail
+                // Premium Thumbnail (compact)
                 FormaThumbnail.premium(
                     file: file,
-                    size: 84,
+                    size: 68,
                     isSelected: isSelected,
                     showQuickLook: showQuickLookHint,
                     onQuickLook: { onQuickLook?(file) },
@@ -167,49 +168,33 @@ struct FileRow: View {
                     }
                 }
 
-                // Tertiary: Metadata + Status (Context-Rich)
+                // Tertiary: Compact metadata line
                 HStack(spacing: FormaSpacing.tight) {
-                    // Status pill
-                    FormaStatusPill(status: file.status)
-
-                    // Contextual Metadata Group
-                    HStack(spacing: 6) {
-                        // 1. File Type Badge
-                        Text(file.fileExtension.uppercased())
-                            .font(.formaSmallMedium)
-                            .foregroundStyle(file.category.color)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(file.category.color.opacity(Color.FormaOpacity.light))
-                            .clipShape(Capsule())
-
-                        Text("•")
-                            .font(.formaCaption)
-                            .foregroundStyle(Color.formaTertiaryLabel.opacity(Color.FormaOpacity.strong))
-
-                        // 2. The "Reason" or Context (Key Improvement)
-                        if let reason = file.matchReason {
-                            // If we have a specific match reason (e.g. "Duplicate", "Pattern Match")
-                            HStack(spacing: 4) {
-                                Image(systemName: "sparkles")
-                                    .font(.formaMicro)
-                                Text(reason)
-                                    .font(.formaCompact)
-                            }
-                            .foregroundStyle(Color.formaSteelBlue)
-                        } else {
-                            // Fallback: Age Context (Why is it pending? "Old Download")
-                            Text(ageContextText)
-                                .font(.formaCompact)
-                                .foregroundStyle(file.ageColor)
-                        }
-                        
-                        // 3. Size (Less prominent now, only if space allows or as secondary)
-                        // User feedback: "Reason... is more important than size"
-                        // We'll hide size in this compact view to reduce noise,
-                        // or just show it very subtly if needed.
+                    // Status pill (only show if not pending, since context already implies pending)
+                    if file.status != .pending {
+                        FormaStatusPill(status: file.status)
                     }
-                    .opacity(isHovered ? 1 : 0.8)
+
+                    // Consolidated metadata: .ext · age · reason
+                    HStack(spacing: 0) {
+                        Text(".\(file.fileExtension.lowercased())")
+                            .foregroundStyle(Color.formaSecondaryLabel)
+
+                        Text(" · ")
+                            .foregroundStyle(Color.formaTertiaryLabel)
+
+                        Text(compactAgeText)
+                            .foregroundStyle(file.ageColor)
+
+                        // Show match reason if available
+                        if let reason = file.matchReason {
+                            Text(" · ")
+                                .foregroundStyle(Color.formaTertiaryLabel)
+                            Text(reason)
+                                .foregroundStyle(Color.formaSteelBlue)
+                        }
+                    }
+                    .font(.formaCompact)
                 }
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
 
@@ -261,7 +246,7 @@ struct FileRow: View {
         }
         .padding(.leading, FormaSpacing.tight)
         .padding(.vertical, FormaSpacing.standard)
-        .frame(height: 120)
+        .frame(height: 100)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
         .overlay(cardBorder)
@@ -295,6 +280,14 @@ struct FileRow: View {
         if age > 604800 { return "Over 7 days old" }   // 7 days
         if age > 86400 { return "Yesterday" }
         return "New today"
+    }
+
+    /// Compact age display: "32d", "7d", "1d", "today"
+    private var compactAgeText: String {
+        let days = Calendar.current.dateComponents([.day], from: file.creationDate, to: Date()).day ?? 0
+        if days > 1 { return "\(days)d" }
+        if days == 1 { return "1d" }
+        return "today"
     }
 
     private var cardBackground: some View {

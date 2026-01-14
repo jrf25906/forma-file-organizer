@@ -214,7 +214,9 @@ struct FormaStatusPill: View {
     private var config: (text: String, icon: String, color: Color) {
         switch status {
         case .pending:
-            return ("Needs Destination", "questionmark.circle", .formaWarmOrange)
+            // Using muted blue instead of warm orange - calmer "needs attention" state
+            // that doesn't feel alarming or compete with media category color
+            return ("Needs Destination", "questionmark.circle", .formaTertiaryLabel)
         case .ready:
             return ("Ready", "checkmark.circle", .formaSage)
         case .completed:

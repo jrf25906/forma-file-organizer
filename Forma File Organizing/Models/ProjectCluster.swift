@@ -141,8 +141,10 @@ final class ProjectCluster {
     /// Description for UI display
     var displayDescription: String {
         let fileWord = fileCount == 1 ? "file" : "files"
-        
-        if let pattern = detectedPattern {
+
+        // Only show the pattern if it's meaningful to users
+        // Skip raw numeric IDs that don't have recognizable structure
+        if let pattern = detectedPattern, isDisplayablePattern(pattern) {
             return "\(fileCount) \(fileWord) related to \"\(pattern)\""
         } else {
             switch clusterType {
@@ -156,6 +158,30 @@ final class ProjectCluster {
                 return "\(fileCount) \(fileWord) from the same date"
             }
         }
+    }
+
+    /// Check if a pattern is meaningful enough to display to users
+    /// Filters out raw numeric IDs that look like internal identifiers
+    private func isDisplayablePattern(_ pattern: String) -> Bool {
+        // Date patterns are always displayable (YYYY-MM-DD, MM-DD-YYYY)
+        if pattern.contains("-") && pattern.count >= 8 {
+            return true
+        }
+
+        // Project codes with letters are displayable (P-1024, JIRA-456)
+        if pattern.contains(where: { $0.isLetter }) {
+            return true
+        }
+
+        // Pure numeric strings need to look like dates to be displayable
+        // 8 digits starting with 20 or 19 (years 1900-2099)
+        if pattern.count == 8 && pattern.allSatisfy({ $0.isNumber }) {
+            let prefix = String(pattern.prefix(2))
+            return prefix == "20" || prefix == "19"
+        }
+
+        // Otherwise, don't show raw numeric patterns
+        return false
     }
     
     // MARK: - Methods
