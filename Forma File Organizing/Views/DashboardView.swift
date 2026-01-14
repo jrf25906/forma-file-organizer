@@ -83,9 +83,11 @@ struct DashboardView: View {
                     let interPaneSpacing = FormaLayout.Dashboard.interPaneSpacing
                     let sidebarSpacerWidth = max(0, sidebarWidth - interPaneSpacing)
                     let sidebarEdgeInset = FormaLayout.FloatingCard.edgeInset
+                    let rightPanelEdgeInset = FormaLayout.RightPanel.edgeInset
+                    // Right panel overlay handles its own padding; no extra inset needed here
                     let availableWidth = geometry.size.width - sidebarWidth - (shouldShowRightPanel ? rightPanelWidth : 0) - (shouldShowRightPanel ? interPaneSpacing : 0)
 
-                    // ZStack layout with sidebar overlay (Xcode/ChatGPT-style)
+                    // ZStack layout with sidebar and right panel overlays (Xcode/ChatGPT-style)
                     ZStack(alignment: .topLeading) {
                         // Background layer - focus-aware glass/gradient
                         PrimaryBackgroundView()
@@ -113,18 +115,10 @@ struct DashboardView: View {
                                 .frame(minWidth: availableWidth, idealWidth: availableWidth, maxWidth: availableWidth, maxHeight: .infinity)
                             }
 
-                            // Right Panel (conditionally shown)
+                            // Spacer for right panel area (when visible)
                             if shouldShowRightPanel {
-                                RightPanelView()
-                                    .frame(
-                                        minWidth: FormaLayout.Dashboard.rightPanelMinWidth,
-                                        idealWidth: FormaLayout.Dashboard.rightPanelIdealWidth,
-                                        maxWidth: FormaLayout.Dashboard.rightPanelMaxWidth
-                                    )
-                                    .padding(.top, FormaLayout.RightPanel.edgeInset)
-                                    .padding(.bottom, FormaLayout.RightPanel.edgeInset)
-                                    .padding(.trailing, FormaLayout.RightPanel.edgeInset)
-                                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                                Color.clear
+                                    .frame(width: rightPanelWidth)
                             }
                         }
                         .opacity(nav.isShowingRuleEditor ? 0.5 : 1.0)
@@ -141,6 +135,20 @@ struct DashboardView: View {
                         )
                         .padding(.horizontal, sidebarEdgeInset)
                         .padding(.vertical, sidebarEdgeInset)
+
+                        // Right Panel overlay - floating panel (matches sidebar style)
+                        if shouldShowRightPanel {
+                            HStack(spacing: 0) {
+                                Spacer()
+                                RightPanelView()
+                                    .frame(
+                                        width: max(0, rightPanelWidth - (rightPanelEdgeInset * 2)),
+                                        height: max(0, geometry.size.height - (rightPanelEdgeInset * 2))
+                                    )
+                            }
+                            .padding(rightPanelEdgeInset)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
 
 
                     }

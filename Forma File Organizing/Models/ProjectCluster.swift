@@ -142,6 +142,16 @@ final class ProjectCluster {
     var displayDescription: String {
         let fileWord = fileCount == 1 ? "file" : "files"
 
+        // Handle dateStamp clusters with the actual date
+        if clusterType == .dateStamp, let datePattern = detectedPattern {
+            if let formattedDate = formatDatePattern(datePattern) {
+                return "\(fileCount) \(fileWord) from \(formattedDate)"
+            } else {
+                // Date parsing failed - fall back to generic message
+                return "\(fileCount) \(fileWord) from the same date"
+            }
+        }
+
         // Only show the pattern if it's meaningful to users
         // Skip raw numeric IDs that don't have recognizable structure
         if let pattern = detectedPattern, isDisplayablePattern(pattern) {
@@ -158,6 +168,35 @@ final class ProjectCluster {
                 return "\(fileCount) \(fileWord) from the same date"
             }
         }
+    }
+
+    /// Format a date pattern into a readable date string
+    /// Converts "2024-01-15" or "20240115" to "Jan 15, 2024"
+    /// Returns nil if the pattern cannot be parsed as a valid date
+    private func formatDatePattern(_ pattern: String) -> String? {
+        let inputFormatters = [
+            "yyyy-MM-dd",  // 2024-01-15
+            "yyyyMMdd",    // 20240115
+            "MM-dd-yyyy"   // 01-15-2024
+        ]
+
+        for format in inputFormatters {
+            let formatter = DateFormatter()
+            formatter.dateFormat = format
+            if let date = formatter.date(from: pattern) {
+                // Validate the date is reasonable (between 1990 and 2100)
+                let year = Calendar.current.component(.year, from: date)
+                guard year >= 1990 && year <= 2100 else { continue }
+
+                let outputFormatter = DateFormatter()
+                outputFormatter.dateStyle = .medium
+                outputFormatter.timeStyle = .none
+                return outputFormatter.string(from: date)
+            }
+        }
+
+        // If parsing fails, return nil
+        return nil
     }
 
     /// Check if a pattern is meaningful enough to display to users

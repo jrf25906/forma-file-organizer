@@ -36,14 +36,12 @@ struct DefaultPanelView: View {
             VStack(alignment: .leading, spacing: FormaSpacing.large) {
                 // Hero Section: Greeting + Progress Bar
                 heroSection
-                    .padding(.top, FormaSpacing.generous)
 
                 // Primary Action (pinned)
                 pinnedPrimaryAction
             }
             .padding(.horizontal, FormaSpacing.generous)
-            .padding(.bottom, FormaSpacing.standard)
-            .background(.regularMaterial)
+            .padding(.vertical, FormaSpacing.standard)
             
             // Subtle separator
             Rectangle()
@@ -143,15 +141,6 @@ struct DefaultPanelView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(FormaSpacing.standard)
-        .background(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle * 2), lineWidth: 1)
-        )
     }
 
     // MARK: - Task Description (Dynamic)
@@ -461,11 +450,11 @@ struct DefaultPanelView: View {
                     .frame(maxWidth: .infinity)
                     .background(
                         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                            .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.ultraSubtle * 2))
+                            .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                            .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.ultraSubtle * 4), lineWidth: 1)
+                            .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.light), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -679,13 +668,16 @@ struct QuickActionCard: View {
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .fill(
                     isHovered
-                        ? Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle * 2)
-                        : Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle)
+                        ? Color.formaObsidian.opacity(Color.FormaOpacity.light)
+                        : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
                 )
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(isHovered ? 0.1 : 0.06), lineWidth: 1)
+                .strokeBorder(
+                    Color.formaObsidian.opacity(isHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light),
+                    lineWidth: 1
+                )
         )
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.15)) {

@@ -189,6 +189,37 @@ extension NSColor {
     static let formaSoftGreen = NSColor(red: 139/255, green: 166/255, blue: 136/255, alpha: 1.0)
 }
 
+// MARK: - Color Blending
+
+extension Color {
+    /// Blend this color with another color at a given ratio
+    /// - Parameters:
+    ///   - other: The color to blend with
+    ///   - ratio: 0.0 = this color, 1.0 = other color
+    /// - Returns: A new blended color
+    func blend(with other: Color, ratio: Double) -> Color {
+        let ratio = max(0, min(1, ratio))
+
+        // Convert to NSColor for component access
+        guard let thisNS = NSColor(self).usingColorSpace(.sRGB),
+              let otherNS = NSColor(other).usingColorSpace(.sRGB) else {
+            return self
+        }
+
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+
+        thisNS.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        otherNS.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+
+        return Color(
+            red: r1 + (r2 - r1) * ratio,
+            green: g1 + (g2 - g1) * ratio,
+            blue: b1 + (b2 - b1) * ratio
+        ).opacity(a1 + (a2 - a1) * ratio)
+    }
+}
+
 // MARK: - File Category Color Helper
 // NOTE: File category logic has been consolidated into FileTypeCategory.swift
 // Use FileTypeCategory.category(for: extension) to get the category for a file extension

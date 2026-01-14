@@ -93,13 +93,16 @@ struct AutomationStatusWidget: View {
                         Text(statusMessage)
                             .font(.formaBodyMedium)
                             .foregroundStyle(Color.formaLabel)
+                            .lineLimit(1)
 
                         if let lastRun = engine.state.lastRunDate {
-                            Text("Last run \(lastRun.relativeFormatted)")
+                            Text(lastRun.relativeFormatted)
                                 .font(.formaCaption)
                                 .foregroundStyle(Color.formaSecondaryLabel)
+                                .lineLimit(1)
                         }
                     }
+                    .fixedSize(horizontal: true, vertical: false)
 
                     Spacer()
 
@@ -126,8 +129,8 @@ struct AutomationStatusWidget: View {
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                     .fill(
                         isHovered
-                            ? Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle * 2)
-                            : Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle)
+                            ? Color.formaObsidian.opacity(Color.FormaOpacity.light)
+                            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
                     )
             )
             .overlay(
@@ -135,8 +138,8 @@ struct AutomationStatusWidget: View {
                     .strokeBorder(
                         Color.formaObsidian.opacity(
                             isHovered
-                                ? Color.FormaOpacity.light
-                                : (Color.FormaOpacity.ultraSubtle * 3)
+                                ? Color.FormaOpacity.medium
+                                : Color.FormaOpacity.light
                         ),
                         lineWidth: 1
                     )
@@ -154,21 +157,37 @@ struct AutomationStatusWidget: View {
 
     // MARK: - Countdown Ring
 
+    /// Gradient colors for the countdown ring (Steel Blue → Sage blend)
+    private var ringGradient: AngularGradient {
+        AngularGradient(
+            colors: [
+                Color.formaSteelBlue,
+                Color.formaSteelBlue.blend(with: Color.formaSage, ratio: 0.3),
+                Color.formaSage,
+                Color.formaSage.blend(with: Color.formaSteelBlue, ratio: 0.3),
+                Color.formaSteelBlue
+            ],
+            center: .center,
+            startAngle: .degrees(-90),
+            endAngle: .degrees(270)
+        )
+    }
+
     @ViewBuilder
     private var countdownRing: some View {
         ZStack {
-            // Background ring
+            // Background ring (subtle, muted version of gradient)
             Circle()
                 .stroke(
-                    statusColor.opacity(Color.FormaOpacity.light),
+                    Color.formaObsidian.opacity(Color.FormaOpacity.light),
                     lineWidth: 4
                 )
 
-            // Progress ring (depletes clockwise)
+            // Progress ring with gradient (depletes clockwise)
             Circle()
                 .trim(from: 0, to: engine.state.isRunning ? 1.0 : countdownProgress)
                 .stroke(
-                    statusColor,
+                    isPaused ? AnyShapeStyle(Color.formaWarmOrange) : AnyShapeStyle(ringGradient),
                     style: StrokeStyle(lineWidth: 4, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
@@ -182,12 +201,12 @@ struct AutomationStatusWidget: View {
                 // Scanning indicator
                 ProgressView()
                     .controlSize(.small)
-                    .tint(statusColor)
+                    .tint(Color.formaSteelBlue)
             } else {
-                // Countdown text
+                // Countdown text - use dominant color from gradient
                 Text(countdownText)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(statusColor)
+                    .foregroundStyle(isPaused ? Color.formaWarmOrange : Color.formaSteelBlue)
                     .monospacedDigit()
             }
         }
@@ -273,9 +292,9 @@ struct AutomationStatusWidget: View {
             }
         }) {
             Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(isPaused ? Color.formaSage : Color.formaSecondaryLabel)
-                .frame(width: 36, height: 36)
+                .frame(width: 32, height: 32)
                 .background(
                     Circle()
                         .fill(
