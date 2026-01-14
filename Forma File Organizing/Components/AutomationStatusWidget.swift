@@ -1,33 +1,64 @@
 import SwiftUI
+import Combine
 
 /// Compact widget displaying automation status in the right panel.
 ///
 /// Shows:
-/// - Current status (scanning, next scan time, or paused)
+/// - Circular countdown ring showing time until next scan
 /// - Quick pause/resume toggle
-/// - Last run stats when available
+/// - Last run stats inline (always visible)
 ///
 /// Designed to fit within DefaultPanelView's scrolling content area.
 struct AutomationStatusWidget: View {
     @ObservedObject private var engine = AutomationEngine.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isExpanded: Bool = false
     @State private var isHovered: Bool = false
-    @State private var isPulsing: Bool = false
+    @State private var currentTime: Date = Date()
+
+    /// Timer to update countdown display
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     /// Whether the automation is paused (neither running nor scheduled)
     private var isPaused: Bool {
         engine.state.nextScheduledRun == nil && !engine.state.isRunning
     }
 
-    /// Whether the widget should show the "alive" pulse
-    private var shouldPulse: Bool {
-        !reduceMotion && (engine.state.isRunning || engine.state.nextScheduledRun != nil)
+    /// Calculate countdown progress (1.0 = full, depletes to 0.0)
+    private var countdownProgress: Double {
+        guard let nextRun = engine.state.nextScheduledRun,
+              let lastRun = engine.state.lastRunDate else {
+            return isPaused ? 0.0 : 1.0
+        }
+
+        let totalInterval = nextRun.timeIntervalSince(lastRun)
+        let elapsed = currentTime.timeIntervalSince(lastRun)
+
+        guard totalInterval > 0 else { return 1.0 }
+
+        let remaining = max(0, 1.0 - (elapsed / totalInterval))
+        return remaining
+    }
+
+    /// Formatted countdown string (e.g., "4:32")
+    private var countdownText: String {
+        guard let nextRun = engine.state.nextScheduledRun else {
+            return isPaused ? "—" : "..."
+        }
+
+        let remaining = max(0, nextRun.timeIntervalSince(currentTime))
+        let minutes = Int(remaining) / 60
+        let seconds = Int(remaining) % 60
+
+        if minutes > 0 {
+            return "\(minutes):\(String(format: "%02d", seconds))"
+        } else {
+            return "\(seconds)s"
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            // Section Header
+            // Section Header with status label
             HStack {
                 Text("AUTOMATION")
                     .font(.formaBodySemibold)
@@ -36,24 +67,30 @@ struct AutomationStatusWidget: View {
 
                 Spacer()
 
-                // Status indicator dot
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-                    .shadow(color: statusColor.opacity(Color.FormaOpacity.strong), radius: 2)
+                // Status label next to dot for clarity
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 8, height: 8)
+                        .shadow(color: statusColor.opacity(Color.FormaOpacity.strong), radius: 2)
+
+                    Text(statusLabel)
+                        .font(.formaCaption)
+                        .foregroundStyle(statusColor)
+                }
             }
 
-            // Main status card
-            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                // Status message + actions
+            // Main status card with countdown ring
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                // Top row: Countdown ring + status + actions
                 HStack(alignment: .center, spacing: FormaSpacing.standard) {
-                    // Status icon with pulse
-                    statusIcon
-                        .frame(width: 32, height: 32)
+                    // Countdown ring
+                    countdownRing
+                        .frame(width: 52, height: 52)
 
                     // Status text
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(engine.state.statusMessage)
+                        Text(statusMessage)
                             .font(.formaBodyMedium)
                             .foregroundStyle(Color.formaLabel)
 
@@ -78,13 +115,10 @@ struct AutomationStatusWidget: View {
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPaused)
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: engine.state.isRunning)
 
-                // Expanded stats (when tapped)
-                if isExpanded && engine.state.lastRunDate != nil {
-                    Divider()
-                        .foregroundColor(Color.formaSeparator.opacity(Color.FormaOpacity.strong))
-                        .padding(.vertical, FormaSpacing.tight)
-
+                // Last run stats (always visible when available)
+                if engine.state.lastRunDate != nil && !engine.state.isRunning {
                     lastRunStats
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
             .padding(FormaSpacing.standard)
@@ -107,68 +141,59 @@ struct AutomationStatusWidget: View {
                         lineWidth: 1
                     )
             )
-            .onTapGesture {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    isExpanded.toggle()
-                }
-            }
             .onHover { hovering in
                 withAnimation(.easeOut(duration: 0.15)) {
                     isHovered = hovering
                 }
             }
         }
+        .onReceive(timer) { time in
+            currentTime = time
+        }
     }
 
-    // MARK: - Status Icon
+    // MARK: - Countdown Ring
 
     @ViewBuilder
-    private var statusIcon: some View {
+    private var countdownRing: some View {
         ZStack {
-            // Pulse ring (only when automation is active)
-            if shouldPulse {
-                Circle()
-                    .stroke(statusColor.opacity(0.3), lineWidth: 2)
-                    .frame(width: 36, height: 36)
-                    .scaleEffect(isPulsing ? 1.5 : 1.0)
-                    .opacity(isPulsing ? 0 : 0.6)
-            }
+            // Background ring
+            Circle()
+                .stroke(
+                    statusColor.opacity(Color.FormaOpacity.light),
+                    lineWidth: 4
+                )
 
-            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                .fill(statusColor.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle))
+            // Progress ring (depletes clockwise)
+            Circle()
+                .trim(from: 0, to: engine.state.isRunning ? 1.0 : countdownProgress)
+                .stroke(
+                    statusColor,
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .animation(
+                    reduceMotion ? .none : .easeInOut(duration: 0.3),
+                    value: countdownProgress
+                )
 
+            // Center content
             if engine.state.isRunning {
-                // Animated scanning indicator
+                // Scanning indicator
                 ProgressView()
                     .controlSize(.small)
                     .tint(statusColor)
             } else {
-                Image(systemName: statusIconName)
-                    .font(.formaBodyMedium)
+                // Countdown text
+                Text(countdownText)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(statusColor)
+                    .monospacedDigit()
             }
         }
-        .onAppear {
-            isPulsing = shouldPulse
-        }
-        .onChange(of: shouldPulse) { _, newValue in
-            isPulsing = newValue
-        }
-        .animation(
-            shouldPulse
-                ? .easeInOut(duration: 1.8).repeatForever(autoreverses: false)
-                : .default,
-            value: isPulsing
-        )
     }
 
-    private var statusIconName: String {
-        if engine.state.nextScheduledRun != nil {
-            return "clock.arrow.circlepath"
-        } else {
-            return "pause.circle"
-        }
-    }
+    // MARK: - Status Properties
 
     private var statusColor: Color {
         if engine.state.isRunning {
@@ -177,6 +202,26 @@ struct AutomationStatusWidget: View {
             return Color.formaSage
         } else {
             return Color.formaWarmOrange
+        }
+    }
+
+    private var statusLabel: String {
+        if engine.state.isRunning {
+            return "Scanning"
+        } else if engine.state.nextScheduledRun != nil {
+            return "Active"
+        } else {
+            return "Paused"
+        }
+    }
+
+    private var statusMessage: String {
+        if engine.state.isRunning {
+            return "Scanning files..."
+        } else if engine.state.nextScheduledRun != nil {
+            return "Next scan"
+        } else {
+            return "Automation paused"
         }
     }
 
@@ -193,12 +238,13 @@ struct AutomationStatusWidget: View {
             HStack(spacing: FormaSpacing.micro) {
                 Image(systemName: "bolt.fill")
                     .font(.system(size: 11, weight: .semibold))
-                Text("Scan Now")
+                Text("Scan")
                     .font(.formaSmallSemibold)
             }
             .foregroundStyle(Color.formaSteelBlue)
-            .padding(.horizontal, FormaSpacing.tight)
+            .padding(.horizontal, FormaSpacing.standard)
             .padding(.vertical, 6)
+            .fixedSize()
             .background(
                 Capsule()
                     .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
@@ -229,7 +275,7 @@ struct AutomationStatusWidget: View {
             Image(systemName: isPaused ? "play.fill" : "pause.fill")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(isPaused ? Color.formaSage : Color.formaSecondaryLabel)
-                .frame(width: 40, height: 40)
+                .frame(width: 36, height: 36)
                 .background(
                     Circle()
                         .fill(
@@ -252,17 +298,19 @@ struct AutomationStatusWidget: View {
         .help(isPaused ? "Resume automation" : "Pause automation")
     }
 
-    // MARK: - Last Run Stats
+    // MARK: - Last Run Stats (Always Visible)
 
     @ViewBuilder
     private var lastRunStats: some View {
-        HStack(spacing: FormaSpacing.large) {
+        HStack(spacing: FormaSpacing.standard) {
             // Organized count
-            StatPill(
-                value: engine.state.lastRunSuccessCount,
-                label: "organized",
-                color: Color.formaSage
-            )
+            if engine.state.lastRunSuccessCount > 0 {
+                StatPill(
+                    value: engine.state.lastRunSuccessCount,
+                    label: "organized",
+                    color: Color.formaSage
+                )
+            }
 
             // Skipped count (if any)
             if engine.state.lastRunSkippedCount > 0 {
@@ -282,8 +330,18 @@ struct AutomationStatusWidget: View {
                 )
             }
 
+            // Show "No changes" if nothing happened
+            if engine.state.lastRunSuccessCount == 0 &&
+               engine.state.lastRunSkippedCount == 0 &&
+               engine.state.lastRunFailedCount == 0 {
+                Text("No files to organize")
+                    .font(.formaCaption)
+                    .foregroundStyle(Color.formaTertiaryLabel)
+            }
+
             Spacer()
         }
+        .padding(.top, FormaSpacing.tight)
     }
 }
 

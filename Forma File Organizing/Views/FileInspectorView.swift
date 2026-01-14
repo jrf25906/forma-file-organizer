@@ -463,7 +463,7 @@ struct FileInspectorView: View {
                     .font(.formaH2)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(files.count) files selected")
+                    Text("\(files.count) \(files.count == 1 ? "file" : "files") selected")
                         .font(.formaBodyBold)
                         .foregroundColor(.formaLabel)
                     

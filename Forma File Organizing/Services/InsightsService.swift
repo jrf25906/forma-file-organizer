@@ -4,28 +4,32 @@ import Foundation
 struct FileInsight: Identifiable, Equatable {
     let id: UUID
     let message: String
+    let detail: String?
     let actionLabel: String?
     let action: (() -> Void)?
     let priority: Int
     let iconName: String
-    
-    init(id: UUID = UUID(), 
-         message: String, 
-         actionLabel: String? = nil, 
-         action: (() -> Void)? = nil, 
+
+    init(id: UUID = UUID(),
+         message: String,
+         detail: String? = nil,
+         actionLabel: String? = nil,
+         action: (() -> Void)? = nil,
          priority: Int = 0,
          iconName: String = "lightbulb.fill") {
         self.id = id
         self.message = message
+        self.detail = detail
         self.actionLabel = actionLabel
         self.action = action
         self.priority = priority
         self.iconName = iconName
     }
-    
+
     static func == (lhs: FileInsight, rhs: FileInsight) -> Bool {
         lhs.id == rhs.id &&
         lhs.message == rhs.message &&
+        lhs.detail == rhs.detail &&
         lhs.actionLabel == rhs.actionLabel &&
         lhs.priority == rhs.priority &&
         lhs.iconName == rhs.iconName

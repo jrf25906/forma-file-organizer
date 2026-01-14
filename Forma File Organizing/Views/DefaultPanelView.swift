@@ -143,6 +143,15 @@ struct DefaultPanelView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(FormaSpacing.standard)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle * 2), lineWidth: 1)
+        )
     }
 
     // MARK: - Task Description (Dynamic)
@@ -298,7 +307,7 @@ struct DefaultPanelView: View {
                 Button(action: {
                     dashboardViewModel.organizeAllReadyFiles(context: modelContext)
                 }) {
-                    Text("Organize \(readyFiles.count) Files")
+                    Text("Organize \(readyFiles.count) \(readyFiles.count == 1 ? "File" : "Files")")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -564,23 +573,31 @@ struct QuickActionCard: View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             // Header: Icon + Message + Dismiss
             HStack(alignment: .top, spacing: FormaSpacing.standard) {
-                // Larger icon with category background
+                // Icon with category background
                 ZStack {
                     RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                         .fill(insight.categoryColor.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle))
                         .frame(width: 44, height: 44)
 
                     Image(systemName: insight.iconName)
-                        .font(.formaH3)
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(insight.categoryColor)
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(insight.message)
                         .font(.formaBodyMedium)
                         .foregroundStyle(Color.formaLabel)
-                        .lineLimit(3)
+                        .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    // Contextual detail line
+                    if let detail = insight.detail {
+                        Text(detail)
+                            .font(.formaCaption)
+                            .foregroundStyle(Color.formaSecondaryLabel)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer(minLength: 0)
@@ -593,13 +610,13 @@ struct QuickActionCard: View {
                         }
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(
                                 isDismissHovered
-                                    ? Color.formaSecondaryLabel
-                                    : Color.formaTertiaryLabel
+                                    ? Color.formaLabel
+                                    : Color.formaSecondaryLabel
                             )
-                            .frame(width: 24, height: 24)
+                            .frame(width: 28, height: 28)
                             .background(
                                 Circle()
                                     .fill(
@@ -633,7 +650,7 @@ struct QuickActionCard: View {
                         .foregroundStyle(Color.formaSteelBlue)
                         .padding(.horizontal, FormaSpacing.standard)
                         .padding(.vertical, FormaSpacing.tight)
-                        .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light - Color.FormaOpacity.ultraSubtle))
+                        .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
                         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                     }
                     .buttonStyle(.plain)

@@ -101,7 +101,7 @@ struct ReviewView: View {
                     Text("Review Files")
                         .formaH2Style()
                         .foregroundColor(Color.formaObsidian)
-                    Text("\(viewModel.files.count) files found on Desktop")
+                    Text("\(viewModel.files.count) \(viewModel.files.count == 1 ? "file" : "files") found on Desktop")
                         .formaMetadataStyle()
                         .foregroundColor(Color.formaObsidian.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light))
                 }

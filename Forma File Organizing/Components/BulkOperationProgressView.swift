@@ -11,7 +11,7 @@ struct BulkOperationProgressView: View {
     
     var body: some View {
         VStack(spacing: FormaSpacing.large) {
-            Text("Organizing \(totalFiles) files...")
+            Text("Organizing \(totalFiles) \(totalFiles == 1 ? "file" : "files")...")
                 .font(.formaH2)
                 .foregroundColor(.formaObsidian)
             

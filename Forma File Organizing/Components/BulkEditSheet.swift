@@ -23,7 +23,7 @@ struct BulkEditSheet: View {
         VStack(spacing: FormaSpacing.generous) {
             // Header
             VStack(spacing: FormaSpacing.tight) {
-                Text("Edit Destination for \(selectedFiles.count) Files")
+                Text("Edit Destination for \(selectedFiles.count) \(selectedFiles.count == 1 ? "File" : "Files")")
                     .font(.formaH1)
                     .foregroundColor(.formaObsidian)
                 

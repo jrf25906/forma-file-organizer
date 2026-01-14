@@ -210,7 +210,7 @@ struct Forma_File_OrganizingApp: App {
         .modelContainer(container)
 
         // Menu Bar Extra - Enhanced with live file counts and recent activity
-        MenuBarExtra("Forma", systemImage: "square.stack.3d.up.fill") {
+        MenuBarExtra("Forma", image: "MenuBarIcon") {
             MenuBarView(viewModel: menuBarViewModel) {
                 openMainWindow()
             }

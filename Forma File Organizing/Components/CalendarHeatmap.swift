@@ -190,7 +190,7 @@ struct CalendarHeatmap: View {
             HStack(spacing: 4) {
                 Image(systemName: "leaf.fill")
                     .font(.formaSmall)
-                Text("\(digitalDustCount) files need attention")
+                Text("\(digitalDustCount) \(digitalDustCount == 1 ? "file needs" : "files need") attention")
                     .font(.formaSmallSemibold)
             }
             .foregroundColor(.formaError)

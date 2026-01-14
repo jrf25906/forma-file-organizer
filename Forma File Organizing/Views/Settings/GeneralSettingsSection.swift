@@ -5,7 +5,6 @@ struct GeneralSettingsSection: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("showNotifications") private var showNotifications = true
     @AppStorage("autoScanOnLaunch") private var autoScanOnLaunch = true
-    @AppStorage("scanInterval") private var scanInterval = 30
     @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
 
     var body: some View {
@@ -50,19 +49,6 @@ struct GeneralSettingsSection: View {
                     }
                 }
 
-                // Scanning Section
-                SettingsSection("Scanning") {
-                    SettingsRow("Auto-scan Interval", subtitle: "Automatically scan for new files at regular intervals") {
-                        Picker("", selection: $scanInterval) {
-                            Text("Never").tag(0)
-                            Text("Every 15 minutes").tag(15)
-                            Text("Every 30 minutes").tag(30)
-                            Text("Every hour").tag(60)
-                        }
-                        .frame(width: 160)
-                    }
-                }
-
                 // Reset Button
                 Button("Reset All Settings") {
                     resetAllSettings()
@@ -101,7 +87,6 @@ struct GeneralSettingsSection: View {
         launchAtLogin = false
         showNotifications = true
         autoScanOnLaunch = true
-        scanInterval = 30
         appearanceMode = AppearanceMode.system.rawValue
         setLaunchAtLogin(enabled: false)
     }
