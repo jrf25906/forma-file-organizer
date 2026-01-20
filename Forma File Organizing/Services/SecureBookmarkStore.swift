@@ -139,6 +139,8 @@ class SecureBookmarkStore {
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
+        Log.debug("SecureBookmarkStore.loadBookmark('\(key)'): status=\(status)", category: .bookmark, verboseOnly: true)
+
         guard status == errSecSuccess else {
             if status != errSecItemNotFound {
                 #if DEBUG
@@ -157,7 +159,7 @@ class SecureBookmarkStore {
         }
 
         #if DEBUG
-        Log.info("SecureBookmarkStore: Successfully loaded bookmark for key '\(key)'", category: .bookmark)
+        Log.debug("SecureBookmarkStore.loadBookmark('\(key)'): loaded \(data.count) bytes", category: .bookmark, verboseOnly: true)
         #endif
 
         return data
@@ -317,14 +319,23 @@ class SecureBookmarkStore {
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
+        #if DEBUG
+        Log.debug("SecureBookmarkStore.listAllBookmarkKeys(): status=\(status)", category: .bookmark, verboseOnly: true)
+        #endif
+
         guard status == errSecSuccess,
               let items = result as? [[String: Any]] else {
             return []
         }
 
-        return items.compactMap { item in
+        let keys = items.compactMap { item in
             item[kSecAttrAccount as String] as? String
         }
+
+        #if DEBUG
+        Log.debug("SecureBookmarkStore.listAllBookmarkKeys(): found \(keys.count) keys", category: .bookmark, verboseOnly: true)
+        #endif
+        return keys
     }
 
     /// Removes all bookmarks from the Keychain

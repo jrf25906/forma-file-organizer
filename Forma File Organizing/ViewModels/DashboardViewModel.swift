@@ -161,14 +161,21 @@ class DashboardViewModel: ObservableObject {
         filterViewModel.updateSourceFiles(scanViewModel.allFiles)
         analyticsViewModel.updateAnalytics(from: scanViewModel.allFiles)
         await analyticsViewModel.detectClusters(from: scanViewModel.allFiles, context: context)
+
+        // Refresh available folders after scan completes.
+        // This fixes a timing issue where Keychain isn't accessible at app launch
+        // for sandboxed apps. The file scan triggers bookmark resolution which
+        // "warms up" Keychain access, so we refresh here to update the sidebar.
+        refreshAvailableFolders()
     }
 
     func refresh(context: ModelContext) async {
         await scanFiles(context: context)
     }
 
-    func loadCustomFolders(from context: ModelContext) {
-        scanViewModel.loadCustomFolders(from: context)
+    /// Refreshes the available folders from BookmarkFolderService
+    func refreshAvailableFolders() {
+        BookmarkFolderService.shared.refresh()
     }
 
     // MARK: - Filtering (Delegated to FilterViewModel)
@@ -814,7 +821,7 @@ class DashboardViewModel: ObservableObject {
     var groupedFiles: [FileGroup] { filterViewModel.groupedFiles }
     var allFiles: [FileItem] { scanViewModel.allFiles }
     var recentFiles: [FileItem] { scanViewModel.recentFiles }
-    var customFolders: [CustomFolder] { scanViewModel.customFolders }
+    var availableFolders: [BookmarkFolder] { BookmarkFolderService.shared.availableFolders }
     var isLoading: Bool { scanViewModel.isScanning }
 
     func getMatchingRules(for file: FileItem) -> [Rule] {
