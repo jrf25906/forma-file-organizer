@@ -90,6 +90,20 @@ extension Font {
     /// 9pt Medium - Use for tiny badges, compact indicators, fine print
     static let formaMicro = Font.system(size: 9, weight: .medium, design: .default)
 
+    // MARK: - Display Font (Onboarding)
+
+    /// Display hero text for onboarding welcome
+    /// 34pt Libre Baskerville Italic - Use for onboarding hero headlines
+    static let formaDisplayHero = Font.custom("LibreBaskerville-Italic", size: 34)
+
+    /// Display heading for onboarding step titles
+    /// 24pt Libre Baskerville Italic - Use for onboarding step headings
+    static let formaDisplayHeading = Font.custom("LibreBaskerville-Italic", size: 24)
+
+    /// Display subheading for onboarding celebration text
+    /// 20pt Libre Baskerville Bold - Use for onboarding celebration/emphasis
+    static let formaDisplaySubheading = Font.custom("LibreBaskerville-Bold", size: 20)
+
     // MARK: - Large Icon Sizes
 
     /// Standard large icon
