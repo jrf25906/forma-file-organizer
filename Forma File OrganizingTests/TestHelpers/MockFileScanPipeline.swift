@@ -28,7 +28,6 @@ final class MockFileScanPipeline: FileScanPipelineProtocol {
 
     func scanAndPersist(
         baseFolders: [FolderLocation],
-        customFolders: [CustomFolder],
         fileSystemService: FileSystemServiceProtocol,
         ruleEngine: RuleEngine,
         rules: [Rule],

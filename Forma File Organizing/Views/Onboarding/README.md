@@ -10,7 +10,7 @@ This folder contains the refactored onboarding flow, split from a single 1,385-l
 - Orchestrates the 5-step onboarding flow
 - Manages step transitions and navigation
 - Handles permissions and final setup
-- Creates CustomFolder entries from selections
+- Saves bookmarks to Keychain via BookmarkFolderService
 - Applies per-folder template rules
 
 **OnboardingState.swift** - Shared state (182 lines)

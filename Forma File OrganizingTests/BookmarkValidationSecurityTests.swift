@@ -218,34 +218,6 @@ final class BookmarkValidationSecurityTests: XCTestCase {
         )
     }
 
-    // MARK: - Error Handling Security Tests
-
-    func testNoInformationLeakageInErrors() {
-        // SECURITY TEST: Verify error messages don't leak sensitive path information
-        // Test that CustomFolderError descriptions are generic and don't expose paths
-
-        // Test the error descriptions
-        let errors: [CustomFolderManager.CustomFolderError] = [
-            .userCancelled,
-            .bookmarkCreationFailed,
-            .bookmarkResolutionFailed,
-            .invalidFolder
-        ]
-        
-        for error in errors {
-            let description = error.localizedDescription ?? ""
-            // Error messages should not contain path-like strings
-            XCTAssertFalse(
-                description.contains("/Users/"),
-                "Error '\(error)' should not contain path information"
-            )
-            XCTAssertFalse(
-                description.contains(".ssh"),
-                "Error '\(error)' should not contain sensitive folder names"
-            )
-        }
-    }
-
     // MARK: - Integration Tests
 
     func testEndToEndSecurityValidation() throws {

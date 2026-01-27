@@ -8,7 +8,7 @@ struct SidebarView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var shouldFocusSearch: Bool
 
-    @StateObject private var customFolderManager = CustomFolderManager()
+    @ObservedObject private var folderService = BookmarkFolderService.shared
     @State private var isAddingFolder = false
     @State private var isKeyWindow = true
 
@@ -49,13 +49,13 @@ struct SidebarView: View {
                     }
                     .padding(.trailing, FormaLayout.Sidebar.expandedHorizontalPadding)
 
-                    // Show custom folders that have granted permissions
-                    if dashboardViewModel.customFolders.isEmpty {
+                    // Show folders that have granted permissions (from Keychain)
+                    if folderService.availableFolders.isEmpty {
                         // Empty state - prompt to add locations
                         emptyLocationsPrompt
                     } else {
-                        ForEach(dashboardViewModel.customFolders) { folder in
-                            customFolderItem(folder)
+                        ForEach(folderService.availableFolders) { folder in
+                            bookmarkFolderItem(folder)
                         }
                     }
 
@@ -131,6 +131,10 @@ struct SidebarView: View {
             WindowKeyObserver(isKeyWindow: $isKeyWindow)
                 .frame(width: 0, height: 0)
         }
+        .onAppear {
+            // Refresh folder service when sidebar appears to ensure locations are current
+            folderService.refresh()
+        }
     }
     
     @ViewBuilder
@@ -166,20 +170,20 @@ struct SidebarView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Custom Folder Item
+    // MARK: - Bookmark Folder Item
 
     @ViewBuilder
-    private func customFolderItem(_ folder: CustomFolder) -> some View {
-        let selection = NavigationSelection.custom(folder)
-        let isSelected = isCustomFolderSelected(folder)
+    private func bookmarkFolderItem(_ folder: BookmarkFolder) -> some View {
+        let selection = NavigationSelection.from(folderType: folder.folderType)
+        let isSelected = isFolderSelected(folder)
 
         Button(action: { nav.select(selection) }) {
             HStack(spacing: FormaSpacing.standard) {
-                Image(systemName: iconForFolder(folder))
+                Image(systemName: folder.iconName)
                     .font(.formaH3)
                     .frame(width: 20, alignment: .center)
 
-                Text(folder.name)
+                Text(folder.displayName)
                     .font(.formaBody)
                     .lineLimit(1)
                 Spacer()
@@ -202,24 +206,9 @@ struct SidebarView: View {
         }
     }
 
-    /// Check if a custom folder is currently selected
-    private func isCustomFolderSelected(_ folder: CustomFolder) -> Bool {
-        if case .custom(let selectedFolder) = nav.selection {
-            return selectedFolder.id == folder.id
-        }
-        return false
-    }
-
-    /// Get appropriate icon for a folder based on its path
-    private func iconForFolder(_ folder: CustomFolder) -> String {
-        let path = folder.path.lowercased()
-        if path.contains("/desktop") { return "desktopcomputer" }
-        if path.contains("/downloads") { return "arrow.down.circle" }
-        if path.contains("/documents") { return "doc.fill" }
-        if path.contains("/pictures") || path.contains("/photos") { return "photo.fill" }
-        if path.contains("/music") { return "music.note" }
-        if path.contains("/movies") || path.contains("/videos") { return "film" }
-        return "folder.fill"
+    /// Check if a bookmark folder is currently selected
+    private func isFolderSelected(_ folder: BookmarkFolder) -> Bool {
+        nav.selection.folderType == folder.folderType
     }
 
     // MARK: - Empty State
@@ -279,51 +268,82 @@ struct SidebarView: View {
         isAddingFolder = true
         Task {
             defer { isAddingFolder = false }
-            do {
-                let folders = try await customFolderManager.createCustomFolders()
-                for folder in folders {
-                    modelContext.insert(folder)
-                }
-                try modelContext.save()
-                dashboardViewModel.loadCustomFolders(from: modelContext)
 
-                // Auto-select the first newly added folder
-                if let firstFolder = folders.first {
-                    nav.select(.custom(firstFolder))
-                }
+            // Show folder picker to grant access to a new folder
+            // This will save the bookmark to Keychain via FileSystemService
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.message = "Choose a folder to organize"
+            panel.prompt = "Grant Access"
 
-                // Rescan to include new folders
-                await dashboardViewModel.scanFiles(context: modelContext)
-            } catch CustomFolderManager.CustomFolderError.userCancelled {
-                // User cancelled - do nothing
-            } catch {
-                Log.error("SidebarView: Failed to add location - \(error.localizedDescription)", category: .filesystem)
-                dashboardViewModel.errorMessage = "Failed to add location: \(error.localizedDescription)"
+            let response = await panel.begin()
+            guard response == .OK, let url = panel.url else {
+                return // User cancelled
+            }
+
+            // Determine which folder type this is (if it's a standard folder)
+            let folderType = determineFolderType(from: url)
+
+            if let folderType = folderType {
+                // It's a standard folder - save bookmark via the existing system
+                do {
+                    let bookmarkData = try url.bookmarkData(
+                        options: .withSecurityScope,
+                        includingResourceValuesForKeys: nil,
+                        relativeTo: nil
+                    )
+                    try SecureBookmarkStore.saveBookmark(bookmarkData, forKey: folderType.bookmarkKey)
+                    folderService.refresh()
+
+                    // Auto-select the newly added folder
+                    nav.select(.from(folderType: folderType))
+
+                    // Rescan to include new folder
+                    await dashboardViewModel.scanFiles(context: modelContext)
+
+                    Log.info("SidebarView: Added location '\(folderType.displayName)'", category: .filesystem)
+                } catch {
+                    Log.error("SidebarView: Failed to save bookmark - \(error.localizedDescription)", category: .filesystem)
+                    dashboardViewModel.errorMessage = "Failed to add location: \(error.localizedDescription)"
+                }
+            } else {
+                // Not a standard folder - show error for now
+                // (Future: could support arbitrary custom folders)
+                dashboardViewModel.errorMessage = "Please select a standard folder (Desktop, Downloads, Documents, Pictures, or Music)"
             }
         }
     }
 
-    private func removeFolder(_ folder: CustomFolder) {
-        let folderName = folder.name
-        modelContext.delete(folder)
-        do {
-            try modelContext.save()
-            dashboardViewModel.loadCustomFolders(from: modelContext)
+    /// Determines the BookmarkFolder.FolderType based on the folder path
+    private func determineFolderType(from url: URL) -> BookmarkFolder.FolderType? {
+        let path = url.path.lowercased()
 
-            // If we were viewing this folder, navigate away
-            if isCustomFolderSelected(folder) {
-                if let firstRemaining = dashboardViewModel.customFolders.first {
-                    nav.select(.custom(firstRemaining))
-                } else {
-                    nav.select(.rules) // Fallback to rules if no locations remain
-                }
+        if path.hasSuffix("/desktop") { return .desktop }
+        if path.hasSuffix("/downloads") { return .downloads }
+        if path.hasSuffix("/documents") { return .documents }
+        if path.hasSuffix("/pictures") { return .pictures }
+        if path.hasSuffix("/music") { return .music }
+
+        return nil
+    }
+
+    private func removeFolder(_ folder: BookmarkFolder) {
+        let folderName = folder.displayName
+
+        // Remove the bookmark from Keychain
+        folderService.removeBookmark(for: folder.folderType)
+
+        // If we were viewing this folder, navigate away
+        if isFolderSelected(folder) {
+            if let firstRemaining = folderService.availableFolders.first {
+                nav.select(.from(folderType: firstRemaining.folderType))
+            } else {
+                nav.select(.rules) // Fallback to rules if no locations remain
             }
-
-            Log.info("SidebarView: Removed location '\(folderName)'", category: .filesystem)
-        } catch {
-            Log.error("SidebarView: Failed to remove location '\(folderName)' - \(error.localizedDescription)", category: .filesystem)
-            modelContext.insert(folder) // Re-insert on failure
-            dashboardViewModel.errorMessage = "Failed to remove location"
         }
+
+        Log.info("SidebarView: Removed location '\(folderName)'", category: .filesystem)
     }
 }

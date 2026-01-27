@@ -1,7 +1,8 @@
 # Repository Guidelines
 
 ## Project Structure & Modules
-- App source lives in `Forma File Organizing/` with `Models/`, `ViewModels/`, `Views/`, `Services/`, `Components/`, `DesignSystem/`, and `Coordinators/`. Static assets sit in `Resources/` and `Assets.xcassets`.
+- App source lives in `Forma File Organizing/` with `Models/`, `ViewModels/`, `Views/`, `Services/`, `Components/`, `DesignSystem/`, `Coordinators/`, and `Utilities/`. Static assets sit in `Resources/` and `Assets.xcassets`.
+- Marketing sites live in `website/` (primary) and `forma-marketing-site/`. Scripts and tooling are in `Scripts/`.
 - Tests are under `Forma File OrganizingTests/` with helpers in `TestHelpers/` (e.g., `TemporaryDirectory.swift` for filesystem-safe cases). UI/UI automation live in `Forma File OrganizingUITests/`.
 - Configuration and entitlements are in `Configuration/` and `Forma_File_Organizing.entitlements`; adjust permissions there instead of embedding ad-hoc checks.
 

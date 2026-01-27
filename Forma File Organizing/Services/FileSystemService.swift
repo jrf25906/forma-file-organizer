@@ -40,15 +40,15 @@ struct ScanResult {
 }
 
 /// Protocol defining file system operations for mocking
-/// Note: Some methods are MainActor-isolated because they work with SwiftData types (CustomFolder)
+/// Note: Some methods are MainActor-isolated because they work with SwiftUI-bound state
 protocol FileSystemServiceProtocol {
     func scanDesktop() async throws -> [FileMetadata]
     func scanDownloads() async throws -> [FileMetadata]
     func scanDocuments() async throws -> [FileMetadata]
     func scanPictures() async throws -> [FileMetadata]
     func scanMusic() async throws -> [FileMetadata]
-    @MainActor func scanAllFolders(customFolders: [CustomFolder]) async -> ScanResult
-    func scan(baseFolders: [FolderLocation], customFolders: [CustomFolder]) async -> ScanResult
+    @MainActor func scanAllFolders() async -> ScanResult
+    func scan(baseFolders: [FolderLocation]) async -> ScanResult
 
     func hasDesktopAccess() -> Bool
     func hasDownloadsAccess() -> Bool
@@ -520,63 +520,23 @@ class FileSystemService: FileSystemServiceProtocol {
         return try await scanDirectory(at: resolvedURL, location: .custom)
     }
 
-    /// Scans multiple folders including default and custom folders
-    /// Returns ScanResult containing both successful files and any errors that occurred
-    func scanAllFolders(customFolders: [CustomFolder]) async -> ScanResult {
-        var allFiles: [FileMetadata] = []
-        var errors: [String: Error] = [:]
+    /// Scans all folders that have valid Keychain bookmarks.
+    /// Returns ScanResult containing both successful files and any errors that occurred.
+    func scanAllFolders() async -> ScanResult {
+        // Scan all standard folders that have valid bookmarks
+        var baseFolders: [FolderLocation] = []
+        if hasDesktopAccess() { baseFolders.append(.desktop) }
+        if hasDownloadsAccess() { baseFolders.append(.downloads) }
+        if hasDocumentsAccess() { baseFolders.append(.documents) }
+        if hasPicturesAccess() { baseFolders.append(.pictures) }
+        if hasMusicAccess() { baseFolders.append(.music) }
 
-        // Scan default folders (Desktop and Downloads)
-        do {
-            let desktopFiles = try await scanDesktop()
-            allFiles.append(contentsOf: desktopFiles)
-        } catch {
-            errors["Desktop"] = error
-            #if DEBUG
-            Log.warning("Desktop scan failed: \(error)", category: .filesystem)
-            #endif
-        }
-
-        do {
-            let downloadsFiles = try await scanDownloads()
-            allFiles.append(contentsOf: downloadsFiles)
-        } catch {
-            errors["Downloads"] = error
-            #if DEBUG
-            Log.warning("Downloads scan failed: \(error)", category: .filesystem)
-            #endif
-        }
-
-        // Scan custom folders
-        for customFolder in customFolders where customFolder.isEnabled {
-            guard let bookmarkData = customFolder.bookmarkData else {
-                let bookmarkError = FormaError.data(.notFound("No bookmark data saved for \(customFolder.name)"))
-                errors[customFolder.name] = bookmarkError
-                #if DEBUG
-                Log.warning("Custom folder '\(customFolder.name)' has no bookmark data", category: .bookmark)
-                #endif
-                continue
-            }
-
-            do {
-                let folderURL = URL(fileURLWithPath: customFolder.path)
-                let customFiles = try await scanCustomFolder(url: folderURL, bookmarkData: bookmarkData)
-                allFiles.append(contentsOf: customFiles)
-            } catch {
-                errors[customFolder.name] = error
-                #if DEBUG
-                Log.warning("Custom folder '\(customFolder.name)' scan failed: \(error)", category: .filesystem)
-                #endif
-                // Continue with other folders
-            }
-        }
-
-        return ScanResult(files: allFiles, errors: errors)
+        return await scan(baseFolders: baseFolders)
     }
 
-    /// Scans the specified base folders plus any enabled custom folders.
+    /// Scans the specified base folders.
     /// If baseFolders is empty, defaults to Desktop + Downloads for compatibility.
-    func scan(baseFolders: [FolderLocation], customFolders: [CustomFolder]) async -> ScanResult {
+    func scan(baseFolders: [FolderLocation]) async -> ScanResult {
         var allFiles: [FileMetadata] = []
         var errors: [String: Error] = [:]
 
@@ -599,36 +559,10 @@ class FileSystemService: FileSystemServiceProtocol {
                     scanned = try await scanPictures()
                 case .music:
                     scanned = try await scanMusic()
-                case .custom:
-                    // Concrete custom folders are handled via the `customFolders` parameter below.
-                    continue
                 }
                 allFiles.append(contentsOf: scanned)
             } catch {
                 errors[folder.displayName] = error
-            }
-        }
-
-        // Scan custom folders (same logic as scanAllFolders)
-        for customFolder in customFolders where customFolder.isEnabled {
-            guard let bookmarkData = customFolder.bookmarkData else {
-                let bookmarkError = FormaError.data(.notFound("No bookmark data saved for \(customFolder.name)"))
-                errors[customFolder.name] = bookmarkError
-                #if DEBUG
-                Log.warning("Custom folder '\(customFolder.name)' has no bookmark data", category: .bookmark)
-                #endif
-                continue
-            }
-
-            do {
-                let folderURL = URL(fileURLWithPath: customFolder.path)
-                let customFiles = try await scanCustomFolder(url: folderURL, bookmarkData: bookmarkData)
-                allFiles.append(contentsOf: customFiles)
-            } catch {
-                errors[customFolder.name] = error
-                #if DEBUG
-                Log.warning("Custom folder '\(customFolder.name)' scan failed: \(error)", category: .filesystem)
-                #endif
             }
         }
 

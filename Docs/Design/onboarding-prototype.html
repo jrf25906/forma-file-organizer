@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forma Onboarding — Welcome Screen Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --steel-blue: #5B7C99;
+    --sage: #7A9D7E;
+    --warm-orange: #C97E66;
+    --muted-blue: #6B8CA8;
+    --soft-green: #8BA688;
+    --bone: #FAFAF8;
+    --obsidian: #1A1A1A;
+  }
+
+  body {
+    background: #E8E6E1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Window chrome */
+  .window {
+    width: 650px;
+    height: 720px;
+    background: var(--bone);
+    border-radius: 12px;
+    box-shadow: 0 25px 80px rgba(0,0,0,0.2), 0 0 0 0.5px rgba(0,0,0,0.1);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .titlebar {
+    height: 52px;
+    background: rgba(250, 250, 248, 0.95);
+    backdrop-filter: blur(20px);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    position: relative;
+    z-index: 10;
+  }
+
+  .traffic-lights {
+    display: flex;
+    gap: 8px;
+  }
+
+  .traffic-light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .traffic-light.close { background: #FF5F57; }
+  .traffic-light.minimize { background: #FFBD2E; }
+  .traffic-light.maximize { background: #28CA41; }
+
+  /* Content area */
+  .content {
+    position: relative;
+    width: 100%;
+    height: calc(100% - 52px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Subtle background gradient */
+  .bg-gradient {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 40%, rgba(91,124,153,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Animation stage */
+  .animation-stage {
+    position: relative;
+    width: 400px;
+    height: 320px;
+    z-index: 2;
+  }
+
+  /* Central folder */
+  .folder {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    opacity: 0;
+    animation: folder-appear 0.6s ease-out 0.3s forwards;
+  }
+
+  .folder-icon {
+    width: 80px;
+    height: 68px;
+    position: relative;
+  }
+
+  .folder-back {
+    position: absolute;
+    bottom: 0;
+    width: 80px;
+    height: 56px;
+    background: var(--steel-blue);
+    border-radius: 4px 4px 6px 6px;
+  }
+
+  .folder-tab {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 34px;
+    height: 18px;
+    background: var(--steel-blue);
+    border-radius: 4px 4px 0 0;
+  }
+
+  .folder-front {
+    position: absolute;
+    bottom: 0;
+    width: 80px;
+    height: 48px;
+    background: #7A9DBF;
+    border-radius: 2px 2px 6px 6px;
+  }
+
+  .folder-pulse {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 68px;
+    background: rgba(91, 124, 153, 0.15);
+    border-radius: 12px;
+    opacity: 0;
+    animation: folder-pulse 0.5s ease-out 2.8s forwards;
+  }
+
+  @keyframes folder-appear {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  @keyframes folder-pulse {
+    0% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(2.2); }
+  }
+
+  /* File icons */
+  .file {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    z-index: 3;
+    animation: file-scatter 0.5s ease-out forwards,
+               file-drift 3s ease-in-out infinite,
+               file-converge 0.8s cubic-bezier(0.32, 0, 0.67, 0) 2s forwards;
+  }
+
+  .file-body {
+    width: 40px;
+    height: 48px;
+    background: white;
+    border-radius: 3px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1), 0 0 0 0.5px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .file-corner {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.06) 50%);
+  }
+
+  .file-ext {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .file-label {
+    font-size: 7px;
+    color: rgba(0,0,0,0.4);
+    white-space: nowrap;
+    max-width: 56px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* File type colors */
+  .file.pdf .file-ext { color: #E85D4A; }
+  .file.pdf .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #E85D4A; }
+
+  .file.doc .file-ext { color: #2B6CB0; }
+  .file.doc .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #2B6CB0; }
+
+  .file.img .file-ext { color: var(--warm-orange); }
+  .file.img .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--warm-orange); }
+
+  .file.zip .file-ext { color: var(--sage); }
+  .file.zip .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--sage); }
+
+  .file.xls .file-ext { color: #38A169; }
+  .file.xls .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #38A169; }
+
+  .file.mp3 .file-ext { color: #805AD5; }
+  .file.mp3 .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #805AD5; }
+
+  .file.ppt .file-ext { color: #D4582A; }
+  .file.ppt .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #D4582A; }
+
+  .file.txt .file-ext { color: #888; }
+  .file.txt .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #aaa; }
+
+  .file.mov .file-ext { color: var(--muted-blue); }
+  .file.mov .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--muted-blue); }
+
+  .file.csv .file-ext { color: var(--soft-green); }
+  .file.csv .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--soft-green); }
+
+  .file.png .file-ext { color: #E87F5F; }
+  .file.png .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #E87F5F; }
+
+  .file.key .file-ext { color: #3182CE; }
+  .file.key .file-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #3182CE; }
+
+  /* Scatter positions and converge targets */
+  .file:nth-child(1)  { left: 20px;  top: 30px;  --rot: -12deg; animation-delay: 0.1s, 0.1s, 2.0s; }
+  .file:nth-child(2)  { left: 310px; top: 15px;  --rot: 8deg;   animation-delay: 0.2s, 0.15s, 2.1s; }
+  .file:nth-child(3)  { left: 80px;  top: 230px; --rot: 15deg;  animation-delay: 0.15s, 0.2s, 2.15s; }
+  .file:nth-child(4)  { left: 280px; top: 250px; --rot: -6deg;  animation-delay: 0.25s, 0.1s, 2.05s; }
+  .file:nth-child(5)  { left: 340px; top: 130px; --rot: 10deg;  animation-delay: 0.12s, 0.18s, 2.2s; }
+  .file:nth-child(6)  { left: 5px;   top: 140px; --rot: -18deg; animation-delay: 0.18s, 0.12s, 2.08s; }
+  .file:nth-child(7)  { left: 160px; top: 10px;  --rot: 5deg;   animation-delay: 0.22s, 0.16s, 2.18s; }
+  .file:nth-child(8)  { left: 190px; top: 250px; --rot: -10deg; animation-delay: 0.08s, 0.22s, 2.12s; }
+  .file:nth-child(9)  { left: 350px; top: 50px;  --rot: 14deg;  animation-delay: 0.3s, 0.14s, 2.25s; }
+  .file:nth-child(10) { left: 60px;  top: 80px;  --rot: -8deg;  animation-delay: 0.14s, 0.25s, 2.03s; }
+  .file:nth-child(11) { left: 240px; top: 60px;  --rot: 20deg;  animation-delay: 0.2s, 0.08s, 2.22s; }
+  .file:nth-child(12) { left: 120px; top: 170px; --rot: -14deg; animation-delay: 0.16s, 0.2s, 2.1s; }
+
+  @keyframes file-scatter {
+    0% { opacity: 0; transform: rotate(0deg) scale(0.5); }
+    100% { opacity: 1; transform: rotate(var(--rot)) scale(1); }
+  }
+
+  @keyframes file-drift {
+    0%, 100% { translate: 0 0; }
+    33% { translate: 3px -4px; }
+    66% { translate: -3px 3px; }
+  }
+
+  @keyframes file-converge {
+    0% {
+      opacity: 1;
+      transform: rotate(var(--rot)) scale(1);
+    }
+    70% {
+      opacity: 0.8;
+      transform: rotate(0deg) scale(0.5);
+      left: 180px;
+      top: 130px;
+    }
+    100% {
+      opacity: 0;
+      transform: rotate(0deg) scale(0.2);
+      left: 190px;
+      top: 145px;
+    }
+  }
+
+  /* Hero text */
+  .hero {
+    text-align: center;
+    z-index: 6;
+    margin-top: -20px;
+    opacity: 0;
+    transform: translateY(16px);
+    animation: hero-in 0.8s ease-out 3.2s forwards;
+  }
+
+  .hero h1 {
+    font-family: 'Libre Baskerville', Georgia, serif;
+    font-size: 32px;
+    font-weight: 400;
+    color: var(--obsidian);
+    letter-spacing: -0.3px;
+    line-height: 1.3;
+    font-style: italic;
+  }
+
+  .hero p {
+    font-size: 15px;
+    color: rgba(26, 26, 26, 0.5);
+    margin-top: 12px;
+    line-height: 1.5;
+    max-width: 380px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  @keyframes hero-in {
+    0% { opacity: 0; transform: translateY(16px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* CTA button */
+  .cta {
+    margin-top: 32px;
+    z-index: 6;
+    opacity: 0;
+    transform: translateY(12px);
+    animation: hero-in 0.6s ease-out 3.6s forwards;
+  }
+
+  .cta button {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+    background: var(--steel-blue);
+    border: none;
+    padding: 14px 40px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(91, 124, 153, 0.3);
+  }
+
+  .cta button:hover {
+    background: #4F7089;
+    box-shadow: 0 4px 16px rgba(91, 124, 153, 0.4);
+    transform: translateY(-1px);
+  }
+
+  /* Replay button */
+  .replay {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 10;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: rgba(26,26,26,0.35);
+    background: none;
+    border: 1px solid rgba(26,26,26,0.12);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .replay:hover {
+    color: rgba(26,26,26,0.6);
+    border-color: rgba(26,26,26,0.25);
+  }
+
+  /* --- STEP 2: Folder Selection --- */
+  .step-2 {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 80px;
+    height: 100%;
+  }
+
+  .step-2.active { display: flex; }
+  .step-1.hidden { display: none; }
+
+  .step-header {
+    text-align: center;
+    margin-bottom: 36px;
+    opacity: 0;
+    animation: hero-in 0.6s ease-out 0.1s forwards;
+  }
+
+  .step-header h2 {
+    font-family: 'Libre Baskerville', Georgia, serif;
+    font-size: 24px;
+    font-weight: 400;
+    color: var(--obsidian);
+    font-style: italic;
+  }
+
+  .step-header p {
+    font-size: 14px;
+    color: rgba(26,26,26,0.45);
+    margin-top: 8px;
+  }
+
+  .folder-list {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .folder-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: white;
+    border-radius: 10px;
+    border: 1.5px solid rgba(0,0,0,0.06);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  .folder-item:hover {
+    border-color: rgba(91, 124, 153, 0.3);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+
+  .folder-item.checked {
+    border-color: var(--steel-blue);
+    background: rgba(91, 124, 153, 0.04);
+  }
+
+  .folder-item:nth-child(1) { animation: hero-in 0.4s ease-out 0.2s forwards; }
+  .folder-item:nth-child(2) { animation: hero-in 0.4s ease-out 0.28s forwards; }
+  .folder-item:nth-child(3) { animation: hero-in 0.4s ease-out 0.36s forwards; }
+  .folder-item:nth-child(4) { animation: hero-in 0.4s ease-out 0.44s forwards; }
+  .folder-item:nth-child(5) { animation: hero-in 0.4s ease-out 0.52s forwards; }
+
+  .folder-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .folder-item.checked .folder-checkbox {
+    background: var(--steel-blue);
+    border-color: var(--steel-blue);
+  }
+
+  .folder-checkbox svg {
+    width: 12px;
+    height: 12px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .folder-item.checked .folder-checkbox svg {
+    opacity: 1;
+  }
+
+  .folder-color {
+    width: 32px;
+    height: 28px;
+    border-radius: 4px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .folder-color::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 0;
+    width: 14px;
+    height: 6px;
+    border-radius: 2px 2px 0 0;
+  }
+
+  .folder-color.desktop { background: var(--steel-blue); }
+  .folder-color.desktop::before { background: var(--steel-blue); }
+  .folder-color.downloads { background: var(--sage); }
+  .folder-color.downloads::before { background: var(--sage); }
+  .folder-color.documents { background: var(--muted-blue); }
+  .folder-color.documents::before { background: var(--muted-blue); }
+  .folder-color.pictures { background: var(--warm-orange); }
+  .folder-color.pictures::before { background: var(--warm-orange); }
+  .folder-color.music { background: var(--soft-green); }
+  .folder-color.music::before { background: var(--soft-green); }
+
+  .folder-info {
+    flex: 1;
+  }
+
+  .folder-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--obsidian);
+  }
+
+  .folder-desc {
+    font-size: 12px;
+    color: rgba(26,26,26,0.4);
+    margin-top: 1px;
+  }
+
+  .step-footer {
+    margin-top: auto;
+    padding-top: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    animation: hero-in 0.5s ease-out 0.7s forwards;
+  }
+
+  .privacy-note {
+    font-size: 12px;
+    color: rgba(26,26,26,0.35);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .step-footer button {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+    background: var(--steel-blue);
+    border: none;
+    padding: 14px 40px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(91, 124, 153, 0.3);
+  }
+
+  .step-footer button:hover {
+    background: #4F7089;
+    transform: translateY(-1px);
+  }
+
+  /* Progress indicator */
+  .progress-bar {
+    display: flex;
+    gap: 6px;
+    padding: 16px;
+    justify-content: center;
+    position: absolute;
+    top: 52px;
+    width: 100%;
+    z-index: 8;
+    opacity: 0;
+    animation: hero-in 0.4s ease-out 0.3s forwards;
+  }
+
+  .progress-dot {
+    width: 32px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0,0,0,0.08);
+    transition: background 0.3s;
+  }
+
+  .progress-dot.active {
+    background: var(--steel-blue);
+  }
+
+  .progress-dot.completed {
+    background: var(--sage);
+  }
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic-lights">
+      <div class="traffic-light close"></div>
+      <div class="traffic-light minimize"></div>
+      <div class="traffic-light maximize"></div>
+    </div>
+  </div>
+
+  <!-- STEP 1: Welcome -->
+  <div class="content step-1" id="step1">
+    <div class="bg-gradient"></div>
+
+    <div class="animation-stage">
+      <div class="file pdf" style="left:20px;top:30px;"><div class="file-body"><span class="file-ext">PDF</span><div class="file-corner"></div></div><span class="file-label">Report_Q4.pdf</span></div>
+      <div class="file doc" style="left:310px;top:15px;"><div class="file-body"><span class="file-ext">DOC</span><div class="file-corner"></div></div><span class="file-label">Meeting Notes.docx</span></div>
+      <div class="file img" style="left:80px;top:230px;"><div class="file-body"><span class="file-ext">JPG</span><div class="file-corner"></div></div><span class="file-label">IMG_2847.jpg</span></div>
+      <div class="file zip" style="left:280px;top:250px;"><div class="file-body"><span class="file-ext">ZIP</span><div class="file-corner"></div></div><span class="file-label">Archive.zip</span></div>
+      <div class="file xls" style="left:340px;top:130px;"><div class="file-body"><span class="file-ext">XLS</span><div class="file-corner"></div></div><span class="file-label">Budget_2024.xlsx</span></div>
+      <div class="file mp3" style="left:5px;top:140px;"><div class="file-body"><span class="file-ext">MP3</span><div class="file-corner"></div></div><span class="file-label">podcast_ep12.mp3</span></div>
+      <div class="file ppt" style="left:160px;top:10px;"><div class="file-body"><span class="file-ext">PPT</span><div class="file-corner"></div></div><span class="file-label">Deck_Final_v3.pptx</span></div>
+      <div class="file txt" style="left:190px;top:250px;"><div class="file-body"><span class="file-ext">TXT</span><div class="file-corner"></div></div><span class="file-label">todo-list.txt</span></div>
+      <div class="file mov" style="left:350px;top:50px;"><div class="file-body"><span class="file-ext">MOV</span><div class="file-corner"></div></div><span class="file-label">Screen Recording.mov</span></div>
+      <div class="file csv" style="left:60px;top:80px;"><div class="file-body"><span class="file-ext">CSV</span><div class="file-corner"></div></div><span class="file-label">contacts_export.csv</span></div>
+      <div class="file png" style="left:240px;top:60px;"><div class="file-body"><span class="file-ext">PNG</span><div class="file-corner"></div></div><span class="file-label">Screenshot 2024.png</span></div>
+      <div class="file key" style="left:120px;top:170px;"><div class="file-body"><span class="file-ext">KEY</span><div class="file-corner"></div></div><span class="file-label">Presentation.key</span></div>
+
+      <div class="folder">
+        <div class="folder-pulse"></div>
+        <div class="folder-icon">
+          <div class="folder-tab"></div>
+          <div class="folder-back"></div>
+          <div class="folder-front"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero">
+      <h1>Your files, finally organized.</h1>
+      <p>Forma learns how you work and keeps your folders tidy — automatically.</p>
+    </div>
+
+    <div class="cta">
+      <button onclick="goToStep2()">Get Started</button>
+    </div>
+
+    <button class="replay" onclick="replayAnimation()">Replay animation</button>
+  </div>
+
+  <!-- STEP 2: Folder Selection -->
+  <div class="content step-2" id="step2">
+    <div class="progress-bar">
+      <div class="progress-dot active"></div>
+      <div class="progress-dot"></div>
+      <div class="progress-dot"></div>
+    </div>
+
+    <div class="step-header">
+      <h2>Choose your folders</h2>
+      <p>We've selected the most common ones. Uncheck any you'd rather manage yourself.</p>
+    </div>
+
+    <div class="folder-list">
+      <div class="folder-item checked" onclick="this.classList.toggle('checked')">
+        <div class="folder-checkbox"><svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="folder-color desktop"></div>
+        <div class="folder-info"><div class="folder-name">Desktop</div><div class="folder-desc">Files on your desktop</div></div>
+      </div>
+      <div class="folder-item checked" onclick="this.classList.toggle('checked')">
+        <div class="folder-checkbox"><svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="folder-color downloads"></div>
+        <div class="folder-info"><div class="folder-name">Downloads</div><div class="folder-desc">Your downloaded files</div></div>
+      </div>
+      <div class="folder-item checked" onclick="this.classList.toggle('checked')">
+        <div class="folder-checkbox"><svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="folder-color documents"></div>
+        <div class="folder-info"><div class="folder-name">Documents</div><div class="folder-desc">Your documents folder</div></div>
+      </div>
+      <div class="folder-item checked" onclick="this.classList.toggle('checked')">
+        <div class="folder-checkbox"><svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="folder-color pictures"></div>
+        <div class="folder-info"><div class="folder-name">Pictures</div><div class="folder-desc">Photos and images</div></div>
+      </div>
+      <div class="folder-item checked" onclick="this.classList.toggle('checked')">
+        <div class="folder-checkbox"><svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="folder-color music"></div>
+        <div class="folder-info"><div class="folder-name">Music</div><div class="folder-desc">Audio files and playlists</div></div>
+      </div>
+    </div>
+
+    <div class="step-footer">
+      <div class="privacy-note">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 5H3a1 1 0 00-1 1v4a1 1 0 001 1h6a1 1 0 001-1V6a1 1 0 00-1-1z" stroke="currentColor" stroke-width="1.2"/><path d="M4 5V3.5a2 2 0 014 0V5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Your files never leave your Mac
+      </div>
+      <button>Continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function replayAnimation() {
+    const stage = document.querySelector('.animation-stage');
+    const hero = document.querySelector('.hero');
+    const cta = document.querySelector('.cta');
+
+    stage.style.display = 'none';
+    hero.style.animation = 'none';
+    cta.style.animation = 'none';
+
+    requestAnimationFrame(() => {
+      stage.style.display = '';
+      hero.style.animation = '';
+      cta.style.animation = '';
+
+      // Force re-trigger by cloning
+      const parent = stage.parentNode;
+      const clone = stage.cloneNode(true);
+      parent.replaceChild(clone, stage);
+
+      hero.style.animation = 'hero-in 0.8s ease-out 3.2s forwards';
+      hero.style.opacity = '0';
+      hero.style.transform = 'translateY(16px)';
+
+      cta.style.animation = 'hero-in 0.6s ease-out 3.6s forwards';
+      cta.style.opacity = '0';
+      cta.style.transform = 'translateY(12px)';
+    });
+  }
+
+  function goToStep2() {
+    document.getElementById('step1').classList.add('hidden');
+    document.getElementById('step2').classList.add('active');
+  }
+</script>
+
+</body>
+</html>

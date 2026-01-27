@@ -707,7 +707,7 @@ struct FileInspectorView: View {
 private enum FileInspectorViewPreviews {
     static func singleFile() -> some View {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: FileItem.self, Rule.self, ActivityItem.self, CustomFolder.self, configurations: config)
+        let container = try! ModelContainer(for: FileItem.self, Rule.self, ActivityItem.self, configurations: config)
 
         let file = FileItem(
             path: "/Users/test/Downloads/Invoice_2025.pdf",
@@ -725,7 +725,7 @@ private enum FileInspectorViewPreviews {
 
     static func multipleFiles() -> some View {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: FileItem.self, Rule.self, ActivityItem.self, CustomFolder.self, configurations: config)
+        let container = try! ModelContainer(for: FileItem.self, Rule.self, ActivityItem.self, configurations: config)
 
         let screenshotsDest = Destination.folder(bookmark: Data(), displayName: "Pictures/Screenshots")
         let files = [

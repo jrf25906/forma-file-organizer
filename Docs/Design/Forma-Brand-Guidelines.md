@@ -730,6 +730,71 @@ Navigation:        chevron.left, chevron.down, gear
 
 ---
 
+#### **Web Icons: Phosphor**
+
+For website and web-based interfaces, use [Phosphor Icons](https://phosphoricons.com):
+
+**Why Phosphor:**
+- 9,072+ icons with consistent style
+- 6 weights (thin, light, regular, bold, fill, duotone)
+- Matches SF Symbols flexibility for weight consistency
+- Clean, geometric aesthetic aligns with Forma's refined brand
+- MIT license, actively maintained
+
+**Installation:**
+```html
+<!-- CDN (recommended for prototypes) -->
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+<!-- Or via npm -->
+npm install @phosphor-icons/react
+```
+
+**Usage:**
+```html
+<!-- HTML with CDN -->
+<i class="ph ph-folder"></i>
+<i class="ph-bold ph-gear"></i>
+<i class="ph-fill ph-check-circle"></i>
+
+<!-- React -->
+import { Folder, Gear, CheckCircle } from "@phosphor-icons/react";
+<Folder weight="regular" size={24} />
+<Gear weight="bold" size={20} />
+<CheckCircle weight="fill" size={24} color="#7A9D7E" />
+```
+
+**Weight Guidelines:**
+```
+Thin (weight="thin"):      Decorative, large display sizes
+Light (weight="light"):    Subtle, secondary UI
+Regular (weight="regular"): Default, most UI elements
+Bold (weight="bold"):      Emphasis, navigation, headers
+Fill (weight="fill"):      Active states, selected items
+Duotone:                   Use sparingly for visual interest
+```
+
+**Recommended Icons for Forma:**
+```
+Files/Folders:   folder, file, file-text, file-pdf, file-image
+Actions:         arrow-right, check, x, trash, plus, download, upload
+Navigation:      house, gear-six, magnifying-glass, list, grid-four
+Status:          check-circle, warning-circle, info, eye
+Organization:    folders, stack, sort-ascending, funnel
+```
+
+**Color Application:**
+- Default: Obsidian (#1A1A1A) in light mode, Bone White (#FAFAF8) in dark
+- Interactive: Steel Blue (#5B7C99) on hover/focus
+- Success: Sage (#7A9D7E) for confirmations
+- Match icon color to surrounding text by default
+
+**Icon Context Summary:**
+- **macOS App:** SF Symbols — native feel, accessibility, weight matching
+- **Website:** Phosphor — consistent 6-weight system, web-optimized
+
+---
+
 #### **Illustrations (Phase 2)**
 
 For empty states, onboarding, marketing:

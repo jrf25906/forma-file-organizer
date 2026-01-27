@@ -37,7 +37,7 @@ enum FormaLayout {
 
     enum Toolbar {
         /// Spacing between the toolbar pills row and content below.
-        static let bottomToContentSpacing: CGFloat = 0
+        static let bottomToContentSpacing: CGFloat = 12
 
         /// Height for the secondary toolbar row (filters/grouping). Kept fixed to avoid
         /// layout jumps when switching between Pending and All Files.

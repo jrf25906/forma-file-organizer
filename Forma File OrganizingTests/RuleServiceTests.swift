@@ -20,7 +20,7 @@ final class RuleServiceTests: XCTestCase {
         try await super.setUp()
         
         // Create in-memory model container with required models
-        let schema = Schema([Rule.self, FileItem.self, ActivityItem.self, CustomFolder.self])
+        let schema = Schema([Rule.self, FileItem.self, ActivityItem.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [config])
         modelContext = modelContainer.mainContext

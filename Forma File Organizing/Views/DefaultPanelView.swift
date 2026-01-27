@@ -789,7 +789,7 @@ extension FileInsight {
 
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: FileItem.self, Rule.self, ActivityItem.self, CustomFolder.self, configurations: config)
+    let container = try! ModelContainer(for: FileItem.self, Rule.self, ActivityItem.self, configurations: config)
 
     DefaultPanelView()
         .environmentObject(DashboardViewModel())

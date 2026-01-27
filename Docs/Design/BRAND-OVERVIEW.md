@@ -154,6 +154,12 @@ Forma uses a **layered material design** approach:
 - **Modals:** Blur backdrop (10px) with semi-transparent overlay
 - **Transitions:** Spring animations (0.5s response, 0.85 damping)
 
+### Icons
+| Context | Library | Notes |
+|---------|---------|-------|
+| macOS App | SF Symbols | Native, weight-matched to SF Pro |
+| Website | [Phosphor](https://phosphoricons.com) | 6 weights, matches SF Symbols flexibility |
+
 ---
 
 ## Value Pillars (With Proof)

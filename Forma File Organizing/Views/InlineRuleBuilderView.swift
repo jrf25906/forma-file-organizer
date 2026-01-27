@@ -1266,7 +1266,7 @@ private struct NaturalLanguageInputBar: View {
 private enum InlineRuleBuilderViewPreview {
     static func make() -> some View {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: FileItem.self, Rule.self, RuleCategory.self, ActivityItem.self, CustomFolder.self, configurations: config)
+        let container = try! ModelContainer(for: FileItem.self, Rule.self, RuleCategory.self, ActivityItem.self, configurations: config)
 
         // Seed a default category for the preview
         let context = container.mainContext

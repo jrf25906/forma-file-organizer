@@ -39,11 +39,11 @@ final class FileScanPipelineTests: XCTestCase {
         func scanPictures() async throws -> [FileMetadata] { metadata }
         func scanMusic() async throws -> [FileMetadata] { metadata }
 
-        func scanAllFolders(customFolders: [CustomFolder]) async -> ScanResult {
+        func scanAllFolders() async -> ScanResult {
             ScanResult(files: metadata, errors: [:])
         }
 
-        func scan(baseFolders: [FolderLocation], customFolders: [CustomFolder]) async -> ScanResult {
+        func scan(baseFolders: [FolderLocation]) async -> ScanResult {
             ScanResult(files: metadata, errors: [:])
         }
 
@@ -91,7 +91,6 @@ final class FileScanPipelineTests: XCTestCase {
         // When: running the scan pipeline
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop, .downloads],
-            customFolders: [],
             fileSystemService: stubFS,
             ruleEngine: ruleEngine,
             rules: rules,

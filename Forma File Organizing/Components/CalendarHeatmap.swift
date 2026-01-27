@@ -86,13 +86,13 @@ struct CalendarHeatmap: View {
             }
         }
         .padding(FormaSpacing.large)
-        .background(Color.formaControlBackground)
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-        .shadow(
-            color: Color.formaObsidian.opacity(Color.FormaOpacity.subtle),
-            radius: 8,
-            x: 0,
-            y: 4
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
         )
     }
 

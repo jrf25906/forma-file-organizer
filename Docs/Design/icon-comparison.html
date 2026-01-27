@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forma Icon Comparison</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- Icon Libraries -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      /* Forma Brand Colors */
+      --obsidian: #1A1A1A;
+      --bone-white: #FAFAF8;
+      --steel-blue: #5B7C99;
+      --sage: #7A9D7E;
+      --muted-blue: #6B8CA8;
+      --warm-orange: #C97E66;
+      --soft-green: #8BA688;
+
+      /* Spacing */
+      --spacing-tight: 8px;
+      --spacing-standard: 12px;
+      --spacing-generous: 16px;
+      --spacing-large: 24px;
+      --spacing-xl: 32px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bone-white);
+      color: var(--obsidian);
+      padding: var(--spacing-xl);
+      line-height: 1.5;
+    }
+
+    body.dark-mode {
+      background: var(--obsidian);
+      color: var(--bone-white);
+    }
+
+    h1 {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: var(--spacing-tight);
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: #666;
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .dark-mode .subtitle {
+      color: #999;
+    }
+
+    .controls {
+      display: flex;
+      gap: var(--spacing-generous);
+      margin-bottom: var(--spacing-xl);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .toggle-btn {
+      background: var(--steel-blue);
+      color: var(--bone-white);
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .toggle-btn:hover {
+      opacity: 0.9;
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .swatch:hover {
+      transform: scale(1.1);
+    }
+
+    .swatch.active {
+      outline: 2px solid var(--steel-blue);
+      outline-offset: 2px;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 140px repeat(4, 1fr);
+      gap: 1px;
+      background: rgba(0,0,0,0.1);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .dark-mode .comparison-grid {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .grid-header {
+      background: var(--obsidian);
+      color: var(--bone-white);
+      padding: var(--spacing-standard) var(--spacing-generous);
+      font-weight: 600;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .dark-mode .grid-header {
+      background: #2a2a2a;
+    }
+
+    .grid-header.icon-name {
+      text-align: left;
+    }
+
+    .grid-cell {
+      background: var(--bone-white);
+      padding: var(--spacing-generous);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 64px;
+    }
+
+    .dark-mode .grid-cell {
+      background: var(--obsidian);
+    }
+
+    .grid-cell.icon-name {
+      justify-content: flex-start;
+      font-size: 13px;
+      font-weight: 500;
+      color: #666;
+    }
+
+    .dark-mode .grid-cell.icon-name {
+      color: #999;
+    }
+
+    .grid-cell svg,
+    .grid-cell i {
+      width: 24px;
+      height: 24px;
+      transition: color 0.2s;
+    }
+
+    /* Phosphor icons use <i> tags */
+    .grid-cell i {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .icon-color-obsidian svg,
+    .icon-color-obsidian i {
+      color: var(--obsidian);
+    }
+
+    .icon-color-steel-blue svg,
+    .icon-color-steel-blue i {
+      color: var(--steel-blue);
+    }
+
+    .icon-color-sage svg,
+    .icon-color-sage i {
+      color: var(--sage);
+    }
+
+    .icon-color-muted-blue svg,
+    .icon-color-muted-blue i {
+      color: var(--muted-blue);
+    }
+
+    .icon-color-warm-orange svg,
+    .icon-color-warm-orange i {
+      color: var(--warm-orange);
+    }
+
+    .dark-mode .icon-color-obsidian svg,
+    .dark-mode .icon-color-obsidian i {
+      color: var(--bone-white);
+    }
+
+    .section-title {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 20px;
+      margin: var(--spacing-xl) 0 var(--spacing-generous);
+    }
+
+    .notes {
+      background: rgba(91, 124, 153, 0.1);
+      border-left: 3px solid var(--steel-blue);
+      padding: var(--spacing-generous);
+      border-radius: 0 8px 8px 0;
+      margin: var(--spacing-xl) 0;
+    }
+
+    .dark-mode .notes {
+      background: rgba(91, 124, 153, 0.2);
+    }
+
+    .notes h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: var(--spacing-tight);
+    }
+
+    .notes p {
+      font-size: 13px;
+      color: #555;
+    }
+
+    .dark-mode .notes p {
+      color: #aaa;
+    }
+
+    .library-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--spacing-generous);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .stat-card {
+      background: white;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 10px;
+      padding: var(--spacing-generous);
+      text-align: center;
+    }
+
+    .dark-mode .stat-card {
+      background: #222;
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .stat-card h4 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .stat-card .count {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--steel-blue);
+    }
+
+    .stat-card .detail {
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    /* Heroicons via inline SVG */
+    .heroicon {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      fill: none;
+    }
+
+    /* Radix icons are smaller */
+    .radix-icon {
+      width: 15px;
+      height: 15px;
+    }
+
+    .no-icon {
+      font-size: 11px;
+      color: #999;
+    }
+  </style>
+</head>
+<body class="icon-color-obsidian">
+
+  <h1>Icon Comparison</h1>
+  <p class="subtitle">15 common UI icons displayed in Forma's brand colors</p>
+
+  <div class="controls">
+    <button class="toggle-btn" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+
+    <div class="color-swatches">
+      <span style="font-size: 13px; margin-right: 8px;">Icon color:</span>
+      <div class="swatch active" style="background: var(--obsidian);" onclick="setIconColor('obsidian')" title="Obsidian"></div>
+      <div class="swatch" style="background: var(--steel-blue);" onclick="setIconColor('steel-blue')" title="Steel Blue"></div>
+      <div class="swatch" style="background: var(--sage);" onclick="setIconColor('sage')" title="Sage"></div>
+      <div class="swatch" style="background: var(--muted-blue);" onclick="setIconColor('muted-blue')" title="Muted Blue"></div>
+      <div class="swatch" style="background: var(--warm-orange);" onclick="setIconColor('warm-orange')" title="Warm Orange"></div>
+    </div>
+  </div>
+
+  <div class="library-stats">
+    <div class="stat-card">
+      <h4>Phosphor</h4>
+      <div class="count">9,072</div>
+      <div class="detail">6 weights + duotone</div>
+    </div>
+    <div class="stat-card">
+      <h4>Lucide</h4>
+      <div class="count">1,666</div>
+      <div class="detail">2px stroke, 24px</div>
+    </div>
+    <div class="stat-card">
+      <h4>Heroicons</h4>
+      <div class="count">316</div>
+      <div class="detail">4 styles available</div>
+    </div>
+    <div class="stat-card">
+      <h4>Radix</h4>
+      <div class="count">318</div>
+      <div class="detail">15x15, 1px stroke</div>
+    </div>
+  </div>
+
+  <div class="comparison-grid">
+    <!-- Header Row -->
+    <div class="grid-header icon-name">Icon</div>
+    <div class="grid-header">Phosphor</div>
+    <div class="grid-header">Lucide</div>
+    <div class="grid-header">Heroicons</div>
+    <div class="grid-header">Radix</div>
+
+    <!-- Folder -->
+    <div class="grid-cell icon-name">Folder</div>
+    <div class="grid-cell"><i class="ph ph-folder"></i></div>
+    <div class="grid-cell"><i data-lucide="folder"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path d="M13.5 3H7.71l-.85-.85A.5.5 0 006.5 2h-5a.5.5 0 00-.5.5v10a.5.5 0 00.5.5h12a.5.5 0 00.5-.5v-9a.5.5 0 00-.5-.5zm-12-.5a.5.5 0 01.5-.5h4.79l.85.85a.5.5 0 00.36.15h6a.5.5 0 01.5.5V5H1V2.5z"/></svg>
+    </div>
+
+    <!-- File/Document -->
+    <div class="grid-cell icon-name">File</div>
+    <div class="grid-cell"><i class="ph ph-file"></i></div>
+    <div class="grid-cell"><i data-lucide="file"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M3 2.5a.5.5 0 01.5-.5h5.793a.5.5 0 01.354.146l2.707 2.708a.5.5 0 01.146.353V12.5a.5.5 0 01-.5.5h-8a.5.5 0 01-.5-.5v-10zM3.5 1A1.5 1.5 0 002 2.5v10A1.5 1.5 0 003.5 14h8a1.5 1.5 0 001.5-1.5V5.207a1.5 1.5 0 00-.44-1.06L9.854 1.439A1.5 1.5 0 008.793 1H3.5z"/></svg>
+    </div>
+
+    <!-- Search -->
+    <div class="grid-cell icon-name">Search</div>
+    <div class="grid-cell"><i class="ph ph-magnifying-glass"></i></div>
+    <div class="grid-cell"><i data-lucide="search"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 6.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zm-.691 3.516a4.5 4.5 0 11.707-.707l2.838 2.838a.5.5 0 01-.708.707L9.31 10.016z"/></svg>
+    </div>
+
+    <!-- Settings/Gear -->
+    <div class="grid-cell icon-name">Settings</div>
+    <div class="grid-cell"><i class="ph ph-gear"></i></div>
+    <div class="grid-cell"><i data-lucide="settings"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.071.222a.5.5 0 01.858 0l.857 1.429a.5.5 0 00.395.253l1.652.165a.5.5 0 01.265.883l-1.287 1.028a.5.5 0 00-.165.508l.393 1.612a.5.5 0 01-.752.545L7.857 5.58a.5.5 0 00-.514 0l-1.43 1.065a.5.5 0 01-.752-.545l.393-1.612a.5.5 0 00-.165-.508L4.102 2.952a.5.5 0 01.265-.883l1.652-.165a.5.5 0 00.395-.253L7.07.222zM7.5 4a3.5 3.5 0 100 7 3.5 3.5 0 000-7zM5 7.5a2.5 2.5 0 115 0 2.5 2.5 0 01-5 0z"/></svg>
+    </div>
+
+    <!-- Check -->
+    <div class="grid-cell icon-name">Check</div>
+    <div class="grid-cell"><i class="ph ph-check"></i></div>
+    <div class="grid-cell"><i data-lucide="check"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.467 3.727c.289.189.37.576.181.865l-4.25 6.5a.625.625 0 01-.944.12l-2.75-2.5a.625.625 0 01.841-.925l2.208 2.007 3.849-5.886a.625.625 0 01.865-.181z"/></svg>
+    </div>
+
+    <!-- Close/X -->
+    <div class="grid-cell icon-name">Close</div>
+    <div class="grid-cell"><i class="ph ph-x"></i></div>
+    <div class="grid-cell"><i data-lucide="x"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.782 4.032a.575.575 0 10-.813-.814L7.5 6.687 4.032 3.218a.575.575 0 00-.814.814L6.687 7.5l-3.469 3.468a.575.575 0 00.814.814L7.5 8.313l3.469 3.469a.575.575 0 00.813-.814L8.313 7.5l3.469-3.468z"/></svg>
+    </div>
+
+    <!-- Arrow Right -->
+    <div class="grid-cell icon-name">Arrow Right</div>
+    <div class="grid-cell"><i class="ph ph-arrow-right"></i></div>
+    <div class="grid-cell"><i data-lucide="arrow-right"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M8.146 3.146a.5.5 0 01.708 0l4 4a.5.5 0 010 .708l-4 4a.5.5 0 01-.708-.708L11.293 8H2.5a.5.5 0 010-1h8.793L8.146 3.854a.5.5 0 010-.708z"/></svg>
+    </div>
+
+    <!-- Trash -->
+    <div class="grid-cell icon-name">Trash</div>
+    <div class="grid-cell"><i class="ph ph-trash"></i></div>
+    <div class="grid-cell"><i data-lucide="trash-2"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.5 1a.5.5 0 000 1h4a.5.5 0 000-1h-4zM3 3.5a.5.5 0 01.5-.5h8a.5.5 0 010 1H11v8a1 1 0 01-1 1H5a1 1 0 01-1-1V4h-.5a.5.5 0 01-.5-.5zM5 4h5v8H5V4z"/></svg>
+    </div>
+
+    <!-- Plus -->
+    <div class="grid-cell icon-name">Plus</div>
+    <div class="grid-cell"><i class="ph ph-plus"></i></div>
+    <div class="grid-cell"><i data-lucide="plus"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 2.75a.5.5 0 00-1 0V7H2.75a.5.5 0 000 1H7v4.25a.5.5 0 001 0V8h4.25a.5.5 0 000-1H8V2.75z"/></svg>
+    </div>
+
+    <!-- Home -->
+    <div class="grid-cell icon-name">Home</div>
+    <div class="grid-cell"><i class="ph ph-house"></i></div>
+    <div class="grid-cell"><i data-lucide="home"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.08.222a.6.6 0 01.84 0l6.75 6.64a.6.6 0 01-.84.856L7.5 1.528l-6.33 6.19a.6.6 0 01-.84-.855L7.08.222zM3.5 7.5a.5.5 0 01.5.5v4.5h2.5v-2a1.5 1.5 0 013 0v2H12V8a.5.5 0 011 0v5a.5.5 0 01-.5.5h-4a.5.5 0 01-.5-.5v-2.5a.5.5 0 00-1 0V13a.5.5 0 01-.5.5h-4A.5.5 0 012 13V8a.5.5 0 01.5-.5z"/></svg>
+    </div>
+
+    <!-- Download -->
+    <div class="grid-cell icon-name">Download</div>
+    <div class="grid-cell"><i class="ph ph-download-simple"></i></div>
+    <div class="grid-cell"><i data-lucide="download"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.5 1a.5.5 0 01.5.5v8.793l2.146-2.147a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 11.708-.708L7 10.293V1.5a.5.5 0 01.5-.5zM2 13.5a.5.5 0 01.5-.5h10a.5.5 0 010 1h-10a.5.5 0 01-.5-.5z"/></svg>
+    </div>
+
+    <!-- Upload -->
+    <div class="grid-cell icon-name">Upload</div>
+    <div class="grid-cell"><i class="ph ph-upload-simple"></i></div>
+    <div class="grid-cell"><i data-lucide="upload"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.818 1.182a.45.45 0 00-.636 0l-3 3a.45.45 0 10.636.636L7.05 2.586V10.5a.45.45 0 00.9 0V2.586l2.232 2.232a.45.45 0 10.636-.636l-3-3zM2.5 10a.5.5 0 01.5.5V12c0 .554.446 1 .996 1h7.008c.55 0 .996-.446.996-1v-1.5a.5.5 0 011 0V12a2 2 0 01-1.996 2H3.996A2 2 0 012 12v-1.5a.5.5 0 01.5-.5z"/></svg>
+    </div>
+
+    <!-- Eye/View -->
+    <div class="grid-cell icon-name">Eye</div>
+    <div class="grid-cell"><i class="ph ph-eye"></i></div>
+    <div class="grid-cell"><i data-lucide="eye"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.5 11c-2.697 0-4.97-1.378-6.404-3.5C2.53 5.378 4.803 4 7.5 4s4.97 1.378 6.404 3.5C12.47 9.622 10.197 11 7.5 11zm0-8C4.308 3 1.656 4.706.076 7.235a.5.5 0 000 .53C1.656 10.294 4.308 12 7.5 12s5.844-1.706 7.424-4.235a.5.5 0 000-.53C13.344 4.706 10.692 3 7.5 3zm0 6.5a2 2 0 100-4 2 2 0 000 4z"/></svg>
+    </div>
+
+    <!-- Edit/Pencil -->
+    <div class="grid-cell icon-name">Edit</div>
+    <div class="grid-cell"><i class="ph ph-pencil-simple"></i></div>
+    <div class="grid-cell"><i data-lucide="pencil"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.854.146a.5.5 0 00-.707 0L3.714 7.578a1 1 0 00-.258.442l-.96 3.199a.5.5 0 00.632.633l3.2-.96a1 1 0 00.44-.258l7.434-7.433a.5.5 0 000-.707L11.854.146zm.353 1.06l1.586 1.586-6.98 6.98-1.586-1.586 6.98-6.98zM3.61 11.39l.818-2.727 1.909 1.909-2.728.818z"/></svg>
+    </div>
+
+    <!-- Star -->
+    <div class="grid-cell icon-name">Star</div>
+    <div class="grid-cell"><i class="ph ph-star"></i></div>
+    <div class="grid-cell"><i data-lucide="star"></i></div>
+    <div class="grid-cell">
+      <svg class="heroicon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg>
+    </div>
+    <div class="grid-cell">
+      <svg class="radix-icon" viewBox="0 0 15 15" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.223.666a.3.3 0 01.554 0L9.413 4.6a.3.3 0 00.253.184l4.025.328a.3.3 0 01.171.527L10.82 8.327a.3.3 0 00-.097.297l.903 3.94a.3.3 0 01-.448.326L7.72 10.64a.3.3 0 00-.312 0l-3.46 2.25a.3.3 0 01-.448-.326l.904-3.94a.3.3 0 00-.097-.297L1.266 5.64a.3.3 0 01.17-.527l4.026-.328a.3.3 0 00.253-.184L7.223.666z"/></svg>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h3>Observations</h3>
+    <p>
+      <strong>Phosphor</strong> has the most rounded, friendly feel with consistent stroke weights.<br>
+      <strong>Lucide</strong> is geometric and balanced, slightly heavier 2px stroke.<br>
+      <strong>Heroicons</strong> offers detailed, professional icons with subtle curves.<br>
+      <strong>Radix</strong> is the most minimal and crisp at 15x15, perfect for dense UIs.
+    </p>
+  </div>
+
+  <h2 class="section-title">Recommendation for Forma</h2>
+
+  <div class="notes">
+    <h3>Best Match: Phosphor Icons</h3>
+    <p>
+      Phosphor's multiple weight variants (thin, light, regular, bold, fill, duotone) provide the same flexibility as SF Symbols,
+      ensuring visual consistency between your macOS app and website. The icons are professional without being cold,
+      matching Forma's "confident, not arrogant" tone.
+    </p>
+  </div>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+    }
+
+    function setIconColor(color) {
+      // Remove all color classes
+      document.body.classList.remove(
+        'icon-color-obsidian',
+        'icon-color-steel-blue',
+        'icon-color-sage',
+        'icon-color-muted-blue',
+        'icon-color-warm-orange'
+      );
+
+      // Add the selected color class
+      document.body.classList.add('icon-color-' + color);
+
+      // Update active swatch
+      document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

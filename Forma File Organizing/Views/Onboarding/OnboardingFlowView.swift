@@ -130,8 +130,8 @@ struct OnboardingFlowView: View {
         // Mark onboarding as complete
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
 
-        // Create CustomFolder entries for each selected folder so they appear in sidebar
-        createCustomFoldersFromSelection()
+        // Note: Bookmarks are already saved to Keychain during permission requests.
+        // BookmarkFolderService reads directly from Keychain, so no CustomFolder creation needed.
 
         // Apply per-folder template rules (creates scoped categories)
         dashboardViewModel.applyPerFolderTemplates(
@@ -149,65 +149,14 @@ struct OnboardingFlowView: View {
         let templateSummary = templatesUsed.joined(separator: ", ")
         activityService.logOnboardingCompleted(templateName: templateSummary)
 
-        // Reload custom folders so sidebar updates
-        dashboardViewModel.loadCustomFolders(from: modelContext)
+        // Refresh folder service so sidebar updates with newly granted permissions
+        BookmarkFolderService.shared.refresh()
 
         // Complete and dismiss
         dashboardViewModel.completeOnboarding()
     }
 
     // MARK: - Permissions & Setup
-
-    /// Creates CustomFolder SwiftData entries from the onboarding folder selections.
-    /// This bridges the gap between permissions granted during onboarding and the sidebar's dynamic locations.
-    private func createCustomFoldersFromSelection() {
-        var createdCount = 0
-
-        for folder in state.selectedFolders {
-            // Load the bookmark data that was saved during permission request
-            guard let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: folder.bookmarkKey) else {
-                Log.warning("OnboardingFlowView: No bookmark found for \(folder.title), skipping CustomFolder creation", category: .bookmark)
-                continue
-            }
-
-            // Check if a CustomFolder with this path already exists
-            let existingPath = folder.folderPath
-            let descriptor = FetchDescriptor<CustomFolder>(
-                predicate: #Predicate { $0.path == existingPath }
-            )
-
-            do {
-                let existing = try modelContext.fetch(descriptor)
-                if !existing.isEmpty {
-                    Log.info("OnboardingFlowView: CustomFolder for \(folder.title) already exists, skipping", category: .filesystem)
-                    continue
-                }
-
-                // Create the CustomFolder entry
-                let customFolder = try CustomFolder(
-                    name: folder.title,
-                    path: folder.folderPath,
-                    bookmarkData: bookmarkData
-                )
-
-                modelContext.insert(customFolder)
-                createdCount += 1
-                Log.info("OnboardingFlowView: Created CustomFolder for \(folder.title)", category: .filesystem)
-            } catch {
-                Log.error("OnboardingFlowView: Failed to create CustomFolder for \(folder.title) - \(error.localizedDescription)", category: .filesystem)
-            }
-        }
-
-        // Save all at once
-        if createdCount > 0 {
-            do {
-                try modelContext.save()
-                Log.info("OnboardingFlowView: Saved \(createdCount) CustomFolder entries from onboarding", category: .filesystem)
-            } catch {
-                Log.error("OnboardingFlowView: Failed to save CustomFolder entries - \(error.localizedDescription)", category: .filesystem)
-            }
-        }
-    }
 
     private func requestPermissionsForSelectedFolders() async {
         if state.folderSelection.desktop {

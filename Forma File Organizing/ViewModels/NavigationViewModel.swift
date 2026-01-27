@@ -24,8 +24,30 @@ enum NavigationSelection: Hashable {
     case music
     case rules  // View and manage all saved rules
     case analytics
-    case custom(CustomFolder)
     case category(FileTypeCategory)
+
+    /// Maps a BookmarkFolder.FolderType to the corresponding NavigationSelection
+    static func from(folderType: BookmarkFolder.FolderType) -> NavigationSelection {
+        switch folderType {
+        case .desktop: return .desktop
+        case .downloads: return .downloads
+        case .documents: return .documents
+        case .pictures: return .pictures
+        case .music: return .music
+        }
+    }
+
+    /// Returns the BookmarkFolder.FolderType if this selection is a folder
+    var folderType: BookmarkFolder.FolderType? {
+        switch self {
+        case .desktop: return .desktop
+        case .downloads: return .downloads
+        case .documents: return .documents
+        case .pictures: return .pictures
+        case .music: return .music
+        default: return nil
+        }
+    }
 }
 
 final class NavigationViewModel: ObservableObject {

@@ -45,9 +45,14 @@ struct AnalyticsView: View {
                             if let analytics = viewModel.latestStorageAnalytics {
                                 StoragePanel(analytics: analytics, onCategoryTap: { _ in })
                                 .frame(width: 320) // Fixed width for consistency
-                                .background(Color.formaControlBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-                                .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.subtle), radius: 8, x: 0, y: 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                                        .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                                )
                             }
                         }
                         
@@ -163,9 +168,14 @@ struct AnalyticsView: View {
             } else {
                 TrendChart(points: viewModel.trendPoints)
                 .frame(minHeight: 320) // Slightly taller to match storage panel
-                .background(Color.formaControlBackground)
-                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-                .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.subtle), radius: 8, x: 0, y: 4)
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                        .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                )
             }
         }
     }
@@ -202,9 +212,14 @@ struct AnalyticsView: View {
                     }
                 }
                 .padding(FormaSpacing.large)
-                .background(Color.formaControlBackground)
-                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-                .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.subtle), radius: 8, x: 0, y: 4)
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                        .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                )
             } else {
                 AnalyticsEmptyStateView(title: "Health not available", message: "Health score appearing soon.")
             }
@@ -253,9 +268,14 @@ private struct AnalyticsEmptyStateView: View {
         }
         .padding(FormaSpacing.large)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.formaControlBackground)
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-        .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.subtle - Color.FormaOpacity.ultraSubtle), radius: 6, x: 0, y: 2)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+        )
     }
 }
 

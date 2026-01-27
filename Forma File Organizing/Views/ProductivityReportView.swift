@@ -171,13 +171,13 @@ struct ProductivityReportView: View {
         }
         .padding(FormaSpacing.generous)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.formaControlBackground)
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-        .shadow(
-            color: Color.formaObsidian.opacity(Color.FormaOpacity.subtle),
-            radius: 8,
-            x: 0,
-            y: 4
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
         )
     }
 
@@ -296,13 +296,13 @@ private struct ProductivityEmptyState: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.formaControlBackground)
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-        .shadow(
-            color: Color.formaObsidian.opacity(Color.FormaOpacity.subtle),
-            radius: 8,
-            x: 0,
-            y: 4
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
         )
     }
 }

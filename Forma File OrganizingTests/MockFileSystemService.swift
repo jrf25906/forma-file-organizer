@@ -40,11 +40,11 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
         if shouldSucceed { return mockFiles } else { throw FormaError.fileSystem(.ioError("Mock error", underlying: nil)) }
     }
 
-    func scanAllFolders(customFolders: [CustomFolder]) async -> ScanResult {
+    func scanAllFolders() async -> ScanResult {
         return ScanResult(files: mockFiles, errors: mockErrors)
     }
 
-    func scan(baseFolders: [FolderLocation], customFolders: [CustomFolder]) async -> ScanResult {
+    func scan(baseFolders: [FolderLocation]) async -> ScanResult {
         return ScanResult(files: mockFiles, errors: mockErrors)
     }
 

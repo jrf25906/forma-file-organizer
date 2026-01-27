@@ -17,8 +17,7 @@ final class PerFolderTemplateCategoryTests: XCTestCase {
             Rule.self,
             RuleCategory.self,
             FileItem.self,
-            ActivityItem.self,
-            CustomFolder.self
+            ActivityItem.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [config])

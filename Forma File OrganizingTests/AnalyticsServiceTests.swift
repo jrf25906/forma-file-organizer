@@ -10,7 +10,6 @@ final class AnalyticsServiceTests: XCTestCase {
             FileItem.self,
             ActivityItem.self,
             Rule.self,
-            CustomFolder.self,
             LearnedPattern.self,
             ProjectCluster.self,
             MLTrainingHistory.self

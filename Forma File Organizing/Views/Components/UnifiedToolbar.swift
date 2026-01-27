@@ -337,7 +337,7 @@ struct ModeToggleButton: View {
             .background {
                 if isActive {
                     ToolbarGlassyCapsuleBackground(
-                        tint: Color.formaSteelBlue,
+                        tint: Color.formaSteelBlue.opacity(0.5),
                         cornerRadius: 999
                     )
                     .matchedGeometryEffect(id: "activeModeToggle", in: namespace)
@@ -387,7 +387,7 @@ struct ViewTypeButton: View {
             .background {
                 if isActive {
                     ToolbarGlassyCapsuleBackground(
-                        tint: Color.formaSteelBlue,
+                        tint: Color.formaSteelBlue.opacity(0.5),
                         cornerRadius: 999
                     )
                     .matchedGeometryEffect(id: "activeView", in: namespace)
@@ -426,7 +426,7 @@ struct GroupingButton: View {
             .background {
                 if isActive {
                     ToolbarGlassyCapsuleBackground(
-                        tint: Color.formaSteelBlue,
+                        tint: Color.formaSteelBlue.opacity(0.5),
                         cornerRadius: 999
                     )
                     .matchedGeometryEffect(id: "activeGrouping", in: namespace)

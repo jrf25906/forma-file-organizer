@@ -322,26 +322,26 @@ struct FileRow: View {
 
     private var cardShadowColor: Color {
         if isFocused {
-            return Color.formaSteelBlue.opacity(Color.FormaOpacity.medium)
-        } else if isSelected {
             return Color.formaSteelBlue.opacity(Color.FormaOpacity.light)
+        } else if isSelected {
+            return Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle)
         } else if isHovered {
-            return Color.formaObsidian.opacity(Color.FormaOpacity.light)
-        } else {
             return Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+        } else {
+            return Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle)
         }
     }
 
     private var cardShadowRadius: CGFloat {
-        if isFocused || isSelected { return 12 }
-        if isHovered { return 8 }
-        return 4
+        if isFocused || isSelected { return 6 }
+        if isHovered { return 4 }
+        return 2
     }
 
     private var cardShadowY: CGFloat {
-        if isFocused || isSelected { return 4 }
-        if isHovered { return 3 }
-        return 2
+        if isFocused || isSelected { return 2 }
+        if isHovered { return 1 }
+        return 1
     }
 
     private var hoverScale: CGFloat {

@@ -75,7 +75,6 @@ class ReviewViewModel: ObservableObject {
             // Use shared pipeline for Desktop-only scan
             let result = await fileScanPipeline.scanAndPersist(
                 baseFolders: [.desktop],
-                customFolders: [],
                 fileSystemService: fileSystemService,
                 ruleEngine: ruleEngine,
                 rules: activeRules,

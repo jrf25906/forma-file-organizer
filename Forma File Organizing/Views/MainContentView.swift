@@ -299,8 +299,6 @@ struct MainContentView: View {
         case .analytics:
             // Analytics view doesn't need folder filtering
             return
-        case .custom(let customFolder):
-            folder = .custom(customFolder)
         case .category:
             // Category selection is handled via FilterTabBar / selectedCategory
             folder = .home
@@ -695,14 +693,6 @@ struct MainContentView: View {
         case .music:
             return #Predicate<FileItem> { file in
                 file.path.contains("/Music/")
-                && (!hasSearch || file.name.localizedStandardContains(search))
-                && (!hasRecent || file.creationDate > recentDate)
-                && (!hasLarge || file.sizeInBytes > largeSize)
-            }
-        case .custom(let folder):
-            let folderPath = folder.path
-            return #Predicate<FileItem> { file in
-                file.path.starts(with: folderPath)
                 && (!hasSearch || file.name.localizedStandardContains(search))
                 && (!hasRecent || file.creationDate > recentDate)
                 && (!hasLarge || file.sizeInBytes > largeSize)

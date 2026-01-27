@@ -3,7 +3,7 @@ import Foundation
 /// Represents the high-level origin/location of a file within the user's space.
 ///
 /// This is intentionally simpler than `FolderLocation` and does not capture
-/// specific `CustomFolder` instances so it can be safely used in value types
+/// specific folder instances so it can be safely used in value types
 /// and SwiftData models.
 enum FileLocationKind: String, Codable, Sendable {
     case home

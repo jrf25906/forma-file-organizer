@@ -234,7 +234,6 @@ class FileFilterManager: ObservableObject {
                 case .documents: return isInStandardLocation(file, kind: .documents, legacySubstring: "/Documents/")
                 case .pictures: return isInStandardLocation(file, kind: .pictures, legacySubstring: "/Pictures/")
                 case .music: return isInStandardLocation(file, kind: .music, legacySubstring: "/Music/")
-                case .custom(let folder): return file.path.hasPrefix(folder.path)
                 }
             }
         }

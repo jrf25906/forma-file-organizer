@@ -15,7 +15,6 @@ import CreateML
 protocol FileScanPipelineProtocol {
     func scanAndPersist(
         baseFolders: [FolderLocation],
-        customFolders: [CustomFolder],
         fileSystemService: FileSystemServiceProtocol,
         ruleEngine: RuleEngine,
         rules: [Rule],
@@ -51,7 +50,6 @@ struct FileScanPipeline: FileScanPipelineProtocol {
 
     func scanAndPersist(
         baseFolders: [FolderLocation],
-        customFolders: [CustomFolder],
         fileSystemService: FileSystemServiceProtocol,
         ruleEngine: RuleEngine,
         rules: [Rule],
@@ -59,7 +57,6 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     ) async -> ScanResult {
         await performScan(
             baseFolders: baseFolders,
-            customFolders: customFolders,
             fileSystemService: fileSystemService,
             ruleEngine: ruleEngine,
             rules: rules,
@@ -70,14 +67,13 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     /// Performs the actual scan operation (extracted for timeout wrapper)
     private func performScan(
         baseFolders: [FolderLocation],
-        customFolders: [CustomFolder],
         fileSystemService: FileSystemServiceProtocol,
         ruleEngine: RuleEngine,
         rules: [Rule],
         context: ModelContext
     ) async -> ScanResult {
-        // 1. Scan using protocol method (no downcast needed)
-        let result = await fileSystemService.scan(baseFolders: baseFolders, customFolders: customFolders)
+        // 1. Scan using protocol method
+        let result = await fileSystemService.scan(baseFolders: baseFolders)
         let scanMeta = ScanResult(files: [], errorSummary: result.errorSummary, rawErrors: result.errors)
         return await persist(files: result.files, evaluatedBy: ruleEngine, rules: rules, context: context, scanMeta: scanMeta)
     }

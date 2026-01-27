@@ -88,17 +88,20 @@ struct SmartInsightCard: View {
             }
         }
         .padding(FormaSpacing.generous)
-        .background(backgroundColor)
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(
+                    isHovered
+                        ? Color.formaObsidian.opacity(Color.FormaOpacity.light)
+                        : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+                )
+        )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(borderColor, lineWidth: 1)
-        )
-        .shadow(
-            color: Color.formaObsidian.opacity(isHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.subtle),
-            radius: isHovered ? 12 : 8,
-            x: 0,
-            y: isHovered ? 6 : 4
+                .strokeBorder(
+                    Color.formaObsidian.opacity(isHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light),
+                    lineWidth: 1
+                )
         )
         .scaleEffect(isHovered ? 1.01 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
@@ -181,8 +184,14 @@ struct SmartInsightList: View {
         }
         .padding(FormaSpacing.generous)
         .frame(maxWidth: .infinity)
-        .background(Color.formaControlBackground)
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+        )
     }
 }
 

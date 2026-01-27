@@ -45,16 +45,12 @@ final class DashboardFileScanProvider: FileScanProvider {
         // Fetch current rules
         let rules = try fetchRules(context: context)
 
-        // Fetch custom folders
-        let customFolders = try fetchCustomFolders(context: context)
-
-        // Determine which base folders to scan based on bookmarks
-        let baseFolders = getEnabledBaseFolders()
+        // Determine which base folders to scan based on BookmarkFolderService
+        let baseFolders = BookmarkFolderService.shared.enabledFolderLocations
 
         // Perform the scan
         let result = await pipeline.scanAndPersist(
             baseFolders: baseFolders,
-            customFolders: customFolders,
             fileSystemService: fileSystemService,
             ruleEngine: ruleEngine,
             rules: rules,
@@ -125,47 +121,6 @@ final class DashboardFileScanProvider: FileScanProvider {
         return try context.fetch(descriptor)
     }
 
-    private func fetchCustomFolders(context: ModelContext) throws -> [CustomFolder] {
-        let descriptor = FetchDescriptor<CustomFolder>()
-        return try context.fetch(descriptor)
-    }
-
-    private func getEnabledBaseFolders() -> [FolderLocation] {
-        var folders: [FolderLocation] = []
-
-        // Check each standard folder for valid bookmark using static methods
-        if Self.hasValidBookmark(for: FormaConfig.Security.desktopBookmarkKey) {
-            folders.append(.desktop)
-        }
-        if Self.hasValidBookmark(for: FormaConfig.Security.downloadsBookmarkKey) {
-            folders.append(.downloads)
-        }
-        if Self.hasValidBookmark(for: FormaConfig.Security.documentsBookmarkKey) {
-            folders.append(.documents)
-        }
-
-        return folders
-    }
-
-    /// Checks if a valid bookmark exists for the given key.
-    private static func hasValidBookmark(for key: String) -> Bool {
-        // Attempt to load the bookmark data
-        guard let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: key) else {
-            return false
-        }
-        // Attempt to resolve the bookmark
-        var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: bookmarkData,
-            options: .withSecurityScope,
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        ) else {
-            return false
-        }
-        // Verify the path is accessible
-        return FileManager.default.fileExists(atPath: url.path)
-    }
 
     private func computeMetrics(from files: [FileItem], context: ModelContext, errorSummary: String?) -> FileScanResult {
         var pendingCount = 0
@@ -274,7 +229,7 @@ final class DashboardFileScanProvider: FileScanProvider {
         }
 
         // TODO: Check if source folder is excluded from automation
-        // This would require CustomFolder.excludeFromAutomation property
+        // This would require BookmarkFolder.excludeFromAutomation property
 
         return true
     }
