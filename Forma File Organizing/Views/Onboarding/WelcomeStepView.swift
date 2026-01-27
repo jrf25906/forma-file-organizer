@@ -1,227 +1,257 @@
 import SwiftUI
+import UniformTypeIdentifiers
+import AppKit
+
+// MARK: - Scattered File Model
+
+/// Represents a file icon scattered around the animation stage
+private struct ScatteredFile: Identifiable {
+    let id = UUID()
+    let fileExtension: String
+    let label: String
+    let startX: CGFloat
+    let startY: CGFloat
+    let rotation: Double
+    let delay: Double
+    let iconSize: CGFloat
+}
+
+// MARK: - Scattered File Data
+
+/// Pre-defined scattered files with realistic names and positions spread across a 400x320 stage
+private let scatteredFiles: [ScatteredFile] = [
+    ScatteredFile(fileExtension: "pdf",  label: "Report_Q4.pdf",     startX: -150, startY: -110, rotation: -12,  delay: 0.00, iconSize: 40),
+    ScatteredFile(fileExtension: "docx", label: "Meeting_Notes.docx", startX:  160, startY:  -80, rotation:  8,  delay: 0.05, iconSize: 38),
+    ScatteredFile(fileExtension: "jpg",  label: "Vacation.jpg",       startX: -120, startY:  100, rotation:  15, delay: 0.10, iconSize: 42),
+    ScatteredFile(fileExtension: "zip",  label: "Archive_2024.zip",   startX:  140, startY:  120, rotation: -18, delay: 0.15, iconSize: 36),
+    ScatteredFile(fileExtension: "xlsx", label: "Budget.xlsx",        startX:  -60, startY: -140, rotation:  10, delay: 0.08, iconSize: 40),
+    ScatteredFile(fileExtension: "mp3",  label: "Podcast_Ep12.mp3",   startX:   90, startY: -130, rotation: -6,  delay: 0.12, iconSize: 38),
+    ScatteredFile(fileExtension: "pptx", label: "Pitch_Deck.pptx",   startX: -170, startY:   20, rotation:  20, delay: 0.03, iconSize: 44),
+    ScatteredFile(fileExtension: "txt",  label: "todo.txt",           startX:  170, startY:   30, rotation: -14, delay: 0.18, iconSize: 36),
+    ScatteredFile(fileExtension: "mov",  label: "Demo_Video.mov",     startX:  -40, startY:  130, rotation:   5, delay: 0.07, iconSize: 42),
+    ScatteredFile(fileExtension: "csv",  label: "Contacts.csv",       startX:   50, startY:  110, rotation: -10, delay: 0.14, iconSize: 38),
+    ScatteredFile(fileExtension: "png",  label: "Screenshot.png",     startX: -160, startY:  -40, rotation:  16, delay: 0.06, iconSize: 40),
+    ScatteredFile(fileExtension: "key",  label: "Keynote_Talk.key",   startX:  130, startY:  -20, rotation: -8,  delay: 0.11, iconSize: 44),
+]
+
+// MARK: - Central Folder View
+
+/// CSS-style folder icon rendered in Forma's steel blue
+private struct CentralFolderView: View {
+    let isPulsing: Bool
+
+    var body: some View {
+        ZStack {
+            // Folder tab
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.formaSteelBlue)
+                .frame(width: 38, height: 18)
+                .offset(x: -21, y: -28)
+
+            // Folder back
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.formaSteelBlue)
+                .frame(width: 80, height: 56)
+
+            // Folder front (slightly lighter)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.formaSteelBlue.opacity(0.75))
+                .frame(width: 80, height: 48)
+                .offset(y: 4)
+        }
+        .scaleEffect(isPulsing ? 1.08 : 1.0)
+        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isPulsing)
+    }
+}
+
+// MARK: - Scattered File Icon View
+
+/// Individual file icon with macOS system icon, label, and animated position
+private struct ScatteredFileIcon: View {
+    let file: ScatteredFile
+    let filesVisible: Bool
+    let filesConverged: Bool
+    let driftOffset: CGFloat
+
+    var body: some View {
+        let icon = NSWorkspace.shared.icon(
+            for: UTType(filenameExtension: file.fileExtension) ?? .data
+        )
+
+        VStack(spacing: 2) {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: file.iconSize, height: file.iconSize)
+
+            Text(file.label)
+                .font(.formaMicro)
+                .foregroundColor(.formaSecondaryLabel)
+                .lineLimit(1)
+        }
+        .opacity(iconOpacity)
+        .scaleEffect(iconScale)
+        .rotationEffect(.degrees(iconRotation))
+        .offset(x: iconOffsetX, y: iconOffsetY)
+        .animation(
+            filesConverged
+                ? .easeInOut(duration: 0.8).delay(file.delay)
+                : .spring(response: 0.6, dampingFraction: 0.7),
+            value: filesVisible
+        )
+        .animation(
+            .easeInOut(duration: 0.8).delay(file.delay),
+            value: filesConverged
+        )
+    }
+
+    // MARK: - Computed Animation Properties
+
+    private var iconOpacity: Double {
+        if !filesVisible { return 0 }
+        if filesConverged { return 0 }
+        return 1
+    }
+
+    private var iconScale: CGFloat {
+        if !filesVisible { return 0.5 }
+        if filesConverged { return 0.3 }
+        return 1.0
+    }
+
+    private var iconRotation: Double {
+        if !filesVisible { return file.rotation }
+        if filesConverged { return 0 }
+        return file.rotation
+    }
+
+    private var iconOffsetX: CGFloat {
+        if !filesVisible { return file.startX }
+        if filesConverged { return 0 }
+        return file.startX + driftOffset * (file.rotation > 0 ? 1 : -1)
+    }
+
+    private var iconOffsetY: CGFloat {
+        if !filesVisible { return file.startY }
+        if filesConverged { return 0 }
+        return file.startY + driftOffset * (file.rotation > 0 ? -1 : 1)
+    }
+}
 
 // MARK: - Welcome Step View
 
-/// First step: Welcome screen with value propositions and brand illustration
+/// First step: Welcome screen with files-into-folder animation and display typography
 struct WelcomeStepView: View {
     let onContinue: () -> Void
 
-    @State private var animateIn = false
-    @State private var floatingOffset: CGFloat = 0
+    // MARK: - Animation State
+
+    @State private var filesVisible = false
+    @State private var filesConverged = false
+    @State private var folderPulsing = false
+    @State private var heroVisible = false
+    @State private var folderVisible = false
+    @State private var driftOffset: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            // Hero section with animated geometric illustration
-            VStack(spacing: FormaSpacing.generous) {
-                // Animated logo-inspired illustration
-                ZStack {
-                    // Floating background shapes (subtle movement)
-                    Circle()
-                        .fill(Color.formaSage.opacity(Color.FormaOpacity.light))
-                        .frame(width: 160, height: 160)
-                        .offset(x: -30, y: floatingOffset * 0.5)
+            // Animation stage (400x320)
+            ZStack {
+                // Subtle radial gradient for depth
+                RadialGradient(
+                    colors: [Color.formaSteelBlue.opacity(0.06), Color.clear],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 300
+                )
 
-                    Circle()
-                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle))
-                        .frame(width: 120, height: 120)
-                        .offset(x: 40, y: -20 + floatingOffset * 0.3)
+                // Central folder
+                CentralFolderView(isPulsing: folderPulsing)
+                    .opacity(folderVisible ? 1 : 0)
+                    .scaleEffect(folderVisible ? 1.0 : 0.8)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.7), value: folderVisible)
 
-                    // Main geometric icon
-                    OnboardingGeometricIcon(style: .welcome)
-                        .scaleEffect(animateIn ? 1.0 : 0.8)
-                        .opacity(animateIn ? 1.0 : 0)
-                }
-                .frame(width: 160, height: 120)
-                .padding(.bottom, FormaSpacing.tight)
-
-                VStack(spacing: FormaSpacing.tight) {
-                    Text("Welcome to Forma")
-                        .font(.formaHero)
-                        .foregroundColor(.formaLabel)
-                        .opacity(animateIn ? 1.0 : 0)
-                        .offset(y: animateIn ? 0 : 10)
-
-                    Text("Your files, finally organized")
-                        .font(.formaH3)
-                        .foregroundColor(.formaSecondaryLabel)
-                        .opacity(animateIn ? 1.0 : 0)
-                        .offset(y: animateIn ? 0 : 10)
+                // Scattered file icons
+                ForEach(scatteredFiles) { file in
+                    ScatteredFileIcon(
+                        file: file,
+                        filesVisible: filesVisible,
+                        filesConverged: filesConverged,
+                        driftOffset: driftOffset
+                    )
                 }
             }
+            .frame(width: 400, height: 320)
+
+            // Hero text (fades up after animation completes)
+            VStack(spacing: FormaSpacing.tight) {
+                Text("Your files, finally organized.")
+                    .font(.formaDisplayHero)
+                    .foregroundColor(.formaLabel)
+
+                Text("Forma learns how you work and keeps your folders tidy — automatically.")
+                    .font(.formaBodyLarge)
+                    .foregroundColor(.formaSecondaryLabel)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, FormaSpacing.extraLarge)
+            }
+            .opacity(heroVisible ? 1 : 0)
+            .offset(y: heroVisible ? 0 : 16)
 
             Spacer()
 
-            // Value props with geometric accents (not SF Symbols)
-            VStack(spacing: FormaSpacing.standard) {
-                ValuePropCard(
-                    accent: .formaSteelBlue,
-                    title: "Smart Rules",
-                    description: "Set it once, forget it forever",
-                    geometryStyle: .rules
-                )
-                .opacity(animateIn ? 1.0 : 0)
-                .offset(x: animateIn ? 0 : -20)
-
-                ValuePropCard(
-                    accent: .formaSage,
-                    title: "You're in Control",
-                    description: "Preview every move before it happens",
-                    geometryStyle: .control
-                )
-                .opacity(animateIn ? 1.0 : 0)
-                .offset(x: animateIn ? 0 : -20)
-
-                ValuePropCard(
-                    accent: .formaWarmOrange,
-                    title: "Your Style",
-                    description: "Pick an organization system that fits you",
-                    geometryStyle: .style
-                )
-                .opacity(animateIn ? 1.0 : 0)
-                .offset(x: animateIn ? 0 : -20)
-            }
-            .padding(.horizontal, FormaSpacing.extraLarge)
-
-            Spacer()
-
-            // CTA with playful hover state
+            // CTA button
             WelcomeCTAButton(action: onContinue)
                 .padding(.horizontal, FormaSpacing.huge)
                 .padding(.bottom, FormaSpacing.large)
-                .opacity(animateIn ? 1.0 : 0)
-                .offset(y: animateIn ? 0 : 20)
+                .opacity(heroVisible ? 1 : 0)
+                .offset(y: heroVisible ? 0 : 12)
         }
         .onAppear {
-            // Staggered entrance animation
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.1)) {
-                animateIn = true
-            }
-            // Subtle floating animation
-            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
-                floatingOffset = 8
-            }
+            startAnimationSequence()
         }
     }
-}
 
-// MARK: - Value Prop Card
+    // MARK: - Animation Sequence
 
-struct ValuePropCard: View {
-    let accent: Color
-    let title: String
-    let description: String
-    let geometryStyle: GeometryAccentStyle
-
-    enum GeometryAccentStyle {
-        case rules, control, style
-    }
-
-    @State private var isHovered = false
-
-    var body: some View {
-        HStack(spacing: FormaSpacing.standard) {
-            // Geometric accent instead of SF Symbol
-            GeometryAccent(style: geometryStyle, color: accent, isHovered: isHovered)
-                .frame(width: 44, height: 44)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.formaBodyLarge)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.formaLabel)
-
-                Text(description)
-                    .font(.formaBody)
-                    .foregroundColor(.formaSecondaryLabel)
-            }
-
-            Spacer()
+    private func startAnimationSequence() {
+        // Phase 1: Scatter in (0-0.5s) — files and folder fade in
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+            filesVisible = true
+            folderVisible = true
         }
-        .padding(FormaSpacing.standard)
-        .background(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(isHovered ? accent.opacity(Color.FormaOpacity.subtle) : Color.formaControlBackground.opacity(Color.FormaOpacity.strong))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(isHovered ? accent.opacity(Color.FormaOpacity.overlay) : Color.clear, lineWidth: 1)
-        )
-        .scaleEffect(isHovered ? 1.01 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
+
+        // Phase 2: Drift (0.5-2s) — subtle floating movement
+        withAnimation(
+            .easeInOut(duration: 2.0)
+            .repeatForever(autoreverses: true)
+        ) {
+            driftOffset = 4
         }
-    }
-}
 
-// MARK: - Geometry Accent
-
-struct GeometryAccent: View {
-    let style: ValuePropCard.GeometryAccentStyle
-    let color: Color
-    let isHovered: Bool
-
-    var body: some View {
-        ZStack {
-            // Background
-            RoundedRectangle(cornerRadius: FormaRadius.card - (FormaRadius.micro / 2), style: .continuous)
-                .fill(color.opacity(isHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light))
-
-            // Geometric shapes based on style
-            switch style {
-            case .rules:
-                // Stacked rectangles representing automation
-                VStack(spacing: 3) {
-                    RoundedRectangle(cornerRadius: FormaRadius.micro / 2, style: .continuous)
-                        .fill(color)
-                        .frame(width: 20, height: 5)
-                    RoundedRectangle(cornerRadius: FormaRadius.micro / 2, style: .continuous)
-                        .fill(color.opacity(Color.FormaOpacity.high))
-                        .frame(width: 16, height: 5)
-                    RoundedRectangle(cornerRadius: FormaRadius.micro / 2, style: .continuous)
-                        .fill(color.opacity(Color.FormaOpacity.strong))
-                        .frame(width: 12, height: 5)
-                }
-                .offset(y: isHovered ? -2 : 0)
-
-            case .control:
-                // Eye/preview metaphor with circles
-                ZStack {
-                    Circle()
-                        .stroke(color, lineWidth: 2)
-                        .frame(width: 20, height: 20)
-                    Circle()
-                        .fill(color)
-                        .frame(width: 8, height: 8)
-                        .scaleEffect(isHovered ? 1.2 : 1.0)
-                }
-
-            case .style:
-                // Colorful personality blocks
-                HStack(spacing: 3) {
-                    VStack(spacing: 3) {
-                        RoundedRectangle(cornerRadius: FormaRadius.micro / 2, style: .continuous)
-                            .fill(color)
-                            .frame(width: 10, height: 10)
-                        RoundedRectangle(cornerRadius: FormaRadius.micro / 2, style: .continuous)
-                            .fill(color.opacity(Color.FormaOpacity.strong))
-                            .frame(width: 10, height: 10)
-                    }
-                    VStack(spacing: 3) {
-                        RoundedRectangle(cornerRadius: FormaRadius.micro / 2, style: .continuous)
-                            .fill(color.opacity(Color.FormaOpacity.high))
-                            .frame(width: 10, height: 10)
-                        RoundedRectangle(cornerRadius: FormaRadius.micro / 2, style: .continuous)
-                            .fill(color.opacity(Color.FormaOpacity.overlay))
-                            .frame(width: 10, height: 10)
-                    }
-                }
-                .rotationEffect(.degrees(isHovered ? 5 : 0))
+        // Phase 3: Converge (2-3s) — files animate toward folder center
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.easeInOut(duration: 0.8)) {
+                filesConverged = true
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+
+        // Folder pulse when files "land"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
+            folderPulsing = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                folderPulsing = false
+            }
+        }
+
+        // Phase 4: Hero reveal (3-3.5s) — text and CTA fade up
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.easeOut(duration: 0.6)) {
+                heroVisible = true
+            }
+        }
     }
 }
 
@@ -236,7 +266,7 @@ struct WelcomeCTAButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Text("Let's get started")
+                Text("Get Started")
                     .font(.formaBodyLarge)
                     .fontWeight(.semibold)
 
