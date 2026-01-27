@@ -5,12 +5,13 @@ import SwiftUI
 /// Fifth step: Final preview showing complete folder structure before completion
 struct OnboardingPreviewStepView: View {
     let folderSelection: OnboardingFolderSelection
-    let templateSelection: FolderTemplateSelection
+    @Binding var templateSelection: FolderTemplateSelection
     let personality: OrganizationPersonality?
     let onComplete: () -> Void
     let onBack: () -> Void
 
     @State private var animateIn = false
+    @State private var showCustomize = false
 
     private var selectedFolders: [OnboardingFolder] {
         var folders: [OnboardingFolder] = []
@@ -34,7 +35,7 @@ struct OnboardingPreviewStepView: View {
                             .opacity(animateIn ? 1.0 : 0)
 
                         Text("Your Organization System")
-                            .font(.formaH1)
+                            .font(.formaDisplayHeading)
                             .foregroundColor(.formaLabel)
                             .opacity(animateIn ? 1.0 : 0)
                             .offset(y: animateIn ? 0 : 10)
@@ -78,6 +79,40 @@ struct OnboardingPreviewStepView: View {
                     }
                     .padding(.horizontal, FormaSpacing.large)
 
+                    // Customize templates (collapsible)
+                    VStack(spacing: FormaSpacing.standard) {
+                        Button(action: {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                showCustomize.toggle()
+                            }
+                        }) {
+                            HStack(spacing: FormaSpacing.tight) {
+                                Image(systemName: showCustomize ? "chevron.down" : "chevron.right")
+                                    .font(.formaCompactSemibold)
+                                    .frame(width: 12)
+                                Text("Customize templates")
+                                    .font(.formaBodyMedium)
+                                Spacer()
+                            }
+                            .foregroundColor(.formaSteelBlue)
+                        }
+                        .buttonStyle(.plain)
+
+                        if showCustomize {
+                            VStack(spacing: FormaSpacing.standard) {
+                                ForEach(selectedFolders, id: \.self) { folder in
+                                    FolderTemplateCard(
+                                        folder: folder,
+                                        selectedTemplate: templateBinding(for: folder),
+                                        personality: personality
+                                    )
+                                }
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
+                    .padding(.horizontal, FormaSpacing.large)
+
                     // Note about lazy folder creation
                     HStack(spacing: FormaSpacing.tight) {
                         Image(systemName: "sparkles")
@@ -116,6 +151,15 @@ struct OnboardingPreviewStepView: View {
             }
         }
     }
+
+    // MARK: - Helpers
+
+    private func templateBinding(for folder: OnboardingFolder) -> Binding<OrganizationTemplate> {
+        Binding(
+            get: { templateSelection.template(for: folder, personality: personality) },
+            set: { newValue in templateSelection.setTemplate(newValue, for: folder) }
+        )
+    }
 }
 
 // MARK: - Preview
@@ -129,11 +173,11 @@ struct OnboardingPreviewStepView: View {
             pictures: true,
             music: false
         ),
-        templateSelection: FolderTemplateSelection(
+        templateSelection: .constant(FolderTemplateSelection(
             desktop: .minimal,
             downloads: .para,
             pictures: .chronological
-        ),
+        )),
         personality: nil,
         onComplete: {},
         onBack: {}

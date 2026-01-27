@@ -61,7 +61,7 @@ struct OnboardingFlowView: View {
                     case .preview:
                         OnboardingPreviewStepView(
                             folderSelection: state.folderSelection,
-                            templateSelection: state.templateSelection,
+                            templateSelection: $state.templateSelection,
                             personality: state.personality,
                             onComplete: completeOnboarding,
                             onBack: { state.advance(to: .quiz) }
