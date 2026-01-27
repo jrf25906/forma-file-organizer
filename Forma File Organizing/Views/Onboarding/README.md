@@ -1,19 +1,33 @@
 # Onboarding Modular Architecture
 
-This folder contains the refactored onboarding flow, split from a single 1,385-line file into modular, focused components.
+This folder contains the onboarding flow, split from a single monolithic file into modular, focused components. The flow was redesigned from 5 steps to 4 steps by removing the standalone template selection step and merging customization into the preview.
+
+## Onboarding Flow (4 Steps)
+
+1. **Welcome** - Scattered macOS file icons converge into a folder animation; Libre Baskerville serif hero text
+2. **Folders** - Vertical pre-checked list with all 5 folders selected by default (opt-out model)
+3. **Quiz** - Personality assessment that determines template recommendations
+4. **Preview + Customize** - Folder structure visualization with collapsible "Customize templates" disclosure section
+
+Templates are auto-applied from quiz results -- there is no standalone template selection step. Visual energy follows a "bookend" pattern: high at Welcome and Preview, calm in the middle steps.
+
+### Typography
+
+- **Headlines**: Libre Baskerville (serif) for onboarding headlines
+- **Body text**: SF Pro for all body and UI text
 
 ## File Structure
 
-### Core Components (236 lines total)
+### Core Components
 
-**OnboardingFlowView.swift** - Main coordinator (236 lines)
-- Orchestrates the 5-step onboarding flow
+**OnboardingFlowView.swift** - Main coordinator
+- Orchestrates the 4-step onboarding flow
 - Manages step transitions and navigation
 - Handles permissions and final setup
 - Saves bookmarks to Keychain via BookmarkFolderService
-- Applies per-folder template rules
+- Applies per-folder template rules from quiz results
 
-**OnboardingState.swift** - Shared state (182 lines)
+**OnboardingState.swift** - Shared state
 - `@Observable` state management for entire flow
 - `OnboardingFolderSelection` model
 - `OnboardingFolder` enum with metadata
@@ -21,49 +35,34 @@ This folder contains the refactored onboarding flow, split from a single 1,385-l
 
 ### Step Views
 
-**WelcomeStepView.swift** - Welcome screen (309 lines)
-- Hero section with animated geometric illustration
-- Three value proposition cards
-- Floating background shapes
+**WelcomeStepView.swift** - Welcome screen
+- Files-into-folder convergence animation
+- Libre Baskerville hero text
 - CTA button with hover effects
 
-**FolderSelectionStepView.swift** - Folder picker (264 lines)
-- Visual folder grid (3x3 layout)
-- Animated folder cards with rising icons
+**FolderSelectionStepView.swift** - Folder picker
+- Vertical pre-checked list layout
+- All 5 folders default to selected (opt-out)
 - Selection counter and privacy note
-- Folder base shape components
 
-**PersonalityQuizStepView.swift** - Quiz wrapper (30 lines)
+**PersonalityQuizStepView.swift** - Quiz wrapper
 - Thin wrapper around PersonalityQuizView
 - Passes completion and back callbacks
 
-**TemplateSelectionStepView.swift** - Template picker (143 lines)
-- Per-folder template assignment cards
-- Global template application button
-- Folder template card with dropdown
-- Preview expandable sections
-
-**OnboardingPreviewStepView.swift** - Final preview (143 lines)
+**OnboardingPreviewStepView.swift** - Preview + Customize
 - Complete folder structure visualization
+- Collapsible "Customize templates" disclosure section
+- Templates auto-applied from quiz personality result
 - Staggered entrance animations
-- Folder structure preview cards
 - Lazy folder creation explanation
 
 ### Shared Components
 
-**OnboardingComponents.swift** - Reusable UI (312 lines)
+**OnboardingComponents.swift** - Reusable UI
 - `OnboardingProgressBar` - Step indicator
 - `ProgressStep` - Individual step marker
 - `OnboardingFooter` - Consistent footer buttons
-- `OnboardingGeometricIcon` - Brand illustrations (welcome, folders, style, system)
-
-## Total Line Count
-
-- **Old file**: 1,385 lines (monolithic)
-- **New files**: 1,619 lines total (8 files)
-- **Average per file**: ~202 lines
-- **Largest file**: OnboardingComponents.swift (312 lines)
-- **Smallest file**: PersonalityQuizStepView.swift (30 lines)
+- `OnboardingGeometricIcon` - Brand illustrations
 
 ## Architecture Benefits
 
@@ -76,7 +75,7 @@ This folder contains the refactored onboarding flow, split from a single 1,385-l
 
 ## Integration
 
-The new modular structure is a drop-in replacement for the old OnboardingFlowView. The public API remains identical:
+The modular structure is a drop-in replacement. The public API is:
 
 ```swift
 OnboardingFlowView()
@@ -91,13 +90,8 @@ External files referenced:
 - Design system (FormaSpacing, FormaRadius, FormaColors, etc.)
 - Dashboard and logging services
 
-## Migration Notes
+## Design Decisions
 
-The original file has been backed up to:
-- `Forma File Organizing/Views/OnboardingFlowView.swift.backup`
-
-To complete migration:
-1. Add new files to Xcode project
-2. Remove old OnboardingFlowView.swift from project
-3. Build and verify all previews work
-4. Run tests to ensure functionality preserved
+- **Pre-checked folders (opt-out)**: All 5 folders are selected by default. Users deselect what they don't want rather than opting in. This reduces friction and increases the number of folders managed.
+- **No standalone template step**: Quiz results automatically determine templates. The old step 4 (Per-Folder Templates) was removed; customization is available via a collapsible disclosure in the Preview step for users who want to override.
+- **Bookend energy pattern**: Welcome and Preview are visually energetic (animations, rich layout). Folders and Quiz are calmer to reduce cognitive load during decision-making.

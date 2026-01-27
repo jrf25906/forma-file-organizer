@@ -4,10 +4,13 @@ import SwiftData
 // MARK: - Onboarding Flow Coordinator
 
 /// Unified onboarding flow that guides users through setup in 4 steps:
-/// 1. Welcome - Value proposition and excitement
-/// 2. Folders - User selects which folders to organize
+/// 1. Welcome - Files-into-folder animation with Libre Baskerville hero text
+/// 2. Folders - Vertical pre-checked list (all 5 folders default to selected)
 /// 3. Quiz - Personality assessment for template recommendation
-/// 4. Preview - Review complete folder structure before starting
+/// 4. Preview + Customize - Shows folder structure with collapsible template customization
+///
+/// Templates are auto-applied from quiz results (no standalone template selection step).
+/// Visual energy follows a "bookend" pattern: high at Welcome and Preview, calm in the middle.
 struct OnboardingFlowView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @Environment(\.dismiss) var dismiss
