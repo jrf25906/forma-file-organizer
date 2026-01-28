@@ -278,15 +278,6 @@ class LearningService {
     /// Detect patterns based on file size ranges
     /// Note: This requires activities to have size info - we parse from details if available
     private func detectSizeRangePatterns(from activities: [ActivityItem]) -> [LearnedPattern] {
-        // Size ranges in bytes - prepared for future enhancement when ActivityItem includes file size
-        // let sizeRanges: [(name: String, min: Int64, max: Int64)] = [
-        //     ("tiny", 0, 10 * 1024),                           // < 10KB
-        //     ("small", 10 * 1024, 1024 * 1024),                // 10KB - 1MB
-        //     ("medium", 1024 * 1024, 10 * 1024 * 1024),        // 1MB - 10MB
-        //     ("large", 10 * 1024 * 1024, 100 * 1024 * 1024),   // 10MB - 100MB
-        //     ("huge", 100 * 1024 * 1024, Int64.max)            // > 100MB
-        // ]
-
         // For now, return empty - size patterns require size data in activities
         // This can be enhanced when ActivityItem includes file size
         _ = activities // Silence unused parameter warning until implementation
@@ -699,35 +690,6 @@ class LearningService {
         }
         
         return records
-    }
-    
-    /// Record the outcome of an ML prediction for learning purposes.
-    ///
-    /// Creates ActivityItem entries and updates FileItem rejection tracking
-    /// so negative learning continues to work with ML predictions.
-    ///
-    /// - Parameters:
-    ///   - file: The FileItem that received a prediction
-    ///   - predictedPath: The path predicted by the ML model
-    ///   - outcome: The user's action on the prediction
-    func recordPredictionOutcome(file: FileItem, predictedPath: String, outcome: PredictionOutcome) {
-        // Note: In a full implementation, this would append ActivityItem to modelContext
-        // For now, we update the FileItem rejection tracking for negative patterns
-        
-        switch outcome {
-        case .overridden, .dismissed:
-            // User rejected the prediction - update rejection tracking
-            file.rejectedDestination = predictedPath
-            file.rejectionCount += 1
-            
-        case .accepted:
-            // Reset rejection tracking on acceptance
-            file.rejectionCount = 0
-            file.rejectedDestination = nil
-            
-        case .unknown:
-            break
-        }
     }
     
     // MARK: - Pattern Matching

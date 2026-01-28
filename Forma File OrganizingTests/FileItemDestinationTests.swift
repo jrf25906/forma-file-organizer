@@ -5,12 +5,9 @@ final class FileItemDestinationTests: XCTestCase {
     func testInitializerStoresDestination() {
         let destination = Destination.mockFolder("Documents")
         let item = FileItem(
-            name: "test.pdf",
-            fileExtension: "pdf",
-            size: "1 MB",
+            path: "/tmp/test.pdf",
             sizeInBytes: 1_024_000,
             creationDate: Date(),
-            path: "/tmp/test.pdf",
             destination: destination,
             status: .pending
         )
@@ -20,20 +17,17 @@ final class FileItemDestinationTests: XCTestCase {
 
     func testSettingDestinationUpdatesComputedProperty() {
         let item = FileItem(
-            name: "test.pdf",
-            fileExtension: "pdf",
-            size: "1 MB",
+            path: "/tmp/test.pdf",
             sizeInBytes: 1_024_000,
             creationDate: Date(),
-            path: "/tmp/test.pdf",
             destination: nil,
             status: .pending
         )
 
-        item.destination = .mockFolder("Archive")
+        item.destination = Destination.mockFolder("Archive")
         XCTAssertEqual(item.destination?.displayName, "Archive")
 
-        item.destination = .trash
+        item.destination = Destination.trash
         if case .trash = item.destination {
             // success
         } else {

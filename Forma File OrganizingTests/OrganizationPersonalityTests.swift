@@ -115,107 +115,6 @@ final class OrganizationPersonalityTests: XCTestCase {
         XCTAssertEqual(filer.suggestedTemplate, .para)
     }
     
-    // MARK: - Folder Depth Preferences
-    
-    func testPilerFolderDepth() {
-        let piler = OrganizationPersonality(
-            organizationStyle: .piler,
-            thinkingStyle: .visual,
-            mentalModel: .projectBased
-        )
-        
-        XCTAssertEqual(piler.suggestedFolderDepth, 2)
-    }
-    
-    func testFilerVisualFolderDepth() {
-        let filer = OrganizationPersonality(
-            organizationStyle: .filer,
-            thinkingStyle: .visual,
-            mentalModel: .projectBased
-        )
-        
-        XCTAssertEqual(filer.suggestedFolderDepth, 3)
-    }
-    
-    func testFilerHierarchicalFolderDepth() {
-        let filer = OrganizationPersonality(
-            organizationStyle: .filer,
-            thinkingStyle: .hierarchical,
-            mentalModel: .topicBased
-        )
-        
-        XCTAssertEqual(filer.suggestedFolderDepth, 5)
-    }
-    
-    // MARK: - View Mode Preferences
-    
-    func testPilerViewMode() {
-        let piler = OrganizationPersonality(
-            organizationStyle: .piler,
-            thinkingStyle: .visual,
-            mentalModel: .projectBased
-        )
-        
-        XCTAssertEqual(piler.preferredViewMode, "grid")
-    }
-    
-    func testFilerViewMode() {
-        let filer = OrganizationPersonality(
-            organizationStyle: .filer,
-            thinkingStyle: .hierarchical,
-            mentalModel: .topicBased
-        )
-        
-        XCTAssertEqual(filer.preferredViewMode, "list")
-    }
-    
-    // MARK: - Suggestions Frequency
-    
-    func testPilerSuggestionsFrequency() {
-        let piler = OrganizationPersonality(
-            organizationStyle: .piler,
-            thinkingStyle: .visual,
-            mentalModel: .projectBased
-        )
-        
-        switch piler.suggestionsFrequency {
-        case .frequent:
-            XCTAssertTrue(true) // Expected
-        default:
-            XCTFail("Pilers should get frequent suggestions")
-        }
-    }
-    
-    func testHierarchicalSuggestionsFrequency() {
-        let hierarchical = OrganizationPersonality(
-            organizationStyle: .filer,
-            thinkingStyle: .hierarchical,
-            mentalModel: .topicBased
-        )
-        
-        switch hierarchical.suggestionsFrequency {
-        case .occasional:
-            XCTAssertTrue(true) // Expected
-        default:
-            XCTFail("Hierarchical thinkers should get occasional suggestions")
-        }
-    }
-    
-    func testVisualFilerSuggestionsFrequency() {
-        let visualFiler = OrganizationPersonality(
-            organizationStyle: .filer,
-            thinkingStyle: .visual,
-            mentalModel: .projectBased
-        )
-        
-        switch visualFiler.suggestionsFrequency {
-        case .moderate:
-            XCTAssertTrue(true) // Expected
-        default:
-            XCTFail("Visual filers should get moderate suggestions")
-        }
-    }
-    
     // MARK: - Persistence Tests
     
     func testSaveAndLoad() {
@@ -292,8 +191,6 @@ final class OrganizationPersonalityTests: XCTestCase {
         )
         
         XCTAssertEqual(personality.suggestedTemplate, .minimal)
-        XCTAssertEqual(personality.preferredViewMode, "grid")
-        XCTAssertEqual(personality.suggestedFolderDepth, 2)
     }
     
     func testQuizAnswerMapping_SystematicOrganizer() {
@@ -312,8 +209,6 @@ final class OrganizationPersonalityTests: XCTestCase {
         )
         
         XCTAssertEqual(personality.suggestedTemplate, .johnnyDecimal)
-        XCTAssertEqual(personality.preferredViewMode, "list")
-        XCTAssertEqual(personality.suggestedFolderDepth, 5)
     }
     
     func testQuizAnswerMapping_StructuredOrganizer() {
@@ -332,8 +227,6 @@ final class OrganizationPersonalityTests: XCTestCase {
         )
         
         XCTAssertEqual(personality.suggestedTemplate, .chronological)
-        XCTAssertEqual(personality.preferredViewMode, "list")
-        XCTAssertEqual(personality.suggestedFolderDepth, 3)
     }
     
     // MARK: - Edge Cases

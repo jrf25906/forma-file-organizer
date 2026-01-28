@@ -70,7 +70,7 @@ struct FileRow: View {
     private func truncatePath(_ path: String) -> String {
         let components = path.split(separator: "/")
         if components.count <= 2 { return path }
-        let last = components.last!
+        guard let last = components.last else { return path }
         return "…/\(last)"
     }
 

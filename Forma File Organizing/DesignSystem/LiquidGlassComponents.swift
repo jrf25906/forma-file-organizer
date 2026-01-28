@@ -120,9 +120,15 @@ struct GlassButtonBackground: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         if #available(macOS 26.0, *) {
-            shape
-                .glassEffect(tint == nil ? .regular : .regular.tint(tint!.opacity(Color.FormaOpacity.overlay)))
-                .overlay(shape.stroke(Color.formaBoneWhite.opacity(Color.FormaOpacity.medium), lineWidth: 1))
+            if let tint {
+                shape
+                    .glassEffect(.regular.tint(tint.opacity(Color.FormaOpacity.overlay)))
+                    .overlay(shape.stroke(Color.formaBoneWhite.opacity(Color.FormaOpacity.medium), lineWidth: 1))
+            } else {
+                shape
+                    .glassEffect(.regular)
+                    .overlay(shape.stroke(Color.formaBoneWhite.opacity(Color.FormaOpacity.medium), lineWidth: 1))
+            }
         } else {
             ZStack {
                 VisualEffectView(material: .popover, blendingMode: .withinWindow)

@@ -122,52 +122,6 @@ struct OrganizationPersonality: Codable, Equatable {
         return .para
     }
     
-    /// Suggested folder depth based on personality
-    var suggestedFolderDepth: Int {
-        switch organizationStyle {
-        case .piler:
-            return 2  // Shallow hierarchies (e.g., Desktop/Screenshots)
-        case .filer:
-            switch thinkingStyle {
-            case .visual:
-                return 3  // Moderate depth
-            case .hierarchical:
-                return 5  // Deeper hierarchies (e.g., Projects/Client/2024/Active/Documents)
-            }
-        }
-    }
-    
-    /// Preferred view mode for file lists
-    var preferredViewMode: String {
-        switch organizationStyle {
-        case .piler:
-            return "grid"  // Pilers like visual grids
-        case .filer:
-            return "list"  // Filers prefer list views with details
-        }
-    }
-    
-    /// Whether to show more frequent suggestions
-    var suggestionsFrequency: SuggestionsFrequency {
-        // Pilers might need more guidance since they're less systematic
-        if organizationStyle == .piler {
-            return .frequent
-        }
-        
-        // Hierarchical thinkers are more systematic, need less help
-        if thinkingStyle == .hierarchical {
-            return .occasional
-        }
-        
-        return .moderate
-    }
-    
-    enum SuggestionsFrequency {
-        case frequent   // Show suggestions prominently and often
-        case moderate   // Balanced approach
-        case occasional // Minimal suggestions, user is systematic
-    }
-    
     // MARK: - Initialization
     
     init(

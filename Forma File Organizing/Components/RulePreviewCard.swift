@@ -377,7 +377,7 @@ private struct FlowLayout: Layout {
             // Calculate total bounds
             bounds = CGSize(
                 width: maxWidth,
-                height: rows.isEmpty ? 0 : rows.last!.frame.maxY
+                height: rows.last?.frame.maxY ?? 0
             )
         }
     }

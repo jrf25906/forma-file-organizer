@@ -305,7 +305,7 @@ private struct CalendarCell: View {
             .foregroundColor(.formaObsidian)
 
         CalendarHeatmap(data: sampleData) {
-            print("Nudge cleanup tapped")
+            Log.debug("CalendarHeatmap: nudge cleanup tapped", category: .ui)
         }
     }
     .padding()

@@ -145,6 +145,19 @@ class DashboardViewModel: ObservableObject {
 
     func setModelContext(_ context: ModelContext) {
         modelContext = context
+
+        #if DEBUG
+        if CommandLine.arguments.contains("--uitesting") {
+            // Seed deterministic UI test data without scanning the real filesystem.
+            let descriptor = FetchDescriptor<FileItem>(
+                sortBy: [SortDescriptor(\.creationDate, order: .reverse)]
+            )
+            let files = (try? context.fetch(descriptor)) ?? FileItem.uiTestMocks
+            _testSetFiles(files)
+            currentViewMode = .card
+            reviewFilterMode = .needsReview
+        }
+        #endif
     }
 
     // MARK: - File Scanning (Delegated to FileScanViewModel)

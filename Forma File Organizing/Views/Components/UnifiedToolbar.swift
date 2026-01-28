@@ -164,7 +164,7 @@ struct UnifiedToolbar: View {
                     label: "Pending",
                     badgeCount: viewModel.needsReviewCount,
                     color: .formaWarmOrange,
-                    id: "review",
+                    id: "needsReview",
                     compressionLevel: compressionLevel,
                     namespace: animation
                 ) {
@@ -356,6 +356,9 @@ struct ModeToggleButton: View {
                     .offset(x: 8, y: -8)
             }
         }
+        .accessibilityIdentifier("reviewMode_\(id)")
+        .accessibilityLabel(label)
+        .accessibilityValue(badgeCount > 0 ? "\(badgeCount)" : "")
     }
 }
 

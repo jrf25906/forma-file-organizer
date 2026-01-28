@@ -17,12 +17,9 @@ struct Forma_File_OrganizingTests {
         let container = try ModelContainer(for: FileItem.self, Rule.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let context = container.mainContext
         let file = FileItem(
-            name: "Screenshot 2025-11-22.png",
-            fileExtension: "png",
-            size: "4.5 MB",
+            path: "/Users/test/Desktop/Screenshot.png",
             sizeInBytes: 4_718_592,
             creationDate: Date(),
-            path: "/Users/test/Desktop/Screenshot.png",
             destination: nil,
             status: .pending
         )

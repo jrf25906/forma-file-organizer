@@ -233,8 +233,8 @@ struct SmartInsightList: View {
 
         SmartInsightList(
             insights: sampleInsights,
-            onAction: { insight in print("Action: \(insight.title)") },
-            onDismiss: { insight in print("Dismiss: \(insight.title)") }
+            onAction: { insight in Log.debug("SmartInsight action: \(insight.title)", category: .ui) },
+            onDismiss: { insight in Log.debug("SmartInsight dismissed: \(insight.title)", category: .ui) }
         )
     }
     .padding()

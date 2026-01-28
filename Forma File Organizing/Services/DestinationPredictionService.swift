@@ -310,12 +310,7 @@ final class DestinationPredictionService {
     func setMLEnabled(_ enabled: Bool) {
         mlEnabled = enabled
     }
-    
-    /// Record the outcome of a prediction for drift detection.
-    func recordOutcome(_ outcome: PredictionOutcome) {
-        predictionStats.recordOutcome(outcome)
-    }
-    
+
     // MARK: - Training Pipeline
     
     /// Train a new model with the provided training records.
@@ -744,19 +739,6 @@ final class DestinationPredictionService {
         
         mutating func recordPrediction() {
             predictionCount += 1
-        }
-        
-        mutating func recordOutcome(_ outcome: PredictionOutcome) {
-            switch outcome {
-            case .accepted:
-                acceptedCount += 1
-            case .overridden:
-                overriddenCount += 1
-            case .dismissed:
-                dismissedCount += 1
-            case .unknown:
-                break
-            }
         }
         
         func isDriftDetected() -> Bool {

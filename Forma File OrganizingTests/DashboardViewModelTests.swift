@@ -69,8 +69,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testFilterByLocation() {
         // Given
-        let desktopFile = FileItem(name: "test.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1024, creationDate: Date(), path: "/Users/test/Desktop/test.txt", destination: nil, status: .pending)
-        let downloadsFile = FileItem(name: "download.zip", fileExtension: "zip", size: "1MB", sizeInBytes: 1024*1024, creationDate: Date(), path: "/Users/test/Downloads/download.zip", destination: nil, status: .pending)
+        let desktopFile = FileItem(path: "/Users/test/Desktop/test.txt", sizeInBytes: 1024, creationDate: Date(), destination: nil, status: .pending)
+        let downloadsFile = FileItem(path: "/Users/test/Downloads/download.zip", sizeInBytes: 1024*1024, creationDate: Date(), destination: nil, status: .pending)
         
         viewModel._testSetFiles([desktopFile, downloadsFile])
 
@@ -84,7 +84,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testUpdateDestinationUpdatesFile() {
         // Given
-        let file = FileItem(name: "doc.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/Users/test/Desktop/doc.pdf", destination: nil, status: .pending)
+        let file = FileItem(path: "/Users/test/Desktop/doc.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file])
         viewModel.selectedFolder = .home
 
@@ -98,9 +98,9 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testVisibleFilesNeedsReviewMode() {
         // Given
-        let pendingWithSuggestion = FileItem(name: "a.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/a.pdf", destination: .mockFolder("Documents"), status: .pending)
-        let pendingNoSuggestion = FileItem(name: "b.png", fileExtension: "png", size: "2MB", sizeInBytes: 2_000_000, creationDate: Date(), path: "/f/b.png", destination: nil, status: .pending)
-        let completed = FileItem(name: "c.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/c.txt", destination: .mockFolder("Documents"), status: .completed)
+        let pendingWithSuggestion = FileItem(path: "/f/a.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        let pendingNoSuggestion = FileItem(path: "/f/b.png", sizeInBytes: 2_000_000, creationDate: Date(), destination: nil, status: .pending)
+        let completed = FileItem(path: "/f/c.txt", sizeInBytes: 1_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .completed)
         viewModel._testSetFiles([pendingWithSuggestion, pendingNoSuggestion, completed])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .needsReview
@@ -117,8 +117,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testVisibleFilesAllModeExcludesCompleted() {
         // Given
-        let pending = FileItem(name: "a.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/a.pdf", destination: .mockFolder("Documents"), status: .pending)
-        let completed = FileItem(name: "c.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/c.txt", destination: .mockFolder("Documents"), status: .completed)
+        let pending = FileItem(path: "/f/a.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        let completed = FileItem(path: "/f/c.txt", sizeInBytes: 1_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .completed)
         viewModel._testSetFiles([pending, completed])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -134,10 +134,10 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testNeedsReviewAndAllFilesCounts() {
         // Given
-        let pendingWithSuggestion = FileItem(name: "a.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/a.pdf", destination: .mockFolder("Documents"), status: .pending)
-        let pendingNoSuggestion = FileItem(name: "b.png", fileExtension: "png", size: "2MB", sizeInBytes: 2_000_000, creationDate: Date(), path: "/f/b.png", destination: nil, status: .pending)
-        let completedWithSuggestion = FileItem(name: "c.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/c.txt", destination: .mockFolder("Documents"), status: .completed)
-        let completedNoSuggestion = FileItem(name: "d.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/d.txt", destination: nil, status: .completed)
+        let pendingWithSuggestion = FileItem(path: "/f/a.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        let pendingNoSuggestion = FileItem(path: "/f/b.png", sizeInBytes: 2_000_000, creationDate: Date(), destination: nil, status: .pending)
+        let completedWithSuggestion = FileItem(path: "/f/c.txt", sizeInBytes: 1_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .completed)
+        let completedNoSuggestion = FileItem(path: "/f/d.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .completed)
         viewModel._testSetFiles([pendingWithSuggestion, pendingNoSuggestion, completedWithSuggestion, completedNoSuggestion])
         viewModel.selectedFolder = .home
         
@@ -151,8 +151,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testVisibleFilesLargeFilesFilter() {
         // Given
-        let small = FileItem(name: "small.mov", fileExtension: "mov", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/small.mov", destination: nil, status: .pending)
-        let large = FileItem(name: "large.mov", fileExtension: "mov", size: "20MB", sizeInBytes: 20 * 1_024 * 1_024, creationDate: Date(), path: "/f/large.mov", destination: nil, status: .pending)
+        let small = FileItem(path: "/f/small.mov", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
+        let large = FileItem(path: "/f/large.mov", sizeInBytes: 20 * 1_024 * 1_024, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([small, large])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -169,9 +169,9 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testVisibleFilesRecentSortsByCreationDate() {
         // Given
-        let oldest = FileItem(name: "old.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date().addingTimeInterval(-3600), path: "/f/old.txt", destination: nil, status: .pending)
-        let middle = FileItem(name: "mid.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date().addingTimeInterval(-1800), path: "/f/mid.txt", destination: nil, status: .pending)
-        let newest = FileItem(name: "new.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/new.txt", destination: nil, status: .pending)
+        let oldest = FileItem(path: "/f/old.txt", sizeInBytes: 1_000, creationDate: Date().addingTimeInterval(-3600), destination: nil, status: .pending)
+        let middle = FileItem(path: "/f/mid.txt", sizeInBytes: 1_000, creationDate: Date().addingTimeInterval(-1800), destination: nil, status: .pending)
+        let newest = FileItem(path: "/f/new.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([oldest, middle, newest])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -187,9 +187,9 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testFocusNextAndPrevious() {
         // Given
-        let one = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
-        let two = FileItem(name: "2.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/2.txt", destination: nil, status: .pending)
-        let three = FileItem(name: "3.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/3.txt", destination: nil, status: .pending)
+        let one = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let two = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let three = FileItem(path: "/f/3.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([one, two, three])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -228,8 +228,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testToggleSelection() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
-        let file2 = FileItem(name: "2.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/2.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file2 = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1, file2])
         viewModel.selectedFolder = .home
 
@@ -251,9 +251,9 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testSelectAll() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
-        let file2 = FileItem(name: "2.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/2.txt", destination: nil, status: .pending)
-        let file3 = FileItem(name: "3.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/3.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file2 = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file3 = FileItem(path: "/f/3.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1, file2, file3])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -272,7 +272,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testDeselectAll() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -289,8 +289,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testCanOrganizeAllSelected_SameDestination() {
         // Given
-        let file1 = FileItem(name: "1.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/1.pdf", destination: .mockFolder("Documents"), status: .pending)
-        let file2 = FileItem(name: "2.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/2.pdf", destination: .mockFolder("Documents"), status: .pending)
+        let file1 = FileItem(path: "/f/1.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        let file2 = FileItem(path: "/f/2.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
         viewModel._testSetFiles([file1, file2])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file1)
@@ -302,8 +302,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testCanOrganizeAllSelected_DifferentDestinations() {
         // Given
-        let file1 = FileItem(name: "1.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/1.pdf", destination: .mockFolder("Documents"), status: .pending)
-        let file2 = FileItem(name: "2.png", fileExtension: "png", size: "2MB", sizeInBytes: 2_000_000, creationDate: Date(), path: "/f/2.png", destination: .mockFolder("Pictures"), status: .pending)
+        let file1 = FileItem(path: "/f/1.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        let file2 = FileItem(path: "/f/2.png", sizeInBytes: 2_000_000, creationDate: Date(), destination: .mockFolder("Pictures"), status: .pending)
         viewModel._testSetFiles([file1, file2])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file1)
@@ -315,7 +315,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testCanOrganizeAllSelected_NoSuggestions() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file1)
@@ -328,8 +328,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testSkipSelectedFiles() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
-        let file2 = FileItem(name: "2.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/2.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file2 = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1, file2])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file1)
@@ -350,7 +350,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testUndoSkipOperation() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file1)
@@ -367,7 +367,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testRedoSkipOperation() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file1)
@@ -390,7 +390,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testUndoStackMaxSize() {
         // Given
-        let file = FileItem(name: "test.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/test.txt", destination: nil, status: .pending)
+        let file = FileItem(path: "/f/test.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file])
         viewModel.selectedFolder = .home
 
@@ -407,10 +407,10 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testSelectRange() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
-        let file2 = FileItem(name: "2.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/2.txt", destination: nil, status: .pending)
-        let file3 = FileItem(name: "3.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/3.txt", destination: nil, status: .pending)
-        let file4 = FileItem(name: "4.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/4.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file2 = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file3 = FileItem(path: "/f/3.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file4 = FileItem(path: "/f/4.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1, file2, file3, file4])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -431,8 +431,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testSelectionClearsOnCategoryChange() {
         // Given
-        let file1 = FileItem(name: "image.png", fileExtension: "png", size: "2MB", sizeInBytes: 2_000_000, creationDate: Date(), path: "/f/image.png", destination: nil, status: .pending)
-        let file2 = FileItem(name: "doc.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/doc.pdf", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/image.png", sizeInBytes: 2_000_000, creationDate: Date(), destination: nil, status: .pending)
+        let file2 = FileItem(path: "/f/doc.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1, file2])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -450,7 +450,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testSelectionPersistsOnSecondaryFilterChange() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -467,7 +467,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testSelectionClearsOnReviewModeToggle() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .needsReview
@@ -486,8 +486,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testBulkEditDestinationUpdatesAllFiles() {
         // Given
-        let file1 = FileItem(name: "1.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/1.pdf", destination: .mockFolder("Documents"), status: .pending)
-        let file2 = FileItem(name: "2.png", fileExtension: "png", size: "2MB", sizeInBytes: 2_000_000, creationDate: Date(), path: "/f/2.png", destination: .mockFolder("Pictures"), status: .pending)
+        let file1 = FileItem(path: "/f/1.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        let file2 = FileItem(path: "/f/2.png", sizeInBytes: 2_000_000, creationDate: Date(), destination: .mockFolder("Pictures"), status: .pending)
         viewModel._testSetFiles([file1, file2])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file1)
@@ -522,9 +522,9 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testMixedSelectionPartialSuggestions() {
         // Given
-        let file1 = FileItem(name: "1.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/1.pdf", destination: .mockFolder("Documents"), status: .pending)
-        let file2 = FileItem(name: "2.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/2.txt", destination: nil, status: .pending)
-        let file3 = FileItem(name: "3.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/3.pdf", destination: .mockFolder("Documents"), status: .pending)
+        let file1 = FileItem(path: "/f/1.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        let file2 = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file3 = FileItem(path: "/f/3.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
         viewModel._testSetFiles([file1, file2, file3])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file1)
@@ -543,7 +543,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testUndoClearRedoStack() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file1)
@@ -566,7 +566,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testCanUndoCanRedo() {
         // Given
-        let file1 = FileItem(name: "1.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/1.txt", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1])
         viewModel.selectedFolder = .home
 
@@ -594,26 +594,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testMatchingFilesForRulePreviewWithDeleteRule() {
         // Given: one screenshot and one non-matching document
-        let screenshot = FileItem(
-            name: "Screenshot 2024-01-01 at 10.00.00.png",
-            fileExtension: "png",
-            size: "1MB",
-            sizeInBytes: 1_000_000,
-            creationDate: Date(),
-            path: "/f/Screenshot.png",
-            destination: nil,
-            status: .pending
-        )
-        let document = FileItem(
-            name: "MeetingNotes.pdf",
-            fileExtension: "pdf",
-            size: "500KB",
-            sizeInBytes: 500_000,
-            creationDate: Date(),
-            path: "/f/MeetingNotes.pdf",
-            destination: nil,
-            status: .pending
-        )
+        let screenshot = FileItem(path: "/f/Screenshot.png", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
+        let document = FileItem(path: "/f/MeetingNotes.pdf", sizeInBytes: 500_000, creationDate: Date(), destination: nil, status: .pending)
 
         viewModel._testSetFiles([screenshot, document])
         viewModel.selectedFolder = .home
@@ -640,16 +622,7 @@ final class DashboardViewModelTests: XCTestCase {
         // Given: Create 100 files
         var files: [FileItem] = []
         for i in 0..<100 {
-            let file = FileItem(
-                name: "\(i).txt",
-                fileExtension: "txt",
-                size: "1KB",
-                sizeInBytes: 1_000,
-                creationDate: Date(),
-                path: "/f/\(i).txt",
-                destination: nil,
-                status: .pending
-            )
+            let file = FileItem(path: "/f/\(i).txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
             files.append(file)
         }
         viewModel._testSetFiles(files)
@@ -672,16 +645,7 @@ final class DashboardViewModelTests: XCTestCase {
         // Given: Create 100 files
         var files: [FileItem] = []
         for i in 0..<100 {
-            let file = FileItem(
-                name: "\(i).txt",
-                fileExtension: "txt",
-                size: "1KB",
-                sizeInBytes: 1_000,
-                creationDate: Date(),
-                path: "/f/\(i).txt",
-                destination: nil,
-                status: .pending
-            )
+            let file = FileItem(path: "/f/\(i).txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
             files.append(file)
         }
         viewModel._testSetFiles(files)
@@ -714,7 +678,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testRightPanelSwitchesToInspectorOnFileSelection() {
         // Given
-        let file = FileItem(name: "test.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/test.pdf", destination: nil, status: .pending)
+        let file = FileItem(path: "/f/test.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file])
         viewModel.selectedFolder = .home
 
@@ -732,7 +696,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testRightPanelReturnsToDefaultOnDeselection() {
         // Given
-        let file = FileItem(name: "test.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/test.pdf", destination: nil, status: .pending)
+        let file = FileItem(path: "/f/test.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file])
         viewModel.selectedFolder = .home
         viewModel.toggleSelection(for: file)
@@ -750,8 +714,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testRightPanelInspectorUpdatesWithMultipleFiles() {
         // Given
-        let file1 = FileItem(name: "1.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/1.pdf", destination: nil, status: .pending)
-        let file2 = FileItem(name: "2.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/2.pdf", destination: nil, status: .pending)
+        let file1 = FileItem(path: "/f/1.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
+        let file2 = FileItem(path: "/f/2.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file1, file2])
         viewModel.selectedFolder = .home
 
@@ -771,7 +735,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testShowRuleBuilderPanel() {
         // Given
-        let file = FileItem(name: "test.txt", fileExtension: "txt", size: "1KB", sizeInBytes: 1_000, creationDate: Date(), path: "/f/test.txt", destination: nil, status: .pending)
+        let file = FileItem(path: "/f/test.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
 
         // When
         viewModel.showRuleBuilderPanel(fileContext: file)
@@ -827,7 +791,7 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testCelebrationModePersistsEvenWithSelection() {
         // Given
-        let file = FileItem(name: "test.pdf", fileExtension: "pdf", size: "1MB", sizeInBytes: 1_000_000, creationDate: Date(), path: "/f/test.pdf", destination: nil, status: .pending)
+        let file = FileItem(path: "/f/test.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file])
         viewModel.selectedFolder = .home
         viewModel.showCelebrationPanel(message: "File organized!")

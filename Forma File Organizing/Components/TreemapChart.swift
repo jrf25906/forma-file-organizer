@@ -298,7 +298,7 @@ private struct TreemapCell: View {
             .foregroundColor(.formaObsidian)
 
         TreemapChart(rootNode: sampleTree) { node in
-            print("Tapped: \(node.label)")
+            Log.debug("TreemapChart: tapped node '\(node.label)'", category: .ui)
         }
         .frame(height: 300)
     }

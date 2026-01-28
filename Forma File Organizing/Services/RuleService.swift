@@ -219,12 +219,6 @@ class RuleService: ObservableObject {
         #endif
     }
 
-    /// Legacy method - adds a rule without activity logging.
-    /// @available(*, deprecated, message: "Use createRule(_:source:) instead")
-    func addRule(_ rule: Rule) {
-        modelContext.insert(rule)
-    }
-
     // MARK: - Update
 
     /// Saves changes to an existing rule with activity logging.

@@ -70,12 +70,6 @@ protocol FileSystemServiceProtocol {
 /// Service responsible for scanning directories and reading file metadata
 class FileSystemService: FileSystemServiceProtocol {
 
-    // MARK: - Error Type Aliases (for migration compatibility)
-
-    /// Legacy error type - use FormaError directly in new code
-    @available(*, deprecated, message: "Use FormaError directly")
-    typealias FileSystemError = FormaError
-
     private let desktopBookmarkKey = "DesktopFolderBookmark"
     private let downloadsBookmarkKey = "DownloadsFolderBookmark"
     private let documentsBookmarkKey = "DocumentsFolderBookmark"

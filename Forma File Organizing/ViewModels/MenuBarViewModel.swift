@@ -182,7 +182,8 @@ final class MenuBarViewModel: ObservableObject {
         AutomationEngine.shared.$state
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.automationStatus = self?.actions.getAutomationStatus() ?? self!.automationStatus
+                guard let self else { return }
+                automationStatus = actions.getAutomationStatus()
             }
             .store(in: &cancellables)
 

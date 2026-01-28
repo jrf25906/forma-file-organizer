@@ -37,7 +37,7 @@ final class RuleServiceTests: XCTestCase {
     func testAddRule() throws {
         let rule = Rule(name: "Test Rule", conditionType: .nameStartsWith, conditionValue: "Test", actionType: .move, destination: .folder(bookmark: Data(), displayName: "TestFolder"))
 
-        ruleService.addRule(rule)
+        try ruleService.createRule(rule, source: .ruleEditor)
 
         let fetchedRules = try ruleService.fetchRules()
         XCTAssertEqual(fetchedRules.count, 1)
@@ -46,7 +46,7 @@ final class RuleServiceTests: XCTestCase {
 
     func testDeleteRule() throws {
         let rule = Rule(name: "Test Rule", conditionType: .nameStartsWith, conditionValue: "Test", actionType: .move, destination: .folder(bookmark: Data(), displayName: "TestFolder"))
-        ruleService.addRule(rule)
+        try ruleService.createRule(rule, source: .ruleEditor)
 
         try ruleService.deleteRule(rule)
 
@@ -58,8 +58,8 @@ final class RuleServiceTests: XCTestCase {
         let rule1 = Rule(name: "Rule 1", conditionType: .nameStartsWith, conditionValue: "A", actionType: .move, destination: .folder(bookmark: Data(), displayName: "A"))
         let rule2 = Rule(name: "Rule 2", conditionType: .nameStartsWith, conditionValue: "B", actionType: .move, destination: .folder(bookmark: Data(), displayName: "B"))
 
-        ruleService.addRule(rule1)
-        ruleService.addRule(rule2)
+        try ruleService.createRule(rule1, source: .ruleEditor)
+        try ruleService.createRule(rule2, source: .ruleEditor)
 
         let fetchedRules = try ruleService.fetchRules()
         XCTAssertEqual(fetchedRules.count, 2)
@@ -84,7 +84,7 @@ final class RuleServiceTests: XCTestCase {
     }
     func testUpdateRule() throws {
         let rule = Rule(name: "Original Name", conditionType: .nameStartsWith, conditionValue: "A", actionType: .move, destination: .folder(bookmark: Data(), displayName: "A"))
-        ruleService.addRule(rule)
+        try ruleService.createRule(rule, source: .ruleEditor)
 
         // Modify the rule
         rule.name = "Updated Name"

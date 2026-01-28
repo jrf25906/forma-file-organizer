@@ -371,12 +371,9 @@ final class ReviewViewModelTests: XCTestCase {
     func testScanDesktop_WithExistingFiles_UpdatesThemCorrectly() async {
         // Given: Existing file in database
         let existingFile = FileItem(
-            name: "existing.pdf",
-            fileExtension: "pdf",
-            size: "1 KB",
+            path: "/Desktop/existing.pdf",
             sizeInBytes: 1024,
             creationDate: Date(),
-            path: "/Desktop/existing.pdf",
             destination: nil,
             status: .pending
         )
@@ -575,13 +572,11 @@ final class ReviewViewModelTests: XCTestCase {
         path: String,
         destination: Destination?
     ) -> FileItem {
-        FileItem(
-            name: name,
-            fileExtension: (name as NSString).pathExtension,
-            size: "1 KB",
+        let resolvedPath = path.isEmpty ? name : path
+        return FileItem(
+            path: resolvedPath,
             sizeInBytes: 1024,
             creationDate: Date(),
-            path: path,
             destination: destination,
             status: .ready
         )

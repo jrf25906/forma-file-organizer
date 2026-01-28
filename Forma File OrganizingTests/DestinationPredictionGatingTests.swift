@@ -275,56 +275,6 @@ final class DestinationPredictionGatingTests: XCTestCase {
         XCTAssertTrue(true, "Toggling ML should not cause errors")
     }
     
-    // MARK: - Drift Detection Tests
-    
-    /// Test: Drift detected when acceptance rate is low
-    func testDriftDetection_LowAcceptanceRate() async throws {
-        // Record 100 predictions with low acceptance (< 50%)
-        for _ in 0..<40 {
-            await service.recordOutcome(.accepted)
-        }
-        for _ in 0..<60 {
-            await service.recordOutcome(.overridden)
-        }
-        
-        // Create sufficient training data
-        let activityItems = createSyntheticActivityItems(
-            count: 100,
-            destinations: ["Documents/Work", "Archive", "Documents/Personal"]
-        )
-        
-        // This should trigger retraining due to drift
-        await service.scheduleTrainingIfNeeded(activityItems: activityItems)
-        
-        // Verify training was attempted (check history records)
-        let descriptor = FetchDescriptor<MLTrainingHistory>()
-        let history = try? modelContext.fetch(descriptor)
-        XCTAssertNotNil(history, "Drift should trigger retraining attempt")
-    }
-    
-    /// Test: Drift detected when override rate is high
-    func testDriftDetection_HighOverrideRate() async throws {
-        // Record 100 predictions with high override rate (> 40%)
-        for _ in 0..<50 {
-            await service.recordOutcome(.accepted)
-        }
-        for _ in 0..<50 {
-            await service.recordOutcome(.overridden)
-        }
-        
-        let activityItems = createSyntheticActivityItems(
-            count: 100,
-            destinations: ["Documents", "Archive", "Downloads"]
-        )
-        
-        await service.scheduleTrainingIfNeeded(activityItems: activityItems)
-        
-        // Verify retraining was triggered
-        let descriptor = FetchDescriptor<MLTrainingHistory>()
-        let history = try? modelContext.fetch(descriptor)
-        XCTAssertNotNil(history, "High override rate should trigger retraining")
-    }
-    
     // MARK: - Model Invalidation and Rollback Tests
     
     /// Test: Failed training does not replace existing good model

@@ -726,7 +726,6 @@ class AIInsightsViewModel: ObservableObject {
     @Published var mlEnabled = true
 
     private let duplicateService = DuplicateDetectionService()
-    private let contextService = ContextDetectionService()
     private var refreshTask: Task<Void, Never>?
 
     func refreshInsights() {

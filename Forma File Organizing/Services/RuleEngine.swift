@@ -49,16 +49,14 @@ class RuleEngine {
     func evaluateFile<F: Fileable, R: Ruleable>(_ fileItem: F, rules: [R]) -> F {
         var file = fileItem
 
-        // DEBUG: Temporary diagnostic logging
-        print("🔍 RuleEngine: Evaluating '\(file.name)' against \(rules.count) rules")
+        Log.debug("RuleEngine: evaluating '\(file.name)' against \(rules.count) rules", category: .pipeline)
 
         // Check each rule in order
         for rule in rules {
-            // DEBUG: Check each rule
-            print("🔍 RuleEngine: Checking rule '\(rule.conditionsSummary)' for '\(file.name)'")
+            Log.debug("RuleEngine: checking rule '\(rule.conditionsSummary)' for '\(file.name)'", category: .pipeline)
 
             if matches(file: file, rule: rule) {
-                print("✅ RuleEngine: MATCHED! Rule '\(rule.conditionsSummary)' matches '\(file.name)'")
+                Log.debug("RuleEngine: matched rule '\(rule.conditionsSummary)' for '\(file.name)'", category: .pipeline)
                 // For delete rules, set destination to trash
                 if rule.actionType == .delete {
                     file.destination = .trash
@@ -68,26 +66,26 @@ class RuleEngine {
                     if !ruleDestination.isTrash && ruleDestination.bookmarkData == nil {
                         // Placeholder destination - try to resolve it automatically
                         let cacheKey = ruleDestination.displayName
-                        print("🔍 RuleEngine: Destination '\(cacheKey)' needs resolution (bookmarkData is nil)")
+                        Log.debug("RuleEngine: destination '\(cacheKey)' needs resolution (bookmarkData is nil)", category: .pipeline)
 
                         // Check cache first
                         if let cachedDestination = resolvedDestinationCache[cacheKey] {
-                            print("✅ RuleEngine: Found cached resolution for '\(cacheKey)'")
+                            Log.debug("RuleEngine: found cached resolution for '\(cacheKey)'", category: .pipeline)
                             file.destination = cachedDestination
                         } else if let resolvedDestination = destinationResolver.resolve(ruleDestination) {
                             // Successfully resolved - cache it and use it
-                            print("✅ RuleEngine: Successfully resolved '\(cacheKey)'")
+                            Log.debug("RuleEngine: successfully resolved '\(cacheKey)'", category: .pipeline)
                             resolvedDestinationCache[cacheKey] = resolvedDestination
                             file.destination = resolvedDestination
                             Log.info("RuleEngine: Auto-resolved placeholder '\(ruleDestination.displayName)' for rule '\(rule.conditionsSummary)'", category: .pipeline)
                         } else {
                             // Resolution failed - skip this rule
-                            print("❌ RuleEngine: Failed to resolve '\(cacheKey)' - skipping rule")
+                            Log.debug("RuleEngine: failed to resolve '\(cacheKey)' - skipping rule", category: .pipeline)
                             Log.warning("RuleEngine: Rule '\(rule.conditionsSummary)' matched but has unresolvable placeholder destination '\(ruleDestination.displayName)' - grant folder access or configure in rule settings", category: .pipeline)
                             continue
                         }
                     } else {
-                        print("✅ RuleEngine: Destination already has valid bookmark")
+                        Log.debug("RuleEngine: destination already has valid bookmark", category: .pipeline)
                         // Valid destination - copy from rule
                         file.destination = ruleDestination
                     }

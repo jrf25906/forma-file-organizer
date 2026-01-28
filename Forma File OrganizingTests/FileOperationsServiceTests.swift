@@ -361,16 +361,13 @@ final class FileOperationsServiceTests: XCTestCase {
         path: String,
         destination: String?
     ) -> FileItem {
-        let item = FileItem(
-            name: name,
-            fileExtension: (name as NSString).pathExtension,
-            size: "1 KB",
+        let resolvedPath = path.isEmpty ? name : path
+        return FileItem(
+            path: resolvedPath,
             sizeInBytes: 1024,
             creationDate: Date(),
-            path: path,
             destination: destination != nil ? .mockFolder(destination!) : nil,
             status: .ready
         )
-        return item
     }
 }

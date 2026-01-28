@@ -112,8 +112,9 @@ class ContextDetectionService {
                     currentCluster.append(file)
                 } else {
                     // Gap too large - finalize current cluster and start new one
-                    if currentCluster.count >= Self.minClusterSize {
-                        clusters.append(createTemporalCluster(from: currentCluster))
+                    if currentCluster.count >= Self.minClusterSize,
+                       let cluster = createTemporalCluster(from: currentCluster) {
+                        clusters.append(cluster)
                     }
                     currentCluster = [file]
                 }
@@ -126,8 +127,9 @@ class ContextDetectionService {
         }
         
         // Don't forget the last cluster
-        if currentCluster.count >= Self.minClusterSize {
-            clusters.append(createTemporalCluster(from: currentCluster))
+        if currentCluster.count >= Self.minClusterSize,
+           let cluster = createTemporalCluster(from: currentCluster) {
+            clusters.append(cluster)
         }
         
         return clusters
@@ -320,20 +322,18 @@ class ContextDetectionService {
     }
 
     /// Create a temporal cluster from a group of files
-    private func createTemporalCluster(from files: [FileItem]) -> ProjectCluster {
+    private func createTemporalCluster(from files: [FileItem]) -> ProjectCluster? {
         guard let firstFile = files.first else {
             Log.error("ContextDetectionService: createTemporalCluster called with empty files array", category: .analytics)
-            return ProjectCluster(
-                clusterType: .temporal,
-                filePaths: [],
-                confidenceScore: 0.0,
-                suggestedFolderName: "Empty Cluster"
-            )
+            return nil
         }
 
         let dates = files.map { $0.modificationDate }
-        // Non-empty array always has min/max, so force-unwrap is safe after the guard above
-        let timeSpan = dates.max()!.timeIntervalSince(dates.min()!)
+        guard let maxDate = dates.max(), let minDate = dates.min() else {
+            Log.warning("ContextDetectionService: createTemporalCluster called with empty dates array", category: .analytics)
+            return nil
+        }
+        let timeSpan = maxDate.timeIntervalSince(minDate)
 
         // Higher confidence for tighter time grouping
         let confidence: Double = timeSpan < 60 ? 0.85 : timeSpan < 180 ? 0.75 : 0.65

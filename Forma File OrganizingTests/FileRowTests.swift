@@ -9,12 +9,9 @@ final class FileRowTests: XCTestCase {
     func testPrimaryActionConfig_FileWithDestinationAndReady_ReturnsOrganize() {
         // Given: A file with a suggested destination and ready status
         let file = FileItem(
-            name: "test.pdf",
-            fileExtension: "pdf",
-            size: "1MB",
+            path: "/test/test.pdf",
             sizeInBytes: 1_000_000,
             creationDate: Date(),
-            path: "/test/test.pdf",
             destination: .mockFolder("Documents/PDFs"),
             status: .ready
         )
@@ -32,12 +29,9 @@ final class FileRowTests: XCTestCase {
     func testPrimaryActionConfig_FileWithDestinationButPending_ReturnsReview() {
         // Given: A file with a suggested destination but pending status
         let file = FileItem(
-            name: "test.pdf",
-            fileExtension: "pdf",
-            size: "1MB",
+            path: "/test/test.pdf",
             sizeInBytes: 1_000_000,
             creationDate: Date(),
-            path: "/test/test.pdf",
             destination: .mockFolder("Documents/PDFs"),
             status: .pending
         )
@@ -54,12 +48,9 @@ final class FileRowTests: XCTestCase {
     func testPrimaryActionConfig_FileWithoutDestination_ReturnsCreateRule() {
         // Given: A file without a suggested destination
         let file = FileItem(
-            name: "test.txt",
-            fileExtension: "txt",
-            size: "1KB",
+            path: "/test/test.txt",
             sizeInBytes: 1_000,
             creationDate: Date(),
-            path: "/test/test.txt",
             destination: nil,
             status: .pending
         )
@@ -76,12 +67,9 @@ final class FileRowTests: XCTestCase {
     func testPrimaryActionConfig_FileWithDestinationAndSkippedStatus_ReturnsReview() {
         // Given: A file with destination but skipped status
         let file = FileItem(
-            name: "test.jpg",
-            fileExtension: "jpg",
-            size: "2MB",
+            path: "/test/test.jpg",
             sizeInBytes: 2_000_000,
             creationDate: Date(),
-            path: "/test/test.jpg",
             destination: .mockFolder("Pictures"),
             status: .skipped
         )
@@ -100,12 +88,9 @@ final class FileRowTests: XCTestCase {
     func testOrganizeCallback_CalledWhenDestinationIsReady() {
         // Given: A ready file and a callback expectation
         let file = FileItem(
-            name: "test.pdf",
-            fileExtension: "pdf",
-            size: "1MB",
+            path: "/test/test.pdf",
             sizeInBytes: 1_000_000,
             creationDate: Date(),
-            path: "/test/test.pdf",
             destination: .mockFolder("Documents"),
             status: .ready
         )
@@ -133,12 +118,9 @@ final class FileRowTests: XCTestCase {
     func testEditDestinationCallback_CalledWhenDestinationNeedsReview() {
         // Given: A pending file with destination
         let file = FileItem(
-            name: "test.pdf",
-            fileExtension: "pdf",
-            size: "1MB",
+            path: "/test/test.pdf",
             sizeInBytes: 1_000_000,
             creationDate: Date(),
-            path: "/test/test.pdf",
             destination: .mockFolder("Documents"),
             status: .pending
         )
@@ -166,12 +148,9 @@ final class FileRowTests: XCTestCase {
     func testCreateRuleCallback_CalledWhenNoDestination() {
         // Given: A file without destination
         let file = FileItem(
-            name: "test.txt",
-            fileExtension: "txt",
-            size: "1KB",
+            path: "/test/test.txt",
             sizeInBytes: 1_000,
             creationDate: Date(),
-            path: "/test/test.txt",
             destination: nil,
             status: .pending
         )

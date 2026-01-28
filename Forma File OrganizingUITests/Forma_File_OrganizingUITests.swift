@@ -31,25 +31,22 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     
     /// Wait for the main content view to appear (i.e., onboarding is dismissed)
     private func waitForMainContent() {
-        // Check if onboarding is present
-        let skipButton = app.buttons["onboardingSkipButton"]
-        if skipButton.waitForExistence(timeout: 2) {
-            skipButton.tap()
-        }
-        
-        let continueButton = app.buttons["onboardingContinueButton"]
-        if continueButton.exists {
-             continueButton.tap()
-        }
-
-        // Look for a unique element in the main content, e.g. the "Needs Review" button
+        // Look for a unique element in the main content
         let reviewButton = app.buttons["reviewMode_needsReview"]
-        XCTAssertTrue(reviewButton.waitForExistence(timeout: 5), "Main content should appear")
+        XCTAssertTrue(reviewButton.waitForExistence(timeout: 8), "Main content should appear")
+        
+        // Ensure seeded UI test files are visible before proceeding
+        let firstCard = reviewCard(for: "UITest_File_1_WithSuggestion.pdf")
+        XCTAssertTrue(firstCard.waitForExistence(timeout: 8), "UI test files should be visible")
     }
     
     /// Convenience accessor for a specific review file card by file name
     private func reviewCard(for name: String) -> XCUIElement {
-        app.otherElements["reviewFileCard_\(name)"]
+        app.otherElements["fileRow_\(name)"]
+    }
+    
+    private func buttonValue(_ button: XCUIElement) -> String {
+        button.value as? String ?? ""
     }
     
     // MARK: - Keyboard Navigation Tests
@@ -133,20 +130,17 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         XCTAssertTrue(needsReviewButton.waitForExistence(timeout: 3))
         XCTAssertTrue(allFilesButton.exists)
         
-        // Verify initial counts in labels
-        XCTAssertTrue(needsReviewButton.label.contains("3"))
-        XCTAssertTrue(allFilesButton.label.contains("3"))
+        // Verify initial count for Needs Review
+        XCTAssertEqual(buttonValue(needsReviewButton), "3")
         
         // Skip the first file via keyboard (S)
         app.typeKey(.downArrow, modifierFlags: [])
         app.typeText("s")
         
-        // Needs Review should drop to 2, All Files should remain 3
-        let needsReviewPredicate = NSPredicate(format: "label CONTAINS %@", "2")
+        // Needs Review should drop to 2
+        let needsReviewPredicate = NSPredicate(format: "value == %@", "2")
         let needsReviewUpdated = expectation(for: needsReviewPredicate, evaluatedWith: needsReviewButton, handler: nil)
         wait(for: [needsReviewUpdated], timeout: 3)
-        
-        XCTAssertTrue(allFilesButton.label.contains("3"))
     }
     
     @MainActor

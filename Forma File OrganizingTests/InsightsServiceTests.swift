@@ -247,14 +247,11 @@ final class InsightsServiceTests: XCTestCase {
         sizeInBytes: Int64 = 1024,
         status: FileItem.OrganizationStatus = .pending
     ) -> FileItem {
-        let ext = (name as NSString).pathExtension
+        let resolvedPath = path ?? "/Users/test/\(name)"
         return FileItem(
-            name: name,
-            fileExtension: ext.isEmpty ? "txt" : ext,
-            size: ByteCountFormatter.string(fromByteCount: sizeInBytes, countStyle: .file),
+            path: resolvedPath,
             sizeInBytes: sizeInBytes,
             creationDate: Date(),
-            path: path ?? "/Users/test/\(name)",
             destination: nil,
             status: status
         )

@@ -266,12 +266,6 @@ final class FileOperationsService {
         try secureFileMove(from: sourceURL, to: destURL)
     }
  
-    // MARK: - Error Type Aliases (for migration compatibility)
-
-    /// Legacy typealias - use FormaError directly in new code
-    @available(*, deprecated, message: "Use FormaError instead")
-    typealias FileOperationError = FormaError
-
     struct MoveResult {
         let success: Bool
         let originalPath: String
@@ -354,6 +348,17 @@ final class FileOperationsService {
         guard let destination = fileItem.destination else {
             throw FormaError.operation(.notReady("No destination specified"))
         }
+
+        #if DEBUG
+        if CommandLine.arguments.contains("--uitesting") {
+            return MoveResult(
+                success: true,
+                originalPath: fileItem.path,
+                destinationPath: fileItem.path,
+                error: nil
+            )
+        }
+        #endif
 
         let sourceURL = URL(fileURLWithPath: fileItem.path)
         #if DEBUG

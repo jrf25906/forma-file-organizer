@@ -92,6 +92,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Template (for new notes; remove placeholders once entries are added):
+- Added: TBD
+- Changed: TBD
+- Fixed: TBD
+- Removed: TBD
+
+### Removed - Deprecated APIs
+- Removed legacy initializers for `FileItem` and `FileMetadata`.
+- Removed deprecated `RuleService.addRule(_:)`.
+- Removed deprecated error type aliases in `FileSystemService` and `FileOperationsService`.
+
 ### Fixed - Scan Error Feedback & Undo/Redo
 - Scan runs that complete with partial failures now surface notifications/toasts instead of failing silently.
 - Undo/redo now uses the active ModelContext so file move actions can be reversed reliably.

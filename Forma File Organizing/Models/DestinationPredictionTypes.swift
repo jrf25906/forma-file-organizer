@@ -152,16 +152,6 @@ struct PredictionContext: Sendable {
     }
 }
 
-// MARK: - Prediction Outcome
-
-/// Outcome of showing a prediction to the user
-enum PredictionOutcome: String, Codable, Sendable {
-    case accepted       // User accepted the prediction
-    case overridden     // User moved file to a different destination
-    case dismissed      // User skipped/dismissed the suggestion
-    case unknown        // Outcome not yet determined
-}
-
 // MARK: - Model Metadata
 
 /// Metadata about the current active model

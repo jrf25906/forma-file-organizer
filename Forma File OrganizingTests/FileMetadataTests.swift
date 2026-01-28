@@ -16,15 +16,12 @@ final class FileMetadataTests: XCTestCase {
         XCTAssertEqual(metadata.name, "report.pdf")
     }
 
-    func testLegacyInitializerMaintainsDestination() {
+    func testPreferredInitializerMaintainsDestination() {
         let destination = Destination.mockFolder("Photos")
         let metadata = FileMetadata(
-            name: "image.jpg",
-            fileExtension: "jpg",
-            size: "2 MB",
+            path: "/tmp/photos/image.jpg",
             sizeInBytes: 2_048_000,
             creationDate: Date(),
-            path: "/tmp/photos/image.jpg",
             destination: destination,
             status: .ready
         )

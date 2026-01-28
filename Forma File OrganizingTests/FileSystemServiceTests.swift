@@ -340,10 +340,15 @@ final class FileSystemServiceTests: XCTestCase {
     func testScanResult_NoErrors() {
         // Given: A scan result with files and no errors
         let files = [
-            FileMetadata(name: "test.pdf", fileExtension: "pdf", size: "1 MB",
-                        sizeInBytes: 1024*1024, creationDate: Date(),
-                        modificationDate: Date(), lastAccessedDate: Date(),
-                        path: "/test/test.pdf", destination: nil, status: .pending)
+            FileMetadata(
+                path: "/test/test.pdf",
+                sizeInBytes: 1024 * 1024,
+                creationDate: Date(),
+                modificationDate: Date(),
+                lastAccessedDate: Date(),
+                destination: nil,
+                status: .pending
+            )
         ]
         let scanResult = ScanResult(files: files, errors: [:])
 
@@ -382,10 +387,15 @@ final class FileSystemServiceTests: XCTestCase {
     func testScanResult_PartialSuccess() {
         // Given: A scan result with both files and errors
         let files = [
-            FileMetadata(name: "test.pdf", fileExtension: "pdf", size: "1 MB",
-                        sizeInBytes: 1024*1024, creationDate: Date(),
-                        modificationDate: Date(), lastAccessedDate: Date(),
-                        path: "/desktop/test.pdf", destination: nil, status: .pending)
+            FileMetadata(
+                path: "/desktop/test.pdf",
+                sizeInBytes: 1024 * 1024,
+                creationDate: Date(),
+                modificationDate: Date(),
+                lastAccessedDate: Date(),
+                destination: nil,
+                status: .pending
+            )
         ]
         let errors: [String: Error] = ["Downloads": FormaError.fileSystem(.permissionDenied("Downloads"))]
         let scanResult = ScanResult(files: files, errors: errors)
