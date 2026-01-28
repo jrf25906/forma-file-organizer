@@ -17,15 +17,13 @@ class OnboardingState {
         case welcome = 0
         case folders = 1
         case quiz = 2
-        case folderTemplates = 3
-        case preview = 4
+        case preview = 3
 
         var title: String {
             switch self {
             case .welcome: return "Welcome"
             case .folders: return "Folders"
             case .quiz: return "Style"
-            case .folderTemplates: return "Systems"
             case .preview: return "Preview"
             }
         }
@@ -58,11 +56,11 @@ class OnboardingState {
 /// Tracks which folders the user has selected for Forma to organize.
 /// This drives both permission requests AND sidebar visibility.
 struct OnboardingFolderSelection: Codable, Equatable {
-    var desktop: Bool = false
-    var downloads: Bool = false
-    var documents: Bool = false
-    var pictures: Bool = false
-    var music: Bool = false
+    var desktop: Bool = true
+    var downloads: Bool = true
+    var documents: Bool = true
+    var pictures: Bool = true
+    var music: Bool = true
 
     var selectedCount: Int {
         [desktop, downloads, documents, pictures, music].filter { $0 }.count

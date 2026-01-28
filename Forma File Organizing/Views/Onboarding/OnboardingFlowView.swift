@@ -3,12 +3,14 @@ import SwiftData
 
 // MARK: - Onboarding Flow Coordinator
 
-/// Unified onboarding flow that guides users through setup in 5 steps:
-/// 1. Welcome - Value proposition and excitement
-/// 2. Folders - User selects which folders to organize
+/// Unified onboarding flow that guides users through setup in 4 steps:
+/// 1. Welcome - Files-into-folder animation with Libre Baskerville hero text
+/// 2. Folders - Vertical pre-checked list (all 5 folders default to selected)
 /// 3. Quiz - Personality assessment for template recommendation
-/// 4. Per-Folder Templates - Assign templates to each selected folder
-/// 5. Preview - Review complete folder structure before starting
+/// 4. Preview + Customize - Shows folder structure with collapsible template customization
+///
+/// Templates are auto-applied from quiz results (no standalone template selection step).
+/// Visual energy follows a "bookend" pattern: high at Welcome and Preview, calm in the middle.
 struct OnboardingFlowView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @Environment(\.dismiss) var dismiss
@@ -49,32 +51,23 @@ struct OnboardingFlowView: View {
                         PersonalityQuizStepView(
                             onComplete: { result in
                                 state.personality = result
-                                // Initialize template selection with defaults based on personality
                                 state.templateSelection.applyDefaults(
                                     personality: result,
                                     selectedFolders: state.folderSelection
                                 )
-                                advanceToFolderTemplates()
+                                state.templateSelection.save()
+                                state.advance(to: .preview)
                             },
                             onBack: { state.advance(to: .folders) }
-                        )
-
-                    case .folderTemplates:
-                        TemplateSelectionStepView(
-                            folderSelection: $state.folderSelection,
-                            templateSelection: $state.templateSelection,
-                            personality: state.personality,
-                            onContinue: advanceToPreview,
-                            onBack: { state.advance(to: .quiz) }
                         )
 
                     case .preview:
                         OnboardingPreviewStepView(
                             folderSelection: state.folderSelection,
-                            templateSelection: state.templateSelection,
+                            templateSelection: $state.templateSelection,
                             personality: state.personality,
                             onComplete: completeOnboarding,
-                            onBack: { state.advance(to: .folderTemplates) }
+                            onBack: { state.advance(to: .quiz) }
                         )
                     }
                 }
@@ -109,16 +102,6 @@ struct OnboardingFlowView: View {
                 state.advance(to: .quiz)
             }
         }
-    }
-
-    private func advanceToFolderTemplates() {
-        state.advance(to: .folderTemplates)
-    }
-
-    private func advanceToPreview() {
-        // Save template selection before preview
-        state.templateSelection.save()
-        state.advance(to: .preview)
     }
 
     private func completeOnboarding() {

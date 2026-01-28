@@ -29,9 +29,22 @@
 		50A492912ECC4C4A006868D5 /* Forma File OrganizingUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Forma File OrganizingUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		50B5F0012F1E000000000001 /* Exceptions for "Forma File Organizing" folder in "Forma File Organizing" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 50A492772ECC4C48006868D5 /* Forma File Organizing */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		50A4927A2ECC4C48006868D5 /* Forma File Organizing */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				50B5F0012F1E000000000001 /* Exceptions for "Forma File Organizing" folder in "Forma File Organizing" target */,
+			);
 			path = "Forma File Organizing";
 			sourceTree = "<group>";
 		};
@@ -415,6 +428,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Forma File Organizing/Info.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -460,6 +474,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Forma File Organizing/Info.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

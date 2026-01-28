@@ -170,7 +170,7 @@ struct OnboardingFooter: View {
 
 struct OnboardingGeometricIcon: View {
     enum Style {
-        case welcome, folders, style, system
+        case system
     }
 
     let style: Style
@@ -178,109 +178,8 @@ struct OnboardingGeometricIcon: View {
     var body: some View {
         ZStack {
             switch style {
-            case .welcome:
-                // Logo-inspired arrangement
-                welcomeGeometry
-            case .folders:
-                foldersGeometry
-            case .style:
-                styleGeometry
             case .system:
                 systemGeometry
-            }
-        }
-    }
-
-    private var welcomeGeometry: some View {
-        ZStack {
-            // Echoes the logo mark with brand colors
-            RoundedRectangle(cornerRadius: FormaRadius.small - (FormaRadius.micro / 4), style: .continuous)
-                .fill(Color.formaSteelBlue)
-                .frame(width: 28, height: 28)
-                .offset(x: -14, y: -14)
-
-            RoundedRectangle(cornerRadius: FormaRadius.small - (FormaRadius.micro / 4), style: .continuous)
-                .fill(Color.formaMutedBlue)
-                .frame(width: 32, height: 28)
-                .offset(x: 14, y: -14)
-
-            RoundedRectangle(cornerRadius: FormaRadius.small - (FormaRadius.micro / 4), style: .continuous)
-                .fill(Color.formaMutedBlue)
-                .frame(width: 36, height: 36)
-                .offset(x: -10, y: 14)
-
-            RoundedRectangle(cornerRadius: FormaRadius.small - (FormaRadius.micro / 4), style: .continuous)
-                .fill(Color.formaSage)
-                .frame(width: 24, height: 24)
-                .offset(x: 20, y: 10)
-
-            RoundedRectangle(cornerRadius: FormaRadius.micro / 2, style: .continuous)
-                .fill(Color.formaSoftGreen)
-                .frame(width: 24, height: 6)
-                .offset(x: 20, y: 28)
-        }
-    }
-
-    private var foldersGeometry: some View {
-        ZStack {
-            // Multiple folder shapes stacked
-            RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.overlay))
-                .frame(width: 44, height: 32)
-                .offset(x: -6, y: 8)
-                .rotationEffect(.degrees(-8))
-
-            RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                .fill(Color.formaSage.opacity(Color.FormaOpacity.strong))
-                .frame(width: 44, height: 32)
-                .offset(x: 0, y: 4)
-                .rotationEffect(.degrees(-3))
-
-            RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                .fill(Color.formaSteelBlue)
-                .frame(width: 44, height: 32)
-                .offset(y: 2)
-
-            // Folder tab
-            RoundedRectangle(cornerRadius: FormaRadius.micro - (FormaRadius.micro / 4), style: .continuous)
-                .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.prominent))
-                .frame(width: 18, height: 6)
-                .offset(x: -11, y: -14)
-
-            // Plus badge
-            Circle()
-                .fill(Color.formaSage)
-                .frame(width: 20, height: 20)
-                .offset(x: 20, y: -16)
-                .overlay(
-                    Image(systemName: "plus")
-                        .font(.formaSmallSemibold)
-                        .foregroundColor(.formaBoneWhite)
-                        .offset(x: 20, y: -16)
-                )
-        }
-    }
-
-    private var styleGeometry: some View {
-        ZStack {
-            // Personality/style representation with color bars
-            VStack(spacing: 4) {
-                HStack(spacing: 4) {
-                    RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                        .fill(Color.formaSteelBlue)
-                        .frame(width: 24, height: 24)
-                    RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                        .fill(Color.formaSage)
-                        .frame(width: 24, height: 24)
-                }
-                HStack(spacing: 4) {
-                    RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                        .fill(Color.formaWarmOrange)
-                        .frame(width: 24, height: 24)
-                    RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                        .fill(Color.formaMutedBlue)
-                        .frame(width: 24, height: 24)
-                }
             }
         }
     }
