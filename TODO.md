@@ -28,7 +28,7 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 ### Phase 3: Code Hygiene
 - [x] 14. TreemapChart.swift + SmartInsightCard.swift (x2) + CalendarHeatmap.swift — replace `print(...)` with `Log.debug(..., category: .ui)`; log only `lastPathComponent` or a relative path (no full user paths).
 - [x] 15. RuleEngine.swift:50-80 — replace emoji `print(...)` with `Log.debug(..., category: .pipeline)`; avoid PII.
-- [ ] 16. OrganizeAnimations.swift — add `private init()` to `FormaSoundEffects` singleton.
+- [x] 16. OrganizeAnimations.swift — add `private init()` to `FormaSoundEffects` singleton.
 
 ### Phase 4: Deprecated API Migration (requires test updates)
 - [x] 17. FileItem.swift:281-293 — migrate DashboardViewModelTests call sites to new `init(path:sizeInBytes:...)`. Update any shared test helpers/factories first, then remove deprecated init.
