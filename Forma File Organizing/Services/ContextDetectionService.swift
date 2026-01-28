@@ -66,65 +66,26 @@ class ContextDetectionService {
     /// - Parameter files: Array of FileItem to analyze
     /// - Returns: Array of ProjectCluster objects
     private func detectProjectCodeClusters(from files: [FileItem]) -> [ProjectCluster] {
-        var clusters: [ProjectCluster] = []
-        
-        // Project code patterns
-        let patterns = [
-            // P-1024, P-001
+        let patterns: [(String, String)] = [
             ("P-\\d{3,4}", "Project"),
-            // JIRA-456, ABC-123
             ("[A-Z]{2,5}-\\d{2,4}", "Project"),
-            // CLIENT_ABC, PROJ_XYZ
             ("[A-Z]+_[A-Z]{2,}", "Project"),
-            // 2024-11-15 format dates at start
             ("^\\d{4}-\\d{2}-\\d{2}", "Date"),
         ]
-        
-        for (pattern, prefix) in patterns {
-            let regex: NSRegularExpression
-            do {
-                regex = try NSRegularExpression(pattern: pattern, options: [])
-            } catch {
-                Log.warning("ContextDetectionService: Invalid regex pattern '\(pattern)': \(error.localizedDescription). Skipping.", category: .analytics)
-                continue
-            }
 
-            // Group files by detected pattern
-            var patternGroups: [String: [FileItem]] = [:]
-
-            for file in files {
-                let fileName = file.name
-                let range = NSRange(fileName.startIndex..., in: fileName)
-
-                if let match = regex.firstMatch(in: fileName, options: [], range: range),
-                   let matchRange = Range(match.range, in: fileName) {
-                    let detectedCode = String(fileName[matchRange])
-                    patternGroups[detectedCode, default: []].append(file)
-                }
-            }
-            
-            // Create clusters for groups with enough files
-            for (code, groupFiles) in patternGroups where groupFiles.count >= Self.minClusterSize {
-                let confidence = calculateProjectCodeConfidence(
-                    fileCount: groupFiles.count,
-                    totalFiles: files.count
-                )
-                
-                let suggestedName = "\(prefix) \(code)"
-                
-                let cluster = ProjectCluster(
+        return patterns.flatMap { pattern, prefix -> [ProjectCluster] in
+            guard let groups = groupFilesByRegex(pattern, files: files) else { return [] }
+            return groups.compactMap { code, groupFiles in
+                guard groupFiles.count >= Self.minClusterSize else { return nil }
+                return ProjectCluster(
                     clusterType: .projectCode,
                     filePaths: groupFiles.map { $0.path },
-                    confidenceScore: confidence,
-                    suggestedFolderName: suggestedName,
+                    confidenceScore: calculateProjectCodeConfidence(fileCount: groupFiles.count),
+                    suggestedFolderName: "\(prefix) \(code)",
                     detectedPattern: code
                 )
-                
-                clusters.append(cluster)
             }
         }
-        
-        return clusters
     }
     
     /// Detect clusters based on temporal proximity (same work session)
@@ -183,17 +144,20 @@ class ContextDetectionService {
         // OPTIMIZATION 1: Pre-compute basenames once upfront
         struct FileWithBasename {
             let file: FileItem
-            let basename: String
+            let basename: String          // lowercased for comparison
+            let originalBasename: String  // original casing for display
             let length: Int
             let prefixKey: String  // First 3 chars for bucketing
         }
 
         let filesWithBasenames: [FileWithBasename] = files.map { file in
-            let basename = stripExtension(from: file.name).lowercased()
+            let originalBasename = stripExtension(from: file.name)
+            let basename = originalBasename.lowercased()
             let prefixKey = String(basename.prefix(3))
             return FileWithBasename(
                 file: file,
                 basename: basename,
+                originalBasename: originalBasename,
                 length: basename.count,
                 prefixKey: prefixKey
             )
@@ -221,19 +185,25 @@ class ContextDetectionService {
             processedIndices.insert(i)
 
             // OPTIMIZATION 3: Only compare with files in same or similar prefix buckets
-            // Get candidate indices from this bucket and neighboring buckets
+            // For small file sets, compare all files (O(n²) is cheap).
+            // For larger sets, use prefix bucketing to reduce comparisons.
             var candidateIndices: Set<Int> = []
 
-            // Same prefix bucket
-            if let samePrefix = prefixBuckets[fileData.prefixKey] {
-                candidateIndices.formUnion(samePrefix)
-            }
+            if filesWithBasenames.count <= 50 {
+                // Small set: compare all to avoid missing cross-bucket matches
+                candidateIndices = Set(0..<filesWithBasenames.count)
+            } else {
+                // Same prefix bucket
+                if let samePrefix = prefixBuckets[fileData.prefixKey] {
+                    candidateIndices.formUnion(samePrefix)
+                }
 
-            // Also check buckets with similar first character (for typos/variations)
-            let firstChar = fileData.prefixKey.first ?? Character(" ")
-            for (key, indices) in prefixBuckets {
-                if key.first == firstChar && key != fileData.prefixKey {
-                    candidateIndices.formUnion(indices)
+                // Also check buckets with similar first character (for typos/variations)
+                let firstChar = fileData.prefixKey.first ?? Character(" ")
+                for (key, indices) in prefixBuckets {
+                    if key.first == firstChar && key != fileData.prefixKey {
+                        candidateIndices.formUnion(indices)
+                    }
                 }
             }
 
@@ -244,12 +214,17 @@ class ContextDetectionService {
                 let otherData = filesWithBasenames[j]
 
                 // OPTIMIZATION 4: Length-based early rejection
-                // If lengths are too different, similarity can't meet threshold
+                // Skip if lengths differ too much for Levenshtein AND the shorter name
+                // is too short for a meaningful prefix match. Prefix ratio uses minLength
+                // as denominator, so names >= 3 chars can still score high (e.g. "report"
+                // vs "report_v1_draft" has prefix ratio 1.0).
                 let maxLength = max(fileData.length, otherData.length)
+                let minLength = min(fileData.length, otherData.length)
                 let lengthDiff = abs(fileData.length - otherData.length)
+                let levenshteinRuledOut = maxLength > 0 && Double(lengthDiff) / Double(maxLength) > maxDiffRatio
 
-                if maxLength > 0 && Double(lengthDiff) / Double(maxLength) > maxDiffRatio {
-                    continue  // Skip expensive Levenshtein calculation
+                if levenshteinRuledOut && minLength < 3 {
+                    continue
                 }
 
                 // Now compute actual similarity (still needed for accurate clustering)
@@ -264,8 +239,8 @@ class ContextDetectionService {
             // Create cluster if we found enough similar files
             if clusterIndices.count >= Self.minClusterSize {
                 let clusterFiles = clusterIndices.map { filesWithBasenames[$0].file }
-                let basenames = clusterIndices.map { filesWithBasenames[$0].basename }
-                let commonPrefix = findCommonPrefix(basenames)
+                let originalBasenames = clusterIndices.map { filesWithBasenames[$0].originalBasename }
+                let commonPrefix = findCommonPrefix(originalBasenames)
                 let confidence = Double(clusterIndices.count) / Double(files.count) + 0.5
                 let clampedConfidence = min(confidence, 0.95)
 
@@ -292,57 +267,25 @@ class ContextDetectionService {
     /// - Parameter files: Array of FileItem to analyze
     /// - Returns: Array of ProjectCluster objects
     private func detectDateStampClusters(from files: [FileItem]) -> [ProjectCluster] {
-        var clusters: [ProjectCluster] = []
-        
-        // Date patterns to look for
         let patterns = [
             "\\d{4}-\\d{2}-\\d{2}",  // 2024-11-15
             "\\d{8}",                 // 20241115
             "\\d{2}-\\d{2}-\\d{4}",  // 11-15-2024
         ]
-        
-        for pattern in patterns {
-            let regex: NSRegularExpression
-            do {
-                regex = try NSRegularExpression(pattern: pattern, options: [])
-            } catch {
-                Log.warning("ContextDetectionService: Invalid regex pattern '\(pattern)': \(error.localizedDescription). Skipping.", category: .analytics)
-                continue
-            }
 
-            var dateGroups: [String: [FileItem]] = [:]
-
-            for file in files {
-                let fileName = file.name
-                let range = NSRange(fileName.startIndex..., in: fileName)
-
-                if let match = regex.firstMatch(in: fileName, options: [], range: range),
-                   let matchRange = Range(match.range, in: fileName) {
-                    let dateStamp = String(fileName[matchRange])
-                    dateGroups[dateStamp, default: []].append(file)
-                }
-            }
-            
-            // Create clusters for groups with enough files
-            for (dateStamp, groupFiles) in dateGroups where groupFiles.count >= Self.minClusterSize {
-                let confidence = calculateDateStampConfidence(
-                    fileCount: groupFiles.count,
-                    totalFiles: files.count
-                )
-                
-                let cluster = ProjectCluster(
+        return patterns.flatMap { pattern -> [ProjectCluster] in
+            guard let groups = groupFilesByRegex(pattern, files: files) else { return [] }
+            return groups.compactMap { dateStamp, groupFiles in
+                guard groupFiles.count >= Self.minClusterSize else { return nil }
+                return ProjectCluster(
                     clusterType: .dateStamp,
                     filePaths: groupFiles.map { $0.path },
-                    confidenceScore: confidence,
+                    confidenceScore: calculateDateStampConfidence(fileCount: groupFiles.count),
                     suggestedFolderName: "Files from \(dateStamp)",
                     detectedPattern: dateStamp
                 )
-                
-                clusters.append(cluster)
             }
         }
-        
-        return clusters
     }
     
     // MARK: - Helper Methods
@@ -357,10 +300,27 @@ class ContextDetectionService {
         }
         return fileName
     }
-    
+
+    /// Group files by first regex match in their names, returning `nil` for invalid patterns.
+    private func groupFilesByRegex(_ pattern: String, files: [FileItem]) -> [String: [FileItem]]? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            Log.warning("ContextDetectionService: Invalid regex pattern '\(pattern)'. Skipping.", category: .analytics)
+            return nil
+        }
+        var groups: [String: [FileItem]] = [:]
+        for file in files {
+            let name = file.name
+            let range = NSRange(name.startIndex..., in: name)
+            if let match = regex.firstMatch(in: name, range: range),
+               let matchRange = Range(match.range, in: name) {
+                groups[String(name[matchRange]), default: []].append(file)
+            }
+        }
+        return groups
+    }
+
     /// Create a temporal cluster from a group of files
     private func createTemporalCluster(from files: [FileItem]) -> ProjectCluster {
-        // Guard against empty array to prevent crashes
         guard let firstFile = files.first else {
             Log.error("ContextDetectionService: createTemporalCluster called with empty files array", category: .analytics)
             return ProjectCluster(
@@ -371,40 +331,18 @@ class ContextDetectionService {
             )
         }
 
-        // Calculate time span of the cluster
         let dates = files.map { $0.modificationDate }
-        guard let maxDate = dates.max(), let minDate = dates.min() else {
-            Log.error("ContextDetectionService: could not compute date range", category: .analytics)
-            return ProjectCluster(
-                clusterType: .temporal,
-                filePaths: files.map { $0.path },
-                confidenceScore: 0.5,
-                suggestedFolderName: "Unknown Cluster"
-            )
-        }
-        let timeSpan = maxDate.timeIntervalSince(minDate)
+        // Non-empty array always has min/max, so force-unwrap is safe after the guard above
+        let timeSpan = dates.max()!.timeIntervalSince(dates.min()!)
 
         // Higher confidence for tighter time grouping
-        let confidence: Double
-        if timeSpan < 60 { // Within 1 minute
-            confidence = 0.85
-        } else if timeSpan < 180 { // Within 3 minutes
-            confidence = 0.75
-        } else {
-            confidence = 0.65
-        }
-        // Note: baseName available for future use in suggested naming
-        _ = URL(fileURLWithPath: firstFile.path)
-            .deletingPathExtension()
-            .lastPathComponent
-        
+        let confidence: Double = timeSpan < 60 ? 0.85 : timeSpan < 180 ? 0.75 : 0.65
+
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
-        let dateString = formatter.string(from: firstFile.modificationDate)
-        
-        let suggestedName = "Work Session - \(dateString)"
-        
+        let suggestedName = "Work Session - \(formatter.string(from: firstFile.modificationDate))"
+
         return ProjectCluster(
             clusterType: .temporal,
             filePaths: files.map { $0.path },
@@ -414,35 +352,19 @@ class ContextDetectionService {
     }
     
     /// Calculate confidence for project code clusters
-    private func calculateProjectCodeConfidence(fileCount: Int, totalFiles: Int) -> Double {
-        // Base confidence starts high for explicit codes
-        var confidence = 0.8
-        
-        // Increase confidence with more files
-        if fileCount >= 5 {
-            confidence += 0.1
-        }
-        if fileCount >= 10 {
-            confidence += 0.05
-        }
-        
-        return min(confidence, 0.95)
+    private func calculateProjectCodeConfidence(fileCount: Int) -> Double {
+        let base = 0.8
+            + (fileCount >= 5 ? 0.1 : 0.0)
+            + (fileCount >= 10 ? 0.05 : 0.0)
+        return min(base, 0.95)
     }
-    
+
     /// Calculate confidence for date stamp clusters
-    private func calculateDateStampConfidence(fileCount: Int, totalFiles: Int) -> Double {
-        // Base confidence lower than project codes
-        var confidence = 0.6
-        
-        // Increase with more files
-        if fileCount >= 5 {
-            confidence += 0.15
-        }
-        if fileCount >= 8 {
-            confidence += 0.1
-        }
-        
-        return min(confidence, 0.85)
+    private func calculateDateStampConfidence(fileCount: Int) -> Double {
+        let base = 0.6
+            + (fileCount >= 5 ? 0.15 : 0.0)
+            + (fileCount >= 8 ? 0.1 : 0.0)
+        return min(base, 0.85)
     }
     
     /// Calculate name similarity using Levenshtein distance ratio
@@ -454,29 +376,18 @@ class ContextDetectionService {
     ///   - str2: Second string
     /// - Returns: Similarity ratio (0.0-1.0)
     private func calculateNameSimilarity(_ str1: String, _ str2: String) -> Double {
-        // First, calculate standard Levenshtein similarity
-        let distance = levenshteinDistance(str1, str2)
         let maxLength = max(str1.count, str2.count)
-        
         guard maxLength > 0 else { return 0.0 }
-        
-        let levenshteinSimilarity = 1.0 - (Double(distance) / Double(maxLength))
-        
-        // Also consider common prefix ratio to handle cases where one name is a prefix of another
+
+        let levenshteinSimilarity = 1.0 - (Double(levenshteinDistance(str1, str2)) / Double(maxLength))
+
+        // Prefix ratio handles cases where one name is a prefix of another
+        // (e.g. "report" vs "report_v1_draft")
         let minLength = min(str1.count, str2.count)
-        var commonPrefixLength = 0
-        for i in 0..<minLength {
-            let idx1 = str1.index(str1.startIndex, offsetBy: i)
-            let idx2 = str2.index(str2.startIndex, offsetBy: i)
-            if str1[idx1] == str2[idx2] {
-                commonPrefixLength += 1
-            } else {
-                break
-            }
-        }
-        let prefixRatio = Double(commonPrefixLength) / Double(minLength)
-        
-        // Return the higher of the two scores to be more lenient with mixed-length names
+        let prefixRatio = minLength > 0
+            ? Double(str1.commonPrefix(with: str2).count) / Double(minLength)
+            : 0.0
+
         return max(levenshteinSimilarity, prefixRatio)
     }
     
@@ -517,47 +428,17 @@ class ContextDetectionService {
         return matrix[len1][len2]
     }
     
-    /// Find the longest common prefix among a list of strings
-    ///
-    /// - Parameter strings: Array of strings to analyze
-    /// - Returns: Common prefix string
+    /// Find the longest common prefix among a list of strings, trimmed to the last word boundary.
     private func findCommonPrefix(_ strings: [String]) -> String {
-        guard !strings.isEmpty else { return "" }
-        guard strings.count > 1 else { return strings[0] }
-        
-        var prefix = ""
-        let firstString = strings[0]
-        
-        for (offset, char) in firstString.enumerated() {
-            // Check if all strings have this character at this position, using safe indexing
-            let allMatch = strings.allSatisfy { string in
-                // Empty strings cannot contribute to a common prefix
-                guard !string.isEmpty else { return false }
-                let lastValidIndex = string.index(before: string.endIndex)
-                guard let stringIndex = string.index(
-                    string.startIndex,
-                    offsetBy: offset,
-                    limitedBy: lastValidIndex
-                ) else {
-                    return false
-                }
-                return string[stringIndex] == char
-            }
-            
-            if allMatch {
-                prefix.append(char)
-            } else {
-                break
-            }
+        guard let first = strings.first else { return "" }
+
+        var prefix = strings.dropFirst().reduce(first) { $0.commonPrefix(with: $1) }
+
+        // Trim to last word boundary (space, underscore, or hyphen)
+        if let lastBoundary = prefix.lastIndex(where: { " _-".contains($0) }) {
+            prefix = String(prefix[..<lastBoundary])
         }
-        
-        // Return prefix up to last word boundary (space, underscore, or hyphen)
-        if let lastBoundary = prefix.lastIndex(of: " ")
-            ?? prefix.lastIndex(of: "_")
-            ?? prefix.lastIndex(of: "-") {
-            return String(prefix[..<lastBoundary])
-        }
-        
+
         return prefix
     }
 }

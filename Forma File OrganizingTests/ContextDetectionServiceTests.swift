@@ -295,13 +295,14 @@ final class ContextDetectionServiceTests: XCTestCase {
         let files = (1...10).map { i in
             createFile(name: "P-1024_file\(i).pdf")
         }
-        
+
         // When
         let clusters = service.detectClusters(from: files)
-        
-        // Then: Should have very high confidence
-        XCTAssertEqual(clusters.count, 1)
-        let cluster = clusters.first!
+        let projectCodeClusters = clusters.filter { $0.clusterType == .projectCode }
+
+        // Then: Should have very high confidence for the project code cluster
+        XCTAssertEqual(projectCodeClusters.count, 1)
+        let cluster = projectCodeClusters.first!
         XCTAssertGreaterThanOrEqual(cluster.confidenceScore, 0.85, "Large clusters should have very high confidence")
     }
     
@@ -312,13 +313,14 @@ final class ContextDetectionServiceTests: XCTestCase {
             createFile(name: "P-1024_file2.pdf"),
             createFile(name: "P-1024_file3.pdf"),
         ]
-        
+
         // When
         let clusters = service.detectClusters(from: files)
-        
-        // Then: Should have medium-high confidence
-        XCTAssertEqual(clusters.count, 1)
-        let cluster = clusters.first!
+        let projectCodeClusters = clusters.filter { $0.clusterType == .projectCode }
+
+        // Then: Should have medium-high confidence for the project code cluster
+        XCTAssertEqual(projectCodeClusters.count, 1)
+        let cluster = projectCodeClusters.first!
         XCTAssertGreaterThanOrEqual(cluster.confidenceScore, 0.5)
     }
     
