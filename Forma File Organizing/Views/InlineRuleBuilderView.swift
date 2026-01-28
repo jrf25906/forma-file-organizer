@@ -26,12 +26,7 @@ struct InlineRuleBuilderView: View {
     }
 
     private var sortedCategories: [RuleCategory] {
-        categories.sorted { lhs, rhs in
-            if lhs.sortOrder != rhs.sortOrder {
-                return lhs.sortOrder < rhs.sortOrder
-            }
-            return lhs.creationDate < rhs.creationDate
-        }
+        categories.sortedByOrder
     }
 
     // Consolidated form state (8 properties → 1)

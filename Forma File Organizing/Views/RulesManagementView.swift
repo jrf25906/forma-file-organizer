@@ -20,12 +20,7 @@ struct RulesManagementView: View {
     }
 
     private var sortedCategories: [RuleCategory] {
-        categories.sorted { lhs, rhs in
-            if lhs.sortOrder != rhs.sortOrder {
-                return lhs.sortOrder < rhs.sortOrder
-            }
-            return lhs.creationDate < rhs.creationDate
-        }
+        categories.sortedByOrder
     }
 
     @State private var searchText = ""

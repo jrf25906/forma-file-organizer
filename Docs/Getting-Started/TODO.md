@@ -41,7 +41,7 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 
 ### Phase 5: Structural Refactoring (requires tests to pass before/after)
 - [ ] Pre-flight: run full test suite before starting Phase 5.
-- [ ] 22. Extract RuleCategory sorting to Array extension (`sortedByOrder`) with stable tie-breaker: sortOrder, creationDate, id.
+- [x] 22. Extract RuleCategory sorting to Array extension (`sortedByOrder`) with stable tie-breaker: sortOrder, creationDate, id.
 - [ ] 23. Move conditionDisplayName(for:) to `Rule.ConditionType` computed property.
 - [ ] 24. NaturalLanguageRuleParser.swift:550-700 — extract `tryMatchPattern(...)` + data-driven registry; run all NL parser tests after.
 - [ ] 25. Split RuleEditorView into subviews + `RuleValidator`, share `RuleFormState`; verify state flows.
