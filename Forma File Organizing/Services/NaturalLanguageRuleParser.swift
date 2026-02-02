@@ -559,6 +559,31 @@ struct NaturalLanguageRuleParser {
             return word
         }
 
+        // Helper to match regex patterns with a capture group and add a condition.
+        func tryMatchPatterns(
+            _ patterns: [String],
+            stopWords: Set<String> = [],
+            confidence: Double,
+            rawText: (String) -> String,
+            add: (String, String, Double) -> Void
+        ) {
+            let nsRange = NSRange(lower.startIndex..<lower.endIndex, in: lower)
+            for pattern in patterns {
+                guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+                guard let match = regex.firstMatch(in: lower, options: [], range: nsRange),
+                      let valueRange = Range(match.range(at: 1), in: lower) else { continue }
+
+                let lowerValue = String(lower[valueRange])
+                if !stopWords.isEmpty && stopWords.contains(lowerValue) {
+                    continue
+                }
+
+                guard let textRange = text.range(of: lowerValue, options: .caseInsensitive) else { continue }
+                let value = String(text[textRange])
+                add(value, rawText(value), confidence)
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════════════════
         // 1. QUOTED STRINGS (highest confidence)
         // Handles: "value", 'value', `value`, "value", 'value'
@@ -597,21 +622,6 @@ struct NaturalLanguageRuleParser {
             "with\\s+[\"'`\(openSmartQuotes)]([^\"'`\(closeSmartQuotes)]+)[\"'`\(closeSmartQuotes)]\\s+in\\s+their\\s+names?",
             "with\\s+(\\S+)\\s+in\\s+their\\s+names?"
         ]
-        for pattern in inNamePatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
-                let nsRange = NSRange(lower.startIndex..<lower.endIndex, in: lower)
-                if let match = regex.firstMatch(in: lower, options: [], range: nsRange),
-                   let valueRange = Range(match.range(at: 1), in: lower) {
-                    // Get the original case value from text
-                    let lowerValue = String(lower[valueRange])
-                    // Find corresponding range in original text
-                    if let textRange = text.range(of: lowerValue, options: .caseInsensitive) {
-                        let value = String(text[textRange])
-                        addContains(value, rawText: "'\(value)' in name", confidence: 0.88)
-                    }
-                }
-            }
-        }
 
         // ═══════════════════════════════════════════════════════════════════════════
         // 3. "NAMED/CALLED" PATTERNS
@@ -623,23 +633,6 @@ struct NaturalLanguageRuleParser {
             "(?:files?\\s+)?called\\s+[\"'`\(openSmartQuotes)]([^\"'`\(closeSmartQuotes)]+)[\"'`\(closeSmartQuotes)]",
             "(?:files?\\s+)?called\\s+(\\S+)"
         ]
-        for pattern in namedPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
-                let nsRange = NSRange(lower.startIndex..<lower.endIndex, in: lower)
-                if let match = regex.firstMatch(in: lower, options: [], range: nsRange),
-                   let valueRange = Range(match.range(at: 1), in: lower) {
-                    let lowerValue = String(lower[valueRange])
-                    // Skip stop words
-                    let stopWords = Set(["to", "into", "in", "from", "the", "a", "an"])
-                    if !stopWords.contains(lowerValue) {
-                        if let textRange = text.range(of: lowerValue, options: .caseInsensitive) {
-                            let value = String(text[textRange])
-                            addContains(value, rawText: "named '\(value)'", confidence: 0.85)
-                        }
-                    }
-                }
-            }
-        }
 
         // ═══════════════════════════════════════════════════════════════════════════
         // 4. "CONTAINING/CONTAINS" PATTERNS
@@ -652,22 +645,6 @@ struct NaturalLanguageRuleParser {
             "(?:that|which)\\s+contains?\\s+(\\S+)",
             "files?\\s+with\\s+[\"'`\(openSmartQuotes)]([^\"'`\(closeSmartQuotes)]+)[\"'`\(closeSmartQuotes)](?:\\s+in)?"
         ]
-        for pattern in containingPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
-                let nsRange = NSRange(lower.startIndex..<lower.endIndex, in: lower)
-                if let match = regex.firstMatch(in: lower, options: [], range: nsRange),
-                   let valueRange = Range(match.range(at: 1), in: lower) {
-                    let lowerValue = String(lower[valueRange])
-                    let stopWords = Set(["to", "into", "in", "from", "the", "a", "an", "files", "file"])
-                    if !stopWords.contains(lowerValue) {
-                        if let textRange = text.range(of: lowerValue, options: .caseInsensitive) {
-                            let value = String(text[textRange])
-                            addContains(value, rawText: "containing '\(value)'", confidence: 0.85)
-                        }
-                    }
-                }
-            }
-        }
 
         // ═══════════════════════════════════════════════════════════════════════════
         // 5. PREFIX PATTERNS (starting with, beginning with, prefixed with)
@@ -680,22 +657,6 @@ struct NaturalLanguageRuleParser {
             "prefixed\\s+(?:with\\s+)?[\"'`\(openSmartQuotes)]([^\"'`\(closeSmartQuotes)]+)[\"'`\(closeSmartQuotes)]",
             "prefixed\\s+(?:with\\s+)?(\\S+)"
         ]
-        for pattern in prefixPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
-                let nsRange = NSRange(lower.startIndex..<lower.endIndex, in: lower)
-                if let match = regex.firstMatch(in: lower, options: [], range: nsRange),
-                   let valueRange = Range(match.range(at: 1), in: lower) {
-                    let lowerValue = String(lower[valueRange])
-                    let stopWords = Set(["to", "into", "in", "from", "the", "a", "an"])
-                    if !stopWords.contains(lowerValue) {
-                        if let textRange = text.range(of: lowerValue, options: .caseInsensitive) {
-                            let value = String(text[textRange])
-                            addStartsWith(value, rawText: "starting with '\(value)'", confidence: 0.88)
-                        }
-                    }
-                }
-            }
-        }
 
         // ═══════════════════════════════════════════════════════════════════════════
         // 6. SUFFIX PATTERNS (ending with, ending in, suffixed with)
@@ -708,21 +669,63 @@ struct NaturalLanguageRuleParser {
             "suffixed\\s+(?:with\\s+)?[\"'`\(openSmartQuotes)]([^\"'`\(closeSmartQuotes)]+)[\"'`\(closeSmartQuotes)]",
             "suffixed\\s+(?:with\\s+)?(\\S+)"
         ]
-        for pattern in suffixPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
-                let nsRange = NSRange(lower.startIndex..<lower.endIndex, in: lower)
-                if let match = regex.firstMatch(in: lower, options: [], range: nsRange),
-                   let valueRange = Range(match.range(at: 1), in: lower) {
-                    let lowerValue = String(lower[valueRange])
-                    let stopWords = Set(["to", "into", "in", "from", "the", "a", "an"])
-                    if !stopWords.contains(lowerValue) {
-                        if let textRange = text.range(of: lowerValue, options: .caseInsensitive) {
-                            let value = String(text[textRange])
-                            addEndsWith(value, rawText: "ending with '\(value)'", confidence: 0.88)
-                        }
-                    }
-                }
-            }
+        let commonStopWords = Set(["to", "into", "in", "from", "the", "a", "an"])
+        let containingStopWords = commonStopWords.union(["files", "file"])
+
+        struct PatternRule {
+            let patterns: [String]
+            let stopWords: Set<String>
+            let confidence: Double
+            let rawText: (String) -> String
+            let add: (String, String, Double) -> Void
+        }
+
+        let patternRules: [PatternRule] = [
+            PatternRule(
+                patterns: inNamePatterns,
+                stopWords: [],
+                confidence: 0.88,
+                rawText: { "'\($0)' in name" },
+                add: addContains
+            ),
+            PatternRule(
+                patterns: namedPatterns,
+                stopWords: commonStopWords,
+                confidence: 0.85,
+                rawText: { "named '\($0)'" },
+                add: addContains
+            ),
+            PatternRule(
+                patterns: containingPatterns,
+                stopWords: containingStopWords,
+                confidence: 0.85,
+                rawText: { "containing '\($0)'" },
+                add: addContains
+            ),
+            PatternRule(
+                patterns: prefixPatterns,
+                stopWords: commonStopWords,
+                confidence: 0.88,
+                rawText: { "starting with '\($0)'" },
+                add: addStartsWith
+            ),
+            PatternRule(
+                patterns: suffixPatterns,
+                stopWords: commonStopWords,
+                confidence: 0.88,
+                rawText: { "ending with '\($0)'" },
+                add: addEndsWith
+            )
+        ]
+
+        for rule in patternRules {
+            tryMatchPatterns(
+                rule.patterns,
+                stopWords: rule.stopWords,
+                confidence: rule.confidence,
+                rawText: rule.rawText,
+                add: rule.add
+            )
         }
 
         // ═══════════════════════════════════════════════════════════════════════════

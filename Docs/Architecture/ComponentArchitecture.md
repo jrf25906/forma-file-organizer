@@ -1,7 +1,7 @@
 # Component Architecture
 
-**Version:** 1.0
-**Last Updated:** December 2025
+**Version:** 1.1
+**Last Updated:** January 28, 2026
 **Status:** Current Implementation
 
 ---
@@ -35,11 +35,12 @@ Forma's component architecture follows SwiftUI best practices with a focus on:
 
 ## Component Inventory
 
-### Total Count: 37 Components
+### Total Count: 40 Components
 
 #### By Category:
 - **File Display:** 7 components
 - **Filtering & Organization:** 5 components
+- **Rule Editing:** 3 components ✅ New
 - **Cards & Sections:** 5 components
 - **UI Controls:** 6 components
 - **Feedback & Status:** 5 components
@@ -131,7 +132,7 @@ FileGridItem(
 
 #### GridDestinationBadge
 - Capsule-shaped badge
-- Shows destination folder name or "No Rule"
+- Shows destination folder name or "Uncategorized"
 - Hidden when hovering (actions take priority)
 
 #### HoverActionOverlay
@@ -367,6 +368,77 @@ Popover preview for file thumbnails.
 - File metadata overlay
 - Click outside to dismiss
 - Arrow key navigation to adjacent files
+
+---
+
+# Rule Editing Components
+
+Shared editor building blocks used by `RuleEditorView` (modal) and `InlineRuleBuilderView` (right panel).
+
+---
+
+## RuleConditionBuilder
+
+Unified condition UI (single, compound, and exclusion conditions).
+
+### Usage
+
+```swift
+RuleConditionBuilder(formState: $formState)
+```
+
+### Features
+
+- Single vs. compound condition toggle
+- Exclusion conditions ("Except when") support
+- Condition type menus use `Rule.ConditionType.displayName`
+- Shares condition creation/removal behavior across editors
+
+---
+
+## RuleDestinationPicker
+
+Shared "Then..." section for action + destination.
+
+### Usage
+
+```swift
+RuleDestinationPicker(
+    formState: $formState,
+    showFolderPicker: $showFolderPicker,
+    onPreviewDeleteMatches: previewDeleteRuleMatches
+)
+```
+
+### Features
+
+- Action type menu (move/copy/delete)
+- Folder picker button with bookmark status
+- Delete flow includes preview hook
+
+---
+
+## RulePreviewSection
+
+Small reusable preview CTA used by delete rules.
+
+### Usage
+
+```swift
+RulePreviewSection(onPreview: previewDeleteRuleMatches)
+```
+
+### Features
+
+- Compact bordered button style
+- Consistent preview affordance between editors
+
+---
+
+### Supporting Types (Non-View)
+
+- `RuleEditorHeaderConfig`: Shared header label logic for modal vs. inline editors
+- `RuleValidator`: Shared validation for full editor vs. inline editor rules
 
 ---
 

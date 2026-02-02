@@ -1,6 +1,6 @@
 # Right Panel: Contextual Copilot Architecture
 
-**Last Updated:** December 19, 2025
+**Last Updated:** January 28, 2026
 
 ## Overview
 
@@ -72,10 +72,12 @@ RightPanelView (Container)
 │   ├── Action Buttons
 │   └── Similar Files
 │
-├── RuleBuilderPanelView (Mode: ruleBuilder) 📋 PLANNED
-│   ├── Rule Editor Form
-│   ├── Live Preview
-│   └── Rule Suggestions
+├── InlineRuleBuilderView (Mode: ruleBuilder) ✅ IMPLEMENTED
+│   ├── RuleEditorHeaderConfig (shared header labels)
+│   ├── RuleConditionBuilder (shared condition/exclusion UI)
+│   ├── RuleDestinationPicker (shared action + destination)
+│   ├── RulePreviewSection (delete preview CTA)
+│   └── RuleValidator (shared validation)
 │
 ├── CelebrationView (Mode: celebration) ✅ IMPLEMENTED
 │   ├── Success Animation
@@ -204,15 +206,14 @@ RightPanelView (Container)
 **When:** User clicks "Create Rule" or "Create Rule from This"
 
 **Components:**
-- Rule name field
-- Condition builder (dropdown selectors)
-- Destination picker with folder browser
-- "Test this rule" button
-- Live preview: "Would match 12 files"
-- Thumbnail grid of matched files
-- "Apply to existing files?" checkbox
-- Suggested rules based on current files
-- Pre-built rule templates
+- Header with context (new rule / quick rule / edit rule)
+- Rule name field + optional natural language input
+- Condition builder (single, compound, exclusions)
+- Action + destination picker (move/copy/delete)
+- Delete preview CTA (when action is delete)
+- Live preview count + sample filenames
+- Validation error banner and overlap warnings
+- Expand to modal rule editor affordance
 
 ### 4. Celebration Mode ✅ IMPLEMENTED
 

@@ -105,8 +105,9 @@ final class SecureBookmarkStoreTests: XCTestCase {
         let migrationKey = "MigrationTestKey"
 
         // Create REAL bookmark data (migration validates bookmark data structure)
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let testFolder = homeDir.appendingPathComponent("Desktop")
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+        let testFolder = try tempDir.createDirectory(name: "BookmarkMigration")
         let migrationData = try testFolder.bookmarkData(
             options: .withSecurityScope,
             includingResourceValuesForKeys: nil,
@@ -138,8 +139,9 @@ final class SecureBookmarkStoreTests: XCTestCase {
         let migrationKey = "IdempotencyTestKey"
 
         // Create REAL bookmark data (migration validates bookmark data structure)
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let testFolder = homeDir.appendingPathComponent("Desktop")
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+        let testFolder = try tempDir.createDirectory(name: "BookmarkIdempotency")
         let migrationData = try testFolder.bookmarkData(
             options: .withSecurityScope,
             includingResourceValuesForKeys: nil,
@@ -177,8 +179,12 @@ final class SecureBookmarkStoreTests: XCTestCase {
         let invalidBookmarkData = "NotABookmark".data(using: .utf8)!
         UserDefaults.standard.set(invalidBookmarkData, forKey: invalidKey)
 
-        // Migration should not throw, but should skip invalid data
-        XCTAssertNoThrow(try SecureBookmarkStore.migrateFromUserDefaults(keys: [invalidKey]))
+        // Migration should throw when all keys are invalid
+        XCTAssertThrowsError(try SecureBookmarkStore.migrateFromUserDefaults(keys: [invalidKey])) { error in
+            guard case SecureBookmarkStore.BookmarkStoreError.migrationFailed = error else {
+                return XCTFail("Expected migrationFailed, got \(error)")
+            }
+        }
 
         // Verify invalid data not migrated to Keychain
         XCTAssertNil(SecureBookmarkStore.loadBookmark(forKey: invalidKey))
@@ -320,9 +326,10 @@ final class SecureBookmarkStoreTests: XCTestCase {
     // MARK: - Integration Tests
 
     func testRealBookmarkDataFlow() throws {
-        // Create a real security-scoped bookmark for Desktop
-        let desktopURL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Desktop")
+        // Create a real security-scoped bookmark for a temporary folder
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+        let desktopURL = try tempDir.createDirectory(name: "BookmarkFlow")
 
         // Create bookmark data (this won't have security scope in tests, but structure is valid)
         let bookmarkData = try desktopURL.bookmarkData(

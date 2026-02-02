@@ -115,6 +115,40 @@ final class DestinationResolver {
         resolve(destination) ?? destination
     }
 
+    /// Attempts to resolve a placeholder destination only if the directory already exists.
+    /// This avoids creating new folders during prediction or preview flows.
+    func resolveIfExists(_ destination: Destination) -> Destination? {
+        guard case .folder(let bookmark, let displayName) = destination,
+              bookmark.isEmpty else {
+            return nil
+        }
+
+        let components = displayName.components(separatedBy: "/").filter { !$0.isEmpty }
+        guard !components.isEmpty else { return nil }
+
+        guard let (parentURL, remainingComponents) = findAccessibleParent(components: components) else {
+            return nil
+        }
+
+        var targetURL = parentURL
+        for component in remainingComponents {
+            targetURL = targetURL.appendingPathComponent(component)
+        }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: targetURL.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return nil
+        }
+
+        do {
+            return try Destination.folder(from: targetURL)
+        } catch {
+            Log.error("DestinationResolver: Failed to create bookmark for existing '\(targetURL.path)': \(error)", category: .bookmark)
+            return nil
+        }
+    }
+
     // MARK: - Validation
 
     /// Result of checking if a destination can be resolved.

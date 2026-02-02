@@ -774,6 +774,34 @@ final class Rule: Ruleable {
         case fileKind
         /// Matches if the file's source location matches (e.g., desktop, downloads, documents).
         case sourceLocation
+
+        /// Human-readable label for full-size editors.
+        var displayName: String {
+            switch self {
+            case .fileExtension: return "File extension is"
+            case .nameContains: return "Name contains"
+            case .nameStartsWith: return "Name starts with"
+            case .nameEndsWith: return "Name ends with"
+            case .dateOlderThan: return "Date older than (days)"
+            case .sizeLargerThan: return "Size larger than"
+            case .dateModifiedOlderThan: return "Modified older than (days)"
+            case .dateAccessedOlderThan: return "Not opened in (days)"
+            case .fileKind: return "File kind is"
+            case .sourceLocation: return "Source location is"
+            }
+        }
+
+        /// Compact label for inline editors.
+        var compactDisplayName: String {
+            switch self {
+            case .fileExtension: return "Extension is"
+            case .nameContains: return "Name contains"
+            case .nameStartsWith: return "Name starts with"
+            case .nameEndsWith: return "Name ends with"
+            case .sourceLocation: return "Source location is"
+            default: return displayName
+            }
+        }
     }
 
     /// Defines the action to take when a rule matches.

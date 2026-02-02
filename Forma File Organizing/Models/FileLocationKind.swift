@@ -28,4 +28,16 @@ enum FileLocationKind: String, Codable, Sendable {
         case .unknown: return "Unknown"
         }
     }
+
+    /// Maps to a BookmarkFolder.FolderType when applicable.
+    var bookmarkFolderType: BookmarkFolder.FolderType? {
+        switch self {
+        case .desktop: return .desktop
+        case .downloads: return .downloads
+        case .documents: return .documents
+        case .pictures: return .pictures
+        case .music: return .music
+        default: return nil
+        }
+    }
 }

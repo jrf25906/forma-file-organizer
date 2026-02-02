@@ -92,11 +92,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Template (for new notes; remove placeholders once entries are added):
-- Added: TBD
-- Changed: TBD
-- Fixed: TBD
-- Removed: TBD
+### Added
+- Smart Insight actions now deep-link into relevant views (large files, downloads, screenshots) and can prefill the rule editor.
+- Category scope editor now includes a folder picker for scoped categories.
+- Bulk operation progress overlay now supports cancellation.
+
+### Changed
+- Learned patterns persist unified Destinations for bookmark-aware suggestions.
+- ML destination predictions incorporate project clusters, real training counts, and bookmark-backed destinations when possible.
+- Auto-organize eligibility now respects per-folder automation exclusions.
+
+### Fixed
+- Treemap taps now navigate to the corresponding category view.
 
 ### Removed - Deprecated APIs
 - Removed legacy initializers for `FileItem` and `FileMetadata`.

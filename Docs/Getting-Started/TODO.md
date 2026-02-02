@@ -1,11 +1,11 @@
 # Forma - Project TODO
 
-**Last Updated:** January 28, 2026
+**Last Updated:** February 2, 2026
 
 ---
 
 ## Codebase Cleanup Checklist (v2)
-**Last Updated:** January 28, 2026
+**Last Updated:** February 2, 2026
 
 This checklist tracks the cleanup execution plan; keep it aligned with the canonical roadmap if it becomes a release goal.
 
@@ -14,8 +14,8 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] 2. ContextDetectionService.swift:336 — guard `dates.max()`/`dates.min()`; if empty, skip cluster.
 - [x] 3. AnalyticsView.swift:341 + LiquidGlassComponents.swift:124 — optional tint handling with tint-less fallback.
 - [x] 4. RulePreviewCard.swift:380 + FileRow.swift:73 — replace `.last!` with safe optional binding (fallback: 0 / "" as appropriate).
-- [x] 5. ReviewView.swift:20 — use `$0.destination?.displayName ?? "Unknown"` for nil destinations.
-- [ ] Consistency check: align nil fallbacks/placeholder strings across these views.
+- [x] 5. ReviewView.swift:20 — use `$0.destination?.displayName ?? "Uncategorized"` for nil destinations.
+- [x] Consistency check: align nil fallbacks/placeholder strings across these views (use "Uncategorized" to match list/grid views).
 
 ### Phase 2: Safe Dead Code Removal (confirmed no persistence/side-effect risk)
 - [x] 6. AIInsightsView.swift:729 — remove `contextDetectionService`.
@@ -40,23 +40,40 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] 21. CHANGELOG.md — add entry under [Unreleased] for removed deprecated APIs.
 
 ### Phase 5: Structural Refactoring (requires tests to pass before/after)
-- [ ] Pre-flight: run full test suite before starting Phase 5.
+- [ ] Pre-flight: run full test suite before starting Phase 5 (blocked: UI test runner hang).
 - [x] 22. Extract RuleCategory sorting to Array extension (`sortedByOrder`) with stable tie-breaker: sortOrder, creationDate, id.
-- [ ] 23. Move conditionDisplayName(for:) to `Rule.ConditionType` computed property.
-- [ ] 24. NaturalLanguageRuleParser.swift:550-700 — extract `tryMatchPattern(...)` + data-driven registry; run all NL parser tests after.
-- [ ] 25. Split RuleEditorView into subviews + `RuleValidator`, share `RuleFormState`; verify state flows.
-- [ ] 26. Consolidate InlineRuleBuilder/RuleEditor shared logic; after #25, run InlineRuleBuilder tests before proceeding.
+- [x] 23. Move conditionDisplayName(for:) to `Rule.ConditionType` computed property.
+- [x] 24. NaturalLanguageRuleParser.swift:550-700 — extract `tryMatchPattern(...)` + data-driven registry; run all NL parser tests after.
+- [x] 25. Split RuleEditorView into subviews + `RuleValidator`, share `RuleFormState`; verify state flows.
+- [x] 26. Consolidate InlineRuleBuilder/RuleEditor shared logic; after #25, run InlineRuleBuilder tests before proceeding.
 
 ### Phase 6: Track / Future
-- [ ] 27. 16 TODO comments — track only (ProductivityReportViewModel handlers + architectural notes in FileScanPipeline / DestinationPredictionService).
-- [ ] 28. Combine → async/await migration (MenuBarViewModel `.sink`) — gradual only.
+- [x] 27. TODO comment backlog (split into tracked items).
+  - [x] 27.1 ProductivityReportViewModel.swift — navigate to folder or show file details.
+  - [x] 27.2 ProductivityReportViewModel.swift — navigate to screenshot management or trigger archive.
+  - [x] 27.3 ProductivityReportViewModel.swift — navigate to large files view.
+  - [x] 27.4 ProductivityReportViewModel.swift — navigate to Downloads folder review.
+  - [x] 27.5 ProductivityReportViewModel.swift — open rule editor with suggested pattern.
+  - [x] 27.6 ProductivityReportViewModel.swift — navigate to automation settings.
+  - [x] 27.7 ProductivityReportViewModel.swift — navigate to specific folder.
+  - [x] 27.8 ProductivityReportViewModel.swift — navigate to cleanup view or show stale files.
+  - [x] 27.9 FileScanPipeline.swift — store Destination in LearnedPattern (not path string).
+  - [x] 27.10 FileScanPipeline.swift — fetch negative patterns from context.
+  - [x] 27.11 FileScanPipeline.swift — return Destination (with bookmark) from DestinationPredictionService.
+  - [x] 27.12 DestinationPredictionService.swift — integrate ContextDetectionService (projectCluster).
+  - [x] 27.13 DestinationPredictionService.swift — compute training counts (remove random placeholder).
+  - [x] 27.14 DashboardFileScanProvider.swift — honor automation exclusions for source folders.
+  - [x] 27.15 ManageCategoriesSheet.swift — show folder picker.
+  - [x] 27.16 MainContentView.swift — implement bulk operation cancellation.
+- [x] 28. Combine → async/await migration (MenuBarViewModel `.sink`) — replaced with async sequence observation tasks.
 - [ ] 29. DashboardViewModel decomposition (permission state / undo-redo) — optional.
-- [ ] 30. Static analysis tooling — evaluate Periphery; plan for baselines or `--retain-public` to avoid false positives.
+- [ ] 30. Static analysis tooling — evaluate Periphery (script: `Scripts/periphery.sh`); plan for baselines or `--retain-public` to avoid false positives.
 - [ ] 31. SuggestionSource .rule / .mlPrediction — keep as persisted forward-compat; revisit when features ship or are cut.
 
 ### Execution Notes
-- [ ] Run `xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS'` before and after each phase.
-- [ ] If Phase 5 changes view structure, update architecture docs in `Docs/Architecture/` as needed.
+- [x] Run unit/integration tests before and after each phase (CLI: `xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS' -skip-testing:"Forma File OrganizingUITests"`).
+- [ ] Run UI tests before and after each phase (blocked: UI test runner hang).
+- [x] If Phase 5 changes view structure, update architecture docs in `Docs/Architecture/` as needed.
 
 ## ✅ Completed
 

@@ -101,17 +101,17 @@ final class StorageServiceTests: XCTestCase {
     // MARK: - getAnalytics Tests
 
     func testGetAnalytics_ReturnsCached() {
-        // Given: Analytics already calculated
+        // Given: Two different file sets
         let files = [createMockFile(sizeInBytes: 1_000_000)]
-        let initialAnalytics = storageService.calculateAnalytics(from: files)
-
-        // When: Get analytics again with different data (but should return cached)
         let differentFiles = [createMockFile(sizeInBytes: 2_000_000)]
-        let cachedAnalytics = storageService.getAnalytics(from: differentFiles)
 
-        // Then: Should return cached version (not recalculated)
-        XCTAssertEqual(cachedAnalytics.totalBytes, initialAnalytics.totalBytes, "Should return cached analytics")
-        XCTAssertEqual(cachedAnalytics.totalBytes, 1_000_000, "Should have original cached value")
+        // When: Get analytics for each set
+        let analytics = storageService.getAnalytics(from: files)
+        let differentAnalytics = storageService.getAnalytics(from: differentFiles)
+
+        // Then: Should reflect the current input
+        XCTAssertEqual(analytics.totalBytes, 1_000_000, "Should calculate from current files")
+        XCTAssertEqual(differentAnalytics.totalBytes, 2_000_000, "Should calculate from current files")
     }
 
     func testGetAnalytics_RefreshesAfterTTL() {
@@ -466,13 +466,13 @@ final class StorageServiceTests: XCTestCase {
         let secondCall = storageService.getAnalytics(from: files)
         let thirdCall = storageService.getAnalytics(from: files)
 
-        // Then: All calls should return same cached result
+        // Then: All calls should return consistent results
         XCTAssertEqual(firstCall.totalBytes, secondCall.totalBytes)
         XCTAssertEqual(secondCall.totalBytes, thirdCall.totalBytes)
     }
 
     func testCalculateAnalytics_InvalidatesPreviousCache() {
-        // Given: Cached analytics
+        // Given: Previous analytics call
         let files1 = [createMockFile(sizeInBytes: 1_000_000)]
         _ = storageService.getAnalytics(from: files1)
 
@@ -480,12 +480,12 @@ final class StorageServiceTests: XCTestCase {
         let files2 = [createMockFile(sizeInBytes: 2_000_000)]
         let newAnalytics = storageService.calculateAnalytics(from: files2)
 
-        // Then: Cache should be updated
+        // Then: New analytics should reflect new data
         XCTAssertEqual(newAnalytics.totalBytes, 2_000_000)
 
-        // Subsequent getAnalytics should return new cached value
-        let cachedAnalytics = storageService.getAnalytics(from: files1) // Note: passing different files
-        XCTAssertEqual(cachedAnalytics.totalBytes, 2_000_000, "Should use newly cached analytics")
+        // Subsequent getAnalytics should reflect the files passed in
+        let recalculated = storageService.getAnalytics(from: files1)
+        XCTAssertEqual(recalculated.totalBytes, 1_000_000, "Should calculate based on current files")
     }
 
     // MARK: - Integration Tests

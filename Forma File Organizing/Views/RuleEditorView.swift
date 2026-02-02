@@ -19,6 +19,7 @@ struct RuleEditorView: View {
 
     let editingRule: Rule?
     let fileContext: FileItem?
+    let suggestedNaturalLanguageText: String?
     var onDismiss: (() -> Void)?
     var buttonNamespace: Namespace.ID?
 
@@ -44,15 +45,19 @@ struct RuleEditorView: View {
     
     // Animation states
     @State private var saveButtonState: ButtonMorphState = .normal
-    @State private var conditionTypeChangeId = UUID()
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
-
     // Destination resolver for checking placeholder resolvability
     private let destinationResolver = DestinationResolver()
 
-    init(rule: Rule? = nil, fileContext: FileItem? = nil, onDismiss: (() -> Void)? = nil, buttonNamespace: Namespace.ID? = nil) {
+    init(
+        rule: Rule? = nil,
+        fileContext: FileItem? = nil,
+        suggestedNaturalLanguageText: String? = nil,
+        onDismiss: (() -> Void)? = nil,
+        buttonNamespace: Namespace.ID? = nil
+    ) {
         self.editingRule = rule
         self.fileContext = fileContext
+        self.suggestedNaturalLanguageText = suggestedNaturalLanguageText
         self.onDismiss = onDismiss
         self.buttonNamespace = buttonNamespace
     }
@@ -60,17 +65,8 @@ struct RuleEditorView: View {
     // MARK: - Header Configuration
 
     /// Determines the header icon, title, and subtitle based on context
-    private var headerConfig: (icon: String, title: String, subtitle: String?) {
-        if let _ = editingRule {
-            // Editing existing rule
-            return ("slider.horizontal.3", "Edit Rule", "Advanced conditions & actions")
-        } else if fileContext != nil {
-            // Creating from file context
-            return ("bolt.fill", "Quick Rule", "From this file's pattern")
-        } else {
-            // Full rule editor from scratch
-            return ("slider.horizontal.3", "Rule Editor", "Advanced conditions & actions")
-        }
+    private var headerConfig: RuleEditorHeaderConfig {
+        RuleEditorHeaderConfig.make(editingRule: editingRule, fileContext: fileContext, style: .fullEditor)
     }
 
     // MARK: - Destination Resolvability
@@ -198,156 +194,15 @@ struct RuleEditorView: View {
                         // InlineView puts Matches | Then inside a white card. Category is separate.
                         // So let's start the card here for Matches and Then.
                         
-                        // Matches Section
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("Matches")
-                                    .font(.formaBodyLarge)
-                                    .foregroundColor(.formaSecondaryLabel)
-                                
-                                Spacer()
-                                
-                                Toggle("Multiple", isOn: $formState.useCompoundConditions)
-                                    .toggleStyle(.switch)
-                                    .labelsHidden()
-                                    .controlSize(.mini)
-                                    .onChange(of: formState.useCompoundConditions) { _, newValue in
-                                        if newValue && formState.conditions.isEmpty {
-                                            do {
-                                                let condition = try RuleCondition(type: formState.conditionType, value: formState.conditionValue)
-                                                formState.conditions = [condition]
-                                            } catch {
-                                                Log.warning("RuleEditorView: Failed to create initial compound condition", category: .general)
-                                            }
-                                        }
-                                    }
-                            }
-
-                            if formState.useCompoundConditions {
-                                compoundConditionsView
-                            } else {
-                                singleConditionView
-                            }
-                        }
-
-                        // Exceptions (Except when...) - Keep this inside the card? 
-                        // Inline doesn't show exceptions usually, but for consistency let's put it here or in a separate card?
-                        // The user said "functionality of create rule modal is preferable", which implies keeping exclusions.
-                        // Let's keep exclusions in the card for a unified "Sentence" flow if possible, or a separate section in the card.
-                        
-                        if formState.showExclusionConditions || !formState.exclusionConditions.isEmpty {
-                            Divider().padding(.vertical, 4)
-                            
-                            VStack(alignment: .leading, spacing: 16) {
-                                HStack {
-                                    Text("Except when")
-                                        .font(.formaBodyLarge)
-                                        .foregroundColor(.formaSecondaryLabel)
-                                    
-                                    Spacer()
-                                    
-                                    // If we want a toggle to turn it off completely? 
-                                    // Existing UI used a toggle "Add exceptions". Let's keep that pattern but maybe subtle.
-                                    Button(action: { 
-                                        withAnimation { formState.showExclusionConditions.toggle() }
-                                    }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(.formaSecondaryLabel)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                
-                                exclusionConditionsView
-                            }
-                        } else {
-                            // Subtle button to add exception
-                             Button(action: { 
-                                withAnimation { formState.showExclusionConditions = true }
-                            }) {
-                                Text("+ Add Exception")
-                                    .font(.formaSmall)
-                                    .foregroundColor(.formaSteelBlue)
-                            }
-                            .buttonStyle(.plain)
-                        }
+                        RuleConditionBuilder(formState: $formState)
 
                         Divider().padding(.vertical, 4)
 
-                        // Action Section (Then...)
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text("Then")
-                                .font(.formaBodyLarge)
-                                .foregroundColor(.formaSecondaryLabel)
-                            
-                            // Action Picker (Inline)
-                            Menu {
-                                ForEach(Rule.ActionType.allCases, id: \.self) { type in
-                                    Button(type.rawValue.capitalized) { formState.actionType = type }
-                                }
-                            } label: {
-                                Text(formState.actionType.rawValue)
-                                    .font(.formaBodyLarge)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.formaSteelBlue)
-                                    .underline(true, color: .formaSteelBlue.opacity(0.3))
-                            }
-                            .menuStyle(.borderlessButton)
-                            
-                            Text("to")
-                                .font(.formaBodyLarge)
-                                .foregroundColor(.formaSecondaryLabel)
-                                .opacity(formState.actionType == .delete ? 0.3 : 1.0)
-                        }
-
-                        // Destination selection
-                        if formState.actionType == .delete {
-                            HStack {
-                                Image(systemName: "trash.fill")
-                                    .foregroundColor(.formaError)
-                                Text("Trash")
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.formaError)
-                            }
-                            .padding(.vertical, 4)
-                            
-                            // Preview delete matches button
-                             Button {
-                                previewDeleteRuleMatches()
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "eye")
-                                    Text("Preview matches")
-                                }
-                                .font(.formaSmall)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        } else {
-                            Button(action: { showFolderPicker = true }) {
-                                HStack {
-                                    Image(systemName: "folder.fill")
-                                        .foregroundColor(.formaSteelBlue)
-                                    Text(formState.destinationDisplayPath.isEmpty ? "Select folder..." : formState.destinationDisplayPath)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(formState.destinationDisplayPath.isEmpty ? .formaSecondaryLabel : .formaObsidian)
-                                    
-                                    if formState.destinationBookmarkData != nil {
-                                         Image(systemName: "checkmark.circle.fill")
-                                            .font(.caption)
-                                            .foregroundColor(.formaSoftGreen)
-                                    }
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .background(Color.formaControlBackground)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(formState.destinationDisplayPath.isEmpty ? Color.formaSteelBlue : Color.formaSeparator, lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
+                        RuleDestinationPicker(
+                            formState: $formState,
+                            showFolderPicker: $showFolderPicker,
+                            onPreviewDeleteMatches: previewDeleteRuleMatches
+                        )
                     }
                     .padding(20)
                     .background(Color.formaBoneWhite)
@@ -455,13 +310,22 @@ struct RuleEditorView: View {
 	        )
 	        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
 	        .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.overlay), radius: 24, x: 0, y: 12)
+	        .accessibilityElement(children: .contain)
 	        .accessibilityIdentifier("ruleEditorView")
-	        .onAppear {
+        .onAppear {
             // Initialize form state from editing context
             if let rule = editingRule {
                 formState = RuleFormState(from: rule)
             } else if let file = fileContext {
                 formState = RuleFormState(from: file)
+            }
+
+            if editingRule == nil,
+               let suggestedText = suggestedNaturalLanguageText?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !suggestedText.isEmpty,
+               naturalLanguageViewModel.text.isEmpty {
+                naturalLanguageViewModel.onTextChanged(suggestedText)
+                naturalLanguageViewModel.parseImmediately()
             }
 
             // Auto-select default category if none is selected yet
@@ -591,281 +455,6 @@ struct RuleEditorView: View {
         showCreateCategoryPopover = false
     }
 
-    private var singleConditionView: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("If file")
-                .font(.formaBodyLarge)
-                .foregroundColor(.formaSecondaryLabel)
-            
-            // Condition Type Picker (Inline)
-            Menu {
-                ForEach(Rule.ConditionType.allCases, id: \.self) { type in
-                    Button(conditionDisplayName(for: type)) {
-                        formState.conditionType = type
-                    }
-                }
-            } label: {
-                Text(conditionDisplayName(for: formState.conditionType).lowercased())
-                    .font(.formaBodyLarge)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.formaSteelBlue)
-                    .underline(true, color: .formaSteelBlue.opacity(0.3))
-            }
-            .menuStyle(.borderlessButton)
-            .id(conditionTypeChangeId) // Keep the ID trigger if needed
-            
-            Text("is")
-                .font(.formaBodyLarge)
-                .foregroundColor(.formaSecondaryLabel)
-            
-            // Condition Value (Inline)
-            TextField(conditionPlaceholder, text: $formState.conditionValue)
-                .font(.formaBodyLarge)
-                .textFieldStyle(.plain)
-                .padding(8)
-                .background(Color.formaControlBackground)
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.formaSeparator, lineWidth: 1)
-                )
-                .frame(maxWidth: .infinity)
-        }
-    }
-    
-    private var compoundConditionsView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("If")
-                    .font(.formaBodyLarge)
-                    .foregroundColor(.formaSecondaryLabel)
-
-                Menu {
-                    Button("ALL conditions (AND)") { formState.logicalOperator = .and }
-                    Button("ANY condition (OR)") { formState.logicalOperator = .or }
-                } label: {
-                    Text(formState.logicalOperator == .and ? "ALL conditions met" : "ANY condition met")
-                        .font(.formaBodyLarge)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.formaSteelBlue)
-                        .underline(true, color: .formaSteelBlue.opacity(0.3))
-                }
-                .menuStyle(.borderlessButton)
-            }
-
-            // Conditions list
-            VStack(spacing: 8) {
-                ForEach(Array(formState.conditions.enumerated()), id: \.offset) { index, condition in
-                    conditionRow(at: index)
-                }
-            }
-            
-            // Add condition button
-            Button(action: {
-                withAnimation(reduceMotion ? .linear(duration: 0.12) : FormaAnimation.interactiveSpring) {
-                    addCondition()
-                }
-            }) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Add Condition")
-                }
-                .font(.formaSmall)
-                .foregroundColor(.formaSteelBlue)
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
-        }
-    }
-
-    private var exclusionConditionsView: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            Text("Skip files matching ANY of these:")
-                .formaMetadataStyle()
-                .foregroundColor(Color.formaSecondaryLabel)
-
-            // Exclusion conditions list
-            VStack(spacing: FormaSpacing.tight) {
-                ForEach(Array(formState.exclusionConditions.enumerated()), id: \.offset) { index, condition in
-                    exclusionConditionRow(at: index)
-                }
-            }
-
-            // Add exclusion condition button
-            Button(action: {
-                withAnimation(reduceMotion ? .linear(duration: 0.12) : FormaAnimation.interactiveSpring) {
-                    addExclusionCondition()
-                }
-            }) {
-                HStack(spacing: FormaSpacing.tight) {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Add Exception")
-                }
-                .formaMetadataStyle()
-                .foregroundColor(Color.formaWarmOrange)
-            }
-            .buttonStyle(.plain)
-            .hoverLift(scale: 1.02, shadowRadius: 4)
-	        }
-	        .padding(FormaSpacing.standard)
-	        .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.subtle))
-	        .cornerRadius(FormaRadius.card)
-	    }
-
-    private func exclusionConditionRow(at index: Int) -> some View {
-        HStack(spacing: FormaSpacing.tight) {
-            // Exclusion marker
-            Image(systemName: "xmark.circle.fill")
-                .font(.formaCompact)
-                .foregroundColor(Color.formaWarmOrange.opacity(Color.FormaOpacity.high))
-                .frame(width: 20)
-
-            // Condition type selector (Menu)
-            Menu {
-                ForEach(Rule.ConditionType.allCases, id: \.self) { type in
-                    Button(conditionDisplayName(for: type)) {
-                        updateExclusionConditionType(at: index, to: type)
-                    }
-                }
-            } label: {
-                Text(conditionDisplayName(for: index < formState.exclusionConditions.count ? formState.exclusionConditions[index].type : .nameContains))
-                    .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabel)
-                    .fixedSize()
-            }
-            .menuStyle(.borderlessButton)
-
-            // Condition value
-            TextField(conditionPlaceholder(for: index < formState.exclusionConditions.count ? formState.exclusionConditions[index].type : .nameContains), text: Binding(
-                get: { index < formState.exclusionConditions.count ? formState.exclusionConditions[index].value : "" },
-                set: { newValue in
-                    updateExclusionConditionValue(at: index, to: newValue)
-                }
-            ))
-            .textFieldStyle(.plain)
-            .padding(FormaSpacing.tight)
-            .background(Color.formaControlBackground)
-            .cornerRadius(FormaRadius.control)
-            .frame(maxWidth: .infinity)
-            .foregroundColor(Color.formaLabel)
-
-            // Remove button
-            Button(action: {
-                withAnimation(reduceMotion ? .linear(duration: 0.12) : FormaAnimation.quickExit) {
-                    removeExclusionCondition(at: index)
-                }
-            }) {
-                Image(systemName: "minus.circle.fill")
-                    .foregroundColor(Color.formaError.opacity(Color.FormaOpacity.high))
-            }
-            .buttonStyle(.plain)
-            .hoverLift(scale: 1.1, shadowRadius: 2)
-        }
-    }
-
-    private func conditionRow(at index: Int) -> some View {
-        ConditionRowContainer(isVisible: true) {
-            HStack(spacing: FormaSpacing.tight) {
-                // Condition type selector (Menu)
-                Menu {
-                    ForEach(Rule.ConditionType.allCases, id: \.self) { type in
-                        Button(conditionDisplayName(for: type)) {
-                            updateConditionType(at: index, to: type)
-                        }
-                    }
-                } label: {
-                     Text(conditionDisplayName(for: index < formState.conditions.count ? formState.conditions[index].type : .fileExtension))
-                        .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabel)
-                        .fixedSize()
-                }
-                .menuStyle(.borderlessButton)
-
-                // Condition value
-                TextField(
-                    conditionPlaceholder(for: index < formState.conditions.count ? formState.conditions[index].type : .fileExtension),
-                    text: Binding(
-                        get: { index < formState.conditions.count ? formState.conditions[index].value : "" },
-                        set: { newValue in
-                            updateConditionValue(at: index, to: newValue)
-                        }
-                    )
-                )
-                .textFieldStyle(.plain)
-                .font(.formaBody)
-                .foregroundColor(.formaLabel)
-                .padding(FormaSpacing.tight)
-                .background(Color.formaControlBackground)
-                .cornerRadius(FormaRadius.control)
-                
-                Spacer()
-                
-                // Remove button
-                if formState.conditions.count > 1 {
-                    Button(action: {
-                        withAnimation(reduceMotion ? .linear(duration: 0.12) : FormaAnimation.quickExit) {
-                            removeCondition(at: index)
-                        }
-                    }) {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundColor(.formaSecondaryLabel)
-                            .font(.formaSmall)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(FormaSpacing.standard)
-            .background(Color.formaCardBackground)
-            .cornerRadius(FormaRadius.card)
-            .overlay(
-                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
-            )
-        }
-    }
-
-    // MARK: - Condition Helper Methods
-    
-    private func updateConditionType(at index: Int, to type: Rule.ConditionType) {
-        guard index < formState.conditions.count else { return }
-        do {
-            let newCondition = try RuleCondition(type: type, value: formState.conditions[index].value)
-            formState.conditions[index] = newCondition
-        } catch {
-            print("Failed to update condition type: \(error)")
-        }
-    }
-
-    private func updateConditionValue(at index: Int, to value: String) {
-        guard index < formState.conditions.count else { return }
-        do {
-            let newCondition = try RuleCondition(type: formState.conditions[index].type, value: value)
-            formState.conditions[index] = newCondition
-        } catch {
-            print("Failed to update condition value: \(error)")
-        }
-    }
-
-    private func updateExclusionConditionType(at index: Int, to type: Rule.ConditionType) {
-        guard index < formState.exclusionConditions.count else { return }
-        do {
-            let newCondition = try RuleCondition(type: type, value: formState.exclusionConditions[index].value)
-            formState.exclusionConditions[index] = newCondition
-        } catch {
-            print("Failed to update exclusion condition type: \(error)")
-        }
-    }
-
-    private func updateExclusionConditionValue(at index: Int, to value: String) {
-        guard index < formState.exclusionConditions.count else { return }
-        do {
-            let newCondition = try RuleCondition(type: formState.exclusionConditions[index].type, value: value)
-            formState.exclusionConditions[index] = newCondition
-        } catch {
-             print("Failed to update exclusion condition value: \(error)")
-        }
-    }
-    
     // MARK: - Helper Functions
 
     /// Collapses the modal editor back to the right panel
@@ -882,38 +471,6 @@ struct RuleEditorView: View {
         // Small delay to ensure modal dismissal animation starts first
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             dashboardViewModel.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
-        }
-    }
-
-    private func addCondition() {
-        // Add a new empty condition with a default type
-        do {
-            let newCondition = try RuleCondition(type: .fileExtension, value: "pdf")
-            formState.conditions.append(newCondition)
-        } catch {
-            Log.warning("RuleEditorView: Failed to add new condition - \(error.localizedDescription)", category: .general)
-        }
-    }
-
-    private func removeCondition(at index: Int) {
-        formState.conditions.remove(at: index)
-    }
-
-    private func addExclusionCondition() {
-        // Add a new exclusion condition with default values
-        do {
-            let newCondition = try RuleCondition(type: .nameContains, value: "temp")
-            formState.exclusionConditions.append(newCondition)
-        } catch {
-            Log.warning("RuleEditorView: Failed to add new exclusion condition - \(error.localizedDescription)", category: .general)
-        }
-    }
-
-    private func removeExclusionCondition(at index: Int) {
-        formState.exclusionConditions.remove(at: index)
-        // If no exclusion conditions left, hide the section
-        if formState.exclusionConditions.isEmpty {
-            formState.showExclusionConditions = false
         }
     }
 
@@ -954,113 +511,18 @@ struct RuleEditorView: View {
         }
     }
 
-    private func conditionDisplayName(for type: Rule.ConditionType) -> String {
-        switch type {
-        case .fileExtension: return "File extension is"
-        case .nameContains: return "Name contains"
-        case .nameStartsWith: return "Name starts with"
-        case .nameEndsWith: return "Name ends with"
-        case .dateOlderThan: return "Date older than (days)"
-        case .sizeLargerThan: return "Size larger than"
-        case .dateModifiedOlderThan: return "Modified older than (days)"
-        case .dateAccessedOlderThan: return "Not opened in (days)"
-        case .fileKind: return "File kind is"
-        case .sourceLocation: return "Source location is"
-        }
-    }
-
-    private var conditionPlaceholder: String {
-        conditionPlaceholder(for: formState.conditionType)
-    }
-    
-    private func conditionPlaceholder(for type: Rule.ConditionType) -> String {
-        switch type {
-        case .fileExtension: return "pdf"
-        case .nameContains: return "Invoice"
-        case .nameStartsWith: return "Screenshot"
-        case .nameEndsWith: return "_final"
-        case .dateOlderThan: return "7"
-        case .sizeLargerThan: return "100MB"
-        case .dateModifiedOlderThan: return "30"
-        case .dateAccessedOlderThan: return "90"
-        case .fileKind: return "image"
-        case .sourceLocation: return "desktop"
-        }
-    }
-
-    private var conditionHint: String {
-        switch formState.conditionType {
-        case .fileExtension: return "Just the extension (no dot)"
-        case .nameContains: return "Case insensitive matching"
-        case .nameStartsWith: return "Case insensitive matching"
-        case .nameEndsWith: return "Case insensitive matching"
-        case .dateOlderThan: return "Number of days, or extension:days (e.g. dmg:7)"
-        case .sizeLargerThan: return "e.g., 100MB, 1.5GB, 500KB"
-        case .dateModifiedOlderThan: return "Number of days since last modification"
-        case .dateAccessedOlderThan: return "Number of days since last opened"
-        case .fileKind: return "Options: image, audio, video, document, spreadsheet, presentation, archive, code"
-        case .sourceLocation: return "Options: desktop, downloads, documents, pictures, music, home"
-        }
-    }
-
     private func validateRule() -> Bool {
-        // Extra safety for delete rules created from natural language
-        if editingRule == nil,
-           formState.actionType == .delete,
-           !naturalLanguageViewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           let parsed = naturalLanguageViewModel.parsedRule {
-
-            if parsed.overallConfidence < 0.75 || parsed.isAmbiguous {
-                validationError = "This delete rule is based on an uncertain natural-language description. Please refine it or adjust the fields manually before saving."
+        if let result = RuleValidator.validate(
+            formState: formState,
+            editingRule: editingRule,
+            naturalLanguageViewModel: naturalLanguageViewModel,
+            mode: .fullEditor
+        ) {
+            validationError = result.message
+            if result.shouldShake {
                 triggerValidationShake.toggle()
-                return false
             }
-        }
-
-        if formState.name.trimmingCharacters(in: .whitespaces).isEmpty {
-            validationError = "Rule name is required"
-            triggerValidationShake.toggle()
             return false
-        }
-
-        if formState.useCompoundConditions {
-            // Validate compound conditions
-            if formState.conditions.isEmpty {
-                validationError = "At least one condition is required"
-                return false
-            }
-
-            for (index, condition) in formState.conditions.enumerated() {
-                if condition.value.trimmingCharacters(in: .whitespaces).isEmpty {
-                    validationError = "Condition \(index + 1) value is required"
-                    triggerValidationShake.toggle()
-                    return false
-                }
-
-                if condition.type == .fileExtension && condition.value.hasPrefix(".") {
-                    validationError = "Condition \(index + 1): File extension should not include the dot"
-                    return false
-                }
-            }
-        } else {
-            // Validate single condition
-            if formState.conditionValue.trimmingCharacters(in: .whitespaces).isEmpty {
-                validationError = "Condition value is required"
-                return false
-            }
-
-            if formState.conditionType == .fileExtension && formState.conditionValue.hasPrefix(".") {
-                validationError = "File extension should not include the dot"
-                return false
-            }
-        }
-
-        if formState.actionType == .move || formState.actionType == .copy {
-            // Must have a bookmark-backed destination for sandboxed operations
-            if formState.destinationBookmarkData == nil {
-                validationError = "Please select a destination folder using the folder picker"
-                return false
-            }
         }
 
         validationError = nil

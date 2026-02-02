@@ -47,10 +47,11 @@ Organizing pipeline maintains strict ordering:
 - Serve predictions with confidence gating and negative pattern filtering
 - Manage model versions, storage, and rollback
 - Track drift metrics and trigger retraining
+- Resolve predicted destinations to bookmark-backed folders when possible (no folder creation)
 
 **Key Types**:
 ```swift
-actor DestinationPredictionService {
+final class DestinationPredictionService {
     func predictDestination(
         for file: FileItem,
         context: PredictionContext,

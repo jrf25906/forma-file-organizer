@@ -58,6 +58,7 @@ final class NavigationViewModel: ObservableObject {
     @Published var path: [Route] = []
     @Published var ruleEditorFileContext: FileItem?
     @Published var editingRule: Rule?
+    @Published var ruleEditorSuggestedText: String?
     
     var selectedCategory: FileTypeCategory? {
         if case .category(let cat) = selection {

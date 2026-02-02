@@ -198,8 +198,8 @@ final class InlineRuleBuilderTests: XCTestCase {
         XCTAssertEqual(matchedFiles.count, 2)
     }
     
-    func testRuleWithEmptyConditionsArrayUsesLegacyFields() throws {
-        // Rule with empty conditions array should fall back to legacy fields
+    func testRuleWithLegacyFieldsPopulatesConditionsArray() throws {
+        // Legacy initializer should populate the conditions array
         let rule = Rule(
             name: "PNG Files",
             conditionType: .fileExtension,
@@ -209,8 +209,13 @@ final class InlineRuleBuilderTests: XCTestCase {
             isEnabled: true
         )
         
-        // Verify conditions array is empty (legacy mode)
-        XCTAssertTrue(rule.conditions.isEmpty)
+        // Verify conditions array was populated
+        XCTAssertEqual(rule.conditions.count, 1)
+        if case .fileExtension(let ext) = rule.conditions.first {
+            XCTAssertEqual(ext, "png")
+        } else {
+            XCTFail("Expected file extension condition")
+        }
         XCTAssertEqual(rule.logicalOperator, .single)
         
         let matchedFiles = testFiles.filter { file in

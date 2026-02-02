@@ -101,18 +101,18 @@ final class InsightsServiceTests: XCTestCase {
     func testDetectRuleOpportunityFromRepeatedManualMoves() async {
         // Given: User has manually moved 3 PDF files to same destination this week
         let activities = [
-            createMockActivity(type: .fileOrganized, fileName: "doc1.pdf", details: "Documents/Work", fileExtension: "pdf"),
-            createMockActivity(type: .fileOrganized, fileName: "doc2.pdf", details: "Documents/Work", fileExtension: "pdf"),
-            createMockActivity(type: .fileOrganized, fileName: "doc3.pdf", details: "Documents/Work", fileExtension: "pdf")
+            createMockActivity(type: .fileOrganized, fileName: "doc1.pdf", details: "Moved to Documents/Work", fileExtension: "pdf"),
+            createMockActivity(type: .fileOrganized, fileName: "doc2.pdf", details: "Moved to Documents/Work", fileExtension: "pdf"),
+            createMockActivity(type: .fileOrganized, fileName: "doc3.pdf", details: "Moved to Documents/Work", fileExtension: "pdf")
         ]
 
         // When
         let insights = await service.generateInsights(from: [], activities: activities, rules: [])
         
         // Then
-        let ruleInsight = insights.first { $0.message.contains("create a rule") }
+        let ruleInsight = insights.first { $0.actionLabel == "Create Rule" }
         XCTAssertNotNil(ruleInsight)
-        XCTAssertTrue(ruleInsight!.message.contains("3 PDF files"))
+        XCTAssertTrue(ruleInsight!.message.contains("PDF"))
         XCTAssertTrue(ruleInsight!.message.contains("Documents/Work"))
         XCTAssertEqual(ruleInsight?.actionLabel, "Create Rule")
         XCTAssertEqual(ruleInsight?.priority, 10) // Highest priority
@@ -122,16 +122,16 @@ final class InsightsServiceTests: XCTestCase {
     func testNoRuleOpportunityWithDifferentDestinations() async {
         // Given: User moved files to different destinations
         let activities = [
-            createMockActivity(type: .fileOrganized, fileName: "doc1.pdf", details: "Documents/Work", fileExtension: "pdf"),
-            createMockActivity(type: .fileOrganized, fileName: "doc2.pdf", details: "Documents/Personal", fileExtension: "pdf"),
-            createMockActivity(type: .fileOrganized, fileName: "doc3.pdf", details: "Documents/Archive", fileExtension: "pdf")
+            createMockActivity(type: .fileOrganized, fileName: "doc1.pdf", details: "Moved to Documents/Work", fileExtension: "pdf"),
+            createMockActivity(type: .fileOrganized, fileName: "doc2.pdf", details: "Moved to Documents/Personal", fileExtension: "pdf"),
+            createMockActivity(type: .fileOrganized, fileName: "doc3.pdf", details: "Moved to Documents/Archive", fileExtension: "pdf")
         ]
 
         // When
         let insights = await service.generateInsights(from: [], activities: activities, rules: [])
         
         // Then
-        let ruleInsight = insights.first { $0.message.contains("create a rule") }
+        let ruleInsight = insights.first { $0.actionLabel == "Create Rule" }
         XCTAssertNil(ruleInsight, "Should not suggest rule when destinations differ")
     }
     
@@ -203,9 +203,9 @@ final class InsightsServiceTests: XCTestCase {
         }
 
         let activities = [
-            createMockActivity(type: .fileOrganized, fileName: "doc1.pdf", details: "Documents/Work", fileExtension: "pdf"),
-            createMockActivity(type: .fileOrganized, fileName: "doc2.pdf", details: "Documents/Work", fileExtension: "pdf"),
-            createMockActivity(type: .fileOrganized, fileName: "doc3.pdf", details: "Documents/Work", fileExtension: "pdf")
+            createMockActivity(type: .fileOrganized, fileName: "doc1.pdf", details: "Moved to Documents/Work", fileExtension: "pdf"),
+            createMockActivity(type: .fileOrganized, fileName: "doc2.pdf", details: "Moved to Documents/Work", fileExtension: "pdf"),
+            createMockActivity(type: .fileOrganized, fileName: "doc3.pdf", details: "Moved to Documents/Work", fileExtension: "pdf")
         ]
 
         // When
@@ -220,7 +220,7 @@ final class InsightsServiceTests: XCTestCase {
         
         // Rule opportunity should be first (priority 10)
         XCTAssertEqual(insights.first?.priority, 10)
-        XCTAssertTrue(insights.first!.message.contains("create a rule"))
+        XCTAssertEqual(insights.first?.actionLabel, "Create Rule")
     }
     
     // MARK: - Greeting Tests

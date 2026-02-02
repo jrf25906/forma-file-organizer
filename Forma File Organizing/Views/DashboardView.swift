@@ -30,11 +30,16 @@ struct DashboardView: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    RuleEditorView(rule: nav.editingRule, fileContext: nav.ruleEditorFileContext, onDismiss: {
+                    RuleEditorView(
+                        rule: nav.editingRule,
+                        fileContext: nav.ruleEditorFileContext,
+                        suggestedNaturalLanguageText: nav.ruleEditorSuggestedText,
+                        onDismiss: {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             nav.isShowingRuleEditor = false
                             nav.ruleEditorFileContext = nil
                             nav.editingRule = nil
+                            nav.ruleEditorSuggestedText = nil
                         }
                     })
                     .accessibilityIdentifier("ruleEditorView")
@@ -103,7 +108,11 @@ struct DashboardView: View {
                                 RulesManagementView()
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                             } else if nav.selection == .analytics {
-                                ProductivityReportView(modelContext: modelContext)
+                                ProductivityReportView(
+                                    modelContext: modelContext,
+                                    navigation: nav,
+                                    dashboardViewModel: dashboardViewModel
+                                )
                                     .frame(minWidth: availableWidth, idealWidth: availableWidth, maxWidth: availableWidth, maxHeight: .infinity)
                             } else {
                                 MainContentView(

@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 import Combine
 
 /// ViewModel for the enhanced menu bar interface.
@@ -37,7 +36,8 @@ final class MenuBarViewModel: ObservableObject {
     private let actions: FormaActions
     // nonisolated(unsafe) allows access from deinit in Swift 6
     nonisolated(unsafe) private var refreshTimer: Timer?
-    private var cancellables = Set<AnyCancellable>()
+    private var automationStateObservationTask: Task<Void, Never>?
+    private var actionResultObservationTask: Task<Void, Never>?
 
     // MARK: - Configuration
 
@@ -56,6 +56,8 @@ final class MenuBarViewModel: ObservableObject {
 
     deinit {
         refreshTimer?.invalidate()
+        automationStateObservationTask?.cancel()
+        actionResultObservationTask?.cancel()
     }
 
     // MARK: - Lifecycle
@@ -178,25 +180,26 @@ final class MenuBarViewModel: ObservableObject {
     // MARK: - Private
 
     private func setupObservers() {
-        // Observe automation engine state changes
-        AutomationEngine.shared.$state
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
+        automationStateObservationTask?.cancel()
+        actionResultObservationTask?.cancel()
+
+        // Observe automation engine state changes (async sequence over @Published).
+        automationStateObservationTask = Task { @MainActor [weak self] in
+            for await _ in AutomationEngine.shared.$state.values {
                 guard let self else { return }
                 automationStatus = actions.getAutomationStatus()
             }
-            .store(in: &cancellables)
+        }
 
-        // Observe action results for immediate UI feedback
-        actions.$lastActionResult
-            .receive(on: DispatchQueue.main)
-            .compactMap { $0 }
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    await self?.refresh()
+        // Observe action results for immediate UI feedback.
+        actionResultObservationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            for await result in self.actions.$lastActionResult.values {
+                if result != nil {
+                    await self.refresh()
                 }
             }
-            .store(in: &cancellables)
+        }
     }
 }
 

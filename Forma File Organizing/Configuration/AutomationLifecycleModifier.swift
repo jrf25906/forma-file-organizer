@@ -27,17 +27,21 @@ struct AutomationLifecycleModifier: ViewModifier {
     @StateObject private var organizationCoordinator = FileOrganizationCoordinator()
 
     func body(content: Content) -> some View {
-        content
-            .onAppear {
-                configureAutomationEngineIfNeeded()
-            }
-            .onChange(of: scenePhase) { oldPhase, newPhase in
-                handleScenePhaseChange(from: oldPhase, to: newPhase)
-            }
-            .onDisappear {
-                // Stop automation when the main window disappears
-                AutomationEngine.shared.stop()
-            }
+        if isTesting {
+            content
+        } else {
+            content
+                .onAppear {
+                    configureAutomationEngineIfNeeded()
+                }
+                .onChange(of: scenePhase) { oldPhase, newPhase in
+                    handleScenePhaseChange(from: oldPhase, to: newPhase)
+                }
+                .onDisappear {
+                    // Stop automation when the main window disappears
+                    AutomationEngine.shared.stop()
+                }
+        }
     }
 
     // MARK: - Private Methods
@@ -91,6 +95,11 @@ struct AutomationLifecycleModifier: ViewModifier {
         @unknown default:
             Log.warning("AutomationLifecycleModifier: Unknown scene phase", category: .automation)
         }
+    }
+
+    private var isTesting: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+        ProcessInfo.processInfo.arguments.contains("--uitesting")
     }
 }
 

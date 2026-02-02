@@ -58,17 +58,8 @@ struct InlineRuleBuilderView: View {
     // MARK: - Header Configuration
 
     /// Determines the header icon, title, and subtitle based on context
-    private var headerConfig: (icon: String, title: String, subtitle: String?) {
-        if let _ = editingRule {
-            // Editing existing rule
-            return ("slider.horizontal.3", "Edit Rule", "Modify conditions & destination")
-        } else if fileContext != nil {
-            // Creating from file context - quick rule
-            return ("bolt.fill", "Quick Rule", "From this file's pattern")
-        } else {
-            // Creating from scratch
-            return ("wand.and.stars", "New Rule", nil)
-        }
+    private var headerConfig: RuleEditorHeaderConfig {
+        RuleEditorHeaderConfig.make(editingRule: editingRule, fileContext: fileContext, style: .inline)
     }
 
     var body: some View {
@@ -229,12 +220,12 @@ struct InlineRuleBuilderView: View {
                                     // Condition Type Picker (Inline)
                                     Menu {
                                         ForEach(Rule.ConditionType.allCases, id: \.self) { type in
-                                            Button(conditionDisplayName(for: type)) {
+                                            Button(type.compactDisplayName) {
                                                 formState.conditionType = type
                                             }
                                         }
                                     } label: {
-                                        Text(conditionDisplayName(for: formState.conditionType).lowercased())
+                                        Text(formState.conditionType.compactDisplayName.lowercased())
                                             .font(.formaBodyLarge)
                                             .fontWeight(.semibold)
                                             .foregroundColor(.formaSteelBlue)
@@ -580,12 +571,12 @@ struct InlineRuleBuilderView: View {
             // Condition type selector
             Menu {
                 ForEach(Rule.ConditionType.allCases, id: \.self) { type in
-                    Button(conditionDisplayName(for: type)) {
+                    Button(type.compactDisplayName) {
                         updateConditionType(at: index, to: type)
                     }
                 }
             } label: {
-                 Text(conditionDisplayName(for: index < formState.conditions.count ? formState.conditions[index].type : .fileExtension))
+                 Text((index < formState.conditions.count ? formState.conditions[index].type : .fileExtension).compactDisplayName)
                     .font(.formaSmall)
                     .foregroundColor(.formaSecondaryLabel)
                     .fixedSize()
@@ -899,25 +890,14 @@ struct InlineRuleBuilderView: View {
     }
 
     private func saveRule() {
-        // Validation
-        guard !formState.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            validationError = "Rule name is required"
+        if let result = RuleValidator.validate(
+            formState: formState,
+            editingRule: editingRule,
+            naturalLanguageViewModel: naturalLanguageViewModel,
+            mode: .inline
+        ) {
+            validationError = result.message
             return
-        }
-
-        // Check if we have at least one condition (either in conditions array or in the input field)
-        let hasConditions = !formState.conditions.isEmpty || !formState.conditionValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        guard hasConditions else {
-            validationError = "At least one condition is required"
-            return
-        }
-
-        // Validate destination - require bookmark for move/copy actions
-        if formState.actionType == .move || formState.actionType == .copy {
-            guard formState.hasBookmark else {
-                validationError = "Please select a destination folder"
-                return
-            }
         }
 
         validationError = nil
@@ -1090,17 +1070,6 @@ struct InlineRuleBuilderView: View {
 
     // Note: defaultDestination(for:) moved to RuleFormState struct
     
-    private func conditionDisplayName(for type: Rule.ConditionType) -> String {
-        switch type {
-        case .fileExtension: return "Extension is"
-        case .nameContains: return "Name contains"
-        case .nameStartsWith: return "Name starts with"
-        case .nameEndsWith: return "Name ends with"
-        case .sourceLocation: return "Source location is"
-        default: return type.rawValue.capitalized
-        }
-    }
-
     private var conditionPlaceholder: String {
         conditionPlaceholder(for: formState.conditionType)
     }

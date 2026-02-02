@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 /// Sheet view for managing rule categories.
 ///
@@ -447,6 +448,8 @@ private struct CategoryEditorView: View {
     @State private var iconName: String = "folder.fill"
     @State private var scope: CategoryScope = .global
     @State private var isEnabled: Bool = true
+    @State private var showFolderPicker = false
+    @State private var folderPickerError: String?
 
     // Available icons for selection
     private let availableIcons = [
@@ -577,8 +580,8 @@ private struct CategoryEditorView: View {
                             icon: "folder.badge.gearshape",
                             isSelected: !scope.isGlobal
                         ) {
-                            // TODO: Show folder picker
-                            scope = .folders([])
+                            guard !isDefault else { return }
+                            showFolderPicker = true
                         }
                     }
                     .disabled(isDefault)
@@ -588,6 +591,12 @@ private struct CategoryEditorView: View {
                         Text("The default category always applies to all locations.")
                             .font(.formaCaption)
                             .foregroundColor(.formaSecondaryLabel)
+                    }
+
+                    if let error = folderPickerError {
+                        Text(error)
+                            .font(.formaCaption)
+                            .foregroundColor(.formaWarmOrange)
                     }
                 }
             }
@@ -612,6 +621,13 @@ private struct CategoryEditorView: View {
             }
         }
         .padding(FormaSpacing.generous)
+        .fileImporter(
+            isPresented: $showFolderPicker,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: true
+        ) { result in
+            handleFolderSelection(result)
+        }
         .onAppear {
             if let category = mode.existingCategory {
                 name = category.name
@@ -629,6 +645,32 @@ private struct CategoryEditorView: View {
                 scope = category.scope
                 isEnabled = category.isEnabled
             }
+        }
+    }
+
+    private func handleFolderSelection(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard !urls.isEmpty else { return }
+            let scopedFolders = urls.compactMap { url -> CategoryScope.ScopedFolder? in
+                let didStartAccessing = url.startAccessingSecurityScopedResource()
+                defer {
+                    if didStartAccessing {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
+                return try? CategoryScope.ScopedFolder.from(url: url)
+            }
+
+            guard !scopedFolders.isEmpty else {
+                folderPickerError = "Unable to save access for selected folders."
+                return
+            }
+
+            scope = .folders(scopedFolders)
+            folderPickerError = nil
+        case .failure(let error):
+            folderPickerError = "Failed to select folders: \(error.localizedDescription)"
         }
     }
 }

@@ -46,6 +46,10 @@ class FileOrganizationCoordinator: ObservableObject {
     
     /// Whether a bulk operation is currently in progress
     @Published var isBulkOperationInProgress: Bool = false
+
+    // MARK: - Cancellation
+
+    private var cancelBulkOperationRequested = false
     
     // MARK: - Services
     
@@ -231,6 +235,13 @@ class FileOrganizationCoordinator: ObservableObject {
             return
         }
 
+        let shouldCancelImmediately = cancelBulkOperationRequested
+        cancelBulkOperationRequested = false
+        if shouldCancelImmediately {
+            onComplete(0, 0, [], FormaError.cancelled)
+            return
+        }
+
         isBulkOperationInProgress = true
         bulkOperationProgress = 0.0
 
@@ -238,6 +249,7 @@ class FileOrganizationCoordinator: ObservableObject {
         var failedCount = 0
         var failedFiles: [FileItem] = []
         var firstError: Error?
+        var wasCancelled = false
         var fileActions: [FileActionData] = []
         var destinations: [String: String] = [:]
         /// Track rule usage for analytics: [ruleID: count of files matched]
@@ -245,7 +257,8 @@ class FileOrganizationCoordinator: ObservableObject {
         
         for (index, file) in files.enumerated() {
             // Check for task cancellation
-            if Task.isCancelled {
+            if Task.isCancelled || cancelBulkOperationRequested {
+                wasCancelled = true
                 break
             }
             
@@ -367,8 +380,18 @@ class FileOrganizationCoordinator: ObservableObject {
 
         isBulkOperationInProgress = false
         bulkOperationProgress = 0.0
+        cancelBulkOperationRequested = false
+
+        if wasCancelled && firstError == nil {
+            firstError = FormaError.cancelled
+        }
 
         onComplete(successCount, failedCount, failedFiles, firstError)
+    }
+
+    func requestCancelBulkOperation() {
+        cancelBulkOperationRequested = true
+        Task { await operationCoordinator.cancelAllOperations() }
     }
     
     // MARK: - Undo/Redo

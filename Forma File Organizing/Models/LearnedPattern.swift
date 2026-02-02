@@ -40,6 +40,10 @@ final class LearnedPattern {
     /// When available, this is the source of truth for file access
     var destinationBookmarkData: Data?
 
+    /// Encoded unified Destination payload for this pattern.
+    /// Kept in sync with destinationPath/bookmark data for backward compatibility.
+    private var destinationData: Data?
+
     /// How many times this pattern has been observed
     var occurrenceCount: Int
 
@@ -160,6 +164,10 @@ final class LearnedPattern {
         self.fileExtension = fileExtension
         self.destinationPath = destinationPath
         self.destinationBookmarkData = destinationBookmarkData
+        self.destinationData = Self.encodeDestinationData(
+            bookmarkData: destinationBookmarkData,
+            displayName: destinationPath
+        )
         self.occurrenceCount = occurrenceCount
         self.confidenceScore = confidenceScore
         self.lastSeenDate = lastSeenDate
@@ -208,6 +216,10 @@ final class LearnedPattern {
         self.fileExtension = fileExtension
         self.destinationPath = destinationPath
         self.destinationBookmarkData = destinationBookmarkData
+        self.destinationData = Self.encodeDestinationData(
+            bookmarkData: destinationBookmarkData,
+            displayName: destinationPath
+        )
         self.occurrenceCount = occurrenceCount
         self.confidenceScore = confidenceScore
         self.lastSeenDate = lastSeenDate
@@ -237,6 +249,38 @@ final class LearnedPattern {
     /// Delegates to PatternAnalysisService.
     var confidenceLevel: String {
         PatternAnalysisService.confidenceLevel(for: confidenceScore)
+    }
+
+    /// Unified destination for this pattern (bookmark-backed when available).
+    var destination: Destination? {
+        get {
+            if let data = destinationData,
+               let decoded = try? JSONDecoder().decode(Destination.self, from: data) {
+                return decoded
+            }
+
+            // Backward-compat: reconstruct from stored fields.
+            if let bookmarkData = destinationBookmarkData {
+                return .folder(bookmark: bookmarkData, displayName: destinationPath)
+            }
+
+            guard !destinationPath.isEmpty else { return nil }
+            return .folder(bookmark: Data(), displayName: destinationPath)
+        }
+        set {
+            destinationData = newValue.flatMap { try? JSONEncoder().encode($0) }
+
+            guard let newValue else { return }
+
+            switch newValue {
+            case .trash:
+                destinationPath = "Trash"
+                destinationBookmarkData = nil
+            case .folder(let bookmark, let displayName):
+                destinationPath = displayName
+                destinationBookmarkData = bookmark
+            }
+        }
     }
 
     /// Icon name for UI display.
@@ -384,6 +428,13 @@ final class LearnedPattern {
     /// Delegates to PatternAnalysisService for the conversion logic.
     func toRule() -> Rule {
         PatternAnalysisService.convertToRule(self)
+    }
+
+    // MARK: - Destination Encoding
+
+    private static func encodeDestinationData(bookmarkData: Data?, displayName: String) -> Data? {
+        let destination = Destination.folder(bookmark: bookmarkData ?? Data(), displayName: displayName)
+        return try? JSONEncoder().encode(destination)
     }
 }
 

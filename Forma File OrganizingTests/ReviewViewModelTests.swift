@@ -13,6 +13,8 @@ final class ReviewViewModelTests: XCTestCase {
     var viewModel: ReviewViewModel!
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
+    var mockService: MockFileSystemService!
+    var mockPipeline: MockFileScanPipeline!
 
     override func setUp() async throws {
         try await super.setUp()
@@ -23,12 +25,19 @@ final class ReviewViewModelTests: XCTestCase {
         modelContainer = try ModelContainer(for: schema, configurations: [config])
         modelContext = modelContainer.mainContext
 
-        // Create viewModel
-        viewModel = ReviewViewModel()
+        // Create viewModel with mocks to avoid real filesystem access
+        mockService = MockFileSystemService()
+        mockPipeline = MockFileScanPipeline()
+        viewModel = ReviewViewModel(
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline
+        )
     }
 
     override func tearDown() {
         viewModel = nil
+        mockService = nil
+        mockPipeline = nil
         modelContext = nil
         modelContainer = nil
         super.tearDown()
@@ -312,7 +321,10 @@ final class ReviewViewModelTests: XCTestCase {
 
     func testScanDesktop_WithoutContext_ReturnsEarly() async {
         // Given: ViewModel without model context
-        let vm = ReviewViewModel()
+        let vm = ReviewViewModel(
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline
+        )
         XCTAssertEqual(vm.loadingState, .idle)
 
         // When: Attempting to scan without context
@@ -326,8 +338,8 @@ final class ReviewViewModelTests: XCTestCase {
         // Given: ViewModel with context
         viewModel.setModelContext(modelContext)
 
-        // Give setModelContext time to trigger scan
-        try? await Task.sleep(for: .milliseconds(100))
+        // When: Scanning desktop explicitly (auto-scan disabled under tests)
+        await viewModel.scanDesktop()
 
         // Then: Loading state should have changed from idle
         // (Either loading or loaded, depending on timing)

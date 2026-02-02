@@ -140,6 +140,7 @@ struct EditDestinationSheet: View {
         }
         .padding(FormaSpacing.extraLarge)
         .frame(width: 420)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("editDestinationSheet")
         .fileImporter(
             isPresented: $showFolderPicker,

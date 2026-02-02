@@ -17,7 +17,7 @@ struct ReviewView: View {
         let filesWithDestinations = viewModel.files.filter { $0.destination != nil }
 
         // Group by destination display name
-        let byDestination = Dictionary(grouping: filesWithDestinations) { $0.destination?.displayName ?? "Unknown" }
+        let byDestination = Dictionary(grouping: filesWithDestinations) { $0.destination?.displayName ?? "Uncategorized" }
         
         var groups: [(destination: String, files: [FileItem], confidenceLevel: ConfidenceLevel)] = []
         

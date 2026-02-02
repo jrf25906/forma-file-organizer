@@ -215,10 +215,10 @@ final class FileOperationsServiceTests: XCTestCase {
             _ = try await service.moveFile(fileItem)
             XCTFail("Expected error to be thrown")
         } catch let error as FormaError {
-            if case .operation(.failed(let message, _)) = error {
+            if case .operation(.notReady(let message)) = error {
                 XCTAssertTrue(message.contains("destination"))
             } else {
-                XCTFail("Expected operation failed error, got \(error)")
+                XCTFail("Expected notReady error, got \(error)")
             }
         }
     }

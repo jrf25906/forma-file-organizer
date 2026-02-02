@@ -53,9 +53,9 @@ class ReviewViewModel: ObservableObject {
     
     func setModelContext(_ context: ModelContext) {
         self.modelContext = context
-        Task {
-            await scanDesktop()
-        }
+        let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        guard !isRunningTests else { return }
+        Task { await scanDesktop() }
     }
 
     // MARK: - Public Methods
@@ -251,4 +251,3 @@ class ReviewViewModel: ObservableObject {
         successMessage = nil
     }
 }
-

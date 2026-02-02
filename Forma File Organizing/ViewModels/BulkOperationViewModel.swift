@@ -55,6 +55,7 @@ class BulkOperationViewModel: ObservableObject {
     // MARK: - Private State
 
     private var cancellables = Set<AnyCancellable>()
+    private var cancelRequested = false
 
     // MARK: - Initialization
 
@@ -255,6 +256,12 @@ class BulkOperationViewModel: ObservableObject {
         await organizeMultipleFiles(filesToRetry, context: context, totalCount: filesToRetry.count)
     }
 
+    /// Cancel the active bulk operation.
+    func cancelBulkOperation() {
+        cancelRequested = true
+        organizationCoordinator.requestCancelBulkOperation()
+    }
+
     /// Dismiss failed files sheet
     func dismissFailedFiles() {
         lastBatchFailedFiles = []
@@ -265,11 +272,17 @@ class BulkOperationViewModel: ObservableObject {
 
     /// Organize multiple files and track progress
     private func organizeMultipleFiles(_ files: [FileItem], context: ModelContext?, totalCount: Int) async {
+        cancelRequested = false
         await organizationCoordinator.organizeMultipleFiles(
             files,
             context: context
         ) { [weak self] successCount, failedCount, failedFiles, firstError in
             guard let self else { return }
+            if self.cancelRequested || self.isCancellationError(firstError) {
+                self.cancelRequested = false
+                self.onOperationComplete?(successCount, failedCount)
+                return
+            }
             self.showOrganizeFeedback(
                 successCount: successCount,
                 totalCount: totalCount,
@@ -305,5 +318,18 @@ class BulkOperationViewModel: ObservableObject {
 
         organizationCoordinator.$isBulkOperationInProgress
             .assign(to: &$isBulkOperationInProgress)
+    }
+
+    private func isCancellationError(_ error: Error?) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+
+        if let formaError = error as? FormaError,
+           case .operation(.cancelled) = formaError {
+            return true
+        }
+
+        return false
     }
 }

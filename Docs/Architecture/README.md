@@ -3,7 +3,7 @@
 > Technical architecture, component design, and system patterns for Forma.
 
 **Status:** Current  
-**Last Updated:** 2026-01-06  
+**Last Updated:** 2026-02-02  
 **Audience:** Developers
 
 ---

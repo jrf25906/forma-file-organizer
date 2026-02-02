@@ -8,11 +8,12 @@ import SwiftUI
 /// - Automation status and quick toggle
 /// - Quick actions: Scan, Organize, Open Main Window
 struct MenuBarView: View {
-    @ObservedObject var viewModel: MenuBarViewModel
+    @StateObject private var viewModel: MenuBarViewModel
     @Environment(\.openWindow) private var openWindow
 
-    /// Callback to open the main app interface
-    var openMainInterface: () -> Void
+    init(viewModel: MenuBarViewModel = MenuBarViewModel()) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -335,12 +336,14 @@ struct MenuBarView: View {
             NSApp.postEvent(event, atStart: true)
         }
     }
+
+    private func openMainInterface() {
+        openWindow(id: "main")
+    }
 }
 
 // MARK: - Preview
 
 #Preview {
-    MenuBarView(viewModel: MenuBarViewModel()) {
-        print("Open main interface")
-    }
+    MenuBarView(viewModel: MenuBarViewModel())
 }

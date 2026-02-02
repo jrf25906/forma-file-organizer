@@ -21,8 +21,8 @@ private func debugLog(_ message: String) {
             FileManager.default.createFile(atPath: logPath, contents: data)
         }
     }
-    // Also print to stdout
-    print(message)
+    // Also log to the app logger
+    Log.debug(message, category: .filesystem)
 }
 
 // MARK: - Thumbnail Cache Error

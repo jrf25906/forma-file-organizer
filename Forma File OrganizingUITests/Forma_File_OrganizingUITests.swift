@@ -5,6 +5,8 @@
 //  Created by James Farmer on 11/17/25.
 //
 
+import AppKit
+import Darwin
 import XCTest
 
 final class Forma_File_OrganizingUITests: XCTestCase {
@@ -16,20 +18,60 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         app = XCUIApplication()
         // Pass a launch argument to indicate UI test mode, which can be used
         // to seed mock data or skip onboarding
-        app.launchArguments = ["--uitesting"]
-        app.launch()
-        
+        app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
+
+        let isLaunchPerformanceTest = name.contains("testLaunchPerformance")
+        if !isLaunchPerformanceTest {
+            terminateRunningAppIfNeeded()
+            app.launch()
+        }
+
         // Wait for the app to settle
-        _ = app.wait(for: .runningForeground, timeout: 5)
+        if !isLaunchPerformanceTest {
+            _ = app.wait(for: .runningForeground, timeout: 5)
+        }
     }
 
     override func tearDownWithError() throws {
         app = nil
     }
+
+    private func terminateRunningAppIfNeeded() {
+        let bundleID = "jamesfarmer.Forma-File-Organizing"
+        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+        guard !runningApps.isEmpty else { return }
+
+        for runningApp in runningApps {
+            let pid = runningApp.processIdentifier
+            if runningApp.terminate() {
+                waitForTermination(of: runningApp, timeout: 2)
+            }
+            if !runningApp.isTerminated {
+                _ = runningApp.forceTerminate()
+                waitForTermination(of: runningApp, timeout: 2)
+            }
+            if !runningApp.isTerminated, pid > 0 {
+                kill(pid, SIGKILL)
+            }
+        }
+
+        let deadline = Date().addingTimeInterval(5)
+        while !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty && Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+        }
+    }
+
+    private func waitForTermination(of runningApp: NSRunningApplication, timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !runningApp.isTerminated && Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+        }
+    }
     
     // MARK: - Helper Methods
     
     /// Wait for the main content view to appear (i.e., onboarding is dismissed)
+    @MainActor
     private func waitForMainContent() {
         // Look for a unique element in the main content
         let reviewButton = app.buttons["reviewMode_needsReview"]
@@ -41,10 +83,12 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     }
     
     /// Convenience accessor for a specific review file card by file name
+    @MainActor
     private func reviewCard(for name: String) -> XCUIElement {
-        app.otherElements["fileRow_\(name)"]
+        app.descendants(matching: .any).matching(identifier: "fileRow_\(name)").firstMatch
     }
     
+    @MainActor
     private func buttonValue(_ button: XCUIElement) -> String {
         button.value as? String ?? ""
     }

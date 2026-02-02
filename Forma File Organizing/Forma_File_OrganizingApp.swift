@@ -9,7 +9,11 @@ struct Forma_File_OrganizingApp: App {
 
     @StateObject private var services: AppServices
     @StateObject private var dashboardViewModel: DashboardViewModel
-    @StateObject private var menuBarViewModel: MenuBarViewModel
+
+    private var isTesting: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+        ProcessInfo.processInfo.arguments.contains("--uitesting")
+    }
     
     // MARK: - Schema Definition (DRY Principle)
     private static let appSchema = Schema([
@@ -27,7 +31,6 @@ struct Forma_File_OrganizingApp: App {
         let appServices = AppServices()
         _services = StateObject(wrappedValue: appServices)
         _dashboardViewModel = StateObject(wrappedValue: DashboardViewModel(services: appServices))
-        _menuBarViewModel = StateObject(wrappedValue: MenuBarViewModel())
 
         // Check if running tests (Unit Tests)
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
@@ -182,8 +185,16 @@ struct Forma_File_OrganizingApp: App {
         }
     }
     
+    @SceneBuilder
     var body: some Scene {
-        // Main Window (Dashboard)
+        mainWindowScene
+        settingsScene
+        MenuBarScene(container: container, isTesting: isTesting)
+    }
+
+    // MARK: - Scenes
+
+    private var mainWindowScene: some Scene {
         WindowGroup(id: "main") {
             DashboardView()
                 .frame(minWidth: 1200, minHeight: 800)
@@ -201,25 +212,13 @@ struct Forma_File_OrganizingApp: App {
             SidebarCommands()
         }
         .windowToolbarStyle(.unified(showsTitle: false))
+    }
 
-        // Settings Scene (opens with Cmd+, and programmatically)
+    private var settingsScene: some Scene {
         Settings {
             SettingsView()
         }
         .modelContainer(container)
-
-        // Menu Bar Extra - Enhanced with live file counts and recent activity
-        MenuBarExtra("Forma", image: "MenuBarIcon") {
-            MenuBarView(viewModel: menuBarViewModel) {
-                openMainWindow()
-            }
-            .onAppear {
-                // Configure FormaActions with read-only access for menu bar
-                // (Full configuration happens in DashboardView when coordinators are available)
-                FormaActions.shared.configureReadOnly(modelContext: container.mainContext)
-            }
-        }
-        .menuBarExtraStyle(.window) // Use .window for custom SwiftUI content
     }
 
     /// Configures FormaActions with full capabilities for scanning and organizing.
@@ -246,18 +245,4 @@ struct Forma_File_OrganizingApp: App {
         }
     }
 
-    /// Opens the main Forma window, bringing the app to the foreground
-    private func openMainWindow() {
-        // Activate the app and bring to foreground
-        NSApp.activate(ignoringOtherApps: true)
-
-        // Find and focus the main window, or open a new one
-        if let mainWindow = NSApp.windows.first(where: { $0.identifier?.rawValue == "main" }) {
-            mainWindow.makeKeyAndOrderFront(nil)
-        } else {
-            // Open a new main window if none exists
-            // Note: @Environment(\.openWindow) doesn't work here since we're in the App struct
-            // The NSApp.activate should trigger WindowGroup to open if no window exists
-        }
-    }
 }

@@ -195,6 +195,8 @@ struct FileListRow: View {
                 onToggleSelection()
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("fileRow_\(file.name)")
     }
 
     // MARK: - Background

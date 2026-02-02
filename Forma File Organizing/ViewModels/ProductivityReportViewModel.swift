@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import Combine
+import SwiftUI
 
 /// ViewModel for the Productivity Health Report view.
 /// Coordinates loading of all productivity metrics and handles user interactions.
@@ -33,16 +34,27 @@ final class ProductivityReportViewModel: ObservableObject {
 
     private let analyticsService: AnalyticsService
     private let modelContext: ModelContext
+    private let navigation: NavigationViewModel
+    private let dashboardViewModel: DashboardViewModel
     private var dismissedInsightIds: Set<UUID> = []
+    private var openSettings: (@MainActor () -> Void)?
 
     // MARK: - Initialization
 
     init(
         analyticsService: AnalyticsService = .shared,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        navigation: NavigationViewModel,
+        dashboardViewModel: DashboardViewModel
     ) {
         self.analyticsService = analyticsService
         self.modelContext = modelContext
+        self.navigation = navigation
+        self.dashboardViewModel = dashboardViewModel
+    }
+
+    func configureOpenSettings(_ action: @escaping @MainActor () -> Void) {
+        openSettings = action
     }
 
     // MARK: - Lifecycle
@@ -178,7 +190,16 @@ final class ProductivityReportViewModel: ObservableObject {
     /// Handle tap on a treemap node - could navigate to folder or show details
     func handleTreemapNodeTap(_ node: TreemapNode) {
         Log.info("ProductivityReportViewModel: Treemap node tapped - \(node.label)", category: .analytics)
-        // TODO: Navigate to folder or show file details
+
+        // If a category node is tapped, navigate to that category view
+        if let category = node.category {
+            navigation.select(.category(category))
+            dashboardViewModel.selectCategory(category)
+            dashboardViewModel.setSecondaryFilter(.none)
+            dashboardViewModel.reviewFilterMode = .all
+            navigation.searchText = ""
+            dashboardViewModel.updateSearchText("")
+        }
     }
 
     /// Handle smart insight action button tap
@@ -189,23 +210,24 @@ final class ProductivityReportViewModel: ObservableObject {
 
         switch actionType {
         case .archiveScreenshots:
-            // TODO: Navigate to screenshot management or trigger archive
-            break
+            navigateToFolder(.pictures, searchText: "Screenshot", secondaryFilter: .none, reviewMode: .needsReview)
         case .reviewLargeFiles:
-            // TODO: Navigate to large files view
-            break
+            navigateToHome(secondaryFilter: .largeFiles, reviewMode: .all)
         case .cleanDownloads:
-            // TODO: Navigate to Downloads folder review
-            break
+            navigateToFolder(.downloads, searchText: nil, secondaryFilter: .none, reviewMode: .needsReview)
         case .createRule(let pattern):
-            // TODO: Open rule editor with suggested pattern
             Log.info("ProductivityReportViewModel: Suggesting rule pattern - \(pattern)", category: .analytics)
+            navigation.ruleEditorSuggestedText = pattern
+            navigation.editingRule = nil
+            navigation.ruleEditorFileContext = nil
+            withAnimation(.easeInOut(duration: 0.2)) {
+                navigation.isShowingRuleEditor = true
+            }
         case .enableAutomation:
-            // TODO: Navigate to automation settings
-            break
+            openSettings?()
         case .reviewFolder(let path):
-            // TODO: Navigate to specific folder
             Log.info("ProductivityReportViewModel: Review folder - \(path.path)", category: .analytics)
+            navigateToFolder(path)
         }
     }
 
@@ -218,7 +240,67 @@ final class ProductivityReportViewModel: ObservableObject {
     /// Handle the "nudge cleanup" button on the staleness heatmap
     func nudgeCleanup() {
         Log.info("ProductivityReportViewModel: Nudge cleanup tapped", category: .analytics)
-        // TODO: Navigate to cleanup view or show stale files
+        navigateToHome(secondaryFilter: .none, reviewMode: .needsReview)
+    }
+
+    // MARK: - Navigation Helpers
+
+    private func navigateToHome(secondaryFilter: SecondaryFilter, reviewMode: ReviewFilterMode) {
+        navigation.select(.home)
+        dashboardViewModel.selectFolder(.home)
+        dashboardViewModel.setSecondaryFilter(secondaryFilter)
+        dashboardViewModel.reviewFilterMode = reviewMode
+        navigation.searchText = ""
+        dashboardViewModel.updateSearchText("")
+    }
+
+    private func navigateToFolder(
+        _ folder: FolderLocation,
+        searchText: String?,
+        secondaryFilter: SecondaryFilter,
+        reviewMode: ReviewFilterMode
+    ) {
+        navigation.select(navigationSelection(for: folder))
+        dashboardViewModel.selectFolder(folder)
+        dashboardViewModel.setSecondaryFilter(secondaryFilter)
+        dashboardViewModel.reviewFilterMode = reviewMode
+        let resolvedSearch = searchText ?? ""
+        navigation.searchText = resolvedSearch
+        dashboardViewModel.updateSearchText(resolvedSearch)
+    }
+
+    private func navigateToFolder(_ url: URL) {
+        let standardizedPath = url.standardizedFileURL.path
+        let folderService = BookmarkFolderService.shared
+
+        if let matchedFolder = folderService.availableFolders.first(where: { $0.path == standardizedPath }) {
+            let location = FolderLocation.from(bookmarkFolderType: matchedFolder.folderType)
+            navigateToFolder(location, searchText: nil, secondaryFilter: .none, reviewMode: .needsReview)
+        } else {
+            navigation.select(.home)
+            dashboardViewModel.selectFolder(.home)
+            dashboardViewModel.setSecondaryFilter(.none)
+            dashboardViewModel.reviewFilterMode = .needsReview
+            navigation.searchText = url.lastPathComponent
+            dashboardViewModel.updateSearchText(url.lastPathComponent)
+        }
+    }
+
+    private func navigationSelection(for folder: FolderLocation) -> NavigationSelection {
+        switch folder {
+        case .home:
+            return .home
+        case .desktop:
+            return .desktop
+        case .downloads:
+            return .downloads
+        case .documents:
+            return .documents
+        case .pictures:
+            return .pictures
+        case .music:
+            return .music
+        }
     }
 }
 

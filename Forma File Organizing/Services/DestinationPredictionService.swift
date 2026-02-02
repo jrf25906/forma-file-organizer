@@ -75,6 +75,22 @@ final class DestinationPredictionService {
     
     /// Learning service for feature extraction
     private let learningService: LearningService
+
+    /// Destination resolver for bookmark-backed predictions
+    private let destinationResolver = DestinationResolver()
+
+    /// Context detection for project cluster features
+    private let contextDetectionService = ContextDetectionService()
+
+    /// Cached training counts for explanation text
+    private var trainingCountCache: [String: Int] = [:]
+    private var trainingCountCacheDate: Date?
+    private let trainingCountCacheTTL: TimeInterval = 300
+
+    /// Cached project cluster lookup by file path
+    private var clusterLookupCache: [String: String] = [:]
+    private var clusterLookupCacheDate: Date?
+    private let clusterLookupTTL: TimeInterval = 300
     
     // MARK: - Initialization
     
@@ -98,6 +114,20 @@ final class DestinationPredictionService {
         context: PredictionContext,
         negativePatterns: [LearnedPattern] = []
     ) async -> PredictedDestination? {
+        await predictDestination(
+            for: file,
+            context: context,
+            negativePatterns: negativePatterns,
+            projectCluster: nil
+        )
+    }
+
+    private func predictDestination(
+        for file: FileItem,
+        context: PredictionContext,
+        negativePatterns: [LearnedPattern],
+        projectCluster: String?
+    ) async -> PredictedDestination? {
         // Check feature flag
         guard FeatureFlagService.shared.isEnabled(.destinationPrediction) else {
             return nil
@@ -113,7 +143,7 @@ final class DestinationPredictionService {
         }
         
         // Extract features
-        let features = extractFeatures(from: file)
+        let features = extractFeatures(from: file, projectCluster: projectCluster)
         
         // Run prediction
         guard let (predictedPath, confidence, top2Confidence) = try? await predict(
@@ -159,12 +189,17 @@ final class DestinationPredictionService {
         // Record prediction shown
         predictionStats.recordPrediction()
         
+        let resolvedDisplayName = displayNameForPath(predictedPath)
+        let placeholderDestination = Destination.folder(bookmark: Data(), displayName: resolvedDisplayName)
+        let resolvedDestination = destinationResolver.resolveIfExists(placeholderDestination)
+
         return PredictedDestination(
             path: predictedPath,
             confidence: confidence,
             source: .mlPrediction,
             explanation: explanation,
-            modelVersion: currentModelVersion ?? "unknown"
+            modelVersion: currentModelVersion ?? "unknown",
+            bookmarkData: resolvedDestination?.bookmarkData
         )
     }
 
@@ -176,6 +211,7 @@ final class DestinationPredictionService {
         let category: String
         let sourceFolder: String
         let timeBucket: String
+        let projectCluster: String?
     }
 
     /// Predict destinations for multiple files with caching for similar files.
@@ -193,16 +229,20 @@ final class DestinationPredictionService {
     ) async -> [String: PredictedDestination] {
         guard mlEnabled && context.mlEnabled else { return [:] }
 
+        let clusterMap = clusterLookup(for: files)
+
         // Group files by cache key (similar characteristics get same prediction)
         var filesByKey: [PredictionCacheKey: [FileItem]] = [:]
         let timeBucket = generateTimeBucket(date: Date())
 
         for file in files {
+            let projectCluster = clusterMap[file.path]
             let key = PredictionCacheKey(
                 fileExtension: file.fileExtension,
                 category: FileTypeCategory.category(for: file.fileExtension).rawValue,
                 sourceFolder: file.location.rawValue,
-                timeBucket: timeBucket
+                timeBucket: timeBucket,
+                projectCluster: projectCluster
             )
             filesByKey[key, default: []].append(file)
         }
@@ -228,7 +268,8 @@ final class DestinationPredictionService {
             let prediction = await predictDestination(
                 for: representative,
                 context: context,
-                negativePatterns: negativePatterns
+                negativePatterns: negativePatterns,
+                projectCluster: key.projectCluster
             )
 
             // Cache the result
@@ -571,10 +612,11 @@ final class DestinationPredictionService {
     // MARK: - Feature Extraction
     
     /// Extract features from a FileItem for prediction.
-    private func extractFeatures(from file: FileItem) -> DestinationFeatures {
+    private func extractFeatures(from file: FileItem, projectCluster: String? = nil) -> DestinationFeatures {
         let keywords = extractKeywords(from: file.name)
         let category = FileTypeCategory.category(for: file.fileExtension).rawValue
         let timeBucket = generateTimeBucket(date: Date())
+        let resolvedCluster = projectCluster ?? projectClusterIdentifier(for: file)
         
         return DestinationFeatures(
             fileExtension: file.fileExtension,
@@ -582,7 +624,7 @@ final class DestinationPredictionService {
             fileTypeCategory: category,
             timeBucket: timeBucket,
             sourceFolder: file.location.rawValue,
-            projectCluster: nil // TODO: integrate with ContextDetectionService
+            projectCluster: resolvedCluster
         )
     }
     
@@ -621,6 +663,48 @@ final class DestinationPredictionService {
         
         return "\(timeLabel)_hour_\(hour)"
     }
+
+    // MARK: - Context Detection
+
+    private func projectClusterIdentifier(for file: FileItem) -> String? {
+        refreshClusterLookupIfNeeded()
+        return clusterLookupCache[file.path]
+    }
+
+    private func refreshClusterLookupIfNeeded() {
+        if let lastUpdate = clusterLookupCacheDate,
+           Date().timeIntervalSince(lastUpdate) < clusterLookupTTL {
+            return
+        }
+
+        let descriptor = FetchDescriptor<ProjectCluster>(
+            predicate: #Predicate<ProjectCluster> { !$0.isDismissed && !$0.isOrganized }
+        )
+        let clusters = (try? modelContext.fetch(descriptor)) ?? []
+        clusterLookupCache = buildClusterLookup(from: clusters)
+        clusterLookupCacheDate = Date()
+    }
+
+    private func clusterLookup(for files: [FileItem]) -> [String: String] {
+        let detectedClusters = contextDetectionService.detectClusters(from: files)
+        if !detectedClusters.isEmpty {
+            return buildClusterLookup(from: detectedClusters)
+        }
+
+        refreshClusterLookupIfNeeded()
+        return clusterLookupCache
+    }
+
+    private func buildClusterLookup(from clusters: [ProjectCluster]) -> [String: String] {
+        var lookup: [String: String] = [:]
+        for cluster in clusters {
+            let identifier = cluster.detectedPattern ?? cluster.suggestedFolderName
+            for path in cluster.filePaths {
+                lookup[path] = identifier
+            }
+        }
+        return lookup
+    }
     
     // MARK: - Prediction
     
@@ -654,19 +738,20 @@ final class DestinationPredictionService {
         features: DestinationFeatures
     ) -> PredictionExplanation {
         let ext = file.fileExtension.uppercased()
-        let count = Int.random(in: 10...25) // TODO: compute actual count from training data
+        let count = trainingCount(for: predictedPath, fileExtension: file.fileExtension)
+        let countLabel = count > 0 ? "\(count)" : "several"
         
         var reasons: [String] = []
         
         // Primary reason based on extension
-        reasons.append("Based on \(count) similar \(ext) files")
+        reasons.append("Based on \(countLabel) similar \(ext) files")
         
         // Add keyword if present
         if let keyword = features.nameKeywords.first {
             reasons.append("File name contains '\(keyword)'")
         }
         
-        let summary = "Similar to \(count) past \(ext) files you moved to \(abbreviatePath(predictedPath))"
+        let summary = "Similar to \(countLabel) past \(ext) files you moved to \(abbreviatePath(predictedPath))"
         
         return PredictionExplanation(
             summary: summary,
@@ -676,6 +761,59 @@ final class DestinationPredictionService {
     }
     
     private func abbreviatePath(_ path: String) -> String {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        if path.hasPrefix(homeDir) {
+            return "~" + path.dropFirst(homeDir.count)
+        }
+        return path
+    }
+
+    private func displayNameForPath(_ path: String) -> String {
+        if path.hasPrefix("~/") {
+            return String(path.dropFirst(2))
+        }
+
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        if path.hasPrefix(homeDir) {
+            let trimmed = path.dropFirst(homeDir.count)
+            return trimmed.hasPrefix("/") ? String(trimmed.dropFirst()) : String(trimmed)
+        }
+
+        return path.hasPrefix("/") ? String(path.dropFirst()) : path
+    }
+
+    private func trainingCount(for predictedPath: String, fileExtension: String) -> Int {
+        refreshTrainingCountCacheIfNeeded()
+        let normalizedPath = normalizePredictionPath(predictedPath)
+        let key = trainingCountCacheKey(extension: fileExtension, destinationPath: normalizedPath)
+        return trainingCountCache[key, default: 0]
+    }
+
+    private func refreshTrainingCountCacheIfNeeded() {
+        if let lastUpdate = trainingCountCacheDate,
+           Date().timeIntervalSince(lastUpdate) < trainingCountCacheTTL {
+            return
+        }
+
+        let descriptor = FetchDescriptor<ActivityItem>()
+        let activities = (try? modelContext.fetch(descriptor)) ?? []
+        let records = learningService.makeTrainingRecords(from: activities)
+        var counts: [String: Int] = [:]
+
+        for record in records {
+            let key = trainingCountCacheKey(extension: record.fileExtension, destinationPath: record.destinationPath)
+            counts[key, default: 0] += 1
+        }
+
+        trainingCountCache = counts
+        trainingCountCacheDate = Date()
+    }
+
+    private func trainingCountCacheKey(extension fileExtension: String, destinationPath: String) -> String {
+        "\(fileExtension.lowercased())|\(destinationPath)"
+    }
+
+    private func normalizePredictionPath(_ path: String) -> String {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
         if path.hasPrefix(homeDir) {
             return "~" + path.dropFirst(homeDir.count)

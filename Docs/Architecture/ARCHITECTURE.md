@@ -1,7 +1,7 @@
 # Forma - System Architecture
 
 **Version:** 2.0
-**Last Updated:** 2026-01-06
+**Last Updated:** 2026-02-02
 **Status:** Current Implementation
 
 ---
@@ -935,7 +935,8 @@ final class ProjectCluster {
 final class LearnedPattern {
     var id: UUID
     var conditions: [PatternCondition]  // Multi-condition support
-    var destination: String
+    var destination: Destination?       // Bookmark-backed destination (encoded)
+    var destinationPath: String          // Display path (legacy/analytics)
     var confidence: Double
     var occurrences: Int
     var lastSeen: Date

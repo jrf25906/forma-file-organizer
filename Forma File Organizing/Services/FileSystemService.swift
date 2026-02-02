@@ -83,7 +83,14 @@ class FileSystemService: FileSystemServiceProtocol {
 
     /// Initialize FileSystemService and perform one-time migration of bookmarks from UserDefaults to Keychain
     init() {
-        migrationState = migrateBookmarksToKeychain()
+        let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let isUITesting = CommandLine.arguments.contains("--uitesting")
+        if isRunningTests || isUITesting {
+            // Avoid Keychain work and prompts during tests.
+            migrationState = BookmarkMigrationState.success(migratedKeys: [])
+        } else {
+            migrationState = migrateBookmarksToKeychain()
+        }
     }
     
     /// Returns the current migration state (loads from disk if not in memory)

@@ -136,6 +136,19 @@ struct BookmarkFolder: Identifiable, Equatable, Hashable {
         }
     }
 
+    /// Whether this folder is excluded from automation actions.
+    /// Stored in UserDefaults since it's a user preference.
+    var isExcludedFromAutomation: Bool {
+        get {
+            let key = "BookmarkFolder.excludeAutomation.\(bookmarkKey)"
+            return UserDefaults.standard.bool(forKey: key)
+        }
+        set {
+            let key = "BookmarkFolder.excludeAutomation.\(bookmarkKey)"
+            UserDefaults.standard.set(newValue, forKey: key)
+        }
+    }
+
     // MARK: - Initialization
 
     /// Creates a BookmarkFolder for a standard folder type.

@@ -46,7 +46,7 @@ final class NaturalLanguageRuleViewModelTests: XCTestCase {
         vm.parsedRule = parsed
 
         XCTAssertFalse(vm.canApplyToEditor)
-        // Preview may still hide if there is nothing useful to show
-        XCTAssertFalse(vm.shouldShowPreview)
+        // Preview can still show when there is partial intent (action present)
+        XCTAssertTrue(vm.shouldShowPreview)
     }
 }

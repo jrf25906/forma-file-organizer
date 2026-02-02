@@ -228,8 +228,14 @@ final class DashboardFileScanProvider: FileScanProvider {
             }
         }
 
-        // TODO: Check if source folder is excluded from automation
-        // This would require BookmarkFolder.excludeFromAutomation property
+        // Check if source folder is excluded from automation
+        if let folderType = file.location.bookmarkFolderType {
+            let folder = BookmarkFolder(folderType: folderType)
+            if folder.isExcludedFromAutomation {
+                Log.debug("DashboardFileScanProvider: File '\(file.name)' - source folder excluded from automation", category: .automation)
+                return false
+            }
+        }
 
         return true
     }
@@ -253,4 +259,3 @@ final class DashboardFileScanProvider: FileScanProvider {
         }
     }
 }
-

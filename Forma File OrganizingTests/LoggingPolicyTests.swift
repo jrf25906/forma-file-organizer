@@ -4,10 +4,15 @@ import XCTest
 final class LoggingPolicyTests: XCTestCase {
 
     func testNoPrintCallsInServicesOrViewModels() throws {
-        // Derive the project root from this test file's location.
-        let thisFileURL = URL(fileURLWithPath: #file)
-        let testsDirectory = thisFileURL.deletingLastPathComponent()
-        let projectRoot = testsDirectory.deletingLastPathComponent()
+        // Derive the project root from this test file's location or SRCROOT.
+        let projectRoot: URL
+        if let srcRoot = ProcessInfo.processInfo.environment["SRCROOT"] {
+            projectRoot = URL(fileURLWithPath: srcRoot)
+        } else {
+            let thisFileURL = URL(fileURLWithPath: #filePath)
+            let testsDirectory = thisFileURL.deletingLastPathComponent()
+            projectRoot = testsDirectory.deletingLastPathComponent()
+        }
         let appRoot = projectRoot.appendingPathComponent("Forma File Organizing")
 
         let servicesDir = appRoot.appendingPathComponent("Services")

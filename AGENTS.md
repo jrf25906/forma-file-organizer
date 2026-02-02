@@ -10,6 +10,7 @@
 - Build (Debug): `xcodebuild -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -configuration Debug build`
 - Run in Xcode: `open "Forma File Organizing.xcodeproj"` then `⌘R` on the `Forma File Organizing` scheme.
 - Tests (macOS destination): `xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS'`
+- Tests (macOS destination, skip UI tests while investigating UI runner hang): `xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS' -skip-testing:"Forma File OrganizingUITests"`
 - Clean: `xcodebuild clean -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing"` (deep clean: remove DerivedData if build artifacts misbehave).
 
 ## Coding Style & Naming Conventions

@@ -6,9 +6,16 @@ import SwiftData
 struct ProductivityReportView: View {
     @StateObject private var viewModel: ProductivityReportViewModel
     @Namespace private var periodAnimation
+    @Environment(\.openSettings) private var openSettings
 
-    init(modelContext: ModelContext) {
-        _viewModel = StateObject(wrappedValue: ProductivityReportViewModel(modelContext: modelContext))
+    init(modelContext: ModelContext, navigation: NavigationViewModel, dashboardViewModel: DashboardViewModel) {
+        _viewModel = StateObject(
+            wrappedValue: ProductivityReportViewModel(
+                modelContext: modelContext,
+                navigation: navigation,
+                dashboardViewModel: dashboardViewModel
+            )
+        )
     }
 
     var body: some View {
@@ -48,6 +55,7 @@ struct ProductivityReportView: View {
         }
         .background(Color.clear) // Allow unified window glass to show through
         .onAppear {
+            viewModel.configureOpenSettings(openSettings)
             viewModel.onAppear()
         }
         .onChange(of: viewModel.selectedPeriod) { _, _ in

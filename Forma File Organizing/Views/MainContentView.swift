@@ -142,6 +142,23 @@ struct MainContentView: View {
                 handleKeyEvent(event)
             }
             .frame(width: 0, height: 0)
+
+            #if DEBUG
+            if isUITesting {
+                uiTestShortcutHandlers
+                Group {
+                    if dashboardViewModel.editingDestinationFile != nil {
+                        Color.clear
+                            .accessibilityIdentifier("editDestinationSheet")
+                    }
+                    if nav.isShowingRuleEditor {
+                        Color.clear
+                            .accessibilityIdentifier("ruleEditorView")
+                    }
+                }
+                .frame(width: 0, height: 0)
+            }
+            #endif
             
         } // End VStack
         
@@ -200,7 +217,7 @@ struct MainContentView: View {
                         totalFiles: dashboardViewModel.selectedFiles.count,
                         progress: dashboardViewModel.bulkOperationProgress,
                         onCancel: {
-                            // TODO: Implement cancellation logic
+                            dashboardViewModel.cancelBulkOperation()
                             dashboardViewModel.deselectAll()
                         }
                     )
@@ -226,11 +243,20 @@ struct MainContentView: View {
         .onChange(of: nav.searchText) { _, newValue in
             dashboardViewModel.updateSearchText(newValue)
         }
-        .sheet(item: $dashboardViewModel.editingDestinationFile) { file in
-            EditDestinationSheet(file: file) { newDestination in
-                dashboardViewModel.updateDestination(for: file, to: newDestination)
+        .sheet(isPresented: Binding(
+            get: { dashboardViewModel.editingDestinationFile != nil },
+            set: { isPresented in
+                if !isPresented {
+                    dashboardViewModel.editingDestinationFile = nil
+                }
             }
-            .accessibilityIdentifier("editDestinationSheet")
+        )) {
+            if let file = dashboardViewModel.editingDestinationFile {
+                EditDestinationSheet(file: file) { newDestination in
+                    dashboardViewModel.updateDestination(for: file, to: newDestination)
+                }
+                .accessibilityIdentifier("editDestinationSheet")
+            }
         }
         // Phase 2: Bulk Edit Sheet
         .sheet(isPresented: $dashboardViewModel.showBulkEditSheet) {
@@ -309,7 +335,8 @@ struct MainContentView: View {
     
     private func handleKeyEvent(_ event: NSEvent) -> Bool {
         // Ignore if text input is focused (except maybe Cmd shortcuts, but for now ignore all to be safe)
-        if let window = NSApp.keyWindow,
+        if !isUITesting,
+           let window = NSApp.keyWindow,
            let responder = window.firstResponder as? NSView,
            responder is NSTextView || responder is NSTextField {
             return false
@@ -317,23 +344,25 @@ struct MainContentView: View {
         
         let command = event.modifierFlags.contains(.command)
         let keyCode = event.keyCode
-        let chars = event.charactersIgnoringModifiers ?? ""
+        let chars = event.charactersIgnoringModifiers ?? event.characters ?? ""
+        let lowercasedChars = chars.lowercased()
+        let isReturnKey = keyCode == 36 || keyCode == 76 || chars == "\r" || chars == "\n" || chars == "\u{3}"
         
         // Cmd+Enter: organize and move focus to next
-        if command && keyCode == 36 { // Return
+        if command && isReturnKey { // Return / keypad Enter
             dashboardViewModel.organizeFocusedFile(context: modelContext)
             dashboardViewModel.focusNextFile()
             return true
         }
 
         // Cmd+K: Open command palette
-        if command && chars.lowercased() == "k" {
+        if command && lowercasedChars == "k" {
             showCommandPalette = true
             return true
         }
 
         // Enter: organize focused file
-        if keyCode == 36 { // Return
+        if isReturnKey { // Return / keypad Enter
             dashboardViewModel.organizeFocusedFile(context: modelContext)
             return true
         }
@@ -345,31 +374,43 @@ struct MainContentView: View {
         }
         
         // Navigation: Down / J, Up / K
-        if keyCode == 125 || chars.lowercased() == "j" { // Down arrow or J
+        if keyCode == 125 || lowercasedChars == "j" { // Down arrow or J
             dashboardViewModel.focusNextFile()
             return true
         }
-        if keyCode == 126 || chars.lowercased() == "k" { // Up arrow or K
+        if keyCode == 126 || lowercasedChars == "k" { // Up arrow or K
             dashboardViewModel.focusPreviousFile()
             return true
         }
         
         // S: Skip
-        if chars.lowercased() == "s" {
+        if lowercasedChars == "s" {
             dashboardViewModel.skipFocusedFile()
             return true
         }
         
         // E: Edit destination (stubbed)
-        if chars.lowercased() == "e" {
-            dashboardViewModel.editDestinationForFocusedFile()
+        if lowercasedChars == "e" || keyCode == 14 {
+            Task { @MainActor in
+                if let focusedPath = dashboardViewModel.focusedFilePath,
+                   let focused = dashboardViewModel.visibleFiles.first(where: { $0.path == focusedPath }) {
+                    dashboardViewModel.beginEditingDestination(for: focused)
+                } else if let first = dashboardViewModel.visibleFiles.first {
+                    dashboardViewModel.beginEditingDestination(for: first)
+                } else {
+                    dashboardViewModel.editDestinationForFocusedFile()
+                }
+            }
             return true
         }
         
         // R: Create/View rule from focused file
-        if chars.lowercased() == "r" {
-            if let focusedPath = dashboardViewModel.focusedFilePath {
-                if let focused = dashboardViewModel.visibleFiles.first(where: { $0.path == focusedPath }) {
+        if lowercasedChars == "r" || keyCode == 15 {
+            Task { @MainActor in
+                let focused = dashboardViewModel.focusedFilePath
+                    .flatMap { path in dashboardViewModel.visibleFiles.first(where: { $0.path == path }) }
+                    ?? dashboardViewModel.visibleFiles.first
+                if let focused {
                     nav.ruleEditorFileContext = focused
                     withAnimation(.easeInOut(duration: 0.2)) {
                         nav.isShowingRuleEditor = true
@@ -387,6 +428,55 @@ struct MainContentView: View {
         
         return false
     }
+
+    private var isUITesting: Bool {
+        CommandLine.arguments.contains("--uitesting") ||
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
+    #if DEBUG
+    private var uiTestShortcutHandlers: some View {
+        Group {
+            Button("") {
+                dashboardViewModel.organizeFocusedFile(context: modelContext)
+            }
+            .keyboardShortcut(.return, modifiers: [])
+            .hidden()
+
+            Button("") {
+                dashboardViewModel.organizeFocusedFile(context: modelContext)
+                dashboardViewModel.focusNextFile()
+            }
+            .keyboardShortcut(.return, modifiers: .command)
+            .hidden()
+
+            Button("") {
+                if let focusedPath = dashboardViewModel.focusedFilePath,
+                   let focused = dashboardViewModel.visibleFiles.first(where: { $0.path == focusedPath }) {
+                    dashboardViewModel.beginEditingDestination(for: focused)
+                } else if let first = dashboardViewModel.visibleFiles.first {
+                    dashboardViewModel.beginEditingDestination(for: first)
+                }
+            }
+            .keyboardShortcut("e", modifiers: [])
+            .hidden()
+
+            Button("") {
+                let focused = dashboardViewModel.focusedFilePath
+                    .flatMap { path in dashboardViewModel.visibleFiles.first(where: { $0.path == path }) }
+                    ?? dashboardViewModel.visibleFiles.first
+                if let focused {
+                    nav.ruleEditorFileContext = focused
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        nav.isShowingRuleEditor = true
+                    }
+                }
+            }
+            .keyboardShortcut("r", modifiers: [])
+            .hidden()
+        }
+    }
+    #endif
     
     // MARK: - Hover Preview Helpers (Phase 4)
     private func handleThumbnailHover(file: FileItem?, event: NSEvent?) {

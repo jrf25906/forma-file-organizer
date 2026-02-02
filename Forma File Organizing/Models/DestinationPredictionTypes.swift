@@ -125,6 +125,12 @@ struct PredictedDestination: Equatable, Sendable {
     /// When present, allows direct file operations without additional user prompts.
     /// When nil, the prediction is informational only (user must approve destination access).
     var bookmarkData: Data?
+
+    /// Convenience access to a unified Destination when a bookmark is available.
+    var destination: Destination? {
+        guard let bookmarkData = bookmarkData else { return nil }
+        return .folder(bookmark: bookmarkData, displayName: path)
+    }
 }
 
 // MARK: - Prediction Context

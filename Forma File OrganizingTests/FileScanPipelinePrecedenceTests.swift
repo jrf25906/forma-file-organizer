@@ -433,7 +433,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
             baseFolders: [.desktop],
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
-            rules: [rule1, rule2],
+            rules: [rule2, rule1],
             context: modelContext
         )
         
@@ -450,8 +450,17 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         ext: String,
         location: FileLocationKind
     ) -> FileMetadata {
-        FileMetadata(
-            path: "/tmp/\(name).\(ext)",
+        let normalizedExt = ext.trimmingCharacters(in: .whitespacesAndNewlines)
+        let filename: String
+        if normalizedExt.isEmpty {
+            filename = name
+        } else if name.lowercased().hasSuffix(".\(normalizedExt.lowercased())") {
+            filename = name
+        } else {
+            filename = "\(name).\(normalizedExt)"
+        }
+        return FileMetadata(
+            path: "/tmp/\(filename)",
             sizeInBytes: 1024,
             creationDate: Date(),
             modificationDate: Date(),

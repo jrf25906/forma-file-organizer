@@ -198,6 +198,50 @@ func testWithContext() async throws {
 }
 ```
 
+---
+
+## UI Tests (macOS)
+
+UI/UI automation tests live in `Forma File OrganizingUITests/`.
+
+**Run full suite (including UI tests):**
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS'
+```
+
+**Run CLI tests while UI runner hang is being investigated:**
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS' -skip-testing:"Forma File OrganizingUITests"
+```
+
+### UI Test Runner Hang (Troubleshooting)
+
+If the UI test runner hangs before establishing a connection, it is usually a local
+Automation/Accessibility permission issue. Recommended checks:
+
+1. **System Settings → Privacy & Security → Accessibility**
+   - Enable Xcode and `xcodebuild` if listed.
+2. **System Settings → Privacy & Security → Automation**
+   - Allow Xcode to control System Events.
+3. **Relaunch Xcode and rerun tests** to refresh TCC prompts.
+
+If the hang persists, collect the `.xcresult` bundle and note any prompts or logs
+at launch time.
+
+---
+
+## Static Analysis (Planned: Periphery)
+
+Periphery is recommended for unused-code detection beyond manual review.
+
+**Suggested evaluation steps:**
+1. Run `Scripts/periphery.sh` locally (requires Periphery) and review candidates.
+2. Add a baseline file once false positives are understood (e.g., `PeripheryBaseline.json`).
+3. In CI, prefer conservative flags (e.g., `--retain-public`) to avoid churn.
+
+If the initial run is noisy, keep the baseline in version control and
+revisit once the cleanup backlog is reduced.
+
 ### ⚠️ Swift 6 Actor-Isolated Deinit Pitfall
 
 **Problem**: Tests crash instantly (0.000 seconds) with `signal abrt` and memory corruption errors like `POINTER_BEING_FREED_WAS_NOT_ALLOCATED` when testing classes that are stored inside `@MainActor` types.

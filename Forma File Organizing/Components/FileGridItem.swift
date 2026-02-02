@@ -185,6 +185,8 @@ struct FileGridItem: View {
         .animation(reduceMotion ? .none : .spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: isHovered)
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.15), value: isSelected)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("fileRow_\(file.name)")
     }
 
     // MARK: - Background
@@ -376,4 +378,3 @@ private struct HoverActionOverlay: View {
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 }
-
