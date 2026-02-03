@@ -273,7 +273,7 @@ private struct DestinationBadge: View {
 
                 // Compact confidence indicator
                 if let confidence = file.confidenceScore {
-                    CompactConfidenceDot(score: confidence)
+                    ConfidenceDot(score: confidence, matchReason: file.matchReason)
                 }
             }
         } else {
@@ -289,33 +289,5 @@ private struct DestinationBadge: View {
                 )
                 .opacity(isHovered ? 1 : 0)
         }
-    }
-}
-
-// MARK: - Compact Confidence Dot
-
-/// Ultra-compact confidence indicator for list view - shows color-coded dot with tooltip
-private struct CompactConfidenceDot: View {
-    let score: Double
-
-    private var config: (color: Color, label: String) {
-        if score >= 0.9 {
-            return (.formaSage, "High Confidence (\(Int(score * 100))%)")
-        } else if score >= 0.6 {
-            return (.formaSteelBlue, "Medium Confidence (\(Int(score * 100))%)")
-        } else {
-            return (.formaWarmOrange, "Low Confidence (\(Int(score * 100))%)")
-        }
-    }
-
-    var body: some View {
-        Circle()
-            .fill(config.color)
-            .frame(width: 8, height: 8)
-            .overlay(
-                Circle()
-                    .strokeBorder(config.color.opacity(Color.FormaOpacity.overlay), lineWidth: 1)
-            )
-            .help(config.label)
     }
 }

@@ -217,7 +217,7 @@ struct RuleEditorView: View {
                                 .foregroundColor(.orange)
                                 .font(.system(size: 14))
 
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 6) {
                                 Text("Destination may not work")
                                     .font(.formaCaption)
                                     .fontWeight(.medium)
@@ -227,6 +227,13 @@ struct RuleEditorView: View {
                                     .font(.formaCaption)
                                     .foregroundColor(.formaSecondaryLabel)
                                     .fixedSize(horizontal: false, vertical: true)
+
+                                Button(action: { showFolderPicker = true }) {
+                                    Text("Select Folder")
+                                        .font(.formaCaptionSemibold)
+                                        .foregroundColor(.formaSteelBlue)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         .padding(FormaSpacing.standard)

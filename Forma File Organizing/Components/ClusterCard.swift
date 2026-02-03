@@ -120,7 +120,7 @@ struct ClusterCard: View {
     }
 }
 
-// Note: Using ConfidenceBadge from FileRow.swift - removed duplicate definition
+// Note: Using shared ConfidenceBadge - removed duplicate definition
 
 // MARK: - Preview
 

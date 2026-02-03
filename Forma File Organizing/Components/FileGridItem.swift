@@ -111,6 +111,8 @@ struct FileGridItem: View {
                     GridDestinationBadge(
                         hasDestination: hasDestination,
                         destinationName: destinationName,
+                        confidenceScore: file.confidenceScore,
+                        matchReason: file.matchReason,
                         isHovered: isHovered
                     )
                     .opacity(isHovered ? 0 : 1)
@@ -263,24 +265,32 @@ struct FileGridItem: View {
 private struct GridDestinationBadge: View {
     let hasDestination: Bool
     let destinationName: String
+    let confidenceScore: Double?
+    let matchReason: String?
     let isHovered: Bool
 
     var body: some View {
         if hasDestination {
             HStack(spacing: FormaSpacing.micro) {
-                Image(systemName: "arrow.right")
-                    .font(.formaMicro)
-                Text(destinationName)
-                    .font(.formaCaptionSemibold)
-                    .lineLimit(1)
+                HStack(spacing: FormaSpacing.micro) {
+                    Image(systemName: "arrow.right")
+                        .font(.formaMicro)
+                    Text(destinationName)
+                        .font(.formaCaptionSemibold)
+                        .lineLimit(1)
+                }
+                .foregroundColor(Color.formaSteelBlue)
+                .padding(.horizontal, FormaSpacing.tight)
+                .padding(.vertical, FormaSpacing.micro)
+                .background(
+                    Capsule()
+                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+                )
+
+                if let confidenceScore = confidenceScore {
+                    ConfidenceDot(score: confidenceScore, matchReason: matchReason)
+                }
             }
-            .foregroundColor(Color.formaSteelBlue)
-            .padding(.horizontal, FormaSpacing.tight)
-            .padding(.vertical, FormaSpacing.micro)
-            .background(
-                Capsule()
-                    .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
-            )
         } else {
             // Only show "Uncategorized" on hover - reduces visual noise
             Text("Uncategorized")

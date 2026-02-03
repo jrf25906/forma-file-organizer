@@ -34,6 +34,8 @@ class RuleEngine {
 
     /// Cache of resolved destinations to avoid repeated resolution attempts
     private var resolvedDestinationCache: [String: Destination] = [:]
+    /// Cache of unresolvable destinations to avoid repeated warnings per batch
+    private var unresolvableDestinationCache: Set<String> = []
 
     // MARK: - Public API
 
@@ -73,6 +75,11 @@ class RuleEngine {
                         let cacheKey = ruleDestination.displayName
                         Log.debug("RuleEngine: destination '\(cacheKey)' needs resolution (bookmarkData is nil)", category: .pipeline)
 
+                        if unresolvableDestinationCache.contains(cacheKey) {
+                            Log.debug("RuleEngine: skipping cached unresolvable destination '\(cacheKey)'", category: .pipeline)
+                            continue
+                        }
+
                         // Check cache first
                         if let cachedDestination = resolvedDestinationCache[cacheKey] {
                             Log.debug("RuleEngine: found cached resolution for '\(cacheKey)'", category: .pipeline)
@@ -87,6 +94,7 @@ class RuleEngine {
                             // Resolution failed - skip this rule
                             Log.debug("RuleEngine: failed to resolve '\(cacheKey)' - skipping rule", category: .pipeline)
                             Log.warning("RuleEngine: Rule '\(rule.conditionsSummary)' matched but has unresolvable placeholder destination '\(ruleDestination.displayName)' - grant folder access or configure in rule settings", category: .pipeline)
+                            unresolvableDestinationCache.insert(cacheKey)
                             continue
                         }
                     } else {
@@ -130,6 +138,8 @@ class RuleEngine {
     ///   - rules: The list of rules to check against (must conform to Ruleable).
     /// - Returns: An array of updated file objects.
     func evaluateFiles<F: Fileable, R: Ruleable>(_ files: [F], rules: [R]) -> [F] {
+        // Clear per-batch unresolvable cache so we re-check on each scan
+        unresolvableDestinationCache.removeAll()
         return files.map { evaluateFile($0, rules: rules) }
     }
     

@@ -7,6 +7,8 @@ struct RuleManagementCard: View {
     let onEdit: () -> Void
     let onDelete: () -> Void
     let onToggle: () -> Void
+
+    private let destinationResolver = DestinationResolver()
     
     @State private var showingDeleteConfirmation = false
     @State private var isHovered = false
@@ -67,6 +69,33 @@ struct RuleManagementCard: View {
         case .delete: return "trash.fill"
         }
     }
+
+    private var destinationWarning: DestinationResolver.ResolvabilityStatus? {
+        guard rule.actionType != .delete,
+              let destination = rule.destination else {
+            return nil
+        }
+
+        let status = destinationResolver.checkResolvability(destination)
+        if case .unresolvable = status {
+            return status
+        }
+        return nil
+    }
+
+    private var destinationWarningMessage: String? {
+        guard let destinationWarning else { return nil }
+        switch destinationWarning {
+        case .unresolvable(let reason):
+            return reason
+        default:
+            return nil
+        }
+    }
+
+    private var destinationTextColor: Color {
+        destinationWarning == nil ? .formaSecondaryLabel : .formaWarmOrange
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -91,7 +120,7 @@ struct RuleManagementCard: View {
                     Text(rule.name)
                         .font(.formaBodyBold)
                         .foregroundColor(rule.isEnabled ? .formaObsidian : .formaSecondaryLabel)
-                    
+
                     if !rule.isEnabled {
                         Text("Disabled")
                             .font(.system(size: 9, weight: .bold))
@@ -101,6 +130,18 @@ struct RuleManagementCard: View {
                             .padding(.vertical, 2)
                             .background(Color.formaControlBackground)
                             .cornerRadius(4)
+                    }
+
+                    if let warningMessage = destinationWarningMessage {
+                        Text("Needs Access")
+                            .font(.system(size: 9, weight: .bold))
+                            .textCase(.uppercase)
+                            .foregroundColor(.formaWarmOrange)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.formaWarmOrange.opacity(0.15))
+                            .cornerRadius(4)
+                            .help(warningMessage)
                     }
                 }
                 
@@ -116,10 +157,16 @@ struct RuleManagementCard: View {
                     Image(systemName: actionIcon)
                         .font(.formaCompact)
                         .foregroundColor(.formaSecondaryLabel)
-                    
+
+                    if destinationWarningMessage != nil {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(.formaWarmOrange)
+                    }
+
                     Text(rule.actionType == .delete ? "Delete" : rule.destinationDisplayText)
                         .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(destinationTextColor)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }

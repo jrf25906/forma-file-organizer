@@ -39,31 +39,13 @@ struct FileRow: View {
     // MARK: - Primary Action Configuration
     // Unified terminology: "Organize" when destination exists, "Set Destination" when it doesn't
     // The status pill shows file state, so button label stays consistent
-    private var primaryActionConfig: (label: String, icon: String, color: Color, action: () -> Void) {
-        if file.destination != nil {
-            // Has destination - always show "Organize" (status pill explains if confirmation needed)
-            return (
-                "Organize",
-                "checkmark.circle.fill",
-                file.status == .ready ? .formaSage : .formaSteelBlue,
-                {
-                    if file.status == .ready {
-                        onOrganize(file)
-                    } else {
-                        // Opens destination editor for confirmation
-                        onEditDestination?(file)
-                    }
-                }
-            )
-        } else {
-            // No destination - clear action label
-            return (
-                "Set Destination",
-                "folder.badge.plus",
-                .formaSteelBlue,
-                { onCreateRule?(file) }
-            )
-        }
+    private var primaryActionConfig: FileRowActionConfig {
+        FileRowActionConfig.resolve(
+            file: file,
+            onOrganize: onOrganize,
+            onEditDestination: onEditDestination,
+            onCreateRule: onCreateRule
+        )
     }
 
     // Helper function for intelligent path truncation
@@ -352,6 +334,44 @@ struct FileRow: View {
     }
 }
 
+// MARK: - Primary Action Resolver (Testable)
+
+struct FileRowActionConfig {
+    let label: String
+    let icon: String
+    let color: Color
+    let action: () -> Void
+
+    static func resolve(
+        file: FileItem,
+        onOrganize: @escaping (FileItem) -> Void,
+        onEditDestination: ((FileItem) -> Void)?,
+        onCreateRule: ((FileItem) -> Void)?
+    ) -> FileRowActionConfig {
+        if file.destination != nil {
+            return FileRowActionConfig(
+                label: "Organize",
+                icon: "checkmark.circle.fill",
+                color: file.status == .ready ? .formaSage : .formaSteelBlue,
+                action: {
+                    if file.status == .ready {
+                        onOrganize(file)
+                    } else {
+                        onEditDestination?(file)
+                    }
+                }
+            )
+        }
+
+        return FileRowActionConfig(
+            label: "Set Destination",
+            icon: "folder.badge.plus",
+            color: .formaSteelBlue,
+            action: { onCreateRule?(file) }
+        )
+    }
+}
+
 
 // MARK: - Primary Action Button (Pill Style)
 
@@ -403,68 +423,6 @@ struct PrimaryActionButton: View {
                 .onChanged { _ in isPressed = true }
                 .onEnded { _ in isPressed = false }
         )
-    }
-}
-
-// MARK: - Confidence Badge Component
-
-struct ConfidenceBadge: View {
-    let score: Double
-    let matchReason: String?
-    var showsChevron: Bool = false
-    var isExpanded: Bool = false
-    
-    @State private var isHovered = false
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
-    
-    private var confidenceLevel: (label: String, icon: String, color: Color) {
-        if score >= 0.9 {
-            return ("High", "checkmark.shield.fill", .formaSage)
-        } else if score >= 0.6 {
-            return ("Medium", "checkmark.circle.fill", .formaSteelBlue)
-        } else {
-            return ("Low", "exclamationmark.triangle.fill", .formaWarmOrange)
-        }
-    }
-    
-    var body: some View {
-        HStack(spacing: 3) {
-            Image(systemName: confidenceLevel.icon)
-                .font(.formaCaptionSemibold)
-            Text(confidenceLevel.label)
-                .font(.formaCaptionSemibold)
-
-            if showsChevron {
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.formaCaptionSemibold)
-            }
-        }
-        .foregroundStyle(confidenceLevel.color)
-        .padding(.horizontal, FormaSpacing.tight)
-        .padding(.vertical, FormaSpacing.micro)
-        .background(
-            Capsule()
-                .fill(confidenceLevel.color.opacity(Color.FormaOpacity.light))
-        )
-        .overlay(
-            Capsule()
-                .strokeBorder(confidenceLevel.color.opacity(isHovered ? Color.FormaOpacity.overlay : Color.FormaOpacity.medium), lineWidth: 1)
-        )
-        .scaleEffect(isHovered ? 1.05 : 1.0)
-        .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.8), value: isHovered)
-        .animation(reduceMotion ? nil : .spring(response: 0.2, dampingFraction: 0.8), value: isExpanded)
-        .help(showsChevron ? "Tap to \(isExpanded ? "hide" : "show") details" : tooltipText)
-        .onHover { hovering in
-            isHovered = hovering
-        }
-    }
-    
-    private var tooltipText: String {
-        var text = "Confidence: \(confidenceLevel.label) (\(Int(score * 100))%)"
-        if let reason = matchReason, !reason.isEmpty {
-            text += "\n\n\(reason)"
-        }
-        return text
     }
 }
 

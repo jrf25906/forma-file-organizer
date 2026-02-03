@@ -26,8 +26,10 @@ struct RulesManagementView: View {
     @State private var searchText = ""
     @State private var selectedCategoryID: UUID? // nil = "All" tab
     @State private var showManageCategories = false
+    @State private var filterNeedsAccessOnly = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Namespace private var categoryTabNamespace
+    private let destinationResolver = DestinationResolver()
 
     /// Rules filtered by search text and selected category
     var filteredRules: [Rule] {
@@ -36,6 +38,10 @@ struct RulesManagementView: View {
         // Filter by category if one is selected
         if let categoryID = selectedCategoryID {
             rules = rules.filter { $0.category?.id == categoryID }
+        }
+
+        if filterNeedsAccessOnly {
+            rules = rules.filter { needsAccess($0) }
         }
 
         // Filter by search text
@@ -55,6 +61,10 @@ struct RulesManagementView: View {
 
     var totalEnabledCount: Int {
         allRules.filter(\.isEnabled).count
+    }
+
+    private var needsAccessCount: Int {
+        allRules.filter { needsAccess($0) }.count
     }
     
     var body: some View {
@@ -124,6 +134,12 @@ struct RulesManagementView: View {
                 }
             }
             .padding(FormaSpacing.generous)
+
+            if needsAccessCount > 0 {
+                needsAccessBanner
+                    .padding(.horizontal, FormaSpacing.generous)
+                    .padding(.bottom, FormaSpacing.standard)
+            }
 
             Divider()
                 .opacity(0.5)
@@ -259,6 +275,83 @@ struct RulesManagementView: View {
             .buttonStyle(.plain)
             .padding(.leading, 4)
         }
+    }
+
+    // MARK: - Access Warnings
+
+    private func needsAccess(_ rule: Rule) -> Bool {
+        guard rule.actionType != .delete,
+              let destination = rule.destination else {
+            return false
+        }
+
+        let status = destinationResolver.checkResolvability(destination)
+        if case .unresolvable = status {
+            return true
+        }
+        return false
+    }
+
+    private var needsAccessBanner: some View {
+        HStack(alignment: .center, spacing: FormaSpacing.standard) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.formaBodySemibold)
+                .foregroundColor(.formaWarmOrange)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    FormaBadge(
+                        text: "\(needsAccessCount)",
+                        color: .formaWarmOrange,
+                        size: .small,
+                        style: .subtle
+                    )
+                    Text(needsAccessCount == 1 ? "rule needs folder access" : "rules need folder access")
+                        .font(.formaSmallSemibold)
+                        .foregroundColor(.formaObsidian)
+                }
+
+                Text("Review these rules to select accessible destinations.")
+                    .font(.formaCaption)
+                    .foregroundColor(.formaSecondaryLabel)
+            }
+
+            Spacer()
+
+            Button(action: {
+                if filterNeedsAccessOnly {
+                    filterNeedsAccessOnly = false
+                } else {
+                    filterNeedsAccessOnly = true
+                    selectedCategoryID = nil
+                    searchText = ""
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: filterNeedsAccessOnly ? "xmark.circle.fill" : "arrow.right")
+                        .font(.formaCaptionSemibold)
+                    Text(filterNeedsAccessOnly ? "Show All" : "Review")
+                        .font(.formaCaptionSemibold)
+                }
+                .foregroundColor(.formaWarmOrange)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light))
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(Color.formaWarmOrange.opacity(Color.FormaOpacity.overlay), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(FormaSpacing.standard)
+        .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.ultraSubtle))
+        .cornerRadius(FormaRadius.card)
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .stroke(Color.formaWarmOrange.opacity(Color.FormaOpacity.light), lineWidth: 1)
+        )
     }
 
     private func rulesInCategory(_ category: RuleCategory) -> Int {
