@@ -294,7 +294,13 @@ class RuleService: ObservableObject {
     // MARK: - Private Helpers
 
     private func updateRuleCount() {
-        ruleCount = (try? fetchRules().count) ?? 0
+        let previousCount = ruleCount
+        do {
+            ruleCount = try fetchRules().count
+        } catch {
+            Log.warning("RuleService: Failed to fetch rule count: \(error.localizedDescription)", category: .analytics)
+            ruleCount = previousCount
+        }
     }
     
     /// Seeds the database with a set of default rules if none exist.

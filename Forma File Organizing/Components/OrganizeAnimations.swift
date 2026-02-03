@@ -8,8 +8,6 @@ import AppKit  // For NSSound
 @MainActor
 final class FormaSoundEffects {
     static let shared = FormaSoundEffects()
-    private var player: AVAudioPlayer?
-    
     private init() {}
     
     /// Play a subtle "swoosh" sound when organizing files

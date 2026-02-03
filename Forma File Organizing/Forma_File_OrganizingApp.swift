@@ -32,19 +32,7 @@ struct Forma_File_OrganizingApp: App {
         _services = StateObject(wrappedValue: appServices)
         _dashboardViewModel = StateObject(wrappedValue: DashboardViewModel(services: appServices))
 
-        // Check if running tests (Unit Tests)
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
-            // Create an in-memory container for testing to avoid side effects and crashes
-            do {
-                let modelConfiguration = ModelConfiguration(schema: Self.appSchema, isStoredInMemoryOnly: true)
-                container = try ModelContainer(for: Self.appSchema, configurations: [modelConfiguration])
-            } catch {
-                fatalError("Could not create Test ModelContainer: \(error)")
-            }
-            return
-        }
-        
-        // Check if running UI Tests
+        // Check if running UI Tests (take precedence over XCTestConfigurationFilePath)
         if ProcessInfo.processInfo.arguments.contains("--uitesting") {
             do {
                 let modelConfiguration = ModelConfiguration(schema: Self.appSchema, isStoredInMemoryOnly: true)
@@ -63,6 +51,18 @@ struct Forma_File_OrganizingApp: App {
                 }
             } catch {
                 fatalError("Could not create UI Test ModelContainer: \(error)")
+            }
+            return
+        }
+
+        // Check if running tests (Unit Tests)
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            // Create an in-memory container for testing to avoid side effects and crashes
+            do {
+                let modelConfiguration = ModelConfiguration(schema: Self.appSchema, isStoredInMemoryOnly: true)
+                container = try ModelContainer(for: Self.appSchema, configurations: [modelConfiguration])
+            } catch {
+                fatalError("Could not create Test ModelContainer: \(error)")
             }
             return
         }
@@ -127,7 +127,13 @@ struct Forma_File_OrganizingApp: App {
             if FileManager.default.fileExists(atPath: storeURL.path) {
                 do {
                     // Remove old backup if exists
-                    try? FileManager.default.removeItem(at: backupURL)
+                    if FileManager.default.fileExists(atPath: backupURL.path) {
+                        do {
+                            try FileManager.default.removeItem(at: backupURL)
+                        } catch {
+                            Log.warning("Failed to remove existing backup: \(error.localizedDescription)", category: .general)
+                        }
+                    }
                     // Create new backup
                     try FileManager.default.copyItem(at: storeURL, to: backupURL)
                     Log.info("Created backup at: \(backupURL.path)", category: .general)
@@ -137,7 +143,11 @@ struct Forma_File_OrganizingApp: App {
             }
             
             // Try to delete the old store
-            try? FileManager.default.removeItem(at: storeURL)
+            do {
+                try FileManager.default.removeItem(at: storeURL)
+            } catch {
+                Log.warning("Failed to remove old store: \(error.localizedDescription)", category: .general)
+            }
             
             // Try again with a fresh store
             do {

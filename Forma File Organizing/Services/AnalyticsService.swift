@@ -42,7 +42,15 @@ extension AnalyticsService {
         )
         existingDescriptor.fetchLimit = 1
 
-        if let existing = try? modelContext.fetch(existingDescriptor), !existing.isEmpty {
+        let existing: [StorageSnapshot]
+        do {
+            existing = try modelContext.fetch(existingDescriptor)
+        } catch {
+            Log.error("AnalyticsService: Failed to fetch existing snapshots: \(error.localizedDescription)", category: .analytics)
+            return
+        }
+
+        if !existing.isEmpty {
             return
         }
 

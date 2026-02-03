@@ -109,6 +109,15 @@ private struct FilterChip: View {
 // MARK: - SecondaryFilter Extensions
 
 extension SecondaryFilter {
+    var displayName: String {
+        switch self {
+        case .none: return "All"
+        case .recent: return "Recent"
+        case .largeFiles: return "Large Files"
+        case .flagged: return "Flagged"
+        }
+    }
+
     var iconName: String {
         switch self {
         case .none: return "line.3.horizontal.decrease"

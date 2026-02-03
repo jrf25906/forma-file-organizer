@@ -10,7 +10,6 @@ struct DefaultPanelView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allPatterns: [LearnedPattern]
     @State private var insights: [FileInsight] = []
-    @State private var isStorageExpanded: Bool = false
     @State private var showAllInsights: Bool = false
     @State private var dismissedInsightIDs: Set<String> = []
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -307,14 +306,6 @@ struct DefaultPanelView: View {
         }
     }
 
-    // MARK: - Secondary Actions (scrolling)
-    // NOTE: Create Rule button removed - duplicate of sidebar button (both call showRuleBuilderPanel)
-    // NOTE: Review Files link removed - duplicate of Pending toggle in toolbar
-
-    private var secondaryActionsSection: some View {
-        EmptyView()
-    }
-
     // MARK: - Automation Status Section (v1.5 - Promoted to status bar)
 
     @ViewBuilder
@@ -487,10 +478,6 @@ struct DefaultPanelView: View {
 
     private var organizedFilesCount: Int {
         dashboardViewModel.allFiles.filter { $0.status == .completed }.count
-    }
-
-    private var readyFilesCount: Int {
-        dashboardViewModel.filteredFiles.filter { $0.status == .ready }.count
     }
 
     private var urgentFilesCount: Int {

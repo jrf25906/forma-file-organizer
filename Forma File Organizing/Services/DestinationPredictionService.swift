@@ -32,12 +32,6 @@ final class DestinationPredictionService {
     /// Minimum distinct destinations required
     private let minimumDestinations = 3
     
-    /// Minimum examples per destination for it to be suggested
-    private let minimumExamplesPerDestination = 10
-    
-    /// Cold-start threshold: enable inline predictions above this threshold
-    private let inlinePredictionThreshold = 200
-    
     /// Accuracy threshold for accepting a trained model
     private let minimumAccuracy = 0.7
     
@@ -46,9 +40,6 @@ final class DestinationPredictionService {
     
     /// Minimum confidence difference between correct and incorrect predictions
     private let minimumConfidenceSeparation = 0.15
-    
-    /// Default minimum confidence for showing predictions
-    private let defaultMinimumConfidence = 0.7
     
     /// Confidence margin required between top-1 and top-2
     private let confidenceMargin = 0.15
@@ -91,13 +82,21 @@ final class DestinationPredictionService {
     private var clusterLookupCache: [String: String] = [:]
     private var clusterLookupCacheDate: Date?
     private let clusterLookupTTL: TimeInterval = 300
+
+    /// Prediction engine for CoreML (or test stubs)
+    private let predictionEngine: PredictionEngine
     
     // MARK: - Initialization
     
-    init(modelContext: ModelContext, learningService: LearningService? = nil) {
+    init(
+        modelContext: ModelContext,
+        learningService: LearningService? = nil,
+        predictionEngine: PredictionEngine = CoreMLPredictionEngine()
+    ) {
         self.modelContext = modelContext
         // Create LearningService here in @MainActor context, not in default parameter
         self.learningService = learningService ?? LearningService()
+        self.predictionEngine = predictionEngine
     }
     
     // MARK: - Public API
@@ -136,22 +135,37 @@ final class DestinationPredictionService {
         // Check if ML is enabled
         guard mlEnabled && context.mlEnabled else { return nil }
         
-        // Ensure model is loaded
-        guard let model = try? await loadModel() else {
-            Log.debug("No model available for prediction", category: .analytics)
-            return nil
+        let model: MLModel?
+        if predictionEngine.requiresModel {
+            do {
+                model = try await loadModel()
+            } catch {
+                Log.warning("DestinationPredictionService: Failed to load model: \(error.localizedDescription)", category: .analytics)
+                return nil
+            }
+        } else {
+            do {
+                model = try await loadModel()
+            } catch {
+                Log.debug("DestinationPredictionService: Optional model load failed: \(error.localizedDescription)", category: .analytics)
+                model = nil
+            }
         }
         
         // Extract features
         let features = extractFeatures(from: file, projectCluster: projectCluster)
         
         // Run prediction
-        guard let (predictedPath, confidence, top2Confidence) = try? await predict(
-            features: features,
-            model: model
-        ) else {
+        let outcome: PredictionOutcome
+        do {
+            outcome = try await predictionEngine.predict(features: features, model: model)
+        } catch {
+            Log.warning("DestinationPredictionService: Prediction failed for \(file.name): \(error.localizedDescription)", category: .analytics)
             return nil
         }
+        let predictedPath = outcome.label
+        let confidence = outcome.confidence
+        let top2Confidence = outcome.top2Confidence
         
         // Apply confidence gating
         guard confidence >= context.minimumConfidence else {
@@ -706,28 +720,6 @@ final class DestinationPredictionService {
         return lookup
     }
     
-    // MARK: - Prediction
-    
-    /// Run prediction and extract top-2 results.
-    private func predict(
-        features: DestinationFeatures,
-        model: MLModel
-    ) async throws -> (predicted: String, confidence: Double, top2Confidence: Double?) {
-        let input = try MLDictionaryFeatureProvider(dictionary: ["text": features.combinedText()])
-        let prediction = try await model.prediction(from: input)
-        
-        guard let predictedLabel = prediction.featureValue(for: "label")?.stringValue,
-              let probabilities = prediction.featureValue(for: "labelProbability")?.dictionaryValue as? [String: Double] else {
-            throw PredictionError.predictionFailed
-        }
-        
-        let sorted = probabilities.sorted { $0.value > $1.value }
-        let top1 = sorted.first?.value ?? 0.0
-        let top2 = sorted.count > 1 ? sorted[1].value : nil
-        
-        return (predictedLabel, top1, top2)
-    }
-    
     // MARK: - Explanation Generation
     
     /// Generate human-readable explanation for a prediction.
@@ -872,7 +864,6 @@ final class DestinationPredictionService {
         private var predictionCount = 0
         private var acceptedCount = 0
         private var overriddenCount = 0
-        private var dismissedCount = 0
         private let windowSize = 100
         
         mutating func recordPrediction() {

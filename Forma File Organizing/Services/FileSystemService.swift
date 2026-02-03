@@ -122,7 +122,7 @@ class FileSystemService: FileSystemServiceProtocol {
         #endif
 
         do {
-            try SecureBookmarkStore.migrateFromUserDefaults(keys: allBookmarkKeys)
+            try BookmarkStoreProvider.shared.migrateFromUserDefaults(keys: allBookmarkKeys)
             
             // Migration succeeded
             let state = BookmarkMigrationState.success(migratedKeys: allBookmarkKeys)
@@ -185,7 +185,7 @@ class FileSystemService: FileSystemServiceProtocol {
     /// SECURITY: Uses Keychain-based SecureBookmarkStore instead of UserDefaults
     private func getFolderURL(folderName: String, bookmarkKey: String) async throws -> URL {
         // Try to load saved bookmark first from secure Keychain storage
-        if let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: bookmarkKey) {
+        if let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: bookmarkKey) {
             var isStale = false
             do {
                 let url = try URL(
@@ -201,7 +201,7 @@ class FileSystemService: FileSystemServiceProtocol {
                     guard url.lastPathComponent.lowercased() == folderName.lowercased() else {
                         // Bookmark mismatch - invalidate it to prevent unauthorized access
                         do {
-                            try SecureBookmarkStore.deleteBookmark(forKey: bookmarkKey)
+                            try BookmarkStoreProvider.shared.deleteBookmark(forKey: bookmarkKey)
                         } catch {
                             Log.error("Failed to delete bookmark '\(bookmarkKey)': \(error.localizedDescription)", category: .bookmark)
                         }
@@ -220,7 +220,7 @@ class FileSystemService: FileSystemServiceProtocol {
                     guard standardizedURLPath.hasPrefix(standardizedHomePath) else {
                         // Bookmark points outside home directory - invalidate it
                         do {
-                            try SecureBookmarkStore.deleteBookmark(forKey: bookmarkKey)
+                            try BookmarkStoreProvider.shared.deleteBookmark(forKey: bookmarkKey)
                         } catch {
                             Log.error("Failed to delete bookmark '\(bookmarkKey)': \(error.localizedDescription)", category: .bookmark)
                         }
@@ -235,7 +235,7 @@ class FileSystemService: FileSystemServiceProtocol {
             } catch {
                 // Bookmark is invalid or validation failed, need to request access again
                 do {
-                    try SecureBookmarkStore.deleteBookmark(forKey: bookmarkKey)
+                    try BookmarkStoreProvider.shared.deleteBookmark(forKey: bookmarkKey)
                 } catch {
                     Log.error("Failed to delete bookmark '\(bookmarkKey)' after validation error: \(error.localizedDescription)", category: .bookmark)
                 }
@@ -286,7 +286,7 @@ class FileSystemService: FileSystemServiceProtocol {
                             relativeTo: nil
                         )
                         // Use SecureBookmarkStore instead of UserDefaults
-                        try SecureBookmarkStore.saveBookmark(bookmarkData, forKey: bookmarkKey)
+                        try BookmarkStoreProvider.shared.saveBookmark(bookmarkData, forKey: bookmarkKey)
                         continuation.resume(returning: url)
                     } catch {
                         continuation.resume(throwing: FormaError.fileSystem(.ioError("Failed to save bookmark for \(folderName)", underlying: error)))
@@ -406,26 +406,13 @@ class FileSystemService: FileSystemServiceProtocol {
         }
     }
 
-    /// Formats file size in a human-readable format
-    private func formatFileSize(_ bytes: Int64) -> String {
-        // Handle zero bytes specially to avoid "Zero bytes" output
-        if bytes == 0 {
-            return "0 bytes"
-        }
-
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useBytes, .useKB, .useMB, .useGB]
-        formatter.countStyle = .binary  // Use binary (1024-based) calculations
-        return formatter.string(fromByteCount: bytes)
-    }
-
     // MARK: - Reset Functions
 
     /// Resets the saved Desktop folder bookmark (useful for troubleshooting)
     /// SECURITY: Now removes from Keychain instead of UserDefaults
     func resetDesktopAccess() {
         do {
-            try SecureBookmarkStore.deleteBookmark(forKey: desktopBookmarkKey)
+            try BookmarkStoreProvider.shared.deleteBookmark(forKey: desktopBookmarkKey)
         } catch {
             Log.error("Failed to delete bookmark '\(desktopBookmarkKey)': \(error.localizedDescription)", category: .bookmark)
         }
@@ -434,7 +421,7 @@ class FileSystemService: FileSystemServiceProtocol {
     /// Resets the saved Downloads folder bookmark (useful for troubleshooting)
     func resetDownloadsAccess() {
         do {
-            try SecureBookmarkStore.deleteBookmark(forKey: downloadsBookmarkKey)
+            try BookmarkStoreProvider.shared.deleteBookmark(forKey: downloadsBookmarkKey)
         } catch {
             Log.error("Failed to delete bookmark '\(downloadsBookmarkKey)': \(error.localizedDescription)", category: .bookmark)
         }
@@ -443,7 +430,7 @@ class FileSystemService: FileSystemServiceProtocol {
     /// Resets the saved Documents folder bookmark (useful for troubleshooting)
     func resetDocumentsAccess() {
         do {
-            try SecureBookmarkStore.deleteBookmark(forKey: documentsBookmarkKey)
+            try BookmarkStoreProvider.shared.deleteBookmark(forKey: documentsBookmarkKey)
         } catch {
             Log.error("Failed to delete bookmark '\(documentsBookmarkKey)': \(error.localizedDescription)", category: .bookmark)
         }
@@ -455,12 +442,12 @@ class FileSystemService: FileSystemServiceProtocol {
         resetDownloadsAccess()
         resetDocumentsAccess()
         do {
-            try SecureBookmarkStore.deleteBookmark(forKey: picturesBookmarkKey)
+            try BookmarkStoreProvider.shared.deleteBookmark(forKey: picturesBookmarkKey)
         } catch {
             Log.error("Failed to delete bookmark '\(picturesBookmarkKey)': \(error.localizedDescription)", category: .bookmark)
         }
         do {
-            try SecureBookmarkStore.deleteBookmark(forKey: musicBookmarkKey)
+            try BookmarkStoreProvider.shared.deleteBookmark(forKey: musicBookmarkKey)
         } catch {
             Log.error("Failed to delete bookmark '\(musicBookmarkKey)': \(error.localizedDescription)", category: .bookmark)
         }
@@ -594,7 +581,7 @@ class FileSystemService: FileSystemServiceProtocol {
     /// Checks if we have valid access to a folder bookmark
     /// SECURITY: Now checks Keychain via SecureBookmarkStore
     private func hasAccess(key: String) -> Bool {
-        guard let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: key) else { return false }
+        guard let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: key) else { return false }
 
         var isStale = false
         do {
@@ -614,7 +601,7 @@ class FileSystemService: FileSystemServiceProtocol {
             guard standardizedURLPath.hasPrefix(standardizedHomePath) else {
                 // Invalid bookmark - remove it
                 do {
-                    try SecureBookmarkStore.deleteBookmark(forKey: key)
+                    try BookmarkStoreProvider.shared.deleteBookmark(forKey: key)
                 } catch {
                     Log.error("Failed to delete bookmark '\(key)': \(error.localizedDescription)", category: .bookmark)
                 }

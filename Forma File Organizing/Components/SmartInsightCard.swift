@@ -21,15 +21,6 @@ struct SmartInsightCard: View {
         }
     }
 
-    private var backgroundColor: Color {
-        switch insight.category {
-        case .celebration:
-            return Color.formaSoftGreen.opacity(0.08)
-        default:
-            return Color.formaControlBackground
-        }
-    }
-
     var body: some View {
         HStack(alignment: .top, spacing: FormaSpacing.standard) {
             // Icon
@@ -132,14 +123,6 @@ struct SmartInsightCard: View {
         }
     }
 
-    private var borderColor: Color {
-        switch insight.category {
-        case .celebration:
-            return Color.formaSoftGreen.opacity(0.3)
-        default:
-            return Color.formaSeparator.opacity(Color.FormaOpacity.overlay)
-        }
-    }
 }
 
 // MARK: - Insight List

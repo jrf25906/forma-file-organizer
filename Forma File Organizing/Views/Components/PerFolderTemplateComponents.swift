@@ -40,17 +40,17 @@ struct FolderTemplateSelection: Codable, Equatable {
     /// Storage key for persisting selections
     static let storageKey = "onboardingFolderTemplateSelection"
 
-    func save() {
+    func save(to defaults: UserDefaults = .standard) {
         do {
             let encoded = try JSONEncoder().encode(self)
-            UserDefaults.standard.set(encoded, forKey: Self.storageKey)
+            defaults.set(encoded, forKey: Self.storageKey)
         } catch {
             Log.warning("FolderTemplateSelection: Failed to encode template selection - \(error.localizedDescription)", category: .general)
         }
     }
 
-    static func load() -> FolderTemplateSelection {
-        guard let data = UserDefaults.standard.data(forKey: storageKey) else {
+    static func load(from defaults: UserDefaults = .standard) -> FolderTemplateSelection {
+        guard let data = defaults.data(forKey: storageKey) else {
             return FolderTemplateSelection()
         }
 
@@ -427,8 +427,6 @@ struct FolderTemplateStepView: View {
     let personality: OrganizationPersonality?
     let onContinue: () -> Void
     let onBack: () -> Void
-
-    @State private var useGlobalTemplate = false
 
     private var selectedFolders: [OnboardingFolder] {
         var folders: [OnboardingFolder] = []

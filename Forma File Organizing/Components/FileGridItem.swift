@@ -22,8 +22,6 @@ struct FileGridItem: View {
 
     // MARK: - Constants
 
-    // Card dimensions per Enhanced Card Catalog spec
-    private let cardWidth: CGFloat = 200
     private let cardHeight: CGFloat = 260
     private let cornerRadius: CGFloat = FormaRadius.large
     private let categoryBorderWidth: CGFloat = 3
@@ -44,11 +42,6 @@ struct FileGridItem: View {
     /// Images get larger thumbnails (130px vs 120px)
     private var thumbnailSize: CGFloat {
         isImageFile ? 130 : 120
-    }
-
-    /// Images get tighter padding for more visual presence
-    private var thumbnailPadding: CGFloat {
-        isImageFile ? FormaSpacing.standard - FormaSpacing.micro : FormaSpacing.standard  // 12px vs 16px
     }
 
     // MARK: - Computed Properties

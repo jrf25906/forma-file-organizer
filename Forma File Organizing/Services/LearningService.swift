@@ -23,9 +23,6 @@ class LearningService {
     /// Minimum occurrences required to form a pattern
     private let minimumOccurrences = 3
 
-    /// Minimum confidence score for pattern suggestion
-    private let minimumConfidence = 0.5
-
     /// Common file name prefixes that indicate distinct categories
     private let significantPrefixes = [
         "Invoice", "Receipt", "Screenshot", "Photo", "IMG", "DSC", "VID",

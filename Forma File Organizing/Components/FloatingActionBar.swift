@@ -69,15 +69,6 @@ struct FloatingActionBar: View {
         }
     }
 
-    private var compactPrimaryButtonLabel: String {
-        switch mode {
-        case .selection:
-            return "Organize"
-        case .review:
-            return "Organize"
-        }
-    }
-    
     var body: some View {
         HStack(spacing: 0) {
             // Left: Folder icon + status

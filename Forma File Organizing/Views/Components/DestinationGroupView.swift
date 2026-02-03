@@ -49,23 +49,6 @@ struct DestinationGroupView: View {
         files.reduce(0) { $0 + $1.sizeInBytes }
     }
     
-    private var averageConfidence: Double {
-        let scores = files.compactMap { $0.confidenceScore }
-        guard !scores.isEmpty else { return 0 }
-        return scores.reduce(0, +) / Double(scores.count)
-    }
-    
-    private var computedConfidenceInfo: (label: String, color: Color) {
-        let score = averageConfidence
-        if score >= 0.9 {
-            return ("High Confidence", .formaSage)
-        } else if score >= 0.6 {
-            return ("Medium Confidence", .formaSteelBlue)
-        } else {
-            return ("Low Confidence", .formaWarmOrange)
-        }
-    }
-    
     var body: some View {
         VStack(spacing: 0) {
             // Group Header

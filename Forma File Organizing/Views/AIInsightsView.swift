@@ -725,7 +725,6 @@ class AIInsightsViewModel: ObservableObject {
     @Published var mlModelMetadata: DestinationModelMetadata?
     @Published var mlEnabled = true
 
-    private let duplicateService = DuplicateDetectionService()
     private var refreshTask: Task<Void, Never>?
 
     func refreshInsights() {

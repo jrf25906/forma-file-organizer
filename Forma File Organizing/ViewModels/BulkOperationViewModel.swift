@@ -54,7 +54,6 @@ class BulkOperationViewModel: ObservableObject {
 
     // MARK: - Private State
 
-    private var cancellables = Set<AnyCancellable>()
     private var cancelRequested = false
 
     // MARK: - Initialization

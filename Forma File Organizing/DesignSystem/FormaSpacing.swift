@@ -92,11 +92,6 @@ enum FormaSpacing {
         static let topOffset: CGFloat = 20
     }
 
-    /// Responsive breakpoints
-    struct Breakpoints {
-        /// Toolbar compression threshold - below this width, toolbar enters compact mode
-        static let compactWidth: CGFloat = 600
-    }
 }
 
 // MARK: - Spacing View Modifiers

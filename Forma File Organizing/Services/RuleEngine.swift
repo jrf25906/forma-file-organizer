@@ -329,11 +329,6 @@ class RuleEngine {
         return matchesCondition(file: file, condition: typedCondition)
     }
     
-    /// Deprecated: use ByteSizeFormatterUtil.parse instead.
-    private func parseSizeString(_ sizeString: String) -> Int64 {
-        return (try? ByteSizeFormatterUtil.parse(sizeString)) ?? 0
-    }
-    
     /// Checks if a file extension matches a file kind category
     private func matchesFileKind(extension fileExtension: String, kind: String) -> Bool {
         let ext = fileExtension.lowercased()
@@ -458,11 +453,6 @@ class RuleEngine {
         case .not(let inner):
             return "NOT (\(conditionDescription(for: inner)))"
         }
-    }
-
-    /// Deprecated: use ByteSizeFormatterUtil.format instead.
-    private func formatBytes(_ bytes: Int64) -> String {
-        return ByteSizeFormatterUtil.format(bytes)
     }
 
     // MARK: - Category Scope Validation

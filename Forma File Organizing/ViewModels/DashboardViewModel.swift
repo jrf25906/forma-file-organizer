@@ -63,8 +63,6 @@ class DashboardViewModel: ObservableObject {
     private let fileOperationsService = FileOperationsService()
     private let notificationService: NotificationService
     private let quickLookService: QuickLookService
-    private let learningService = LearningService()
-    private let contextDetectionService = ContextDetectionService()
     private let insightsService: InsightsService
     private let contentSearchService = ContentSearchService.shared
 
@@ -156,7 +154,8 @@ class DashboardViewModel: ObservableObject {
             let descriptor = FetchDescriptor<FileItem>(
                 sortBy: [SortDescriptor(\.creationDate, order: .reverse)]
             )
-            let files = (try? context.fetch(descriptor)) ?? FileItem.uiTestMocks
+            let fetchedFiles = (try? context.fetch(descriptor)) ?? []
+            let files = fetchedFiles.isEmpty ? FileItem.uiTestMocks : fetchedFiles
             filterViewModel.searchText = ""
             filterViewModel.selectedCategory = .all
             filterViewModel.selectedSecondaryFilter = .none

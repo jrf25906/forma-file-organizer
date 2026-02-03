@@ -28,7 +28,6 @@ struct FileRow: View {
 
     @State private var isHovered = false
     @State private var showQuickLookHint = false
-    @State private var showActions = false
     @State private var showReasoning = false
     @State private var isDestinationHovered = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -255,14 +254,6 @@ struct FileRow: View {
     }
 
     // MARK: - Computed Styles
-
-    private var ageContextText: String {
-        let age = Date().timeIntervalSince(file.creationDate)
-        if age > 2592000 { return "Over 30 days old" } // 30 days
-        if age > 604800 { return "Over 7 days old" }   // 7 days
-        if age > 86400 { return "Yesterday" }
-        return "New today"
-    }
 
     /// Compact age display: "32d", "7d", "1d", "today"
     private var compactAgeText: String {

@@ -38,8 +38,6 @@ class AnalyticsDashboardViewModel: ObservableObject {
 
     // MARK: - Private State
 
-    private var cancellables = Set<AnyCancellable>()
-
     // MARK: - Initialization
 
     init(

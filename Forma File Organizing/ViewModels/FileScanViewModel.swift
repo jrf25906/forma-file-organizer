@@ -42,8 +42,6 @@ class FileScanViewModel: ObservableObject {
     // MARK: - Private State
 
     private var rules: [Rule] = []
-    private var cancellables = Set<AnyCancellable>()
-
     // MARK: - Initialization
 
     init(

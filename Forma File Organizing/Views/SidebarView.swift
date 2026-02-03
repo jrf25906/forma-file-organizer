@@ -232,36 +232,6 @@ struct SidebarView: View {
         .padding(.vertical, FormaSpacing.tight)
     }
 
-    // MARK: - Add Location Button
-
-    @ViewBuilder
-    private var addLocationButton: some View {
-        Button(action: { addNewLocation() }) {
-            HStack(spacing: FormaSpacing.standard) {
-                Image(systemName: "plus")
-                    .font(.formaCompactSemibold)
-                    .foregroundColor(Color.formaSecondaryLabel)
-                    .frame(width: 20)
-
-                Text("Add Location")
-                    .font(.formaBody)
-                Spacer()
-            }
-            .foregroundColor(Color.formaSecondaryLabel)
-            .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
-            .padding(.vertical, FormaSpacing.tight)
-            .background(
-                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                    .strokeBorder(
-                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
-                    )
-                    .foregroundColor(Color.formaSecondaryLabel.opacity(Color.FormaOpacity.strong))
-            )
-        }
-        .buttonStyle(.plain)
-        .disabled(isAddingFolder)
-    }
-
     // MARK: - Folder Management Actions
 
     private func addNewLocation() {
@@ -294,7 +264,7 @@ struct SidebarView: View {
                         includingResourceValuesForKeys: nil,
                         relativeTo: nil
                     )
-                    try SecureBookmarkStore.saveBookmark(bookmarkData, forKey: folderType.bookmarkKey)
+                    try BookmarkStoreProvider.shared.saveBookmark(bookmarkData, forKey: folderType.bookmarkKey)
                     folderService.refresh()
 
                     // Auto-select the newly added folder

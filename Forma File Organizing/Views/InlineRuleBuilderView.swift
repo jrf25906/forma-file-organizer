@@ -39,18 +39,12 @@ struct InlineRuleBuilderView: View {
     @State private var isLoadingPreview: Bool = false
     @State private var previewTask: Task<Void, Never>?
     @State private var showFolderPicker: Bool = false
-    @State private var showConditionForm: Bool = false
     @State private var showDeleteConfirmation: Bool = false
 
     // Overlap detection state
     @State private var detectedOverlaps: [RuleOverlapDetector.RuleOverlap] = []
     @State private var showOverlapWarning: Bool = false
     @State private var pendingRuleForSave: Rule?
-
-    // Create category popover state
-    @State private var showCreateCategoryPopover: Bool = false
-    @State private var newCategoryName: String = ""
-    @State private var newCategoryColor: Color = .formaSteelBlue
 
     // Natural language rule creation
     @StateObject private var naturalLanguageViewModel = NaturalLanguageRuleViewModel()
@@ -455,112 +449,6 @@ struct InlineRuleBuilderView: View {
         message += "\n\nYou can undo individual deletions, but this action affects files automatically."
 
         return message
-    }
-
-    // MARK: - Category Picker Section
-
-    /// Compact category picker using horizontal pill selection
-    private var categoryPickerSection: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-            Text("Category")
-                .font(.formaBodySemibold)
-                .tracking(0.5)
-                .foregroundColor(.formaSecondaryLabel)
-
-            if sortedCategories.isEmpty {
-                // Fallback text when categories haven't loaded yet
-                Text("Loading categories...")
-                    .font(.formaCaption)
-                    .foregroundColor(.formaSecondaryLabel)
-                    .padding(.vertical, FormaSpacing.tight)
-            } else {
-                // Horizontal scroll of category pills with create button
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: FormaSpacing.tight) {
-                        ForEach(sortedCategories) { category in
-                            CategoryPill(
-                                category: category,
-                                isSelected: formState.categoryID == category.id,
-                                textFont: .formaCompactMedium,
-                                action: {
-                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                                        // Toggle: deselect if already selected (reverts to General)
-                                        if formState.categoryID == category.id && !category.isDefault {
-                                            // Find and select the default category
-                                            if let defaultCategory = sortedCategories.first(where: { $0.isDefault }) {
-                                                formState.categoryID = defaultCategory.id
-                                            } else {
-                                                formState.categoryID = nil
-                                            }
-                                        } else {
-                                            formState.categoryID = category.id
-                                        }
-                                    }
-                                }
-                            )
-                        }
-
-                        // Create Category button - perfect circle, same height as pills
-                        inlineCreateCategoryButton
-                    }
-                    .padding(.vertical, FormaSpacing.micro / 2)
-                }
-            }
-        }
-        .id("category-section")
-    }
-
-    /// Subtle circular button to create a new category
-    private var inlineCreateCategoryButton: some View {
-        Button(action: {
-            newCategoryName = ""
-            newCategoryColor = .formaSteelBlue
-            showCreateCategoryPopover = true
-        }) {
-            Image(systemName: "plus")
-                .font(.formaSmall)
-                .foregroundColor(Color.formaSecondaryLabel)
-                .frame(width: 28, height: 28)
-                .background(
-                    Circle()
-                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
-                )
-                .overlay(
-                    Circle()
-                        .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.overlay), lineWidth: 1)
-                )
-        }
-        .buttonStyle(.plain)
-        .help("Create new category")
-        .popover(isPresented: $showCreateCategoryPopover, arrowEdge: .bottom) {
-            CreateCategoryPopover(
-                name: $newCategoryName,
-                color: $newCategoryColor,
-                onSave: saveNewCategory,
-                onCancel: { showCreateCategoryPopover = false }
-            )
-        }
-    }
-
-    /// Saves a new category created from the popover
-    private func saveNewCategory() {
-        let trimmedName = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return }
-
-        // Create the new category
-        let newCategory = RuleCategory(
-            name: trimmedName,
-            colorHex: newCategoryColor.hexString,
-            iconName: "folder.fill"
-        )
-        newCategory.sortOrder = sortedCategories.count
-
-        modelContext.insert(newCategory)
-
-        // Auto-select the newly created category
-        formState.categoryID = newCategory.id
-
-        showCreateCategoryPopover = false
     }
 
     // MARK: - Condition Row
@@ -1085,16 +973,6 @@ struct InlineRuleBuilderView: View {
         }
     }
 
-    private var conditionHint: String {
-        switch formState.conditionType {
-        case .fileExtension: return "Without the dot (e.g., 'pdf' not '.pdf')"
-        case .nameContains: return "Case insensitive match"
-        case .nameStartsWith: return "Checks the beginning of the filename"
-        case .nameEndsWith: return "Checks the end of the filename (before extension)"
-        case .sourceLocation: return "Options: desktop, downloads, documents, pictures, music, home"
-        default: return ""
-        }
-    }
 }
 
 // MARK: - Natural Language Input Bar

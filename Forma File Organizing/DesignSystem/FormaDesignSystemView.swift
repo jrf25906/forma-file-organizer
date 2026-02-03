@@ -677,7 +677,6 @@ private struct ListCardExample: View {
 
 private struct ControlComponentsSection: View {
     @State private var progress: Double = 0.6
-    @State private var toggleValue = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.generous) {

@@ -30,8 +30,6 @@ class FileFilterManager: ObservableObject {
     private var lastFilterHash: Int = 0
     private var fileListGeneration: Int = 0
     private var filterDebounceTask: Task<Void, Never>?
-    private var cancellables = Set<AnyCancellable>()
-    
     // MARK: - Services
     
     private let groupingService = FileGroupingService()

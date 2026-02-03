@@ -37,14 +37,6 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         }
     }
 
-    /// Timeout error for scan operations
-    struct ScanTimeoutError: Error, LocalizedError {
-        let duration: Duration
-        var errorDescription: String? {
-            "File scan timed out after \(Int(duration.components.seconds)) seconds"
-        }
-    }
-
     // Services for prediction pipeline
     private let learningService = LearningService()
 
@@ -128,7 +120,13 @@ struct FileScanPipeline: FileScanPipelineProtocol {
             },
             sortBy: [SortDescriptor(\.confidenceScore, order: .reverse)]
         )
-        let patterns = (try? context.fetch(patternDescriptor)) ?? []
+        let patterns: [LearnedPattern]
+        do {
+            patterns = try context.fetch(patternDescriptor)
+        } catch {
+            Log.error("FileScanPipeline: Failed to fetch learned patterns: \(error.localizedDescription)", category: .pipeline)
+            patterns = []
+        }
         let negativePatterns = patterns.filter { $0.isNegativePattern }
 
         // Check if ML model exists
@@ -136,7 +134,13 @@ struct FileScanPipeline: FileScanPipelineProtocol {
             predicate: #Predicate { $0.accepted == true }
         )
         historyDescriptor.fetchLimit = 1
-        let hasTrainedModel = (try? context.fetch(historyDescriptor).first) != nil
+        let hasTrainedModel: Bool
+        do {
+            hasTrainedModel = (try context.fetch(historyDescriptor).first) != nil
+        } catch {
+            Log.error("FileScanPipeline: Failed to fetch training history: \(error.localizedDescription)", category: .pipeline)
+            hasTrainedModel = false
+        }
 
         return (patterns, negativePatterns, hasTrainedModel)
     }
@@ -150,7 +154,13 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                 scannedPaths.contains(file.path)
             }
         )
-        let existingFiles = (try? context.fetch(descriptor)) ?? []
+        let existingFiles: [FileItem]
+        do {
+            existingFiles = try context.fetch(descriptor)
+        } catch {
+            Log.error("FileScanPipeline: Failed to fetch existing FileItem records: \(error.localizedDescription)", category: .pipeline)
+            existingFiles = []
+        }
         let existingByPath = Dictionary(uniqueKeysWithValues: existingFiles.map { ($0.path, $0) })
 
         var persisted: [FileItem] = []
@@ -191,6 +201,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         do {
             try context.save()
         } catch {
+            Log.error("FileScanPipeline: Failed to save scan results: \(error.localizedDescription)", category: .pipeline)
             // Saving failures are surfaced by callers via toasts; pipeline still returns best-effort files
         }
 

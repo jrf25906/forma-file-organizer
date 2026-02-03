@@ -39,10 +39,6 @@ struct FileListRow: View {
         file.destination?.displayName ?? ""
     }
 
-    private var categoryGradient: LinearGradient {
-        file.category.gradient()
-    }
-
     // MARK: - Body
 
     var body: some View {

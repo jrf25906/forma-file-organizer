@@ -28,8 +28,6 @@ struct ProgressStep: View {
 
     private var isCompleted: Bool { step.rawValue < currentStep.rawValue }
     private var isCurrent: Bool { step == currentStep }
-    private var isPending: Bool { step.rawValue > currentStep.rawValue }
-
     var body: some View {
         HStack(spacing: FormaSpacing.tight) {
             // Step indicator - geometric style

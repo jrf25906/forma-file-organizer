@@ -256,7 +256,6 @@ struct MorphingButtonContent: View {
     let iconColor: Color
     
     @State private var loadingProgress: CGFloat = 0
-    @State private var showCheckmark = false
     @State private var checkScale: CGFloat = 0.8
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     

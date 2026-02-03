@@ -527,41 +527,6 @@ class FileOrganizationCoordinator: ObservableObject {
         redoStack.removeAll(keepingCapacity: false)
     }
     
-    private func reverseOrganize(_ files: [FileActionData], from destination: String, allFiles: [FileItem]) {
-        for fileAction in files {
-            // Find the file by its current path (destination) or original path
-            let file = allFiles.first(where: { file in
-                file.path == fileAction.destinationPath || file.path == fileAction.originalPath
-            })
-            
-            guard let file = file else { continue }
-            
-            // Move file back to original location if it was moved
-            if let destinationPath = fileAction.destinationPath,
-               FileManager.default.fileExists(atPath: destinationPath) {
-                do {
-                    try fileOperationsService.secureMoveOnDisk(from: destinationPath, to: fileAction.originalPath)
-                    file.updatePath(fileAction.originalPath)
-                } catch {
-                    Log.error("Failed to undo file move securely: \(error.localizedDescription)", category: .undo)
-                }
-            }
-            
-            // Restore original status (destination is restored via file move)
-            file.status = fileAction.originalStatus
-            // Note: Destination restoration would require bookmark data;
-            // for now the file move itself restores access
-        }
-    }
-    
-    private func reverseSkip(_ files: [FileActionData], allFiles: [FileItem]) {
-        for fileAction in files {
-            if let file = allFiles.first(where: { $0.path == fileAction.filePath }) {
-                file.status = fileAction.originalStatus
-            }
-        }
-    }
-
     /// Log rule applications for analytics (v1.2.0).
     /// Queries the Rule model by ID to get rule names, then logs each rule's usage.
     private func logRuleApplications(

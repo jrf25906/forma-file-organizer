@@ -419,44 +419,6 @@ enum RuleCondition: Codable, Equatable, Hashable {
 
     // MARK: - Helpers
 
-    /// Deprecated: use ByteSizeFormatterUtil.parse instead.
-    private static func parseSizeString(_ sizeString: String) throws -> Int64 {
-        let cleanString = sizeString.uppercased().trimmingCharacters(in: .whitespaces)
-
-        var numberString = ""
-        var unit = ""
-
-        for char in cleanString {
-            if char.isNumber || char == "." {
-                numberString.append(char)
-            } else {
-                unit.append(char)
-            }
-        }
-
-        guard let number = Double(numberString) else {
-            throw ValidationError.invalidSize(value: sizeString)
-        }
-
-        let multiplier: Double
-        switch unit {
-        case "KB":
-            multiplier = 1_024
-        case "MB":
-            multiplier = 1_024 * 1_024
-        case "GB":
-            multiplier = 1_024 * 1_024 * 1_024
-        case "TB":
-            multiplier = 1_024 * 1_024 * 1_024 * 1_024
-        case "B", "":
-            multiplier = 1
-        default:
-            throw ValidationError.invalidSize(value: sizeString)
-        }
-
-        return Int64(number * multiplier)
-    }
-
     /// Deprecated: use ByteSizeFormatterUtil.format instead.
     private func formatBytes(_ bytes: Int64) -> String {
         return ByteSizeFormatterUtil.format(bytes)

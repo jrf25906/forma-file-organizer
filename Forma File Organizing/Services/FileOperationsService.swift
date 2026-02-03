@@ -11,6 +11,9 @@ final class FileOperationsService {
 
     /// Resolver for placeholder destinations (auto-creates subfolders within permitted parents)
     private let destinationResolver = DestinationResolver()
+
+    private let clock: Clock
+    private let rateLimiter: RateLimiter
     
     /// Mapping of standard folder names to their bookmark keys
     private static let sourceFolderBookmarks: [String: String] = [
@@ -273,7 +276,17 @@ final class FileOperationsService {
         let error: FormaError?
     }
 
-    private let fileManager = FileManager.default
+    private let fileManager: FileManaging
+
+    init(
+        fileManager: FileManaging = FileManager.default,
+        clock: Clock = SystemClock(),
+        rateLimiter: RateLimiter? = nil
+    ) {
+        self.fileManager = fileManager
+        self.clock = clock
+        self.rateLimiter = rateLimiter ?? TaskRateLimiter(delayNanoseconds: Self.operationDelayNanoseconds)
+    }
 
     /// Detects if the app is running in a sandboxed environment
     /// When sandboxed, security-scoped bookmarks are required for file access.
@@ -303,7 +316,7 @@ final class FileOperationsService {
         guard isAppSandboxed else { return nil }
         
         guard let bookmarkKey = Self.sourceFolderBookmarks[folderName],
-              let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: bookmarkKey) else {
+              let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: bookmarkKey) else {
             return nil
         }
         
@@ -324,23 +337,6 @@ final class FileOperationsService {
         return url
     }
     
-    // MARK: - Security - Path Sanitization
-    
-    /// Securely sanitizes and validates a destination path using centralized PathValidator.
-    ///
-    /// - Parameter path: The raw destination path from user input or rules
-    /// - Returns: A sanitized, validated path safe for use
-    /// - Throws: FormaError if the path is invalid or malicious
-    private func sanitizeDestinationPath(_ path: String) throws -> String {
-        do {
-            return try PathValidator.validate(path)
-        } catch let error as PathValidator.ValidationError {
-            throw FormaError.validation(.invalidDestination(error.localizedDescription))
-        } catch {
-            throw FormaError.validation(.invalidDestination("Path validation failed: \(error.localizedDescription)"))
-        }
-    }
-
     // MARK: - File Operations
 
     /// Moves a file to its destination
@@ -482,20 +478,20 @@ final class FileOperationsService {
         #endif
 
         // Ensure destination folder exists
-        try FileManager.default.createDirectory(
+        try fileManager.createDirectory(
             at: destinationFolderURL,
             withIntermediateDirectories: true,
             attributes: nil
         )
 
         // Check if destination already exists
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
+        if fileManager.fileExists(atPath: destinationURL.path) {
             throw FormaError.fileSystem(.alreadyExists(destinationURL.path))
         }
 
         // Perform the move
         do {
-            try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
 
             #if DEBUG
             Log.info("BOOKMARK MOVE SUCCESS: \(sourceURL.lastPathComponent) → \(destinationFolderURL.lastPathComponent)", category: .fileOperations)
@@ -556,6 +552,7 @@ final class FileOperationsService {
     ///   - modelContext: Optional SwiftData context for activity tracking
     /// - Returns: Array of move results for each file
     func moveFiles(_ files: [FileItem], modelContext: ModelContext? = nil) async -> [MoveResult] {
+        let startTime = clock.now
         // SECURITY: Limit batch size to prevent resource exhaustion (CWE-400)
         let originalCount = files.count
         let limitedFiles = Array(files.prefix(Self.maxBatchSize))
@@ -594,10 +591,15 @@ final class FileOperationsService {
 
             // SECURITY: Rate limit file operations to prevent resource exhaustion
             // Only add delay if we have more files to process
-            if index < limitedFiles.count - 1 {
-                try? await Task.sleep(nanoseconds: Self.operationDelayNanoseconds)
-            }
+            await rateLimiter.sleepIfNeeded(after: index, total: limitedFiles.count)
         }
+
+        #if DEBUG
+        let elapsed = clock.now.timeIntervalSince(startTime)
+        if limitedFiles.count > 10 {
+            Log.debug("Batch move finished in \(elapsed)s", category: .fileOperations)
+        }
+        #endif
 
         return results
     }
@@ -661,7 +663,7 @@ final class FileOperationsService {
 
         do {
             // Use macOS native trash API
-            var resultingURL: NSURL?
+            var resultingURL: URL?
             try fileManager.trashItem(at: sourceURL, resultingItemURL: &resultingURL)
 
             let trashPath = resultingURL?.path ?? "Trash"
@@ -695,234 +697,15 @@ final class FileOperationsService {
 
     // MARK: - Destination Access Management
 
-    /// Ensures we have access to the destination folder and returns the resolved URL
-    private func ensureDestinationAccess(_ folderName: String) async throws -> URL {
-        let bookmarkKey = bookmarkPrefix + folderName
-        #if DEBUG
-        Log.debug("BOOKMARK RESOLUTION for: \(folderName), sandboxed: \(isAppSandboxed)", category: .bookmark)
-        #endif
-
-        // If not sandboxed, we can directly access the folder without bookmarks
-        if !isAppSandboxed {
-            let directURL = fileManager.homeDirectoryForCurrentUser.appendingPathComponent(folderName)
-            #if DEBUG
-            Log.debug("Not sandboxed - using direct path: \(directURL.path)", category: .filesystem)
-            #endif
-            return directURL
-        }
-
-        // Sandboxed: Try to load saved bookmark first
-        // Use SecureBookmarkStore (Keychain) instead of UserDefaults for security
-        if let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: bookmarkKey) {
-            #if DEBUG
-            Log.debug("Found saved bookmark for \(folderName)", category: .bookmark)
-            #endif
-            var isStale = false
-            do {
-                let resolvedURL = try URL(
-                    resolvingBookmarkData: bookmarkData,
-                    options: .withSecurityScope,
-                    relativeTo: nil,
-                    bookmarkDataIsStale: &isStale
-                )
-
-                if !isStale {
-                    #if DEBUG
-                    Log.debug("Bookmark resolved to: \(resolvedURL.path). Expected: ~/\(folderName)", category: .bookmark)
-                    #endif
-                    return resolvedURL
-                } else {
-                    #if DEBUG
-                    Log.warning("Bookmark is stale for \(folderName), requesting new access", category: .bookmark)
-                    #endif
-                }
-            } catch {
-                #if DEBUG
-                Log.warning("Bookmark resolution failed for \(folderName): \(error.localizedDescription)", category: .bookmark)
-                #endif
-                // Bookmark resolution failed, will request new access below
-            }
-        } else {
-            #if DEBUG
-            Log.debug("No saved bookmark found for \(folderName)", category: .bookmark)
-            #endif
-        }
-
-        // No valid bookmark, request user to select the destination folder
-        #if DEBUG
-        Log.debug("Requesting user to select \(folderName) folder...", category: .bookmark)
-        #endif
-        return try await requestDestinationAccess(folderName)
-    }
-
-    /// Requests user to grant access to a destination folder
-    /// NOTE: Uses @MainActor instead of DispatchQueue.main.async to avoid potential deadlocks
-    @MainActor
-    private func requestDestinationAccess(_ folderName: String) async throws -> URL {
-        // Capture self reference for use in assumeIsolated closure
-        let bookmarkPrefixCapture = self.bookmarkPrefix
-
-        return try await withCheckedThrowingContinuation { continuation in
-            // Use MainActor.assumeIsolated because withCheckedThrowingContinuation's closure
-            // doesn't inherit @MainActor context, but we know we're on the main actor since
-            // this method is @MainActor-isolated. All NSOpenPanel/NSAlert UI code requires it.
-            MainActor.assumeIsolated {
-                // Try to get the real home directory from the Desktop bookmark
-                // Use SecureBookmarkStore (Keychain) instead of UserDefaults for security
-                var realHomeDirectory: URL?
-                if let desktopBookmark = SecureBookmarkStore.loadBookmark(forKey: "DesktopFolderBookmark") {
-                    var isStale = false
-                    if let desktopURL = try? URL(
-                        resolvingBookmarkData: desktopBookmark,
-                        options: .withSecurityScope,
-                        relativeTo: nil,
-                        bookmarkDataIsStale: &isStale
-                    ), !isStale {
-                        // Desktop is at ~/Desktop, so parent is the home directory
-                        realHomeDirectory = desktopURL.deletingLastPathComponent()
-                    }
-                }
-
-                // Build the suggested folder path and check if it exists
-                let homeDirectory = realHomeDirectory ?? FileManager.default.homeDirectoryForCurrentUser
-                let expectedFolderURL = homeDirectory.appendingPathComponent(folderName)
-                let folderExists = FileManager.default.fileExists(atPath: expectedFolderURL.path)
-
-                #if DEBUG
-                Log.debug("Folder existence check — expected: \(expectedFolderURL.path), exists: \(folderExists)", category: .bookmark)
-                #endif
-
-                // Show pre-alert if folder doesn't exist
-                if !folderExists {
-                    let preAlert = NSAlert()
-                    preAlert.messageText = "Create \(folderName) Folder?"
-                    preAlert.informativeText = "Forma needs a folder called '\(folderName)' at ~/\(folderName) to organize your files.\n\nWhen the folder picker opens, click 'New Folder' (⇧⌘N), name it '\(folderName)', and click Select."
-                    preAlert.alertStyle = .informational
-                    preAlert.addButton(withTitle: "Continue")
-                    preAlert.addButton(withTitle: "Cancel")
-
-                    let preResponse = preAlert.runModal()
-                    if preResponse != .alertFirstButtonReturn {
-                        continuation.resume(throwing: FormaError.cancelled)
-                        return
-                    }
-                }
-
-                // Retry loop: allow up to 3 attempts
-                var attempts = 0
-                let maxAttempts = 3
-
-                @MainActor func attemptFolderSelection() {
-                    attempts += 1
-
-                    #if DEBUG
-                    Log.debug("Folder selection attempt \(attempts)/\(maxAttempts)", category: .bookmark)
-                    #endif
-
-                    let openPanel = NSOpenPanel()
-
-                    // Context-aware message
-                    if folderExists {
-                        openPanel.message = "Please select your \(folderName) folder\n\nLocation: ~/\(folderName)"
-                        openPanel.prompt = "Select \(folderName)"
-                    } else {
-                        openPanel.message = "Create the \(folderName) folder\n\nClick 'New Folder' (⇧⌘N), name it '\(folderName)', then click Select."
-                        openPanel.prompt = "Create & Select"
-                    }
-
-                    openPanel.canChooseFiles = false
-                    openPanel.canChooseDirectories = true
-                    openPanel.allowsMultipleSelection = false
-                    openPanel.canCreateDirectories = true
-
-                    // Pre-select the suggested folder or home directory
-                    if folderExists {
-                        openPanel.directoryURL = expectedFolderURL
-                    } else {
-                        openPanel.directoryURL = homeDirectory
-                    }
-
-                    // Run modal
-                    let response = openPanel.runModal()
-
-                    if response == .OK, let selectedURL = openPanel.url {
-                        // Validate selection
-                        let lastComponent = selectedURL.lastPathComponent
-
-                        if lastComponent.lowercased() == folderName.lowercased() {
-                            // Success! Save bookmark
-                            #if DEBUG
-                            Log.debug("Folder validation passed: \(lastComponent) matches \(folderName)", category: .bookmark)
-                            #endif
-
-                            do {
-                                let bookmarkData = try selectedURL.bookmarkData(
-                                    options: .withSecurityScope,
-                                    includingResourceValuesForKeys: nil,
-                                    relativeTo: nil
-                                )
-                                let bookmarkKey = bookmarkPrefixCapture + folderName
-                                try SecureBookmarkStore.saveBookmark(bookmarkData, forKey: bookmarkKey)
-                                continuation.resume(returning: selectedURL)
-                            } catch {
-                                continuation.resume(throwing: FormaError.from(error))
-                            }
-                        } else {
-                            // Wrong folder selected
-                            #if DEBUG
-                            Log.warning("User selected wrong folder: \(lastComponent) instead of \(folderName)", category: .bookmark)
-                            #endif
-
-                            let alert = NSAlert()
-                            alert.messageText = "Wrong Folder Selected"
-
-                            if folderExists {
-                                alert.informativeText = "You selected '\(lastComponent)' but Forma needs access to '\(folderName)'.\n\nPlease select the existing '\(folderName)' folder at ~/\(folderName)."
-                            } else {
-                                alert.informativeText = "You created a folder named '\(lastComponent)' but Forma needs '\(folderName)'.\n\nPlease create a folder named exactly '\(folderName)' (case-insensitive) at ~/\(folderName)."
-                            }
-
-                            alert.alertStyle = .warning
-
-                            if attempts < maxAttempts {
-                                alert.addButton(withTitle: "Try Again")
-                                alert.addButton(withTitle: "Cancel")
-
-                                let alertResponse = alert.runModal()
-                                if alertResponse == .alertFirstButtonReturn {
-                                    // Retry
-                                    attemptFolderSelection()
-                                } else {
-                                    continuation.resume(throwing: FormaError.validation(.invalidDestination("Wrong folder selected: expected \(folderName), got \(lastComponent)")))
-                                }
-                            } else {
-                                alert.addButton(withTitle: "OK")
-                                alert.informativeText += "\n\nMaximum attempts reached. Please check your rules and try again."
-                                alert.runModal()
-                                continuation.resume(throwing: FormaError.operationFailed("Maximum folder selection attempts reached"))
-                            }
-                        }
-                    } else {
-                        // User cancelled
-                        continuation.resume(throwing: FormaError.cancelled)
-                    }
-                }
-
-                // Start first attempt
-                attemptFolderSelection()
-            }
-        }
-    }
-
     /// Resets all saved destination folder bookmarks
     func resetDestinationAccess() {
         // Get all bookmark keys from Keychain
-        let allKeychainKeys = SecureBookmarkStore.listAllBookmarkKeys()
+        let allKeychainKeys = BookmarkStoreProvider.shared.listAllBookmarkKeys()
 
         // Remove all destination bookmarks (those starting with our prefix)
         for key in allKeychainKeys where key.hasPrefix(bookmarkPrefix) {
             do {
-                try SecureBookmarkStore.deleteBookmark(forKey: key)
+                try BookmarkStoreProvider.shared.deleteBookmark(forKey: key)
             } catch {
                 Log.warning("Failed to delete bookmark for key '\(key)': \(error.localizedDescription)", category: .security)
             }
@@ -936,7 +719,7 @@ final class FileOperationsService {
         Log.debug("=== BOOKMARK DIAGNOSTICS ===", category: .bookmark)
 
         // Check Keychain (SecureBookmarkStore)
-        let keychainKeys = SecureBookmarkStore.listAllBookmarkKeys()
+        let keychainKeys = BookmarkStoreProvider.shared.listAllBookmarkKeys()
         let destinationKeychainKeys = keychainKeys.filter { $0.hasPrefix(bookmarkPrefix) }
 
         Log.debug("Keychain (SecureBookmarkStore):", category: .bookmark)
@@ -946,7 +729,7 @@ final class FileOperationsService {
             Log.debug("  Found \(destinationKeychainKeys.count) destination bookmark(s)", category: .bookmark)
             for key in destinationKeychainKeys {
                 let folderName = key.replacingOccurrences(of: bookmarkPrefix, with: "")
-                if let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: key) {
+                if let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: key) {
                     var isStale = false
                     do {
                         let url = try URL(

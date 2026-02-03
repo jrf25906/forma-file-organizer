@@ -35,17 +35,6 @@ final class DestinationResolver {
         "Music": FormaConfig.Security.musicBookmarkKey
     ]
 
-    /// Maps folder names to their system paths (relative to home)
-    private static let folderSystemPaths: [String: String] = [
-        "Desktop": "Desktop",
-        "Downloads": "Downloads",
-        "Documents": "Documents",
-        "Pictures": "Pictures",
-        "Music": "Music",
-        "Movies": "Movies",
-        "Library": "Library"
-    ]
-
     // MARK: - Resolution
 
     /// Attempts to resolve a placeholder destination to a real destination with a valid bookmark.
@@ -210,7 +199,7 @@ final class DestinationResolver {
 
         // Check if first component matches a known folder with a stored bookmark
         if let bookmarkKey = Self.folderBookmarkKeys[firstComponent],
-           SecureBookmarkStore.loadBookmark(forKey: bookmarkKey) != nil {
+           BookmarkStoreProvider.shared.loadBookmark(forKey: bookmarkKey) != nil {
             return .resolvable(parentFolder: firstComponent)
         }
 
@@ -240,7 +229,7 @@ final class DestinationResolver {
 
         // Check if first component is a known folder with a bookmark
         if let bookmarkKey = Self.folderBookmarkKeys[firstComponent],
-           let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: bookmarkKey) {
+           let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: bookmarkKey) {
 
             // Resolve the bookmark to get the URL
             var isStale = false
@@ -295,7 +284,7 @@ final class DestinationResolver {
     private func findBookmarkForPath(_ path: String) -> Data? {
         // Check all known bookmark keys
         for (folderName, bookmarkKey) in Self.folderBookmarkKeys {
-            if let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: bookmarkKey) {
+            if let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: bookmarkKey) {
                 var isStale = false
                 if let url = try? URL(
                     resolvingBookmarkData: bookmarkData,

@@ -276,12 +276,3 @@ private struct RecommendationCard: View {
         .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle), radius: 4, x: 0, y: 2)
     }
 }
-
-private func timeString(from seconds: Int) -> String {
-    let hours = seconds / 3600
-    let minutes = (seconds % 3600) / 60
-    if hours > 0 {
-        return "\(hours)h \(minutes)m"
-    }
-    return "\(minutes)m"
-}

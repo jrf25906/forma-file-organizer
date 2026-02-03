@@ -23,10 +23,6 @@ struct SmartFeaturesSection: View {
     @AppStorage(AutomationUserSettings.Keys.scanOnLaunch) private var scanOnLaunch = true
     @AppStorage(AutomationUserSettings.Keys.notifications) private var automationNotifications = true
 
-    private var automationMode: AutomationMode {
-        AutomationMode(rawValue: automationModeRaw) ?? .scanOnly
-    }
-
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
