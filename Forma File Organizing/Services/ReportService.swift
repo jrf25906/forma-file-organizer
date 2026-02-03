@@ -9,7 +9,19 @@ final class ReportService {
     static let shared = ReportService()
     static let lastReportDateKey = "forma.analytics.lastWeeklyReportDate"
 
-    private init() {}
+    private let defaults: UserDefaults
+    private let calendar: Calendar
+    private let clock: Clock
+
+    init(
+        defaults: UserDefaults = .standard,
+        calendar: Calendar = .current,
+        clock: Clock = SystemClock()
+    ) {
+        self.defaults = defaults
+        self.calendar = calendar
+        self.clock = clock
+    }
 }
 
 // MARK: - Public API
@@ -51,7 +63,7 @@ extension ReportService {
 
         return AnalyticsReport(
             id: UUID(),
-            generatedAt: Date(),
+            generatedAt: clock.now,
             period: period,
             storageTrendPoints: analyticsSummary.trendPoints,
             usageStatistics: analyticsSummary.usageStatistics,
@@ -139,28 +151,30 @@ extension ReportService {
 
     func generateWeeklyReportIfNeeded(
         container: ModelContainer,
-        now: Date = Date()
+        now: Date? = nil
     ) async throws -> AnalyticsReport? {
         guard FeatureFlagService.shared.isEnabled(.analyticsAndInsights),
               FeatureFlagService.shared.isEnabled(.analyticsReports) else {
             return nil
         }
 
-        guard shouldGenerateWeeklyReport(now: now) else { return nil }
+        let effectiveNow = now ?? clock.now
+        guard shouldGenerateWeeklyReport(now: effectiveNow) else { return nil }
 
         let summary = try await AnalyticsService.shared.loadAnalyticsSummary(for: .week, container: container)
         let recs = FeatureFlagService.shared.isEnabled(.optimizationRecommendations) ? summary.healthScore.recommendations : []
         let report = generateReport(period: .weekly, analyticsSummary: summary, recommendations: recs)
 
-        UserDefaults.standard.set(now, forKey: Self.lastReportDateKey)
+        defaults.set(effectiveNow, forKey: Self.lastReportDateKey)
         return report
     }
 
-    func shouldGenerateWeeklyReport(now: Date = Date()) -> Bool {
-        guard let lastDate = UserDefaults.standard.object(forKey: Self.lastReportDateKey) as? Date else {
+    func shouldGenerateWeeklyReport(now: Date? = nil) -> Bool {
+        let effectiveNow = now ?? clock.now
+        guard let lastDate = defaults.object(forKey: Self.lastReportDateKey) as? Date else {
             return true
         }
-        return !Calendar.current.isDate(lastDate, equalTo: now, toGranularity: .weekOfYear)
+        return !calendar.isDate(lastDate, equalTo: effectiveNow, toGranularity: .weekOfYear)
     }
 }
 

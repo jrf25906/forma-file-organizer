@@ -1,0 +1,27 @@
+{
+  "configurations": [
+    {
+      "id": "58389C56-D523-4C17-A668-685FCE9AB7B5",
+      "name": "Performance Tests",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "testTimeoutsEnabled": true
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Forma File Organizing.xcodeproj",
+        "identifier": "50A492862ECC4C4A006868D5",
+        "name": "Forma File OrganizingTests"
+      },
+      "selectedTests": [
+        "DestinationPredictionPerformanceTests",
+        "RateLimitingPerformanceTests",
+        "StorageServiceTests/testLargeFileSet_Performance"
+      ]
+    }
+  ],
+  "version": 1
+}

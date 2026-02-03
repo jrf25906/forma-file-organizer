@@ -4,14 +4,25 @@ import XCTest
 @MainActor
 final class InsightsServiceTests: XCTestCase {
     var service: InsightsService!
+    private var now: Date!
+    private var calendar: Calendar!
     
     override func setUp() {
         super.setUp()
-        service = InsightsService.shared
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        self.calendar = calendar
+        now = calendar.date(from: DateComponents(year: 2023, month: 11, day: 14, hour: 10, minute: 0)) ?? Date()
+        service = InsightsService(
+            clock: FixedClock(now: now, calendar: calendar),
+            calendar: calendar
+        )
     }
     
     override func tearDown() {
         service = nil
+        now = nil
+        calendar = nil
         super.tearDown()
     }
     
@@ -28,7 +39,7 @@ final class InsightsServiceTests: XCTestCase {
         ]
 
         // When
-        let insights = await service.generateInsights(from: files, activities: [], rules: [])
+        let insights = await service.generateInsights(from: files, activities: [], rules: [], now: now)
         
         // Then
         let screenshotInsight = insights.first { $0.message.contains("screenshots") }
@@ -47,7 +58,7 @@ final class InsightsServiceTests: XCTestCase {
         ]
 
         // When
-        let insights = await service.generateInsights(from: files, activities: [], rules: [])
+        let insights = await service.generateInsights(from: files, activities: [], rules: [], now: now)
         
         // Then
         let screenshotInsight = insights.first { $0.message.contains("screenshots") }
@@ -64,7 +75,7 @@ final class InsightsServiceTests: XCTestCase {
         }
 
         // When
-        let insights = await service.generateInsights(from: files, activities: [], rules: [])
+        let insights = await service.generateInsights(from: files, activities: [], rules: [], now: now)
         
         // Then
         let downloadsInsight = insights.first { $0.message.contains("Downloads") }
@@ -86,7 +97,7 @@ final class InsightsServiceTests: XCTestCase {
         ]
 
         // When
-        let insights = await service.generateInsights(from: files, activities: [], rules: [])
+        let insights = await service.generateInsights(from: files, activities: [], rules: [], now: now)
         
         // Then
         let largeFilesInsight = insights.first { $0.message.contains("large files") }
@@ -107,7 +118,7 @@ final class InsightsServiceTests: XCTestCase {
         ]
 
         // When
-        let insights = await service.generateInsights(from: [], activities: activities, rules: [])
+        let insights = await service.generateInsights(from: [], activities: activities, rules: [], now: now)
         
         // Then
         let ruleInsight = insights.first { $0.actionLabel == "Create Rule" }
@@ -128,7 +139,7 @@ final class InsightsServiceTests: XCTestCase {
         ]
 
         // When
-        let insights = await service.generateInsights(from: [], activities: activities, rules: [])
+        let insights = await service.generateInsights(from: [], activities: activities, rules: [], now: now)
         
         // Then
         let ruleInsight = insights.first { $0.actionLabel == "Create Rule" }
@@ -148,7 +159,7 @@ final class InsightsServiceTests: XCTestCase {
         ]
 
         // When
-        let insights = await service.generateInsights(from: [], activities: activities, rules: [])
+        let insights = await service.generateInsights(from: [], activities: activities, rules: [], now: now)
         
         // Then
         let summaryInsight = insights.first { $0.message.contains("this week") }
@@ -162,7 +173,7 @@ final class InsightsServiceTests: XCTestCase {
         let activities: [ActivityItem] = []
 
         // When
-        let insights = await service.generateInsights(from: [], activities: activities, rules: [])
+        let insights = await service.generateInsights(from: [], activities: activities, rules: [], now: now)
         
         // Then
         let summaryInsight = insights.first { $0.message.contains("this week") }
@@ -183,7 +194,7 @@ final class InsightsServiceTests: XCTestCase {
         ]
 
         // When
-        let insights = await service.generateInsights(from: files, activities: [], rules: [])
+        let insights = await service.generateInsights(from: files, activities: [], rules: [], now: now)
         
         // Then
         let duplicateInsight = insights.first { $0.message.contains("duplicate") }
@@ -209,7 +220,7 @@ final class InsightsServiceTests: XCTestCase {
         ]
 
         // When
-        let insights = await service.generateInsights(from: files, activities: activities, rules: [])
+        let insights = await service.generateInsights(from: files, activities: activities, rules: [], now: now)
         
         // Then: Should be sorted by priority (highest first)
         XCTAssertGreaterThan(insights.count, 1)
@@ -227,13 +238,13 @@ final class InsightsServiceTests: XCTestCase {
     
     func testMorningGreeting() {
         // Test is time-dependent, so we just verify it returns a string
-        let greeting = service.generateGreeting(fileCount: 5)
+        let greeting = service.generateGreeting(fileCount: 5, now: now)
         XCTAssertNotNil(greeting)
         XCTAssertTrue(greeting!.contains("5 files"))
     }
     
     func testGreetingWithNoFiles() {
-        let greeting = service.generateGreeting(fileCount: 0)
+        let greeting = service.generateGreeting(fileCount: 0, now: now)
         if let greeting = greeting {
             XCTAssertTrue(greeting.contains("caught up"))
         }
@@ -270,9 +281,12 @@ final class InsightsServiceTests: XCTestCase {
             details: details,
             fileExtension: fileExtension
         )
-        // Adjust timestamp if needed
+        let baseDate = now ?? Date()
+        let baseCalendar = calendar ?? Calendar.current
         if daysAgo > 0 {
-            activity.timestamp = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+            activity.timestamp = baseCalendar.date(byAdding: .day, value: -daysAgo, to: baseDate) ?? baseDate
+        } else {
+            activity.timestamp = baseDate
         }
         return activity
     }

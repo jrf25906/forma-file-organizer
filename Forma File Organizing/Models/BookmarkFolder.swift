@@ -162,7 +162,7 @@ struct BookmarkFolder: Identifiable, Equatable, Hashable {
     /// Loads the security-scoped bookmark data from Keychain.
     /// Returns nil if no bookmark exists for this folder.
     var bookmarkData: Data? {
-        SecureBookmarkStore.loadBookmark(forKey: bookmarkKey)
+        BookmarkStoreProvider.shared.loadBookmark(forKey: bookmarkKey)
     }
 
     /// Whether this folder has a valid bookmark in Keychain.

@@ -263,14 +263,7 @@ final class EnhancedReviewFeatureTests: XCTestCase {
         let score = 0.95
 
         // When: Determining confidence level
-        let level: String
-        if score >= 0.9 {
-            level = "High"
-        } else if score >= 0.6 {
-            level = "Medium"
-        } else {
-            level = "Low"
-        }
+        let level = ConfidenceTier.forScore(score).label
 
         // Then: Should be High
         XCTAssertEqual(level, "High", "Score 0.95 should be High confidence")
@@ -281,14 +274,7 @@ final class EnhancedReviewFeatureTests: XCTestCase {
         let score = 0.75
 
         // When: Determining confidence level
-        let level: String
-        if score >= 0.9 {
-            level = "High"
-        } else if score >= 0.6 {
-            level = "Medium"
-        } else {
-            level = "Low"
-        }
+        let level = ConfidenceTier.forScore(score).label
 
         // Then: Should be Medium
         XCTAssertEqual(level, "Medium", "Score 0.75 should be Medium confidence")
@@ -299,14 +285,7 @@ final class EnhancedReviewFeatureTests: XCTestCase {
         let score = 0.5
 
         // When: Determining confidence level
-        let level: String
-        if score >= 0.9 {
-            level = "High"
-        } else if score >= 0.6 {
-            level = "Medium"
-        } else {
-            level = "Low"
-        }
+        let level = ConfidenceTier.forScore(score).label
 
         // Then: Should be Low
         XCTAssertEqual(level, "Low", "Score 0.5 should be Low confidence")
@@ -323,8 +302,7 @@ final class EnhancedReviewFeatureTests: XCTestCase {
         ]
 
         // When: Calculating average
-        let scores = files.compactMap { $0.confidenceScore }
-        let average = scores.isEmpty ? 0 : scores.reduce(0, +) / Double(scores.count)
+        let average = ConfidenceMetrics.averageScore(from: files.map { $0.confidenceScore })
 
         // Then: Should be correct average
         XCTAssertEqual(average, 0.8, accuracy: 0.01, "Average should be (0.9+0.7+0.8)/3 = 0.8")
@@ -338,8 +316,7 @@ final class EnhancedReviewFeatureTests: XCTestCase {
         ]
 
         // When: Calculating average
-        let scores = files.compactMap { $0.confidenceScore }
-        let average = scores.isEmpty ? 0 : scores.reduce(0, +) / Double(scores.count)
+        let average = ConfidenceMetrics.averageScore(from: files.map { $0.confidenceScore })
 
         // Then: Should be zero
         XCTAssertEqual(average, 0, "Average should be 0 when no scores available")

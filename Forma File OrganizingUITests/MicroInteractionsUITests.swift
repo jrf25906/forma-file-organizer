@@ -5,6 +5,7 @@ final class MicroInteractionsUITests: XCTestCase {
     var app: XCUIApplication!
 
     override func setUpWithError() throws {
+        try UITestGating.requireUI()
         continueAfterFailure = false
         app = XCUIApplication()
         
@@ -20,6 +21,7 @@ final class MicroInteractionsUITests: XCTestCase {
     // MARK: - Organize Animation Tests
     
     /// Test that organizing a file triggers the organize animation
+    @MainActor
     func testOrganizeAnimationTriggersOnFileOrganize() throws {
         throw XCTSkip("Navigation to Home view in UI tests is unreliable")
         // Skip onboarding if present
@@ -60,6 +62,7 @@ final class MicroInteractionsUITests: XCTestCase {
     }
     
     /// Test that the checkmark overlay appears during organize animation
+    @MainActor
     func testCheckmarkAppearsWhileOrganizing() throws {
         throw XCTSkip("Navigation to Home view in UI tests is unreliable")
         
@@ -105,6 +108,7 @@ final class MicroInteractionsUITests: XCTestCase {
     // MARK: - Animation State Tests
     
     /// Test that multiple files can be organized with animations
+    @MainActor
     func testMultipleFilesOrganizeSequentially() throws {
         throw XCTSkip("Navigation to Home view in UI tests is unreliable")
         let skipButton = app.buttons["onboardingSkipButton"]
@@ -149,6 +153,7 @@ final class MicroInteractionsUITests: XCTestCase {
     
     /// Test that animations respect reduced motion settings
     /// Note: This test needs to be run manually with Reduce Motion enabled in System Settings
+    @MainActor
     func testReducedMotionSupport() throws {
         // This is a placeholder - actual testing would require:
         // 1. Enabling Reduce Motion in System Settings
@@ -166,6 +171,7 @@ final class MicroInteractionsUITests: XCTestCase {
 extension MicroInteractionsUITests {
     
     /// Verify that the organize animation modifier is applied to file rows
+    @MainActor
     func testOrganizeAnimationIsIntegrated() throws {
         throw XCTSkip("Navigation to Home view in UI tests is unreliable")
         let skipButton = app.buttons["onboardingSkipButton"]

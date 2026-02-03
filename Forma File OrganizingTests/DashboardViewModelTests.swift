@@ -618,7 +618,8 @@ final class DashboardViewModelTests: XCTestCase {
     
     // MARK: - Performance Tests
     
-    func testLargeSelectionPerformance() {
+    func testLargeSelectionPerformance() throws {
+        try TestGating.requirePerformance()
         // Given: Create 100 files
         var files: [FileItem] = []
         for i in 0..<100 {
@@ -641,7 +642,8 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isSelectionMode)
     }
     
-    func testBulkSkip100Files() {
+    func testBulkSkip100Files() throws {
+        try TestGating.requirePerformance()
         // Given: Create 100 files
         var files: [FileItem] = []
         for i in 0..<100 {

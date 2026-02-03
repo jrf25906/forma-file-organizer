@@ -11,11 +11,16 @@ import SwiftData
 /// Uses Swift Testing framework for better @MainActor support with SwiftData.
 struct AutomationIntegrationTests {
 
+    private func requireIntegration() -> Bool {
+        TestGating.isIntegrationEnabled
+    }
+
     // MARK: - Activity Logging Tests
 
     /// Test: Automation scan completed is logged correctly
     @Test @MainActor
     func activityLogging_ScanCompleted() async throws {
+        guard requireIntegration() else { return }
         // Given: Activity logging service with fresh container
         let container = try ModelContainer(
             for: ActivityItem.self,
@@ -41,6 +46,7 @@ struct AutomationIntegrationTests {
     /// Test: Auto-organize batch is logged with correct counts
     @Test @MainActor
     func activityLogging_AutoOrganizeBatch() async throws {
+        guard requireIntegration() else { return }
         // Given: Activity logging service with fresh container
         let container = try ModelContainer(
             for: ActivityItem.self,
@@ -67,6 +73,7 @@ struct AutomationIntegrationTests {
     /// Test: Automation error is logged correctly
     @Test @MainActor
     func activityLogging_AutomationError() async throws {
+        guard requireIntegration() else { return }
         // Given: Activity logging service with fresh container
         let container = try ModelContainer(
             for: ActivityItem.self,
@@ -92,6 +99,7 @@ struct AutomationIntegrationTests {
     /// Test: Automation paused/resumed is logged correctly
     @Test @MainActor
     func activityLogging_PauseResume() async throws {
+        guard requireIntegration() else { return }
         // Given: Activity logging service with fresh container
         let container = try ModelContainer(
             for: ActivityItem.self,
@@ -120,7 +128,8 @@ struct AutomationIntegrationTests {
 
     /// Test: BulkMoveCommand stores all necessary data for undo
     @Test
-    func undoEntry_BulkMoveCommand_StoresRequiredData() {
+    func undoEntry_BulkMoveCommand_StoresRequiredData()  throws {
+        guard requireIntegration() else { return }
         // Given: Multiple file move operations
         let operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)] = [
             (fileID: "/Desktop/doc1.pdf", fromPath: "/Desktop/doc1.pdf", toPath: "/Documents/doc1.pdf", originalStatus: .ready),
@@ -145,7 +154,8 @@ struct AutomationIntegrationTests {
 
     /// Test: Single file undo command preserves original state
     @Test
-    func undoEntry_MoveFileCommand_PreservesOriginalState() {
+    func undoEntry_MoveFileCommand_PreservesOriginalState()  throws {
+        guard requireIntegration() else { return }
         // Given: Original file state
         let originalDestination = Destination.mockFolder("Work")
 
@@ -170,7 +180,8 @@ struct AutomationIntegrationTests {
 
     /// Test: AutomationMetrics correctly converts from FileScanResult
     @Test
-    func automationMetrics_FromFileScanResult() {
+    func automationMetrics_FromFileScanResult()  throws {
+        guard requireIntegration() else { return }
         // Given: A FileScanResult
         let scanResult = FileScanResult(
             totalScanned: 500,
@@ -195,7 +206,8 @@ struct AutomationIntegrationTests {
 
     /// Test: AutomationMetrics backlog detection
     @Test
-    func automationMetrics_BacklogDetection() {
+    func automationMetrics_BacklogDetection()  throws {
+        guard requireIntegration() else { return }
         // Given: Metrics with backlog above threshold
         let metricsWithBacklog = AutomationMetrics(
             totalScanned: 100,
@@ -225,6 +237,7 @@ struct AutomationIntegrationTests {
     /// Test: Coordinator starts with empty undo stack
     @Test @MainActor
     func coordinator_StartsWithEmptyUndoStack() async throws {
+        guard requireIntegration() else { return }
         // Given/When: Fresh coordinator
         let coordinator = FileOrganizationCoordinator()
 
@@ -235,6 +248,7 @@ struct AutomationIntegrationTests {
     /// Test: Skip file creates undo entry
     @Test @MainActor
     func coordinator_SkipFile_CreatesUndoEntry() async throws {
+        guard requireIntegration() else { return }
         // Given: Fresh coordinator and container
         let container = try ModelContainer(
             for: FileItem.self, Rule.self, ActivityItem.self,
@@ -263,6 +277,7 @@ struct AutomationIntegrationTests {
     /// Test: Multiple skips can all be undone
     @Test @MainActor
     func coordinator_MultipleSkips_AllUndoable() async throws {
+        guard requireIntegration() else { return }
         // Given: Fresh coordinator and container
         let container = try ModelContainer(
             for: FileItem.self, Rule.self, ActivityItem.self,
@@ -312,7 +327,8 @@ struct AutomationIntegrationTests {
     /// This verifies that auto-batch operations (e.g., auto-organize 10 files)
     /// create ONE undo entry that reverts all files, not 10 separate entries.
     @Test
-    func bulkMove_CreatesSingleUndoEntry_ForMultipleFiles() {
+    func bulkMove_CreatesSingleUndoEntry_ForMultipleFiles()  throws {
+        guard requireIntegration() else { return }
         // Given: A bulk move with 5 file operations
         let operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)] = (1...5).map { i in
             (fileID: "/Desktop/file\(i).pdf",
@@ -345,7 +361,8 @@ struct AutomationIntegrationTests {
     /// Auto-organize may process files with different original statuses.
     /// Undo must restore each file's original status, not a single shared status.
     @Test
-    func bulkMove_PreservesMixedOriginalStatuses() {
+    func bulkMove_PreservesMixedOriginalStatuses()  throws {
+        guard requireIntegration() else { return }
         // Given: Files with different original statuses
         let operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)] = [
             ("/Desktop/pending.pdf", "/Desktop/pending.pdf", "/Docs/pending.pdf", .pending),
@@ -370,26 +387,31 @@ struct AutomationIntegrationTests {
 
     /// Test: Automation feature flags exist in FeatureFlagService
     @Test
-    func featureFlag_AutomationExists() {
+    func featureFlag_AutomationExists()  throws {
+        guard requireIntegration() else { return }
         // Given/When: Feature flag service
         let featureFlags = FeatureFlagService.shared
+        featureFlags.resetToDefaults()
+        defer { featureFlags.resetToDefaults() }
 
-        // Then: Automation features should exist (accessing them validates existence)
-        let backgroundMonitoringExists = featureFlags.isEnabled(.backgroundMonitoring) || !featureFlags.isEnabled(.backgroundMonitoring)
-        let autoOrganizeExists = featureFlags.isEnabled(.autoOrganize) || !featureFlags.isEnabled(.autoOrganize)
-        let remindersExist = featureFlags.isEnabled(.automationReminders) || !featureFlags.isEnabled(.automationReminders)
+        // Then: Automation flags should have sensible defaults
+        #expect(featureFlags.getRawValue(.backgroundMonitoring) == true)
+        #expect(featureFlags.getRawValue(.autoOrganize) == false)
+        #expect(featureFlags.getRawValue(.automationReminders) == true)
 
-        // All should be true (validates flags exist and return boolean values)
-        #expect(backgroundMonitoringExists == true)
-        #expect(autoOrganizeExists == true)
-        #expect(remindersExist == true)
+        // Master toggle should disable effective access
+        featureFlags.masterAIEnabled = false
+        #expect(featureFlags.isEnabled(.backgroundMonitoring) == false)
+        #expect(featureFlags.isEnabled(.autoOrganize) == false)
+        #expect(featureFlags.isEnabled(.automationReminders) == false)
     }
 
     // MARK: - Config Constants Tests
 
     /// Test: All automation thresholds are properly configured
     @Test
-    func automationConfig_ThresholdsConfigured() {
+    func automationConfig_ThresholdsConfigured()  throws {
+        guard requireIntegration() else { return }
         // Verify all required thresholds exist and have sensible values
         #expect(FormaConfig.Automation.backlogThreshold > 0)
         #expect(FormaConfig.Automation.ageThresholdDays > 0)
@@ -400,7 +422,8 @@ struct AutomationIntegrationTests {
 
     /// Test: Notification cooldowns are configured
     @Test
-    func automationConfig_NotificationCooldownsConfigured() {
+    func automationConfig_NotificationCooldownsConfigured()  throws {
+        guard requireIntegration() else { return }
         #expect(FormaConfig.Automation.backlogReminderCooldownHours > 0)
         #expect(FormaConfig.Automation.errorNotificationCooldownMinutes > 0)
         #expect(FormaConfig.Automation.maxNotificationsPerHour > 0)
@@ -410,7 +433,8 @@ struct AutomationIntegrationTests {
 
     /// Test: All automation activity types have icons
     @Test
-    func activityType_AutomationTypes_HaveIcons() {
+    func activityType_AutomationTypes_HaveIcons()  throws {
+        guard requireIntegration() else { return }
         let automationTypes: [ActivityItem.ActivityType] = [
             .automationScanCompleted,
             .automationAutoOrganized,
@@ -426,7 +450,8 @@ struct AutomationIntegrationTests {
 
     /// Test: All automation activity types have display names
     @Test
-    func activityType_AutomationTypes_HaveDisplayNames() {
+    func activityType_AutomationTypes_HaveDisplayNames()  throws {
+        guard requireIntegration() else { return }
         let automationTypes: [ActivityItem.ActivityType] = [
             .automationScanCompleted,
             .automationAutoOrganized,

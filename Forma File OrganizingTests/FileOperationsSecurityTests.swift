@@ -22,6 +22,7 @@ final class FileOperationsSecurityTests: XCTestCase {
     var destDirectory: URL!
 
     override func setUpWithError() throws {
+        try TestGating.requireIntegration()
         try super.setUpWithError()
 
         // Create temporary test directory

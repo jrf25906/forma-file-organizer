@@ -17,11 +17,15 @@ final class FileRowTests: XCTestCase {
         )
         
         // When: Getting the primary action config
-        let row = TestableFileRow(file: file)
-        let config = row.getPrimaryActionConfig()
+        let config = FileRowActionConfig.resolve(
+            file: file,
+            onOrganize: { _ in },
+            onEditDestination: nil,
+            onCreateRule: nil
+        )
         
         // Then: Should return Organize action
-        XCTAssertEqual(config.label, "Organize to Documents/PDFs")
+        XCTAssertEqual(config.label, "Organize")
         XCTAssertEqual(config.icon, "checkmark.circle.fill")
         // Note: Color comparison would need Color extension for Equatable
     }
@@ -37,12 +41,16 @@ final class FileRowTests: XCTestCase {
         )
         
         // When: Getting the primary action config
-        let row = TestableFileRow(file: file)
-        let config = row.getPrimaryActionConfig()
+        let config = FileRowActionConfig.resolve(
+            file: file,
+            onOrganize: { _ in },
+            onEditDestination: nil,
+            onCreateRule: nil
+        )
         
-        // Then: Should return Review Destination action
-        XCTAssertEqual(config.label, "Review Destination")
-        XCTAssertEqual(config.icon, "arrow.right.circle")
+        // Then: Should return Organize label but route action to edit destination
+        XCTAssertEqual(config.label, "Organize")
+        XCTAssertEqual(config.icon, "checkmark.circle.fill")
     }
     
     func testPrimaryActionConfig_FileWithoutDestination_ReturnsCreateRule() {
@@ -56,12 +64,16 @@ final class FileRowTests: XCTestCase {
         )
         
         // When: Getting the primary action config
-        let row = TestableFileRow(file: file)
-        let config = row.getPrimaryActionConfig()
+        let config = FileRowActionConfig.resolve(
+            file: file,
+            onOrganize: { _ in },
+            onEditDestination: nil,
+            onCreateRule: nil
+        )
         
         // Then: Should return Create Rule action
-        XCTAssertEqual(config.label, "Create Rule")
-        XCTAssertEqual(config.icon, "wand.and.stars")
+        XCTAssertEqual(config.label, "Set Destination")
+        XCTAssertEqual(config.icon, "folder.badge.plus")
     }
     
     func testPrimaryActionConfig_FileWithDestinationAndSkippedStatus_ReturnsReview() {
@@ -75,12 +87,16 @@ final class FileRowTests: XCTestCase {
         )
         
         // When: Getting the primary action config
-        let row = TestableFileRow(file: file)
-        let config = row.getPrimaryActionConfig()
+        let config = FileRowActionConfig.resolve(
+            file: file,
+            onOrganize: { _ in },
+            onEditDestination: nil,
+            onCreateRule: nil
+        )
         
-        // Then: Should return Review Destination (not ready status)
-        XCTAssertEqual(config.label, "Review Destination")
-        XCTAssertEqual(config.icon, "arrow.right.circle")
+        // Then: Should return Organize label but route action to edit destination
+        XCTAssertEqual(config.label, "Organize")
+        XCTAssertEqual(config.icon, "checkmark.circle.fill")
     }
     
     // MARK: - Callback Tests
@@ -98,16 +114,17 @@ final class FileRowTests: XCTestCase {
         var organizeCalled = false
         var organizedFile: FileItem?
         
-        let row = TestableFileRow(
+        let config = FileRowActionConfig.resolve(
             file: file,
             onOrganize: { item in
                 organizeCalled = true
                 organizedFile = item
-            }
+            },
+            onEditDestination: nil,
+            onCreateRule: nil
         )
         
         // When: Executing the primary action
-        let config = row.getPrimaryActionConfig()
         config.action()
         
         // Then: Organize callback should be called with the file
@@ -128,16 +145,17 @@ final class FileRowTests: XCTestCase {
         var editCalled = false
         var editedFile: FileItem?
         
-        let row = TestableFileRow(
+        let config = FileRowActionConfig.resolve(
             file: file,
+            onOrganize: { _ in },
             onEditDestination: { item in
                 editCalled = true
                 editedFile = item
-            }
+            },
+            onCreateRule: nil
         )
         
         // When: Executing the primary action
-        let config = row.getPrimaryActionConfig()
         config.action()
         
         // Then: Edit destination callback should be called
@@ -158,8 +176,10 @@ final class FileRowTests: XCTestCase {
         var createRuleCalled = false
         var ruleFile: FileItem?
         
-        let row = TestableFileRow(
+        let config = FileRowActionConfig.resolve(
             file: file,
+            onOrganize: { _ in },
+            onEditDestination: nil,
             onCreateRule: { item in
                 createRuleCalled = true
                 ruleFile = item
@@ -167,7 +187,6 @@ final class FileRowTests: XCTestCase {
         )
         
         // When: Executing the primary action
-        let config = row.getPrimaryActionConfig()
         config.action()
         
         // Then: Create rule callback should be called
@@ -176,38 +195,4 @@ final class FileRowTests: XCTestCase {
     }
 }
 
-// MARK: - Testable FileRow Wrapper
-
-/// Wrapper to expose FileRow's private primaryActionConfig for testing
-@MainActor
-private struct TestableFileRow {
-    let file: FileItem
-    var onOrganize: (FileItem) -> Void = { _ in }
-    var onEditDestination: ((FileItem) -> Void)? = nil
-    var onCreateRule: ((FileItem) -> Void)? = nil
-    
-    func getPrimaryActionConfig() -> (label: String, icon: String, action: () -> Void) {
-        // Replicate the primaryActionConfig logic from FileRow
-        if let destinationName = file.destination?.displayName {
-            if file.status == .ready {
-                return (
-                    "Organize to \(destinationName)",
-                    "checkmark.circle.fill",
-                    { onOrganize(file) }
-                )
-            } else {
-                return (
-                    "Review Destination",
-                    "arrow.right.circle",
-                    { onEditDestination?(file) }
-                )
-            }
-        } else {
-            return (
-                "Create Rule",
-                "wand.and.stars",
-                { onCreateRule?(file) }
-            )
-        }
-    }
-}
+// MARK: - Test Helpers

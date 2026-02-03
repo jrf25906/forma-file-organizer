@@ -172,15 +172,15 @@ extension OrganizationPersonality {
     static let storageKey = "userOrganizationPersonality"
     
     /// Save personality to AppStorage
-    func save() {
+    func save(to defaults: UserDefaults = .standard) {
         if let encoded = try? JSONEncoder().encode(self) {
-            UserDefaults.standard.set(encoded, forKey: Self.storageKey)
+            defaults.set(encoded, forKey: Self.storageKey)
         }
     }
     
     /// Load personality from AppStorage
-    static func load() -> OrganizationPersonality? {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+    static func load(from defaults: UserDefaults = .standard) -> OrganizationPersonality? {
+        guard let data = defaults.data(forKey: storageKey),
               let personality = try? JSONDecoder().decode(OrganizationPersonality.self, from: data) else {
             return nil
         }
@@ -188,7 +188,7 @@ extension OrganizationPersonality {
     }
     
     /// Clear saved personality
-    static func clear() {
-        UserDefaults.standard.removeObject(forKey: storageKey)
+    static func clear(from defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: storageKey)
     }
 }

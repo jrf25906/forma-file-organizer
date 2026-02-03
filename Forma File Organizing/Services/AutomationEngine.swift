@@ -8,6 +8,12 @@ import Combine
 /// Observable state for UI binding to automation status.
 @Observable
 final class AutomationState {
+    private let clock: Clock
+
+    init(clock: Clock = SystemClock()) {
+        self.clock = clock
+    }
+
     /// Whether an automation operation is currently running.
     var isRunning: Bool = false
 
@@ -39,7 +45,7 @@ final class AutomationState {
         } else if let next = nextScheduledRun {
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .abbreviated
-            return "Next scan \(formatter.localizedString(for: next, relativeTo: Date()))"
+            return "Next scan \(formatter.localizedString(for: next, relativeTo: clock.now))"
         } else {
             return "Automation paused"
         }
@@ -85,7 +91,7 @@ final class AutomationEngine: ObservableObject {
     // MARK: - Published State
 
     /// Observable state for UI binding.
-    @Published private(set) var state = AutomationState()
+    @Published private(set) var state: AutomationState
 
     /// Current resolved policy.
     @Published private(set) var policy: AutomationPolicy = .resolve(
@@ -104,6 +110,7 @@ final class AutomationEngine: ObservableObject {
 
     private let featureFlags: FeatureFlagService
     private let notificationService: NotificationService
+    private let clock: Clock
     private weak var modelContext: ModelContext?
 
     // Lazy initialization to avoid circular dependencies
@@ -117,16 +124,20 @@ final class AutomationEngine: ObservableObject {
     private var lastBacklogReminderDate: Date?
     private var lastErrorNotificationDate: Date?
     private var notificationCountThisHour: Int = 0
-    private var hourStartDate: Date = Date()
+    private var hourStartDate: Date
 
     // MARK: - Initialization
 
     private init(
         featureFlags: FeatureFlagService = .shared,
-        notificationService: NotificationService = .shared
+        notificationService: NotificationService = .shared,
+        clock: Clock = SystemClock()
     ) {
         self.featureFlags = featureFlags
         self.notificationService = notificationService
+        self.clock = clock
+        self.state = AutomationState(clock: clock)
+        self.hourStartDate = clock.now
 
         // Observe feature flag changes
         setupObservers()
@@ -264,7 +275,7 @@ final class AutomationEngine: ObservableObject {
 
         // Debounce rapid scans
         if let last = lastScanDate,
-           Date().timeIntervalSince(last) < FormaConfig.Automation.scanDebounceDurationSeconds {
+           clock.now.timeIntervalSince(last) < FormaConfig.Automation.scanDebounceDurationSeconds {
             Log.info("AutomationEngine: Scan debounced", category: .automation)
             return
         }
@@ -277,8 +288,8 @@ final class AutomationEngine: ObservableObject {
             let result = try await provider.scanFiles(context: context)
 
             // Update state
-            lastScanDate = Date()
-            state.lastRunDate = Date()
+            lastScanDate = clock.now
+            state.lastRunDate = clock.now
             state.consecutiveFailures = 0
             state.currentBackoffMinutes = 0
 
@@ -361,7 +372,7 @@ final class AutomationEngine: ObservableObject {
         intervalMinutes += Double(state.currentBackoffMinutes)
 
         let interval = max(intervalMinutes, Double(FormaConfig.Automation.minScanIntervalMinutes))
-        let nextRun = Date().addingTimeInterval(interval * 60)
+        let nextRun = clock.now.addingTimeInterval(interval * 60)
         state.nextScheduledRun = nextRun
 
         scheduledScanTask = Task { [weak self] in
@@ -385,11 +396,9 @@ final class AutomationEngine: ObservableObject {
 
         if state.consecutiveFailures >= policy.maxConsecutiveFailures {
             // Apply exponential backoff
-            let backoff = Int(
-                Double(FormaConfig.Automation.minScanIntervalMinutes) *
-                pow(FormaConfig.Automation.failureBackoffMultiplier, Double(state.consecutiveFailures - policy.maxConsecutiveFailures))
+            state.currentBackoffMinutes = AutomationBackoffPolicy.backoffMinutes(
+                consecutiveFailures: state.consecutiveFailures
             )
-            state.currentBackoffMinutes = min(backoff, FormaConfig.Automation.maxBackoffIntervalMinutes)
 
             // Send error notification
             sendErrorNotification(type: .scanFailed, message: error.localizedDescription)
@@ -430,7 +439,7 @@ final class AutomationEngine: ObservableObject {
             pendingCount: pendingCount,
             oldestAgeDays: oldestAgeDays
         )
-        lastBacklogReminderDate = Date()
+        lastBacklogReminderDate = clock.now
         recordNotificationSent()
     }
 
@@ -438,14 +447,14 @@ final class AutomationEngine: ObservableObject {
         guard policy.notificationsEnabled, canSendErrorNotification() else { return }
 
         notificationService.notifyAutomationError(type: type, message: message)
-        lastErrorNotificationDate = Date()
+        lastErrorNotificationDate = clock.now
         recordNotificationSent()
     }
 
     private func canSendNotification() -> Bool {
         // Reset hourly counter if needed
-        if Date().timeIntervalSince(hourStartDate) >= 3600 {
-            hourStartDate = Date()
+        if clock.now.timeIntervalSince(hourStartDate) >= 3600 {
+            hourStartDate = clock.now
             notificationCountThisHour = 0
         }
         return notificationCountThisHour < FormaConfig.Automation.maxNotificationsPerHour
@@ -454,13 +463,13 @@ final class AutomationEngine: ObservableObject {
     private func canSendBacklogReminder() -> Bool {
         guard let last = lastBacklogReminderDate else { return true }
         let cooldown = TimeInterval(policy.backlogReminderCooldownHours * 3600)
-        return Date().timeIntervalSince(last) >= cooldown
+        return clock.now.timeIntervalSince(last) >= cooldown
     }
 
     private func canSendErrorNotification() -> Bool {
         guard let last = lastErrorNotificationDate else { return true }
         let cooldown = TimeInterval(policy.errorNotificationCooldownMinutes * 60)
-        return Date().timeIntervalSince(last) >= cooldown
+        return clock.now.timeIntervalSince(last) >= cooldown
     }
 
     private func recordNotificationSent() {

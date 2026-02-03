@@ -14,6 +14,7 @@ final class Forma_File_OrganizingUITestsLaunchTests: XCTestCase {
     }
 
     override func setUpWithError() throws {
+        try UITestGating.requireUI()
         continueAfterFailure = false
     }
 

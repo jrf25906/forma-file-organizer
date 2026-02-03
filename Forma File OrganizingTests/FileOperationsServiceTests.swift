@@ -7,10 +7,17 @@ final class FileOperationsServiceTests: XCTestCase {
     
     var tempSourceDir: TemporaryDirectory!
     var tempDestDir: TemporaryDirectory!
+
+    override func invokeTest() {
+        BookmarkStoreProvider.$override.withValue(InMemoryBookmarkStore()) {
+            super.invokeTest()
+        }
+    }
     
     override func setUp() async throws {
+        try TestGating.requireIntegration()
         try await super.setUp()
-        
+
         // Create temporary directories for source and destination
         tempSourceDir = try TemporaryDirectory()
         tempDestDir = try TemporaryDirectory()
@@ -37,37 +44,20 @@ final class FileOperationsServiceTests: XCTestCase {
     
     @MainActor
     func testMoveFile_Success() async throws {
-        // Skip: This test requires SecureBookmarkStore (Keychain) setup and proper sandboxing
-        // which cannot be easily configured in unit tests. Run manually in integration tests.
-        throw XCTSkip("Integration test requires SecureBookmarkStore and sandbox setup")
-        
         // Given: A source file and destination directory
         let sourceURL = try tempSourceDir.createFile(name: "test.pdf", contents: "PDF content")
         try tempDestDir.createDirectory(name: "Documents")
         
         // Create a FileItem
+        let destinationURL = tempDestDir.url.appendingPathComponent("Documents")
+        let destination = try Destination.folder(from: destinationURL)
         let fileItem = createFileItem(
             name: "test.pdf",
             path: sourceURL.path,
-            destination: tempDestDir.url.appendingPathComponent("Documents").path
+            destination: destination
         )
         
         let (service, context) = try makeServiceAndContext()
-        
-        // Create security-scoped bookmark for destination
-        let bookmarkData = try tempDestDir.url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
-        
-        // Save bookmark with the expected key format
-        let topLevelFolder = tempDestDir.url.lastPathComponent
-        UserDefaults.standard.set(bookmarkData, forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        
-        defer {
-            UserDefaults.standard.removeObject(forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        }
         
         // When: Moving the file
         let result = try await service.moveFile(fileItem, modelContext: context)
@@ -89,33 +79,26 @@ final class FileOperationsServiceTests: XCTestCase {
     
     @MainActor
     func testMoveFile_CreatesIntermediateDirectories() async throws {
-        // Skip: This test requires SecureBookmarkStore (Keychain) setup and proper sandboxing
-        throw XCTSkip("Integration test requires SecureBookmarkStore and sandbox setup")
-        
         // Given: A source file and nested destination path
         let sourceURL = try tempSourceDir.createFile(name: "document.pdf")
         
-        // Create destination path with multiple levels: Documents/Work/Projects
-        let nestedPath = "\(tempDestDir.url.lastPathComponent)/Documents/Work/Projects"
-        
-        let fileItem = createFileItem(
-            name: "document.pdf",
-            path: sourceURL.path,
-            destination: nestedPath
-        )
-        
-        // Setup bookmark
-        let bookmarkData = try tempDestDir.url.bookmarkData(
+        // Create base folder and seed a bookmark for Documents
+        let documentsDir = try tempDestDir.createDirectory(name: "Documents")
+        let documentsBookmark = try documentsDir.bookmarkData(
             options: .withSecurityScope,
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         )
-        let topLevelFolder = tempDestDir.url.lastPathComponent
-        UserDefaults.standard.set(bookmarkData, forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        
-        defer {
-            UserDefaults.standard.removeObject(forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        }
+        try BookmarkStoreProvider.shared.saveBookmark(
+            documentsBookmark,
+            forKey: FormaConfig.Security.documentsBookmarkKey
+        )
+
+        let fileItem = createFileItem(
+            name: "document.pdf",
+            path: sourceURL.path,
+            destination: .folder(bookmark: Data(), displayName: "Documents/Work/Projects")
+        )
         
         // When: Moving the file
         let (service, _) = try makeServiceAndContext()
@@ -124,8 +107,7 @@ final class FileOperationsServiceTests: XCTestCase {
         // Then: Intermediate directories should be created
         XCTAssertTrue(result.success)
         
-        let expectedDir = tempDestDir.url
-            .appendingPathComponent("Documents/Work/Projects")
+        let expectedDir = documentsDir.appendingPathComponent("Work/Projects")
         XCTAssertTrue(FileManager.default.fileExists(atPath: expectedDir.path))
     }
     
@@ -135,7 +117,7 @@ final class FileOperationsServiceTests: XCTestCase {
         let fileItem = createFileItem(
             name: "missing.pdf",
             path: "/nonexistent/missing.pdf",
-            destination: "Documents"
+            destination: .trash
         )
         
         // When/Then: Should throw notFound error
@@ -154,9 +136,6 @@ final class FileOperationsServiceTests: XCTestCase {
     
     @MainActor
     func testMoveFile_DestinationExists() async throws {
-        // Skip: This test requires SecureBookmarkStore (Keychain) setup and proper sandboxing
-        throw XCTSkip("Integration test requires SecureBookmarkStore and sandbox setup")
-        
         // Given: Source file and destination that already has a file with same name
         let sourceURL = try tempSourceDir.createFile(name: "duplicate.txt", contents: "source")
         let destDir = try tempDestDir.createDirectory(name: "Documents")
@@ -166,24 +145,12 @@ final class FileOperationsServiceTests: XCTestCase {
             encoding: .utf8
         )
         
+        let destination = try Destination.folder(from: destDir)
         let fileItem = createFileItem(
             name: "duplicate.txt",
             path: sourceURL.path,
-            destination: "\(tempDestDir.url.lastPathComponent)/Documents"
+            destination: destination
         )
-        
-        // Setup bookmark
-        let bookmarkData = try tempDestDir.url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
-        let topLevelFolder = tempDestDir.url.lastPathComponent
-        UserDefaults.standard.set(bookmarkData, forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        
-        defer {
-            UserDefaults.standard.removeObject(forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        }
         
         // When/Then: Should throw alreadyExists error
         do {
@@ -227,35 +194,18 @@ final class FileOperationsServiceTests: XCTestCase {
     
     @MainActor
     func testMoveFiles_MultiplFiles() async throws {
-        // Skip: This test requires SecureBookmarkStore (Keychain) setup and proper sandboxing
-        throw XCTSkip("Integration test requires SecureBookmarkStore and sandbox setup")
-        
         // Given: Multiple source files
         let file1URL = try tempSourceDir.createFile(name: "doc1.pdf")
         let file2URL = try tempSourceDir.createFile(name: "doc2.pdf")
         let file3URL = try tempSourceDir.createFile(name: "doc3.pdf")
         
-        try tempDestDir.createDirectory(name: "Documents")
-        
-        let destPath = "\(tempDestDir.url.lastPathComponent)/Documents"
+        let destDir = try tempDestDir.createDirectory(name: "Documents")
+        let destination = try Destination.folder(from: destDir)
         let fileItems = [
-            createFileItem(name: "doc1.pdf", path: file1URL.path, destination: destPath),
-            createFileItem(name: "doc2.pdf", path: file2URL.path, destination: destPath),
-            createFileItem(name: "doc3.pdf", path: file3URL.path, destination: destPath)
+            createFileItem(name: "doc1.pdf", path: file1URL.path, destination: destination),
+            createFileItem(name: "doc2.pdf", path: file2URL.path, destination: destination),
+            createFileItem(name: "doc3.pdf", path: file3URL.path, destination: destination)
         ]
-        
-        // Setup bookmark
-        let bookmarkData = try tempDestDir.url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
-        let topLevelFolder = tempDestDir.url.lastPathComponent
-        UserDefaults.standard.set(bookmarkData, forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        
-        defer {
-            UserDefaults.standard.removeObject(forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        }
         
         // When: Moving all files
         let (service, _) = try makeServiceAndContext()
@@ -269,32 +219,16 @@ final class FileOperationsServiceTests: XCTestCase {
     
     @MainActor
     func testMoveFiles_PartialFailure() async throws {
-        // Skip: This test requires SecureBookmarkStore (Keychain) setup and proper sandboxing
-        throw XCTSkip("Integration test requires SecureBookmarkStore and sandbox setup")
-        
         // Given: Mix of valid and invalid files
         let validURL = try tempSourceDir.createFile(name: "valid.pdf")
         
-        try tempDestDir.createDirectory(name: "Documents")
-        let destPath = "\(tempDestDir.url.lastPathComponent)/Documents"
+        let destDir = try tempDestDir.createDirectory(name: "Documents")
+        let destination = try Destination.folder(from: destDir)
         
         let fileItems = [
-            createFileItem(name: "valid.pdf", path: validURL.path, destination: destPath),
-            createFileItem(name: "missing.pdf", path: "/nonexistent/missing.pdf", destination: destPath)
+            createFileItem(name: "valid.pdf", path: validURL.path, destination: destination),
+            createFileItem(name: "missing.pdf", path: "/nonexistent/missing.pdf", destination: destination)
         ]
-        
-        // Setup bookmark
-        let bookmarkData = try tempDestDir.url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
-        let topLevelFolder = tempDestDir.url.lastPathComponent
-        UserDefaults.standard.set(bookmarkData, forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        
-        defer {
-            UserDefaults.standard.removeObject(forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        }
         
         // When: Moving files
         let (service, _) = try makeServiceAndContext()
@@ -314,33 +248,18 @@ final class FileOperationsServiceTests: XCTestCase {
     
     @MainActor
     func testMoveFile_TracksActivity() async throws {
-        // Skip: This test requires SecureBookmarkStore (Keychain) setup and proper sandboxing
-        throw XCTSkip("Integration test requires SecureBookmarkStore and sandbox setup")
-        
         // Given: A file and modelContext
         let sourceURL = try tempSourceDir.createFile(name: "tracked.pdf")
-        try tempDestDir.createDirectory(name: "Documents")
+        let destDir = try tempDestDir.createDirectory(name: "Documents")
+        let destination = try Destination.folder(from: destDir)
         
         let fileItem = createFileItem(
             name: "tracked.pdf",
             path: sourceURL.path,
-            destination: "\(tempDestDir.url.lastPathComponent)/Documents"
+            destination: destination
         )
         
         let (service, context) = try makeServiceAndContext()
-        
-        // Setup bookmark
-        let bookmarkData = try tempDestDir.url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
-        let topLevelFolder = tempDestDir.url.lastPathComponent
-        UserDefaults.standard.set(bookmarkData, forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        
-        defer {
-            UserDefaults.standard.removeObject(forKey: "DestinationFolderBookmark_\(topLevelFolder)")
-        }
         
         // When: Moving the file with context
         _ = try await service.moveFile(fileItem, modelContext: context)
@@ -359,14 +278,14 @@ final class FileOperationsServiceTests: XCTestCase {
     private func createFileItem(
         name: String,
         path: String,
-        destination: String?
+        destination: Destination?
     ) -> FileItem {
         let resolvedPath = path.isEmpty ? name : path
         return FileItem(
             path: resolvedPath,
             sizeInBytes: 1024,
             creationDate: Date(),
-            destination: destination != nil ? .mockFolder(destination!) : nil,
+            destination: destination,
             status: .ready
         )
     }

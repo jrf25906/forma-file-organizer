@@ -6,8 +6,15 @@ final class FileSystemServiceTests: XCTestCase {
 
     var tempDir: TemporaryDirectory!
 
-    override func setUp() {
-        super.setUp()
+    override func invokeTest() {
+        BookmarkStoreProvider.$override.withValue(InMemoryBookmarkStore()) {
+            super.invokeTest()
+        }
+    }
+
+    override func setUpWithError() throws {
+        try TestGating.requireIntegration()
+        try super.setUpWithError()
         tempDir = try? TemporaryDirectory()
         // Ensure bookmarks from prior app runs don't affect test expectations
         let service = FileSystemService()

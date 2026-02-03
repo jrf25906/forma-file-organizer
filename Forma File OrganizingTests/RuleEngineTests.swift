@@ -198,6 +198,11 @@ final class RuleEngineTests: XCTestCase {
         // Test with GB units: 2GB file vs 1GB threshold
         let rule = TestRule(conditionType: .sizeLargerThan, conditionValue: "1GB", destination: .mockFolder("Huge Files"))
         let file = TestFileItem(name: "huge_file.dmg", fileExtension: "dmg", path: "/path/huge_file.dmg", sizeInBytes: 2 * 1024 * 1024 * 1024)
+
+        let result = ruleEngine.evaluateFile(file, rules: [rule])
+
+        XCTAssertEqual(result.status, .ready)
+        XCTAssertEqual(result.destination?.displayName, "Huge Files")
     }
 
     // MARK: - Match Reason Tests

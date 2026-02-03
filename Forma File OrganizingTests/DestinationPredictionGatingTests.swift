@@ -1,5 +1,6 @@
 import XCTest
 import SwiftData
+import CoreML
 @testable import Forma_File_Organizing
 
 /// Regression tests for DestinationPredictionService gating logic.
@@ -14,16 +15,37 @@ import SwiftData
 @available(macOS 13.0, *)
 @MainActor
 final class DestinationPredictionGatingTests: XCTestCase {
+
+    private final class StubPredictionEngine: PredictionEngine, @unchecked Sendable {
+        var requiresModel: Bool { false }
+        var nextOutcome: PredictionOutcome?
+        private(set) var predictCalls: [DestinationFeatures] = []
+
+        enum StubError: Error {
+            case noOutcome
+        }
+
+        func predict(features: DestinationFeatures, model: MLModel?) async throws -> PredictionOutcome {
+            predictCalls.append(features)
+            guard let outcome = nextOutcome else {
+                throw StubError.noOutcome
+            }
+            return outcome
+        }
+    }
     
     var container: ModelContainer!
     var modelContext: ModelContext!
     var service: DestinationPredictionService!
     var learningService: LearningService!
+    private var predictionEngine: StubPredictionEngine!
     
     // MARK: - Setup & Teardown
     
     override func setUp() async throws {
         try await super.setUp()
+
+        FeatureFlagService.shared.resetToDefaults()
         
         // Create in-memory model container
         let schema = Schema([FileItem.self, Rule.self, ActivityItem.self, LearnedPattern.self, MLTrainingHistory.self])
@@ -31,7 +53,12 @@ final class DestinationPredictionGatingTests: XCTestCase {
         container = try ModelContainer(for: schema, configurations: [config])
         modelContext = container.mainContext
         learningService = LearningService()
-        service = DestinationPredictionService(modelContext: modelContext, learningService: learningService)
+        predictionEngine = StubPredictionEngine()
+        service = DestinationPredictionService(
+            modelContext: modelContext,
+            learningService: learningService,
+            predictionEngine: predictionEngine
+        )
     }
     
     override func tearDown() async throws {
@@ -43,10 +70,12 @@ final class DestinationPredictionGatingTests: XCTestCase {
         await Task.yield()
         
         // Now safe to clean up the rest
+        predictionEngine = nil
         learningService = nil
         modelContext = nil
         container = nil
         
+        FeatureFlagService.shared.resetToDefaults()
         try await super.tearDown()
     }
     
@@ -102,12 +131,11 @@ final class DestinationPredictionGatingTests: XCTestCase {
     
     /// Test: Predictions below minimum confidence are suppressed
     func testConfidenceGating_BelowMinimum() async throws {
-        // This test would require a trained model with known low-confidence outputs
-        // For now, we test the context configuration
-        
         let file = createTestFile(name: "test.pdf", ext: "pdf")
         let context = PredictionContext(minimumConfidence: 0.9) // Very high threshold
-        
+
+        predictionEngine.nextOutcome = PredictionOutcome(label: "Archive", confidence: 0.5, top2Confidence: 0.1)
+
         let result = await service.predictDestination(for: file, context: context)
         XCTAssertNil(result, "High confidence threshold should suppress predictions")
     }
@@ -115,12 +143,11 @@ final class DestinationPredictionGatingTests: XCTestCase {
     /// Test: Confidence margin between top-1 and top-2 enforced
     func testConfidenceGating_InsufficientMargin() async throws {
         // When top-1 and top-2 are too close (< 0.15 margin), prediction should be suppressed
-        // This is tested internally in the service; we verify the behavior via integration
-        
         let file = createTestFile(name: "ambiguous.pdf", ext: "pdf")
-        let context = PredictionContext()
-        
-        // Without a trained model, this returns nil (expected)
+        let context = PredictionContext(minimumConfidence: 0.6)
+
+        predictionEngine.nextOutcome = PredictionOutcome(label: "Documents", confidence: 0.8, top2Confidence: 0.7)
+
         let result = await service.predictDestination(for: file, context: context)
         XCTAssertNil(result, "Ambiguous predictions should be suppressed")
     }
@@ -143,6 +170,8 @@ final class DestinationPredictionGatingTests: XCTestCase {
         )
         
         let context = PredictionContext()
+
+        predictionEngine.nextOutcome = PredictionOutcome(label: "Archive", confidence: 0.8, top2Confidence: 0.2)
         
         // Prediction should be suppressed if it suggests Archive for png
         let result = await service.predictDestination(
@@ -177,6 +206,7 @@ final class DestinationPredictionGatingTests: XCTestCase {
         )
         
         let context = PredictionContext()
+        predictionEngine.nextOutcome = PredictionOutcome(label: "Documents/Work", confidence: 0.8, top2Confidence: 0.2)
         
         // PDF prediction should not be affected by png negative pattern
         let result = await service.predictDestination(
@@ -187,10 +217,7 @@ final class DestinationPredictionGatingTests: XCTestCase {
         
         // Result may be nil (no model), but negative pattern shouldn't cause false blocking
         // This test verifies the filtering logic is extension-specific
-        if result == nil {
-            // Expected when no model is trained
-            XCTAssertTrue(true)
-        }
+        XCTAssertNotNil(result, "Unrelated negative patterns should not block predictions")
     }
     
     // MARK: - Allowed Destinations Filtering Tests
@@ -204,16 +231,12 @@ final class DestinationPredictionGatingTests: XCTestCase {
             mlEnabled: true,
             minimumConfidence: 0.7
         )
+
+        predictionEngine.nextOutcome = PredictionOutcome(label: "Archive", confidence: 0.8, top2Confidence: 0.2)
         
         let result = await service.predictDestination(for: file, context: context)
         
-        // If a prediction was made, verify it's in the allowed list
-        if let prediction = result {
-            XCTAssertTrue(
-                context.allowedDestinations.contains(prediction.path),
-                "Prediction should only suggest allowed destinations"
-            )
-        }
+        XCTAssertNil(result, "Predictions outside allowed destinations should be filtered")
     }
     
     /// Test: Empty allowed destinations list allows all predictions
@@ -224,12 +247,12 @@ final class DestinationPredictionGatingTests: XCTestCase {
             allowedDestinations: [], // Empty = no restrictions
             mlEnabled: true
         )
+
+        predictionEngine.nextOutcome = PredictionOutcome(label: "Archive", confidence: 0.8, top2Confidence: 0.2)
         
         let result = await service.predictDestination(for: file, context: context)
         
-        // Empty allowed list should not filter predictions
-        // (result may still be nil if no model, but not due to filtering)
-        XCTAssertTrue(true, "Empty allowed destinations should not filter predictions")
+        XCTAssertNotNil(result, "Empty allowed destinations should not filter predictions")
     }
     
     // MARK: - ML Enable/Disable Tests
@@ -239,6 +262,8 @@ final class DestinationPredictionGatingTests: XCTestCase {
         let file = createTestFile(name: "test.pdf", ext: "pdf")
         
         let context = PredictionContext(mlEnabled: false)
+
+        predictionEngine.nextOutcome = PredictionOutcome(label: "Archive", confidence: 0.8, top2Confidence: 0.2)
         
         let result = await service.predictDestination(for: file, context: context)
         XCTAssertNil(result, "Predictions should return nil when ML is disabled in context")
@@ -250,6 +275,8 @@ final class DestinationPredictionGatingTests: XCTestCase {
         
         let file = createTestFile(name: "test.pdf", ext: "pdf")
         let context = PredictionContext(mlEnabled: true) // Enabled in context but not service
+
+        predictionEngine.nextOutcome = PredictionOutcome(label: "Archive", confidence: 0.8, top2Confidence: 0.2)
         
         let result = await service.predictDestination(for: file, context: context)
         XCTAssertNil(result, "Predictions should return nil when ML is disabled in service")
@@ -262,6 +289,8 @@ final class DestinationPredictionGatingTests: XCTestCase {
         
         let file = createTestFile(name: "test.pdf", ext: "pdf")
         let context = PredictionContext()
+
+        predictionEngine.nextOutcome = PredictionOutcome(label: "Archive", confidence: 0.8, top2Confidence: 0.2)
         
         var result = await service.predictDestination(for: file, context: context)
         XCTAssertNil(result, "Predictions should be nil when disabled")
@@ -270,9 +299,7 @@ final class DestinationPredictionGatingTests: XCTestCase {
         await service.setMLEnabled(true)
         
         result = await service.predictDestination(for: file, context: context)
-        // Result may still be nil (no model), but not due to ML being disabled
-        // The test verifies the toggle doesn't cause errors
-        XCTAssertTrue(true, "Toggling ML should not cause errors")
+        XCTAssertNotNil(result, "Predictions should resume after re-enabling ML")
     }
     
     // MARK: - Model Invalidation and Rollback Tests

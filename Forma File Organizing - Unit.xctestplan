@@ -1,0 +1,34 @@
+{
+  "configurations": [
+    {
+      "id": "A43CB2C2-A780-4AB9-A2AC-633AD80BFBA6",
+      "name": "Unit Tests",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "testTimeoutsEnabled": true
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Forma File Organizing.xcodeproj",
+        "identifier": "50A492862ECC4C4A006868D5",
+        "name": "Forma File OrganizingTests"
+      },
+      "skippedTests": [
+        "AutomationIntegrationTests",
+        "BookmarkValidationSecurityTests",
+        "FileOperationsSecurityTests",
+        "FileOperationsServiceTests",
+        "FileSystemServiceTests",
+        "SecureBookmarkStoreTests",
+        "SymlinkSecurityTests",
+        "DestinationPredictionPerformanceTests",
+        "RateLimitingPerformanceTests",
+        "StorageServiceTests/testLargeFileSet_Performance"
+      ]
+    }
+  ],
+  "version": 1
+}

@@ -3,6 +3,7 @@ import XCTest
 
 /// Tests for FolderTemplateSelection model used in per-folder template onboarding
 final class FolderTemplateSelectionTests: XCTestCase {
+    private let defaults = UserDefaults(suiteName: "FolderTemplateSelectionTests")!
 
     // MARK: - Initialization Tests
 
@@ -206,7 +207,7 @@ final class FolderTemplateSelectionTests: XCTestCase {
 
     func testSaveAndLoad() {
         // Clear any existing data
-        UserDefaults.standard.removeObject(forKey: FolderTemplateSelection.storageKey)
+        defaults.removePersistentDomain(forName: "FolderTemplateSelectionTests")
 
         var selection = FolderTemplateSelection()
         selection.desktop = .para
@@ -215,9 +216,9 @@ final class FolderTemplateSelectionTests: XCTestCase {
         selection.pictures = .chronological
         selection.music = .creativeProf
 
-        selection.save()
+        selection.save(to: defaults)
 
-        let loaded = FolderTemplateSelection.load()
+        let loaded = FolderTemplateSelection.load(from: defaults)
 
         XCTAssertEqual(loaded.desktop, .para)
         XCTAssertEqual(loaded.downloads, .minimal)
@@ -226,14 +227,14 @@ final class FolderTemplateSelectionTests: XCTestCase {
         XCTAssertEqual(loaded.music, .creativeProf)
 
         // Cleanup
-        UserDefaults.standard.removeObject(forKey: FolderTemplateSelection.storageKey)
+        defaults.removePersistentDomain(forName: "FolderTemplateSelectionTests")
     }
 
     func testLoadReturnsEmptySelectionWhenNoSavedData() {
         // Clear any existing data
-        UserDefaults.standard.removeObject(forKey: FolderTemplateSelection.storageKey)
+        defaults.removePersistentDomain(forName: "FolderTemplateSelectionTests")
 
-        let loaded = FolderTemplateSelection.load()
+        let loaded = FolderTemplateSelection.load(from: defaults)
 
         XCTAssertNil(loaded.desktop)
         XCTAssertNil(loaded.downloads)
@@ -244,16 +245,16 @@ final class FolderTemplateSelectionTests: XCTestCase {
 
     func testLoadHandlesCorruptedData() {
         // Save corrupted data
-        UserDefaults.standard.set(Data([0x00, 0x01, 0x02]), forKey: FolderTemplateSelection.storageKey)
+        defaults.set(Data([0x00, 0x01, 0x02]), forKey: FolderTemplateSelection.storageKey)
 
-        let loaded = FolderTemplateSelection.load()
+        let loaded = FolderTemplateSelection.load(from: defaults)
 
         // Should return empty selection when data is corrupted
         XCTAssertNil(loaded.desktop)
         XCTAssertNil(loaded.downloads)
 
         // Cleanup
-        UserDefaults.standard.removeObject(forKey: FolderTemplateSelection.storageKey)
+        defaults.removePersistentDomain(forName: "FolderTemplateSelectionTests")
     }
 
     // MARK: - Codable Tests

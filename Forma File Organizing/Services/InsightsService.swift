@@ -44,32 +44,49 @@ struct FileInsight: Identifiable, Equatable {
 class InsightsService {
     static let shared = InsightsService()
     
-    private let learningService = LearningService()
-    private let contextDetectionService = ContextDetectionService()
+    private let learningService: LearningService
+    private let contextDetectionService: ContextDetectionService
+    private let clock: Clock
+    private let calendar: Calendar
+    private let performanceMonitor: PerformanceMonitor
     
-    private init() {}
+    init(
+        learningService: LearningService = LearningService(),
+        contextDetectionService: ContextDetectionService = ContextDetectionService(),
+        clock: Clock = SystemClock(),
+        calendar: Calendar = .current,
+        performanceMonitor: PerformanceMonitor = .shared
+    ) {
+        self.learningService = learningService
+        self.contextDetectionService = contextDetectionService
+        self.clock = clock
+        self.calendar = calendar
+        self.performanceMonitor = performanceMonitor
+    }
     
     /// Generate insights from current file state, activities, and rules (async version with parallel execution)
     func generateInsights(
         from files: [FileItem],
         activities: [ActivityItem],
-        rules: [Rule]
+        rules: [Rule],
+        now: Date? = nil
     ) async -> [FileInsight] {
-        let insightId = PerformanceMonitor.shared.begin(.insightGeneration, metadata: "\(files.count) files, \(activities.count) activities")
+        let effectiveNow = now ?? clock.now
+        let insightId = performanceMonitor.begin(.insightGeneration, metadata: "\(files.count) files, \(activities.count) activities")
 
         var insights: [FileInsight] = []
         insights.append(contentsOf: detectFilePatterns(files))
         insights.append(contentsOf: detectStorageIssues(files))
         insights.append(contentsOf: detectRuleOpportunities(from: activities, files: files))
         insights.append(contentsOf: detectProjectClusters(files))
-        if let summary = generateActivitySummary(from: activities) {
+        if let summary = generateActivitySummary(from: activities, now: effectiveNow) {
             insights.append(summary)
         }
 
         // Sort by priority (higher = more important)
         let result = insights.sorted { $0.priority > $1.priority }
 
-        PerformanceMonitor.shared.end(.insightGeneration, id: insightId, metadata: "\(result.count) insights")
+        performanceMonitor.end(.insightGeneration, id: insightId, metadata: "\(result.count) insights")
         return result
     }
 
@@ -244,9 +261,9 @@ class InsightsService {
     // MARK: - Activity Summaries
     
     /// Generate a summary of recent activity
-    private func generateActivitySummary(from activities: [ActivityItem]) -> FileInsight? {
+    private func generateActivitySummary(from activities: [ActivityItem], now: Date) -> FileInsight? {
         let thisWeek = activities.filter { 
-            Calendar.current.isDate($0.timestamp, equalTo: Date(), toGranularity: .weekOfYear)
+            calendar.isDate($0.timestamp, equalTo: now, toGranularity: .weekOfYear)
         }
         
         let organizedCount = thisWeek.filter { 
@@ -273,8 +290,9 @@ class InsightsService {
     // MARK: - Helper: Time-Based Greetings
     
     /// Generate a contextual greeting based on time of day
-    func generateGreeting(fileCount: Int) -> String? {
-        let hour = Calendar.current.component(.hour, from: Date())
+    func generateGreeting(fileCount: Int, now: Date? = nil) -> String? {
+        let effectiveNow = now ?? clock.now
+        let hour = calendar.component(.hour, from: effectiveNow)
         let timeOfDay: String
         
         switch hour {

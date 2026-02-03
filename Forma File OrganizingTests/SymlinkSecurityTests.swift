@@ -11,6 +11,7 @@ final class SymlinkSecurityTests: XCTestCase {
     var testDirectory: URL!
 
     override func setUpWithError() throws {
+        try TestGating.requireIntegration()
         try super.setUpWithError()
 
         // Create temporary test directory

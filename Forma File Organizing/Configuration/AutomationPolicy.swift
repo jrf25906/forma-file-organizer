@@ -198,11 +198,16 @@ struct AutomationUserSettings: Equatable, Sendable {
 
     /// Loads current settings from UserDefaults.
     static var current: AutomationUserSettings {
+        current()
+    }
+
+    /// Loads current settings from the provided defaults (defaults to standard).
+    static func current(defaults: UserDefaults = .standard) -> AutomationUserSettings {
         AutomationUserSettings(
-            mode: AutomationMode(rawValue: UserDefaults.standard.string(forKey: Keys.mode) ?? "") ?? .scanOnly,
-            scanIntervalMinutes: UserDefaults.standard.integer(forKey: Keys.scanInterval),
-            scanOnLaunch: UserDefaults.standard.bool(forKey: Keys.scanOnLaunch),
-            notificationsEnabled: UserDefaults.standard.bool(forKey: Keys.notifications)
+            mode: AutomationMode(rawValue: defaults.string(forKey: Keys.mode) ?? "") ?? .scanOnly,
+            scanIntervalMinutes: defaults.integer(forKey: Keys.scanInterval),
+            scanOnLaunch: defaults.bool(forKey: Keys.scanOnLaunch),
+            notificationsEnabled: defaults.bool(forKey: Keys.notifications)
         )
     }
 
@@ -297,5 +302,26 @@ extension FormaConfig {
 
         /// Max automation notifications per hour (spam prevention).
         static let maxNotificationsPerHour = 5
+    }
+}
+
+// MARK: - Backoff Policy
+
+enum AutomationBackoffPolicy {
+    static func backoffMinutes(
+        consecutiveFailures: Int,
+        minIntervalMinutes: Int = FormaConfig.Automation.minScanIntervalMinutes,
+        multiplier: Double = FormaConfig.Automation.failureBackoffMultiplier,
+        threshold: Int = FormaConfig.Automation.maxConsecutiveFailures,
+        maxIntervalMinutes: Int = FormaConfig.Automation.maxBackoffIntervalMinutes
+    ) -> Int {
+        guard consecutiveFailures >= threshold else { return 0 }
+
+        let backoff = Int(
+            Double(minIntervalMinutes) *
+            pow(multiplier, Double(consecutiveFailures - threshold))
+        )
+
+        return min(backoff, maxIntervalMinutes)
     }
 }

@@ -7,7 +7,41 @@ final class RateLimitingTests: XCTestCase {
 
     var testDirectory: URL!
 
+    private let delayNanoseconds: UInt64 = 100_000_000 // 100ms
+
+    private final class MutableClock: Clock {
+        var now: Date
+        var calendar: Calendar
+
+        init(now: Date, calendar: Calendar = .current) {
+            self.now = now
+            self.calendar = calendar
+        }
+
+        func advance(by interval: TimeInterval) {
+            now = now.addingTimeInterval(interval)
+        }
+    }
+
+    private final class TestRateLimiter: RateLimiter, @unchecked Sendable {
+        private(set) var sleepCalls = 0
+        private let clock: MutableClock?
+        private let delaySeconds: TimeInterval
+
+        init(clock: MutableClock? = nil, delayNanoseconds: UInt64) {
+            self.clock = clock
+            self.delaySeconds = TimeInterval(delayNanoseconds) / 1_000_000_000
+        }
+
+        func sleepIfNeeded(after index: Int, total: Int) async {
+            guard total > 1, index < total - 1 else { return }
+            sleepCalls += 1
+            clock?.advance(by: delaySeconds)
+        }
+    }
+
     override func setUp() async throws {
+        try TestGating.requirePerformance()
         try await super.setUp()
 
         // Create temporary test directory
@@ -108,24 +142,21 @@ final class RateLimitingTests: XCTestCase {
     @MainActor
     func testRateLimitingDelayApplied() async throws {
         // Given: 10 test files with destinations set
-        let fileOperationsService = FileOperationsService()
+        let clock = MutableClock(now: Date(timeIntervalSince1970: 0))
+        let rateLimiter = TestRateLimiter(clock: clock, delayNanoseconds: delayNanoseconds)
+        let fileOperationsService = FileOperationsService(clock: clock, rateLimiter: rateLimiter)
         let fileCount = 10
         let files = createMockFilesWithDestinations(count: fileCount)
 
-        // When: Process the batch and measure time
-        let startTime = Date()
+        // When: Process the batch
+        let startTime = clock.now
         let results = await fileOperationsService.moveFiles(files)
-        let duration = Date().timeIntervalSince(startTime)
 
-        // Then: Duration should include delays (9 delays × 100ms = 900ms minimum)
-        // Allow some variance for processing time
-        let expectedMinDelay = 0.8 // 800ms (slightly less than 900ms to account for timing variance)
-
-        XCTAssertGreaterThan(
-            duration,
-            expectedMinDelay,
-            "Rate limiting delay should be applied between operations"
-        )
+        // Then: Delay should be applied between operations
+        XCTAssertEqual(rateLimiter.sleepCalls, fileCount - 1, "Should sleep between each operation")
+        let elapsed = clock.now.timeIntervalSince(startTime)
+        let expectedDelay = TimeInterval(fileCount - 1) * (TimeInterval(delayNanoseconds) / 1_000_000_000)
+        XCTAssertEqual(elapsed, expectedDelay, accuracy: 0.0001, "Clock should advance by total delay time")
 
         XCTAssertEqual(results.count, fileCount, "All files should be processed")
     }
@@ -134,41 +165,39 @@ final class RateLimitingTests: XCTestCase {
     @MainActor
     func testNoDelayAfterLastFile() async throws {
         // Given: 2 test files
-        let fileOperationsService = FileOperationsService()
+        let clock = MutableClock(now: Date(timeIntervalSince1970: 0))
+        let rateLimiter = TestRateLimiter(clock: clock, delayNanoseconds: delayNanoseconds)
+        let fileOperationsService = FileOperationsService(clock: clock, rateLimiter: rateLimiter)
         let files = createMockFilesWithDestinations(count: 2)
 
         // When: Process the batch
-        let startTime = Date()
+        let startTime = clock.now
         _ = await fileOperationsService.moveFiles(files)
-        let duration = Date().timeIntervalSince(startTime)
 
         // Then: Should only have 1 delay (100ms), not 2
-        // Total time should be ~100ms + processing time
-        XCTAssertLessThan(
-            duration,
-            0.5,
-            "Should not add delay after last file"
-        )
+        XCTAssertEqual(rateLimiter.sleepCalls, 1, "Should not add delay after last file")
+        let elapsed = clock.now.timeIntervalSince(startTime)
+        let expectedDelay = TimeInterval(delayNanoseconds) / 1_000_000_000
+        XCTAssertEqual(elapsed, expectedDelay, accuracy: 0.0001)
     }
 
     /// Test that single file has no delay
     @MainActor
     func testSingleFileNoDelay() async throws {
         // Given: Single file
-        let fileOperationsService = FileOperationsService()
+        let clock = MutableClock(now: Date(timeIntervalSince1970: 0))
+        let rateLimiter = TestRateLimiter(clock: clock, delayNanoseconds: delayNanoseconds)
+        let fileOperationsService = FileOperationsService(clock: clock, rateLimiter: rateLimiter)
         let files = createMockFilesWithDestinations(count: 1)
 
         // When: Process the batch
-        let startTime = Date()
+        let startTime = clock.now
         _ = await fileOperationsService.moveFiles(files)
-        let duration = Date().timeIntervalSince(startTime)
 
-        // Then: Should complete quickly with no delay
-        XCTAssertLessThan(
-            duration,
-            0.2,
-            "Single file should have no rate limiting delay"
-        )
+        // Then: Should complete with no delay
+        XCTAssertEqual(rateLimiter.sleepCalls, 0, "Single file should have no rate limiting delay")
+        let elapsed = clock.now.timeIntervalSince(startTime)
+        XCTAssertEqual(elapsed, 0, accuracy: 0.0001)
     }
 
     // MARK: - Resource Exhaustion Protection Tests
@@ -204,21 +233,15 @@ final class RateLimitingTests: XCTestCase {
     @MainActor
     func testBatchOperationResponsiveness() async throws {
         // Given: Moderate batch size
-        let fileOperationsService = FileOperationsService()
+        let rateLimiter = TestRateLimiter(delayNanoseconds: delayNanoseconds)
+        let fileOperationsService = FileOperationsService(rateLimiter: rateLimiter)
         let files = createMockFiles(count: 50)
 
         // When: Process the batch
-        let startTime = Date()
         _ = await fileOperationsService.moveFiles(files)
-        let duration = Date().timeIntervalSince(startTime)
 
-        // Then: Should complete in reasonable time (not freeze)
-        // 50 files × 100ms delay = 4.9 seconds + processing
-        XCTAssertLessThan(
-            duration,
-            10.0,
-            "Batch operation should complete in reasonable time"
-        )
+        // Then: Should apply rate limiting between operations
+        XCTAssertEqual(rateLimiter.sleepCalls, 49, "Should sleep between each of 50 files")
     }
 
     // MARK: - Error Handling Tests
@@ -227,21 +250,16 @@ final class RateLimitingTests: XCTestCase {
     @MainActor
     func testErrorsRespectRateLimiting() async throws {
         // Given: Files that will cause errors (no destination)
-        let fileOperationsService = FileOperationsService()
+        let rateLimiter = TestRateLimiter(delayNanoseconds: delayNanoseconds)
+        let fileOperationsService = FileOperationsService(rateLimiter: rateLimiter)
         let files = createMockFiles(count: 10)
         // Don't set destinations - will cause errors
 
         // When: Process the batch
-        let startTime = Date()
         let results = await fileOperationsService.moveFiles(files)
-        let duration = Date().timeIntervalSince(startTime)
 
         // Then: Rate limiting should still apply despite errors
-        XCTAssertGreaterThan(
-            duration,
-            0.8,
-            "Rate limiting should apply even when operations fail"
-        )
+        XCTAssertEqual(rateLimiter.sleepCalls, 9, "Rate limiting should apply even when operations fail")
 
         // All operations should fail but still return results
         XCTAssertEqual(results.count, 10, "Should return results for all files")
@@ -315,6 +333,7 @@ final class RateLimitingPerformanceTests: XCTestCase {
     var fileOperationsService: FileOperationsService!
 
     override func setUp() async throws {
+        try TestGating.requirePerformance()
         try await super.setUp()
         await MainActor.run {
             fileOperationsService = FileOperationsService()

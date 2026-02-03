@@ -12,6 +12,7 @@ final class FileRowUITests: XCTestCase {
     var app: XCUIApplication!
 
     override func setUpWithError() throws {
+        try UITestGating.requireUI()
         throw XCTSkip("Hover detection in UI tests is unreliable. Verify manually in the app.")
     }
 

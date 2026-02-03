@@ -3,16 +3,17 @@ import XCTest
 
 /// Tests for OrganizationPersonality model and preference application.
 final class OrganizationPersonalityTests: XCTestCase {
+    private let defaults = UserDefaults(suiteName: "OrganizationPersonalityTests")!
     
     override func setUp() {
         super.setUp()
-        // Clear any existing personality data
-        OrganizationPersonality.clear()
+        defaults.removePersistentDomain(forName: "OrganizationPersonalityTests")
+        OrganizationPersonality.clear(from: defaults)
     }
     
     override func tearDown() {
-        // Clean up after each test
-        OrganizationPersonality.clear()
+        OrganizationPersonality.clear(from: defaults)
+        defaults.removePersistentDomain(forName: "OrganizationPersonalityTests")
         super.tearDown()
     }
     
@@ -124,9 +125,9 @@ final class OrganizationPersonalityTests: XCTestCase {
             mentalModel: .timeBased
         )
         
-        original.save()
+        original.save(to: defaults)
         
-        let loaded = OrganizationPersonality.load()
+        let loaded = OrganizationPersonality.load(from: defaults)
         
         XCTAssertNotNil(loaded)
         XCTAssertEqual(loaded?.organizationStyle, original.organizationStyle)
@@ -135,19 +136,19 @@ final class OrganizationPersonalityTests: XCTestCase {
     }
     
     func testLoadWithoutSaving() {
-        let loaded = OrganizationPersonality.load()
+        let loaded = OrganizationPersonality.load(from: defaults)
         XCTAssertNil(loaded)
     }
     
     func testClear() {
         let personality = OrganizationPersonality.default
-        personality.save()
+        personality.save(to: defaults)
         
-        XCTAssertNotNil(OrganizationPersonality.load())
+        XCTAssertNotNil(OrganizationPersonality.load(from: defaults))
         
-        OrganizationPersonality.clear()
+        OrganizationPersonality.clear(from: defaults)
         
-        XCTAssertNil(OrganizationPersonality.load())
+        XCTAssertNil(OrganizationPersonality.load(from: defaults))
     }
     
     func testOverwriteSave() {
@@ -156,16 +157,16 @@ final class OrganizationPersonalityTests: XCTestCase {
             thinkingStyle: .visual,
             mentalModel: .projectBased
         )
-        first.save()
+        first.save(to: defaults)
         
         let second = OrganizationPersonality(
             organizationStyle: .filer,
             thinkingStyle: .hierarchical,
             mentalModel: .topicBased
         )
-        second.save()
+        second.save(to: defaults)
         
-        let loaded = OrganizationPersonality.load()
+        let loaded = OrganizationPersonality.load(from: defaults)
         
         XCTAssertNotNil(loaded)
         XCTAssertEqual(loaded?.organizationStyle, .filer)

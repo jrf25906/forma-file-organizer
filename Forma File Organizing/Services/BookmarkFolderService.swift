@@ -71,7 +71,7 @@ final class BookmarkFolderService: ObservableObject {
         var folders: [BookmarkFolder] = []
 
         #if DEBUG
-        let allKeychainKeys = SecureBookmarkStore.listAllBookmarkKeys()
+        let allKeychainKeys = BookmarkStoreProvider.shared.listAllBookmarkKeys()
         Log.debug("BookmarkFolderService: Keychain contains \(allKeychainKeys.count) bookmark(s)", category: .bookmark, verboseOnly: true)
         #endif
 
@@ -126,7 +126,7 @@ final class BookmarkFolderService: ObservableObject {
     /// Called after user grants permission via folder picker.
     func saveBookmark(_ data: Data, for folderType: BookmarkFolder.FolderType) {
         do {
-            try SecureBookmarkStore.saveBookmark(data, forKey: folderType.bookmarkKey)
+            try BookmarkStoreProvider.shared.saveBookmark(data, forKey: folderType.bookmarkKey)
             refresh()
             Log.info("BookmarkFolderService: Saved bookmark for \(folderType.displayName)", category: .bookmark)
         } catch {
@@ -138,7 +138,7 @@ final class BookmarkFolderService: ObservableObject {
     /// Called when user explicitly removes a folder.
     func removeBookmark(for folderType: BookmarkFolder.FolderType) {
         do {
-            try SecureBookmarkStore.deleteBookmark(forKey: folderType.bookmarkKey)
+            try BookmarkStoreProvider.shared.deleteBookmark(forKey: folderType.bookmarkKey)
             refresh()
             Log.info("BookmarkFolderService: Removed bookmark for \(folderType.displayName)", category: .bookmark)
         } catch {

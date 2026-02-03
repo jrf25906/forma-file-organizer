@@ -106,7 +106,7 @@ actor ThumbnailService {
         debugLog("🟡 ThumbnailService: Found bookmark key '\(bookmarkKey)' for path: \(path)")
 
         // Load bookmark from secure Keychain storage
-        guard let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: bookmarkKey) else {
+        guard let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: bookmarkKey) else {
             debugLog("🔴 ThumbnailService: No bookmark data found for key: \(bookmarkKey)")
             return nil
         }

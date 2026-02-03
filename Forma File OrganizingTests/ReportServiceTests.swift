@@ -4,18 +4,24 @@ import XCTest
 final class ReportServiceTests: XCTestCase {
     @MainActor
     func testShouldGenerateWeeklyReportResetsAfterWeekChange() {
-        let service = ReportService.shared
+        let defaults = UserDefaults(suiteName: "ReportServiceTests")!
+        defaults.removePersistentDomain(forName: "ReportServiceTests")
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let clock = FixedClock(now: now, calendar: calendar)
+        let service = ReportService(defaults: defaults, calendar: calendar, clock: clock)
         let key = ReportService.lastReportDateKey
-        let defaults = UserDefaults.standard
         defaults.removeObject(forKey: key)
 
-        XCTAssertTrue(service.shouldGenerateWeeklyReport())
+        XCTAssertTrue(service.shouldGenerateWeeklyReport(now: now))
 
-        let now = Date()
         defaults.set(now, forKey: key)
         XCTAssertFalse(service.shouldGenerateWeeklyReport(now: now))
 
-        let nextWeek = Calendar.current.date(byAdding: .day, value: 7, to: now)!
+        let nextWeek = calendar.date(byAdding: .day, value: 7, to: now)!
         XCTAssertTrue(service.shouldGenerateWeeklyReport(now: nextWeek))
     }
 }

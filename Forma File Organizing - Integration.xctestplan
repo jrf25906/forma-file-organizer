@@ -1,0 +1,31 @@
+{
+  "configurations": [
+    {
+      "id": "031E8C60-CD5E-4CEE-BE1B-9FDB4F56327B",
+      "name": "Integration Tests",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "testTimeoutsEnabled": true
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Forma File Organizing.xcodeproj",
+        "identifier": "50A492862ECC4C4A006868D5",
+        "name": "Forma File OrganizingTests"
+      },
+      "selectedTests": [
+        "AutomationIntegrationTests",
+        "BookmarkValidationSecurityTests",
+        "FileOperationsSecurityTests",
+        "FileOperationsServiceTests",
+        "FileSystemServiceTests",
+        "SecureBookmarkStoreTests",
+        "SymlinkSecurityTests"
+      ]
+    }
+  ],
+  "version": 1
+}

@@ -25,7 +25,6 @@ final class AutomationPolicyTests: XCTestCase {
     override func tearDown() {
         // Clean up test state
         featureFlags.resetToDefaults()
-        clearAutomationUserDefaults()
         super.tearDown()
     }
 
@@ -443,10 +442,4 @@ final class AutomationPolicyTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func clearAutomationUserDefaults() {
-        UserDefaults.standard.removeObject(forKey: AutomationUserSettings.Keys.mode)
-        UserDefaults.standard.removeObject(forKey: AutomationUserSettings.Keys.scanInterval)
-        UserDefaults.standard.removeObject(forKey: AutomationUserSettings.Keys.scanOnLaunch)
-        UserDefaults.standard.removeObject(forKey: AutomationUserSettings.Keys.notifications)
-    }
 }

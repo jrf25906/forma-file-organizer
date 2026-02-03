@@ -19,6 +19,7 @@ final class DestinationPredictionPerformanceTests: XCTestCase {
     // MARK: - Setup & Teardown
     
     override func setUp() async throws {
+        try TestGating.requirePerformance()
         try await super.setUp()
         
         // Create in-memory model container for testing

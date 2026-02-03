@@ -72,3 +72,52 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] Run unit/integration tests before and after each phase (CLI: `xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS' -skip-testing:"Forma File OrganizingUITests"`).
 - [ ] Run UI tests before and after each phase (blocked: UI test runner hang).
 - [x] If Phase 5 changes view structure, update architecture docs in `Docs/Architecture/` as needed.
+
+---
+
+## Testing Framework Refactor (v1)
+**Last Updated:** February 2, 2026  
+Goal: deterministic, behavior-driven tests with clear separation of unit/integration/performance/UI suites.
+
+### Priority 1 — Testable Infrastructure + Determinism
+- [ ] 1. Add injectable clock/calendar + defaults suites for time/UserDefaults usage in services:
+  - [x] `Services/ReportService.swift` (UserDefaults + Calendar + now)
+  - [x] `Services/InsightsService.swift` (Calendar + now + greeting)
+  - [x] `Services/AutomationEngine.swift` (clock + scheduler/backoff time)
+  - [ ] `Services/AnalyticsService.swift` (time-based summaries if needed)
+- [x] 2. Introduce wrappers for external side effects:
+  - [x] `SecureBookmarkStore` (Keychain) wrapper for tests
+  - [x] `FileManager` wrapper for filesystem behavior
+  - [ ] Optional: `NotificationService` wrapper for AutomationEngine tests
+- [x] 3. Update tests to use isolated dependencies:
+  - `ReportServiceTests.swift`, `InsightsServiceTests.swift`, `AutomationEngineTests.swift`,
+    `AutomationPolicyTests.swift`, `OrganizationPersonalityTests.swift`, `FolderTemplateSelectionTests.swift`.
+
+### Priority 2 — Replace Tautological or Duplicated Logic Tests
+- [x] 4. `FileRowTests.swift`: stop re-implementing view logic; extract helper (view model or static function) and test that.
+- [x] 5. `EnhancedReviewFeatureTests.swift`: move confidence badge/average/grouping logic into production helpers and test those.
+- [x] 6. `LoggingPolicyTests.swift`: replace raw string search with SwiftSyntax or SwiftLint rule to avoid false positives.
+
+### Priority 3 — Performance / Integration / UI Test Separation
+- [x] 7. Create separate test plans:
+  - Unit/default: exclude perf/integration/UI where possible
+  - Performance: `DestinationPredictionPerformanceTests`, `RateLimitingPerformanceTests`, `StorageServiceTests` perf
+  - Integration: `FileOperationsServiceTests`, `FileSystemServiceTests`, `SecureBookmarkStoreTests`, security suites
+- [x] 8. Gate perf/integration tests behind env flags to avoid CI flake.
+
+### Priority 4 — UI Test Stabilization
+- [ ] 9. Add explicit accessibility identifiers for focus/selection/row status across:
+  - `Views/FileRow.swift`, `Views/FileListRow.swift`, `Views/FileGridItem.swift`
+  - `Views/MainContentView.swift` / review segments / counters
+- [ ] 10. Update UI tests to use predicate expectations instead of `sleep()`:
+  - `Forma_File_OrganizingUITests.swift`, `MicroInteractionsUITests.swift`, `FileRowUITests.swift`.
+
+### Priority 5 — Data-Driven Fixtures & Structured Assertions
+- [ ] 11. Convert NL parser datasets to fixture files and structured assertions:
+  - `NaturalLanguageRuleParserDatasetTests.swift`
+  - `NaturalLanguageRuleParserEdgeCaseTests.swift` (avoid message text coupling)
+- [ ] 12. Convert “constant-only” tests to behavioral assertions:
+  - [x] `AutomationEngineTests.swift`
+  - [ ] `AutomationIntegrationTests.swift`
+  - [ ] `OrganizationTemplateTests.swift`
+  - [ ] `RuleServiceTests.swift`.

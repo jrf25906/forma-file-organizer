@@ -14,8 +14,9 @@ final class SecureBookmarkStoreTests: XCTestCase {
     let testKey = "TestBookmarkKey"
     let testData = "TestBookmarkData".data(using: .utf8)!
 
-    override func setUp() {
-        super.setUp()
+    override func setUpWithError() throws {
+        try TestGating.requireIntegration()
+        try super.setUpWithError()
         // Clean up any existing test data
         try? SecureBookmarkStore.deleteBookmark(forKey: testKey)
     }

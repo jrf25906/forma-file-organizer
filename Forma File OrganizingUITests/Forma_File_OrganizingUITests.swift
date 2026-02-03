@@ -12,10 +12,13 @@ import XCTest
 final class Forma_File_OrganizingUITests: XCTestCase {
 
     var app: XCUIApplication!
+    var harness: UITestHarness!
 
     override func setUpWithError() throws {
+        try UITestGating.requireUI()
         continueAfterFailure = false
         app = XCUIApplication()
+        harness = UITestHarness(app: app)
         // Pass a launch argument to indicate UI test mode, which can be used
         // to seed mock data or skip onboarding
         app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
@@ -34,6 +37,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
 
     override func tearDownWithError() throws {
         app = nil
+        harness = nil
     }
 
     private func terminateRunningAppIfNeeded() {
@@ -67,37 +71,13 @@ final class Forma_File_OrganizingUITests: XCTestCase {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
         }
     }
-    
-    // MARK: - Helper Methods
-    
-    /// Wait for the main content view to appear (i.e., onboarding is dismissed)
-    @MainActor
-    private func waitForMainContent() {
-        // Look for a unique element in the main content
-        let reviewButton = app.buttons["reviewMode_needsReview"]
-        XCTAssertTrue(reviewButton.waitForExistence(timeout: 8), "Main content should appear")
-        
-        // Ensure seeded UI test files are visible before proceeding
-        let firstCard = reviewCard(for: "UITest_File_1_WithSuggestion.pdf")
-        XCTAssertTrue(firstCard.waitForExistence(timeout: 8), "UI test files should be visible")
-    }
-    
-    /// Convenience accessor for a specific review file card by file name
-    @MainActor
-    private func reviewCard(for name: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: "fileRow_\(name)").firstMatch
-    }
-    
-    @MainActor
-    private func buttonValue(_ button: XCUIElement) -> String {
-        button.value as? String ?? ""
-    }
-    
+
     // MARK: - Keyboard Navigation Tests
     
     @MainActor
     func testKeyboardNavigationDownAndJ() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
         // Ensure there are files visible
         let scrollView = app.scrollViews["fileListScrollView"]
@@ -105,9 +85,6 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         
         // Focus first file by pressing Down arrow
         app.typeKey(.downArrow, modifierFlags: [])
-        
-        // Wait a moment for focus to update
-        sleep(1)
         
         // Now press J to move to next file
         app.typeText("j")
@@ -120,22 +97,20 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     
     @MainActor
     func testKeyboardNavigationUpAndK() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
         let scrollView = app.scrollViews["fileListScrollView"]
         XCTAssertTrue(scrollView.exists, "Center panel scroll view should exist")
         
         // Focus first file
         app.typeKey(.downArrow, modifierFlags: [])
-        sleep(1)
         
         // Move to next file
         app.typeText("j")
-        sleep(1)
         
         // Move back up with K
         app.typeText("k")
-        sleep(1)
         
         // Verify app is still responsive
         XCTAssertTrue(app.exists)
@@ -143,21 +118,19 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     
     @MainActor
     func testKeyboardNavigationArrowKeys() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
         let scrollView = app.scrollViews["fileListScrollView"]
         XCTAssertTrue(scrollView.exists, "Center panel scroll view should exist")
         
         // Navigate with Down arrow
         app.typeKey(.downArrow, modifierFlags: [])
-        sleep(1)
         
         app.typeKey(.downArrow, modifierFlags: [])
-        sleep(1)
         
         // Navigate back with Up arrow
         app.typeKey(.upArrow, modifierFlags: [])
-        sleep(1)
         
         XCTAssertTrue(app.exists)
     }
@@ -166,7 +139,8 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     
     @MainActor
     func testReviewModeToggleCountsUpdateWithActions() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
         // Initial counts: all three files are pending and non-completed
         let needsReviewButton = app.buttons["reviewMode_needsReview"]
@@ -175,23 +149,22 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         XCTAssertTrue(allFilesButton.exists)
         
         // Verify initial count for Needs Review
-        XCTAssertEqual(buttonValue(needsReviewButton), "3")
+        XCTAssertEqual(harness.badgeValue(needsReviewButton), "3")
         
         // Skip the first file via keyboard (S)
         app.typeKey(.downArrow, modifierFlags: [])
         app.typeText("s")
         
         // Needs Review should drop to 2
-        let needsReviewPredicate = NSPredicate(format: "value == %@", "2")
-        let needsReviewUpdated = expectation(for: needsReviewPredicate, evaluatedWith: needsReviewButton, handler: nil)
-        wait(for: [needsReviewUpdated], timeout: 3)
+        harness.waitForValue(needsReviewButton, equals: "2", timeout: 3)
     }
     
     @MainActor
     func testReviewModeToggleShowsSkippedInAllFilesButNotNeedsReview() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
-        let firstCard = reviewCard(for: "UITest_File_1_WithSuggestion.pdf")
+        let firstCard = harness.fileRow(named: "UITest_File_1_WithSuggestion.pdf")
         XCTAssertTrue(firstCard.waitForExistence(timeout: 3))
         
         // Verify initial segments
@@ -205,37 +178,31 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         app.typeText("s")
         
         // Wait for the first card to disappear in Needs Review mode
-        let notExistsPredicate = NSPredicate(format: "exists == false")
-        let firstGone = expectation(for: notExistsPredicate, evaluatedWith: firstCard, handler: nil)
-        wait(for: [firstGone], timeout: 3)
+        harness.waitForFileRow("UITest_File_1_WithSuggestion.pdf", exists: false, timeout: 3)
         
         // Switch to All Files mode
         allFilesButton.tap()
         
         // In All Files mode, skipped file should be visible again (non-completed)
-        let existsPredicate = NSPredicate(format: "exists == true")
-        let firstBack = expectation(for: existsPredicate, evaluatedWith: firstCard, handler: nil)
-        wait(for: [firstBack], timeout: 3)
+        harness.waitForFileRow("UITest_File_1_WithSuggestion.pdf", exists: true, timeout: 3)
         
         // Switch back to Needs Review and ensure card is hidden again
         needsReviewButton.tap()
-        let firstHiddenAgain = expectation(for: notExistsPredicate, evaluatedWith: firstCard, handler: nil)
-        wait(for: [firstHiddenAgain], timeout: 3)
+        harness.waitForFileRow("UITest_File_1_WithSuggestion.pdf", exists: false, timeout: 3)
     }
     
     // MARK: - File Action Tests
     
     @MainActor
     func testKeyboardShortcutSpace_QuickLook() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
         // Focus a file
         app.typeKey(.downArrow, modifierFlags: [])
-        sleep(1)
         
         // Press Space to trigger Quick Look
         app.typeText(" ")
-        sleep(1)
         
         // Quick Look should open; verify the app is still responsive
         // (Quick Look is a system panel and may not be easily queryable)
@@ -244,9 +211,10 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     
     @MainActor
     func testKeyboardShortcutS_Skip() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
-        let firstCard = reviewCard(for: "UITest_File_1_WithSuggestion.pdf")
+        let firstCard = harness.fileRow(named: "UITest_File_1_WithSuggestion.pdf")
         XCTAssertTrue(firstCard.waitForExistence(timeout: 3))
         
         // Focus first file
@@ -256,21 +224,19 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         app.typeText("s")
         
         // Skipped file should disappear from Needs Review list
-        let notExistsPredicate = NSPredicate(format: "exists == false")
-        let expectation = expectation(for: notExistsPredicate, evaluatedWith: firstCard, handler: nil)
-        wait(for: [expectation], timeout: 3)
+        harness.waitForFileRow("UITest_File_1_WithSuggestion.pdf", exists: false, timeout: 3)
     }
     
     @MainActor
     func testKeyboardShortcutE_EditDestination() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
-        let firstCard = reviewCard(for: "UITest_File_1_WithSuggestion.pdf")
+        let firstCard = harness.fileRow(named: "UITest_File_1_WithSuggestion.pdf")
         XCTAssertTrue(firstCard.waitForExistence(timeout: 3))
         
         // Focus the first file
         app.typeKey(.downArrow, modifierFlags: [])
-        sleep(1)
         
         // Press E to open Edit Destination sheet
         app.typeText("e")
@@ -280,19 +246,18 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         
         // Dismiss the sheet by pressing Escape
         app.typeKey(.escape, modifierFlags: [])
-        sleep(1)
     }
     
     @MainActor
     func testKeyboardShortcutR_CreateRule() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
-        let firstCard = reviewCard(for: "UITest_File_1_WithSuggestion.pdf")
+        let firstCard = harness.fileRow(named: "UITest_File_1_WithSuggestion.pdf")
         XCTAssertTrue(firstCard.waitForExistence(timeout: 3))
         
         // Focus the first file
         app.typeKey(.downArrow, modifierFlags: [])
-        sleep(1)
         
         // Press R to open rule editor
         app.typeText("r")
@@ -302,14 +267,14 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         
         // Dismiss rule editor
         app.typeKey(.escape, modifierFlags: [])
-        sleep(1)
     }
     
     @MainActor
     func testKeyboardShortcutEnter_Organize() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
-        let firstCard = reviewCard(for: "UITest_File_1_WithSuggestion.pdf")
+        let firstCard = harness.fileRow(named: "UITest_File_1_WithSuggestion.pdf")
         XCTAssertTrue(firstCard.waitForExistence(timeout: 3))
         
         // Focus the first file (has a suggested destination)
@@ -319,16 +284,15 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         app.typeKey(.enter, modifierFlags: [])
         
         // Organized file should disappear from visible list (marked completed)
-        let notExistsPredicate = NSPredicate(format: "exists == false")
-        let expectation = expectation(for: notExistsPredicate, evaluatedWith: firstCard, handler: nil)
-        wait(for: [expectation], timeout: 3)
+        harness.waitForFileRow("UITest_File_1_WithSuggestion.pdf", exists: false, timeout: 3)
     }
     
     @MainActor
     func testKeyboardShortcutCmdEnter_OrganizeAndMoveNext() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
-        let firstCard = reviewCard(for: "UITest_File_1_WithSuggestion.pdf")
+        let firstCard = harness.fileRow(named: "UITest_File_1_WithSuggestion.pdf")
         XCTAssertTrue(firstCard.waitForExistence(timeout: 3))
         
         // Focus first file
@@ -338,11 +302,9 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         app.typeKey(.enter, modifierFlags: .command)
         
         // First card should be gone, second still present
-        let notExistsPredicate = NSPredicate(format: "exists == false")
-        let expectation = expectation(for: notExistsPredicate, evaluatedWith: firstCard, handler: nil)
-        wait(for: [expectation], timeout: 3)
+        harness.waitForFileRow("UITest_File_1_WithSuggestion.pdf", exists: false, timeout: 3)
         
-        let secondCard = reviewCard(for: "UITest_File_2_NoSuggestion.txt")
+        let secondCard = harness.fileRow(named: "UITest_File_2_NoSuggestion.txt")
         XCTAssertTrue(secondCard.exists)
     }
     
@@ -350,11 +312,12 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     
     @MainActor
     func testKeyboardWorkflow_NavigateAndOrganize() throws {
-        waitForMainContent()
+        harness.waitForMainContent()
+        app.activate()
         
-        let firstCard = reviewCard(for: "UITest_File_1_WithSuggestion.pdf")
-        let secondCard = reviewCard(for: "UITest_File_2_NoSuggestion.txt")
-        let thirdCard = reviewCard(for: "UITest_File_3_WithSuggestion.mov")
+        let firstCard = harness.fileRow(named: "UITest_File_1_WithSuggestion.pdf")
+        let secondCard = harness.fileRow(named: "UITest_File_2_NoSuggestion.txt")
+        let thirdCard = harness.fileRow(named: "UITest_File_3_WithSuggestion.mov")
         XCTAssertTrue(firstCard.waitForExistence(timeout: 3))
         XCTAssertTrue(secondCard.exists)
         XCTAssertTrue(thirdCard.exists)
@@ -365,9 +328,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         // Skip the first file
         app.typeText("s")
         
-        let notExistsPredicate = NSPredicate(format: "exists == false")
-        let firstGone = expectation(for: notExistsPredicate, evaluatedWith: firstCard, handler: nil)
-        wait(for: [firstGone], timeout: 3)
+        harness.waitForFileRow("UITest_File_1_WithSuggestion.pdf", exists: false, timeout: 3)
         
         // Move to next file (now the former second)
         app.typeText("j")

@@ -1,0 +1,22 @@
+{
+  "configurations": [
+    {
+      "id": "41241418-363E-491A-AA14-68D342AE2936",
+      "name": "UI Tests",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "testTimeoutsEnabled": true
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Forma File Organizing.xcodeproj",
+        "identifier": "50A492902ECC4C4A006868D5",
+        "name": "Forma File OrganizingUITests"
+      }
+    }
+  ],
+  "version": 1
+}

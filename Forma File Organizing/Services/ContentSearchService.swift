@@ -107,9 +107,9 @@ final class ContentSearchService: ObservableObject {
 
         // Check for custom folder bookmarks
         let customFolderPrefix = "CustomFolder_"
-        let keychainKeys = SecureBookmarkStore.listAllBookmarkKeys()
+        let keychainKeys = BookmarkStoreProvider.shared.listAllBookmarkKeys()
         for key in keychainKeys where key.hasPrefix(customFolderPrefix) {
-            if let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: key) {
+            if let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: key) {
                 var isStale = false
                 if let url = try? URL(
                     resolvingBookmarkData: bookmarkData,
@@ -131,7 +131,7 @@ final class ContentSearchService: ObservableObject {
             return nil
         }
 
-        guard let bookmarkData = SecureBookmarkStore.loadBookmark(forKey: bookmarkKey) else {
+        guard let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: bookmarkKey) else {
             return nil
         }
 
