@@ -7,6 +7,17 @@ final class NotificationService: Sendable {
     static let shared = NotificationService()
 
     private init() {
+        let env = ProcessInfo.processInfo.environment
+        let isRunningTests = env["XCTestConfigurationFilePath"] != nil ||
+            env["XCTestBundlePath"] != nil ||
+            env["XCTestSessionIdentifier"] != nil ||
+            env["XCInjectBundleInto"] != nil
+        let isUITesting = CommandLine.arguments.contains("--uitesting")
+
+        guard !isRunningTests && !isUITesting else {
+            return
+        }
+
         // Request notification authorization on init
         Task {
             await requestAuthorization()

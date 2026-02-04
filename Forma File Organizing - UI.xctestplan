@@ -3,7 +3,15 @@
     {
       "id": "41241418-363E-491A-AA14-68D342AE2936",
       "name": "UI Tests",
-      "options": {}
+      "options": {
+        "environmentVariables": [
+          {
+            "enabled": true,
+            "key": "RUN_UI_TESTS",
+            "value": "1"
+          }
+        ]
+      }
     }
   ],
   "defaultOptions": {

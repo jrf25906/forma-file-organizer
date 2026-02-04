@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { GridLogo } from "@/components/Header";
 import { MagneticButton } from "@/components/animation/MagneticButton";
+import Link from "next/link";
 
 export function Footer() {
     return (
@@ -36,8 +37,8 @@ export function Footer() {
                     <div className="space-y-4">
                         <h4 className="font-medium text-forma-bone/40 uppercase tracking-wider text-xs">Legal</h4>
                         <ul className="space-y-2">
-                            <li><a href="#" className="hover:text-forma-steel-blue transition-colors">Privacy</a></li>
-                            <li><a href="#" className="hover:text-forma-steel-blue transition-colors">Terms</a></li>
+                            <li><Link href="/privacy" className="hover:text-forma-steel-blue transition-colors">Privacy</Link></li>
+                            <li><Link href="/terms" className="hover:text-forma-steel-blue transition-colors">Terms</Link></li>
                         </ul>
                     </div>
                 </div>

@@ -124,8 +124,8 @@ Multiple footer links use `href="#"` with generic or missing destinations:
 - "Documentation" → #
 - "Blog" → #
 - "Press Kit" → #
-- "Privacy Policy" → #
-- "Terms of Service" → #
+- "Privacy Policy" → /privacy
+- "Terms of Service" → /terms
 - "License" → #
 
 **Issue:** While the link text is descriptive, the `#` anchors are non-functional and confusing.

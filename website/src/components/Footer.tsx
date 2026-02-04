@@ -19,14 +19,14 @@ export default function Footer() {
           </a>
           <span>·</span>
           <a
-            href="#"
+            href="/privacy"
             className="hover:text-forma-bone/60 transition-colors"
           >
             Privacy
           </a>
           <span>·</span>
           <a
-            href="#"
+            href="/terms"
             className="hover:text-forma-bone/60 transition-colors"
           >
             Terms

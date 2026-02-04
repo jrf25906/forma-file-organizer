@@ -25,6 +25,7 @@ Welcome to the Forma File Organizing App documentation.
 | Security | [Docs/Security/README.md](Security/README.md) |
 | Research | [Docs/Research/README.md](Research/README.md) |
 | Roadmap | [Docs/Roadmap/README.md](Roadmap/README.md) |
+| Legal | [Docs/Legal/README.md](Legal/README.md) |
 | API Reference | [Docs/API-Reference/README.md](API-Reference/README.md) |
 | Archive | [Docs/Archive/README.md](Archive/README.md) |
 

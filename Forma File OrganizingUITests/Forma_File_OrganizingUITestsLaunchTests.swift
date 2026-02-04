@@ -21,10 +21,12 @@ final class Forma_File_OrganizingUITestsLaunchTests: XCTestCase {
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
 
-        // Insert steps here to perform after app launch but before taking a screenshot,
-        // such as logging into a test account or navigating somewhere in the app
+        // Wait for the UI-testing seed data to render before taking a screenshot.
+        let needsReviewButton = app.buttons["reviewMode_needsReview"]
+        XCTAssertTrue(needsReviewButton.waitForExistence(timeout: 8), "Main content should appear")
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Launch Screen"

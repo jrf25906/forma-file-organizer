@@ -108,13 +108,20 @@ class DashboardViewModel: ObservableObject {
         setupBulkOperationCallbacks()
 
         #if DEBUG
-        if CommandLine.arguments.contains("--force-onboarding") {
+        let env = ProcessInfo.processInfo.environment
+        let isRunningTests = env["XCTestConfigurationFilePath"] != nil ||
+            env["XCTestBundlePath"] != nil ||
+            env["XCTestSessionIdentifier"] != nil ||
+            env["XCInjectBundleInto"] != nil
+        let isUITesting = CommandLine.arguments.contains("--uitesting")
+
+        if !isRunningTests && !isUITesting && CommandLine.arguments.contains("--force-onboarding") {
             if let concreteFS = fileSystemService as? FileSystemService {
                 concreteFS.resetAllAccess()
             }
         }
 
-        if !CommandLine.arguments.contains("--uitesting") {
+        if !isRunningTests && !isUITesting {
             Log.debug("Running bookmark diagnostics on startup", category: .bookmark, verboseOnly: true)
             fileOperationsService.diagnoseBookmarks()
         }

@@ -226,7 +226,11 @@ final class FileSystemServiceTests: XCTestCase {
 
         // Then: URL should resolve and not be stale
         XCTAssertFalse(isStale, "Bookmark should not be stale for existing directory")
-        XCTAssertEqual(resolvedURL.path, tempDir.url.path, "Resolved URL should match original")
+        XCTAssertEqual(
+            resolvedURL.resolvingSymlinksInPath().path,
+            tempDir.url.resolvingSymlinksInPath().path,
+            "Resolved URL should match original"
+        )
     }
 
     func testBookmarkResolution_StaleBookmark() throws {

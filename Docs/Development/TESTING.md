@@ -2,6 +2,31 @@
 
 This document explains the testing infrastructure and best practices for Forma.
 
+## Running Tests
+
+The project includes dedicated `.xctestplan` files to make it easy to run the
+right suite without manual environment variables.
+
+**Unit tests (default plan):**
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS'
+```
+
+**Integration tests (test plan):**
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -testPlan "Forma File Organizing - Integration" -destination 'platform=macOS'
+```
+
+**Performance tests (test plan):**
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -testPlan "Forma File Organizing - Performance" -destination 'platform=macOS'
+```
+
+**UI tests (test plan):**
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -testPlan "Forma File Organizing - UI" -destination 'platform=macOS'
+```
+
 ## Test Architecture
 
 Forma uses a **hybrid testing approach**:
@@ -204,17 +229,31 @@ func testWithContext() async throws {
 
 UI/UI automation tests live in `Forma File OrganizingUITests/`.
 
-**Run full suite (including UI tests):**
+**Run default test plan (non-UI):**
 ```bash
 xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS'
 ```
 
-**Run CLI tests while UI runner hang is being investigated:**
+**Run UI tests (separate test plan):**
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -testPlan "Forma File Organizing - UI" -destination 'platform=macOS'
+```
+
+**Run UI tests without a dev cert (ad-hoc signing):**
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -testPlan "Forma File Organizing - UI" -destination 'platform=macOS' \
+  CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="" PROVISIONING_PROFILE_SPECIFIER=""
+```
+
+**Skip UI tests (legacy flag):**
 ```bash
 xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS' -skip-testing:"Forma File OrganizingUITests"
 ```
 
 ### UI Test Runner Hang (Troubleshooting)
+
+If the UI test runner exits immediately (e.g., `signal kill`), it can be a signing/Gatekeeper issue.
+UI tests require a signed runner on macOS — avoid running UI tests with `CODE_SIGNING_ALLOWED=NO`.
 
 If the UI test runner hangs before establishing a connection, it is usually a local
 Automation/Accessibility permission issue. Recommended checks:

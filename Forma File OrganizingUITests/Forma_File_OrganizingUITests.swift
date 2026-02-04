@@ -14,28 +14,34 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     var app: XCUIApplication!
     var harness: UITestHarness!
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         try UITestGating.requireUI()
         continueAfterFailure = false
-        app = XCUIApplication()
-        harness = UITestHarness(app: app)
-        // Pass a launch argument to indicate UI test mode, which can be used
-        // to seed mock data or skip onboarding
-        app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
 
         let isLaunchPerformanceTest = name.contains("testLaunchPerformance")
         if !isLaunchPerformanceTest {
             terminateRunningAppIfNeeded()
-            app.launch()
         }
 
-        // Wait for the app to settle
-        if !isLaunchPerformanceTest {
-            _ = app.wait(for: .runningForeground, timeout: 5)
+        let launchedApp = await MainActor.run {
+            let app = XCUIApplication()
+            // Pass a launch argument to indicate UI test mode, which can be used
+            // to seed mock data or skip onboarding
+            app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
+
+            if !isLaunchPerformanceTest {
+                app.launch()
+                // Wait for the app to settle
+                _ = app.wait(for: .runningForeground, timeout: 5)
+            }
+            return app
         }
+
+        app = launchedApp
+        harness = UITestHarness(app: launchedApp)
     }
 
-    override func tearDownWithError() throws {
+    override func tearDown() async throws {
         app = nil
         harness = nil
     }
@@ -348,7 +354,9 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     @MainActor
     func testLaunchPerformance() throws {
         measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
+            let app = XCUIApplication()
+            app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
+            app.launch()
         }
     }
 }

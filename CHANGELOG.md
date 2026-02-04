@@ -6,6 +6,8 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Added launch/legal documentation and marketing-site pages for Privacy Policy and Terms.
+- Added a formal `LICENSE` file for the repository.
 - Smart Insight actions now deep-link into relevant views (large files, downloads, screenshots) and can prefill the rule editor.
 - Category scope editor now includes a folder picker for scoped categories.
 - Bulk operation progress overlay now supports cancellation.

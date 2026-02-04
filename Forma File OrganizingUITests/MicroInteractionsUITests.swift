@@ -7,11 +7,7 @@ final class MicroInteractionsUITests: XCTestCase {
     override func setUpWithError() throws {
         try UITestGating.requireUI()
         continueAfterFailure = false
-        app = XCUIApplication()
-        
-        // Launch with testing flag to get mock data
-        app.launchArguments = ["--uitesting"]
-        app.launch()
+        app = nil
     }
 
     override func tearDownWithError() throws {
@@ -23,7 +19,7 @@ final class MicroInteractionsUITests: XCTestCase {
     /// Test that organizing a file triggers the organize animation
     @MainActor
     func testOrganizeAnimationTriggersOnFileOrganize() throws {
-        throw XCTSkip("Navigation to Home view in UI tests is unreliable")
+        try XCTSkipIf(true, "Navigation to Home view in UI tests is unreliable")
         // Skip onboarding if present
         let skipButton = app.buttons["onboardingSkipButton"]
         if skipButton.waitForExistence(timeout: 2) {
@@ -64,7 +60,7 @@ final class MicroInteractionsUITests: XCTestCase {
     /// Test that the checkmark overlay appears during organize animation
     @MainActor
     func testCheckmarkAppearsWhileOrganizing() throws {
-        throw XCTSkip("Navigation to Home view in UI tests is unreliable")
+        try XCTSkipIf(true, "Navigation to Home view in UI tests is unreliable")
         
         let skipButton = app.buttons["onboardingSkipButton"]
         if skipButton.waitForExistence(timeout: 2) {
@@ -110,7 +106,7 @@ final class MicroInteractionsUITests: XCTestCase {
     /// Test that multiple files can be organized with animations
     @MainActor
     func testMultipleFilesOrganizeSequentially() throws {
-        throw XCTSkip("Navigation to Home view in UI tests is unreliable")
+        try XCTSkipIf(true, "Navigation to Home view in UI tests is unreliable")
         let skipButton = app.buttons["onboardingSkipButton"]
         if skipButton.waitForExistence(timeout: 2) {
             skipButton.tap()
@@ -173,7 +169,7 @@ extension MicroInteractionsUITests {
     /// Verify that the organize animation modifier is applied to file rows
     @MainActor
     func testOrganizeAnimationIsIntegrated() throws {
-        throw XCTSkip("Navigation to Home view in UI tests is unreliable")
+        try XCTSkipIf(true, "Navigation to Home view in UI tests is unreliable")
         let skipButton = app.buttons["onboardingSkipButton"]
         if skipButton.waitForExistence(timeout: 2) {
             skipButton.tap()

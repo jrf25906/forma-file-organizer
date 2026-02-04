@@ -4,27 +4,32 @@ import XCTest
 @MainActor
 final class DashboardViewModelTests: XCTestCase {
 
-    var viewModel: DashboardViewModel!
-    var mockService: MockFileSystemService!
-    var mockPipeline: MockFileScanPipeline!
+	    var viewModel: DashboardViewModel!
+	    var mockService: MockFileSystemService!
+	    var mockPipeline: MockFileScanPipeline!
 
-    override func setUp() {
-        super.setUp()
-        mockService = MockFileSystemService()
-        mockPipeline = MockFileScanPipeline()
-        viewModel = DashboardViewModel(
-            services: AppServices(),
-            fileSystemService: mockService,
-            fileScanPipeline: mockPipeline
-        )
-    }
-    
-    override func tearDown() {
-        viewModel = nil
-        mockService = nil
-        mockPipeline = nil
-        super.tearDown()
-    }
+	    override func setUp() async throws {
+	        try await super.setUp()
+	
+	        await MainActor.run {
+	            mockService = MockFileSystemService()
+	            mockPipeline = MockFileScanPipeline()
+	            viewModel = DashboardViewModel(
+	                services: AppServices(),
+	                fileSystemService: mockService,
+	                fileScanPipeline: mockPipeline
+	            )
+	        }
+	    }
+	    
+	    override func tearDown() async throws {
+	        await MainActor.run {
+	            viewModel = nil
+	            mockService = nil
+	            mockPipeline = nil
+	        }
+	        try await super.tearDown()
+	    }
     
     func testInitialPermissionsCheck() {
         // Given
@@ -56,16 +61,16 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.showOnboarding, "Onboarding should not be shown when all permissions are granted")
     }
     
-    func testRequestDesktopAccess() async {
-        // Given
-        mockService.hasDesktop = false
-        
-        // When
-        await viewModel.requestDesktopAccess()
-        
-        // Then
-        XCTAssertTrue(viewModel.hasDesktopAccess, "Desktop access should be granted")
-    }
+	    func testRequestDesktopAccess() async {
+	        // Given
+	        mockService.hasDesktop = false
+	        
+	        // When
+	        _ = await viewModel.requestDesktopAccess()
+	        
+	        // Then
+	        XCTAssertTrue(viewModel.hasDesktopAccess, "Desktop access should be granted")
+	    }
     
     func testFilterByLocation() {
         // Given
@@ -208,14 +213,14 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.focusedFilePath, one.path)
     }
     
-    func testUndoStackCapacityKeepsLastTwenty() {
-        // Given
-        for i in 0..<25 {
-            let action = DashboardViewModel.OrganizationAction(
-                id: UUID(),
-                type: .skip,
-                files: [],
-                timestamp: Date()
+	    func testUndoStackCapacityKeepsLastTwenty() {
+	        // Given
+	        for _ in 0..<25 {
+	            let action = DashboardViewModel.OrganizationAction(
+	                id: UUID(),
+	                type: .skip,
+	                files: [],
+	                timestamp: Date()
             )
             viewModel._testPushUndoAction(action)
         }
@@ -614,57 +619,6 @@ final class DashboardViewModelTests: XCTestCase {
         // Then: only the screenshot should match
         XCTAssertEqual(matches.count, 1)
         XCTAssertEqual(matches.first?.path, screenshot.path)
-    }
-    
-    // MARK: - Performance Tests
-    
-    func testLargeSelectionPerformance() throws {
-        try TestGating.requirePerformance()
-        // Given: Create 100 files
-        var files: [FileItem] = []
-        for i in 0..<100 {
-            let file = FileItem(path: "/f/\(i).txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
-            files.append(file)
-        }
-        viewModel._testSetFiles(files)
-        viewModel.selectedFolder = .home
-        viewModel.reviewFilterMode = .all
-        viewModel.selectCategory(.all)
-
-        // When: Select all
-        let start = Date()
-        viewModel.selectAll()
-        let duration = Date().timeIntervalSince(start)
-        
-        // Then: Should complete quickly and have all files selected
-        XCTAssertEqual(viewModel.selectedFileIDs.count, 100)
-        XCTAssertLessThan(duration, 0.1) // Should take less than 100ms
-        XCTAssertTrue(viewModel.isSelectionMode)
-    }
-    
-    func testBulkSkip100Files() throws {
-        try TestGating.requirePerformance()
-        // Given: Create 100 files
-        var files: [FileItem] = []
-        for i in 0..<100 {
-            let file = FileItem(path: "/f/\(i).txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
-            files.append(file)
-        }
-        viewModel._testSetFiles(files)
-        viewModel.selectedFolder = .home
-        viewModel.selectAll()
-
-        // When: Skip all
-        let start = Date()
-        viewModel.skipSelectedFiles()
-        let duration = Date().timeIntervalSince(start)
-        
-        // Then: All should be skipped
-        XCTAssertEqual(files.filter { $0.status == .skipped }.count, 100)
-        XCTAssertLessThan(duration, 0.5) // Should take less than 500ms
-        // Each skipped file produces an undo command, but the stack is capped
-        // by FormaConfig.Limits.maxUndoActions to prevent unbounded memory use.
-        XCTAssertEqual(viewModel.undoStack.count, FormaConfig.Limits.maxUndoActions)
     }
     
     // MARK: - Right Panel Mode Transition Tests

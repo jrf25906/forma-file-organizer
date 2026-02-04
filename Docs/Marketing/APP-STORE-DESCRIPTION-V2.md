@@ -1,5 +1,10 @@
 # App Store Metadata: Forma (v2 — Launch Ready)
 
+## URLs (App Store Connect)
+- **Marketing URL:** https://formafiles.com
+- **Support URL:** https://formafiles.com/support *(or use a support email if you don’t have a page yet)*
+- **Privacy Policy URL:** https://formafiles.com/privacy
+
 ## App Name
 **Forma: File Organizer**
 *(22 characters — under 30 limit)*

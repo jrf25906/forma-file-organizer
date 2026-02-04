@@ -30,8 +30,20 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:Forma File Organizing.xctestplan"
+            reference = "container:Forma File Organizing - Unit.xctestplan"
             default = "YES">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:Forma File Organizing.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:Forma File Organizing - Integration.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:Forma File Organizing - Performance.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:Forma File Organizing - UI.xctestplan">
          </TestPlanReference>
       </TestPlans>
    </TestAction>

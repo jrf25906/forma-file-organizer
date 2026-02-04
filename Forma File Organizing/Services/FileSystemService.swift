@@ -476,9 +476,12 @@ class FileSystemService: FileSystemServiceProtocol {
 
         // SECURITY: Validate custom folder bookmark resolution
         // 1. Verify the resolved URL matches the expected path
-        guard resolvedURL.path == url.path else {
+        let expectedPath = url.standardizedFileURL.resolvingSymlinksInPath().path
+        let resolvedPath = resolvedURL.standardizedFileURL.resolvingSymlinksInPath().path
+
+        guard resolvedPath == expectedPath else {
             #if DEBUG
-            Log.warning("Security: Custom folder bookmark mismatch. Expected '\(url.path)', got '\(resolvedURL.path)'", category: .security)
+            Log.warning("Security: Custom folder bookmark mismatch. Expected '\(expectedPath)', got '\(resolvedPath)'", category: .security)
             #endif
             throw FormaError.validation(.invalidDestination("Bookmark verification failed. Please re-add this folder."))
         }

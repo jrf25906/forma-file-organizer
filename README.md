@@ -185,4 +185,4 @@ Changes pushed to `main` automatically deploy to production via Vercel's GitHub 
 
 ## License
 
-Copyright © 2025. All rights reserved.
+See [LICENSE](LICENSE).

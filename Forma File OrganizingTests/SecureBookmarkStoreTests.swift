@@ -357,7 +357,11 @@ final class SecureBookmarkStoreTests: XCTestCase {
             bookmarkDataIsStale: &isStale
         )
 
-        XCTAssertEqual(resolvedURL.path, desktopURL.path, "Resolved URL should match original")
+        XCTAssertEqual(
+            resolvedURL.resolvingSymlinksInPath().path,
+            desktopURL.resolvingSymlinksInPath().path,
+            "Resolved URL should match original"
+        )
         // Note: In test environments, bookmarks may become stale between creation and resolution
         // This is expected behavior in automated testing, so we don't assert on staleness
 

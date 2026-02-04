@@ -7,6 +7,7 @@ final class UITestHarness {
         self.app = app
     }
 
+    @MainActor
     func waitForMainContent(timeout: TimeInterval = 8) {
         let needsReviewButton = app.buttons["reviewMode_needsReview"]
         XCTAssertTrue(needsReviewButton.waitForExistence(timeout: timeout), "Main content should appear")
@@ -15,10 +16,12 @@ final class UITestHarness {
         XCTAssertTrue(firstCard.waitForExistence(timeout: timeout), "UI test files should be visible")
     }
 
+    @MainActor
     func fileRow(named name: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: "fileRow_\(name)").firstMatch
     }
 
+    @MainActor
     func waitForFileRow(_ name: String, exists: Bool, timeout: TimeInterval = 4) {
         let row = fileRow(named: name)
         let predicate = NSPredicate(format: "exists == %@", exists as NSNumber)
@@ -27,6 +30,7 @@ final class UITestHarness {
         XCTAssertEqual(result, .completed, "Expected file row \(name) exists=\(exists)")
     }
 
+    @MainActor
     func waitForValue(_ element: XCUIElement, equals value: String, timeout: TimeInterval = 4) {
         let predicate = NSPredicate(format: "value == %@", value)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
@@ -34,6 +38,7 @@ final class UITestHarness {
         XCTAssertEqual(result, .completed, "Expected value to be \(value)")
     }
 
+    @MainActor
     func badgeValue(_ element: XCUIElement) -> String {
         element.value as? String ?? ""
     }

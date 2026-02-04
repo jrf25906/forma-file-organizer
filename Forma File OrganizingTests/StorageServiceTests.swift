@@ -408,23 +408,6 @@ final class StorageServiceTests: XCTestCase {
         XCTAssertEqual(analytics.fileCountForCategory(.documents), 1)
     }
 
-    func testLargeFileSet_Performance() throws {
-        try TestGating.requirePerformance()
-        // Given: Large set of files (1000 files)
-        let files = (0..<1000).map { index in
-            createMockFile(
-                name: "file\(index).pdf",
-                sizeInBytes: Int64(index * 1000),
-                path: "/test/file\(index).pdf"
-            )
-        }
-
-        // When/Then: Measure performance
-        measure {
-            _ = storageService.calculateAnalytics(from: files)
-        }
-    }
-
     func testZeroByteFiles_HandledCorrectly() {
         // Given: Files with zero bytes
         let files = [

@@ -192,9 +192,12 @@ export default function Privacy() {
                   <p className="text-sm text-forma-bone/60">
                     We will never sell, share, or upload your data. Period.
                     <br />
-                    <span className="text-forma-sage">
+                    <a
+                      href="/privacy"
+                      className="text-forma-sage hover:opacity-80 transition-opacity"
+                    >
                       Read our privacy policy →
-                    </span>
+                    </a>
                   </p>
                 </div>
               </div>

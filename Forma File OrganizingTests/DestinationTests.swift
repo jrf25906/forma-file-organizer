@@ -10,7 +10,10 @@ final class DestinationTests: XCTestCase {
 
         XCTAssertEqual(destination.displayName, tempDir.url.lastPathComponent)
         let resolved = destination.resolve()
-        XCTAssertEqual(resolved?.url.path, tempDir.url.path)
+        XCTAssertEqual(
+            resolved?.url.resolvingSymlinksInPath().path,
+            tempDir.url.resolvingSymlinksInPath().path
+        )
         XCTAssertEqual(resolved?.isStale, false)
         XCTAssertEqual(destination.bookmarkData?.isEmpty, false)
     }

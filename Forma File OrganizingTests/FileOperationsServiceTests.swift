@@ -4,9 +4,10 @@ import SwiftData
 
 /// Integration tests for FileOperationsService using real filesystem operations
 final class FileOperationsServiceTests: XCTestCase {
-    
-    var tempSourceDir: TemporaryDirectory!
-    var tempDestDir: TemporaryDirectory!
+	    
+	    var tempSourceDir: TemporaryDirectory!
+	    var tempDestDir: TemporaryDirectory!
+	    private var modelContainer: ModelContainer?
 
     override func invokeTest() {
         BookmarkStoreProvider.$override.withValue(InMemoryBookmarkStore()) {
@@ -23,22 +24,24 @@ final class FileOperationsServiceTests: XCTestCase {
         tempDestDir = try TemporaryDirectory()
     }
     
-    override func tearDown() {
-        tempSourceDir?.cleanup()
-        tempDestDir?.cleanup()
-        tempSourceDir = nil
-        tempDestDir = nil
-        super.tearDown()
-    }
+	    override func tearDown() {
+	        tempSourceDir?.cleanup()
+	        tempDestDir?.cleanup()
+	        tempSourceDir = nil
+	        tempDestDir = nil
+	        modelContainer = nil
+	        super.tearDown()
+	    }
 
-    @MainActor
-    private func makeServiceAndContext() throws -> (FileOperationsService, ModelContext) {
-        let service = FileOperationsService()
-        let schema = Schema([FileItem.self, ActivityItem.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [config])
-        return (service, container.mainContext)
-    }
+	    @MainActor
+	    private func makeServiceAndContext() throws -> (FileOperationsService, ModelContext) {
+	        let service = FileOperationsService()
+	        let schema = Schema([FileItem.self, ActivityItem.self])
+	        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+	        let container = try ModelContainer(for: schema, configurations: [config])
+	        modelContainer = container
+	        return (service, container.mainContext)
+	    }
     
     // MARK: - Basic Move Operations
     

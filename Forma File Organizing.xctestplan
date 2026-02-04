@@ -18,13 +18,6 @@
         "identifier" : "50A492862ECC4C4A006868D5",
         "name" : "Forma File OrganizingTests"
       }
-    },
-    {
-      "target" : {
-        "containerPath" : "container:Forma File Organizing.xcodeproj",
-        "identifier" : "50A492902ECC4C4A006868D5",
-        "name" : "Forma File OrganizingUITests"
-      }
     }
   ],
   "version" : 1

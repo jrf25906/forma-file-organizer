@@ -10,9 +10,13 @@ struct Forma_File_OrganizingApp: App {
     @StateObject private var services: AppServices
     @StateObject private var dashboardViewModel: DashboardViewModel
 
+    private static var isUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("--uitesting")
+    }
+
     private var isTesting: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
-        ProcessInfo.processInfo.arguments.contains("--uitesting")
+        Self.isUITesting
     }
     
     // MARK: - Schema Definition (DRY Principle)
@@ -33,7 +37,7 @@ struct Forma_File_OrganizingApp: App {
         _dashboardViewModel = StateObject(wrappedValue: DashboardViewModel(services: appServices))
 
         // Check if running UI Tests (take precedence over XCTestConfigurationFilePath)
-        if ProcessInfo.processInfo.arguments.contains("--uitesting") {
+        if Self.isUITesting {
             do {
                 let modelConfiguration = ModelConfiguration(schema: Self.appSchema, isStoredInMemoryOnly: true)
                 container = try ModelContainer(for: Self.appSchema, configurations: [modelConfiguration])
@@ -206,15 +210,7 @@ struct Forma_File_OrganizingApp: App {
 
     private var mainWindowScene: some Scene {
         WindowGroup(id: "main") {
-            DashboardView()
-                .frame(minWidth: 1200, minHeight: 800)
-                // .background(.regularMaterial) removed to allow custom PrimaryBackgroundView to control background
-                .background(Color.clear)
-                .configureForFullHeightSidebar()  // Xcode/ChatGPT-style window configuration
-                .environment(\.openSettings, SettingsOpener.open)
-                .environmentObject(services)
-                .environmentObject(dashboardViewModel)
-                .automationLifecycle()  // v1.4: Automation engine lifecycle management
+            dashboardRootView
         }
         .defaultSize(width: FormaSpacing.Window.preferredWidth, height: FormaSpacing.Window.preferredHeight)
         .modelContainer(container)
@@ -222,6 +218,18 @@ struct Forma_File_OrganizingApp: App {
             SidebarCommands()
         }
         .windowToolbarStyle(.unified(showsTitle: false))
+    }
+
+    private var dashboardRootView: some View {
+        DashboardView()
+            .frame(minWidth: 1200, minHeight: 800)
+            // .background(.regularMaterial) removed to allow custom PrimaryBackgroundView to control background
+            .background(Color.clear)
+            .configureForFullHeightSidebar()  // Xcode/ChatGPT-style window configuration
+            .environment(\.openSettings, SettingsOpener.open)
+            .environmentObject(services)
+            .environmentObject(dashboardViewModel)
+            .automationLifecycle()  // v1.4: Automation engine lifecycle management
     }
 
     private var settingsScene: some Scene {
