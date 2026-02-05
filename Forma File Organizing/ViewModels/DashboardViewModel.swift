@@ -53,6 +53,7 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Content Search State
     @Published private(set) var contentSearchState: ContentSearchService.SearchState = .idle
     @Published private(set) var contentSearchResults: [ContentSearchService.SearchResult] = []
+    private var contentSearchResultsByPath: [String: ContentSearchService.SearchResult] = [:]
     private var contentSearchTask: Task<Void, Never>?
     private static let contentSearchDebounceDelay: Duration = .milliseconds(300)
 
@@ -189,6 +190,11 @@ class DashboardViewModel: ObservableObject {
         filterViewModel.updateSourceFiles(scanViewModel.allFiles)
         analyticsViewModel.updateAnalytics(from: scanViewModel.allFiles)
         await analyticsViewModel.detectClusters(from: scanViewModel.allFiles, context: context)
+
+        // Keep content search in sync with refreshed file lists.
+        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            triggerContentSearch(query: searchText)
+        }
 
         // Refresh available folders after scan completes.
         // This fixes a timing issue where Keychain isn't accessible at app launch
@@ -796,9 +802,12 @@ class DashboardViewModel: ObservableObject {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             contentSearchState = .idle
             contentSearchResults = []
+            contentSearchResultsByPath = [:]
             filterViewModel.setContentMatchedPaths([])
             return
         }
+
+        contentSearchState = .searching(progress: 0.0)
 
         contentSearchTask = Task { [weak self] in
             do {
@@ -814,13 +823,12 @@ class DashboardViewModel: ObservableObject {
             guard !Task.isCancelled else { return }
 
             self.contentSearchResults = results
-            self.contentSearchState = self.contentSearchService.searchState
-            self.filterViewModel.setContentMatchedPaths(Set(results.map { $0.file.path }))
+            self.contentSearchResultsByPath = Dictionary(
+                uniqueKeysWithValues: results.map { ($0.file.path, $0) }
+            )
+            self.contentSearchState = .complete(resultCount: results.count)
+            self.filterViewModel.setContentMatchedPaths(Set(self.contentSearchResultsByPath.keys))
         }
-    }
-
-    func contentSearchResult(for file: FileItem) -> ContentSearchService.SearchResult? {
-        contentSearchService.result(for: file)
     }
 
     // MARK: - Private Setup
@@ -962,11 +970,11 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Content Search Delegations
 
     func searchMatchType(for file: FileItem) -> ContentSearchService.MatchType? {
-        contentSearchResults.first { $0.file.path == file.path }?.matchType
+        contentSearchResultsByPath[file.path]?.matchType
     }
 
     func contentSnippet(for file: FileItem) -> String? {
-        contentSearchResults.first { $0.file.path == file.path }?.contentSnippet
+        contentSearchResultsByPath[file.path]?.contentSnippet
     }
 
     var contentSearchResultsCount: Int {

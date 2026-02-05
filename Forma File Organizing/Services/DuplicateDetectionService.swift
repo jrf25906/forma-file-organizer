@@ -41,6 +41,53 @@ class DuplicateDetectionService {
     /// Maximum number of files to compare for performance
     private let maxComparisonCount = 5000
 
+    /// Chunk size for streaming hash reads (avoid loading entire files into memory).
+    private static let hashChunkSize = 1_048_576 // 1 MB
+
+    /// Keep hash cache bounded to avoid unbounded memory growth.
+    private static let maxHashCacheEntries = 2_000
+
+    private struct HashCacheEntry {
+        let sizeInBytes: Int64
+        let modificationDate: Date
+        let hash: String
+    }
+
+    private struct NameComparableFile {
+        let file: FileItem
+        let baseName: String
+        let length: Int
+        let prefix: String
+    }
+
+    private static let versionStripRegexes: [NSRegularExpression] = [
+        try! NSRegularExpression(pattern: #"[\s_-]*v?\d+$"#, options: .caseInsensitive),                  // v1, _2, -3
+        try! NSRegularExpression(pattern: #"[\s_-]*\(\d+\)$"#, options: .caseInsensitive),                // (1), (2)
+        try! NSRegularExpression(pattern: #"[\s_-]*copy[\s_-]*\d*$"#, options: .caseInsensitive),         // copy, copy 2
+        try! NSRegularExpression(pattern: #"[\s_-]*\d{4}[-_]\d{2}[-_]\d{2}$"#, options: .caseInsensitive), // 2024-01-01
+        try! NSRegularExpression(pattern: #"[\s_-]*(draft|final|v\d+|rev\d*)$"#, options: .caseInsensitive) // draft/final/rev1
+    ]
+
+    private static let versionIndicatorRegexes: [NSRegularExpression] = [
+        try! NSRegularExpression(pattern: #"v\d+"#, options: .caseInsensitive),           // v1, v2, v10
+        try! NSRegularExpression(pattern: #"\(\d+\)"#, options: .caseInsensitive),        // (1), (2)
+        try! NSRegularExpression(pattern: #"_\d{1,2}$"#, options: .caseInsensitive),      // _1, _12
+        try! NSRegularExpression(pattern: #"draft"#, options: .caseInsensitive),           // draft
+        try! NSRegularExpression(pattern: #"final"#, options: .caseInsensitive),           // final
+        try! NSRegularExpression(pattern: #"rev\d*"#, options: .caseInsensitive),          // rev, rev1
+        try! NSRegularExpression(pattern: #"\d{4}[-_]\d{2}"#, options: .caseInsensitive)   // 2024-01, 2024_02
+    ]
+
+    private static let versionNumberRegexes: [NSRegularExpression] = [
+        try! NSRegularExpression(pattern: #"v(\d+)"#, options: .caseInsensitive),          // v1, v2
+        try! NSRegularExpression(pattern: #"\((\d+)\)"#, options: .caseInsensitive),       // (1), (2)
+        try! NSRegularExpression(pattern: #"_(\d+)\."#, options: .caseInsensitive),        // _1., _2.
+        try! NSRegularExpression(pattern: #"rev(\d+)"#, options: .caseInsensitive)          // rev1, rev2
+    ]
+
+    /// Reuse content hashes across repeated scans while invalidating on file changes.
+    private var hashCacheByPath: [String: HashCacheEntry] = [:]
+
     // MARK: - Security Scope Helpers
 
     /// Finds the bookmark key for a file's parent monitored folder
@@ -200,22 +247,25 @@ class DuplicateDetectionService {
         let dupId = PerformanceMonitor.shared.begin(.duplicateDetection, metadata: "\(files.count) files")
 
         // Filter out tiny files and limit for performance
-        let relevantFiles = files
-            .filter { $0.sizeInBytes >= minimumFileSize }
-            .prefix(maxComparisonCount)
+        let relevantFiles = Array(
+            files
+                .lazy
+                .filter { $0.sizeInBytes >= self.minimumFileSize }
+                .prefix(self.maxComparisonCount)
+        )
 
         var allGroups: [DuplicateGroup] = []
 
         // 1. Detect exact duplicates (by size first, then hash)
-        let exactDuplicates = detectExactDuplicates(in: Array(relevantFiles))
+        let exactDuplicates = detectExactDuplicates(in: relevantFiles)
         allGroups.append(contentsOf: exactDuplicates)
 
         // 2. Detect version series
-        let versionGroups = detectVersionSeries(in: Array(relevantFiles))
+        let versionGroups = detectVersionSeries(in: relevantFiles)
         allGroups.append(contentsOf: versionGroups)
 
         // 3. Detect near duplicates (similar names)
-        let nearDuplicates = detectNearDuplicates(in: Array(relevantFiles))
+        let nearDuplicates = detectNearDuplicates(in: relevantFiles)
         allGroups.append(contentsOf: nearDuplicates)
 
         // Remove overlapping groups (prefer more specific type)
@@ -245,13 +295,15 @@ class DuplicateDetectionService {
 
         // Phase 1: Group by size
         let sizeGroups = Dictionary(grouping: files) { $0.sizeInBytes }
+        groups.reserveCapacity(sizeGroups.count)
 
         for (_, sameSize) in sizeGroups where sameSize.count >= 2 {
             // Phase 2: Calculate hashes and group
             var hashGroups: [String: [FileItem]] = [:]
+            hashGroups.reserveCapacity(sameSize.count)
 
             for file in sameSize {
-                if let hash = calculateFileHash(path: file.path) {
+                if let hash = calculateFileHash(for: file) {
                     hashGroups[hash, default: []].append(file)
                 }
             }
@@ -271,23 +323,66 @@ class DuplicateDetectionService {
     }
 
     /// Calculate SHA256 hash of a file
-    private func calculateFileHash(path: String) -> String? {
-        let hashId = PerformanceMonitor.shared.begin(.fileHash, metadata: (path as NSString).lastPathComponent)
+    private func calculateFileHash(for file: FileItem) -> String? {
+        if let cached = cachedHash(for: file) {
+            return cached
+        }
+
+        let hashId = PerformanceMonitor.shared.begin(.fileHash, metadata: (file.path as NSString).lastPathComponent)
 
         // Establish security-scoped access for sandboxed file reading
-        let scopeURL = establishSecurityScope(for: path)
+        let scopeURL = establishSecurityScope(for: file.path)
         defer { releaseSecurityScope(for: scopeURL) }
 
-        guard let data = FileManager.default.contents(atPath: path) else {
+        do {
+            let fileURL = URL(fileURLWithPath: file.path)
+            let fileHandle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? fileHandle.close() }
+
+            var hasher = SHA256()
+            var bytesRead: Int = 0
+
+            while true {
+                let chunk = try fileHandle.read(upToCount: Self.hashChunkSize) ?? Data()
+                if chunk.isEmpty { break }
+                hasher.update(data: chunk)
+                bytesRead += chunk.count
+            }
+
+            let digest = hasher.finalize()
+            let hash = digest.compactMap { String(format: "%02x", $0) }.joined()
+            cacheHash(hash, for: file)
+            PerformanceMonitor.shared.end(.fileHash, id: hashId, metadata: "\(bytesRead) bytes")
+            return hash
+        } catch {
             PerformanceMonitor.shared.end(.fileHash, id: hashId, metadata: "failed to read")
             return nil
         }
+    }
 
-        let hash = SHA256.hash(data: data)
-        let result = hash.compactMap { String(format: "%02x", $0) }.joined()
+    private func cachedHash(for file: FileItem) -> String? {
+        guard let entry = hashCacheByPath[file.path] else {
+            return nil
+        }
+        guard entry.sizeInBytes == file.sizeInBytes,
+              entry.modificationDate == file.modificationDate else {
+            hashCacheByPath.removeValue(forKey: file.path)
+            return nil
+        }
+        return entry.hash
+    }
 
-        PerformanceMonitor.shared.end(.fileHash, id: hashId, metadata: "\(data.count) bytes")
-        return result
+    private func cacheHash(_ hash: String, for file: FileItem) {
+        if hashCacheByPath.count >= Self.maxHashCacheEntries,
+           let oldestKey = hashCacheByPath.keys.first {
+            hashCacheByPath.removeValue(forKey: oldestKey)
+        }
+
+        hashCacheByPath[file.path] = HashCacheEntry(
+            sizeInBytes: file.sizeInBytes,
+            modificationDate: file.modificationDate,
+            hash: hash
+        )
     }
 
     // MARK: - Version Series Detection
@@ -319,7 +414,15 @@ class DuplicateDetectionService {
             for (_, versionFiles) in baseNameGroups where versionFiles.count >= 2 {
                 // Verify these are actually versions (not just similar names)
                 if hasVersionIndicators(versionFiles.map { $0.name }) {
-                    let sorted = versionFiles.sorted { extractVersionNumber($0.name) < extractVersionNumber($1.name) }
+                    let sorted = versionFiles
+                        .map { ($0, extractVersionNumber($0.name)) }
+                        .sorted { lhs, rhs in
+                            if lhs.1 != rhs.1 {
+                                return lhs.1 < rhs.1
+                            }
+                            return lhs.0.modificationDate < rhs.0.modificationDate
+                        }
+                        .map { $0.0 }
                     let group = DuplicateGroup(
                         id: UUID(),
                         type: .versionSeries,
@@ -338,19 +441,9 @@ class DuplicateDetectionService {
         var name = (fileName as NSString).deletingPathExtension
 
         // Remove common version patterns
-        let versionPatterns = [
-            #"[\s_-]*v?\d+$"#,                          // v1, _2, -3
-            #"[\s_-]*\(\d+\)$"#,                        // (1), (2)
-            #"[\s_-]*copy[\s_-]*\d*$"#,                 // copy, copy 2
-            #"[\s_-]*\d{4}[-_]\d{2}[-_]\d{2}$"#,       // 2024-01-01
-            #"[\s_-]*(draft|final|v\d+|rev\d*)$"#      // draft, final, rev1
-        ]
-
-        for pattern in versionPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                let range = NSRange(name.startIndex..., in: name)
-                name = regex.stringByReplacingMatches(in: name, range: range, withTemplate: "")
-            }
+        for regex in Self.versionStripRegexes {
+            let range = NSRange(name.startIndex..., in: name)
+            name = regex.stringByReplacingMatches(in: name, range: range, withTemplate: "")
         }
 
         // Trim and return if not empty
@@ -360,25 +453,13 @@ class DuplicateDetectionService {
 
     /// Check if file names show version patterns
     private func hasVersionIndicators(_ names: [String]) -> Bool {
-        let versionIndicators = [
-            #"v\d+"#,           // v1, v2, v10
-            #"\(\d+\)"#,        // (1), (2)
-            #"_\d{1,2}$"#,      // _1, _12
-            #"draft"#,          // draft
-            #"final"#,          // final
-            #"rev\d*"#,         // rev, rev1
-            #"\d{4}[-_]\d{2}"#  // 2024-01, 2024_02
-        ]
-
         var matchCount = 0
         for name in names {
-            for pattern in versionIndicators {
-                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                    let range = NSRange(name.startIndex..., in: name)
-                    if regex.firstMatch(in: name, range: range) != nil {
-                        matchCount += 1
-                        break
-                    }
+            let range = NSRange(name.startIndex..., in: name)
+            for regex in Self.versionIndicatorRegexes {
+                if regex.firstMatch(in: name, range: range) != nil {
+                    matchCount += 1
+                    break
                 }
             }
         }
@@ -390,22 +471,13 @@ class DuplicateDetectionService {
     /// Extract a numeric version for sorting
     private func extractVersionNumber(_ name: String) -> Int {
         // Try to extract version number from common patterns
-        let patterns = [
-            #"v(\d+)"#,        // v1, v2
-            #"\((\d+)\)"#,     // (1), (2)
-            #"_(\d+)\."#,      // _1., _2.
-            #"rev(\d+)"#       // rev1, rev2
-        ]
-
-        for pattern in patterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                let range = NSRange(name.startIndex..., in: name)
-                if let match = regex.firstMatch(in: name, range: range),
-                   match.numberOfRanges >= 2,
-                   let numberRange = Range(match.range(at: 1), in: name),
-                   let number = Int(name[numberRange]) {
-                    return number
-                }
+        let range = NSRange(name.startIndex..., in: name)
+        for regex in Self.versionNumberRegexes {
+            if let match = regex.firstMatch(in: name, range: range),
+               match.numberOfRanges >= 2,
+               let numberRange = Range(match.range(at: 1), in: name),
+               let number = Int(name[numberRange]) {
+                return number
             }
         }
 
@@ -418,40 +490,78 @@ class DuplicateDetectionService {
     /// Detect files with similar names that might be duplicates
     private func detectNearDuplicates(in files: [FileItem]) -> [DuplicateGroup] {
         var groups: [DuplicateGroup] = []
-        var processed: Set<String> = []
+        let maxDiffRatio = 1.0 - nameSimilarityThreshold
 
         // Group by extension for efficiency
-        let extensionGroups = Dictionary(grouping: files) { $0.fileExtension }
+        let extensionGroups = Dictionary(grouping: files) { $0.fileExtension.lowercased() }
 
         for (ext, filesWithExt) in extensionGroups where !ext.isEmpty && filesWithExt.count >= 2 {
-            // Compare pairs within same extension
-            for i in 0..<filesWithExt.count {
-                guard !processed.contains(filesWithExt[i].path) else { continue }
+            let candidates: [NameComparableFile] = filesWithExt.map { file in
+                let baseName = (file.name as NSString).deletingPathExtension.lowercased()
+                return NameComparableFile(
+                    file: file,
+                    baseName: baseName,
+                    length: baseName.count,
+                    prefix: String(baseName.prefix(3))
+                )
+            }
 
-                var similarFiles: [FileItem] = [filesWithExt[i]]
+            var prefixBuckets: [String: [Int]] = [:]
+            prefixBuckets.reserveCapacity(candidates.count)
+            for (index, candidate) in candidates.enumerated() {
+                prefixBuckets[candidate.prefix, default: []].append(index)
+            }
 
-                for j in (i+1)..<filesWithExt.count {
-                    guard !processed.contains(filesWithExt[j].path) else { continue }
+            var processed = Set<Int>()
+            processed.reserveCapacity(candidates.count)
 
-                    let name1 = (filesWithExt[i].name as NSString).deletingPathExtension
-                    let name2 = (filesWithExt[j].name as NSString).deletingPathExtension
+            for i in candidates.indices where !processed.contains(i) {
+                let reference = candidates[i]
+                guard !reference.baseName.isEmpty else { continue }
 
-                    let similarity = calculateNameSimilarity(name1, name2)
-                    if similarity >= nameSimilarityThreshold {
-                        similarFiles.append(filesWithExt[j])
+                var similarIndices: [Int] = [i]
+                var candidateIndices: Set<Int> = []
+
+                if candidates.count <= 40 {
+                    candidateIndices = Set(candidates.indices)
+                } else {
+                    if let samePrefix = prefixBuckets[reference.prefix] {
+                        candidateIndices.formUnion(samePrefix)
+                    }
+
+                    if let firstChar = reference.prefix.first {
+                        for (prefix, indices) in prefixBuckets where prefix.first == firstChar {
+                            candidateIndices.formUnion(indices)
+                        }
                     }
                 }
 
-                if similarFiles.count >= 2 {
-                    // Mark as processed
-                    for file in similarFiles {
-                        processed.insert(file.path)
+                for j in candidateIndices where j > i && !processed.contains(j) {
+                    let other = candidates[j]
+                    guard !other.baseName.isEmpty else { continue }
+
+                    let maxLength = max(reference.length, other.length)
+                    if maxLength == 0 { continue }
+
+                    let lengthDiff = abs(reference.length - other.length)
+                    if Double(lengthDiff) / Double(maxLength) > maxDiffRatio {
+                        continue
                     }
 
+                    let similarity = calculateNameSimilarity(reference.baseName, other.baseName)
+                    if similarity >= nameSimilarityThreshold {
+                        similarIndices.append(j)
+                    }
+                }
+
+                if similarIndices.count >= 2 {
+                    processed.formUnion(similarIndices)
                     let group = DuplicateGroup(
                         id: UUID(),
                         type: .nearDuplicate,
-                        files: similarFiles.sorted { $0.modificationDate > $1.modificationDate }
+                        files: similarIndices
+                            .map { candidates[$0].file }
+                            .sorted { $0.modificationDate > $1.modificationDate }
                     )
                     groups.append(group)
                 }
@@ -463,14 +573,11 @@ class DuplicateDetectionService {
 
     /// Calculate similarity between two file names using Levenshtein distance
     private func calculateNameSimilarity(_ name1: String, _ name2: String) -> Double {
-        let s1 = name1.lowercased()
-        let s2 = name2.lowercased()
+        if name1 == name2 { return 1.0 }
+        if name1.isEmpty || name2.isEmpty { return 0.0 }
 
-        if s1 == s2 { return 1.0 }
-        if s1.isEmpty || s2.isEmpty { return 0.0 }
-
-        let distance = levenshteinDistance(s1, s2)
-        let maxLength = max(s1.count, s2.count)
+        let distance = levenshteinDistance(name1, name2)
+        let maxLength = max(name1.count, name2.count)
 
         return 1.0 - (Double(distance) / Double(maxLength))
     }
@@ -486,26 +593,26 @@ class DuplicateDetectionService {
         if n == 0 { return m }
         if m == 0 { return n }
 
-        // Create distance matrix
-        var matrix = [[Int]](repeating: [Int](repeating: 0, count: m + 1), count: n + 1)
+        // Keep the inner dimension as the shorter string to reduce memory.
+        let (longer, shorter): ([Character], [Character]) = n >= m ? (arr1, arr2) : (arr2, arr1)
+        let shortCount = shorter.count
 
-        // Initialize first column and row
-        for i in 0...n { matrix[i][0] = i }
-        for j in 0...m { matrix[0][j] = j }
+        var previous = Array(0...shortCount)
+        var current = Array(repeating: 0, count: shortCount + 1)
 
-        // Fill in the rest
-        for i in 1...n {
-            for j in 1...m {
-                let cost = arr1[i-1] == arr2[j-1] ? 0 : 1
-                matrix[i][j] = min(
-                    matrix[i-1][j] + 1,      // deletion
-                    matrix[i][j-1] + 1,      // insertion
-                    matrix[i-1][j-1] + cost  // substitution
-                )
+        for (i, longerChar) in longer.enumerated() {
+            current[0] = i + 1
+            for (j, shorterChar) in shorter.enumerated() {
+                let cost = longerChar == shorterChar ? 0 : 1
+                let deletion = previous[j + 1] + 1
+                let insertion = current[j] + 1
+                let substitution = previous[j] + cost
+                current[j + 1] = min(deletion, insertion, substitution)
             }
+            swap(&previous, &current)
         }
 
-        return matrix[n][m]
+        return previous[shortCount]
     }
 
     // MARK: - Deduplication

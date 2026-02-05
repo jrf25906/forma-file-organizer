@@ -115,8 +115,6 @@ struct MainContentView: View {
                                 gridView
                             }
                         }
-                        // Include contentSearchResultsCount in id so view re-renders when search results change
-                        .id("\(dashboardViewModel.currentViewMode.rawValue)-\(dashboardViewModel.contentSearchResultsCount)")
                         .animation(.easeInOut(duration: 0.2), value: dashboardViewModel.currentViewMode)
                     }
                 }
@@ -591,13 +589,9 @@ struct MainContentView: View {
                                     removal: .scale(scale: 0.8).combined(with: .opacity)
                                 )
                             )
-                            // Force view identity to include content search state
-                            .id("\(file.id)-\(dashboardViewModel.contentSearchResultsCount)")
                         }
                     }
                 }
-                // Establish explicit dependency on content search results for SwiftUI observation
-                .id(dashboardViewModel.contentSearchResultsCount)
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
             .padding(.bottom, shouldShowFAB ? FormaSpacing.huge + FormaSpacing.extraLarge : FormaSpacing.generous)
@@ -629,7 +623,6 @@ struct MainContentView: View {
                 listFileRow(file: file, index: index)
             }
         }
-        .id(dashboardViewModel.contentSearchResultsCount)
     }
 
     @ViewBuilder
@@ -669,7 +662,6 @@ struct MainContentView: View {
         )
         .ruleAppliedFlash(isApplied: ruleAppliedFilePaths.contains(file.path))
         .transition(.asymmetric(insertion: .opacity, removal: .scale(scale: 0.8).combined(with: .opacity)))
-        .id("\(file.id)-\(dashboardViewModel.contentSearchResultsCount)")
     }
 
     private var gridView: some View {
@@ -720,12 +712,8 @@ struct MainContentView: View {
                                 removal: .scale(scale: 0.8).combined(with: .opacity)
                             )
                         )
-                        // Force re-render when content search results change
-                        .id("\(file.id)-\(dashboardViewModel.contentSearchResultsCount)")
                     }
                 }
-                // Force re-render of grid when content search results change
-                .id(dashboardViewModel.contentSearchResultsCount)
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
             .padding(.bottom, shouldShowFAB ? FormaSpacing.huge + FormaSpacing.extraLarge : FormaSpacing.generous)

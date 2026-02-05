@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 
 // MARK: - Security-Scoped Bookmark Access
 
@@ -12,19 +11,10 @@ private let sourceFolderBookmarks: [String: String] = [
     "Music": "MusicFolderBookmark"
 ]
 
-/// Searches file contents using Spotlight metadata and direct file reading.
+/// Searches file contents with direct file reading for supported text formats.
 ///
-/// This service provides content-aware search capabilities beyond filename matching:
-/// - Uses NSMetadataQuery (Spotlight) for fast indexed content search
-/// - Falls back to direct file reading for non-indexed files
-/// - Returns rich results with match type indicators and content snippets
-///
-/// Performance considerations:
-/// - Skips files larger than `maxFileSizeForContentScan` (default: 10MB)
-/// - Uses debouncing at the FilterManager level (300ms recommended for content search)
-/// - Cancels previous searches when new queries start
-@MainActor
-final class ContentSearchService: ObservableObject {
+/// Heavy scanning work runs off the main actor to keep typing and scrolling responsive.
+final class ContentSearchService {
 
     // MARK: - Types
 
@@ -59,10 +49,9 @@ final class ContentSearchService: ObservableObject {
         case complete(resultCount: Int)
     }
 
-    // MARK: - Published State
+    // MARK: - Singleton
 
-    @Published private(set) var searchState: SearchState = .idle
-    @Published private(set) var results: [SearchResult] = []
+    @MainActor static let shared = ContentSearchService()
 
     // MARK: - Configuration
 
@@ -72,53 +61,262 @@ final class ContentSearchService: ObservableObject {
     /// Snippet context length (characters before and after match)
     var snippetContextLength: Int = 40
 
-    /// File extensions that support content search
+    /// File extensions eligible for content search consideration
     private let searchableExtensions: Set<String> = [
         // Text files
         "txt", "md", "markdown", "rtf", "csv", "json", "xml", "yaml", "yml",
         // Code files
         "swift", "py", "js", "ts", "html", "css", "java", "c", "cpp", "h", "m",
-        // Documents (Spotlight-indexed)
+        // Documents (filename-only today; reserved for future Spotlight integration)
         "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "pages", "numbers", "keynote"
     ]
 
-    // MARK: - Private State
+    /// Extensions that can be read as plain text directly
+    private let plainTextExtensions: Set<String> = [
+        "txt", "md", "markdown", "rtf", "csv", "json", "xml", "yaml", "yml",
+        "swift", "py", "js", "ts", "html", "css", "java", "c", "cpp", "h", "m"
+    ]
 
-    private var currentSearchTask: Task<Void, Never>?
+    private init() {}
+
+    // MARK: - Public Interface
+
+    /// Searches files for the given query, combining filename and content matches.
+    ///
+    /// - Parameters:
+    ///   - query: The search string
+    ///   - files: The files to search within
+    /// - Returns: Array of search results with match type and snippets
+    func search(query: String, in files: [FileItem]) async -> [SearchResult] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmedQuery.isEmpty, !files.isEmpty else {
+            return []
+        }
+
+        let configuration = SearchConfiguration(
+            maxFileSizeForContentScan: maxFileSizeForContentScan,
+            snippetContextLength: snippetContextLength,
+            searchableExtensions: searchableExtensions,
+            plainTextExtensions: plainTextExtensions
+        )
+
+        let searchableFiles = files.map(SearchableFile.init)
+
+        let hits = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let computedHits = Self.searchHits(
+                    query: trimmedQuery,
+                    files: searchableFiles,
+                    configuration: configuration
+                )
+                continuation.resume(returning: computedHits)
+            }
+        }
+
+        guard !Task.isCancelled, !hits.isEmpty else {
+            return []
+        }
+
+        let filesByPath = Dictionary(uniqueKeysWithValues: files.map { ($0.path, $0) })
+
+        return hits.compactMap { hit in
+            guard let file = filesByPath[hit.path] else {
+                return nil
+            }
+
+            let matchType: MatchType
+            switch (hit.filenameMatched, hit.contentSnippet != nil) {
+            case (true, true):
+                matchType = .both
+            case (true, false):
+                matchType = .filename
+            case (false, true):
+                matchType = .content
+            case (false, false):
+                return nil
+            }
+
+            return SearchResult(
+                file: file,
+                matchType: matchType,
+                contentSnippet: hit.contentSnippet,
+                matchRanges: nil
+            )
+        }
+    }
+
+    // MARK: - Background Search Model
+
+    private struct SearchableFile: Sendable {
+        let path: String
+        let lowercasedName: String
+        let fileExtension: String
+        let sizeInBytes: Int64
+        let displayName: String
+
+        init(file: FileItem) {
+            self.path = file.path
+            self.lowercasedName = file.name.lowercased()
+            self.fileExtension = file.fileExtension.lowercased()
+            self.sizeInBytes = file.sizeInBytes
+            self.displayName = file.name
+        }
+    }
+
+    private struct SearchHit: Sendable {
+        let path: String
+        let filenameMatched: Bool
+        let contentSnippet: String?
+    }
+
+    private struct SearchConfiguration: Sendable {
+        let maxFileSizeForContentScan: Int64
+        let snippetContextLength: Int
+        let searchableExtensions: Set<String>
+        let plainTextExtensions: Set<String>
+    }
+
+    private struct CustomFolderBookmark: Sendable {
+        let key: String
+        let folderPath: String
+    }
+
+    private struct ContentMatch: Sendable {
+        let snippet: String
+    }
+
+    // MARK: - Background Search Execution
+
+    private static func searchHits(
+        query: String,
+        files: [SearchableFile],
+        configuration: SearchConfiguration
+    ) -> [SearchHit] {
+        let customFolderBookmarks = loadCustomFolderBookmarks()
+
+        var hits: [SearchHit] = []
+        hits.reserveCapacity(min(files.count, 256))
+
+        for file in files {
+            if Task.isCancelled {
+                break
+            }
+
+            let filenameMatched = file.lowercasedName.contains(query)
+            let contentMatch = searchFileContent(
+                file: file,
+                query: query,
+                configuration: configuration,
+                customFolderBookmarks: customFolderBookmarks
+            )
+
+            if filenameMatched || contentMatch != nil {
+                hits.append(SearchHit(
+                    path: file.path,
+                    filenameMatched: filenameMatched,
+                    contentSnippet: contentMatch?.snippet
+                ))
+            }
+        }
+
+        return hits
+    }
+
+    private static func searchFileContent(
+        file: SearchableFile,
+        query: String,
+        configuration: SearchConfiguration,
+        customFolderBookmarks: [CustomFolderBookmark]
+    ) -> ContentMatch? {
+        // Skip files that are too large
+        guard file.sizeInBytes <= configuration.maxFileSizeForContentScan else {
+            return nil
+        }
+
+        // Skip non-searchable file types
+        guard configuration.searchableExtensions.contains(file.fileExtension) else {
+            return nil
+        }
+
+        // Only plain text is directly read today
+        guard configuration.plainTextExtensions.contains(file.fileExtension) else {
+            return nil
+        }
+
+        let scopeURL = establishSecurityScope(for: file.path, customFolderBookmarks: customFolderBookmarks)
+        defer { releaseSecurityScope(for: scopeURL) }
+
+        do {
+            let fileURL = URL(fileURLWithPath: file.path)
+            let content = try String(contentsOf: fileURL, encoding: .utf8)
+            let lowercasedContent = content.lowercased()
+
+            guard let range = lowercasedContent.range(of: query) else {
+                return nil
+            }
+
+            let snippet = createSnippet(
+                from: content,
+                matchRange: range,
+                contextLength: configuration.snippetContextLength
+            )
+            return ContentMatch(snippet: snippet)
+        } catch {
+            Log.debug(
+                "Content search skipped for \(file.displayName): \(error.localizedDescription)",
+                category: .general
+            )
+            return nil
+        }
+    }
 
     // MARK: - Security Scope Helpers
 
-    /// Finds the bookmark key for a file's parent monitored folder
-    private func findMonitoredFolderBookmarkKey(for path: String) -> String? {
-        // Get real home directory (not sandboxed container path)
-        let homeDir: String
-        if let pw = getpwuid(getuid()), let home = pw.pointee.pw_dir {
-            homeDir = String(cString: home)
-        } else {
-            homeDir = NSHomeDirectory()
+    private static func loadCustomFolderBookmarks() -> [CustomFolderBookmark] {
+        let customFolderPrefix = "CustomFolder_"
+        let keychainKeys = BookmarkStoreProvider.shared.listAllBookmarkKeys()
+
+        var customBookmarks: [CustomFolderBookmark] = []
+        customBookmarks.reserveCapacity(keychainKeys.count)
+
+        for key in keychainKeys where key.hasPrefix(customFolderPrefix) {
+            guard let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: key) else {
+                continue
+            }
+
+            var isStale = false
+            guard let url = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ) else {
+                continue
+            }
+
+            customBookmarks.append(CustomFolderBookmark(key: key, folderPath: url.path))
         }
+
+        return customBookmarks
+    }
+
+    /// Finds the bookmark key for a file's parent monitored folder
+    private static func findMonitoredFolderBookmarkKey(
+        for path: String,
+        customFolderBookmarks: [CustomFolderBookmark]
+    ) -> String? {
+        let homeDir = realHomeDirectoryPath()
 
         for (folderName, bookmarkKey) in sourceFolderBookmarks {
             let folderPath = "\(homeDir)/\(folderName)"
-            if path.hasPrefix(folderPath) {
+            if path.hasPrefix(folderPath + "/") || path == folderPath {
                 return bookmarkKey
             }
         }
 
-        // Check for custom folder bookmarks
-        let customFolderPrefix = "CustomFolder_"
-        let keychainKeys = BookmarkStoreProvider.shared.listAllBookmarkKeys()
-        for key in keychainKeys where key.hasPrefix(customFolderPrefix) {
-            if let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: key) {
-                var isStale = false
-                if let url = try? URL(
-                    resolvingBookmarkData: bookmarkData,
-                    options: .withSecurityScope,
-                    relativeTo: nil,
-                    bookmarkDataIsStale: &isStale
-                ), path.hasPrefix(url.path) {
-                    return key
-                }
+        for customBookmark in customFolderBookmarks {
+            if path.hasPrefix(customBookmark.folderPath + "/") || path == customBookmark.folderPath {
+                return customBookmark.key
             }
         }
 
@@ -126,8 +324,14 @@ final class ContentSearchService: ObservableObject {
     }
 
     /// Establishes security-scoped access for a file's parent monitored folder
-    private func establishSecurityScope(for path: String) -> URL? {
-        guard let bookmarkKey = findMonitoredFolderBookmarkKey(for: path) else {
+    private static func establishSecurityScope(
+        for path: String,
+        customFolderBookmarks: [CustomFolderBookmark]
+    ) -> URL? {
+        guard let bookmarkKey = findMonitoredFolderBookmarkKey(
+            for: path,
+            customFolderBookmarks: customFolderBookmarks
+        ) else {
             return nil
         }
 
@@ -153,218 +357,49 @@ final class ContentSearchService: ObservableObject {
     }
 
     /// Releases security-scoped access for a folder URL
-    private func releaseSecurityScope(for url: URL?) {
+    private static func releaseSecurityScope(for url: URL?) {
         url?.stopAccessingSecurityScopedResource()
     }
 
-    // MARK: - Singleton
-
-    static let shared = ContentSearchService()
-
-    private init() {}
-
-    // MARK: - Public Interface
-
-    /// Searches files for the given query, combining filename and content matches.
-    ///
-    /// - Parameters:
-    ///   - query: The search string
-    ///   - files: The files to search within
-    /// - Returns: Array of search results with match type and snippets
-    func search(query: String, in files: [FileItem]) async -> [SearchResult] {
-        // Cancel any existing search
-        currentSearchTask?.cancel()
-
-        guard !query.isEmpty else {
-            searchState = .idle
-            results = []
-            return []
+    private static func realHomeDirectoryPath() -> String {
+        if let pw = getpwuid(getuid()), let homeDirPointer = pw.pointee.pw_dir {
+            return String(cString: homeDirPointer)
         }
-
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !trimmedQuery.isEmpty else {
-            searchState = .idle
-            results = []
-            return []
-        }
-
-        searchState = .searching(progress: 0.0)
-
-        var searchResults: [SearchResult] = []
-        let totalFiles = files.count
-
-        // Create a task that can be cancelled
-        let task = Task { @MainActor [weak self] in
-            guard let self else { return }
-
-            for (index, file) in files.enumerated() {
-                // Check for cancellation
-                if Task.isCancelled { break }
-
-                // Update progress periodically (every 10 files or at end)
-                if index % 10 == 0 || index == totalFiles - 1 {
-                    let progress = Double(index + 1) / Double(totalFiles)
-                    self.searchState = .searching(progress: progress)
-                }
-
-                // Check filename match
-                let filenameMatches = file.name.lowercased().contains(trimmedQuery)
-
-                // Check content match (if eligible)
-                let contentMatch = await self.searchFileContent(file: file, query: trimmedQuery)
-
-                // Determine match type and create result
-                if filenameMatches && contentMatch != nil {
-                    searchResults.append(SearchResult(
-                        file: file,
-                        matchType: .both,
-                        contentSnippet: contentMatch?.snippet,
-                        matchRanges: contentMatch?.ranges
-                    ))
-                } else if filenameMatches {
-                    searchResults.append(SearchResult(
-                        file: file,
-                        matchType: .filename
-                    ))
-                } else if let contentMatch = contentMatch {
-                    searchResults.append(SearchResult(
-                        file: file,
-                        matchType: .content,
-                        contentSnippet: contentMatch.snippet,
-                        matchRanges: contentMatch.ranges
-                    ))
-                }
-            }
-
-            if !Task.isCancelled {
-                self.searchState = .complete(resultCount: searchResults.count)
-                self.results = searchResults
-            }
-        }
-
-        currentSearchTask = task
-        await task.value
-
-        return Task.isCancelled ? [] : searchResults
+        return NSHomeDirectory()
     }
 
-    /// Cancels the current search operation
-    func cancelSearch() {
-        currentSearchTask?.cancel()
-        searchState = .idle
-    }
-
-    // MARK: - Private Methods
-
-    private struct ContentMatch {
-        let snippet: String
-        let ranges: [Range<String.Index>]?
-    }
-
-    /// Searches file content for the query string
-    private func searchFileContent(file: FileItem, query: String) async -> ContentMatch? {
-        // Skip files that are too large
-        guard file.sizeInBytes <= maxFileSizeForContentScan else {
-            return nil
-        }
-
-        // Skip non-searchable file types
-        guard searchableExtensions.contains(file.fileExtension.lowercased()) else {
-            return nil
-        }
-
-        let fileURL = URL(fileURLWithPath: file.path)
-
-        // Try to read file content
-        // For plain text files, read directly
-        // For documents (PDF, etc.), Spotlight should handle - we skip direct read
-        let plainTextExtensions: Set<String> = [
-            "txt", "md", "markdown", "rtf", "csv", "json", "xml", "yaml", "yml",
-            "swift", "py", "js", "ts", "html", "css", "java", "c", "cpp", "h", "m"
-        ]
-
-        guard plainTextExtensions.contains(file.fileExtension.lowercased()) else {
-            // For non-plain-text files, we'd use Spotlight's kMDItemTextContent
-            // For now, skip content search for these (filename search still works)
-            return nil
-        }
-
-        // Establish security-scoped access for sandboxed file reading
-        let scopeURL = establishSecurityScope(for: file.path)
-        defer { releaseSecurityScope(for: scopeURL) }
-
-        do {
-            let content = try String(contentsOf: fileURL, encoding: .utf8)
-            let lowercasedContent = content.lowercased()
-
-            // Find the first match
-            guard let range = lowercasedContent.range(of: query) else {
-                return nil
-            }
-
-            // Create snippet around match
-            let snippet = createSnippet(from: content, matchRange: range, query: query)
-
-            return ContentMatch(snippet: snippet, ranges: [range])
-        } catch {
-            // File couldn't be read (permissions, encoding, etc.)
-            Log.debug("Content search skipped for \(file.name): \(error.localizedDescription)", category: .general)
-            return nil
-        }
-    }
+    // MARK: - Snippet Helpers
 
     /// Creates a snippet of text around the match location
-    private func createSnippet(from content: String, matchRange: Range<String.Index>, query: String) -> String {
-        let contextLength = snippetContextLength
-
-        // Get the actual match text in original case
-        let matchStartIndex = matchRange.lowerBound
-        let matchEndIndex = matchRange.upperBound
-
-        // Calculate snippet bounds
-        let snippetStart = content.index(matchStartIndex, offsetBy: -contextLength, limitedBy: content.startIndex) ?? content.startIndex
-        let snippetEnd = content.index(matchEndIndex, offsetBy: contextLength, limitedBy: content.endIndex) ?? content.endIndex
+    private static func createSnippet(
+        from content: String,
+        matchRange: Range<String.Index>,
+        contextLength: Int
+    ) -> String {
+        let snippetStart = content.index(
+            matchRange.lowerBound,
+            offsetBy: -contextLength,
+            limitedBy: content.startIndex
+        ) ?? content.startIndex
+        let snippetEnd = content.index(
+            matchRange.upperBound,
+            offsetBy: contextLength,
+            limitedBy: content.endIndex
+        ) ?? content.endIndex
 
         var snippet = String(content[snippetStart..<snippetEnd])
 
-        // Clean up the snippet
         snippet = snippet.replacingOccurrences(of: "\n", with: " ")
         snippet = snippet.replacingOccurrences(of: "\r", with: "")
         snippet = snippet.trimmingCharacters(in: .whitespaces)
 
-        // Add ellipsis if truncated
         if snippetStart != content.startIndex {
             snippet = "..." + snippet
         }
         if snippetEnd != content.endIndex {
-            snippet = snippet + "..."
+            snippet += "..."
         }
 
         return snippet
-    }
-}
-
-// MARK: - Search Result Lookup
-
-extension ContentSearchService {
-    /// Lookup table to get search results by file path
-    /// Use this to display match indicators in file rows
-    func result(for file: FileItem) -> SearchResult? {
-        results.first { $0.file.path == file.path }
-    }
-
-    /// Quick check if a file has any search match
-    func hasMatch(for file: FileItem) -> Bool {
-        results.contains { $0.file.path == file.path }
-    }
-
-    /// Get match type for a file (nil if no match)
-    func matchType(for file: FileItem) -> MatchType? {
-        result(for: file)?.matchType
-    }
-
-    /// Get content snippet for a file (nil if no content match)
-    func snippet(for file: FileItem) -> String? {
-        result(for: file)?.contentSnippet
     }
 }

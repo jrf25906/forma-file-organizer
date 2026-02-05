@@ -150,26 +150,17 @@ actor ThumbnailService {
     func thumbnail(for path: String, size: CGSize) async -> NSImage? {
         debugLog("📷 ThumbnailService.thumbnail() called for: \(path)")
 
-        // Establish security-scoped access for the file's parent folder
-        // This is required in sandboxed macOS apps to access user files
-        let scopedFolderURL = establishSecurityScope(for: path)
-        defer {
-            if let url = scopedFolderURL {
-                releaseSecurityScope(for: url)
-                debugLog("📷 ThumbnailService: Released security scope for: \(url.path)")
-            }
-        }
+        // Compute cache key once per request. This avoids repeated metadata reads.
+        let cacheKey = try? generateCacheKey(for: path, size: size)
 
         // 1. Try memory cache (fastest - no file access needed)
-        if let cacheKey = try? generateCacheKey(for: path, size: size),
-           let cached = memoryCache.object(forKey: cacheKey as NSString) {
+        if let cacheKey, let cached = memoryCache.object(forKey: cacheKey as NSString) {
             debugLog("📷 ThumbnailService: ✅ Found in memory cache")
             return cached
         }
 
         // 2. Try disk cache (cache files are in app sandbox, no security scope needed)
-        if let cacheKey = try? generateCacheKey(for: path, size: size),
-           let diskImage = loadFromDiskCache(key: cacheKey, sourcePath: path) {
+        if let cacheKey, let diskImage = loadFromDiskCache(key: cacheKey) {
             debugLog("📷 ThumbnailService: ✅ Found in disk cache")
             // Warm up memory cache
             memoryCache.setObject(
@@ -182,6 +173,15 @@ actor ThumbnailService {
 
         debugLog("📷 ThumbnailService: Cache miss, generating thumbnail...")
 
+        // Establish security-scoped access only when we actually need to generate.
+        let scopedFolderURL = establishSecurityScope(for: path)
+        defer {
+            if let url = scopedFolderURL {
+                releaseSecurityScope(for: url)
+                debugLog("📷 ThumbnailService: Released security scope for: \(url.path)")
+            }
+        }
+
         // 3. Generate new thumbnail (requires security scope)
         // If we couldn't establish scope, try anyway (file might be accessible)
         guard let image = await generateThumbnail(for: path, size: size) else {
@@ -192,7 +192,7 @@ actor ThumbnailService {
         debugLog("📷 ThumbnailService: ✅ Generated thumbnail successfully")
 
         // 4. Cache in both layers
-        if let cacheKey = try? generateCacheKey(for: path, size: size) {
+        if let cacheKey {
             memoryCache.setObject(
                 image,
                 forKey: cacheKey as NSString,
@@ -328,29 +328,11 @@ actor ThumbnailService {
 
     // MARK: - Disk Cache Operations
 
-    private func loadFromDiskCache(key: String, sourcePath: String) -> NSImage? {
+    private func loadFromDiskCache(key: String) -> NSImage? {
         guard let cacheURL = getCacheURL(for: key),
               fileManager.fileExists(atPath: cacheURL.path) else {
             return nil
         }
-
-        // Validate cache is still fresh (source file not modified after cache creation)
-        guard let sourceAttrs = try? fileManager.attributesOfItem(atPath: sourcePath),
-              let cacheAttrs = try? fileManager.attributesOfItem(atPath: cacheURL.path),
-              let sourceModDate = sourceAttrs[.modificationDate] as? Date,
-              let cacheCreateDate = cacheAttrs[.creationDate] as? Date,
-              cacheCreateDate > sourceModDate else {
-            // Cache is stale, remove it
-            do {
-                try fileManager.removeItem(at: cacheURL)
-            } catch {
-                Task { @MainActor in
-                    Log.debug("Failed to remove stale cache file: \(error.localizedDescription)", category: .fileOperations)
-                }
-            }
-            return nil
-        }
-
         return NSImage(contentsOf: cacheURL)
     }
 

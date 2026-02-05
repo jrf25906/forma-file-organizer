@@ -68,7 +68,7 @@ protocol FileSystemServiceProtocol {
 }
 
 /// Service responsible for scanning directories and reading file metadata
-class FileSystemService: FileSystemServiceProtocol {
+class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
 
     private let desktopBookmarkKey = "DesktopFolderBookmark"
     private let downloadsBookmarkKey = "DownloadsFolderBookmark"
@@ -317,29 +317,30 @@ class FileSystemService: FileSystemServiceProtocol {
         }
 
         do {
+            let prefetchedKeys: [URLResourceKey] = [
+                .fileSizeKey,
+                .creationDateKey,
+                .contentModificationDateKey,
+                .contentAccessDateKey,
+                .isDirectoryKey,
+                .isSymbolicLinkKey // SECURITY: Detect symlinks
+            ]
+            let prefetchedKeySet = Set(prefetchedKeys)
+
             let contents = try fileManager.contentsOfDirectory(
                 at: url,
-                includingPropertiesForKeys: [
-                    .fileSizeKey,
-                    .creationDateKey,
-                    .contentModificationDateKey,
-                    .contentAccessDateKey,
-                    .isDirectoryKey,
-                    .isSymbolicLinkKey  // SECURITY: Detect symlinks
-                ],
+                includingPropertiesForKeys: prefetchedKeys,
                 options: [.skipsHiddenFiles]
             )
 
             var fileItems: [FileMetadata] = []
+            fileItems.reserveCapacity(contents.count)
             var skippedDirectories = 0
             var skippedSymlinks = 0
 
             for fileURL in contents {
                 // SECURITY: Check for symlinks and validate them (CWE-61)
-                let resourceValues = try fileURL.resourceValues(forKeys: [
-                    .isDirectoryKey,
-                    .isSymbolicLinkKey
-                ])
+                let resourceValues = try fileURL.resourceValues(forKeys: prefetchedKeySet)
 
                 // Skip directories
                 if resourceValues.isDirectory ?? false {
@@ -365,21 +366,11 @@ class FileSystemService: FileSystemServiceProtocol {
                     continue
                 }
 
-                // Get file metadata
-                let attributes = try fileManager.attributesOfItem(atPath: fileURL.path)
-                let fileSize = attributes[.size] as? Int64 ?? 0
-                let creationDate = attributes[.creationDate] as? Date ?? Date()
-                let modificationDate = attributes[.modificationDate] as? Date ?? Date()
-
-                // Try to get last access date from resource values
-                let accessResourceValues = try? fileURL.resourceValues(forKeys: [.contentAccessDateKey])
-                let lastAccessedDate: Date
-                if let accessDate = accessResourceValues?.contentAccessDate {
-                    lastAccessedDate = accessDate
-                } else {
-                    Log.warning("Could not get access date for \(fileURL.lastPathComponent), using current date", category: .filesystem)
-                    lastAccessedDate = Date()
-                }
+                // Use prefetched resource values to avoid extra file-system syscalls.
+                let fileSize = Int64(resourceValues.fileSize ?? 0)
+                let creationDate = resourceValues.creationDate ?? Date()
+                let modificationDate = resourceValues.contentModificationDate ?? Date()
+                let lastAccessedDate = resourceValues.contentAccessDate ?? Date()
 
                 let fileItem = FileMetadata(
                     path: fileURL.path,
@@ -533,31 +524,76 @@ class FileSystemService: FileSystemServiceProtocol {
 
         let folders = baseFolders.isEmpty ? [.desktop, .downloads] : baseFolders
 
-        for folder in folders {
-            do {
-                let scanned: [FileMetadata]
-                switch folder {
-                case .home:
-                    // No direct mapping yet; treat as no-op here and let callers filter
-                    continue
-                case .desktop:
-                    scanned = try await scanDesktop()
-                case .downloads:
-                    scanned = try await scanDownloads()
-                case .documents:
-                    scanned = try await scanDocuments()
-                case .pictures:
-                    scanned = try await scanPictures()
-                case .music:
-                    scanned = try await scanMusic()
-                }
-                allFiles.append(contentsOf: scanned)
-            } catch {
-                errors[folder.displayName] = error
+        let folderSet = Set(folders)
+        let shouldScanDesktop = folderSet.contains(.desktop)
+        let shouldScanDownloads = folderSet.contains(.downloads)
+        let shouldScanDocuments = folderSet.contains(.documents)
+        let shouldScanPictures = folderSet.contains(.pictures)
+        let shouldScanMusic = folderSet.contains(.music)
+
+        async let desktopResult: Result<[FileMetadata], Error>? = shouldScanDesktop ? scanFolderResult(.desktop) : nil
+        async let downloadsResult: Result<[FileMetadata], Error>? = shouldScanDownloads ? scanFolderResult(.downloads) : nil
+        async let documentsResult: Result<[FileMetadata], Error>? = shouldScanDocuments ? scanFolderResult(.documents) : nil
+        async let picturesResult: Result<[FileMetadata], Error>? = shouldScanPictures ? scanFolderResult(.pictures) : nil
+        async let musicResult: Result<[FileMetadata], Error>? = shouldScanMusic ? scanFolderResult(.music) : nil
+
+        if shouldScanDesktop, let result = await desktopResult {
+            switch result {
+            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .failure(let error): errors[FolderLocation.desktop.displayName] = error
+            }
+        }
+
+        if shouldScanDownloads, let result = await downloadsResult {
+            switch result {
+            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .failure(let error): errors[FolderLocation.downloads.displayName] = error
+            }
+        }
+
+        if shouldScanDocuments, let result = await documentsResult {
+            switch result {
+            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .failure(let error): errors[FolderLocation.documents.displayName] = error
+            }
+        }
+
+        if shouldScanPictures, let result = await picturesResult {
+            switch result {
+            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .failure(let error): errors[FolderLocation.pictures.displayName] = error
+            }
+        }
+
+        if shouldScanMusic, let result = await musicResult {
+            switch result {
+            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .failure(let error): errors[FolderLocation.music.displayName] = error
             }
         }
 
         return ScanResult(files: allFiles, errors: errors)
+    }
+
+    private func scanFolderResult(_ folder: FolderLocation) async -> Result<[FileMetadata], Error> {
+        do {
+            switch folder {
+            case .home:
+                return .success([])
+            case .desktop:
+                return .success(try await scanDesktop())
+            case .downloads:
+                return .success(try await scanDownloads())
+            case .documents:
+                return .success(try await scanDocuments())
+            case .pictures:
+                return .success(try await scanPictures())
+            case .music:
+                return .success(try await scanMusic())
+            }
+        } catch {
+            return .failure(error)
+        }
     }
     // MARK: - Permission Checks
 

@@ -5,7 +5,8 @@
 This document tracks the performance optimization work for the Forma macOS app following Phase 3 AI/ML integration. The app was experiencing severe UI freezes (30-60 seconds) after the permissions screen and during actions like "Create Rule".
 
 **Audit Date:** December 2025
-**Status:** In Progress
+**Last Verified:** February 5, 2026
+**Status:** Active and benchmarked
 
 ---
 
@@ -97,6 +98,43 @@ We will add 5 strategic signposts to measure baseline performance:
 | ClusterDetection | TBD | TBD | - | O(n²) algorithm |
 | InsightGeneration | TBD | TBD | - | Full pipeline |
 | FileHash (avg) | TBD | TBD | - | Per-file average |
+
+### Captured Optimization Benchmarks (February 5, 2026)
+
+The following microbenchmarks were captured with the benchmark harness in `OptimizationBenchmarksTests`.
+
+**Command used**
+
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS' -derivedDataPath DerivedDataCodexBench CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -skip-testing:"Forma File OrganizingUITests" -only-testing:"Forma File OrganizingTests/OptimizationBenchmarksTests"
+```
+
+**Environment**
+- Xcode 26.3 (Build 17C519)
+- Destination: `platform=macOS` (arm64)
+- Date: February 5, 2026
+
+| Benchmark | Baseline (ms) | Optimized (ms) | Speedup |
+|-----------|---------------|----------------|---------|
+| `search_lookup_linear_vs_indexed` | 8392.46 | 2.17 | 3869.27x |
+| `scan_syscalls_baseline_vs_prefetch` | 140.87 | 15.84 | 8.89x |
+| `duplicate_detection_legacy_vs_optimized` | 201.21 | 62.37 | 3.23x |
+
+Notes:
+- These are synthetic microbenchmarks intended for relative comparison, not user-facing latency guarantees.
+- The benchmark output is emitted as `BENCHMARK|...` lines in test logs for easy regression tracking.
+
+### Validation Snapshot (February 5, 2026)
+
+**Command used**
+
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS' -derivedDataPath DerivedDataCodexFullNonUI CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -skip-testing:"Forma File OrganizingUITests"
+```
+
+**Result**
+- `TEST SUCCEEDED`
+- 513 tests executed, 0 failures, 0 unexpected
 
 ---
 
@@ -279,6 +317,7 @@ let hash = hasher.finalize()
 |------|--------|--------|
 | 2025-12-02 | Initial audit and documentation | Claude Code |
 | 2025-12-22 | Analytics performance optimization (background threading) | Antigravity |
+| 2026-02-05 | Added measured optimization benchmark results and non-UI suite verification snapshot | Codex |
 | - | Added instrumentation | - |
 | - | Phase 2 fixes | - |
 | - | Verification complete | - |

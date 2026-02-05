@@ -7,6 +7,18 @@ Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
 This checklist tracks the cleanup execution plan; keep it aligned with the canonical roadmap if it becomes a release goal.
 
+### Performance Optimization Sprint (February 5, 2026)
+- [x] Move content search scanning off the main actor and keep UI lookup O(1) by path.
+- [x] Remove `MainContentView` identity invalidation churn tied to content-search count updates.
+- [x] Reduce thumbnail pipeline overhead by checking memory/disk cache before security-scope access.
+- [x] Reduce folder scan syscall volume via prefetched URL resource keys.
+- [x] Parallelize standard base-folder scans in `FileSystemService.scan(baseFolders:)`.
+- [x] Fix `FileFilterManager` cache invalidation when `contentMatchedPaths` changes.
+- [x] Optimize duplicate detection (compiled regex reuse, streaming hashes, bucketed near-name comparisons).
+- [x] Remove unused `FileFilterManager` debounce/batch-reset APIs no longer used by the app flow.
+- [x] Add targeted regression tests for filter-cache invalidation and duplicate-detection behavior.
+- [x] Capture before/after benchmark numbers for scan/search/duplicate detection in a dedicated performance note (`Docs/PERFORMANCE_AUDIT.md`).
+
 ### Phase 1: Safety Fixes (zero behavioral change, prevents crashes)
 - [x] 1. MenuBarViewModel.swift:185 — replace `self!` in [weak self] closure with `guard let self else { return }` (fallback: early return).
 - [x] 2. ContextDetectionService.swift:336 — guard `dates.max()`/`dates.min()`; if empty, skip cluster.

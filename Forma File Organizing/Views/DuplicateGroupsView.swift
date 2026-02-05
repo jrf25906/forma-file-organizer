@@ -270,7 +270,7 @@ private struct DuplicateGroupCard: View {
                     Text("•")
                         .foregroundColor(.formaTertiaryLabel)
 
-                    Text(DuplicateDetectionService().formatBytes(group.potentialSpaceSavings) + " savings")
+                    Text(ByteCountFormatter.string(fromByteCount: group.potentialSpaceSavings, countStyle: .file) + " savings")
                         .font(.formaCaption)
                         .foregroundColor(.formaSecondaryLabel)
                 }

@@ -61,6 +61,13 @@ import SwiftData
 
 All service methods are thread-safe and use `async/await` for concurrency. ViewModel methods must be called on `@MainActor`.
 
+### Recent API Updates (February 2026)
+
+- `ContentSearchService` now executes heavy content scanning off-main and returns results directly to callers rather than publishing internal scan state.
+- `FileSystemService.scan(baseFolders:)` now performs standard folder scans in parallel and aggregates per-folder failures via `ScanResult.errors`.
+- `DuplicateDetectionService` now performs streaming SHA-256 hashing and internal hash-cache reuse for repeated scans of unchanged files.
+- `FileFilterManager` now invalidates cached filter results when `contentMatchedPaths` changes and supports caching empty result sets safely.
+
 ---
 
 ## FileSystemService

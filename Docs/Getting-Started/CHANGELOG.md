@@ -103,6 +103,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ML destination predictions incorporate project clusters, real training counts, and bookmark-backed destinations when possible.
 - Auto-organize eligibility now respects per-folder automation exclusions.
 - Rules list now flags destinations missing folder access with a review filter, and Rule Editor offers a quick picker to resolve them.
+- Content search now runs its heavy scan work off the main actor and uses indexed path lookups in `DashboardViewModel` to avoid per-row linear searches.
+- Folder scans now use prefetched URL resource keys and parallelized standard-folder scan tasks to reduce filesystem syscall overhead.
+- Thumbnail loading now checks memory/disk caches before opening security scopes and skips redundant stale-metadata checks on disk-cache hits.
+- Duplicate detection now reuses compiled regexes, streams file hashing in chunks, and uses bucketed near-name matching to reduce memory and comparison cost.
 
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.

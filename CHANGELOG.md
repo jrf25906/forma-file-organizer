@@ -25,6 +25,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Settings tabs (Rules, Folders, Smart Features, About) now use adaptive dark-mode surfaces, text, and card borders for consistent readability with the rest of the app.
 - Settings dark mode polish now includes improved disabled-state contrast in Smart Features and a subtler About logo container treatment.
 - Analytics dashboard now loads productivity report data through a single consolidated background pass and avoids redundant reloads on repeat view appearances, reducing main-thread fetch pressure and improving load performance.
+- Content search now runs its heavy scan work off the main actor and uses indexed path lookups in `DashboardViewModel` to avoid per-row linear searches.
+- Folder scans now use prefetched URL resource keys and parallelized standard-folder scan tasks to reduce filesystem syscall overhead.
+- Thumbnail loading now checks memory/disk caches before opening security scopes and skips redundant stale-metadata checks on disk-cache hits.
+- Duplicate detection now reuses compiled regexes, streams file hashing in chunks, and uses bucketed near-name matching to reduce memory and comparison cost.
 
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.

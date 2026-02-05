@@ -73,4 +73,41 @@ final class FileFilterManagerTests: XCTestCase {
         XCTAssertEqual(manager.filteredFiles.count, 1)
         XCTAssertEqual(manager.filteredFiles.first?.path, legacyDesktop.path)
     }
+
+    func testSearchCache_InvalidatesWhenContentMatchedPathsChange() {
+        let now = Date()
+        let contentOnlyMatch = FileItem(
+            path: "/Users/test/Documents/alpha.txt",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let unrelated = FileItem(
+            path: "/Users/test/Documents/bravo.txt",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+
+        let manager = FileFilterManager()
+        manager.searchText = "needle"
+
+        // Seed cache with a non-empty search result from content matches.
+        manager.contentMatchedPaths = [contentOnlyMatch.path]
+        manager.applyFilterImmediately(to: [contentOnlyMatch, unrelated])
+        XCTAssertEqual(manager.filteredFiles.map(\.path), [contentOnlyMatch.path])
+
+        // Changing content matches should invalidate cached search output.
+        manager.contentMatchedPaths = []
+        manager.applyFilterImmediately(to: [contentOnlyMatch, unrelated])
+        XCTAssertTrue(manager.filteredFiles.isEmpty)
+    }
 }
