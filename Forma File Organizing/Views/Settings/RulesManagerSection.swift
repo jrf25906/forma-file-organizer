@@ -3,6 +3,7 @@ import SwiftData
 
 struct RulesManagerSection: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @Query private var rules: [Rule]
 
     private var sortedRules: [Rule] {
@@ -19,7 +20,7 @@ struct RulesManagerSection: View {
             HStack {
                 Text("Organization Rules")
                     .font(.formaH2)
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
                 Spacer()
 
                 Button(action: {
@@ -41,7 +42,14 @@ struct RulesManagerSection: View {
                 .buttonStyle(.plain)
                 .background(Color.formaSteelBlue)
                 .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-                .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.medium), radius: 4, x: 0, y: 2)
+                .shadow(
+                    color: colorScheme == .dark
+                        ? Color.black.opacity(0.24)
+                        : Color.formaObsidian.opacity(Color.FormaOpacity.medium),
+                    radius: 4,
+                    x: 0,
+                    y: 2
+                )
                 .matchedGeometryEffect(id: "ruleButton", in: ruleButtonNamespace, isSource: !showingEditor)
                 .hoverLift(scale: 1.03, shadowRadius: 8)
             }
@@ -81,7 +89,7 @@ struct RulesManagerSection: View {
                 }
             }
         }
-        .background(Color.formaBoneWhite)
+        .background(Color.formaBackground)
         .sheet(isPresented: $showingEditor) {
             RuleEditorView(rule: editingRule, buttonNamespace: editingRule == nil ? ruleButtonNamespace : nil)
         }

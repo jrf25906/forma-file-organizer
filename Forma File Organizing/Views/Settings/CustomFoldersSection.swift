@@ -6,6 +6,7 @@ import SwiftUI
 /// a simpler Keychain-based approach using BookmarkFolderService.
 struct CustomFoldersSection: View {
     @StateObject private var folderService = BookmarkFolderService.shared
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showRevokeConfirmation = false
     @State private var folderToRevoke: BookmarkFolder?
 
@@ -15,7 +16,7 @@ struct CustomFoldersSection: View {
             HStack {
                 Text("Folder Access")
                     .font(.formaH2)
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
                 Spacer()
             }
             .padding(FormaSpacing.generous)
@@ -23,7 +24,7 @@ struct CustomFoldersSection: View {
             // Description
             Text("Forma can organize files in the folders you've granted access to. Toggle folders on or off to control which are scanned.")
                 .font(.formaBody)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
                 .padding(.horizontal, FormaSpacing.generous)
                 .padding(.bottom, FormaSpacing.standard)
 
@@ -61,15 +62,15 @@ struct CustomFoldersSection: View {
             HStack(spacing: FormaSpacing.tight) {
                 Image(systemName: "info.circle")
                     .font(.formaCaption)
-                    .foregroundColor(.formaTertiaryLabel)
+                    .foregroundColor(colorScheme == .dark ? .formaTertiaryLabelHigh : .formaTertiaryLabel)
                 Text("To add more folders, use the + button in the sidebar.")
                     .font(.formaCaption)
-                    .foregroundColor(.formaTertiaryLabel)
+                    .foregroundColor(colorScheme == .dark ? .formaTertiaryLabelHigh : .formaTertiaryLabel)
             }
             .padding(.horizontal, FormaSpacing.generous)
             .padding(.bottom, FormaSpacing.standard)
         }
-        .background(Color.formaBoneWhite)
+        .background(Color.formaBackground)
         .alert("Revoke Access?", isPresented: $showRevokeConfirmation) {
             Button("Cancel", role: .cancel) {
                 folderToRevoke = nil
@@ -97,6 +98,7 @@ private struct FolderAccessRow: View {
 
     @State private var isHovered = false
     @State private var isEnabled: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     init(folder: BookmarkFolder, onToggle: @escaping (Bool) -> Void, onRevoke: @escaping () -> Void) {
         self.folder = folder
@@ -110,19 +112,23 @@ private struct FolderAccessRow: View {
             // Folder icon
             Image(systemName: folder.iconName)
                 .font(.formaH3)
-                .foregroundColor(isEnabled ? .formaSteelBlue : .formaSecondaryLabel)
+                .foregroundColor(
+                    isEnabled
+                        ? .formaSteelBlue
+                        : (colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
+                )
                 .frame(width: 32)
 
             // Folder info
             VStack(alignment: .leading, spacing: 2) {
                 Text(folder.displayName)
                     .font(.formaBodyBold)
-                    .foregroundColor(isEnabled ? .formaObsidian : .formaSecondaryLabel)
+                    .foregroundColor(isEnabled ? .formaLabel : (colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel))
 
                 if let path = folder.path {
                     Text(path)
                         .font(.formaSmall)
-                        .foregroundColor(.formaTertiaryLabel)
+                        .foregroundColor(colorScheme == .dark ? .formaTertiaryLabelHigh : .formaTertiaryLabel)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -145,7 +151,7 @@ private struct FolderAccessRow: View {
                 Button(action: onRevoke) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.formaBody)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
                 }
                 .buttonStyle(.plain)
                 .help("Revoke access to this folder")
@@ -157,7 +163,12 @@ private struct FolderAccessRow: View {
         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                .stroke(
+                    colorScheme == .dark
+                        ? Color.formaSeparator.opacity(0.35)
+                        : Color.formaSeparator.opacity(Color.FormaOpacity.light),
+                    lineWidth: 1
+                )
         )
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {

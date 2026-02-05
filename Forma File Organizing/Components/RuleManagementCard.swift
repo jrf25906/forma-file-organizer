@@ -1,17 +1,22 @@
+import Foundation
 import SwiftUI
 
 // MARK: - Rule Management Card
 
 struct RuleManagementCard: View {
+    static let verticalPadding: CGFloat = FormaSpacing.tight
+
     let rule: Rule
     let onEdit: () -> Void
     let onDelete: () -> Void
     let onToggle: () -> Void
 
     private let destinationResolver = DestinationResolver()
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var showingDeleteConfirmation = false
     @State private var isHovered = false
+    private let isUITesting = CommandLine.arguments.contains("--uitesting")
     
     // Icon based on primary condition
     private var ruleIcon: String {
@@ -41,11 +46,11 @@ struct RuleManagementCard: View {
                 // Legacy single
                 HStack(spacing: 0) {
                     Text("If ")
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(secondaryTextColor)
                     Text(rule.conditionType.rawValue.camelCaseToTitleCase())
                         .foregroundColor(.formaLabel)
                     Text(" is ")
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(secondaryTextColor)
                     Text(rule.conditionValue)
                         .foregroundColor(.formaLabel)
                 }
@@ -54,7 +59,7 @@ struct RuleManagementCard: View {
                 let count = rule.conditions.count
                 HStack(spacing: 0) {
                     Text("Matches ")
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(secondaryTextColor)
                     Text("\(count) conditions")
                         .foregroundColor(.formaLabel)
                 }
@@ -94,15 +99,84 @@ struct RuleManagementCard: View {
     }
 
     private var destinationTextColor: Color {
-        destinationWarning == nil ? .formaSecondaryLabel : .formaWarmOrange
+        destinationWarning == nil ? secondaryTextColor : .formaWarmOrange
+    }
+
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+    }
+
+    private var tertiaryTextColor: Color {
+        colorScheme == .dark ? .formaTertiaryLabelHigh : .formaTertiaryLabel
+    }
+
+    private var iconCircleBackground: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.08) : .formaControlBackground
+    }
+
+    private var iconCircleBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaSeparator.opacity(0.5)
+    }
+
+    private var cardBackground: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.06) : .formaBoneWhite
+    }
+
+    private var cardBorder: Color {
+        if isHovered {
+            return colorScheme == .dark
+                ? Color.formaSteelBlue.opacity(0.45)
+                : Color.formaSteelBlue.opacity(0.3)
+        }
+        return colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaSeparator.opacity(0.5)
+    }
+
+    private var cardShadowColor: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(isHovered ? 0.22 : 0.12)
+            : Color.black.opacity(isHovered ? 0.08 : 0.02)
+    }
+
+    private var disabledBadgeBackground: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.1) : .formaControlBackground
+    }
+
+    private var offToggleTrackColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.18) : .formaControlBackground
+    }
+
+    private var toggleThumbColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.95) : .white
+    }
+
+    private var titleOnCardContrastRatio: Double {
+        FormaContrastMetrics.contrastRatio(
+            foreground: .formaLabel,
+            background: cardBackground,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
+
+    private var secondaryOnCardContrastRatio: Double {
+        FormaContrastMetrics.contrastRatio(
+            foreground: secondaryTextColor,
+            background: cardBackground,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
     }
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FormaSpacing.tight) {
             // 1. Leading Icon
             ZStack {
                 Circle()
-                    .fill(Color.formaControlBackground)
+                    .fill(iconCircleBackground)
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: ruleIcon)
@@ -111,7 +185,7 @@ struct RuleManagementCard: View {
             }
             .overlay(
                 Circle()
-                    .strokeBorder(Color.formaSeparator.opacity(0.5), lineWidth: 1)
+                    .strokeBorder(iconCircleBorder, lineWidth: 1)
             )
             
             // 2. Main Content
@@ -119,16 +193,16 @@ struct RuleManagementCard: View {
                 HStack(alignment: .center, spacing: 8) {
                     Text(rule.name)
                         .font(.formaBodyBold)
-                        .foregroundColor(rule.isEnabled ? .formaObsidian : .formaSecondaryLabel)
+                        .foregroundColor(rule.isEnabled ? .formaLabel : secondaryTextColor)
 
                     if !rule.isEnabled {
                         Text("Disabled")
                             .font(.system(size: 9, weight: .bold))
                             .textCase(.uppercase)
-                            .foregroundColor(.formaSecondaryLabel)
+                            .foregroundColor(secondaryTextColor)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.formaControlBackground)
+                            .background(disabledBadgeBackground)
                             .cornerRadius(4)
                     }
 
@@ -151,12 +225,12 @@ struct RuleManagementCard: View {
                     
                     Image(systemName: "arrow.right")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(.formaSecondaryLabel.opacity(0.5))
+                        .foregroundColor(tertiaryTextColor.opacity(0.7))
                         .padding(.horizontal, 2)
                     
                     Image(systemName: actionIcon)
                         .font(.formaCompact)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(secondaryTextColor)
 
                     if destinationWarningMessage != nil {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -196,11 +270,11 @@ struct RuleManagementCard: View {
                 Button(action: onToggle) {
                     ZStack {
                         Capsule()
-                            .fill(rule.isEnabled ? Color.formaSteelBlue : Color.formaControlBackground)
+                            .fill(rule.isEnabled ? Color.formaSteelBlue : offToggleTrackColor)
                             .frame(width: 32, height: 18)
                         
                         Circle()
-                            .fill(.white)
+                            .fill(toggleThumbColor)
                             .frame(width: 14, height: 14)
                             .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
                             .offset(x: rule.isEnabled ? 7 : -7)
@@ -211,22 +285,17 @@ struct RuleManagementCard: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10) // Tighter vertical padding
+        .padding(.vertical, Self.verticalPadding)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaBoneWhite)
+                .fill(cardBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(
-                    isHovered
-                        ? Color.formaSteelBlue.opacity(0.3)
-                        : Color.formaSeparator.opacity(0.5),
-                    lineWidth: 1
-                )
+                .strokeBorder(cardBorder, lineWidth: 1)
         )
         .shadow(
-            color: Color.black.opacity(isHovered ? 0.08 : 0.02),
+            color: cardShadowColor,
             radius: isHovered ? 8 : 2,
             x: 0,
             y: isHovered ? 2 : 1
@@ -244,6 +313,28 @@ struct RuleManagementCard: View {
         } message: {
             Text("Are you sure you want to delete \"\(rule.name)\"? This action cannot be undone.")
         }
+        .accessibilityIdentifier("ruleManagementCard")
+        .accessibilityLabel(
+            isUITesting
+                ? "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio))"
+                : ""
+        )
+        .accessibilityValue(
+            isUITesting
+                ? "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio))"
+                : ""
+        )
+        .overlay {
+            if isUITesting {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("ruleManagementCardProbe")
+                    .accessibilityLabel(
+                        "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio))"
+                    )
+            }
+        }
     }
 }
 
@@ -254,12 +345,17 @@ private struct IconButton: View {
     let action: () -> Void
     
     @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var secondaryColor: Color {
+        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+    }
     
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(isHovered ? color : .formaSecondaryLabel)
+                .foregroundColor(isHovered ? color : secondaryColor)
                 .frame(width: 28, height: 28)
                 .background(
                     Circle()

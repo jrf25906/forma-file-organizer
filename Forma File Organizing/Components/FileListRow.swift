@@ -25,6 +25,7 @@ struct FileListRow: View {
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     // MARK: - Constants
     private let categoryBorderWidth: CGFloat = 3
@@ -86,7 +87,7 @@ struct FileListRow: View {
                 // Tertiary: Metadata
                 Text("\(file.fileExtension.uppercased()) • \(file.size)")
                     .font(.formaSmall)
-                    .foregroundColor(Color.formaSecondaryLabel.opacity(Color.FormaOpacity.strong))
+                    .foregroundColor(metadataColor)
             }
 
             Spacer(minLength: FormaSpacing.standard)
@@ -216,6 +217,12 @@ struct FileListRow: View {
                 ? Color.formaControlBackground.opacity(Color.FormaOpacity.strong)
                 : Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle)
         }
+    }
+
+    private var metadataColor: Color {
+        colorScheme == .dark
+            ? .formaSecondaryLabelHigh
+            : Color.formaLabel.opacity(0.7)
     }
 
     // MARK: - Focus Indicator

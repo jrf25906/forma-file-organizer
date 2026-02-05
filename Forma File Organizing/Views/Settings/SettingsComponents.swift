@@ -6,6 +6,7 @@ import SwiftUI
 struct SettingsSection<Content: View>: View {
     let title: String
     let content: Content
+    @Environment(\.colorScheme) private var colorScheme
 
     init(_ title: String, @ViewBuilder content: () -> Content) {
         self.title = title
@@ -18,7 +19,7 @@ struct SettingsSection<Content: View>: View {
             Text(title)
                 .font(.formaBodySemibold)
                 .tracking(0.5)
-                .foregroundColor(Color.formaSecondaryLabel)
+                .foregroundColor(colorScheme == .dark ? Color.formaSecondaryLabelHigh : Color.formaSecondaryLabel)
                 .padding(.leading, FormaSpacing.micro)
 
             // Content card - white background with subtle border
@@ -27,9 +28,21 @@ struct SettingsSection<Content: View>: View {
                 .formaCornerRadius(FormaRadius.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                        .stroke(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                        .stroke(
+                            colorScheme == .dark
+                                ? Color.formaSeparator.opacity(0.35)
+                                : Color.formaSeparator.opacity(Color.FormaOpacity.light),
+                            lineWidth: 1
+                        )
                 )
-                .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle), radius: 2, x: 0, y: 1)
+                .shadow(
+                    color: colorScheme == .dark
+                        ? Color.black.opacity(0.14)
+                        : Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle),
+                    radius: 2,
+                    x: 0,
+                    y: 1
+                )
         }
     }
 }
@@ -38,6 +51,7 @@ struct SettingsRow<Accessory: View>: View {
     let title: String
     let subtitle: String?
     let accessory: Accessory
+    @Environment(\.colorScheme) private var colorScheme
 
     init(_ title: String, subtitle: String? = nil, @ViewBuilder accessory: () -> Accessory) {
         self.title = title
@@ -57,7 +71,7 @@ struct SettingsRow<Accessory: View>: View {
                 if let subtitle = subtitle {
                     Text(subtitle)
                         .font(.formaSmall)
-                        .foregroundColor(Color.formaSecondaryLabel)
+                        .foregroundColor(colorScheme == .dark ? Color.formaSecondaryLabelHigh : Color.formaSecondaryLabel)
                 }
             }
             Spacer()

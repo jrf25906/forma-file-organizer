@@ -1,7 +1,7 @@
 # Forma Press Kit: Screenshot Requirements
 
 **Purpose**: Capture app screenshots for press kit, App Store, and marketing materials.
-**Target**: Mid-January 2025 launch
+**Target**: February 2026 App Store submission
 
 ---
 
@@ -46,10 +46,25 @@
 
 | Format | Dimensions | Use Case |
 |--------|------------|----------|
-| **App Store** | 2880 × 1800 (retina) or 1440 × 900 | Mac App Store listing |
+| **Mac App Store** | 2880 × 1800 (retina) or 1440 × 900 *(recommended)* | Mac App Store listing |
 | **Press Kit** | 1920 × 1200 minimum | Press/media use |
 | **Hero** | 2560 × 1600 or higher | Website hero section |
 | **Social** | 1200 × 630 (OG) | Social media sharing |
+
+### Mac App Store: accepted screenshot sizes
+Upload **at least 1** and up to **10** screenshots. Preferred sizes are:
+- **2880 × 1800** *(retina)*
+- **1440 × 900**
+
+Also accepted for macOS:
+- **2560 × 1600**
+- **1280 × 800**
+
+### Mac App Store: app previews (optional)
+You can upload up to **3** app previews. For macOS, use:
+- **Resolution**: **1920 × 1080**
+- **Aspect ratio**: **16:9**
+- **Duration**: keep it **~15–30s** (max **30s**)
 
 ---
 

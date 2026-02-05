@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SmartFeaturesSection: View {
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("feature.masterAI") private var masterAIEnabled = true
     @AppStorage(FeatureFlagService.Feature.patternLearning.rawValue) private var patternLearning = FeatureFlagService.Feature.patternLearning.defaultValue
     @AppStorage(FeatureFlagService.Feature.ruleSuggestions.rawValue) private var ruleSuggestions = FeatureFlagService.Feature.ruleSuggestions.defaultValue
@@ -30,11 +31,11 @@ struct SmartFeaturesSection: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Smart Features")
                         .font(.formaH2)
-                        .foregroundColor(.formaObsidian)
+                        .foregroundColor(.formaLabel)
 
                     Text("Control how Forma learns from your organization habits and makes suggestions.")
                         .font(.formaBody)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, FormaSpacing.tight)
@@ -263,7 +264,7 @@ struct SmartFeaturesSection: View {
 
                         Text("AI features are currently disabled. Enable the master toggle above to use smart organization features.")
                             .font(.formaSmall)
-                            .foregroundColor(.formaSecondaryLabel)
+                            .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
                     }
                     .padding(FormaSpacing.standard)
                     .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
@@ -280,7 +281,7 @@ struct SmartFeaturesSection: View {
             }
             .padding(FormaSpacing.generous)
         }
-        .background(Color.formaBoneWhite)
+        .background(Color.formaBackground)
         .frame(minWidth: 400)
     }
 
@@ -306,6 +307,7 @@ struct SmartFeaturesSection: View {
 // MARK: - Smart Feature Row Component
 
 private struct SmartFeatureRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let feature: FeatureFlagService.Feature
     @Binding var isEnabled: Bool
     let masterEnabled: Bool
@@ -317,16 +319,20 @@ private struct SmartFeatureRow: View {
         !masterEnabled || !dependencyMet
     }
 
+    private var disabledTextColor: Color {
+        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Icon
             Image(systemName: feature.iconName)
                 .font(.formaH3)
-                .foregroundColor(isEffectivelyDisabled ? .formaSecondaryLabel : .formaSteelBlue)
+                .foregroundColor(isEffectivelyDisabled ? disabledTextColor : .formaSteelBlue)
                 .frame(width: 32, height: 32)
                 .background(
                     isEffectivelyDisabled
-                        ? Color.formaSecondaryLabel.opacity(Color.FormaOpacity.light)
+                        ? disabledTextColor.opacity(Color.FormaOpacity.light)
                         : Color.formaSteelBlue.opacity(Color.FormaOpacity.light)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
@@ -336,7 +342,7 @@ private struct SmartFeatureRow: View {
                 HStack(spacing: 6) {
                     Text(feature.displayName)
                         .font(.formaBody)
-                        .foregroundColor(isEffectivelyDisabled ? .formaSecondaryLabel : .formaObsidian)
+                        .foregroundColor(isEffectivelyDisabled ? disabledTextColor : .formaLabel)
 
                     if showPerformanceWarning && isEnabled && masterEnabled {
                         Image(systemName: "bolt.fill")
@@ -348,7 +354,7 @@ private struct SmartFeatureRow: View {
 
                 Text(feature.description)
                     .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
                     .lineLimit(2)
 
                     if let requiresFeature, !dependencyMet && masterEnabled {
@@ -375,6 +381,7 @@ private struct SmartFeatureRow: View {
 // MARK: - Automation Mode Row Component
 
 private struct AutomationModeRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var selectedMode: String
     let autoOrganizeEnabled: Bool
 
@@ -388,7 +395,7 @@ private struct AutomationModeRow: View {
 
                 Text("Automation Mode")
                     .font(.formaBodyBold)
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
             }
 
             // Mode options
@@ -424,10 +431,15 @@ private struct AutomationModeRow: View {
 // MARK: - Automation Mode Option Component
 
 private struct AutomationModeOption: View {
+    @Environment(\.colorScheme) private var colorScheme
     let mode: AutomationMode
     let isSelected: Bool
     let isDisabled: Bool
     let onSelect: () -> Void
+
+    private var disabledTextColor: Color {
+        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+    }
 
     var body: some View {
         Button(action: {
@@ -439,12 +451,12 @@ private struct AutomationModeOption: View {
                 // Selection indicator
                 ZStack {
                     Circle()
-                        .stroke(isDisabled ? Color.formaSecondaryLabel.opacity(Color.FormaOpacity.overlay) : Color.formaSteelBlue, lineWidth: 2)
+                        .stroke(isDisabled ? disabledTextColor.opacity(Color.FormaOpacity.overlay) : Color.formaSteelBlue, lineWidth: 2)
                         .frame(width: 20, height: 20)
 
                     if isSelected {
                         Circle()
-                            .fill(isDisabled ? Color.formaSecondaryLabel.opacity(Color.FormaOpacity.overlay) : Color.formaSteelBlue)
+                            .fill(isDisabled ? disabledTextColor.opacity(Color.FormaOpacity.overlay) : Color.formaSteelBlue)
                             .frame(width: 12, height: 12)
                     }
                 }
@@ -452,18 +464,18 @@ private struct AutomationModeOption: View {
                 // Icon
                 Image(systemName: mode.iconName)
                     .font(.formaBodyLarge)
-                    .foregroundColor(isDisabled ? .formaSecondaryLabel : (isSelected ? .formaSteelBlue : .formaObsidian))
+                    .foregroundColor(isDisabled ? disabledTextColor : (isSelected ? .formaSteelBlue : .formaLabel))
                     .frame(width: 24)
 
                 // Text
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mode.displayName)
                         .font(.formaBody)
-                        .foregroundColor(isDisabled ? .formaSecondaryLabel : .formaObsidian)
+                        .foregroundColor(isDisabled ? disabledTextColor : .formaLabel)
 
                     Text(mode.description)
                         .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
                         .lineLimit(2)
                 }
 

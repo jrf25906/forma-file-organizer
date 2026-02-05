@@ -210,6 +210,8 @@ private struct TreemapCell: View {
     let isSelected: Bool
     let onTap: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private var backgroundColor: Color {
         if let category = node.category {
             return category.color.opacity(0.6)
@@ -224,6 +226,14 @@ private struct TreemapCell: View {
 
     private var showSize: Bool {
         rect.width > 80 && rect.height > 50
+    }
+
+    private var labelColor: Color {
+        colorScheme == .dark ? .white : Color.formaObsidian
+    }
+
+    private var sizeColor: Color {
+        colorScheme == .dark ? .white.opacity(0.8) : Color.formaObsidian.opacity(0.7)
     }
 
     var body: some View {
@@ -241,7 +251,7 @@ private struct TreemapCell: View {
                         if showLabel {
                             Text(node.label)
                                 .font(.formaSmallSemibold)
-                                .foregroundColor(.white)
+                                .foregroundColor(labelColor)
                                 .lineLimit(2)
                                 .multilineTextAlignment(.center)
                         }
@@ -249,7 +259,7 @@ private struct TreemapCell: View {
                         if showSize {
                             Text(node.formattedSize)
                                 .font(.formaMicro)
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(sizeColor)
                         }
                     }
                     .padding(4)

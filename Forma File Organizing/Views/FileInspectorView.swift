@@ -7,21 +7,41 @@ struct FileInspectorView: View {
     let files: [FileItem]
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+    private let isUITesting = CommandLine.arguments.contains("--uitesting")
+    private let sectionSpacing: CGFloat = FormaSpacing.large
+    private let inspectorPadding: CGFloat = FormaSpacing.generous
+    private let previewHeight: CGFloat = 200
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: FormaSpacing.large) {
+            VStack(alignment: .leading, spacing: sectionSpacing) {
                 if files.count == 1, let file = files.first {
                     singleFileInspector(file)
                 } else {
                     multipleFilesInspector()
                 }
             }
-            .padding(.horizontal, FormaSpacing.generous)
-            .padding(.top, FormaSpacing.generous)
-            .padding(.bottom, FormaSpacing.generous)
+            .padding(.horizontal, inspectorPadding)
+            .padding(.top, inspectorPadding)
+            .padding(.bottom, inspectorPadding)
         }
-        .background(Color.formaControlBackground.opacity(Color.FormaOpacity.overlay))
+        .background(inspectorBackgroundTint)
+        .accessibilityIdentifier("fileInspectorView")
+        .overlay(alignment: .topLeading) {
+            if isUITesting {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("inspectorContrastProbe")
+                    .accessibilityLabel(
+                        "titleOnCard=\(String(format: "%.2f", inspectorTitleContrastRatio));secondaryOnCard=\(String(format: "%.2f", inspectorSecondaryContrastRatio));quickLook=\(String(format: "%.2f", inspectorQuickLookContrastRatio));sectionSpacing=\(Int(sectionSpacing));panelPadding=\(Int(inspectorPadding));previewHeight=\(Int(previewHeight))"
+                    )
+                    .accessibilityValue(
+                        "titleOnCard=\(String(format: "%.2f", inspectorTitleContrastRatio));secondaryOnCard=\(String(format: "%.2f", inspectorSecondaryContrastRatio));quickLook=\(String(format: "%.2f", inspectorQuickLookContrastRatio));sectionSpacing=\(Int(sectionSpacing));panelPadding=\(Int(inspectorPadding));previewHeight=\(Int(previewHeight))"
+                    )
+            }
+        }
     }
     
     // MARK: - Single File Inspector
@@ -100,20 +120,20 @@ struct FileInspectorView: View {
                         Image(nsImage: NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height)))
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(maxHeight: 200)
+                            .frame(maxHeight: previewHeight)
                     } else {
                         VStack {
                             previewPlaceholder(file)
                             Text("Preview unavailable")
                                 .font(.formaMicro)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(inspectorSecondaryTextColor)
                         }
                     }
                 } else {
                     previewPlaceholder(file)
                 }
             }
-            .frame(height: 200)
+            .frame(height: previewHeight)
             .formaCornerRadius(FormaRadius.card)
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
@@ -135,7 +155,14 @@ struct FileInspectorView: View {
                 .padding(.vertical, FormaSpacing.tight)
                 .background(
                     RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+                        .fill(quickLookButtonBackgroundColor)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+                        .stroke(
+                            Color.formaSteelBlue.opacity(colorScheme == .dark ? Color.FormaOpacity.strong : Color.FormaOpacity.medium),
+                            lineWidth: 1
+                        )
                 )
             }
             .buttonStyle(.plain)
@@ -151,7 +178,7 @@ struct FileInspectorView: View {
             
             Text(file.fileExtension.uppercased())
                 .font(.formaCaption)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(inspectorSecondaryTextColor)
         }
     }
     
@@ -185,7 +212,7 @@ struct FileInspectorView: View {
         HStack(alignment: .top, spacing: FormaSpacing.standard) {
             Text(label)
                 .font(.formaSmall)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(inspectorSecondaryTextColor)
                 .frame(minWidth: 60, alignment: .leading)
             
             Text(value)
@@ -202,7 +229,7 @@ struct FileInspectorView: View {
             Text("Organization")
                 .font(.formaBodySemibold)
                 .tracking(0.5)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(inspectorSecondaryTextColor)
 
             // Suggested destination
             HStack(spacing: FormaSpacing.standard) {
@@ -213,7 +240,7 @@ struct FileInspectorView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Suggested Destination")
                         .font(.formaCaption)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(inspectorSecondaryTextColor)
                     
                     Text(destination)
                         .font(.formaSmall)
@@ -261,7 +288,7 @@ struct FileInspectorView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Confidence")
                                 .font(.formaCaption)
-                                .foregroundColor(.formaSecondaryLabel)
+                                .foregroundColor(inspectorSecondaryTextColor)
 
                             HStack(spacing: 6) {
                                 Text(confidenceLabel(for: confidence))
@@ -270,7 +297,7 @@ struct FileInspectorView: View {
 
                                 Text("(\(Int(confidence * 100))%)")
                                     .font(.formaCaption)
-                                    .foregroundColor(.formaSecondaryLabel)
+                                    .foregroundColor(inspectorSecondaryTextColor)
                             }
                         }
 
@@ -291,7 +318,7 @@ struct FileInspectorView: View {
 
                             Text("Match Details")
                                 .font(.formaCaption)
-                                .foregroundColor(.formaSecondaryLabel)
+                                .foregroundColor(inspectorSecondaryTextColor)
                         }
 
                         Text(reason)
@@ -442,7 +469,7 @@ struct FileInspectorView: View {
                 
                 Text(file.size)
                     .font(.formaCaption)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(inspectorSecondaryTextColor)
             }
             
             Spacer()
@@ -469,7 +496,7 @@ struct FileInspectorView: View {
                     
                     Text(formattedSize)
                         .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(inspectorSecondaryTextColor)
                 }
                 
                 Spacer()
@@ -478,7 +505,7 @@ struct FileInspectorView: View {
                     dashboardViewModel.deselectAll()
                 }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(inspectorSecondaryTextColor)
                         .font(.formaH2)
                 }
                 .buttonStyle(.plain)
@@ -499,7 +526,7 @@ struct FileInspectorView: View {
             Text("Preview")
                 .font(.formaBodySemibold)
                 .tracking(0.5)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(inspectorSecondaryTextColor)
             
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: FormaSpacing.tight) {
                 ForEach(files.prefix(9)) { file in
@@ -510,7 +537,7 @@ struct FileInspectorView: View {
             if files.count > 9 {
                 Text("+\(files.count - 9) more")
                     .font(.formaCaption)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(inspectorSecondaryTextColor)
             }
         }
         .padding(FormaSpacing.large)
@@ -536,7 +563,7 @@ struct FileInspectorView: View {
             
             Text(file.fileExtension.uppercased())
                 .font(.formaCaption)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(inspectorSecondaryTextColor)
         }
     }
     
@@ -649,6 +676,47 @@ struct FileInspectorView: View {
         } else {
             return .formaWarmOrange
         }
+    }
+
+    private var inspectorBackgroundTint: Color {
+        Color.formaControlBackground.opacity(colorScheme == .dark ? 0.45 : Color.FormaOpacity.overlay)
+    }
+
+    private var inspectorSecondaryTextColor: Color {
+        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+    }
+
+    private var quickLookButtonBackgroundColor: Color {
+        colorScheme == .dark
+            ? Color.formaSteelBlue.opacity(0.22)
+            : Color.formaSteelBlue.opacity(Color.FormaOpacity.light)
+    }
+
+    private var inspectorTitleContrastRatio: Double {
+        FormaContrastMetrics.contrastRatio(
+            foreground: .formaLabel,
+            background: .formaCardBackground,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
+
+    private var inspectorSecondaryContrastRatio: Double {
+        FormaContrastMetrics.contrastRatio(
+            foreground: inspectorSecondaryTextColor,
+            background: .formaCardBackground,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
+
+    private var inspectorQuickLookContrastRatio: Double {
+        FormaContrastMetrics.contrastRatio(
+            foreground: .formaSteelBlue,
+            background: quickLookButtonBackgroundColor,
+            colorScheme: colorScheme,
+            baseBackground: .formaCardBackground
+        )
     }
     
     // MARK: - Helpers

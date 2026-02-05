@@ -39,6 +39,20 @@ struct StorageCategoryRow: View {
     let analytics: StorageAnalytics
     let onTap: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var rowBackground: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaBoneWhite.opacity(Color.FormaOpacity.strong)
+    }
+
+    private var rowBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.12)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle)
+    }
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: FormaSpacing.tight) {
@@ -50,7 +64,7 @@ struct StorageCategoryRow: View {
                 // Category name
                 Text(category.displayName)
                     .formaMetadataStyle()
-                    .foregroundColor(Color.formaObsidian)
+                    .foregroundColor(.formaLabel)
 
                 Spacer()
 
@@ -58,11 +72,11 @@ struct StorageCategoryRow: View {
                 VStack(alignment: .trailing, spacing: FormaSpacing.micro / 2) {
                     Text("\(analytics.fileCountForCategory(category)) files")
                         .font(.formaCaption)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
 
                     Text(analytics.formattedSizeForCategory(category))
                         .formaMetadataStyle()
-                        .foregroundColor(Color.formaObsidian)
+                        .foregroundColor(.formaLabel)
                         .fontWeight(.medium)
                 }
             }
@@ -70,7 +84,11 @@ struct StorageCategoryRow: View {
             .padding(.horizontal, FormaSpacing.tight)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                    .fill(Color.formaBoneWhite.opacity(Color.FormaOpacity.strong))
+                    .fill(rowBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
+                    .strokeBorder(rowBorder, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

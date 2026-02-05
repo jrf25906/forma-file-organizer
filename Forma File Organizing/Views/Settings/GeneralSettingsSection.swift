@@ -30,6 +30,7 @@ struct GeneralSettingsSection: View {
                         SettingsRow("Launch at Login") {
                             Toggle("", isOn: $launchAtLogin)
                                 .toggleStyle(.switch)
+                                .tint(.formaSteelBlue)
                         }
 
                         Divider().padding(.leading, FormaSpacing.standard)
@@ -37,6 +38,7 @@ struct GeneralSettingsSection: View {
                         SettingsRow("Auto-scan on Launch", subtitle: "Scan Desktop, Downloads, and Documents when the app starts") {
                             Toggle("", isOn: $autoScanOnLaunch)
                                 .toggleStyle(.switch)
+                                .tint(.formaSteelBlue)
                         }
                     }
                 }
@@ -46,6 +48,7 @@ struct GeneralSettingsSection: View {
                     SettingsRow("Show Notifications", subtitle: "Show system notifications when files are organized") {
                         Toggle("", isOn: $showNotifications)
                             .toggleStyle(.switch)
+                            .tint(.formaSteelBlue)
                     }
                 }
 

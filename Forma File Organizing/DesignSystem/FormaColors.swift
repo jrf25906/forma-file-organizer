@@ -59,9 +59,17 @@ extension Color {
     /// Text field backgrounds
     static let formaTextBackground = Color(NSColor.textBackgroundColor)
     
-    /// Card backgrounds (slightly off-white for depth)
-    /// HEX: #F9F9F9 | RGB: 249, 249, 249
-    static let formaCardBackground = Color(red: 249/255, green: 249/255, blue: 249/255)
+    /// Card backgrounds with appearance-aware contrast.
+    /// Light: #F9F9F9 | Dark: #22252A
+    static let formaCardBackground = Color(
+        NSColor(name: NSColor.Name("formaCardBackground")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor(red: 34/255, green: 37/255, blue: 42/255, alpha: 1.0)
+            }
+            return NSColor(red: 249/255, green: 249/255, blue: 249/255, alpha: 1.0)
+        }
+    )
     
     /// Primary text (automatically adapts contrast for light/dark mode)
     static let formaLabel = Color(NSColor.labelColor)
@@ -71,7 +79,33 @@ extension Color {
     
     /// Tertiary text (metadata, timestamps)
     static let formaTertiaryLabel = Color(NSColor.tertiaryLabelColor)
-    
+
+    /// Secondary text with extra contrast in dark mode (for glass/low-contrast surfaces)
+    static let formaSecondaryLabelHigh = Color(
+        NSColor(name: NSColor.Name("formaSecondaryLabelHigh")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor.secondaryLabelColor
+                    .blended(withFraction: 0.35, of: NSColor.labelColor)
+                    ?? NSColor.secondaryLabelColor
+            }
+            return NSColor.secondaryLabelColor
+        }
+    )
+
+    /// Tertiary text with extra contrast in dark mode (for captions and metadata)
+    static let formaTertiaryLabelHigh = Color(
+        NSColor(name: NSColor.Name("formaTertiaryLabelHigh")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor.tertiaryLabelColor
+                    .blended(withFraction: 0.45, of: NSColor.labelColor)
+                    ?? NSColor.tertiaryLabelColor
+            }
+            return NSColor.tertiaryLabelColor
+        }
+    )
+
     /// Placeholder text
     static let formaQuaternaryLabel = Color(NSColor.quaternaryLabelColor)
     
@@ -217,6 +251,83 @@ extension Color {
             green: g1 + (g2 - g1) * ratio,
             blue: b1 + (b2 - b1) * ratio
         ).opacity(a1 + (a2 - a1) * ratio)
+    }
+}
+
+// MARK: - Contrast Metrics
+
+enum FormaContrastMetrics {
+    static func contrastRatio(
+        foreground: Color,
+        background: Color,
+        colorScheme: ColorScheme,
+        baseBackground: Color? = nil
+    ) -> Double {
+        let appearance = colorScheme == .dark
+            ? NSAppearance(named: .darkAqua)
+            : NSAppearance(named: .aqua)
+
+        guard let appearance else { return 1.0 }
+
+        var backgroundRGBA = rgba(for: background, appearance: appearance)
+        if let baseBackground {
+            let baseRGBA = rgba(for: baseBackground, appearance: appearance)
+            backgroundRGBA = composite(foreground: backgroundRGBA, background: baseRGBA)
+        }
+
+        let foregroundRGBA = rgba(for: foreground, appearance: appearance)
+        let resolvedForeground = composite(foreground: foregroundRGBA, background: backgroundRGBA)
+
+        let foregroundLuminance = relativeLuminance(resolvedForeground)
+        let backgroundLuminance = relativeLuminance(backgroundRGBA)
+
+        let lighter = max(foregroundLuminance, backgroundLuminance)
+        let darker = min(foregroundLuminance, backgroundLuminance)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private static func rgba(for color: Color, appearance: NSAppearance) -> (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat) {
+        let previousAppearance = NSAppearance.current
+        NSAppearance.current = appearance
+        let resolvedColor = NSColor(color)
+        NSAppearance.current = previousAppearance
+
+        let resolved = resolvedColor.usingColorSpace(NSColorSpace.sRGB)
+            ?? resolvedColor.usingColorSpace(.deviceRGB)
+            ?? resolvedColor
+
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+        resolved.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return (r, g, b, a)
+    }
+
+    private static func composite(
+        foreground: (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat),
+        background: (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat)
+    ) -> (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat) {
+        let outAlpha = foreground.a + background.a * (1 - foreground.a)
+        guard outAlpha > 0 else { return (0, 0, 0, 0) }
+
+        let outRed = (foreground.r * foreground.a + background.r * background.a * (1 - foreground.a)) / outAlpha
+        let outGreen = (foreground.g * foreground.a + background.g * background.a * (1 - foreground.a)) / outAlpha
+        let outBlue = (foreground.b * foreground.a + background.b * background.a * (1 - foreground.a)) / outAlpha
+
+        return (outRed, outGreen, outBlue, outAlpha)
+    }
+
+    private static func relativeLuminance(_ rgba: (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat)) -> Double {
+        func transform(_ channel: CGFloat) -> Double {
+            let c = Double(channel)
+            return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+        }
+
+        let r = transform(rgba.r)
+        let g = transform(rgba.g)
+        let b = transform(rgba.b)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 }
 

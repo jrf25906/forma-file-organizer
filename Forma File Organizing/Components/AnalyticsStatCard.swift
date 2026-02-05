@@ -15,10 +15,10 @@ struct AnalyticsStatCard: View {
             }
             Text(value)
                 .font(.formaH2)
-                .foregroundColor(.formaObsidian)
+                .foregroundColor(.formaLabel)
             Text(label)
                 .font(.formaSmall)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(.formaSecondaryLabelHigh)
         }
         .padding(FormaSpacing.large)
         .frame(maxWidth: .infinity, alignment: .leading)

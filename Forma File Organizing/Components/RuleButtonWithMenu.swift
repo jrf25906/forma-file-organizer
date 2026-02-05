@@ -6,9 +6,32 @@ struct RuleButtonWithMenu: View {
     let matchingRules: [Rule]
     let onCreateRule: () -> Void
     let onApplyRule: (Rule) -> Void
+    @Environment(\.colorScheme) private var colorScheme
     
     private var hasRule: Bool {
         file.destination != nil
+    }
+
+    private var pillBackground: Color {
+        if hasRule {
+            return colorScheme == .dark
+                ? Color.formaSoftGreen.opacity(0.20)
+                : Color.formaSoftGreen.opacity(0.12)
+        }
+        return colorScheme == .dark
+            ? Color.formaWarning.opacity(0.22)
+            : Color.formaWarning.opacity(0.12)
+    }
+
+    private var pillBorder: Color {
+        if hasRule {
+            return colorScheme == .dark
+                ? Color.formaSoftGreen.opacity(0.55)
+                : Color.formaSoftGreen.opacity(0.45)
+        }
+        return colorScheme == .dark
+            ? Color.formaWarning.opacity(0.55)
+            : Color.formaWarning.opacity(0.5)
     }
     
     var body: some View {
@@ -45,21 +68,19 @@ struct RuleButtonWithMenu: View {
             HStack(spacing: FormaSpacing.tight - (FormaSpacing.micro / 2)) {
                 Image(systemName: hasRule ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                     .font(.formaCompactMedium)
+                    .foregroundColor(hasRule ? Color.formaSuccess : Color.formaWarning)
                 Text(hasRule ? "Has Rule" : "No Rule")
                     .font(.formaCompactMedium)
+                    .foregroundColor(.formaLabel)
             }
-            .foregroundColor(hasRule ? Color.formaSuccess : Color.formaWarning)
             .padding(.horizontal, FormaSpacing.standard - FormaSpacing.micro)
             .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                    .stroke(
-                        hasRule ? Color.formaSuccess : Color.formaSeparator,
-                        lineWidth: 1
-                    )
+                    .stroke(pillBorder, lineWidth: 1)
                     .background(
                         RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                            .fill(Color.formaBoneWhite)
+                            .fill(pillBackground)
                     )
             )
         }

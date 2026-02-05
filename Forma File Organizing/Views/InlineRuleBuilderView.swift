@@ -9,6 +9,7 @@ struct InlineRuleBuilderView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
 
     // Query existing rules for overlap detection
     @Query private var existingRules: [Rule]
@@ -56,6 +57,24 @@ struct InlineRuleBuilderView: View {
         RuleEditorHeaderConfig.make(editingRule: editingRule, fileContext: fileContext, style: .inline)
     }
 
+    private var ruleCardBackground: Color {
+        colorScheme == .dark
+            ? Color.formaObsidian.opacity(0.32)
+            : Color.formaBoneWhite
+    }
+
+    private var ruleCardBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(0.08)
+    }
+
+    private var ruleCardShadow: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.18)
+            : Color.black.opacity(0.08)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Fixed header with context-aware labels
@@ -74,7 +93,7 @@ struct InlineRuleBuilderView: View {
                         if let subtitle = headerConfig.subtitle {
                             Text(subtitle)
                                 .font(.formaSmall)
-                                .foregroundColor(.formaSecondaryLabel)
+                                .foregroundColor(.formaSecondaryLabelHigh)
                         }
                     }
                 }
@@ -84,7 +103,7 @@ struct InlineRuleBuilderView: View {
                 // Expand to modal button
                 Button(action: expandToModal) {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
                         .font(.formaBodyLarge)
                         .frame(width: 28, height: 28)
                 }
@@ -96,7 +115,7 @@ struct InlineRuleBuilderView: View {
                     dashboardViewModel.returnToDefaultPanel()
                 }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
                         .font(.formaH3)
                         .frame(width: 28, height: 28)
                 }
@@ -142,7 +161,7 @@ struct InlineRuleBuilderView: View {
                             HStack {
                                 Text("Matches")
                                     .font(.formaBodyLarge)
-                                    .foregroundColor(.formaSecondaryLabel)
+                                    .foregroundColor(.formaSecondaryLabelHigh)
                                 
                                 Spacer()
                                 
@@ -168,9 +187,9 @@ struct InlineRuleBuilderView: View {
                                 // Compound conditions view
                                 VStack(alignment: .leading, spacing: 12) {
                                     HStack {
-                                        Text("If")
-                                            .font(.formaBodyLarge)
-                                            .foregroundColor(.formaSecondaryLabel)
+                                    Text("If")
+                                        .font(.formaBodyLarge)
+                                        .foregroundColor(.formaSecondaryLabelHigh)
 
                                         Menu {
                                             Button("ALL conditions (AND)") { formState.logicalOperator = .and }
@@ -209,7 +228,7 @@ struct InlineRuleBuilderView: View {
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                                     Text("If file")
                                         .font(.formaBodyLarge)
-                                        .foregroundColor(.formaSecondaryLabel)
+                                        .foregroundColor(.formaSecondaryLabelHigh)
                                     
                                     // Condition Type Picker (Inline)
                                     Menu {
@@ -229,7 +248,7 @@ struct InlineRuleBuilderView: View {
                                     
                                     Text("is")
                                         .font(.formaBodyLarge)
-                                        .foregroundColor(.formaSecondaryLabel)
+                                        .foregroundColor(.formaSecondaryLabelHigh)
                                 }
                                 
                                 // Condition Value (Inline)
@@ -252,7 +271,7 @@ struct InlineRuleBuilderView: View {
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
                                 Text("Then")
                                     .font(.formaBodyLarge)
-                                    .foregroundColor(.formaSecondaryLabel)
+                                    .foregroundColor(.formaSecondaryLabelHigh)
                                 
                                 // Action Picker (Inline)
                                 Menu {
@@ -270,7 +289,7 @@ struct InlineRuleBuilderView: View {
                                 
                                 Text("to")
                                     .font(.formaBodyLarge)
-                                    .foregroundColor(.formaSecondaryLabel)
+                                    .foregroundColor(.formaSecondaryLabelHigh)
                                     .opacity(formState.actionType == .delete ? 0.3 : 1.0)
                             }
                             
@@ -288,7 +307,7 @@ struct InlineRuleBuilderView: View {
                                             .foregroundColor(.formaSteelBlue)
                                         Text(formState.destinationDisplayPath.isEmpty ? "Select folder..." : formState.destinationDisplayPath)
                                             .fontWeight(.medium)
-                                            .foregroundColor(formState.destinationDisplayPath.isEmpty ? .formaSecondaryLabel : .formaObsidian)
+                                            .foregroundColor(formState.destinationDisplayPath.isEmpty ? .formaSecondaryLabelHigh : .formaLabel)
                                         
                                         if formState.hasBookmark {
                                              Image(systemName: "checkmark.circle.fill")
@@ -309,15 +328,19 @@ struct InlineRuleBuilderView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color.formaBoneWhite)
+                        .background(ruleCardBackground)
                         .cornerRadius(12)
-                        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(ruleCardBorder, lineWidth: 1)
+                        )
+                        .shadow(color: ruleCardShadow, radius: 6, x: 0, y: 2)
 
                         // 3. Category Chip (Subtle)
                         HStack {
                             Text("Category:")
                                 .font(.formaSmall)
-                                .foregroundColor(.formaSecondaryLabel)
+                                .foregroundColor(.formaSecondaryLabelHigh)
                             
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
@@ -338,7 +361,7 @@ struct InlineRuleBuilderView: View {
                                                     ? category.color.opacity(0.2)
                                                     : Color.formaControlBackground
                                             )
-                                            .foregroundColor(formState.categoryID == category.id ? category.color : .formaSecondaryLabel)
+                                            .foregroundColor(formState.categoryID == category.id ? category.color : .formaSecondaryLabelHigh)
                                             .cornerRadius(12)
                                         }
                                         .buttonStyle(.plain)
@@ -364,7 +387,7 @@ struct InlineRuleBuilderView: View {
                             }) {
                                 Text(editingRule == nil ? "Create Rule" : "Save Changes")
                                     .font(.formaBodyBold)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.formaBoneWhite)
                                     .frame(maxWidth: .infinity)
                                     .padding()
                                     .background(Color.formaSteelBlue)
@@ -464,9 +487,9 @@ struct InlineRuleBuilderView: View {
                     }
                 }
             } label: {
-                 Text((index < formState.conditions.count ? formState.conditions[index].type : .fileExtension).compactDisplayName)
+                Text((index < formState.conditions.count ? formState.conditions[index].type : .fileExtension).compactDisplayName)
                     .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
                     .fixedSize()
             }
             .menuStyle(.borderlessButton)
@@ -489,17 +512,17 @@ struct InlineRuleBuilderView: View {
             
             Button(action: { removeCondition(at: index) }) {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
                     .font(.formaSmall)
             }
             .buttonStyle(.plain)
         }
         .padding(FormaSpacing.standard)
-        .background(Color.formaCardBackground)
+        .background(colorScheme == .dark ? Color.formaObsidian.opacity(0.28) : Color.formaCardBackground)
         .cornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(colorScheme == .dark ? 0.55 : Color.FormaOpacity.strong), lineWidth: 1)
         )
     }
 
@@ -535,7 +558,7 @@ struct InlineRuleBuilderView: View {
                 Text("Live Preview")
                     .font(.formaBodySemibold)
                     .tracking(0.5)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
             }
             
             if isLoadingPreview {
@@ -544,12 +567,12 @@ struct InlineRuleBuilderView: View {
                         .scaleEffect(0.8)
                     Text("Matching files...")
                         .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
                 }
             } else {
                 Text("This rule would match \(matchedFilesCount) file\(matchedFilesCount == 1 ? "" : "s")")
                     .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
 
                 // Show up to 3 matched files (from cached previewFiles)
                 if !previewFiles.isEmpty {
@@ -572,7 +595,7 @@ struct InlineRuleBuilderView: View {
                         if matchedFilesCount > 3 {
                             Text("+\(matchedFilesCount - 3) more")
                                 .font(.formaCaption)
-                                .foregroundColor(.formaSecondaryLabel)
+                                .foregroundColor(.formaSecondaryLabelHigh)
                         }
                     }
                 }

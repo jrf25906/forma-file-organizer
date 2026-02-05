@@ -159,10 +159,10 @@ struct FileRow: View {
                     // Consolidated metadata: .ext · age · reason
                     HStack(spacing: 0) {
                         Text(".\(file.fileExtension.lowercased())")
-                            .foregroundStyle(Color.formaSecondaryLabel)
+                            .foregroundStyle(Color.formaSecondaryLabelHigh)
 
                         Text(" · ")
-                            .foregroundStyle(Color.formaTertiaryLabel)
+                            .foregroundStyle(Color.formaSecondaryLabelHigh)
 
                         Text(compactAgeText)
                             .foregroundStyle(file.ageColor)
@@ -170,7 +170,7 @@ struct FileRow: View {
                         // Show match reason if available
                         if let reason = file.matchReason {
                             Text(" · ")
-                                .foregroundStyle(Color.formaTertiaryLabel)
+                                .foregroundStyle(Color.formaSecondaryLabelHigh)
                             Text(reason)
                                 .foregroundStyle(Color.formaSteelBlue)
                         }
@@ -375,6 +375,11 @@ struct PrimaryActionButton: View {
     @State private var isHovered = false
     @State private var isPressed = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var borderColor: Color {
+        Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24)
+    }
 
     var body: some View {
         Button(action: action) {
@@ -393,7 +398,7 @@ struct PrimaryActionButton: View {
             )
             .overlay(
                 Capsule()
-                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                    .strokeBorder(borderColor, lineWidth: 1)
             )
             .shadow(color: color.opacity(0.3), radius: isHovered ? 4 : 2, x: 0, y: isHovered ? 2 : 1)
         }

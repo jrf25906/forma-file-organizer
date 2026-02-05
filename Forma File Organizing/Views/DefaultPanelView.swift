@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import SwiftData
 
@@ -8,11 +9,13 @@ import SwiftData
 struct DefaultPanelView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @Query private var allPatterns: [LearnedPattern]
     @State private var insights: [FileInsight] = []
     @State private var showAllInsights: Bool = false
     @State private var dismissedInsightIDs: Set<String> = []
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let isUITesting = CommandLine.arguments.contains("--uitesting")
 
     private let insightsService = InsightsService.shared
 
@@ -32,14 +35,14 @@ struct DefaultPanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             // PINNED HEADER: Greeting + Progress + Primary Action
-            VStack(alignment: .leading, spacing: FormaSpacing.large) {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 // Hero Section: Greeting + Progress Bar
                 heroSection
 
                 // Primary Action (pinned)
                 pinnedPrimaryAction
             }
-            .padding(.horizontal, FormaSpacing.generous)
+            .padding(.horizontal, FormaSpacing.standard)
             .padding(.vertical, FormaSpacing.standard)
             
             // Subtle separator
@@ -53,13 +56,17 @@ struct DefaultPanelView: View {
                     // Automation Status Bar (slim, at top for visibility)
                     automationStatusSection
                         .padding(.top, FormaSpacing.standard)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("defaultPanelAutomationSection")
 
                     // Unified Suggestions Section (Smart Rules + Quick Actions)
                     // This is now the PRIMARY focus of the panel
                     suggestionsSection
                         .padding(.top, FormaSpacing.tight)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("defaultPanelSuggestionsSection")
                 }
-                .padding(.horizontal, FormaSpacing.generous)
+                .padding(.horizontal, FormaSpacing.standard)
                 .padding(.bottom, FormaSpacing.generous)
             }
         }
@@ -77,6 +84,20 @@ struct DefaultPanelView: View {
             // Cancel any pending insight load when view disappears
             insightLoadTask?.cancel()
         }
+        .overlay(alignment: .topLeading) {
+            if isUITesting {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("defaultPanelContrastProbe")
+                    .accessibilityLabel(
+                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio))"
+                    )
+                    .accessibilityValue(
+                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio))"
+                    )
+            }
+        }
     }
 
     // MARK: - Hero Section
@@ -92,7 +113,7 @@ struct DefaultPanelView: View {
                     Text("CURRENT TASK")
                         .font(.formaCaption)
                         .tracking(0.5)
-                        .foregroundStyle(Color.formaTertiaryLabel)
+                        .foregroundStyle(currentTaskLabelColor)
 
                     // Main headline with contextual count
                     Text("\(reviewCount) \(taskDescription)")
@@ -103,8 +124,8 @@ struct DefaultPanelView: View {
 
                     // Contextual explanation - why these files were chosen
                     Text(taskExplanation)
-                        .font(.formaBody)
-                        .foregroundStyle(Color.formaSecondaryLabel)
+                        .font(.formaBodyMedium)
+                        .foregroundStyle(currentTaskSubtextColor)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -128,8 +149,8 @@ struct DefaultPanelView: View {
                     }
 
                     Text("\(greetingText)! Your \(locationDisplayPhrase) is tidy.")
-                        .font(.formaBody)
-                        .foregroundStyle(Color.formaSecondaryLabel)
+                        .font(.formaBodyMedium)
+                        .foregroundStyle(currentTaskSubtextColor)
                 }
 
                 // Progress at 100%
@@ -140,6 +161,8 @@ struct DefaultPanelView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("defaultPanelHeroSection")
     }
 
     // MARK: - Task Description (Dynamic)
@@ -222,7 +245,11 @@ struct DefaultPanelView: View {
                 ZStack(alignment: .leading) {
                     // Background bar
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.light))
+                        .fill(
+                            Color.formaObsidian.opacity(
+                                colorScheme == .dark ? 0.38 : 0.14
+                            )
+                        )
                         .frame(height: 6)
 
                     // Progress fill with gradient
@@ -240,9 +267,9 @@ struct DefaultPanelView: View {
             .frame(height: 6)
 
             // Percentage label
-            Text("\(Int(organizationProgress * 100))% organized")
-                .font(.formaCaption)
-                .foregroundStyle(Color.formaTertiaryLabel)
+                Text("\(Int(organizationProgress * 100))% organized")
+                    .font(.formaCaption)
+                    .foregroundStyle(progressLabelColor)
         }
     }
 
@@ -315,7 +342,9 @@ struct DefaultPanelView: View {
                              FeatureFlagService.shared.isEnabled(.autoOrganize)
 
         if showAutomation {
-            AutomationStatusWidget()
+            AutomationStatusWidget(
+                pendingReviewCount: dashboardViewModel.cachedNeedsReviewCount
+            )
         }
     }
 
@@ -334,7 +363,7 @@ struct DefaultPanelView: View {
                 Text("SUGGESTIONS")
                     .font(.formaBodySemibold)
                     .tracking(0.5)
-                    .foregroundStyle(Color.formaSecondaryLabel)
+                    .foregroundStyle(Color.formaSecondaryLabelHigh)
                     .padding(.top, FormaSpacing.tight)
 
                 // Smart Rules (learned patterns) - self-hides when empty
@@ -387,7 +416,7 @@ struct DefaultPanelView: View {
                 Text("Quick Actions")
                     .font(.formaCompactMedium)
             }
-            .foregroundStyle(Color.formaTertiaryLabel)
+            .foregroundStyle(quickActionsLabelColor)
 
             // Single prominent insight card (first visible)
             if let topInsight = visible.first {
@@ -487,6 +516,54 @@ struct DefaultPanelView: View {
         }.count
     }
 
+    private var currentTaskLabelColor: Color {
+        colorScheme == .dark
+            ? .formaSecondaryLabelHigh
+            : Color.formaLabel.opacity(0.7)
+    }
+
+    private var currentTaskSubtextColor: Color {
+        colorScheme == .dark
+            ? .formaSecondaryLabelHigh
+            : Color.formaLabel.opacity(0.65)
+    }
+
+    private var progressLabelColor: Color {
+        colorScheme == .dark
+            ? .formaSecondaryLabelHigh
+            : Color.formaLabel.opacity(0.6)
+    }
+
+    private var quickActionsLabelColor: Color {
+        colorScheme == .dark
+            ? .formaSecondaryLabelHigh
+            : Color.formaLabel.opacity(0.6)
+    }
+
+    private var defaultPanelPrimaryActionContrastRatio: Double {
+        let foreground = colorScheme == .dark ? Color.formaBoneWhite : Color.formaSteelBlue
+        let background = Color.formaSteelBlue.opacity(
+            colorScheme == .dark ? 0.42 : Color.FormaOpacity.light
+        )
+        return FormaContrastMetrics.contrastRatio(
+            foreground: foreground,
+            background: background,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
+
+    private var defaultPanelIgnoreContrastRatio: Double {
+        let foreground = colorScheme == .dark ? Color.formaBoneWhite.opacity(0.88) : Color.formaSecondaryLabel
+        let background = Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
+        return FormaContrastMetrics.contrastRatio(
+            foreground: foreground,
+            background: background,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
+
     // MARK: - Insight Loading
 
     /// Load insights on appear - uses async to avoid blocking main thread
@@ -544,11 +621,49 @@ struct QuickActionCard: View {
 
     @State private var isHovered = false
     @State private var isDismissHovered = false
+    @Environment(\.colorScheme) private var colorScheme
+    private let isUITesting = CommandLine.arguments.contains("--uitesting")
+
+    private var primaryActionTextColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite : Color.formaSteelBlue
+    }
+
+    private var primaryActionBackground: Color {
+        Color.formaSteelBlue.opacity(
+            colorScheme == .dark ? 0.42 : Color.FormaOpacity.light
+        )
+    }
+
+    private var quickActionCardBackground: Color {
+        Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
+    }
+
+    private var ignoreTextColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.88) : Color.formaSecondaryLabel
+    }
+
+    private var primaryActionContrastRatio: Double {
+        FormaContrastMetrics.contrastRatio(
+            foreground: primaryActionTextColor,
+            background: primaryActionBackground,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
+
+    private var ignoreContrastRatio: Double {
+        FormaContrastMetrics.contrastRatio(
+            foreground: ignoreTextColor,
+            background: quickActionCardBackground,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             // Header: Icon + Message + Dismiss
-            HStack(alignment: .top, spacing: FormaSpacing.standard) {
+            HStack(alignment: .top, spacing: FormaSpacing.tight) {
                 // Icon with category background
                 ZStack {
                     RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
@@ -571,7 +686,7 @@ struct QuickActionCard: View {
                     if let detail = insight.detail {
                         Text(detail)
                             .font(.formaCaption)
-                            .foregroundStyle(Color.formaSecondaryLabel)
+                            .foregroundStyle(Color.formaSecondaryLabelHigh)
                             .lineLimit(1)
                     }
                 }
@@ -590,15 +705,15 @@ struct QuickActionCard: View {
                             .foregroundStyle(
                                 isDismissHovered
                                     ? Color.formaLabel
-                                    : Color.formaSecondaryLabel
+                                    : Color.formaSecondaryLabelHigh
                             )
                             .frame(width: 28, height: 28)
                             .background(
                                 Circle()
                                     .fill(
                                         isDismissHovered
-                                            ? Color.formaObsidian.opacity(Color.FormaOpacity.light)
-                                            : Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle * 2)
+                                            ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.28 : Color.FormaOpacity.light)
+                                            : Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.ultraSubtle * 2)
                                     )
                             )
                     }
@@ -623,10 +738,10 @@ struct QuickActionCard: View {
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 10, weight: .semibold))
                         }
-                        .foregroundStyle(Color.formaSteelBlue)
+                        .foregroundStyle(primaryActionTextColor)
                         .padding(.horizontal, FormaSpacing.standard)
                         .padding(.vertical, FormaSpacing.tight)
-                        .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+                        .background(primaryActionBackground)
                         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                     }
                     .buttonStyle(.plain)
@@ -643,26 +758,31 @@ struct QuickActionCard: View {
                         } label: {
                             Text("Ignore")
                                 .font(.formaSmall)
-                                .foregroundStyle(Color.formaTertiaryLabel)
+                                .foregroundStyle(ignoreTextColor)
                         }
                         .buttonStyle(.plain)
                     }
                 }
             }
         }
-        .padding(FormaSpacing.standard)
+        .padding(.horizontal, FormaSpacing.standard)
+        .padding(.vertical, FormaSpacing.tight)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .fill(
                     isHovered
-                        ? Color.formaObsidian.opacity(Color.FormaOpacity.light)
-                        : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+                        ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.28 : Color.FormaOpacity.light)
+                        : Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
                 )
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .strokeBorder(
-                    Color.formaObsidian.opacity(isHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light),
+                    Color.formaObsidian.opacity(
+                        isHovered
+                            ? (colorScheme == .dark ? 0.35 : Color.FormaOpacity.medium)
+                            : (colorScheme == .dark ? 0.25 : Color.FormaOpacity.light)
+                    ),
                     lineWidth: 1
                 )
         )
@@ -671,6 +791,12 @@ struct QuickActionCard: View {
                 isHovered = hovering
             }
         }
+        .accessibilityIdentifier("quickActionCard")
+        .accessibilityValue(
+            isUITesting
+                ? "primaryAction=\(String(format: "%.2f", primaryActionContrastRatio));ignore=\(String(format: "%.2f", ignoreContrastRatio))"
+                : ""
+        )
     }
 }
 

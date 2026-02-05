@@ -5,12 +5,37 @@ struct CalendarHeatmap: View {
     let data: [DayStaleness]
     var onNudgeCleanup: (() -> Void)?
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var hoveredDay: DayStaleness?
 
     /// Grid dimensions
     private let cellSize: CGFloat = 12
     private let cellSpacing: CGFloat = 3
     private let weeksToShow = 52
+
+    private var cardBackground: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.06)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+    }
+
+    private var cardBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.12)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
+    }
+
+    private var emptyCellColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaObsidian.opacity(0.05)
+    }
+
+    private var hoverStrokeColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.35)
+            : Color.formaObsidian.opacity(0.5)
+    }
 
     /// Organize data into a grid (52 weeks x 7 days)
     private var gridData: [[DayStaleness?]] {
@@ -88,11 +113,11 @@ struct CalendarHeatmap: View {
         .padding(FormaSpacing.large)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                .fill(cardBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                .strokeBorder(cardBorder, lineWidth: 1)
         )
     }
 
@@ -112,7 +137,7 @@ struct CalendarHeatmap: View {
                         let monthName = monthDate.formatted(.dateTime.month(.abbreviated))
                         Text(monthName)
                             .font(.formaMicro)
-                            .foregroundColor(.formaSecondaryLabel)
+                            .foregroundColor(.formaSecondaryLabelHigh)
                             .frame(width: (cellSize + cellSpacing) * 4.33, alignment: .leading)
                     }
                 }
@@ -128,7 +153,7 @@ struct CalendarHeatmap: View {
             ForEach(0..<7, id: \.self) { index in
                 Text(days[index])
                     .font(.formaMicro)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
                     .frame(width: 20, height: cellSize)
             }
         }
@@ -145,6 +170,8 @@ struct CalendarHeatmap: View {
                                 CalendarCell(
                                     staleness: dayData,
                                     size: cellSize,
+                                    emptyColor: emptyCellColor,
+                                    hoverStrokeColor: hoverStrokeColor,
                                     isHovered: hoveredDay?.id == dayData.id
                                 )
                                 .onHover { isHovering in
@@ -153,7 +180,7 @@ struct CalendarHeatmap: View {
                             } else {
                                 // Empty cell (future or no data)
                                 RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                    .fill(Color.formaObsidian.opacity(0.05))
+                                    .fill(emptyCellColor)
                                     .frame(width: cellSize, height: cellSize)
                             }
                         }
@@ -168,7 +195,7 @@ struct CalendarHeatmap: View {
         HStack(spacing: FormaSpacing.tight) {
             Text("Fresh")
                 .font(.formaMicro)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(.formaSecondaryLabelHigh)
 
             HStack(spacing: 2) {
                 ForEach(StalenessLevel.allCases, id: \.rawValue) { level in
@@ -180,7 +207,7 @@ struct CalendarHeatmap: View {
 
             Text("Digital Dust")
                 .font(.formaMicro)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(.formaSecondaryLabelHigh)
         }
     }
 
@@ -223,6 +250,8 @@ struct CalendarHeatmap: View {
 private struct CalendarCell: View {
     let staleness: DayStaleness
     let size: CGFloat
+    let emptyColor: Color
+    let hoverStrokeColor: Color
     let isHovered: Bool
 
     private var backgroundColor: Color {
@@ -243,11 +272,11 @@ private struct CalendarCell: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 2, style: .continuous)
-            .fill(staleness.totalFiles > 0 ? backgroundColor : Color.formaObsidian.opacity(0.05))
+            .fill(staleness.totalFiles > 0 ? backgroundColor : emptyColor)
             .frame(width: size, height: size)
             .overlay(
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .stroke(isHovered ? Color.formaObsidian.opacity(0.5) : Color.clear, lineWidth: 1)
+                    .stroke(isHovered ? hoverStrokeColor : Color.clear, lineWidth: 1)
             )
             .scaleEffect(isHovered ? 1.2 : 1.0)
             .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isHovered)

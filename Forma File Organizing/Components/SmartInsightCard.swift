@@ -6,6 +6,7 @@ struct SmartInsightCard: View {
     var onAction: (() -> Void)?
     var onDismiss: (() -> Void)?
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
 
     private var iconColor: Color {
@@ -19,6 +20,30 @@ struct SmartInsightCard: View {
         case .celebration:
             return .formaSoftGreen
         }
+    }
+
+    private var cardBackground: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.06)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+    }
+
+    private var hoverBackground: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.10)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
+    }
+
+    private var cardBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.12)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
+    }
+
+    private var hoverBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.medium)
     }
 
     var body: some View {
@@ -35,7 +60,7 @@ struct SmartInsightCard: View {
                 HStack {
                     Text(insight.title)
                         .font(.formaBodyBold)
-                        .foregroundColor(.formaObsidian)
+                        .foregroundColor(.formaLabel)
 
                     if insight.priority == .high {
                         priorityBadge
@@ -45,7 +70,7 @@ struct SmartInsightCard: View {
                 // Detail
                 Text(insight.detail)
                     .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -72,7 +97,7 @@ struct SmartInsightCard: View {
                 Button(action: { onDismiss?() }) {
                     Image(systemName: "xmark")
                         .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
                 }
                 .buttonStyle(.plain)
                 .opacity(isHovered ? 1 : 0.5)
@@ -81,16 +106,12 @@ struct SmartInsightCard: View {
         .padding(FormaSpacing.generous)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(
-                    isHovered
-                        ? Color.formaObsidian.opacity(Color.FormaOpacity.light)
-                        : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
-                )
+                .fill(isHovered ? hoverBackground : cardBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .strokeBorder(
-                    Color.formaObsidian.opacity(isHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light),
+                    isHovered ? hoverBorder : cardBorder,
                     lineWidth: 1
                 )
         )
@@ -133,6 +154,8 @@ struct SmartInsightList: View {
     var onAction: ((SmartInsight) -> Void)?
     var onDismiss: ((SmartInsight) -> Void)?
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         if insights.isEmpty {
             emptyState
@@ -158,22 +181,31 @@ struct SmartInsightList: View {
 
             Text("All optimized!")
                 .font(.formaBodyBold)
-                .foregroundColor(.formaObsidian)
+                .foregroundColor(.formaLabel)
 
             Text("No recommendations at this time. Great job keeping your files organized!")
                 .font(.formaSmall)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(.formaSecondaryLabelHigh)
                 .multilineTextAlignment(.center)
         }
         .padding(FormaSpacing.generous)
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                .fill(
+                    colorScheme == .dark
+                        ? Color.formaBoneWhite.opacity(0.06)
+                        : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                .strokeBorder(
+                    colorScheme == .dark
+                        ? Color.formaBoneWhite.opacity(0.12)
+                        : Color.formaObsidian.opacity(Color.FormaOpacity.light),
+                    lineWidth: 1
+                )
         )
     }
 }

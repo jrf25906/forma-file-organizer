@@ -350,6 +350,8 @@ struct FormaEmptyState: View {
     let message: String
     let actionTitle: String?
     let action: (() -> Void)?
+
+    @Environment(\.colorScheme) private var colorScheme
     
     init(title: String, message: String, actionTitle: String? = nil, action: (() -> Void)? = nil) {
         self.title = title
@@ -365,14 +367,15 @@ struct FormaEmptyState: View {
             // Icon or illustration would go here
             Image(systemName: "folder.badge.questionmark")
                 .font(.formaIconLarge)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(.formaSecondaryLabelHigh)
             
             VStack(spacing: FormaSpacing.tight) {
                 Text(title)
                     .formaH2Style()
                 
                 Text(message)
-                    .formaSecondaryStyle()
+                    .font(.formaBody)
+                    .foregroundColor(messageColor)
                     .multilineTextAlignment(.center)
             }
             
@@ -385,6 +388,12 @@ struct FormaEmptyState: View {
         }
         .frame(maxWidth: 400)
         .padding(FormaSpacing.extraLarge)
+    }
+
+    private var messageColor: Color {
+        colorScheme == .dark
+            ? .formaSecondaryLabelHigh
+            : Color.formaLabel.opacity(0.7)
     }
 }
 

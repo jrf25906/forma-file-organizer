@@ -8,6 +8,7 @@ struct CollapsibleSection<Content: View>: View {
     let storageKey: String
     @ViewBuilder let content: () -> Content
 
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage private var isExpanded: Bool
 
     init(
@@ -36,19 +37,19 @@ struct CollapsibleSection<Content: View>: View {
                     if let icon = icon {
                         Image(systemName: icon)
                             .font(.formaCompact)
-                            .foregroundColor(.formaSecondaryLabel)
+                            .foregroundColor(secondaryLabelColor)
                     }
 
                     Text(title)
                         .font(.formaBodySemibold)
                         .tracking(0.5)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(secondaryLabelColor)
 
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.formaCaptionSemibold)
-                        .foregroundColor(.formaTertiaryLabel)
+                        .foregroundColor(tertiaryLabelColor)
                 }
                 .padding(.horizontal, FormaSpacing.large)
                 .padding(.vertical, FormaSpacing.standard)
@@ -73,6 +74,14 @@ struct CollapsibleSection<Content: View>: View {
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
         )
+    }
+
+    private var secondaryLabelColor: Color {
+        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+    }
+
+    private var tertiaryLabelColor: Color {
+        colorScheme == .dark ? .formaTertiaryLabelHigh : .formaTertiaryLabel
     }
 }
 

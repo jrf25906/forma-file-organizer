@@ -10,13 +10,19 @@ import Combine
 ///
 /// Designed to fit within DefaultPanelView's scrolling content area.
 struct AutomationStatusWidget: View {
+    let pendingReviewCount: Int
     @ObservedObject private var engine = AutomationEngine.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered: Bool = false
     @State private var currentTime: Date = Date()
 
     /// Timer to update countdown display
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    init(pendingReviewCount: Int = 0) {
+        self.pendingReviewCount = pendingReviewCount
+    }
 
     /// Whether the automation is paused (neither running nor scheduled)
     private var isPaused: Bool {
@@ -63,7 +69,7 @@ struct AutomationStatusWidget: View {
                 Text("AUTOMATION")
                     .font(.formaBodySemibold)
                     .tracking(0.5)
-                    .foregroundStyle(Color.formaSecondaryLabel)
+                    .foregroundStyle(Color.formaSecondaryLabelHigh)
 
                 Spacer()
 
@@ -98,7 +104,7 @@ struct AutomationStatusWidget: View {
                         if let lastRun = engine.state.lastRunDate {
                             Text(lastRun.relativeFormatted)
                                 .font(.formaCaption)
-                                .foregroundStyle(Color.formaSecondaryLabel)
+                                .foregroundStyle(Color.formaSecondaryLabelHigh)
                                 .lineLimit(1)
                         }
                     }
@@ -129,8 +135,8 @@ struct AutomationStatusWidget: View {
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                     .fill(
                         isHovered
-                            ? Color.formaObsidian.opacity(Color.FormaOpacity.light)
-                            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+                            ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.28 : Color.FormaOpacity.light)
+                            : Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
                     )
             )
             .overlay(
@@ -138,8 +144,8 @@ struct AutomationStatusWidget: View {
                     .strokeBorder(
                         Color.formaObsidian.opacity(
                             isHovered
-                                ? Color.FormaOpacity.medium
-                                : Color.FormaOpacity.light
+                                ? (colorScheme == .dark ? 0.35 : Color.FormaOpacity.medium)
+                                : (colorScheme == .dark ? 0.25 : Color.FormaOpacity.light)
                         ),
                         lineWidth: 1
                     )
@@ -293,7 +299,7 @@ struct AutomationStatusWidget: View {
         }) {
             Image(systemName: isPaused ? "play.fill" : "pause.fill")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(isPaused ? Color.formaSage : Color.formaSecondaryLabel)
+                .foregroundStyle(isPaused ? Color.formaSage : Color.formaSecondaryLabelHigh)
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
@@ -349,18 +355,25 @@ struct AutomationStatusWidget: View {
                 )
             }
 
-            // Show "No changes" if nothing happened
+            // Show contextual empty state if nothing happened in the last run
             if engine.state.lastRunSuccessCount == 0 &&
                engine.state.lastRunSkippedCount == 0 &&
                engine.state.lastRunFailedCount == 0 {
-                Text("No files to organize")
+                Text(lastRunContextMessage)
                     .font(.formaCaption)
-                    .foregroundStyle(Color.formaTertiaryLabel)
+                    .foregroundStyle(Color.formaTertiaryLabelHigh)
             }
 
             Spacer()
         }
         .padding(.top, FormaSpacing.tight)
+    }
+
+    private var lastRunContextMessage: String {
+        if pendingReviewCount > 0 {
+            return "\(pendingReviewCount) pending for review"
+        }
+        return "No files to organize"
     }
 }
 
@@ -378,7 +391,7 @@ private struct StatPill: View {
                 .foregroundStyle(color)
             Text(label)
                 .font(.formaCaption)
-                .foregroundStyle(Color.formaSecondaryLabel)
+                .foregroundStyle(Color.formaSecondaryLabelHigh)
         }
     }
 }

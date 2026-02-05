@@ -26,7 +26,7 @@ struct ImpactMetricCard: View {
             switch self {
             case .up: return .formaSoftGreen
             case .down: return .formaError
-            case .neutral: return .formaSecondaryLabel
+            case .neutral: return .formaSecondaryLabelHigh
             }
         }
 
@@ -66,7 +66,7 @@ struct ImpactMetricCard: View {
 
                 Text(title)
                     .font(.formaCompactMedium)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
 
                 Spacer()
 
@@ -87,7 +87,7 @@ struct ImpactMetricCard: View {
             // Hero value
             Text(value)
                 .font(.formaHero)
-                .foregroundColor(.formaObsidian)
+                .foregroundColor(.formaLabel)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
@@ -95,7 +95,7 @@ struct ImpactMetricCard: View {
             if let subtitle {
                 Text(subtitle)
                     .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
             }
         }
         .padding(FormaSpacing.generous)

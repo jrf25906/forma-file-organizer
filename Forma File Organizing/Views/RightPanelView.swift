@@ -141,7 +141,7 @@ struct RightPanelView: View {
                 Text(modeTitle)
                     .font(.formaCompactMedium)
             }
-            .foregroundColor(.formaSecondaryLabel)
+            .foregroundColor(.formaSecondaryLabelHigh)
         }
         .padding(.horizontal, FormaLayout.Gutters.rightPanel)
         .padding(.vertical, FormaSpacing.tight + (FormaSpacing.micro / 2))
@@ -164,7 +164,7 @@ private struct CompactAnalyticsPanel: View {
             HStack {
                 Text("Opportunities")
                     .font(.formaH3)
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
                 Spacer()
                 if isLoading {
                     ProgressView()
@@ -184,10 +184,10 @@ private struct CompactAnalyticsPanel: View {
                             .foregroundColor(.formaSoftGreen)
                         Text("All optimized!")
                             .font(.formaBody)
-                            .foregroundColor(.formaObsidian)
+                            .foregroundColor(.formaLabel)
                         Text("Great job keeping your files organized.")
                             .font(.formaSmall)
-                            .foregroundColor(.formaSecondaryLabel)
+                            .foregroundColor(.formaSecondaryLabelHigh)
                     }
                     .padding(FormaSpacing.large)
                     .frame(maxWidth: .infinity)
@@ -205,7 +205,7 @@ private struct CompactAnalyticsPanel: View {
             } else {
                 Text("Insights will appear after the next snapshot.")
                     .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
             }
         }
         .padding(FormaSpacing.large)
@@ -251,11 +251,11 @@ private struct RecommendationCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(recommendation.title)
                         .font(.formaBodyBold)
-                        .foregroundColor(.formaObsidian)
+                        .foregroundColor(.formaLabel)
                     
                     Text(recommendation.detail)
                         .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
                         .lineLimit(3)
                 }
             }

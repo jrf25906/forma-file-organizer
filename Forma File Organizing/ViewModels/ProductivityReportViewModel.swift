@@ -60,6 +60,7 @@ final class ProductivityReportViewModel: ObservableObject {
     // MARK: - Lifecycle
 
     func onAppear() {
+        guard productivityMetrics == nil, !isLoading else { return }
         Task { await refresh() }
     }
 
@@ -78,111 +79,24 @@ final class ProductivityReportViewModel: ObservableObject {
             // Ensure we have a recent snapshot
             try await analyticsService.recordDailySnapshotIfNeeded(container: modelContext.container)
 
-            // Load all data concurrently using structured concurrency
-            async let metricsTask = loadProductivityMetrics()
-            async let timelineTask = loadAutomationTimeline()
-            async let treemapTask = loadStorageTreemap()
-            async let calendarTask = loadStalenessCalendar()
+            // Load the entire productivity report in one detached pass to avoid
+            // repeated main-actor fetches of FileItem and snapshot data.
+            let report = try await analyticsService.generateProductivityHealthReport(
+                for: selectedPeriod,
+                container: modelContext.container
+            )
 
-            // Await all tasks
-            productivityMetrics = try await metricsTask
-            automationTimeline = try await timelineTask
-            storageTreemap = try await treemapTask
-            stalenessCalendar = await calendarTask
-
-            // Generate smart insights based on all the loaded data
-            await loadSmartInsights()
+            productivityMetrics = report.metrics
+            automationTimeline = report.automationTimeline
+            storageTreemap = report.storageTreemap
+            stalenessCalendar = report.stalenessCalendar
+            smartInsights = report.insights.filter { !dismissedInsightIds.contains($0.id) }
 
             errorMessage = nil
         } catch {
             Log.error("ProductivityReportViewModel: Failed to refresh - \(error.localizedDescription)", category: .analytics)
             errorMessage = error.localizedDescription
         }
-    }
-
-    private func loadProductivityMetrics() async throws -> ProductivityMetrics {
-        try await analyticsService.computeProductivityMetrics(
-            for: selectedPeriod,
-            container: modelContext.container
-        )
-    }
-
-    private func loadAutomationTimeline() async throws -> [AutomationEfficiencyPoint] {
-        try await analyticsService.computeAutomationEfficiencyTimeline(
-            for: selectedPeriod,
-            container: modelContext.container
-        )
-    }
-
-    private func loadStorageTreemap() async throws -> TreemapNode? {
-        // Fetch latest storage analytics
-        guard let analytics = try fetchLatestStorageAnalytics() else {
-            return nil
-        }
-
-        // Fetch files for large file detection
-        let files = try fetchAllFiles()
-
-        return analyticsService.buildStorageTreemap(
-            from: analytics,
-            files: files,
-            largeFileThreshold: 500_000_000 // 500 MB
-        )
-    }
-
-    private func loadStalenessCalendar() async -> [DayStaleness] {
-        do {
-            let files = try fetchAllFiles()
-            return analyticsService.computeStalenessCalendar(files: files)
-        } catch {
-            Log.warning("ProductivityReportViewModel: Failed to load staleness calendar - \(error.localizedDescription)", category: .analytics)
-            return []
-        }
-    }
-
-    private func loadSmartInsights() async {
-        do {
-            let files = try fetchAllFiles()
-            guard let analytics = try fetchLatestStorageAnalytics() else {
-                smartInsights = []
-                return
-            }
-
-            let allInsights = try await analyticsService.generateSmartInsights(
-                files: files,
-                analytics: analytics,
-                automationTimeline: automationTimeline,
-                stalenessCalendar: stalenessCalendar,
-                modelContext: modelContext
-            )
-
-            // Filter out dismissed insights
-            smartInsights = allInsights.filter { !dismissedInsightIds.contains($0.id) }
-        } catch {
-            Log.warning("ProductivityReportViewModel: Failed to generate smart insights - \(error.localizedDescription)", category: .analytics)
-            smartInsights = []
-        }
-    }
-
-    // MARK: - Data Fetching Helpers
-
-    private func fetchLatestStorageAnalytics() throws -> StorageAnalytics? {
-        var descriptor = FetchDescriptor<StorageSnapshot>(
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        descriptor.fetchLimit = 1
-
-        guard let snapshot = try modelContext.fetch(descriptor).first else {
-            return nil
-        }
-
-        let breakdown = try StorageCategoryBreakdown(from: snapshot.categoryBreakdownData)
-        return StorageAnalytics(snapshot: snapshot, categoryBreakdown: breakdown)
-    }
-
-    private func fetchAllFiles() throws -> [FileItem] {
-        let descriptor = FetchDescriptor<FileItem>()
-        return try modelContext.fetch(descriptor)
     }
 
     // MARK: - User Interactions

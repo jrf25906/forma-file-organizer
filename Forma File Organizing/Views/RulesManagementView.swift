@@ -1,9 +1,11 @@
+import Foundation
 import SwiftUI
 import SwiftData
 
 /// View for managing all saved rules with create, edit, delete, and enable/disable functionality
 struct RulesManagementView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
     @Query private var allRules: [Rule]
@@ -30,6 +32,9 @@ struct RulesManagementView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Namespace private var categoryTabNamespace
     private let destinationResolver = DestinationResolver()
+    private let isUITesting = CommandLine.arguments.contains("--uitesting")
+    private let listRowSpacing: CGFloat = FormaSpacing.tight
+    private let listContentPadding: CGFloat = FormaSpacing.standard
 
     /// Rules filtered by search text and selected category
     var filteredRules: [Rule] {
@@ -78,11 +83,11 @@ struct RulesManagementView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Smart Rules")
                             .font(.formaH1)
-                            .foregroundColor(.formaObsidian)
+                            .foregroundColor(.formaLabel)
 
                         Text("\(totalEnabledCount) active")
                             .font(.formaSmall)
-                            .foregroundColor(.formaSecondaryLabel)
+                            .foregroundColor(.formaSecondaryLabelHigh)
                     }
 
                     Spacer()
@@ -100,7 +105,7 @@ struct RulesManagementView: View {
                     // Search Field (Compact)
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass")
-                            .foregroundColor(.formaSecondaryLabel)
+                            .foregroundColor(.formaSecondaryLabelHigh)
                             .font(.system(size: 14))
                         
                         TextField("Search...", text: $searchText)
@@ -110,7 +115,7 @@ struct RulesManagementView: View {
                         if !searchText.isEmpty {
                             Button(action: { searchText = "" }) {
                                 Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.formaTertiaryLabel)
+                                    .foregroundColor(.formaTertiaryLabelHigh)
                             }
                             .buttonStyle(.plain)
                         }
@@ -124,6 +129,7 @@ struct RulesManagementView: View {
                             .stroke(Color.formaSeparator, lineWidth: 0.5)
                     )
                     .frame(width: 200)
+                    .accessibilityIdentifier("smartRulesSearchBar")
                     
                     Spacer()
                     
@@ -133,7 +139,8 @@ struct RulesManagementView: View {
                     }
                 }
             }
-            .padding(FormaSpacing.generous)
+            .padding(.horizontal, FormaSpacing.standard)
+            .padding(.vertical, FormaSpacing.standard)
 
             if needsAccessCount > 0 {
                 needsAccessBanner
@@ -166,7 +173,7 @@ struct RulesManagementView: View {
                 }
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 12) { // Tighter list spacing
+                    LazyVStack(spacing: listRowSpacing) {
                         ForEach(filteredRules) { rule in
                             RuleManagementCard(
                                 rule: rule,
@@ -203,8 +210,9 @@ struct RulesManagementView: View {
                             }
                         }
                     }
-                    .padding(FormaSpacing.generous)
+                    .padding(listContentPadding)
                 }
+                .accessibilityIdentifier("smartRulesListScroll")
 
                 // Hint for drag reordering when not filtering
                 if searchText.isEmpty && allRules.count > 1 {
@@ -214,7 +222,7 @@ struct RulesManagementView: View {
                         Text("Drag to reorder rule priority")
                             .font(.formaCaption)
                     }
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
                     .padding(.bottom, FormaSpacing.standard)
                 }
             }
@@ -222,6 +230,18 @@ struct RulesManagementView: View {
         .background(Color.clear) // Allow unified window glass to show through
         .sheet(isPresented: $showManageCategories) {
             ManageCategoriesSheet()
+        }
+        .accessibilityIdentifier("smartRulesView")
+        .overlay(alignment: .topLeading) {
+            if isUITesting {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("smartRulesContrastProbe")
+                    .accessibilityLabel(
+                        "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio));bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio));rowSpacing=\(Int(listRowSpacing));rowVerticalPadding=\(Int(RuleManagementCard.verticalPadding));listPadding=\(Int(listContentPadding))"
+                    )
+            }
         }
     }
 
@@ -267,7 +287,7 @@ struct RulesManagementView: View {
             } label: {
                 Image(systemName: "slider.horizontal.3")
                     .font(.caption)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
                     .frame(width: 24, height: 24)
                     .background(Color.formaControlBackground)
                     .clipShape(Circle())
@@ -308,12 +328,12 @@ struct RulesManagementView: View {
                     )
                     Text(needsAccessCount == 1 ? "rule needs folder access" : "rules need folder access")
                         .font(.formaSmallSemibold)
-                        .foregroundColor(.formaObsidian)
+                        .foregroundColor(.formaLabel)
                 }
 
                 Text("Review these rules to select accessible destinations.")
                     .font(.formaCaption)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
             }
 
             Spacer()
@@ -336,22 +356,76 @@ struct RulesManagementView: View {
                 .foregroundColor(.formaWarmOrange)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light))
+                .background(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.2 : Color.FormaOpacity.light))
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
-                        .stroke(Color.formaWarmOrange.opacity(Color.FormaOpacity.overlay), lineWidth: 1)
+                        .stroke(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.55 : Color.FormaOpacity.overlay), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
         }
         .padding(FormaSpacing.standard)
-        .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.ultraSubtle))
+        .background(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.09 : Color.FormaOpacity.ultraSubtle))
         .cornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaWarmOrange.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                .stroke(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.3 : Color.FormaOpacity.light), lineWidth: 1)
         )
+        .accessibilityIdentifier("smartRulesNeedsAccessBanner")
+        .accessibilityLabel(
+            isUITesting
+                ? "bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio))"
+                : ""
+        )
+        .accessibilityValue(
+            isUITesting
+                ? "bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio))"
+                : ""
+        )
+        .overlay {
+            if isUITesting {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("smartRulesNeedsAccessBannerProbe")
+                    .accessibilityLabel("bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio))")
+            }
+        }
+    }
+
+    private var needsAccessBodyContrastRatio: Double {
+        let foreground = colorScheme == .dark ? Color.formaSecondaryLabelHigh : Color.formaSecondaryLabel
+        let background = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.09 : Color.FormaOpacity.ultraSubtle)
+        return FormaContrastMetrics.contrastRatio(
+            foreground: foreground,
+            background: background,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
+
+    private var titleOnCardContrastRatio: Double {
+        FormaContrastMetrics.contrastRatio(
+            foreground: .formaLabel,
+            background: cardBackgroundColor,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
+
+    private var secondaryOnCardContrastRatio: Double {
+        let foreground = colorScheme == .dark ? Color.formaSecondaryLabelHigh : Color.formaSecondaryLabel
+        return FormaContrastMetrics.contrastRatio(
+            foreground: foreground,
+            background: cardBackgroundColor,
+            colorScheme: colorScheme,
+            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
+        )
+    }
+
+    private var cardBackgroundColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.06) : .formaBoneWhite
     }
 
     private func rulesInCategory(_ category: RuleCategory) -> Int {
@@ -426,6 +500,21 @@ private struct CategoryTab: View {
     let action: () -> Void
 
     @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var unselectedColor: Color {
+        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+    }
+
+    private var selectedTextColor: Color {
+        colorScheme == .dark ? .formaLabel : .formaObsidian
+    }
+
+    private var hoverFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+    }
 
     var body: some View {
         Button(action: action) {
@@ -434,19 +523,19 @@ private struct CategoryTab: View {
                 if let icon = iconName {
                     Image(systemName: icon)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(isSelected ? color : .formaSecondaryLabel)
+                        .foregroundColor(isSelected ? color : unselectedColor)
                 }
 
                 // Category name
                 Text(title)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                    .foregroundColor(isSelected ? .formaObsidian : .formaSecondaryLabel)
+                    .foregroundColor(isSelected ? selectedTextColor : unselectedColor)
 
                 // Count badge (subtle)
                 if count > 0 {
                     Text("\(count)")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(isSelected ? color.opacity(0.8) : .formaSecondaryLabel.opacity(0.7))
+                        .foregroundColor(isSelected ? color.opacity(0.85) : unselectedColor.opacity(0.8))
                 }
             }
             .padding(.horizontal, 10)
@@ -458,7 +547,7 @@ private struct CategoryTab: View {
                         .matchedGeometryEffect(id: "categoryIndicator", in: namespace)
                 } else if isHovered {
                     Capsule()
-                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                        .fill(hoverFill)
                 }
             }
             .overlay(

@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 
 struct SettingsView: View {
+    @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
+
     var body: some View {
         TabView {
             RulesManagerSection()
@@ -30,6 +32,7 @@ struct SettingsView: View {
                 }
         }
         .frame(width: 700, height: 550)
-        .background(Color.formaBoneWhite)
+        .background(Color.formaBackground)
+        .preferredColorScheme(AppearanceMode(rawValue: appearanceMode)?.colorScheme)
     }
 }

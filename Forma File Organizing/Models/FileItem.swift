@@ -524,26 +524,76 @@ extension FileItem {
 
     /// Deterministic data set for UI tests.
     static var uiTestMocks: [FileItem] {
-        [
+        let now = Date()
+        return [
             FileItem(
-                path: "/Users/test/Desktop/UITest_File_1_WithSuggestion.pdf",
-                sizeInBytes: 1_000_000,
-                creationDate: Date(),
-                destination: mockDestination(displayName: "Documents/UITests/One"),
+                path: "/Users/test/Downloads/Invoice_2026-01.pdf",
+                sizeInBytes: 1_258_291,
+                creationDate: now,
+                destination: mockDestination(displayName: "Documents/Finance/2026"),
+                status: .ready
+            ),
+            FileItem(
+                path: "/Users/test/Downloads/Screenshot 2026-01-28 at 9.14.03 AM.png",
+                sizeInBytes: 4_718_592,
+                creationDate: now.addingTimeInterval(-3600),
+                destination: mockDestination(displayName: "Pictures/Screenshots/2026-01"),
+                status: .ready
+            ),
+            FileItem(
+                path: "/Users/test/Downloads/IMG_1042.JPG",
+                sizeInBytes: 3_805_122,
+                creationDate: now.addingTimeInterval(-7200),
+                destination: mockDestination(displayName: "Pictures/Camera Roll"),
                 status: .pending
             ),
             FileItem(
-                path: "/Users/test/Desktop/UITest_File_2_NoSuggestion.txt",
-                sizeInBytes: 2_048,
-                creationDate: Date().addingTimeInterval(-60),
-                destination: nil,
+                path: "/Users/test/Downloads/Project Brief v3.docx",
+                sizeInBytes: 250_880,
+                creationDate: now.addingTimeInterval(-86400),
+                destination: mockDestination(displayName: "Documents/Work/Projects"),
                 status: .pending
             ),
             FileItem(
-                path: "/Users/test/Desktop/UITest_File_3_WithSuggestion.mov",
-                sizeInBytes: 15 * 1024 * 1024,
-                creationDate: Date().addingTimeInterval(-120),
-                destination: mockDestination(displayName: "Movies/UITests"),
+                path: "/Users/test/Downloads/Tax_Forms_Archive.zip",
+                sizeInBytes: 152_043_520,
+                creationDate: now.addingTimeInterval(-12000),
+                destination: mockDestination(displayName: "Documents/Finance/Archive"),
+                status: .pending
+            ),
+            FileItem(
+                path: "/Users/test/Downloads/Meeting Notes - Weekly Sync.txt",
+                sizeInBytes: 8_192,
+                creationDate: now.addingTimeInterval(-14_400),
+                destination: mockDestination(displayName: "Documents/Notes/Meetings"),
+                status: .ready
+            ),
+            FileItem(
+                path: "/Users/test/Downloads/Podcast Episode 12.wav",
+                sizeInBytes: 44 * 1024 * 1024,
+                creationDate: now.addingTimeInterval(-18_000),
+                destination: mockDestination(displayName: "Music/Recordings"),
+                status: .pending
+            ),
+            FileItem(
+                path: "/Users/test/Downloads/Screen Recording 2026-01-30.mov",
+                sizeInBytes: 210 * 1024 * 1024,
+                creationDate: now.addingTimeInterval(-25_200),
+                destination: mockDestination(displayName: "Movies/Screen Recordings"),
+                status: .pending
+            ),
+            FileItem(
+                path: "/Users/test/Downloads/Quarterly Budget.xlsx",
+                sizeInBytes: 1_024_000,
+                creationDate: now.addingTimeInterval(-30_000),
+                destination: mockDestination(displayName: "Documents/Finance/Spreadsheets"),
+                status: .ready
+            ),
+            FileItem(
+                path: "/Users/test/Downloads/Resume - Taylor Morgan.pdf",
+                sizeInBytes: 612_000,
+                creationDate: now.addingTimeInterval(-36_000),
+                destination: mockDestination(displayName: "Documents/Career"),
                 status: .pending
             )
         ]

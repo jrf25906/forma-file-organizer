@@ -39,7 +39,7 @@ struct StorageChart: View {
 
                 Text("Used")
                     .font(.formaCompact)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
             }
         }
         .frame(width: size, height: size)

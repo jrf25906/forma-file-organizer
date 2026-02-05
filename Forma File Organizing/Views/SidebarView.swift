@@ -6,11 +6,30 @@ struct SidebarView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject var services: AppServices
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var shouldFocusSearch: Bool
 
     @ObservedObject private var folderService = BookmarkFolderService.shared
     @State private var isAddingFolder = false
     @State private var isKeyWindow = true
+
+    private var sidebarBorderGradient: LinearGradient {
+        let topOpacity: Double = colorScheme == .dark
+            ? (isKeyWindow ? 0.2 : 0.12)
+            : (isKeyWindow ? 0.3 : 0.18)
+        let bottomOpacity: Double = colorScheme == .dark
+            ? (isKeyWindow ? 0.06 : 0.03)
+            : (isKeyWindow ? 0.1 : 0.05)
+
+        return LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(topOpacity),
+                Color.formaBoneWhite.opacity(bottomOpacity)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
 
     var body: some View {
         // Sidebar content
@@ -112,17 +131,7 @@ struct SidebarView: View {
                 cornerRadius: FormaLayout.FloatingCard.cornerRadius,
                 style: .continuous
             )
-            .strokeBorder(
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(isKeyWindow ? 0.5 : 0.3),
-                        Color.white.opacity(isKeyWindow ? 0.1 : 0.05)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ),
-                lineWidth: 1
-            )
+            .strokeBorder(sidebarBorderGradient, lineWidth: 1)
         }
         .overlay(alignment: .trailing) {
             EmptyView()

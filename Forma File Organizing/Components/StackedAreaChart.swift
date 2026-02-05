@@ -5,6 +5,7 @@ import Charts
 struct StackedAreaChart: View {
     let points: [AutomationEfficiencyPoint]
     var showLegend: Bool = true
+    @Environment(\.colorScheme) private var colorScheme
 
     /// Transform points into chart-friendly data.
     private var chartData: [ChartDataPoint] {
@@ -35,6 +36,34 @@ struct StackedAreaChart: View {
         return Double(totalAuto) / Double(total)
     }
 
+    private var cardBackground: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.06)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+    }
+
+    private var cardBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.12)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
+    }
+
+    private var axisLineColor: Color {
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.45 : Color.FormaOpacity.medium)
+    }
+
+    private var emptyStatePrimaryColor: Color {
+        colorScheme == .dark
+            ? .formaSecondaryLabelHigh
+            : Color.formaLabel.opacity(0.7)
+    }
+
+    private var emptyStateSecondaryColor: Color {
+        colorScheme == .dark
+            ? .formaTertiaryLabelHigh
+            : Color.formaLabel.opacity(0.55)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             if points.isEmpty {
@@ -50,11 +79,11 @@ struct StackedAreaChart: View {
         .padding(FormaSpacing.large)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                .fill(cardBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                .strokeBorder(cardBorder, lineWidth: 1)
         )
     }
 
@@ -75,19 +104,25 @@ struct StackedAreaChart: View {
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 6)) { _ in
                 AxisGridLine()
+                    .foregroundStyle(axisLineColor)
                 AxisTick()
+                    .foregroundStyle(axisLineColor)
                 AxisValueLabel(format: .dateTime.month().day())
+                    .foregroundStyle(Color.formaSecondaryLabelHigh)
             }
         }
         .chartYAxis {
             AxisMarks { value in
                 AxisGridLine()
+                    .foregroundStyle(axisLineColor)
                 AxisTick()
+                    .foregroundStyle(axisLineColor)
                 AxisValueLabel {
                     if let count = value.as(Int.self) {
                         Text("\(count)")
                     }
                 }
+                .foregroundStyle(Color.formaSecondaryLabelHigh)
             }
         }
         .chartLegend(.hidden)
@@ -104,7 +139,7 @@ struct StackedAreaChart: View {
                     .frame(width: 8, height: 8)
                 Text("Manual")
                     .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
             }
 
             // Automated legend
@@ -114,7 +149,7 @@ struct StackedAreaChart: View {
                     .frame(width: 8, height: 8)
                 Text("Automated")
                     .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
             }
 
             Spacer()
@@ -135,13 +170,13 @@ struct StackedAreaChart: View {
         VStack(spacing: FormaSpacing.tight) {
             Image(systemName: "chart.xyaxis.line")
                 .font(.title)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(emptyStatePrimaryColor)
             Text("No activity data yet")
                 .font(.formaBody)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(emptyStatePrimaryColor)
             Text("Organize some files to see your automation efficiency.")
                 .font(.formaSmall)
-                .foregroundColor(.formaTertiaryLabel)
+                .foregroundColor(emptyStateSecondaryColor)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)

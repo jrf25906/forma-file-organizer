@@ -14,6 +14,15 @@ struct Forma_File_OrganizingApp: App {
         ProcessInfo.processInfo.arguments.contains("--uitesting")
     }
 
+    private static func uiTestWindowSize() -> (width: CGFloat, height: CGFloat)? {
+        guard isUITesting else { return nil }
+        guard let raw = ProcessInfo.processInfo.environment["FORMA_WINDOW_SIZE"] else { return nil }
+        let parts = raw.lowercased().split(separator: "x", maxSplits: 1).map(String.init)
+        guard parts.count == 2, let width = Double(parts[0]), let height = Double(parts[1]) else { return nil }
+        guard width > 0, height > 0 else { return nil }
+        return (CGFloat(width), CGFloat(height))
+    }
+
     private var isTesting: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
         Self.isUITesting
@@ -38,6 +47,13 @@ struct Forma_File_OrganizingApp: App {
 
         // Check if running UI Tests (take precedence over XCTestConfigurationFilePath)
         if Self.isUITesting {
+            // Allow UI tests to force appearance for deterministic screenshots.
+            // Expected values match `AppearanceMode.rawValue`: system|light|dark
+            if let forcedAppearance = ProcessInfo.processInfo.environment["FORMA_APPEARANCE_MODE"],
+               AppearanceMode(rawValue: forcedAppearance) != nil {
+                UserDefaults.standard.set(forcedAppearance, forKey: "appearanceMode")
+            }
+
             do {
                 let modelConfiguration = ModelConfiguration(schema: Self.appSchema, isStoredInMemoryOnly: true)
                 container = try ModelContainer(for: Self.appSchema, configurations: [modelConfiguration])
@@ -209,10 +225,14 @@ struct Forma_File_OrganizingApp: App {
     // MARK: - Scenes
 
     private var mainWindowScene: some Scene {
-        WindowGroup(id: "main") {
+        let windowSize = Self.uiTestWindowSize()
+        return WindowGroup(id: "main") {
             dashboardRootView
         }
-        .defaultSize(width: FormaSpacing.Window.preferredWidth, height: FormaSpacing.Window.preferredHeight)
+        .defaultSize(
+            width: windowSize?.width ?? FormaSpacing.Window.preferredWidth,
+            height: windowSize?.height ?? FormaSpacing.Window.preferredHeight
+        )
         .modelContainer(container)
         .commands {
             SidebarCommands()

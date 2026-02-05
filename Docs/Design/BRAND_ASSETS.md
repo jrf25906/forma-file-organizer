@@ -148,7 +148,7 @@ The menu bar icon uses **template image** rendering so macOS automatically adapt
 **Specifications:**
 - Size: 16x16px (template)
 - Color: Single color (system handles inversion)
-- Style: Simplified grid silhouette for legibility at small sizes
+- Style: Pure Grid V2 silhouette (3×3) with subtle opacity fade for depth
 
 ---
 

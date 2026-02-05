@@ -71,11 +71,11 @@ struct ProductivityReportView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Productivity Health")
                         .font(.formaH1)
-                        .foregroundColor(.formaObsidian)
+                        .foregroundColor(.formaLabel)
 
                     Text("See how Forma is saving you time and digital headspace.")
                         .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
                 }
                 Spacer()
 
@@ -121,7 +121,7 @@ struct ProductivityReportView: View {
                 .foregroundColor(.formaWarning)
             Text(message)
                 .font(.formaSmall)
-                .foregroundColor(.formaObsidian)
+                .foregroundColor(.formaLabel)
             Spacer()
         }
         .padding(FormaSpacing.standard)
@@ -197,7 +197,7 @@ struct ProductivityReportView: View {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 Text("Storage Breakdown")
                     .font(.formaH2)
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
 
                 if let treemap = viewModel.storageTreemap, !treemap.children.isEmpty {
                     TreemapChart(rootNode: treemap) { node in
@@ -219,7 +219,7 @@ struct ProductivityReportView: View {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 Text("Automation Efficiency")
                     .font(.formaH2)
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
 
                 StackedAreaChart(points: viewModel.automationTimeline)
                     .frame(height: 280)
@@ -234,11 +234,11 @@ struct ProductivityReportView: View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             Text("File Freshness Calendar")
                 .font(.formaH2)
-                .foregroundColor(.formaObsidian)
+                .foregroundColor(.formaLabel)
 
             Text("How fresh are your files? Green = recently used, red = digital dust (6+ months).")
                 .font(.formaSmall)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(.formaSecondaryLabelHigh)
 
             // Horizontal scroll for wide calendar (52 weeks ≈ 800px)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -257,14 +257,14 @@ struct ProductivityReportView: View {
             HStack {
                 Text("Smart Insights")
                     .font(.formaH2)
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
 
                 Spacer()
 
                 if !viewModel.smartInsights.isEmpty {
                     Text("\(viewModel.smartInsights.count) suggestion\(viewModel.smartInsights.count == 1 ? "" : "s")")
                         .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
                 }
             }
 
@@ -292,15 +292,15 @@ private struct ProductivityEmptyState: View {
         VStack(spacing: FormaSpacing.tight) {
             Image(systemName: icon)
                 .font(.title)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(.formaSecondaryLabelHigh)
 
             Text(title)
                 .font(.formaBody)
-                .foregroundColor(.formaObsidian)
+                .foregroundColor(.formaLabel)
 
             Text(message)
                 .font(.formaSmall)
-                .foregroundColor(.formaSecondaryLabel)
+                .foregroundColor(.formaSecondaryLabelHigh)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
