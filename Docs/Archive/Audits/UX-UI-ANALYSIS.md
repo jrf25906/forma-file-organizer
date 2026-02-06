@@ -892,24 +892,24 @@ After implementing these changes, track:
 
 ### Audits & Analysis
 - [Codebase Audit](CODEBASE_AUDIT.md) - Full codebase review
-- [Performance Audit](PERFORMANCE_AUDIT.md) - Performance analysis
+- [Performance Audit](../../PERFORMANCE_AUDIT.md) - Performance analysis
 
 ### Design
-- [Design System](Design/DesignSystem.md) - Design tokens and patterns
-- [UI Guidelines](Design/UI-GUIDELINES.md) - UI implementation patterns
-- [Design README](Design/README.md) - Design documentation index
+- [Design System](../../Design/DesignSystem.md) - Design tokens and patterns
+- [UI Guidelines](../../Design/UI-GUIDELINES.md) - UI implementation patterns
+- [Design README](../../Design/README.md) - Design documentation index
 
 ### Architecture
-- [Dashboard Architecture](Architecture/DASHBOARD.md) - Main interface design
-- [Right Panel Architecture](Architecture/RIGHT_PANEL.md) - Contextual panel design
-- [Component Architecture](Architecture/ComponentArchitecture.md) - UI component catalog
+- [Dashboard Architecture](../../Architecture/DASHBOARD.md) - Main interface design
+- [Right Panel Architecture](../../Architecture/RIGHT_PANEL.md) - Contextual panel design
+- [Component Architecture](../../Architecture/ComponentArchitecture.md) - UI component catalog
 
 ### Features
-- [Onboarding Flow](Design/Forma-Onboarding-Flow.md) - Onboarding UX design
-- [Empty States](Design/Forma-Empty-States.md) - Empty state designs
+- [Onboarding Flow](../../Design/Forma-Onboarding-Flow.md) - Onboarding UX design
+- [Empty States](../../Design/Forma-Empty-States.md) - Empty state designs
 
 ### Navigation
-- [Documentation Index](INDEX.md) - Master navigation
+- [Documentation Index](../../INDEX.md) - Master navigation
 
 ---
 

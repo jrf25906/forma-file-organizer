@@ -296,8 +296,8 @@ let hash = hasher.finalize()
 ## Related Documentation
 
 ### Audits & Analysis
-- [Codebase Audit](CODEBASE_AUDIT.md) - Full codebase review
-- [UX/UI Analysis](UX-UI-ANALYSIS.md) - User experience review
+- [Codebase Audit](Archive/Audits/CODEBASE_AUDIT.md) - Full codebase review (archived)
+- [UX/UI Analysis](Archive/Audits/UX-UI-ANALYSIS.md) - User experience review (archived)
 
 ### Architecture
 - [System Architecture](Architecture/ARCHITECTURE.md) - Overall system design

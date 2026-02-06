@@ -3,7 +3,7 @@
 > Master navigation for all Forma project documentation.
 
 **Status:** Current  
-**Last Updated:** 2026-01-06  
+**Last Updated:** 2026-02-06  
 **Audience:** Users | Developers | Designers | Security
 
 ## Start Here
@@ -49,23 +49,22 @@
 
 ## Audits and Reviews
 
-- [CODEBASE_AUDIT.md](CODEBASE_AUDIT.md) - Codebase review
-- [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md) - Performance analysis
-- [UX-UI-ANALYSIS.md](UX-UI-ANALYSIS.md) - UX and UI review
+- [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md) - Active performance analysis and optimization tracking
 - [SILENT_FAILURES_REMEDIATION.md](SILENT_FAILURES_REMEDIATION.md) - Silent failure remediation notes
+- [Archived Audits](Archive/Audits/README.md) - Historical codebase and UX audit reports
 
-## Plans and Refactors
+## Planning and Historical Refactors
 
-- [PLAN-custom-categories-and-rule-management.md](PLAN-custom-categories-and-rule-management.md) - Custom categories and rules plan
-- [VIEWMODEL_REFACTORING.md](VIEWMODEL_REFACTORING.md) - ViewModel refactoring notes
-- [COMPONENT_CONSOLIDATION.md](COMPONENT_CONSOLIDATION.md) - Component consolidation plan
-- [CONSOLIDATION_SUMMARY.txt](CONSOLIDATION_SUMMARY.txt) - Consolidation summary
-- [Phase 3 Predictive Intelligence Implementation Plan.md](Phase%203%20Predictive%20Intelligence%20Implementation%20Plan.md) - Predictive intelligence plan
-- [per-folder-templates-design.md](per-folder-templates-design.md) - Per-folder templates design
+- [Roadmap](Roadmap/README.md) - Current forward-looking plans
+- [Archived Plans](Archive/Plans/README.md) - Superseded implementation plans
+- [Archived Completed Work](Archive/CompletedWork/README.md) - Historical completion summaries and refactor notes
 
 ## Archive
 
 - [Archive/README.md](Archive/README.md) - Archive index
+- [Archived Audits](Archive/Audits/README.md) - Historical audit reports
+- [Archived Plans](Archive/Plans/README.md) - Historical planning docs
+- [Archived Completed Work](Archive/CompletedWork/README.md) - Historical implementation summaries
 - [Implementation Notes](Archive/Implementation-Notes/README.md) - Archived implementation notes and refactor summaries
 
 ## Prototypes and Visual Concepts

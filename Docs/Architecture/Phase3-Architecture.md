@@ -398,7 +398,7 @@ Existing FileOperationsService security applies:
 
 ## References
 
-- **Phase 3 Implementation Plan**: `Docs/Phase 3 Predictive Intelligence Implementation Plan.md`
+- **Phase 3 Implementation Plan**: `Docs/Archive/Plans/Phase 3 Predictive Intelligence Implementation Plan.md`
 - **Main Architecture Doc**: `Docs/Architecture/ARCHITECTURE.md`
 - **RuleEngine Architecture**: `Docs/Architecture/RuleEngine-Architecture.md`
 - **WARP.md**: Development workflows and testing patterns

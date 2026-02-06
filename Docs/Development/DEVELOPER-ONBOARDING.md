@@ -333,7 +333,7 @@ Check `Docs/Getting-Started/TODO.md` for current priorities and open documentati
 If you’re stuck:
 
 - Start with the **Documentation Index** in `Docs/README.md`
-- Use the **Codebase Audit** (`Docs/CODEBASE_AUDIT.md`) to find hot spots and TODOs
+- Use the **Codebase Audit** (`Docs/Archive/Audits/CODEBASE_AUDIT.md`) to find hot spots and TODOs
 - Look at existing patterns in:
   - `DashboardViewModel.swift`
   - `FileSystemService.swift`

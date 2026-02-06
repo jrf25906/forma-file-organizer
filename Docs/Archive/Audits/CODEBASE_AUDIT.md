@@ -247,19 +247,19 @@ These should be preserved during refactoring.
 ## Related Documentation
 
 ### Audits & Analysis
-- [Performance Audit](PERFORMANCE_AUDIT.md) - Performance analysis and optimization
+- [Performance Audit](../../PERFORMANCE_AUDIT.md) - Performance analysis and optimization
 - [UX/UI Analysis](UX-UI-ANALYSIS.md) - User experience review
 
 ### Architecture
-- [System Architecture](Architecture/ARCHITECTURE.md) - Overall system design
-- [Component Architecture](Architecture/ComponentArchitecture.md) - UI component catalog
+- [System Architecture](../../Architecture/ARCHITECTURE.md) - Overall system design
+- [Component Architecture](../../Architecture/ComponentArchitecture.md) - UI component catalog
 
 ### Security
-- [Security Documentation](Security/README.md) - Security audits and fixes
-- [File Operations Audit](Architecture/File-Operations-Audit.md) - File operations review
+- [Security Documentation](../../Security/README.md) - Security audits and fixes
+- [File Operations Audit](../../Architecture/File-Operations-Audit.md) - File operations review
 
 ### Navigation
-- [Documentation Index](INDEX.md) - Master navigation
+- [Documentation Index](../../INDEX.md) - Master navigation
 
 ---
 

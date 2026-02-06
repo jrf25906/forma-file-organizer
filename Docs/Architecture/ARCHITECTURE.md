@@ -2185,9 +2185,9 @@ Forma logs key operations:
 - [Rule Engine Architecture](RuleEngine-Architecture.md) - Rule evaluation system
 
 ### Audits & Analysis
-- [Codebase Audit](../CODEBASE_AUDIT.md) - Full codebase review
+- [Codebase Audit](../Archive/Audits/CODEBASE_AUDIT.md) - Full codebase review (archived)
 - [Performance Audit](../PERFORMANCE_AUDIT.md) - Performance analysis
-- [UX/UI Analysis](../UX-UI-ANALYSIS.md) - User experience review
+- [UX/UI Analysis](../Archive/Audits/UX-UI-ANALYSIS.md) - User experience review (archived)
 - [Security Audits](../Security/README.md) - Security documentation
 
 ### Design & Features

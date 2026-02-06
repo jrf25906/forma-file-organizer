@@ -3,7 +3,7 @@
 This directory contains archived documentation that has been superseded or is no longer actively maintained.
 
 **Status:** Archived (historical)
-**Last Updated:** 2026-01-06
+**Last Updated:** 2026-02-06
 
 ## Archive Notes
 
@@ -17,13 +17,38 @@ This directory contains archived documentation that has been superseded or is no
 
 | Folder | Contents |
 |--------|----------|
+| **Audits/** | Historical codebase and UX audit reports |
+| **Plans/** | Superseded implementation and design plans |
 | **Design-Changelogs/** | UI refinement changelogs (completed work) |
 | **Implementation-Notes/** | Phase briefs, cleanup summaries, historical plans |
 | **Legacy/** | Superseded documents (old PDFs) |
 | **Antigravity/** | Experimental IDE workflow docs |
-| **CompletedWork/** | Completed feature implementation notes |
+| **CompletedWork/** | Completed feature implementation notes and refactor summaries |
 | **PhaseImplementation/** | Phase 1-3 implementation guides |
 | **Brand/** | Historical brand status snapshots |
+
+---
+
+## Audits
+
+**Archived:** February 2026
+**Location:** `Docs/Archive/Audits/`
+
+Historical audit reports moved out of active navigation:
+- Codebase audit
+- UX/UI analysis and improvement plan
+
+---
+
+## Plans
+
+**Archived:** February 2026
+**Location:** `Docs/Archive/Plans/`
+
+Superseded planning docs preserved for historical context:
+- Custom categories and rule management plan
+- Phase 3 predictive intelligence implementation plan
+- Per-folder templates design
 
 ---
 
@@ -82,6 +107,8 @@ Implementation notes for completed features:
 - Settings access integration
 - ReviewView quick actions
 - Custom rules implementation
+- ViewModel refactoring summary
+- Component consolidation summary
 
 ---
 

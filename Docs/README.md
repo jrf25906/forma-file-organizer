@@ -3,7 +3,7 @@
 Welcome to the Forma File Organizing App documentation.
 
 **Status:** Current  
-**Last Updated:** 2026-01-06  
+**Last Updated:** 2026-02-06  
 **Audience:** Users | Developers | Designers | Security
 
 ## How to Navigate
