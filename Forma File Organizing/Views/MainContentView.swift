@@ -198,7 +198,7 @@ struct MainContentView: View {
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(100)
-            .padding(.bottom, FormaSpacing.large + FormaSpacing.tight)
+            .padding(.bottom, FloatingActionBar.bottomOffset)
         } else if dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.reviewableFiles.isEmpty {
             // Review mode floating action bar - use cached reviewableFiles
             FloatingActionBar(
@@ -216,7 +216,7 @@ struct MainContentView: View {
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(100)
-            .padding(.bottom, FormaSpacing.large + FormaSpacing.tight)
+            .padding(.bottom, FloatingActionBar.bottomOffset)
         }
         } // End ZStack
         .overlay {
@@ -538,9 +538,53 @@ struct MainContentView: View {
 
     private var contentTopPadding: CGFloat { FormaLayout.Content.topPadding }
     private var scrollContentTopInset: CGFloat { unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing }
-
-    private var gridColumnSpacing: CGFloat { FormaSpacing.standard }
-    private var gridRowSpacing: CGFloat { FormaSpacing.extraLarge }
+    private var fabReservedSpace: CGFloat {
+        guard shouldShowFAB else { return FormaSpacing.generous }
+        return FloatingActionBar.chromeHeight + FloatingActionBar.bottomOffset + FormaSpacing.standard
+    }
+    private var fileDisplayDensity: FileDisplayDensity { .spacious }
+    private var cardRowSpacing: CGFloat {
+        switch fileDisplayDensity {
+        case .tight: return FormaSpacing.tight + (FormaSpacing.micro / 2)
+        case .balanced: return FormaSpacing.standard
+        case .spacious: return FormaSpacing.generous
+        }
+    }
+    private var listRowSpacing: CGFloat {
+        switch fileDisplayDensity {
+        case .tight: return FormaSpacing.micro
+        case .balanced: return FormaSpacing.tight
+        case .spacious: return FormaSpacing.standard - FormaSpacing.micro
+        }
+    }
+    private var gridColumnSpacing: CGFloat {
+        switch fileDisplayDensity {
+        case .tight: return FormaSpacing.tight + (FormaSpacing.micro / 2)
+        case .balanced: return FormaSpacing.standard
+        case .spacious: return FormaSpacing.standard + (FormaSpacing.tight / 2)
+        }
+    }
+    private var gridRowSpacing: CGFloat {
+        switch fileDisplayDensity {
+        case .tight: return FormaSpacing.standard + (FormaSpacing.tight / 2)
+        case .balanced: return FormaSpacing.large
+        case .spacious: return FormaSpacing.extraLarge - FormaSpacing.tight
+        }
+    }
+    private var gridMinimumWidth: CGFloat {
+        switch fileDisplayDensity {
+        case .tight: return 170
+        case .balanced: return 186
+        case .spacious: return 208
+        }
+    }
+    private var gridMaximumWidth: CGFloat {
+        switch fileDisplayDensity {
+        case .tight: return 228
+        case .balanced: return 244
+        case .spacious: return 272
+        }
+    }
 
     private func contentContainer<Content: View>(
         alignment: Alignment = .leading,
@@ -557,10 +601,11 @@ struct MainContentView: View {
                 // Force view update when content search results change
                 // Using VStack wrapper to establish proper SwiftUI observation
                 VStack(spacing: 0) {
-                    LazyVStack(spacing: FormaSpacing.large) {
+                    LazyVStack(spacing: cardRowSpacing) {
                         ForEach(dashboardViewModel.visibleFiles) { file in
                             FileRow(
                                 file: file,
+                                density: fileDisplayDensity,
                                 isFocused: dashboardViewModel.focusedFilePath == file.path,
                                 isSelected: dashboardViewModel.isSelected(file),
                                 isSelectionMode: dashboardViewModel.isSelectionMode,
@@ -610,7 +655,7 @@ struct MainContentView: View {
                 }
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
-            .padding(.bottom, shouldShowFAB ? FormaSpacing.huge + FormaSpacing.extraLarge : FormaSpacing.generous)
+            .padding(.bottom, fabReservedSpace)
         }
         .frame(maxHeight: .infinity) // Fill available space
         .background(Color.clear)
@@ -623,7 +668,7 @@ struct MainContentView: View {
                 listViewContent
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
-            .padding(.bottom, shouldShowFAB ? FormaSpacing.huge + FormaSpacing.extraLarge : FormaSpacing.generous)
+            .padding(.bottom, fabReservedSpace)
         }
         .frame(maxHeight: .infinity)
         .background(Color.clear)
@@ -634,7 +679,7 @@ struct MainContentView: View {
 
     @ViewBuilder
     private var listViewContent: some View {
-        LazyVStack(spacing: FormaSpacing.tight) {
+        LazyVStack(spacing: listRowSpacing) {
             ForEach(Array(dashboardViewModel.visibleFiles.enumerated()), id: \.element.id) { index, file in
                 listFileRow(file: file, index: index)
             }
@@ -645,6 +690,7 @@ struct MainContentView: View {
     private func listFileRow(file: FileItem, index: Int) -> some View {
         FileListRow(
             file: file,
+            density: fileDisplayDensity,
             rowIndex: index,
             isFocused: dashboardViewModel.focusedFilePath == file.path,
             isSelected: dashboardViewModel.isSelected(file),
@@ -684,7 +730,7 @@ struct MainContentView: View {
     private var gridView: some View {
         ScrollView {
             let columns = [
-                GridItem(.adaptive(minimum: 180, maximum: 240), spacing: gridColumnSpacing)
+                GridItem(.adaptive(minimum: gridMinimumWidth, maximum: gridMaximumWidth), spacing: gridColumnSpacing)
             ]
             contentContainer {
                 LazyVGrid(
@@ -696,6 +742,7 @@ struct MainContentView: View {
                     ForEach(dashboardViewModel.visibleFiles) { file in
                         FileGridItem(
                             file: file,
+                            density: fileDisplayDensity,
                             isFocused: dashboardViewModel.focusedFilePath == file.path,
                             isSelected: dashboardViewModel.isSelected(file),
                             isSelectionMode: dashboardViewModel.isSelectionMode,
@@ -734,7 +781,7 @@ struct MainContentView: View {
                 }
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
-            .padding(.bottom, shouldShowFAB ? FormaSpacing.huge + FormaSpacing.extraLarge : FormaSpacing.generous)
+            .padding(.bottom, fabReservedSpace)
         }
         .frame(maxHeight: .infinity) // Fill available space
         .background(Color.clear)

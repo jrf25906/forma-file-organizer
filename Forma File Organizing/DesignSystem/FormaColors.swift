@@ -53,11 +53,30 @@ extension Color {
     /// Main window background (automatically adapts to light/dark mode)
     static let formaBackground = Color(NSColor.windowBackgroundColor)
     
-    /// Control backgrounds (buttons, cards, etc.)
-    static let formaControlBackground = Color(NSColor.controlBackgroundColor)
+    /// Control backgrounds (buttons, cards, etc.).
+    /// Uses a deeper charcoal in dark mode so controls remain legible and intentional
+    /// without collapsing into pure black.
+    static let formaControlBackground = Color(
+        NSColor(name: NSColor.Name("formaControlBackground")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor(red: 29/255, green: 33/255, blue: 38/255, alpha: 1.0) // #1D2126
+            }
+            return NSColor.controlBackgroundColor
+        }
+    )
     
-    /// Text field backgrounds
-    static let formaTextBackground = Color(NSColor.textBackgroundColor)
+    /// Text field backgrounds.
+    /// Slightly darker than control backgrounds in dark mode for clearer input affordance.
+    static let formaTextBackground = Color(
+        NSColor(name: NSColor.Name("formaTextBackground")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor(red: 24/255, green: 28/255, blue: 33/255, alpha: 1.0) // #181C21
+            }
+            return NSColor.textBackgroundColor
+        }
+    )
     
     /// Card backgrounds with appearance-aware contrast.
     /// Light: #F9F9F9 | Dark: #22252A

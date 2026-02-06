@@ -47,6 +47,7 @@ struct FormaCheckbox: View {
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
@@ -106,13 +107,30 @@ struct FormaCheckbox: View {
     private var backgroundColor: Color {
         switch shape {
         case .circle:
+            if colorScheme == .dark {
+                return Color.formaTextBackground
+            }
             return Color.formaControlBackground.opacity(Color.FormaOpacity.prominent)
         default:
-            return size == .compact ? Color.clear : Color.formaControlBackground
+            if size == .compact {
+                return colorScheme == .dark
+                    ? Color.formaTextBackground.opacity(0.92)
+                    : Color.clear
+            }
+            return Color.formaControlBackground
         }
     }
 
     private var borderColor: Color {
+        if colorScheme == .dark {
+            switch size {
+            case .compact:
+                return Color.formaBoneWhite.opacity(0.32)
+            case .standard, .large:
+                return Color.formaBoneWhite.opacity(0.28)
+            }
+        }
+
         switch size {
         case .compact:
             return Color.formaObsidian.opacity(Color.FormaOpacity.overlay)

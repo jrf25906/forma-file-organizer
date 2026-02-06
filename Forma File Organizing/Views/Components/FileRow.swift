@@ -6,6 +6,7 @@ import SwiftUI
 
 struct FileRow: View {
     let file: FileItem
+    var density: FileDisplayDensity = .balanced
 
     // State & Callbacks
     var isFocused: Bool = false
@@ -36,6 +37,58 @@ struct FileRow: View {
     // MARK: - Constants
     private let categoryBorderWidth: CGFloat = 4
 
+    private var thumbnailSize: CGFloat {
+        switch density {
+        case .tight: return 54
+        case .balanced: return 62
+        case .spacious: return 72
+        }
+    }
+
+    private var rowMinHeight: CGFloat {
+        switch density {
+        case .tight: return 98
+        case .balanced: return 112
+        case .spacious: return 128
+        }
+    }
+
+    private var rowVerticalPadding: CGFloat {
+        switch density {
+        case .tight: return FormaSpacing.tight - 2
+        case .balanced: return FormaSpacing.standard - 2
+        case .spacious: return FormaSpacing.standard + 2
+        }
+    }
+
+    private var contentSpacing: CGFloat {
+        switch density {
+        case .tight: return FormaSpacing.tight + (FormaSpacing.micro / 2)
+        case .balanced: return FormaSpacing.standard
+        case .spacious: return FormaSpacing.standard + (FormaSpacing.micro / 2)
+        }
+    }
+
+    private var infoStackSpacing: CGFloat {
+        switch density {
+        case .tight: return FormaSpacing.micro + 2
+        case .balanced: return FormaSpacing.tight
+        case .spacious: return FormaSpacing.tight + 2
+        }
+    }
+
+    private var chipHorizontalPadding: CGFloat {
+        density == .tight ? (FormaSpacing.tight - 2) : FormaSpacing.tight
+    }
+
+    private var chipVerticalPadding: CGFloat {
+        density == .spacious ? (FormaSpacing.micro + 1) : FormaSpacing.micro
+    }
+
+    private var selectionControlEmphasisOpacity: Double {
+        (isHovered || isSelectionMode || isSelected) ? 1.0 : 0.72
+    }
+
     // MARK: - Primary Action Configuration
     // Unified terminology: "Organize" when destination exists, "Set Destination" when it doesn't
     // The status pill shows file state, so button label stays consistent
@@ -58,28 +111,31 @@ struct FileRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Category color accent bar (left border)
+            // Single accent rail communicates priority/category without adding noise
             RoundedRectangle(cornerRadius: categoryBorderWidth / 2)
                 .fill(file.category.color.opacity(Color.FormaOpacity.prominent))
                 .frame(width: categoryBorderWidth)
-                .padding(.vertical, FormaSpacing.standard)
+                .padding(.vertical, rowVerticalPadding)
                 .help("Category: \(file.category.displayName)")
 
-            HStack(spacing: FormaSpacing.standard) {
-                // Selection Checkbox - appears on hover/selection
+            HStack(alignment: .top, spacing: contentSpacing) {
+                // Selection checkbox appears only when relevant.
                 if let onToggleSelection = onToggleSelection {
                     FormaCheckbox.premium(
                         isSelected: isSelected,
-                        isVisible: isHovered || isSelectionMode || isSelected,
+                        isVisible: true,
                         action: { onToggleSelection(file) }
                     )
-                    .frame(width: 24)
+                    .opacity(selectionControlEmphasisOpacity)
+                    .frame(width: 32, height: 32, alignment: .top)
+                    .contentShape(Rectangle())
+                    .help(isSelected ? "Deselect file" : "Select file")
                 }
 
-                // Premium Thumbnail (compact)
+                // Keep thumbnail compact so text hierarchy stays dominant.
                 FormaThumbnail.premium(
                     file: file,
-                    size: 68,
+                    size: thumbnailSize,
                     isSelected: isSelected,
                     showQuickLook: showQuickLookHint,
                     onQuickLook: { onQuickLook?(file) },
@@ -93,156 +149,137 @@ struct FileRow: View {
                     }
                 )
 
-            // File Info - Clear hierarchy
-            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                // Primary: Filename (most prominent) with search match indicator
-                HStack(spacing: 6) {
-                    Text(file.name)
-                        .font(.title3) // Specific request for larger filename
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.formaLabel)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                // File info uses a deliberate 3-level hierarchy:
+                // 1) filename + primary state, 2) readable summary line, 3) compact metadata chips.
+                VStack(alignment: .leading, spacing: infoStackSpacing) {
+                    HStack(spacing: FormaSpacing.tight - 2) {
+                        Text(file.name)
+                            .font(.formaH3)
+                            .foregroundStyle(Color.formaLabel)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
 
-                    // Search match type badge
-                    if let matchType = searchMatchType {
-                        SearchMatchBadge(matchType: matchType)
+                        statusChip
+
+                        if let matchType = searchMatchType {
+                            SearchMatchBadge(matchType: matchType)
+                        }
                     }
-                }
 
-                // Secondary: Destination badge (if exists)
-                if let destination = file.destination {
-                    let displayName = destination.displayName
-                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                        HStack(spacing: 6) {
-                            // Destination info with hover-to-expand full path
-                            HStack(spacing: 5) {
-                                Image(systemName: "folder.fill")
-                                    .font(.formaSmallMedium)
-                                Text(isDestinationHovered ? displayName : truncatePath(displayName))
-                                    .lineLimit(1)
-                                    .animation(.easeInOut(duration: 0.15), value: isDestinationHovered)
-                            }
-                            .font(.formaCompactMedium)
-                            .foregroundStyle(Color.formaSteelBlue)
-                            .padding(.horizontal, FormaSpacing.tight + (FormaSpacing.micro / 2))
-                            .padding(.vertical, FormaSpacing.micro)
-                            .background(
-                                Color.formaSteelBlue.opacity(
-                                    isDestinationHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light
-                                )
+                    Text(summaryLineText)
+                        .font(.formaBody)
+                        .foregroundStyle(Color.formaSecondaryLabelHigh)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    HStack(spacing: FormaSpacing.micro + 2) {
+                        metadataChip(
+                            icon: "doc",
+                            label: file.fileExtension.uppercased(),
+                            foreground: Color.formaSecondaryLabelHigh
+                        )
+
+                        metadataChip(
+                            icon: "calendar",
+                            label: "Age: \(compactAgeText)",
+                            foreground: file.ageColor
+                        )
+
+                        if let destination = file.destination {
+                            metadataChip(
+                                icon: destination.isTrash ? "trash" : "folder",
+                                label: isDestinationHovered ? destination.displayName : truncatePath(destination.displayName),
+                                foreground: Color.formaSteelBlue,
+                                background: Color.formaSteelBlue.opacity(isDestinationHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light)
                             )
-                            .clipShape(Capsule())
                             .onHover { hovering in
                                 isDestinationHovered = hovering
                             }
-                            .help("Destination: \(displayName)")
-                            
-                            // Confidence indicator (if available)
-                            if let confidence = file.confidenceScore {
-                                Button(action: { showReasoning.toggle() }) {
-                                    ConfidenceBadge(score: confidence, matchReason: file.matchReason, showsChevron: true, isExpanded: showReasoning)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        
-                        // Expandable reasoning section
-                        if showReasoning, let reasoning = file.matchReason {
-                            ReasoningView(reasoning: reasoning, isExpanded: showReasoning)
-                        }
-                    }
-                }
-
-                // Tertiary: Compact metadata line
-                HStack(spacing: FormaSpacing.tight) {
-                    // Status pill (only show if not pending, since context already implies pending)
-                    if file.status != .pending {
-                        FormaStatusPill(status: file.status)
-                    }
-
-                    // Consolidated metadata: .ext · age · reason
-                    HStack(spacing: 0) {
-                        Text(".\(file.fileExtension.lowercased())")
-                            .foregroundStyle(Color.formaSecondaryLabelHigh)
-
-                        Text(" · ")
-                            .foregroundStyle(Color.formaSecondaryLabelHigh)
-
-                        Text(compactAgeText)
-                            .foregroundStyle(file.ageColor)
-
-                        // Show match reason if available
-                        if let reason = file.matchReason {
-                            Text(" · ")
-                                .foregroundStyle(Color.formaSecondaryLabelHigh)
-                            Text(reason)
-                                .foregroundStyle(Color.formaSteelBlue)
-                        }
-                    }
-                    .font(.formaCompact)
-                }
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
-
-                // Content Search Snippet (shows when file matched by content)
-                if let snippet = contentSnippet {
-                    ContentSnippetView(snippet: snippet)
-                }
-            }
-
-            Spacer(minLength: FormaSpacing.standard)
-
-            // Action Buttons
-            HStack(spacing: 12) {
-                // Secondary actions (fade in on hover)
-                if isHovered || isFocused {
-                    HStack(spacing: 4) {
-                        if onSkip != nil {
-                            FormaActionButton.icon(
-                                icon: "forward.fill",
-                                color: Color.formaSecondaryLabel,
-                                tooltip: "Skip",
-                                action: { onSkip?(file) }
+                            .help("Destination: \(destination.displayName)")
+                        } else {
+                            metadataChip(
+                                icon: "questionmark.folder",
+                                label: "No destination",
+                                foreground: Color.formaSecondaryLabelHigh
                             )
                         }
 
-                        FormaActionButton.icon(
-                            icon: "eye.fill",
-                            color: Color.formaSecondaryLabel,
-                            tooltip: "Quick Look",
-                            action: { onQuickLook?(file) }
+                        if let confidence = file.confidenceScore {
+                            Button(action: { showReasoning.toggle() }) {
+                                ConfidenceBadge(
+                                    score: confidence,
+                                    matchReason: file.matchReason,
+                                    showsChevron: true,
+                                    isExpanded: showReasoning
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    if showReasoning, let reasoning = file.matchReason {
+                        ReasoningView(reasoning: reasoning, isExpanded: showReasoning)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    if let snippet = contentSnippet {
+                        ContentSnippetView(snippet: snippet)
+                    }
+                }
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isHovered)
+
+                Spacer(minLength: contentSpacing)
+
+                HStack(spacing: FormaSpacing.tight - 2) {
+                    if isHovered || isFocused {
+                        HStack(spacing: 4) {
+                            if onSkip != nil {
+                                FormaActionButton.icon(
+                                    icon: "forward.fill",
+                                    color: Color.formaSecondaryLabel,
+                                    tooltip: "Skip",
+                                    action: { onSkip?(file) }
+                                )
+                            }
+
+                            FormaActionButton.icon(
+                                icon: "eye.fill",
+                                color: Color.formaSecondaryLabel,
+                                tooltip: "Quick Look",
+                                action: { onQuickLook?(file) }
+                            )
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    }
+
+                    // Primary action ownership is controlled by MainContentView action map.
+                    if showsPrimaryActionButton {
+                        PrimaryActionButton(
+                            label: primaryActionConfig.label,
+                            icon: primaryActionConfig.icon,
+                            color: primaryActionConfig.color,
+                            action: primaryActionConfig.action
                         )
                     }
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
                 }
-
-                // Primary action ownership is controlled by MainContentView action map.
-                if showsPrimaryActionButton {
-                    PrimaryActionButton(
-                        label: primaryActionConfig.label,
-                        icon: primaryActionConfig.icon,
-                        color: primaryActionConfig.color,
-                        action: primaryActionConfig.action
-                    )
-                }
-            }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isHovered)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isFocused)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isHovered)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isFocused)
             }
             .padding(.leading, FormaSpacing.standard)
             .padding(.trailing, FormaSpacing.large)
+            .padding(.vertical, rowVerticalPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.leading, FormaSpacing.tight)
-        .padding(.vertical, FormaSpacing.standard)
-        .frame(height: 100)
+        .frame(minHeight: rowMinHeight)
         .background(cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous))
         .overlay(cardBorder)
         .shadow(color: cardShadowColor, radius: cardShadowRadius, x: 0, y: cardShadowY)
         .scaleEffect(hoverScale)
-        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: isHovered)
-        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
-        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: isFocused)
+        .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.82), value: isHovered)
+        .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.82), value: isSelected)
+        .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.82), value: isFocused)
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -251,9 +288,9 @@ struct FileRow: View {
                 NSCursor.pop()
             }
         }
-        .onTapGesture {
-            if isSelectionMode, let onToggleSelection = onToggleSelection {
-                onToggleSelection(file)
+        .if(isSelectionMode && onToggleSelection != nil) { row in
+            row.onTapGesture {
+                onToggleSelection?(file)
             }
         }
         .accessibilityElement(children: .contain)
@@ -261,6 +298,75 @@ struct FileRow: View {
     }
 
     // MARK: - Computed Styles
+
+    private var statusChip: some View {
+        HStack(spacing: FormaSpacing.micro) {
+            Image(systemName: statusChipConfig.icon)
+                .font(.formaCaptionSemibold)
+            Text(statusChipConfig.label)
+                .font(.formaSmallSemibold)
+        }
+        .foregroundStyle(statusChipConfig.color.opacity(Color.FormaOpacity.high))
+        .padding(.horizontal, chipHorizontalPadding)
+        .padding(.vertical, chipVerticalPadding)
+        .background(
+            Capsule(style: .continuous)
+                .fill(statusChipConfig.color.opacity(Color.FormaOpacity.light))
+        )
+    }
+
+    private func metadataChip(
+        icon: String,
+        label: String,
+        foreground: Color,
+        background: Color = Color.formaObsidian.opacity(Color.FormaOpacity.subtle + Color.FormaOpacity.ultraSubtle)
+    ) -> some View {
+        HStack(spacing: FormaSpacing.micro) {
+            Image(systemName: icon)
+                .font(.formaCaption)
+            Text(label)
+                .font(.formaSmall)
+                .lineLimit(1)
+        }
+        .foregroundStyle(foreground)
+        .padding(.horizontal, chipHorizontalPadding)
+        .padding(.vertical, chipVerticalPadding)
+        .background(
+            Capsule(style: .continuous)
+                .fill(background)
+        )
+    }
+
+    private var statusChipConfig: (label: String, icon: String, color: Color) {
+        switch file.status {
+        case .pending:
+            if file.destination == nil {
+                return ("Needs Destination", "questionmark.circle.fill", .formaWarning)
+            }
+            return ("Needs Review", "exclamationmark.circle.fill", .formaWarning)
+        case .ready:
+            return ("Ready", "checkmark.circle.fill", .formaSage)
+        case .completed:
+            return ("Organized", "checkmark.seal.fill", .formaSage)
+        case .skipped:
+            return ("Skipped", "forward.fill", .formaSecondaryLabelHigh)
+        }
+    }
+
+    private var summaryLineText: String {
+        var segments = [file.category.displayName, ageSummaryText]
+
+        if let reason = file.matchReason, !reason.isEmpty {
+            segments.append("Rule: \(reason)")
+        } else if let destination = file.destination {
+            let destinationLabel = destination.isTrash ? "Trash" : truncatePath(destination.displayName)
+            segments.append("Destination: \(destinationLabel)")
+        } else {
+            segments.append("No destination set")
+        }
+
+        return segments.joined(separator: " • ")
+    }
 
     /// Compact age display: "32d", "7d", "1d", "today"
     private var compactAgeText: String {
@@ -270,63 +376,80 @@ struct FileRow: View {
         return "today"
     }
 
+    private var ageSummaryText: String {
+        compactAgeText == "today" ? "today" : "\(compactAgeText) old"
+    }
+
     private var cardBackground: some View {
         Group {
             if isSelected {
                 LinearGradient(
                     colors: [
-                        Color.formaSteelBlue.opacity(Color.FormaOpacity.light),
-                        Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle)
+                        Color.formaSteelBlue.opacity(Color.FormaOpacity.medium),
+                        Color.formaSteelBlue.opacity(Color.FormaOpacity.light)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-            } else if isHovered {
-                Color.formaControlBackground.opacity(Color.FormaOpacity.prominent)
+            } else if isHovered || isFocused {
+                LinearGradient(
+                    colors: [
+                        Color.formaCardBackground.opacity(Color.FormaOpacity.prominent + Color.FormaOpacity.subtle),
+                        Color.formaCardBackground.opacity(Color.FormaOpacity.high + Color.FormaOpacity.light)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             } else {
-                Color.formaControlBackground.opacity(Color.FormaOpacity.high)
+                LinearGradient(
+                    colors: [
+                        Color.formaCardBackground.opacity(Color.FormaOpacity.high + Color.FormaOpacity.light),
+                        Color.formaCardBackground.opacity(Color.FormaOpacity.high)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             }
         }
     }
 
     private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+        RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
             .strokeBorder(
-                isFocused ? Color.formaSteelBlue :
+                isFocused ? Color.formaSteelBlue.opacity(Color.FormaOpacity.prominent) :
                 isSelected ? Color.formaSteelBlue.opacity(Color.FormaOpacity.strong) :
-                isHovered ? Color.formaObsidian.opacity(Color.FormaOpacity.light) :
-                Color.formaObsidian.opacity(Color.FormaOpacity.subtle),
-                lineWidth: isFocused ? 2 : (isSelected ? 1.5 : 1)
+                Color.formaBoneWhite.opacity(isHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light),
+                lineWidth: isFocused ? 1.5 : 1
             )
     }
 
     private var cardShadowColor: Color {
         if isFocused {
-            return Color.formaSteelBlue.opacity(Color.FormaOpacity.light)
+            return Color.formaSteelBlue.opacity(Color.FormaOpacity.medium)
         } else if isSelected {
-            return Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle)
+            return Color.formaSteelBlue.opacity(Color.FormaOpacity.light)
         } else if isHovered {
-            return Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+            return Color.formaObsidian.opacity(Color.FormaOpacity.medium)
         } else {
-            return Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle)
+            return Color.formaObsidian.opacity(Color.FormaOpacity.light)
         }
     }
 
     private var cardShadowRadius: CGFloat {
-        if isFocused || isSelected { return 6 }
-        if isHovered { return 4 }
-        return 2
+        if isFocused || isSelected { return 10 }
+        if isHovered { return 8 }
+        return 5
     }
 
     private var cardShadowY: CGFloat {
-        if isFocused || isSelected { return 2 }
-        if isHovered { return 1 }
+        if isFocused || isSelected { return 4 }
+        if isHovered { return 3 }
         return 1
     }
 
     private var hoverScale: CGFloat {
         if isHovered && !isSelected && !isFocused {
-            return 1.005
+            return 1.003
         }
         return 1.0
     }

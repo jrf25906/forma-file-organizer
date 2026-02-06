@@ -24,3 +24,20 @@ enum ViewMode: String, Codable, CaseIterable, Identifiable {
         }
     }
 }
+
+/// Global density preference for file cards/rows/tiles.
+enum FileDisplayDensity: String, Codable, CaseIterable, Identifiable {
+    case tight = "tight"
+    case balanced = "balanced"
+    case spacious = "spacious"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .tight: return "Tight"
+        case .balanced: return "Balanced"
+        case .spacious: return "Spacious"
+        }
+    }
+}

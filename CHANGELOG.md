@@ -15,6 +15,9 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ### Changed
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
+- Dashboard file card/list/grid views now use a readability-first layout with stronger filename hierarchy, a single primary status chip, human-readable metadata summaries, and cleaner hover-only secondary actions.
+- Dashboard file presentations now use the spacious density treatment across card/list/grid with expanded spacing and larger visual targets.
+- Dark-mode control and text-input surfaces now use deeper charcoal tokens, and checkbox chrome has stronger contrast for clearer affordance.
 - Learned patterns persist unified Destinations for bookmark-aware suggestions.
 - ML destination predictions incorporate project clusters, real training counts, and bookmark-backed destinations when possible.
 - Auto-organize eligibility now respects per-folder automation exclusions.
@@ -27,7 +30,12 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Settings tabs now render inside a shared shell with unified spacing, surfaces, and background chrome to match the main app.
 - File status language is now more consistent across card/list/grid, with compact status indicators and simplified rule-state labeling.
 - List/grid interaction targets were increased and secondary text/chip contrast was raised for better accessibility in light and dark themes.
+- Dashboard list rows now use a cleaner two-line hierarchy with consolidated metadata for faster scanning.
+- Card/list/grid now share the same premium checkbox treatment for consistent selection affordance.
 - Improved dark-mode contrast across analytics, insights, and right-panel labels.
+- Right-panel hero/inspector secondary text and quick-action surfaces now use stronger dark-mode contrast.
+- Quick Action cards now use the same surface treatment as the Automation card for cohesive right-panel styling.
+- File Inspector now uses a transparent panel background so content cards float with the same visual language as adjacent UI.
 - Smart Rules cards, tabs, and access warning banners now use adaptive dark-mode surfaces and higher-contrast typography.
 - Smart Rules and right-panel spacing now follow tighter 8pt rhythm for row height, section gaps, and panel density consistency.
 - App Store screenshot UI tests now enforce Smart Rules/right-panel spacing rhythm and minimum contrast thresholds to prevent visual regressions.
@@ -42,6 +50,9 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.
 - Reduced repeated rule-scan warnings for unresolvable placeholder destinations.
+- File selection checkboxes now keep a stable position and larger click target across card/list/grid views for more reliable selection.
+- Toolbar controls now use explicit sizing to avoid ambiguous AppKit toolbar layout warnings.
+- Scroll views now reserve deterministic bottom space for the floating action bar to prevent content overlap in all view modes.
 
 ### Removed
 - Deprecated API cleanup: removed legacy `FileItem`/`FileMetadata` initializers, `RuleService.addRule(_:)`, and deprecated error type aliases.

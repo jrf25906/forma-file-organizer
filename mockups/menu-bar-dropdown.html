@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forma — Menu Bar Dropdown Mockup</title>
+<style>
+  /* ── Reset & Page ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: #0e0e12;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 48px;
+    min-height: 100vh;
+    color: #e4e4e8;
+  }
+
+  /* ── Wrapper ──────────────────────────────────────────────── */
+  .wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Anchor triangle ──────────────────────────────────────── */
+  .anchor-arrow {
+    width: 18px;
+    height: 10px;
+    position: relative;
+  }
+  .anchor-arrow::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-bottom: 10px solid rgba(30, 30, 52, 0.97);
+  }
+
+  /* ── Dropdown container ───────────────────────────────────── */
+  .dropdown {
+    width: 340px;
+    background: rgba(30, 30, 52, 0.97);
+    border-radius: 12px;
+    border: 0.5px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 32px 100px rgba(0, 0, 0, 0.6),
+      0 8px 24px rgba(0, 0, 0, 0.35),
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(72px) saturate(180%);
+    -webkit-backdrop-filter: blur(72px) saturate(180%);
+    overflow: hidden;
+  }
+
+  /* ── Shared ───────────────────────────────────────────────── */
+  .section { padding: 14px 16px; }
+  .divider {
+    height: 0.5px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 0 16px;
+  }
+
+  /* ── 1. Header ────────────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 10px;
+  }
+  .header-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: rgba(255, 255, 255, 0.5);
+  }
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.4);
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #30d158;
+    box-shadow: 0 0 6px rgba(48, 209, 88, 0.5);
+    animation: pulse 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(48, 209, 88, 0.35); }
+    50% { box-shadow: 0 0 8px rgba(48, 209, 88, 0.6); }
+  }
+
+  /* ── 2. Status Summary ────────────────────────────────────── */
+  .status-banner {
+    background: rgba(255, 107, 107, 0.07);
+    border: 0.5px solid rgba(255, 107, 107, 0.10);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .status-banner-text {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #ff8a80;
+    letter-spacing: -0.15px;
+  }
+  .status-sub {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.28);
+    font-weight: 400;
+  }
+
+  /* ── 3. File Review Card ──────────────────────────────────── */
+  .review-card {
+    background: rgba(255, 255, 255, 0.035);
+    border: 0.5px solid rgba(255, 255, 255, 0.055);
+    border-radius: 10px;
+    padding: 12px;
+  }
+
+  .review-file-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* File type icon */
+  .file-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #1a7a42 0%, #21a854 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .file-icon-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  .file-meta {
+    flex: 1;
+    min-width: 0;
+  }
+  .file-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #eeeeef;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+    letter-spacing: -0.1px;
+  }
+  .file-dest {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.32);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 6px;
+  }
+  .file-dest-arrow {
+    color: rgba(255, 255, 255, 0.2);
+    margin-right: 1px;
+  }
+
+  .rule-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.38);
+    background: rgba(255, 255, 255, 0.055);
+    border: 0.5px solid rgba(255, 255, 255, 0.07);
+    border-radius: 4px;
+    padding: 2px 6px;
+    letter-spacing: 0.05px;
+  }
+
+  /* Action buttons */
+  .review-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
+  }
+  .btn {
+    flex: 1;
+    border: none;
+    border-radius: 7px;
+    padding: 7.5px 0;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    letter-spacing: -0.05px;
+  }
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.055);
+    color: rgba(255, 255, 255, 0.5);
+    border: 0.5px solid rgba(255, 255, 255, 0.07);
+  }
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.68);
+  }
+  .btn-primary {
+    background: #ff6b6b;
+    color: #fff;
+    border: none;
+    box-shadow: 0 1px 4px rgba(255, 107, 107, 0.25);
+  }
+  .btn-primary:hover {
+    background: #ff7f7f;
+    box-shadow: 0 3px 12px rgba(255, 107, 107, 0.35);
+    transform: translateY(-0.5px);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+    background: #f06060;
+    box-shadow: 0 1px 3px rgba(255, 107, 107, 0.2);
+  }
+
+  /* Navigation */
+  .review-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 10px;
+  }
+  .review-nav-arrow {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 0.5px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.12s ease;
+    color: rgba(255, 255, 255, 0.28);
+  }
+  .review-nav-arrow:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.5);
+  }
+  .review-nav-indicator {
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.22);
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── 4. Quick Actions ─────────────────────────────────────── */
+  .quick-action {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+  .quick-action:hover {
+    background: rgba(255, 255, 255, 0.035);
+  }
+  .quick-action-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    background: rgba(255, 107, 107, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .quick-action-label {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.55);
+  }
+  .quick-action-label strong {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  /* ── 5. Monitored Folders ─────────────────────────────────── */
+  .folders-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 9px;
+    cursor: pointer;
+  }
+  .folders-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.22);
+  }
+  .folders-chevron {
+    color: rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+  }
+
+  .folder-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4.5px 0;
+  }
+  .folder-row + .folder-row { margin-top: 1px; }
+
+  .folder-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: rgba(89, 165, 255, 0.55);
+  }
+
+  .folder-name {
+    flex: 1;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .folder-count {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.2);
+    font-variant-numeric: tabular-nums;
+  }
+  .folder-count.has-files {
+    color: rgba(255, 255, 255, 0.42);
+  }
+
+  .folder-attention {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #ff6b6b;
+    flex-shrink: 0;
+    box-shadow: 0 0 5px rgba(255, 107, 107, 0.45);
+  }
+
+  /* ── 6. Footer ────────────────────────────────────────────── */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px 12px;
+  }
+  .footer-open {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    transition: color 0.12s ease;
+    text-decoration: none;
+  }
+  .footer-open:hover {
+    color: rgba(255, 255, 255, 0.55);
+  }
+  .footer-gear {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.12s ease;
+    color: rgba(255, 255, 255, 0.22);
+  }
+  .footer-gear:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.42);
+  }
+
+  /* ── Demo page label ──────────────────────────────────────── */
+  .demo-label {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.1);
+    letter-spacing: 0.6px;
+    font-weight: 500;
+    text-transform: uppercase;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <!-- Anchor arrow -->
+  <div class="anchor-arrow"></div>
+
+  <!-- Dropdown -->
+  <div class="dropdown">
+
+    <!-- ────────────────────────────────────────────────────────
+         1. Header
+         ──────────────────────────────────────────────────────── -->
+    <div class="header">
+      <span class="header-title">Forma</span>
+      <span class="header-status">
+        <span class="status-dot"></span>
+        Watching
+      </span>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ────────────────────────────────────────────────────────
+         2. Status Summary
+         ──────────────────────────────────────────────────────── -->
+    <div class="section">
+      <div class="status-banner">
+        <div class="status-banner-text">3 files need review</div>
+      </div>
+      <div class="status-sub">12 organized today &middot; 47 this week</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ────────────────────────────────────────────────────────
+         3. File Review Card
+         ──────────────────────────────────────────────────────── -->
+    <div class="section">
+      <div class="review-card">
+        <div class="review-file-row">
+          <!-- File type icon -->
+          <div class="file-icon">
+            <span class="file-icon-label">xlsx</span>
+          </div>
+
+          <!-- File metadata -->
+          <div class="file-meta">
+            <div class="file-name">Q4 Budget Report.xlsx</div>
+            <div class="file-dest">
+              <span class="file-dest-arrow">&rarr;</span>
+              Finance/Reports/2024
+            </div>
+            <span class="rule-badge">Finance Documents</span>
+          </div>
+        </div>
+
+        <!-- Skip / Organize buttons -->
+        <div class="review-actions">
+          <button class="btn btn-secondary">Skip</button>
+          <button class="btn btn-primary">Organize</button>
+        </div>
+
+        <!-- 1 of 3 navigation -->
+        <div class="review-nav">
+          <div class="review-nav-arrow">
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+              <path d="M5 1L2 4L5 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="review-nav-indicator">1 of 3</span>
+          <div class="review-nav-arrow">
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+              <path d="M3 1L6 4L3 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ────────────────────────────────────────────────────────
+         4. Quick Actions
+         ──────────────────────────────────────────────────────── -->
+    <div class="quick-action">
+      <div class="quick-action-icon">
+        <!-- Stacked layers / organize icon -->
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="2" width="12" height="3" rx="1" stroke="#ff6b6b" stroke-width="1.2"/>
+          <rect x="2" y="6.5" width="12" height="3" rx="1" stroke="#ff6b6b" stroke-width="1.2"/>
+          <rect x="2" y="11" width="12" height="3" rx="1" stroke="#ff6b6b" stroke-width="1.2"/>
+        </svg>
+      </div>
+      <span class="quick-action-label"><strong>Organize All</strong> (2 high confidence)</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ────────────────────────────────────────────────────────
+         5. Monitored Folders
+         ──────────────────────────────────────────────────────── -->
+    <div class="section">
+      <div class="folders-header">
+        <span class="folders-label">Monitored Folders</span>
+        <span class="folders-chevron">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M2.5 3.5L5 6.5L7.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </div>
+
+      <!-- Downloads -->
+      <div class="folder-row">
+        <div class="folder-icon">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M2.5 5.5C2.5 4.395 3.395 3.5 4.5 3.5H7.172c.53 0 1.039.211 1.414.586l.828.828c.375.375.884.586 1.414.586H15.5c1.105 0 2 .895 2 2V14.5c0 1.105-.895 2-2 2H4.5c-1.105 0-2-.895-2-2V5.5Z" fill="rgba(89,165,255,0.15)" stroke="rgba(89,165,255,0.45)" stroke-width="0.8"/>
+          </svg>
+        </div>
+        <span class="folder-name">Downloads</span>
+        <span class="folder-count has-files">3 files</span>
+        <span class="folder-attention"></span>
+      </div>
+
+      <!-- Desktop -->
+      <div class="folder-row">
+        <div class="folder-icon">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M2.5 5.5C2.5 4.395 3.395 3.5 4.5 3.5H7.172c.53 0 1.039.211 1.414.586l.828.828c.375.375.884.586 1.414.586H15.5c1.105 0 2 .895 2 2V14.5c0 1.105-.895 2-2 2H4.5c-1.105 0-2-.895-2-2V5.5Z" fill="rgba(89,165,255,0.15)" stroke="rgba(89,165,255,0.45)" stroke-width="0.8"/>
+          </svg>
+        </div>
+        <span class="folder-name">Desktop</span>
+        <span class="folder-count">0 files</span>
+      </div>
+
+      <!-- Documents -->
+      <div class="folder-row">
+        <div class="folder-icon">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M2.5 5.5C2.5 4.395 3.395 3.5 4.5 3.5H7.172c.53 0 1.039.211 1.414.586l.828.828c.375.375.884.586 1.414.586H15.5c1.105 0 2 .895 2 2V14.5c0 1.105-.895 2-2 2H4.5c-1.105 0-2-.895-2-2V5.5Z" fill="rgba(89,165,255,0.15)" stroke="rgba(89,165,255,0.45)" stroke-width="0.8"/>
+          </svg>
+        </div>
+        <span class="folder-name">Documents</span>
+        <span class="folder-count has-files">1 file</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ────────────────────────────────────────────────────────
+         6. Footer
+         ──────────────────────────────────────────────────────── -->
+    <div class="footer">
+      <a class="footer-open" href="#">Open Forma</a>
+      <div class="footer-gear">
+        <!-- Gear icon -->
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+          <path d="M8.325 2.317a1.5 1.5 0 0 1 2.95-.193l.025.193.1.737a1.25 1.25 0 0 0 .848.998l.112.03a1.25 1.25 0 0 0 1.16-.283l.555-.505a1.5 1.5 0 0 1 2.258 1.923l-.1.132-.431.58a1.25 1.25 0 0 0-.148 1.186l.046.107a1.25 1.25 0 0 0 .93.706l.738.1a1.5 1.5 0 0 1 .193 2.95l-.193.025-.737.1a1.25 1.25 0 0 0-.998.848l-.03.112a1.25 1.25 0 0 0 .283 1.16l.505.555a1.5 1.5 0 0 1-1.923 2.258l-.132-.1-.58-.431a1.25 1.25 0 0 0-1.186-.148l-.107.046a1.25 1.25 0 0 0-.706.93l-.1.738a1.5 1.5 0 0 1-2.95.193l-.025-.193-.1-.737a1.25 1.25 0 0 0-.848-.998l-.112-.03a1.25 1.25 0 0 0-1.16.283l-.555.505a1.5 1.5 0 0 1-2.258-1.923l.1-.132.431-.58a1.25 1.25 0 0 0 .148-1.186l-.046-.107a1.25 1.25 0 0 0-.93-.706l-.738-.1a1.5 1.5 0 0 1-.193-2.95l.193-.025.737-.1a1.25 1.25 0 0 0 .998-.848l.03-.112a1.25 1.25 0 0 0-.283-1.16l-.505-.555A1.5 1.5 0 0 1 5.418 3.57l.132.1.58.431a1.25 1.25 0 0 0 1.186.148l.107-.046a1.25 1.25 0 0 0 .706-.93l.1-.738Z" stroke="currentColor" stroke-width="1.1" fill="none"/>
+          <circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.1" fill="none"/>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="demo-label">Forma Menu Bar Dropdown &mdash; Static Mockup</div>
+
+</body>
+</html>

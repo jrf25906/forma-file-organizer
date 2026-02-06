@@ -548,25 +548,25 @@ struct DefaultPanelView: View {
 
     private var currentTaskLabelColor: Color {
         colorScheme == .dark
-            ? .formaSecondaryLabelHigh
+            ? Color.formaBoneWhite.opacity(0.78)
             : Color.formaLabel.opacity(0.7)
     }
 
     private var currentTaskSubtextColor: Color {
         colorScheme == .dark
-            ? .formaSecondaryLabelHigh
+            ? Color.formaBoneWhite.opacity(0.82)
             : Color.formaLabel.opacity(0.65)
     }
 
     private var progressLabelColor: Color {
         colorScheme == .dark
-            ? .formaSecondaryLabelHigh
+            ? Color.formaBoneWhite.opacity(0.76)
             : Color.formaLabel.opacity(0.6)
     }
 
     private var quickActionsLabelColor: Color {
         colorScheme == .dark
-            ? .formaSecondaryLabelHigh
+            ? Color.formaBoneWhite.opacity(0.8)
             : Color.formaLabel.opacity(0.6)
     }
 
@@ -664,12 +664,32 @@ struct QuickActionCard: View {
         )
     }
 
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.8) : Color.formaSecondaryLabelHigh
+    }
+
     private var quickActionCardBackground: Color {
-        Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
+        isHovered
+            ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.28 : Color.FormaOpacity.light)
+            : Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
     }
 
     private var ignoreTextColor: Color {
-        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.88) : Color.formaSecondaryLabel
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.9) : Color.formaSecondaryLabel
+    }
+
+    private var dismissBackgroundColor: Color {
+        colorScheme == .dark
+            ? Color.formaTextBackground.opacity(isDismissHovered ? 0.96 : 0.84)
+            : Color.formaObsidian.opacity(isDismissHovered ? Color.FormaOpacity.light : Color.FormaOpacity.ultraSubtle * 2)
+    }
+
+    private var cardBorderColor: Color {
+        Color.formaObsidian.opacity(
+            isHovered
+                ? (colorScheme == .dark ? 0.35 : Color.FormaOpacity.medium)
+                : (colorScheme == .dark ? 0.25 : Color.FormaOpacity.light)
+        )
     }
 
     private var primaryActionContrastRatio: Double {
@@ -716,7 +736,7 @@ struct QuickActionCard: View {
                     if let detail = insight.detail {
                         Text(detail)
                             .font(.formaCaption)
-                            .foregroundStyle(Color.formaSecondaryLabelHigh)
+                            .foregroundStyle(secondaryTextColor)
                             .lineLimit(1)
                     }
                 }
@@ -735,16 +755,12 @@ struct QuickActionCard: View {
                             .foregroundStyle(
                                 isDismissHovered
                                     ? Color.formaLabel
-                                    : Color.formaSecondaryLabelHigh
+                                    : secondaryTextColor
                             )
                             .frame(width: 28, height: 28)
                             .background(
                                 Circle()
-                                    .fill(
-                                        isDismissHovered
-                                            ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.28 : Color.FormaOpacity.light)
-                                            : Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.ultraSubtle * 2)
-                                    )
+                                    .fill(dismissBackgroundColor)
                             )
                     }
                     .buttonStyle(.plain)
@@ -799,22 +815,11 @@ struct QuickActionCard: View {
         .padding(.vertical, FormaSpacing.tight)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(
-                    isHovered
-                        ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.28 : Color.FormaOpacity.light)
-                        : Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
-                )
+                .fill(quickActionCardBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(
-                    Color.formaObsidian.opacity(
-                        isHovered
-                            ? (colorScheme == .dark ? 0.35 : Color.FormaOpacity.medium)
-                            : (colorScheme == .dark ? 0.25 : Color.FormaOpacity.light)
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(cardBorderColor, lineWidth: 1)
         )
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.15)) {

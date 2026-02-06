@@ -6,6 +6,12 @@ enum FloatingActionBarMode {
 }
 
 struct FloatingActionBar: View {
+    /// Visual bar height used to reserve scroll-content space in parent views.
+    static let chromeHeight: CGFloat = 52
+
+    /// Bottom offset from window edge used by the overlay placement.
+    static let bottomOffset: CGFloat = FormaSpacing.large + FormaSpacing.tight
+
     let mode: FloatingActionBarMode
     let count: Int
     let canOrganizeAll: Bool
@@ -179,6 +185,7 @@ struct FloatingActionBar: View {
             .padding(.trailing, FormaSpacing.generous)
         }
         .padding(.vertical, 8)
+        .frame(minHeight: Self.chromeHeight)
         .frame(maxWidth: .infinity)
         .background {
             FormaMaterialSurface(tier: .overlay, cornerRadius: FormaRadius.pill)

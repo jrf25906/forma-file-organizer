@@ -26,7 +26,7 @@ struct FileInspectorView: View {
             .padding(.top, inspectorPadding)
             .padding(.bottom, inspectorPadding)
         }
-        .background(inspectorBackgroundTint)
+        .background(Color.clear)
         .accessibilityIdentifier("fileInspectorView")
         .overlay(alignment: .topLeading) {
             if isUITesting {
@@ -150,7 +150,7 @@ struct FileInspectorView: View {
                     Text("Quick Look")
                         .font(.formaBodyMedium)
                 }
-                .foregroundColor(.formaSteelBlue)
+                .foregroundColor(quickLookButtonTextColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, FormaSpacing.tight)
                 .background(
@@ -160,7 +160,7 @@ struct FileInspectorView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
                         .stroke(
-                            Color.formaSteelBlue.opacity(colorScheme == .dark ? Color.FormaOpacity.strong : Color.FormaOpacity.medium),
+                            quickLookBorderColor,
                             lineWidth: 1
                         )
                 )
@@ -678,18 +678,24 @@ struct FileInspectorView: View {
         }
     }
 
-    private var inspectorBackgroundTint: Color {
-        Color.formaControlBackground.opacity(colorScheme == .dark ? 0.45 : Color.FormaOpacity.overlay)
+    private var inspectorSecondaryTextColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.82) : .formaSecondaryLabel
     }
 
-    private var inspectorSecondaryTextColor: Color {
-        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+    private var quickLookButtonTextColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.92) : .formaSteelBlue
     }
 
     private var quickLookButtonBackgroundColor: Color {
         colorScheme == .dark
-            ? Color.formaSteelBlue.opacity(0.22)
+            ? Color.formaSteelBlue.opacity(0.5)
             : Color.formaSteelBlue.opacity(Color.FormaOpacity.light)
+    }
+
+    private var quickLookBorderColor: Color {
+        colorScheme == .dark
+            ? Color.formaSteelBlue.opacity(Color.FormaOpacity.prominent)
+            : Color.formaSteelBlue.opacity(Color.FormaOpacity.medium)
     }
 
     private var inspectorTitleContrastRatio: Double {
@@ -712,7 +718,7 @@ struct FileInspectorView: View {
 
     private var inspectorQuickLookContrastRatio: Double {
         FormaContrastMetrics.contrastRatio(
-            foreground: .formaSteelBlue,
+            foreground: quickLookButtonTextColor,
             background: quickLookButtonBackgroundColor,
             colorScheme: colorScheme,
             baseBackground: .formaCardBackground

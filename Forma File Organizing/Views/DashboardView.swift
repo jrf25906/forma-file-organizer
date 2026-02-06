@@ -58,12 +58,14 @@ struct DashboardView: View {
         ToolbarItemGroup(placement: .primaryAction) {
             // Hidden button for ⌘F keyboard shortcut - focuses the toolbar search field
             Button(action: focusSearch) {
-                EmptyView()
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 1, weight: .regular))
+                    .opacity(0)
             }
             .keyboardShortcut("f", modifiers: .command)
-            .frame(width: 0, height: 0)
-            .opacity(0)
+            .frame(width: 1, height: 1)
             .accessibilityHidden(true)
+            .allowsHitTesting(false)
 
             // Right panel toggle logic moved to floating overlay
             // Keeping this empty or we can remove the ToolbarItemGroup entirely if empty, 

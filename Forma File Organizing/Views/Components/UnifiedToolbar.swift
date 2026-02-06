@@ -58,6 +58,8 @@ struct UnifiedToolbar: View {
         colorScheme == .dark ? .formaSecondaryLabelHigh : .formaLabel
     }
 
+    private var primaryRowHeight: CGFloat { 44 }
+
     var body: some View {
         // Use a fixed-height container that NEVER changes size between modes
         // This ensures content below starts at the exact same Y position
@@ -71,6 +73,7 @@ struct UnifiedToolbar: View {
                     trailingControls
                 }
             }
+            .frame(height: primaryRowHeight)
             .frame(maxWidth: .infinity)
             .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
 
@@ -102,6 +105,7 @@ struct UnifiedToolbar: View {
             rightPill
         }
         .padding(FormaSpacing.tight)
+        .frame(height: primaryRowHeight)
     }
 
     private var trailingControls: some View {
@@ -134,7 +138,7 @@ struct UnifiedToolbar: View {
                     .font(.formaBodyLarge)
                     .fontWeight(.medium)
                     .foregroundColor(viewModel.isRightPanelVisible ? .formaLabel : secondaryControlColor)
-                    .padding(6)
+                    .frame(width: 32, height: 32)
                     .background(
                         RoundedRectangle(cornerRadius: 6)
                             .fill(
@@ -154,12 +158,14 @@ struct UnifiedToolbar: View {
                         .font(.formaBodyLarge)
                         .fontWeight(.medium)
                         .foregroundColor(secondaryControlColor)
+                        .frame(width: 32, height: 32)
                 }
                 .buttonStyle(.plain)
                 .help("Keyboard Shortcuts (?)")
                 .transition(.opacity)
             }
         }
+        .frame(height: primaryRowHeight)
     }
     
     private var leftPill: some View {
@@ -338,8 +344,8 @@ struct ModeToggleButton: View {
                     .fixedSize(horizontal: true, vertical: false)
             }
             .padding(.horizontal, compressionLevel == .compact ? 10 : 12)
-            .padding(.horizontal, compressionLevel == .compact ? (FormaSpacing.tight + (FormaSpacing.micro / 2)) : (FormaSpacing.standard - FormaSpacing.micro))
             .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
+            .frame(minHeight: 32)
             // IMPORTANT: foregroundColor MUST come before background
             // for VisualEffectView's .withinWindow blending to work correctly
             .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabelHigh)
@@ -395,6 +401,7 @@ struct ViewTypeButton: View {
             }
             .padding(.horizontal, compact ? (FormaSpacing.tight + (FormaSpacing.micro / 2)) : (FormaSpacing.standard - FormaSpacing.micro))
             .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
+            .frame(minHeight: 32)
             .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabelHigh)
             .background {
                 if isActive {
@@ -434,6 +441,7 @@ struct GroupingButton: View {
             }
             .padding(.horizontal, compact ? (FormaSpacing.tight + (FormaSpacing.micro / 2)) : (FormaSpacing.standard - FormaSpacing.micro))
             .padding(.vertical, FormaSpacing.micro)
+            .frame(minHeight: 28)
             .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabelHigh)
             .background {
                 if isActive {
