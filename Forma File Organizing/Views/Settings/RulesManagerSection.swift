@@ -89,7 +89,7 @@ struct RulesManagerSection: View {
                 }
             }
         }
-        .background(Color.formaBackground)
+        .background(Color.clear)
         .sheet(isPresented: $showingEditor) {
             RuleEditorView(rule: editingRule, buttonNamespace: editingRule == nil ? ruleButtonNamespace : nil)
         }

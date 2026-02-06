@@ -6,6 +6,7 @@ struct FileGridItem: View {
     let isFocused: Bool
     let isSelected: Bool
     let isSelectionMode: Bool
+    let showsPrimaryActionButton: Bool
 
     // Search match type for content search badge
     let searchMatchType: ContentSearchService.MatchType?
@@ -92,11 +93,20 @@ struct FileGridItem: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 36, alignment: .top) // Fixed height for 2 lines of text
 
-                        // Tertiary: Size + Modified date
-                        Text("\(file.size) • \(file.creationDate.formatted(.relative(presentation: .named)))")
-                            .font(.formaCaption)
-                            .foregroundColor(Color.formaSecondaryLabel.opacity(Color.FormaOpacity.strong))
-                            .lineLimit(1)
+                        // Tertiary: status + size + modified date
+                        HStack(spacing: FormaSpacing.micro) {
+                            if file.status != .pending {
+                                StatusIndicator(status: file.status)
+                                Text(file.status.badgeText)
+                                    .font(.formaCaptionSemibold)
+                                    .foregroundColor(.formaSecondaryLabelHigh)
+                            }
+
+                            Text("\(file.size) • \(file.creationDate.formatted(.relative(presentation: .named)))")
+                                .font(.formaCaption)
+                                .foregroundColor(.formaSecondaryLabelHigh)
+                                .lineLimit(1)
+                        }
                     }
                     .padding(.horizontal, FormaSpacing.standard)
 
@@ -128,6 +138,7 @@ struct FileGridItem: View {
             if isHovered && !isSelectionMode {
                 HoverActionOverlay(
                     hasDestination: hasDestination,
+                    showsPrimaryActionButton: showsPrimaryActionButton,
                     cornerRadius: cornerRadius,
                     onOrganize: onOrganize,
                     onEdit: onEdit,
@@ -277,7 +288,7 @@ private struct GridDestinationBadge: View {
                 .padding(.vertical, FormaSpacing.micro)
                 .background(
                     Capsule()
-                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.medium))
                 )
 
                 if let confidenceScore = confidenceScore {
@@ -288,12 +299,12 @@ private struct GridDestinationBadge: View {
             // Only show "Uncategorized" on hover - reduces visual noise
             Text("Uncategorized")
                 .font(.formaCaptionSemibold)
-                .foregroundColor(Color.formaSecondaryLabel)
+                .foregroundColor(Color.formaSecondaryLabelHigh)
                 .padding(.horizontal, FormaSpacing.tight)
                 .padding(.vertical, FormaSpacing.micro)
                 .background(
                     Capsule()
-                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.light))
                 )
                 .opacity(isHovered ? 1 : 0)
         }
@@ -304,6 +315,7 @@ private struct GridDestinationBadge: View {
 
 private struct HoverActionOverlay: View {
     let hasDestination: Bool
+    let showsPrimaryActionButton: Bool
     let cornerRadius: CGFloat
     let onOrganize: () -> Void
     let onEdit: () -> Void
@@ -317,7 +329,7 @@ private struct HoverActionOverlay: View {
             // Frosted action bar
             HStack(spacing: FormaSpacing.tight) {
                 // Primary: Organize
-                if hasDestination {
+                if hasDestination && showsPrimaryActionButton {
                     FormaActionButton.grid(
                         icon: "checkmark",
                         color: Color.formaSage,

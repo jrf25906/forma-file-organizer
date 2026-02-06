@@ -70,7 +70,7 @@ struct CustomFoldersSection: View {
             .padding(.horizontal, FormaSpacing.generous)
             .padding(.bottom, FormaSpacing.standard)
         }
-        .background(Color.formaBackground)
+        .background(Color.clear)
         .alert("Revoke Access?", isPresented: $showRevokeConfirmation) {
             Button("Cancel", role: .cancel) {
                 folderToRevoke = nil

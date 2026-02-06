@@ -39,6 +39,33 @@ final class ProductivityReportViewModel: ObservableObject {
     private var dismissedInsightIds: Set<UUID> = []
     private var openSettings: (@MainActor () -> Void)?
 
+    // MARK: - Derived UI State
+
+    var hasStorageData: Bool {
+        guard let storageTreemap else { return false }
+        return !storageTreemap.children.isEmpty
+    }
+
+    var hasAutomationData: Bool {
+        automationTimeline.contains { $0.totalActions > 0 }
+    }
+
+    var hasFreshnessData: Bool {
+        stalenessCalendar.contains { $0.totalFiles > 0 }
+    }
+
+    var hasInsightData: Bool {
+        !smartInsights.isEmpty
+    }
+
+    var hasAnyProductivityData: Bool {
+        hasStorageData || hasAutomationData || hasFreshnessData || hasInsightData
+    }
+
+    var showsNoDataGuidance: Bool {
+        !isLoading && !hasAnyProductivityData
+    }
+
     // MARK: - Initialization
 
     init(
@@ -154,6 +181,26 @@ final class ProductivityReportViewModel: ObservableObject {
     /// Handle the "nudge cleanup" button on the staleness heatmap
     func nudgeCleanup() {
         Log.info("ProductivityReportViewModel: Nudge cleanup tapped", category: .analytics)
+        navigateToHome(secondaryFilter: .none, reviewMode: .needsReview)
+    }
+
+    func runInitialScan() {
+        Task { @MainActor in
+            await dashboardViewModel.scanFiles(context: modelContext)
+            await refresh()
+        }
+    }
+
+    func openRuleBuilder() {
+        navigation.ruleEditorSuggestedText = "Move files older than 30 days to Archive"
+        navigation.editingRule = nil
+        navigation.ruleEditorFileContext = nil
+        withAnimation(.easeInOut(duration: 0.2)) {
+            navigation.isShowingRuleEditor = true
+        }
+    }
+
+    func openPendingReviewQueue() {
         navigateToHome(secondaryFilter: .none, reviewMode: .needsReview)
     }
 

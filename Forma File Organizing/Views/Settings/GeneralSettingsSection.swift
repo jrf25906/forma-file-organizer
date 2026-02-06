@@ -62,7 +62,7 @@ struct GeneralSettingsSection: View {
             }
             .padding(FormaSpacing.generous)
         }
-        .background(Color.formaBackground)
+        .background(Color.clear)
         .frame(minWidth: 400)
     }
 

@@ -3,6 +3,11 @@ import SwiftData
 import AppKit
 
 struct MainContentView: View {
+    private enum PrimaryActionSource {
+        case floatingActionBar
+        case rightPanelPinned
+    }
+
     let availableWidth: CGFloat
     @EnvironmentObject var nav: NavigationViewModel
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
@@ -37,6 +42,16 @@ struct MainContentView: View {
     private var shouldShowFAB: Bool {
         dashboardViewModel.isSelectionMode ||
         (dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.reviewableFiles.isEmpty)
+    }
+
+    /// Primary-action ownership for the current screen state.
+    private var primaryActionSource: PrimaryActionSource {
+        shouldShowFAB ? .floatingActionBar : .rightPanelPinned
+    }
+
+    /// Row-level primary buttons are hidden when the bottom bulk bar is the active primary action.
+    private var showsRowPrimaryActionButtons: Bool {
+        primaryActionSource == .rightPanelPinned
     }
 
     var body: some View {
@@ -549,6 +564,7 @@ struct MainContentView: View {
                                 isFocused: dashboardViewModel.focusedFilePath == file.path,
                                 isSelected: dashboardViewModel.isSelected(file),
                                 isSelectionMode: dashboardViewModel.isSelectionMode,
+                                showsPrimaryActionButton: showsRowPrimaryActionButtons,
                                 showKeyboardHints: dashboardViewModel.isKeyboardNavigating,
                                 searchMatchType: dashboardViewModel.searchMatchType(for: file),
                                 contentSnippet: dashboardViewModel.contentSnippet(for: file),
@@ -633,6 +649,7 @@ struct MainContentView: View {
             isFocused: dashboardViewModel.focusedFilePath == file.path,
             isSelected: dashboardViewModel.isSelected(file),
             isSelectionMode: dashboardViewModel.isSelectionMode,
+            showsPrimaryActionButton: showsRowPrimaryActionButtons,
             searchMatchType: dashboardViewModel.searchMatchType(for: file),
             onToggleSelection: { dashboardViewModel.toggleSelection(for: file) },
             onOrganize: { organizeFileWithAnimation(file) },
@@ -682,6 +699,7 @@ struct MainContentView: View {
                             isFocused: dashboardViewModel.focusedFilePath == file.path,
                             isSelected: dashboardViewModel.isSelected(file),
                             isSelectionMode: dashboardViewModel.isSelectionMode,
+                            showsPrimaryActionButton: showsRowPrimaryActionButtons,
                             searchMatchType: dashboardViewModel.searchMatchType(for: file),
                             onToggleSelection: {
                                 dashboardViewModel.toggleSelection(for: file)

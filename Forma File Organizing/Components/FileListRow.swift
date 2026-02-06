@@ -7,6 +7,7 @@ struct FileListRow: View {
     let isFocused: Bool
     let isSelected: Bool
     let isSelectionMode: Bool
+    let showsPrimaryActionButton: Bool
 
     // Search match type for content search badge
     var searchMatchType: ContentSearchService.MatchType? = nil
@@ -25,7 +26,6 @@ struct FileListRow: View {
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
 
     // MARK: - Constants
     private let categoryBorderWidth: CGFloat = 3
@@ -85,9 +85,20 @@ struct FileListRow: View {
                 }
 
                 // Tertiary: Metadata
-                Text("\(file.fileExtension.uppercased()) • \(file.size)")
-                    .font(.formaSmall)
-                    .foregroundColor(metadataColor)
+                HStack(spacing: FormaSpacing.micro) {
+                    if file.status != .pending {
+                        HStack(spacing: FormaSpacing.micro) {
+                            StatusIndicator(status: file.status)
+                            Text(file.status.badgeText)
+                                .font(.formaSmall)
+                                .foregroundColor(metadataColor)
+                        }
+                    }
+
+                    Text("\(file.fileExtension.uppercased()) • \(file.size)")
+                        .font(.formaSmall)
+                        .foregroundColor(metadataColor)
+                }
             }
 
             Spacer(minLength: FormaSpacing.standard)
@@ -114,13 +125,13 @@ struct FileListRow: View {
                     isHovered: isHovered
                 )
 
-                // Primary action (always visible when has destination)
-                if hasDestination && !isSelectionMode {
+                // Primary action (always visible by default, hover-revealed in bulk-review mode)
+                if hasDestination && !isSelectionMode && showsPrimaryActionButton {
                     Button(action: onOrganize) {
                         Image(systemName: "checkmark")
                             .font(.formaSmallSemibold)
                             .foregroundColor(.formaBoneWhite)
-                            .frame(width: 26, height: 26)
+                            .frame(width: 32, height: 32)
                             .background(
                                 Circle()
                                     .fill(Color.formaSage)
@@ -157,8 +168,8 @@ struct FileListRow: View {
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.formaCompactMedium)
-                            .foregroundColor(Color.formaSecondaryLabel.opacity(Color.FormaOpacity.high))
-                            .frame(width: 24, height: 24)
+                            .foregroundColor(Color.formaSecondaryLabelHigh)
+                            .frame(width: 30, height: 30)
                             .background(
                                 Circle()
                                     .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
@@ -220,9 +231,7 @@ struct FileListRow: View {
     }
 
     private var metadataColor: Color {
-        colorScheme == .dark
-            ? .formaSecondaryLabelHigh
-            : Color.formaLabel.opacity(0.7)
+        .formaSecondaryLabelHigh
     }
 
     // MARK: - Focus Indicator
@@ -283,12 +292,12 @@ private struct DestinationBadge: View {
             // Only show "Uncategorized" on hover - reduces visual noise
             Text("Uncategorized")
                 .font(.formaSmallMedium)
-                .foregroundColor(Color.formaSecondaryLabel)
+                .foregroundColor(Color.formaSecondaryLabelHigh)
                 .padding(.horizontal, FormaSpacing.tight)
                 .padding(.vertical, FormaSpacing.micro)
                 .background(
                     Capsule()
-                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                        .fill(Color.formaObsidian.opacity(Color.FormaOpacity.light))
                 )
                 .opacity(isHovered ? 1 : 0)
         }

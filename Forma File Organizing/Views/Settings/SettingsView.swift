@@ -6,33 +6,43 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            RulesManagerSection()
+            SettingsTabShell {
+                RulesManagerSection()
+            }
                 .tabItem {
                     Label("Rules", systemImage: "flowchart")
                 }
 
-            CustomFoldersSection()
+            SettingsTabShell {
+                CustomFoldersSection()
+            }
                 .tabItem {
                     Label("Folders", systemImage: "folder.badge.plus")
                 }
 
-            SmartFeaturesSection()
+            SettingsTabShell {
+                SmartFeaturesSection()
+            }
                 .tabItem {
                     Label("Smart Features", systemImage: "brain")
                 }
 
-            GeneralSettingsSection()
+            SettingsTabShell {
+                GeneralSettingsSection()
+            }
                 .tabItem {
                     Label("General", systemImage: "gear")
                 }
 
-            AboutSection()
+            SettingsTabShell {
+                AboutSection()
+            }
                 .tabItem {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 700, height: 550)
-        .background(Color.formaBackground)
+        .frame(width: 760, height: 600)
+        .background(Color.clear)
         .preferredColorScheme(AppearanceMode(rawValue: appearanceMode)?.colorScheme)
     }
 }

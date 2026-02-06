@@ -11,7 +11,7 @@ struct FormaActionButton: View {
         var buttonSize: CGFloat {
             switch self {
             case .icon: return 32
-            case .compact: return 24
+            case .compact: return 28
             case .grid: return 32
             }
         }

@@ -1,11 +1,11 @@
 # Forma - Project TODO
 
-**Last Updated:** February 4, 2026
+**Last Updated:** February 5, 2026
 
 ---
 
 ## Codebase Cleanup Checklist (v2)
-**Last Updated:** February 4, 2026
+**Last Updated:** February 5, 2026
 
 This checklist tracks the cleanup execution plan; keep it aligned with the canonical roadmap if it becomes a release goal.
 
@@ -20,6 +20,18 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] Remove unused `FileFilterManager` debounce/batch-reset APIs no longer used by the app flow.
 - [x] Add targeted regression tests for filter-cache invalidation and duplicate-detection behavior.
 - [x] Capture before/after benchmark numbers for scan/search/duplicate detection in a dedicated performance note (`Docs/PERFORMANCE_AUDIT.md`).
+
+### Design Polish Sprint (February 5, 2026)
+- [x] 1. Audit cross-screen UX/visual hierarchy for Dashboard, All Files, Rule Builder, Smart Rules, Analytics, and Settings (light + dark).
+- [x] 2. CTA hierarchy pass 1: when bulk review controls are active, hide competing right-panel primary CTA and de-emphasize always-on row-level primary organize buttons.
+- [x] 3. CTA hierarchy pass 2: enforce one primary action per screen state (primary, secondary, tertiary action map).
+- [x] 4. Rule Builder IA pass: split into explicit "When" and "Then" sections with inline validation and impact preview.
+- [x] 5. Smart Rules empty-state cleanup: remove duplicate create-entry points and add starter templates.
+- [x] 6. Analytics focus mode: reduce right-rail visual competition and improve no-data guidance.
+- [x] 7. Settings visual consistency pass: align shell, spacing, surfaces, and typography with main app chrome.
+- [x] 8. Contrast/accessibility pass: raise secondary text/icon/chip contrast in both themes.
+- [x] 9. Status semantics pass: simplify redundant status cues (stripe, pill, icon, copy) into a single coherent system.
+- [x] 10. Interaction polish across card/list/grid: focus visibility, hit targets, hover/pressed states, motion consistency.
 
 ### Phase 1: Safety Fixes (zero behavioral change, prevents crashes)
 - [x] 1. MenuBarViewModel.swift:185 — replace `self!` in [weak self] closure with `guard let self else { return }` (fallback: early return).

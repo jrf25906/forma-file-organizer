@@ -11,6 +11,7 @@ struct FileRow: View {
     var isFocused: Bool = false
     var isSelected: Bool = false
     var isSelectionMode: Bool = false
+    var showsPrimaryActionButton: Bool = true
     var showKeyboardHints: Bool = false
 
     // Search Match Display (from ContentSearchService)
@@ -126,7 +127,11 @@ struct FileRow: View {
                             .foregroundStyle(Color.formaSteelBlue)
                             .padding(.horizontal, FormaSpacing.tight + (FormaSpacing.micro / 2))
                             .padding(.vertical, FormaSpacing.micro)
-                            .background(Color.formaSteelBlue.opacity(isDestinationHovered ? Color.FormaOpacity.light : Color.FormaOpacity.light))
+                            .background(
+                                Color.formaSteelBlue.opacity(
+                                    isDestinationHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light
+                                )
+                            )
                             .clipShape(Capsule())
                             .onHover { hovering in
                                 isDestinationHovered = hovering
@@ -211,13 +216,15 @@ struct FileRow: View {
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                 }
 
-                // Primary action - Pill style for prominence
-                PrimaryActionButton(
-                    label: primaryActionConfig.label,
-                    icon: primaryActionConfig.icon,
-                    color: primaryActionConfig.color,
-                    action: primaryActionConfig.action
-                )
+                // Primary action ownership is controlled by MainContentView action map.
+                if showsPrimaryActionButton {
+                    PrimaryActionButton(
+                        label: primaryActionConfig.label,
+                        icon: primaryActionConfig.icon,
+                        color: primaryActionConfig.color,
+                        action: primaryActionConfig.action
+                    )
+                }
             }
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isHovered)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isFocused)
@@ -449,7 +456,11 @@ struct SearchMatchBadge: View {
         .foregroundStyle(config.color)
         .padding(.horizontal, FormaSpacing.tight - (FormaSpacing.micro / 2))
         .padding(.vertical, FormaSpacing.micro / 2)
-        .background(config.color.opacity(Color.FormaOpacity.light))
+        .background(config.color.opacity(Color.FormaOpacity.medium))
+        .overlay(
+            Capsule()
+                .strokeBorder(config.color.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+        )
         .clipShape(Capsule())
     }
 }
@@ -464,17 +475,17 @@ struct ContentSnippetView: View {
         HStack(spacing: 4) {
             Image(systemName: "text.quote")
                 .font(.formaCaptionSemibold)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.formaSecondaryLabelHigh)
 
             Text(snippet)
                 .font(.formaSmall)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.formaSecondaryLabelHigh)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
         .padding(.horizontal, FormaSpacing.tight)
         .padding(.vertical, FormaSpacing.micro)
-        .background(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+        .background(Color.formaObsidian.opacity(Color.FormaOpacity.light))
         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous))
     }
 }

@@ -3,6 +3,57 @@ import SwiftUI
 // MARK: - Simple Settings Helpers (Forma-styled, Settings-safe)
 // These avoid the layout issues with FormaSection in Settings windows
 
+struct SettingsTabShell<Content: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    private var shellFill: Color {
+        colorScheme == .dark
+            ? Color.formaObsidian.opacity(0.46)
+            : Color.formaBoneWhite.opacity(0.72)
+    }
+
+    private var shellStroke: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle)
+    }
+
+    var body: some View {
+        ZStack {
+            GradientBackdropView(
+                intensity: colorScheme == .dark ? Color.FormaOpacity.medium : Color.FormaOpacity.overlay,
+                blurRadius: FormaSpacing.huge + FormaSpacing.tight
+            )
+
+            content
+                .padding(FormaSpacing.tight)
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
+                        .fill(shellFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
+                                .stroke(shellStroke, lineWidth: 1)
+                        )
+                        .shadow(
+                            color: colorScheme == .dark
+                                ? Color.black.opacity(0.26)
+                                : Color.formaObsidian.opacity(Color.FormaOpacity.medium),
+                            radius: 14,
+                            x: 0,
+                            y: 6
+                        )
+                )
+                .padding(FormaSpacing.standard)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
 struct SettingsSection<Content: View>: View {
     let title: String
     let content: Content

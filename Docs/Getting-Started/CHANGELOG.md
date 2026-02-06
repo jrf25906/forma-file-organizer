@@ -99,10 +99,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Grid view now shows confidence indicators alongside destination badges, with tooltips that include match reasons when available.
 
 ### Changed
+- Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Learned patterns persist unified Destinations for bookmark-aware suggestions.
 - ML destination predictions incorporate project clusters, real training counts, and bookmark-backed destinations when possible.
 - Auto-organize eligibility now respects per-folder automation exclusions.
 - Rules list now flags destinations missing folder access with a review filter, and Rule Editor offers a quick picker to resolve them.
+- Bulk-review mode now prioritizes the floating action bar by hiding the right-panel primary organize CTA and de-emphasizing always-on row-level organize buttons.
+- Inline Rule Builder now uses explicit "When" and "Then" sections with inline validation hints, a disabled-until-valid save action, and an always-visible impact preview.
+- Smart Rules empty state now removes duplicate top-level actions and adds starter templates that open the editor with prefilled natural-language prompts.
+- Analytics view now runs in a focus mode by hiding the right panel while the Analytics screen is active.
+- Productivity Health now includes explicit no-data onboarding guidance with quick actions (scan folders, open pending queue, and create a first rule).
+- Settings tabs now render inside a shared shell with unified spacing, surfaces, and background chrome to match the main app.
+- File status language is now more consistent across card/list/grid, with compact status indicators and simplified rule-state labeling.
+- List/grid interaction targets were increased and secondary text/chip contrast was raised for better accessibility in light and dark themes.
 - Content search now runs its heavy scan work off the main actor and uses indexed path lookups in `DashboardViewModel` to avoid per-row linear searches.
 - Folder scans now use prefetched URL resource keys and parallelized standard-folder scan tasks to reduce filesystem syscall overhead.
 - Thumbnail loading now checks memory/disk caches before opening security scopes and skips redundant stale-metadata checks on disk-cache hits.

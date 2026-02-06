@@ -7,6 +7,7 @@ struct ProductivityReportView: View {
     @StateObject private var viewModel: ProductivityReportViewModel
     @Namespace private var periodAnimation
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.colorScheme) private var colorScheme
 
     init(modelContext: ModelContext, navigation: NavigationViewModel, dashboardViewModel: DashboardViewModel) {
         _viewModel = StateObject(
@@ -34,6 +35,10 @@ struct ProductivityReportView: View {
                 VStack(alignment: .leading, spacing: FormaSpacing.large) {
                     if let error = viewModel.errorMessage {
                         errorBanner(error)
+                    }
+
+                    if viewModel.showsNoDataGuidance {
+                        noDataGuidanceSection
                     }
 
                     // 1. The "Big Three" Impact Metrics
@@ -130,6 +135,55 @@ struct ProductivityReportView: View {
     }
 
     // MARK: - Impact Metrics Section
+
+    private var noDataGuidanceSection: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            Label("No Activity Yet", systemImage: "sparkles")
+                .font(.formaBodyBold)
+                .foregroundColor(.formaLabel)
+
+            Text("Run one scan and organize a few files to unlock insights in this dashboard.")
+                .font(.formaSmall)
+                .foregroundColor(.formaSecondaryLabelHigh)
+
+            HStack(spacing: FormaSpacing.standard) {
+                Button("Scan Folders") {
+                    viewModel.runInitialScan()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.formaSteelBlue)
+
+                Button("Open Pending Files") {
+                    viewModel.openPendingReviewQueue()
+                }
+                .buttonStyle(.bordered)
+
+                Button("Create Rule") {
+                    viewModel.openRuleBuilder()
+                }
+                .buttonStyle(.bordered)
+            }
+            .controlSize(.small)
+        }
+        .padding(FormaSpacing.generous)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(
+                    colorScheme == .dark
+                        ? Color.formaBoneWhite.opacity(0.08)
+                        : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(
+                    colorScheme == .dark
+                        ? Color.formaBoneWhite.opacity(0.16)
+                        : Color.formaObsidian.opacity(Color.FormaOpacity.light),
+                    lineWidth: 1
+                )
+        )
+    }
 
     private var impactMetricsSection: some View {
         HStack(spacing: FormaSpacing.generous) {
@@ -265,18 +319,27 @@ struct ProductivityReportView: View {
                     Text("\(viewModel.smartInsights.count) suggestion\(viewModel.smartInsights.count == 1 ? "" : "s")")
                         .font(.formaSmall)
                         .foregroundColor(.formaSecondaryLabelHigh)
-                }
+                    }
             }
 
-            SmartInsightList(
-                insights: viewModel.smartInsights,
-                onAction: { insight in
-                    viewModel.handleInsightAction(insight)
-                },
-                onDismiss: { insight in
-                    viewModel.dismissInsight(insight)
-                }
-            )
+            if viewModel.showsNoDataGuidance {
+                ProductivityEmptyState(
+                    icon: "lightbulb",
+                    title: "Insights will appear after your first pass",
+                    message: "After Forma organizes a few files, you'll get actionable recommendations here."
+                )
+                .frame(minHeight: 140)
+            } else {
+                SmartInsightList(
+                    insights: viewModel.smartInsights,
+                    onAction: { insight in
+                        viewModel.handleInsightAction(insight)
+                    },
+                    onDismiss: { insight in
+                        viewModel.dismissInsight(insight)
+                    }
+                )
+            }
         }
     }
 }

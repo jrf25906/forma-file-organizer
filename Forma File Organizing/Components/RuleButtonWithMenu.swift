@@ -15,23 +15,23 @@ struct RuleButtonWithMenu: View {
     private var pillBackground: Color {
         if hasRule {
             return colorScheme == .dark
-                ? Color.formaSoftGreen.opacity(0.20)
-                : Color.formaSoftGreen.opacity(0.12)
+                ? Color.formaSoftGreen.opacity(0.28)
+                : Color.formaSoftGreen.opacity(0.16)
         }
         return colorScheme == .dark
-            ? Color.formaWarning.opacity(0.22)
-            : Color.formaWarning.opacity(0.12)
+            ? Color.formaWarning.opacity(0.30)
+            : Color.formaWarning.opacity(0.16)
     }
 
     private var pillBorder: Color {
         if hasRule {
             return colorScheme == .dark
-                ? Color.formaSoftGreen.opacity(0.55)
-                : Color.formaSoftGreen.opacity(0.45)
+                ? Color.formaSoftGreen.opacity(0.70)
+                : Color.formaSoftGreen.opacity(0.58)
         }
         return colorScheme == .dark
-            ? Color.formaWarning.opacity(0.55)
-            : Color.formaWarning.opacity(0.5)
+            ? Color.formaWarning.opacity(0.70)
+            : Color.formaWarning.opacity(0.62)
     }
     
     var body: some View {
@@ -66,10 +66,10 @@ struct RuleButtonWithMenu: View {
             }
         } label: {
             HStack(spacing: FormaSpacing.tight - (FormaSpacing.micro / 2)) {
-                Image(systemName: hasRule ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                Image(systemName: hasRule ? "checkmark.circle.fill" : "plus.circle.fill")
                     .font(.formaCompactMedium)
                     .foregroundColor(hasRule ? Color.formaSuccess : Color.formaWarning)
-                Text(hasRule ? "Has Rule" : "No Rule")
+                Text("Rule")
                     .font(.formaCompactMedium)
                     .foregroundColor(.formaLabel)
             }
@@ -85,7 +85,7 @@ struct RuleButtonWithMenu: View {
             )
         }
         .menuStyle(.borderlessButton)
-        .help(hasRule ? "View or change rule" : "Create a rule for this file")
+        .help(hasRule ? "View or change matching rules" : "Create a rule for this file")
     }
 }
 

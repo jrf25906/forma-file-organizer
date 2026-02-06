@@ -84,7 +84,9 @@ struct DashboardView: View {
                 GeometryReader { geometry in
                     let sidebarWidth: CGFloat = FormaLayout.Dashboard.sidebarExpandedWidth
                     let rightPanelWidth: CGFloat = dashboardViewModel.isRightPanelVisible ? FormaLayout.Dashboard.rightPanelIdealWidth : 0
-                    let shouldShowRightPanel = geometry.size.width >= 1200 && dashboardViewModel.isRightPanelVisible
+                    let shouldShowRightPanel = geometry.size.width >= 1200 &&
+                        dashboardViewModel.isRightPanelVisible &&
+                        nav.selection != .analytics
                     let interPaneSpacing = FormaLayout.Dashboard.interPaneSpacing
                     let sidebarSpacerWidth = max(0, sidebarWidth - interPaneSpacing)
                     let sidebarEdgeInset = FormaLayout.FloatingCard.edgeInset

@@ -7,9 +7,9 @@ struct StatusIndicator: View {
     private var color: Color {
         switch status {
         case .ready:
-            return .formaSteelBlue
+            return .formaSage
         case .pending:
-            return .formaObsidian.opacity(Color.FormaOpacity.overlay)
+            return .formaSecondaryLabelHigh.opacity(Color.FormaOpacity.high)
         case .skipped:
             return .formaWarning
         case .completed:

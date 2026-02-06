@@ -7,7 +7,13 @@ import SwiftData
 // Features: Circular progress ring, refined insights, clear hierarchy
 
 struct DefaultPanelView: View {
+    private enum PrimaryActionSource {
+        case floatingActionBar
+        case rightPanelPinned
+    }
+
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Query private var allPatterns: [LearnedPattern]
@@ -26,6 +32,28 @@ struct DefaultPanelView: View {
         return hasSuggestablePatterns || hasVisibleInsights
     }
 
+    /// Primary-action ownership for the current dashboard state.
+    private var primaryActionSource: PrimaryActionSource {
+        let hasBulkReviewControls =
+            dashboardViewModel.isSelectionMode ||
+            (dashboardViewModel.reviewFilterMode == .needsReview &&
+             !dashboardViewModel.reviewableFiles.isEmpty)
+        return hasBulkReviewControls ? .floatingActionBar : .rightPanelPinned
+    }
+
+    /// Hide right-panel primary CTA when another surface owns primary action or
+    /// when the center view is in a non-file workflow.
+    private var shouldShowPinnedPrimaryAction: Bool {
+        guard primaryActionSource == .rightPanelPinned else { return false }
+
+        switch nav.selection {
+        case .rules, .analytics:
+            return false
+        default:
+            return true
+        }
+    }
+
     // MARK: - Debouncing for Insights Generation
     /// Task handle for debounced insight loading - cancels previous pending loads
     @State private var insightLoadTask: Task<Void, Never>?
@@ -40,7 +68,9 @@ struct DefaultPanelView: View {
                 heroSection
 
                 // Primary Action (pinned)
-                pinnedPrimaryAction
+                if shouldShowPinnedPrimaryAction {
+                    pinnedPrimaryAction
+                }
             }
             .padding(.horizontal, FormaSpacing.standard)
             .padding(.vertical, FormaSpacing.standard)
@@ -906,6 +936,7 @@ extension FileInsight {
 
     DefaultPanelView()
         .environmentObject(DashboardViewModel())
+        .environmentObject(NavigationViewModel())
         .modelContainer(container)
         .frame(width: 340, height: 800)
         .background(.regularMaterial)
