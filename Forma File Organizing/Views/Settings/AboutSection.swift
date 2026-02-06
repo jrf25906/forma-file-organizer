@@ -5,14 +5,30 @@ struct AboutSection: View {
 
     private var logoContainerFill: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.05)
+            ? Color.formaBoneWhite.opacity(0.1)
             : Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle + 0.01)
     }
 
     private var logoContainerStroke: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.12)
+            ? Color.formaBoneWhite.opacity(0.24)
             : Color.formaSeparator.opacity(Color.FormaOpacity.light)
+    }
+
+    @ViewBuilder
+    private var aboutLogo: some View {
+        if colorScheme == .dark {
+            Image("logo-mark")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: 90)
+                .colorInvert()
+                .brightness(0.08)
+                .contrast(1.08)
+                .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 2)
+        } else {
+            FormaLogo(style: .mark, height: 90)
+        }
     }
 
     var body: some View {
@@ -23,7 +39,7 @@ struct AboutSection: View {
             Spacer()
 
             // Brand logo
-            FormaLogo(style: .mark, height: 90)
+            aboutLogo
                 .padding(FormaSpacing.standard)
                 .background(
                     RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
@@ -68,6 +84,6 @@ struct AboutSection: View {
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.formaBackground)
+        .background(Color.clear)
     }
 }

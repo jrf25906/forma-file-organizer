@@ -75,6 +75,43 @@ struct InlineRuleBuilderView: View {
             : Color.black.opacity(0.08)
     }
 
+    private var trimmedRuleName: String {
+        formState.name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var hasValidConditionInput: Bool {
+        if formState.useCompoundConditions {
+            return !formState.conditions.isEmpty &&
+                formState.conditions.allSatisfy { !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        }
+        return !formState.conditionValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var destinationIsRequired: Bool {
+        formState.actionType != .delete
+    }
+
+    private var hasValidDestinationInput: Bool {
+        !formState.destinationDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var whenValidationMessage: String? {
+        hasValidConditionInput ? nil : "Add at least one condition value so Forma can match files."
+    }
+
+    private var thenValidationMessage: String? {
+        if destinationIsRequired && !hasValidDestinationInput {
+            return "Select a destination folder for move/copy actions."
+        }
+        return nil
+    }
+
+    private var canSubmitRule: Bool {
+        !trimmedRuleName.isEmpty &&
+        whenValidationMessage == nil &&
+        thenValidationMessage == nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Fixed header with context-aware labels
@@ -155,23 +192,26 @@ struct InlineRuleBuilderView: View {
                             .padding(.bottom, 8)
                         }
 
-                        // 3. Sentence Builder Section (Visual Verification)
-                        VStack(alignment: .leading, spacing: 16) {
-                            // Header with Toggle
+                        // 3. Rule Builder Sections (When / Then)
+                        VStack(alignment: .leading, spacing: 18) {
+                            ruleSectionHeader(
+                                title: "When",
+                                subtitle: "Choose which files this rule should target."
+                            )
+
                             HStack {
                                 Text("Matches")
                                     .font(.formaBodyLarge)
                                     .foregroundColor(.formaSecondaryLabelHigh)
-                                
+
                                 Spacer()
-                                
+
                                 Toggle("Multiple", isOn: $formState.useCompoundConditions)
                                     .toggleStyle(.switch)
                                     .labelsHidden()
                                     .controlSize(.mini)
                                     .onChange(of: formState.useCompoundConditions) { _, newValue in
                                         if newValue && formState.conditions.isEmpty {
-                                            // Initialize with one condition from legacy fields
                                             do {
                                                 let condition = try RuleCondition(type: formState.conditionType, value: formState.conditionValue)
                                                 formState.conditions = [condition]
@@ -179,17 +219,17 @@ struct InlineRuleBuilderView: View {
                                                 // Ignore invalid initial condition
                                             }
                                         }
+                                        updatePreview()
                                     }
                             }
                             .padding(.bottom, 4)
 
                             if formState.useCompoundConditions {
-                                // Compound conditions view
                                 VStack(alignment: .leading, spacing: 12) {
                                     HStack {
-                                    Text("If")
-                                        .font(.formaBodyLarge)
-                                        .foregroundColor(.formaSecondaryLabelHigh)
+                                        Text("If")
+                                            .font(.formaBodyLarge)
+                                            .foregroundColor(.formaSecondaryLabelHigh)
 
                                         Menu {
                                             Button("ALL conditions (AND)") { formState.logicalOperator = .and }
@@ -224,17 +264,16 @@ struct InlineRuleBuilderView: View {
                                     .padding(.top, 4)
                                 }
                             } else {
-                                // Single condition view
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                                     Text("If file")
                                         .font(.formaBodyLarge)
                                         .foregroundColor(.formaSecondaryLabelHigh)
-                                    
-                                    // Condition Type Picker (Inline)
+
                                     Menu {
                                         ForEach(Rule.ConditionType.allCases, id: \.self) { type in
                                             Button(type.compactDisplayName) {
                                                 formState.conditionType = type
+                                                updatePreview()
                                             }
                                         }
                                     } label: {
@@ -245,13 +284,12 @@ struct InlineRuleBuilderView: View {
                                             .underline(true, color: .formaSteelBlue.opacity(0.3))
                                     }
                                     .menuStyle(.borderlessButton)
-                                    
+
                                     Text("is")
                                         .font(.formaBodyLarge)
                                         .foregroundColor(.formaSecondaryLabelHigh)
                                 }
-                                
-                                // Condition Value (Inline)
+
                                 TextField(conditionPlaceholder, text: $formState.conditionValue)
                                     .font(.formaBodyLarge)
                                     .textFieldStyle(.plain)
@@ -260,20 +298,27 @@ struct InlineRuleBuilderView: View {
                                     .cornerRadius(8)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.formaSeparator, lineWidth: 1)
+                                            .stroke(whenValidationMessage == nil ? Color.formaSeparator : Color.formaWarmOrange, lineWidth: 1)
                                     )
                                     .onChange(of: formState.conditionValue) { _, _ in
                                         updatePreview()
                                     }
                             }
-                            
-                            // "Then..."
+
+                            sectionValidationMessage(whenValidationMessage)
+
+                            Divider().padding(.vertical, 2)
+
+                            ruleSectionHeader(
+                                title: "Then",
+                                subtitle: "Define what happens to matched files."
+                            )
+
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
                                 Text("Then")
                                     .font(.formaBodyLarge)
                                     .foregroundColor(.formaSecondaryLabelHigh)
-                                
-                                // Action Picker (Inline)
+
                                 Menu {
                                     Button("move") { formState.actionType = .move }
                                     Button("copy") { formState.actionType = .copy }
@@ -286,14 +331,13 @@ struct InlineRuleBuilderView: View {
                                         .underline(true, color: .formaSteelBlue.opacity(0.3))
                                 }
                                 .menuStyle(.borderlessButton)
-                                
+
                                 Text("to")
                                     .font(.formaBodyLarge)
                                     .foregroundColor(.formaSecondaryLabelHigh)
                                     .opacity(formState.actionType == .delete ? 0.3 : 1.0)
                             }
-                            
-                            // Destination (Inline)
+
                             if formState.actionType == .delete {
                                 Text("Trash")
                                     .font(.formaBodyLarge)
@@ -308,9 +352,9 @@ struct InlineRuleBuilderView: View {
                                         Text(formState.destinationDisplayPath.isEmpty ? "Select folder..." : formState.destinationDisplayPath)
                                             .fontWeight(.medium)
                                             .foregroundColor(formState.destinationDisplayPath.isEmpty ? .formaSecondaryLabelHigh : .formaLabel)
-                                        
+
                                         if formState.hasBookmark {
-                                             Image(systemName: "checkmark.circle.fill")
+                                            Image(systemName: "checkmark.circle.fill")
                                                 .font(.caption)
                                                 .foregroundColor(.formaSoftGreen)
                                         }
@@ -321,11 +365,16 @@ struct InlineRuleBuilderView: View {
                                     .cornerRadius(8)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 8)
-                                            .stroke(formState.destinationDisplayPath.isEmpty ? Color.formaSteelBlue : Color.formaSeparator, lineWidth: 1)
+                                            .stroke(
+                                                thenValidationMessage == nil ? Color.formaSeparator : Color.formaWarmOrange,
+                                                lineWidth: 1
+                                            )
                                     )
                                 }
                                 .buttonStyle(.plain)
                             }
+
+                            sectionValidationMessage(thenValidationMessage)
                         }
                         .padding(20)
                         .background(ruleCardBackground)
@@ -371,36 +420,16 @@ struct InlineRuleBuilderView: View {
                         }
                         .padding(.top, 4)
 
-                        // Live Preview
-                        if matchedFilesCount > 0 {
-                            livePreviewCard
-                        }
+                        // Impact Preview (always visible)
+                        impactPreviewCard
 
-                        // Save Actions
-                        VStack(spacing: 12) {
-                            Button(action: {
-                                if formState.actionType == .delete && matchedFilesCount > 0 {
-                                    showDeleteConfirmation = true
-                                } else {
-                                    saveRule()
-                                }
-                            }) {
-                                Text(editingRule == nil ? "Create Rule" : "Save Changes")
-                                    .font(.formaBodyBold)
-                                    .foregroundColor(.formaBoneWhite)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color.formaSteelBlue)
-                                    .cornerRadius(8)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.top, 10)
                     }
                     .padding(.horizontal, FormaSpacing.generous)
                     .padding(.vertical, 20)
                 }
             }
+
+            persistentActionBar
         }
         .onAppear {
             initializeFields()
@@ -448,6 +477,49 @@ struct InlineRuleBuilderView: View {
         }
     }
 
+    private var persistentActionBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !canSubmitRule, let message = whenValidationMessage ?? thenValidationMessage {
+                Text(message)
+                    .font(.formaCaption)
+                    .foregroundColor(.formaWarmOrange)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: {
+                if formState.actionType == .delete && matchedFilesCount > 0 {
+                    showDeleteConfirmation = true
+                } else {
+                    saveRule()
+                }
+            }) {
+                Text(editingRule == nil ? "Create Rule" : "Save Changes")
+                    .font(.formaBodyBold)
+                    .foregroundColor(.formaBoneWhite)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(Color.formaSteelBlue)
+                    .cornerRadius(10)
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSubmitRule)
+            .opacity(canSubmitRule ? 1 : 0.6)
+        }
+        .padding(.horizontal, FormaSpacing.generous)
+        .padding(.top, 10)
+        .padding(.bottom, 14)
+        .background(.regularMaterial)
+        .overlay(
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color.formaSeparator.opacity(Color.FormaOpacity.strong)),
+            alignment: .top
+        )
+        .allowsHitTesting(true)
+        .zIndex(998)
+    }
+
     /// Generates a confirmation message showing the impact of a delete rule.
     /// Uses cached preview data for consistency with the displayed count.
     private func deleteConfirmationMessage() -> String {
@@ -472,6 +544,36 @@ struct InlineRuleBuilderView: View {
         message += "\n\nYou can undo individual deletions, but this action affects files automatically."
 
         return message
+    }
+
+    @ViewBuilder
+    private func ruleSectionHeader(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+            Text(title)
+                .font(.formaBodyBold)
+                .foregroundColor(.formaLabel)
+            Text(subtitle)
+                .font(.formaSmall)
+                .foregroundColor(.formaSecondaryLabelHigh)
+        }
+    }
+
+    @ViewBuilder
+    private func sectionValidationMessage(_ message: String?) -> some View {
+        if let message {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.formaCompact)
+                    .foregroundColor(.formaWarmOrange)
+                Text(message)
+                    .font(.formaSmall)
+                    .foregroundColor(.formaWarmOrange)
+            }
+            .padding(.horizontal, FormaSpacing.tight)
+            .padding(.vertical, FormaSpacing.micro + 2)
+            .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light))
+            .cornerRadius(FormaRadius.control)
+        }
     }
 
     // MARK: - Condition Row
@@ -548,20 +650,42 @@ struct InlineRuleBuilderView: View {
         }
     }
     
-    // MARK: - Live Preview Card
-    
-    private var livePreviewCard: some View {
+    // MARK: - Impact Preview Card
+
+    private var impactSummaryText: String {
+        let countText = "\(matchedFilesCount) file\(matchedFilesCount == 1 ? "" : "s")"
+        switch formState.actionType {
+        case .delete:
+            return "Would send \(countText) to Trash."
+        case .copy:
+            if hasValidDestinationInput {
+                return "Would copy \(countText) to \(formState.destinationDisplayPath)."
+            }
+            return "Would copy \(countText) after a destination is selected."
+        case .move:
+            if hasValidDestinationInput {
+                return "Would move \(countText) to \(formState.destinationDisplayPath)."
+            }
+            return "Would move \(countText) after a destination is selected."
+        }
+    }
+
+    private var impactPreviewCard: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             HStack {
                 Image(systemName: "sparkles")
                     .foregroundColor(.formaSteelBlue)
-                Text("Live Preview")
+                Text("Impact Preview")
                     .font(.formaBodySemibold)
                     .tracking(0.5)
                     .foregroundColor(.formaSecondaryLabelHigh)
             }
-            
-            if isLoadingPreview {
+
+            if !hasValidConditionInput {
+                Text("Complete the \"When\" section to preview impact.")
+                    .font(.formaSmall)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+            } else if isLoadingPreview {
                 HStack(spacing: FormaSpacing.tight) {
                     ProgressView()
                         .scaleEffect(0.8)
@@ -570,7 +694,7 @@ struct InlineRuleBuilderView: View {
                         .foregroundColor(.formaSecondaryLabelHigh)
                 }
             } else {
-                Text("This rule would match \(matchedFilesCount) file\(matchedFilesCount == 1 ? "" : "s")")
+                Text(impactSummaryText)
                     .font(.formaSmall)
                     .foregroundColor(.formaSecondaryLabelHigh)
 
@@ -680,6 +804,15 @@ struct InlineRuleBuilderView: View {
     private func updatePreview() {
         // Cancel any pending preview computation
         previewTask?.cancel()
+
+        guard hasValidConditionInput else {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                previewFiles = []
+                matchedFilesCount = 0
+                isLoadingPreview = false
+            }
+            return
+        }
 
         // Start loading state immediately for visual feedback
         isLoadingPreview = true

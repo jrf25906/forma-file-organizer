@@ -4,6 +4,17 @@ import SwiftData
 
 /// View for managing all saved rules with create, edit, delete, and enable/disable functionality
 struct RulesManagementView: View {
+    private struct StarterTemplate: Identifiable {
+        let id = UUID()
+        let title: String
+        let detail: String
+        let icon: String
+        let accent: Color
+        let trigger: String
+        let outcome: String
+        let prompt: String
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
@@ -71,6 +82,40 @@ struct RulesManagementView: View {
     private var needsAccessCount: Int {
         allRules.filter { needsAccess($0) }.count
     }
+
+    private var isInitialEmptyState: Bool {
+        sortedAllRules.isEmpty && searchText.isEmpty
+    }
+
+    private let starterTemplates: [StarterTemplate] = [
+        StarterTemplate(
+            title: "Screenshots",
+            detail: "Archive old screenshots",
+            icon: "camera.viewfinder",
+            accent: .formaSteelBlue,
+            trigger: "If name contains Screenshot",
+            outcome: "Move to Archives/Screenshots",
+            prompt: "Move screenshots older than 14 days to Archives/Screenshots"
+        ),
+        StarterTemplate(
+            title: "PDF Archive",
+            detail: "Organize older PDFs",
+            icon: "doc.text",
+            accent: .formaSage,
+            trigger: "If extension is pdf and older than 30 days",
+            outcome: "Move to Documents/Archive",
+            prompt: "Move PDF files older than 30 days to Documents/Archive"
+        ),
+        StarterTemplate(
+            title: "Camera Roll",
+            detail: "Sort phone images",
+            icon: "photo.on.rectangle.angled",
+            accent: .formaWarmOrange,
+            trigger: "If filename starts with IMG_",
+            outcome: "Move to Pictures/Camera Roll",
+            prompt: "Move image files containing IMG_ to Pictures/Camera Roll"
+        )
+    ]
     
     var body: some View {
         VStack(spacing: 0) {
@@ -92,50 +137,54 @@ struct RulesManagementView: View {
 
                     Spacer()
 
-                    PrimaryButton("New", icon: "plus") {
-                        // Primary flow: open rule builder in right panel
-                        dashboardViewModel.showRuleBuilderPanel()
+                    if !isInitialEmptyState {
+                        PrimaryButton("New", icon: "plus") {
+                            // Primary flow: open rule builder in right panel
+                            dashboardViewModel.showRuleBuilderPanel()
+                        }
+                        .frame(width: 100)
+                        .hoverLift(scale: 1.03, shadowRadius: 8)
                     }
-                    .frame(width: 100)
-                    .hoverLift(scale: 1.03, shadowRadius: 8)
                 }
                 
                 // Combined Toolbar (Search + Tabs)
-                HStack(spacing: 8) {
-                    // Search Field (Compact)
-                    HStack(spacing: 6) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.formaSecondaryLabelHigh)
-                            .font(.system(size: 14))
-                        
-                        TextField("Search...", text: $searchText)
-                            .textFieldStyle(.plain)
-                            .font(.formaBody)
-                        
-                        if !searchText.isEmpty {
-                            Button(action: { searchText = "" }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.formaTertiaryLabelHigh)
+                if !isInitialEmptyState {
+                    HStack(spacing: 8) {
+                        // Search Field (Compact)
+                        HStack(spacing: 6) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.formaSecondaryLabelHigh)
+                                .font(.system(size: 14))
+                            
+                            TextField("Search...", text: $searchText)
+                                .textFieldStyle(.plain)
+                                .font(.formaBody)
+                            
+                            if !searchText.isEmpty {
+                                Button(action: { searchText = "" }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.formaTertiaryLabelHigh)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.formaControlBackground)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.formaSeparator, lineWidth: 0.5)
-                    )
-                    .frame(width: 200)
-                    .accessibilityIdentifier("smartRulesSearchBar")
-                    
-                    Spacer()
-                    
-                    // Filter Tabs (Compact)
-                    if !sortedCategories.isEmpty {
-                        categoryTabBar
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.formaControlBackground)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.formaSeparator, lineWidth: 0.5)
+                        )
+                        .frame(width: 200)
+                        .accessibilityIdentifier("smartRulesSearchBar")
+                        
+                        Spacer()
+                        
+                        // Filter Tabs (Compact)
+                        if !sortedCategories.isEmpty {
+                            categoryTabBar
+                        }
                     }
                 }
             }
@@ -154,15 +203,20 @@ struct RulesManagementView: View {
             // Rules list
             if filteredRules.isEmpty {
                 if searchText.isEmpty {
-                    FormaEmptyState(
-                        title: "No Rules Yet",
-                        message: "Create your first rule to automatically organize files.",
-                        actionTitle: "Create Rule",
-                        action: {
-                            // Primary flow: open rule builder in right panel
-                            dashboardViewModel.showRuleBuilderPanel()
-                        }
-                    )
+                    VStack(spacing: FormaSpacing.generous) {
+                        FormaEmptyState(
+                            title: "No Rules Yet",
+                            message: "Create your first rule to automatically organize files.",
+                            actionTitle: "Create Rule",
+                            action: {
+                                // Primary flow: open rule builder in right panel
+                                dashboardViewModel.showRuleBuilderPanel()
+                            }
+                        )
+
+                        starterTemplatesSection
+                            .padding(.horizontal, FormaSpacing.generous)
+                    }
                 } else {
                     FormaEmptyState(
                         title: "No Matching Rules",
@@ -430,6 +484,97 @@ struct RulesManagementView: View {
 
     private func rulesInCategory(_ category: RuleCategory) -> Int {
         allRules.filter { $0.category?.id == category.id }.count
+    }
+
+    private var starterTemplatesSection: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Text("Starter templates")
+                .font(.formaBodySemibold)
+                .foregroundColor(.formaSecondaryLabelHigh)
+
+            HStack(spacing: FormaSpacing.tight) {
+                ForEach(starterTemplates) { template in
+                    starterTemplateCard(template)
+                }
+            }
+        }
+    }
+
+    private func starterTemplateCard(_ template: StarterTemplate) -> some View {
+        Button {
+            openStarterTemplate(template)
+        } label: {
+            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                HStack(alignment: .center, spacing: FormaSpacing.tight) {
+                    Image(systemName: template.icon)
+                        .font(.formaBodySemibold)
+                        .foregroundColor(template.accent)
+                        .frame(width: 24, height: 24)
+                        .background(template.accent.opacity(colorScheme == .dark ? 0.18 : 0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(template.title)
+                            .font(.formaBodySemibold)
+                            .foregroundColor(.formaLabel)
+                        Text(template.detail)
+                            .font(.formaCaption)
+                            .foregroundColor(.formaSecondaryLabelHigh)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ruleSnippet(label: "When", text: template.trigger)
+                    ruleSnippet(label: "Then", text: template.outcome)
+                }
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 4) {
+                    Text("Use Template")
+                        .font(.formaCaptionSemibold)
+                    Image(systemName: "arrow.right")
+                        .font(.formaMicro)
+                }
+                .foregroundColor(.formaSteelBlue)
+            }
+            .frame(maxWidth: .infinity, minHeight: 152, maxHeight: 152, alignment: .topLeading)
+            .padding(FormaSpacing.standard)
+            .background(cardBackgroundColor)
+            .cornerRadius(FormaRadius.card)
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func ruleSnippet(label: String, text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(label)
+                .font(.formaMicro)
+                .fontWeight(.semibold)
+                .foregroundColor(.formaSecondaryLabelHigh)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.formaControlBackground)
+                .clipShape(Capsule())
+
+            Text(text)
+                .font(.formaCaption)
+                .foregroundColor(.formaSecondaryLabelHigh)
+                .lineLimit(2)
+        }
+    }
+
+    private func openStarterTemplate(_ template: StarterTemplate) {
+        nav.editingRule = nil
+        nav.ruleEditorFileContext = nil
+        nav.ruleEditorSuggestedText = template.prompt
+        withAnimation(.easeInOut(duration: 0.2)) {
+            nav.isShowingRuleEditor = true
+        }
     }
     
     private func toggleRule(_ rule: Rule) {

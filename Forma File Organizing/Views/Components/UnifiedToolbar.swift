@@ -33,6 +33,7 @@ enum CompressionLevel {
 struct UnifiedToolbar: View {
     let availableWidth: CGFloat
     @EnvironmentObject var viewModel: DashboardViewModel
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var showKeyboardHelp: Bool
     @Namespace private var animation
 
@@ -51,6 +52,10 @@ struct UnifiedToolbar: View {
     private var shouldCompressGrouping: Bool {
         // Compress when space is tight and grouping row is visible
         return viewModel.reviewFilterMode == .all && availableWidth < 650
+    }
+
+    private var secondaryControlColor: Color {
+        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaLabel
     }
 
     var body: some View {
@@ -128,11 +133,15 @@ struct UnifiedToolbar: View {
                 Image(systemName: "sidebar.right")
                     .font(.formaBodyLarge)
                     .fontWeight(.medium)
-                    .foregroundColor(viewModel.isRightPanelVisible ? .formaLabel : .secondary)
+                    .foregroundColor(viewModel.isRightPanelVisible ? .formaLabel : secondaryControlColor)
                     .padding(6)
                     .background(
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(viewModel.isRightPanelVisible ? Color.formaSteelBlue.opacity(0.15) : Color.clear)
+                            .fill(
+                                viewModel.isRightPanelVisible
+                                    ? Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.28 : 0.24)
+                                    : Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.06 : 0.5)
+                            )
                     )
             }
             .buttonStyle(.plain)
@@ -144,7 +153,7 @@ struct UnifiedToolbar: View {
                     Image(systemName: "questionmark.circle")
                         .font(.formaBodyLarge)
                         .fontWeight(.medium)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(secondaryControlColor)
                 }
                 .buttonStyle(.plain)
                 .help("Keyboard Shortcuts (?)")
@@ -240,7 +249,7 @@ struct UnifiedToolbar: View {
                         .font(.formaBodyLarge)
                         .padding(.horizontal, FormaSpacing.tight + (FormaSpacing.micro / 2))
                         .frame(height: 36)
-                        .foregroundColor(showGrouping ? .formaLabel : .formaSecondaryLabel)
+                        .foregroundColor(showGrouping ? .formaLabel : .formaSecondaryLabelHigh)
                         .background {
                             ToolbarGlassyCapsuleBackground(
                                 tint: showGrouping ? Color.formaSteelBlue : nil,
@@ -333,11 +342,11 @@ struct ModeToggleButton: View {
             .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
             // IMPORTANT: foregroundColor MUST come before background
             // for VisualEffectView's .withinWindow blending to work correctly
-            .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabel)
+            .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabelHigh)
             .background {
                 if isActive {
                     ToolbarGlassyCapsuleBackground(
-                        tint: Color.formaSteelBlue.opacity(0.5),
+                        tint: Color.formaSteelBlue.opacity(0.68),
                         cornerRadius: 999
                     )
                     .matchedGeometryEffect(id: "activeModeToggle", in: namespace)
@@ -386,11 +395,11 @@ struct ViewTypeButton: View {
             }
             .padding(.horizontal, compact ? (FormaSpacing.tight + (FormaSpacing.micro / 2)) : (FormaSpacing.standard - FormaSpacing.micro))
             .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
-            .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabel)
+            .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabelHigh)
             .background {
                 if isActive {
                     ToolbarGlassyCapsuleBackground(
-                        tint: Color.formaSteelBlue.opacity(0.5),
+                        tint: Color.formaSteelBlue.opacity(0.68),
                         cornerRadius: 999
                     )
                     .matchedGeometryEffect(id: "activeView", in: namespace)
@@ -425,11 +434,11 @@ struct GroupingButton: View {
             }
             .padding(.horizontal, compact ? (FormaSpacing.tight + (FormaSpacing.micro / 2)) : (FormaSpacing.standard - FormaSpacing.micro))
             .padding(.vertical, FormaSpacing.micro)
-            .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabel)
+            .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabelHigh)
             .background {
                 if isActive {
                     ToolbarGlassyCapsuleBackground(
-                        tint: Color.formaSteelBlue.opacity(0.5),
+                        tint: Color.formaSteelBlue.opacity(0.68),
                         cornerRadius: 999
                     )
                     .matchedGeometryEffect(id: "activeGrouping", in: namespace)
@@ -443,6 +452,7 @@ struct GroupingButton: View {
 private struct ToolbarGlassyCapsuleBackground: View {
     let tint: Color?
     let cornerRadius: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
 
     init(tint: Color?, cornerRadius: CGFloat) {
         self.tint = tint
@@ -454,22 +464,22 @@ private struct ToolbarGlassyCapsuleBackground: View {
         if #available(macOS 26.0, *) {
             shape
                 .glassEffect(tint == nil ? .regular : .regular.tint(tint!.opacity(Color.FormaOpacity.overlay)))
-                .overlay(shape.stroke(Color.formaBoneWhite.opacity(Color.FormaOpacity.medium), lineWidth: 1))
+                .overlay(shape.stroke(borderColor, lineWidth: 1))
         } else {
             ZStack {
                 VisualEffectView(material: .popover, blendingMode: .withinWindow)
                     .clipShape(shape)
 
                 if let tint {
-                    shape.fill(tint.opacity(Color.FormaOpacity.overlay))
+                    shape.fill(tint.opacity(colorScheme == .dark ? 0.26 : 0.32))
                 } else {
-                    shape.fill(Color.formaBoneWhite.opacity(Color.FormaOpacity.subtle))
+                    shape.fill(baseFillColor)
                 }
 
                 LinearGradient(
                     colors: [
-                        Color.formaBoneWhite.opacity(Color.FormaOpacity.medium),
-                        Color.formaBoneWhite.opacity(Color.FormaOpacity.subtle),
+                        Color.formaBoneWhite.opacity(colorScheme == .dark ? Color.FormaOpacity.medium : 0.55),
+                        Color.formaBoneWhite.opacity(colorScheme == .dark ? Color.FormaOpacity.subtle : 0.25),
                         Color.formaBoneWhite.opacity(0),
                     ],
                     startPoint: .topLeading,
@@ -477,9 +487,21 @@ private struct ToolbarGlassyCapsuleBackground: View {
                 )
                 .clipShape(shape)
 
-                shape.stroke(Color.formaBoneWhite.opacity(Color.FormaOpacity.medium), lineWidth: 1)
+                shape.stroke(borderColor, lineWidth: 1)
             }
         }
+    }
+
+    private var borderColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(Color.FormaOpacity.medium)
+            : Color.formaObsidian.opacity(0.18)
+    }
+
+    private var baseFillColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(Color.FormaOpacity.subtle)
+            : Color.formaBoneWhite.opacity(0.72)
     }
 }
 
