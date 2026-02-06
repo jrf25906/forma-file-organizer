@@ -5,9 +5,12 @@ struct DashboardView: View {
     @StateObject private var nav = NavigationViewModel()
     @EnvironmentObject private var dashboardViewModel: DashboardViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
     @State private var scanTask: Task<Void, Never>?
     @State private var shouldFocusSearch = false
+    @State private var showKeyboardHelp = false
+    @State private var isInspectorToggleHovered = false
 
     // MARK: - Extracted Views (helps compiler type-checking)
 
@@ -52,25 +55,107 @@ struct DashboardView: View {
         }
     }
 
-    /// Native window toolbar content (Xcode-style): search + sidebar/inspector toggles on the far right.
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .primaryAction) {
-            // Hidden button for ⌘F keyboard shortcut - focuses the toolbar search field
-            Button(action: focusSearch) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 1, weight: .regular))
-                    .opacity(0)
-            }
-            .keyboardShortcut("f", modifiers: .command)
-            .frame(width: 1, height: 1)
-            .accessibilityHidden(true)
-            .allowsHitTesting(false)
-
-            // Right panel toggle logic moved to floating overlay
-            // Keeping this empty or we can remove the ToolbarItemGroup entirely if empty, 
-            // but we likely want to keep the search logic.
+    /// Hidden command bridge for ⌘F so the search focus shortcut does not affect toolbar layout.
+    private var searchShortcutBridge: some View {
+        Button(action: focusSearch) {
+            EmptyView()
         }
+        .buttonStyle(.plain)
+        .keyboardShortcut("f", modifiers: .command)
+        .frame(width: 0, height: 0)
+        .opacity(0.001)
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+
+    /// Explicit top-right inspector toggle (Xcode-style placement near trailing window chrome).
+    private var inspectorToggleButton: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                dashboardViewModel.isRightPanelVisible.toggle()
+            }
+        }) {
+            Image(systemName: "sidebar.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(
+                    nav.selection == .analytics
+                        ? .formaTertiaryLabel
+                        : (isInspectorToggleHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                )
+                .frame(width: 32, height: 30)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isInspectorToggleHovered ? inspectorHoverFill : inspectorPlateFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(inspectorPlateBorderColor, lineWidth: 0.8)
+                        )
+                )
+                .padding(3)
+                .background(
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(inspectorBaseFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                                .stroke(inspectorBorderColor, lineWidth: 0.95)
+                        )
+                        .overlay(alignment: .top) {
+                            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                                .fill(inspectorTopHighlight)
+                                .frame(height: 9)
+                                .padding(.horizontal, 4)
+                                .padding(.top, 2)
+                        }
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help("Toggle Inspector (⌘I)")
+        .keyboardShortcut("i", modifiers: .command)
+        .disabled(nav.selection == .analytics)
+        .accessibilityIdentifier("toolbarInspectorToggle")
+        .onHover { hovering in
+            isInspectorToggleHovered = hovering
+        }
+    }
+
+    private var inspectorHoverFill: Color {
+        Color.formaControlBackground.opacity(colorScheme == .dark ? 0.65 : 0.9)
+    }
+
+    private var inspectorBaseFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.13)
+            : Color.formaObsidian.opacity(0.08)
+    }
+
+    private var inspectorPlateFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.07)
+            : Color.formaBoneWhite.opacity(0.12)
+    }
+
+    private var inspectorBorderColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.30)
+            : Color.formaBoneWhite.opacity(0.42)
+    }
+
+    private var inspectorPlateBorderColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaObsidian.opacity(0.14)
+    }
+
+    private var inspectorTopHighlight: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.18 : 0.24),
+                Color.clear
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 
     /// ⌘F action: focuses the toolbar search field
@@ -123,7 +208,8 @@ struct DashboardView: View {
                                     selection: nav.selection,
                                     searchText: nav.searchText,
                                     activeChips: nav.activeChips,
-                                    availableWidth: availableWidth
+                                    availableWidth: availableWidth,
+                                    showKeyboardHelp: $showKeyboardHelp
                                 )
                                 .frame(minWidth: availableWidth, idealWidth: availableWidth, maxWidth: availableWidth, maxHeight: .infinity)
                             }
@@ -139,7 +225,8 @@ struct DashboardView: View {
 
                         // Sidebar overlay - full-height navigator (Xcode-style)
                         SidebarView(
-                            shouldFocusSearch: $shouldFocusSearch
+                            shouldFocusSearch: $shouldFocusSearch,
+                            showKeyboardHelp: $showKeyboardHelp
                         )
                         .frame(
                             width: max(0, sidebarWidth - (sidebarEdgeInset * 2)),
@@ -186,7 +273,14 @@ struct DashboardView: View {
                     Text("File Detail")
                 }
             }
-            .toolbar { toolbarContent }
+            .overlay(alignment: .topLeading) {
+                searchShortcutBridge
+            }
+            .overlay(alignment: .topTrailing) {
+                inspectorToggleButton
+                    .padding(.top, FormaLayout.FloatingCard.edgeInset + 16)
+                    .padding(.trailing, FormaLayout.FloatingCard.edgeInset + 16)
+            }
         }
         .ignoresSafeArea() // Ensure the NavigationStack itself allows content to bleed into window chrome
         .environmentObject(nav)

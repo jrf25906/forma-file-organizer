@@ -200,26 +200,13 @@ struct MenuBarView: View {
 
             Spacer()
 
-            // Toggle pill
-            Button(action: {
-                _ = viewModel.toggleAutomation()
-            }) {
-                Text(viewModel.automationStatus.isEnabled ? "On" : "Off")
-                    .font(.formaMenuMetadata)
-                    .fontWeight(.semibold)
-                    .foregroundColor(viewModel.automationStatus.isEnabled ? .formaSage : .formaTertiaryLabel)
-                    .padding(.horizontal, FormaSpacing.tight)
-                    .padding(.vertical, FormaSpacing.micro)
-                    .background(
-                        Capsule()
-                            .fill(
-                                viewModel.automationStatus.isEnabled
-                                    ? Color.formaSage.opacity(Color.FormaOpacity.light)
-                                    : Color.formaLabel.opacity(Color.FormaOpacity.subtle)
-                            )
-                    )
+            StocksStyleMenuBarToggle(
+                isEnabled: viewModel.automationStatus.isEnabled
+            ) { shouldEnable in
+                if shouldEnable != viewModel.automationStatus.isEnabled {
+                    _ = viewModel.toggleAutomation()
+                }
             }
-            .buttonStyle(.plain)
         }
         .padding(FormaSpacing.standard)
     }
@@ -339,6 +326,221 @@ struct MenuBarView: View {
 
     private func openMainInterface() {
         openWindow(id: "main")
+    }
+}
+
+private struct StocksStyleMenuBarToggle: View {
+    let isEnabled: Bool
+    let onToggle: (Bool) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var hoveredState: Bool?
+
+    private let containerCornerRadius: CGFloat = 13
+    private let selectedCornerRadius: CGFloat = 10
+    private let segmentWidth: CGFloat = 36
+    private let segmentHeight: CGFloat = 22
+    private let segmentPlateHorizontalInset: CGFloat = 3
+    private let segmentPlateVerticalInset: CGFloat = 1
+
+    var body: some View {
+        HStack(spacing: 0) {
+            segmentButton(label: "On", value: true)
+
+            Rectangle()
+                .fill(separatorColor)
+                .frame(width: 1, height: 16)
+                .allowsHitTesting(false)
+
+            segmentButton(label: "Off", value: false)
+        }
+        .padding(2)
+        .background {
+            RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                .fill(containerFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                        .stroke(containerBorder, lineWidth: 1)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                        .stroke(topRimColor, lineWidth: 0.6)
+                )
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .animation(.spring(response: 0.24, dampingFraction: 0.82), value: isEnabled)
+        .animation(.easeOut(duration: 0.16), value: hoveredState)
+    }
+
+    private func segmentButton(label: String, value: Bool) -> some View {
+        let isSelected = isEnabled == value
+        let isHovered = hoveredState == value
+
+        return Button(action: { onToggle(value) }) {
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(activeFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .stroke(activeBorder, lineWidth: 0.8)
+                        )
+                        .overlay(alignment: .top) {
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .fill(selectedHighlight)
+                                .frame(height: 5)
+                                .padding(.horizontal, 3)
+                                .padding(.top, 1)
+                        }
+                        .shadow(color: selectedGlowColor, radius: 5, x: 0, y: 0)
+                        .shadow(color: selectedDropShadowColor, radius: 2, x: 0, y: 1)
+                        .padding(.vertical, segmentPlateVerticalInset)
+                        .padding(.horizontal, segmentPlateHorizontalInset)
+                } else if isHovered {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(hoverFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .stroke(hoverBorder, lineWidth: 0.7)
+                        )
+                        .overlay(alignment: .top) {
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .fill(hoverHighlight)
+                                .frame(height: 4)
+                                .padding(.horizontal, 3)
+                                .padding(.top, 1)
+                        }
+                        .padding(.vertical, segmentPlateVerticalInset)
+                        .padding(.horizontal, segmentPlateHorizontalInset)
+                }
+
+                Text(label)
+                    .font(.system(size: 11.5, weight: isSelected ? .semibold : .regular))
+                    .foregroundColor(
+                        isSelected
+                            ? .formaLabel
+                            : (isHovered ? .formaLabel : idleForeground)
+                    )
+                    .frame(width: segmentWidth, height: segmentHeight)
+            }
+            .frame(width: segmentWidth, height: segmentHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            if hovering {
+                hoveredState = value
+            } else if hoveredState == value {
+                hoveredState = nil
+            }
+        }
+    }
+
+    private var idleForeground: Color {
+        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+    }
+
+    private var separatorColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.30)
+            : Color.formaObsidian.opacity(0.20)
+    }
+
+    private var containerFill: AnyShapeStyle {
+        if colorScheme == .dark {
+            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.08))
+        }
+        return AnyShapeStyle(Color.formaBoneWhite.opacity(0.72))
+    }
+
+    private var containerBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(Color.FormaOpacity.medium)
+            : Color.formaObsidian.opacity(0.18)
+    }
+
+    private var topRimColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.20)
+            : Color.formaBoneWhite.opacity(0.45)
+    }
+
+    private var activeBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.28)
+            : Color.formaObsidian.opacity(0.12)
+    }
+
+    private var activeFill: AnyShapeStyle {
+        if colorScheme == .dark {
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [
+                        Color.formaBoneWhite.opacity(0.20),
+                        Color.formaBoneWhite.opacity(0.07),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+
+        return AnyShapeStyle(
+            LinearGradient(
+                colors: [
+                    Color.formaBoneWhite.opacity(0.92),
+                    Color.formaBoneWhite.opacity(0.74),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+    }
+
+    private var selectedHighlight: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.14 : 0.22),
+                Color.formaBoneWhite.opacity(0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var selectedGlowColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.05)
+            : Color.formaSteelBlue.opacity(0.04)
+    }
+
+    private var selectedDropShadowColor: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.22)
+            : Color.formaObsidian.opacity(0.08)
+    }
+
+    private var hoverFill: AnyShapeStyle {
+        if colorScheme == .dark {
+            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.12))
+        }
+        return AnyShapeStyle(Color.formaObsidian.opacity(0.08))
+    }
+
+    private var hoverBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.10)
+    }
+
+    private var hoverHighlight: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.14 : 0.22),
+                Color.formaBoneWhite.opacity(0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 }
 

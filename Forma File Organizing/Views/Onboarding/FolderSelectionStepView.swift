@@ -10,6 +10,9 @@ struct FolderSelectionStepView: View {
     let onContinue: () -> Void
     let onBack: () -> Void
 
+    @State private var animateIn = false
+    @State private var selectionBounce = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Scrollable content
@@ -26,6 +29,7 @@ struct FolderSelectionStepView: View {
                     Text(isRequestingPermissions ? "Requesting Access..." : "Choose your folders")
                         .font(.formaDisplayHeading)
                         .foregroundColor(.formaLabel)
+                        .progressiveReveal(isVisible: animateIn, index: 0, baseDelay: 0.08, offsetY: 16)
 
                     Text(isRequestingPermissions
                          ? "Please grant access when prompted"
@@ -33,16 +37,17 @@ struct FolderSelectionStepView: View {
                         .font(.formaBodyLarge)
                         .foregroundColor(.formaSecondaryLabel)
                         .multilineTextAlignment(.center)
+                        .progressiveReveal(isVisible: animateIn, index: 1, baseDelay: 0.08, offsetY: 16)
                 }
                 .padding(.top, FormaSpacing.generous)
 
                 // Vertical folder list
                 VStack(spacing: 8) {
-                    FolderRowItem(folder: .desktop, isSelected: $selection.desktop, animationDelay: 0.2)
-                    FolderRowItem(folder: .downloads, isSelected: $selection.downloads, animationDelay: 0.25)
-                    FolderRowItem(folder: .documents, isSelected: $selection.documents, animationDelay: 0.3)
-                    FolderRowItem(folder: .pictures, isSelected: $selection.pictures, animationDelay: 0.35)
-                    FolderRowItem(folder: .music, isSelected: $selection.music, animationDelay: 0.4)
+                    FolderRowItem(folder: .desktop, isSelected: $selection.desktop, index: 0)
+                    FolderRowItem(folder: .downloads, isSelected: $selection.downloads, index: 1)
+                    FolderRowItem(folder: .documents, isSelected: $selection.documents, index: 2)
+                    FolderRowItem(folder: .pictures, isSelected: $selection.pictures, index: 3)
+                    FolderRowItem(folder: .music, isSelected: $selection.music, index: 4)
                 }
                 .padding(.horizontal, FormaSpacing.extraLarge)
 
@@ -53,6 +58,7 @@ struct FolderSelectionStepView: View {
                             .font(.formaBodyMedium)
                             .foregroundColor(.formaSteelBlue)
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            .formaBounce(trigger: selectionBounce)
                     }
 
                     HStack(spacing: FormaSpacing.tight) {
@@ -80,19 +86,27 @@ struct FolderSelectionStepView: View {
             )
             .disabled(isRequestingPermissions)
         }
+        .onAppear {
+            animateIn = true
+        }
+        .onChange(of: selection.selectedCount) { _, _ in
+            selectionBounce.toggle()
+        }
     }
 }
 
 // MARK: - Folder Row Item
 
-/// A clean horizontal row: checkbox + colored folder mini-icon + name + description.
+/// A clean horizontal row: checkbox + colored folder icon + name + description.
 struct FolderRowItem: View {
     let folder: OnboardingFolder
     @Binding var isSelected: Bool
-    let animationDelay: Double
+    let index: Int
 
     @State private var isHovered = false
     @State private var animateIn = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: {
@@ -102,24 +116,13 @@ struct FolderRowItem: View {
         }) {
             HStack(spacing: 14) {
                 // Checkbox
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(isSelected ? folder.color : Color.clear)
-                        .frame(width: 22, height: 22)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(isSelected ? folder.color : Color.formaSecondaryLabel.opacity(0.3), lineWidth: 1.5)
-                        )
+                FormaCheckbox.compact(isSelected: isSelected, action: { isSelected.toggle() })
 
-                    if isSelected {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.formaBoneWhite)
-                    }
-                }
-
-                // Colored folder mini-icon
-                FolderMiniIcon(color: folder.color)
+                // SF Symbol folder icon
+                Image(systemName: "folder.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(folder.color)
+                    .font(.system(size: 24))
 
                 // Name and description
                 VStack(alignment: .leading, spacing: 2) {
@@ -138,52 +141,29 @@ struct FolderRowItem: View {
             .padding(.horizontal, 18)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isHovered ? folder.color.opacity(0.04) : Color.formaControlBackground)
+                    .fill(isSelected ? folder.color.opacity(0.06) : (isHovered ? folder.color.opacity(0.04) : Color.formaControlBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(isSelected ? folder.color : Color.formaSeparator.opacity(0.5),
                             lineWidth: isSelected ? 1.5 : 1)
             )
+            .shadow(color: isSelected ? folder.color.opacity(0.12) : Color.clear,
+                    radius: isSelected ? 8 : 0,
+                    x: 0,
+                    y: isSelected ? 3 : 0)
+            .animation(.easeOut(duration: 0.2), value: isSelected)
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
-        .opacity(animateIn ? 1 : 0)
-        .offset(y: animateIn ? 0 : 10)
+        .rotation3DEffect(
+            .degrees(reduceMotion ? 0 : (animateIn ? 0 : 3)),
+            axis: (x: 1, y: 0, z: 0)
+        )
+        .progressiveReveal(isVisible: animateIn, index: index, baseDelay: 0.08, offsetY: 16)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8).delay(animationDelay)) {
-                animateIn = true
-            }
+            animateIn = true
         }
-    }
-}
-
-// MARK: - Folder Mini Icon
-
-/// A small colored folder shape rendered with layered rounded rectangles.
-struct FolderMiniIcon: View {
-    let color: Color
-
-    var body: some View {
-        ZStack {
-            // Tab
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(color)
-                .frame(width: 14, height: 6)
-                .offset(x: -5, y: -11)
-
-            // Body
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(color)
-                .frame(width: 32, height: 22)
-
-            // Front
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(color.opacity(0.75))
-                .frame(width: 32, height: 18)
-                .offset(y: 2)
-        }
-        .frame(width: 32, height: 28)
     }
 }
 

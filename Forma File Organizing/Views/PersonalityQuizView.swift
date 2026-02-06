@@ -9,6 +9,7 @@ struct PersonalityQuizView: View {
     @State private var currentQuestion = 0
     @State private var answers: [Int] = []
     @State private var showResult = false
+    @State private var showCelebration = false // PHASE 5: Celebration trigger
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     let onComplete: (OrganizationPersonality) -> Void
@@ -114,6 +115,8 @@ struct PersonalityQuizView: View {
 
             Text(questions[currentQuestion].emoji)
                 .font(.formaIcon)
+                .id(currentQuestion) // PHASE 5: Force view identity change for transition
+                .contentTransition(.numericText()) // PHASE 5: Smooth emoji morph on question change
 
             Text("Question \(currentQuestion + 1) of \(questions.count)")
                 .font(.formaCaption)
@@ -164,9 +167,12 @@ struct PersonalityQuizView: View {
                         selectAnswer(index)
                     }
                 )
+                // PHASE 5: Staggered entrance animation for each answer card
+                .formaSlideIn(from: .bottom, delay: FormaAnimation.staggerDelay(index: index, base: 0.06))
                 .transition(.scale.combined(with: .opacity))
             }
         }
+        .id(currentQuestion) // PHASE 5: Force view recreation on question change to re-trigger slide-in
     }
     
     private var navigationButtons: some View {
@@ -225,10 +231,10 @@ struct PersonalityQuizView: View {
     
     private var resultView: some View {
         let personality = calculatePersonality()
-        
+
         return VStack(spacing: FormaSpacing.huge) {
             Spacer()
-            
+
             // Celebration
             VStack(spacing: FormaSpacing.generous) {
                 Text("✨")
@@ -242,6 +248,10 @@ struct PersonalityQuizView: View {
                     .font(.formaHero)
                     .foregroundColor(.formaLabel)
                     .multilineTextAlignment(.center)
+                    // PHASE 5: Scale-bounce on result appearance
+                    .scaleEffect(showCelebration ? 1.0 : 0.8)
+                    .opacity(showCelebration ? 1.0 : 0)
+                    .animation(reduceMotion ? nil : FormaAnimation.premiumSpring, value: showCelebration)
             }
             
             // Recommended template
@@ -280,6 +290,21 @@ struct PersonalityQuizView: View {
             .buttonStyle(.plain)
             .padding(.horizontal, FormaSpacing.huge)
             .padding(.bottom, FormaSpacing.huge)
+        }
+        // PHASE 5: Celebration confetti overlay on quiz completion
+        .overlay {
+            if showCelebration && !reduceMotion {
+                CelebrationAnimation()
+                    .allowsHitTesting(false)
+            }
+        }
+        .onAppear {
+            // PHASE 5: Trigger celebration once when result view appears
+            if !showCelebration {
+                withAnimation(reduceMotion ? nil : FormaAnimation.premiumSpring) {
+                    showCelebration = true
+                }
+            }
         }
     }
     

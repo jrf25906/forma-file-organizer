@@ -25,15 +25,22 @@ struct MainContentView: View {
     // Animation handled internally by organizeAnimation modifier
 
     // Phase 4: Keyboard shortcuts help
-    @State private var showKeyboardHelp = false
+    @Binding var showKeyboardHelp: Bool
 
     // Command palette (⌘K)
     @State private var showCommandPalette = false
 
     @State private var unifiedToolbarHeight: CGFloat = 0
     
-    init(selection: NavigationSelection, searchText: String, activeChips: Set<FileFilterChip>, availableWidth: CGFloat) {
+    init(
+        selection: NavigationSelection,
+        searchText: String,
+        activeChips: Set<FileFilterChip>,
+        availableWidth: CGFloat,
+        showKeyboardHelp: Binding<Bool>
+    ) {
         self.availableWidth = availableWidth
+        self._showKeyboardHelp = showKeyboardHelp
         // selection, searchText, and activeChips are currently handled via
         // DashboardViewModel state rather than a local @Query.
     }
@@ -136,7 +143,7 @@ struct MainContentView: View {
 
                 // TaperedFocusOverlay removed - fade effect didn't look right
 
-                UnifiedToolbar(availableWidth: availableWidth, showKeyboardHelp: $showKeyboardHelp)
+                UnifiedToolbar(availableWidth: availableWidth)
                     .padding(.horizontal, FormaLayout.Gutters.center)
                     .padding(.bottom, FormaLayout.Toolbar.bottomToContentSpacing)
                     .background(

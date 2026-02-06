@@ -19,6 +19,15 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Dashboard file presentations now use the spacious density treatment across card/list/grid with expanded spacing and larger visual targets.
 - Toolbar view-mode controls now use a native segmented capsule style with shared glass surface, divider rails, and a sliding active state for grid/list/tile switching.
 - Pending/All Files toolbar toggle now uses the same segmented capsule treatment, and both segmented controls now include a subtle native-style hover highlight.
+- Toolbar grouping controls, inspector toggle, Smart Rules category tabs, and menu-bar automation On/Off toggle now use the same Stocks-style segmented chrome with divider spacing and hover states.
+- Toolbar inspector toggle now renders as a standalone control without an outer capsule shell, and keyboard-help access moved to the sidebar’s bottom-right corner.
+- Sidebar top-edge chrome above search was removed, inspector toggle moved to the native top-right window toolbar, and sidebar rows/actions now use the same compact native hover treatment as the Settings/Help footer controls.
+- Sidebar controls were tuned to a slightly larger native text size and row height for closer parity with desktop app sidebars.
+- Inspector toggle now uses a persistent native-sized rounded shell and tighter top-right corner anchoring to better match macOS window controls.
+- Sidebar chrome now restores a subtle nested shell stroke/shadow and adjusted top inset so traffic-light alignment feels integrated with the window frame.
+- Inspector toggle sizing and corner offset were further tuned to a larger Xcode-like footprint with stronger rounded shell presence.
+- Window traffic-light controls now use explicit Xcode-like insets, and the inspector toggle baseline was realigned to that same top toolbar row.
+- Titlebar control alignment was further tuned to deeper 24pt insets so traffic lights and inspector control share the same nested-card geometry as Xcode.
 - Dark-mode control and text-input surfaces now use deeper charcoal tokens, and checkbox chrome has stronger contrast for clearer affordance.
 - Learned patterns persist unified Destinations for bookmark-aware suggestions.
 - ML destination predictions incorporate project clusters, real training counts, and bookmark-backed destinations when possible.

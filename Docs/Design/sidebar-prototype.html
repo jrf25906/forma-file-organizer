@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forma Sidebar Prototype</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500&display=swap");
+
+        :root {
+            --bg-base: #f5f7fb;
+            --bg-ambient-top: #d9ecff;
+            --bg-ambient-bottom: #f8efe2;
+            --panel-surface: rgba(248, 250, 255, 0.82);
+            --panel-edge: rgba(20, 37, 70, 0.1);
+            --content-surface: rgba(255, 255, 255, 0.76);
+            --text-main: #152036;
+            --text-secondary: #596278;
+            --text-tertiary: #7a8294;
+            --accent: #2b67f5;
+            --accent-soft: rgba(43, 103, 245, 0.15);
+            --row-hover: rgba(20, 37, 70, 0.08);
+            --success: #2e7d58;
+            --shadow-soft: 0 22px 45px rgba(31, 48, 83, 0.13);
+            --radius-large: 26px;
+            --radius-medium: 14px;
+            --radius-small: 10px;
+            --row-height: 38px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+            color: var(--text-main);
+            min-height: 100vh;
+            background:
+                radial-gradient(1100px 600px at 12% -10%, var(--bg-ambient-top), transparent 62%),
+                radial-gradient(900px 580px at 88% 110%, var(--bg-ambient-bottom), transparent 58%),
+                var(--bg-base);
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image: linear-gradient(
+                to right,
+                rgba(255, 255, 255, 0.16) 1px,
+                transparent 1px
+            );
+            background-size: 48px 48px;
+            opacity: 0.24;
+        }
+
+        .shell {
+            position: relative;
+            width: min(1200px, calc(100vw - 40px));
+            margin: 22px auto;
+            min-height: calc(100vh - 44px);
+            border-radius: var(--radius-large);
+            border: 1px solid var(--panel-edge);
+            backdrop-filter: blur(8px);
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.68), rgba(246, 249, 255, 0.6));
+            box-shadow: var(--shadow-soft);
+            display: grid;
+            grid-template-columns: 272px 1fr;
+            overflow: hidden;
+            animation: shell-in 640ms cubic-bezier(.2, .8, .2, 1);
+        }
+
+        @keyframes shell-in {
+            from {
+                opacity: 0;
+                transform: translateY(18px) scale(0.99);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            width: 272px;
+            background: linear-gradient(180deg, rgba(247, 250, 255, 0.96) 0%, rgba(241, 246, 255, 0.9) 100%);
+            border-right: 1px solid rgba(20, 37, 70, 0.08);
+            padding: 14px 12px 14px;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-zone {
+            border-radius: var(--radius-medium);
+            border: 1px solid rgba(20, 37, 70, 0.07);
+            background: var(--panel-surface);
+        }
+
+        .zone-top {
+            padding: 10px 8px 8px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px 10px;
+        }
+
+        .brand-name {
+            font-family: "Fraunces", serif;
+            font-size: 1.08rem;
+            letter-spacing: 0.2px;
+        }
+
+        .search-field {
+            position: relative;
+            margin: 0 8px 10px;
+        }
+
+        .search-input {
+            width: 100%;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid rgba(20, 37, 70, 0.16);
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--text-main);
+            font: inherit;
+            font-size: 0.84rem;
+            padding: 0 64px 0 11px;
+            outline: none;
+            transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+        }
+
+        .search-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .search-input:focus {
+            border-color: rgba(43, 103, 245, 0.5);
+            box-shadow: 0 0 0 3px rgba(43, 103, 245, 0.14);
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .search-shortcut {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            transform: translateY(-50%);
+            font-size: 0.72rem;
+            letter-spacing: 0.02em;
+            color: var(--text-tertiary);
+            border: 1px solid rgba(20, 37, 70, 0.16);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.92);
+            padding: 4px 6px;
+            pointer-events: none;
+        }
+
+        .nav-list,
+        .item-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .nav-row,
+        .item-row {
+            height: var(--row-height);
+            border-radius: var(--radius-small);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 10px;
+            color: var(--text-secondary);
+            font-size: 0.91rem;
+            position: relative;
+            user-select: none;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateX(-8px);
+            animation: row-in 460ms ease forwards;
+        }
+
+        .nav-row:nth-child(1) { animation-delay: 90ms; }
+        .nav-row:nth-child(2) { animation-delay: 140ms; }
+        .nav-row:nth-child(3) { animation-delay: 190ms; }
+        .nav-row:nth-child(4) { animation-delay: 240ms; }
+        .nav-row:nth-child(5) { animation-delay: 290ms; }
+
+        @keyframes row-in {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .icon-dot {
+            width: 19px;
+            height: 19px;
+            border-radius: 6px;
+            background: linear-gradient(140deg, rgba(21, 32, 54, 0.18), rgba(21, 32, 54, 0.08));
+            border: 1px solid rgba(21, 32, 54, 0.1);
+            flex-shrink: 0;
+        }
+
+        .row-label {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .row-count {
+            font-variant-numeric: tabular-nums;
+            font-size: 0.76rem;
+            color: var(--text-tertiary);
+            letter-spacing: 0.2px;
+            margin-left: auto;
+        }
+
+        .row-menu {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            display: grid;
+            place-items: center;
+            color: var(--text-tertiary);
+            opacity: 0;
+            transition: opacity 160ms ease;
+            margin-left: 2px;
+        }
+
+        .nav-row:hover,
+        .item-row:hover {
+            background: var(--row-hover);
+            color: var(--text-main);
+        }
+
+        .nav-row:hover .row-menu,
+        .item-row:hover .row-menu {
+            opacity: 1;
+        }
+
+        .nav-row.active,
+        .item-row.active {
+            background: linear-gradient(90deg, var(--accent-soft), rgba(43, 103, 245, 0.06));
+            color: var(--text-main);
+            box-shadow: inset 0 0 0 1px rgba(43, 103, 245, 0.2);
+        }
+
+        .nav-row.active .icon-dot,
+        .item-row.active .icon-dot {
+            background: linear-gradient(140deg, rgba(43, 103, 245, 0.55), rgba(43, 103, 245, 0.28));
+            border-color: rgba(43, 103, 245, 0.45);
+        }
+
+        .zone-middle {
+            padding: 8px;
+            flex: 1;
+            overflow: auto;
+            min-height: 160px;
+        }
+
+        .section {
+            border-radius: 12px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.56);
+            border: 1px solid rgba(20, 37, 70, 0.08);
+            overflow: hidden;
+        }
+
+        .section-header {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 10px;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .section-header:hover {
+            background: rgba(20, 37, 70, 0.06);
+        }
+
+        .chevron {
+            width: 18px;
+            height: 18px;
+            border-radius: 5px;
+            display: grid;
+            place-items: center;
+            color: var(--text-tertiary);
+            transition: transform 160ms ease;
+        }
+
+        .section.collapsed .chevron {
+            transform: rotate(-90deg);
+        }
+
+        .section-body {
+            padding: 0 6px 8px;
+            transition: max-height 220ms ease, opacity 220ms ease, padding 220ms ease;
+            max-height: 340px;
+            opacity: 1;
+        }
+
+        .section.collapsed .section-body {
+            max-height: 0;
+            opacity: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            overflow: hidden;
+        }
+
+        .section.is-hidden {
+            display: none;
+        }
+
+        .item-row .icon-dot {
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+        }
+
+        .zone-bottom {
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .quick-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .quick-action {
+            height: 40px;
+            border-radius: var(--radius-small);
+            border: 1px solid rgba(20, 37, 70, 0.14);
+            background: rgba(255, 255, 255, 0.86);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: transform 120ms ease, background 140ms ease, border-color 140ms ease;
+        }
+
+        .quick-action:hover {
+            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 1);
+            border-color: rgba(20, 37, 70, 0.28);
+        }
+
+        .quick-action.primary {
+            background: linear-gradient(130deg, #3b74f7, #2a61e8);
+            color: #ffffff;
+            border-color: transparent;
+        }
+
+        .quick-action.primary:hover {
+            background: linear-gradient(130deg, #2f6bf2, #2157da);
+        }
+
+        .utility-strip {
+            margin-top: 2px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(20, 37, 70, 0.12);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .utility-button {
+            height: 34px;
+            border: 1px solid rgba(20, 37, 70, 0.14);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.84);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            cursor: pointer;
+            transition: transform 120ms ease, background 140ms ease, border-color 140ms ease;
+        }
+
+        .utility-button:hover {
+            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 1);
+            border-color: rgba(20, 37, 70, 0.24);
+        }
+
+        .utility-button.settings {
+            flex: 1;
+            text-align: left;
+            padding: 0 12px;
+        }
+
+        .utility-button.help {
+            width: 34px;
+            min-width: 34px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            padding: 0;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .content {
+            display: flex;
+            flex-direction: column;
+            padding: 20px 20px 18px;
+            gap: 16px;
+        }
+
+        .content-card {
+            border-radius: 16px;
+            border: 1px solid rgba(20, 37, 70, 0.1);
+            background: var(--content-surface);
+            backdrop-filter: blur(8px);
+            padding: 16px;
+        }
+
+        .headline {
+            margin: 0;
+            font-family: "Fraunces", serif;
+            font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+            letter-spacing: 0.1px;
+        }
+
+        .subhead {
+            margin: 8px 0 0;
+            color: var(--text-secondary);
+            font-size: 0.93rem;
+            max-width: 64ch;
+            line-height: 1.45;
+        }
+
+        .spec-grid {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            margin-top: 6px;
+        }
+
+        .spec {
+            border-radius: 12px;
+            border: 1px solid rgba(20, 37, 70, 0.1);
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.72);
+        }
+
+        .spec-key {
+            margin: 0;
+            color: var(--text-tertiary);
+            font-size: 0.72rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .spec-value {
+            margin: 4px 0 0;
+            color: var(--text-main);
+            font-size: 0.93rem;
+            font-weight: 600;
+        }
+
+        .workflow {
+            display: grid;
+            gap: 10px;
+        }
+
+        .flow-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 11px 12px;
+            border-radius: 11px;
+            border: 1px solid rgba(20, 37, 70, 0.08);
+            background: rgba(255, 255, 255, 0.72);
+        }
+
+        .flow-title {
+            margin: 0;
+            font-size: 0.93rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .flow-meta {
+            margin: 2px 0 0;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+
+        .flow-badge {
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            border-radius: 999px;
+            padding: 6px 10px;
+            color: var(--success);
+            border: 1px solid rgba(46, 125, 88, 0.26);
+            background: rgba(46, 125, 88, 0.11);
+        }
+
+        @media (max-width: 980px) {
+            .shell {
+                width: min(1100px, calc(100vw - 20px));
+                margin: 10px auto;
+                min-height: calc(100vh - 20px);
+                border-radius: 18px;
+            }
+
+            .sidebar {
+                width: 248px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <aside class="sidebar">
+            <section class="sidebar-zone zone-top">
+                <div class="brand">
+                    <div class="brand-name">Forma Navigator</div>
+                </div>
+                <label class="search-field" for="sidebar-search">
+                    <input
+                        id="sidebar-search"
+                        class="search-input"
+                        type="search"
+                        placeholder="Search files, rules, folders"
+                        aria-label="Search files, rules, folders"
+                    >
+                    <span class="search-shortcut">Cmd+K</span>
+                </label>
+                <ul class="nav-list">
+                    <li class="nav-row" data-nav-key="home">
+                        <span class="icon-dot"></span>
+                        <span class="row-label">Home</span>
+                        <span class="row-menu">...</span>
+                    </li>
+                    <li class="nav-row" data-nav-key="inbox">
+                        <span class="icon-dot"></span>
+                        <span class="row-label">Inbox</span>
+                        <span class="row-count">12</span>
+                        <span class="row-menu">...</span>
+                    </li>
+                    <li class="nav-row active" data-nav-key="smart-rules">
+                        <span class="icon-dot"></span>
+                        <span class="row-label">Smart Rules</span>
+                        <span class="row-count">6</span>
+                        <span class="row-menu">...</span>
+                    </li>
+                    <li class="nav-row" data-nav-key="analytics">
+                        <span class="icon-dot"></span>
+                        <span class="row-label">Analytics</span>
+                        <span class="row-count">7d</span>
+                        <span class="row-menu">...</span>
+                    </li>
+                    <li class="nav-row" data-nav-key="recents">
+                        <span class="icon-dot"></span>
+                        <span class="row-label">Recents</span>
+                        <span class="row-count">24h</span>
+                        <span class="row-menu">...</span>
+                    </li>
+                </ul>
+            </section>
+
+            <section class="sidebar-zone zone-middle">
+                <article class="section context-section is-hidden" data-section data-context="default">
+                    <button class="section-header" type="button" data-toggle>
+                        <span>Workspace</span>
+                        <span class="chevron">v</span>
+                    </button>
+                    <div class="section-body">
+                        <ul class="item-list">
+                            <li class="item-row active">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Needs Triage</span>
+                                <span class="row-count">18</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                            <li class="item-row">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Pending Undo</span>
+                                <span class="row-count">2</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                            <li class="item-row">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Recent Imports</span>
+                                <span class="row-count">5</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                        </ul>
+                    </div>
+                </article>
+
+                <article class="section context-section" data-section data-context="smart-rules">
+                    <button class="section-header" type="button" data-toggle>
+                        <span>Smart Rules</span>
+                        <span class="chevron">v</span>
+                    </button>
+                    <div class="section-body">
+                        <ul class="item-list">
+                            <li class="item-row active">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Active</span>
+                                <span class="row-count">6</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                            <li class="item-row">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Drafts</span>
+                                <span class="row-count">3</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                            <li class="item-row">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Needs Review</span>
+                                <span class="row-count">2</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                            <li class="item-row">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Failures</span>
+                                <span class="row-count">1</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                        </ul>
+                    </div>
+                </article>
+
+                <article class="section context-section is-hidden" data-section data-context="analytics">
+                    <button class="section-header" type="button" data-toggle>
+                        <span>Analytics</span>
+                        <span class="chevron">v</span>
+                    </button>
+                    <div class="section-body">
+                        <ul class="item-list">
+                            <li class="item-row">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Weekly Summary</span>
+                                <span class="row-count">7d</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                            <li class="item-row">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Rule Performance</span>
+                                <span class="row-count">By Rule</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                            <li class="item-row">
+                                <span class="icon-dot"></span>
+                                <span class="row-label">Exception Trends</span>
+                                <span class="row-count">30d</span>
+                                <span class="row-menu">...</span>
+                            </li>
+                        </ul>
+                    </div>
+                </article>
+            </section>
+
+            <section class="sidebar-zone zone-bottom">
+                <div class="quick-actions">
+                    <button class="quick-action primary" type="button">+ New Rule</button>
+                    <button class="quick-action" type="button">Scan Now</button>
+                    <button class="quick-action" type="button">Import Folder</button>
+                </div>
+                <div class="utility-strip">
+                    <button class="utility-button settings" type="button">Settings</button>
+                    <button class="utility-button help" type="button" aria-label="Help">?</button>
+                </div>
+            </section>
+        </aside>
+
+        <section class="content">
+            <article class="content-card">
+                <h1 class="headline">Three-zone sidebar concept</h1>
+                <p class="subhead">
+                    This prototype applies the recommended structure: global navigation at the top, contextual groups in the middle, and persistent actions at the bottom. Secondary controls stay hidden until hover or selection to keep the surface calm.
+                </p>
+            </article>
+
+            <article class="content-card">
+                <div class="spec-grid">
+                    <div class="spec">
+                        <p class="spec-key">Sidebar Width</p>
+                        <p class="spec-value">272px fixed desktop width</p>
+                    </div>
+                    <div class="spec">
+                        <p class="spec-key">Row Height</p>
+                        <p class="spec-value">38px for clean scanability</p>
+                    </div>
+                    <div class="spec">
+                        <p class="spec-key">Selection Style</p>
+                        <p class="spec-value">Single blue accent with soft fill</p>
+                    </div>
+                    <div class="spec">
+                        <p class="spec-key">Icon Treatment</p>
+                        <p class="spec-value">Monochrome, consistent weight</p>
+                    </div>
+                </div>
+            </article>
+
+            <article class="content-card">
+                <div class="workflow">
+                    <div class="flow-row">
+                        <div>
+                            <p class="flow-title">Inbox sweep</p>
+                            <p class="flow-meta">12 files waiting classification</p>
+                        </div>
+                        <span class="flow-badge">Ready</span>
+                    </div>
+                    <div class="flow-row">
+                        <div>
+                            <p class="flow-title">Rule update preview</p>
+                            <p class="flow-meta">Shows impacted files before applying move</p>
+                        </div>
+                        <span class="flow-badge">Safe</span>
+                    </div>
+                    <div class="flow-row">
+                        <div>
+                            <p class="flow-title">Context sections</p>
+                            <p class="flow-meta">Collapse/expand groups based on workflow</p>
+                        </div>
+                        <span class="flow-badge">Active</span>
+                    </div>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <script>
+        const navRows = Array.from(document.querySelectorAll(".nav-row[data-nav-key]"));
+        const contextSections = Array.from(document.querySelectorAll(".context-section"));
+
+        const setActiveNav = (key) => {
+            navRows.forEach((row) => {
+                row.classList.toggle("active", row.dataset.navKey === key);
+            });
+
+            const showDefaultContext = key !== "smart-rules" && key !== "analytics";
+            contextSections.forEach((section) => {
+                const contextKey = section.dataset.context;
+                const showSection = contextKey === key || (showDefaultContext && contextKey === "default");
+                section.classList.toggle("is-hidden", !showSection);
+            });
+        };
+
+        navRows.forEach((row) => {
+            row.addEventListener("click", () => {
+                setActiveNav(row.dataset.navKey);
+            });
+        });
+
+        const initialActive = document.querySelector(".nav-row.active")?.dataset.navKey || "smart-rules";
+        setActiveNav(initialActive);
+
+        document.querySelectorAll("[data-toggle]").forEach((toggle) => {
+            toggle.addEventListener("click", () => {
+                const section = toggle.closest("[data-section]");
+                if (section) {
+                    section.classList.toggle("collapsed");
+                }
+            });
+        });
+    </script>
+</body>
+</html>

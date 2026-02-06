@@ -13,6 +13,9 @@ class OnboardingState {
     var templateSelection = FolderTemplateSelection()
     var isRequestingPermissions = false
 
+    /// Direction of the most recent step change (for transition animation)
+    var transitionDirection: OnboardingTransitionDirection = .forward
+
     enum OnboardingStep: Int, CaseIterable {
         case welcome = 0
         case folders = 1
@@ -42,12 +45,14 @@ class OnboardingState {
     // MARK: - Navigation
 
     func advance(to step: OnboardingStep) {
-        withAnimation { currentStep = step }
+        transitionDirection = step.rawValue > currentStep.rawValue ? .forward : .backward
+        withAnimation(FormaAnimation.premiumSpring) { currentStep = step }
     }
 
     func goBack() {
         guard let previousStep = OnboardingStep(rawValue: currentStep.rawValue - 1) else { return }
-        withAnimation { currentStep = previousStep }
+        transitionDirection = .backward
+        withAnimation(FormaAnimation.premiumSpring) { currentStep = previousStep }
     }
 }
 

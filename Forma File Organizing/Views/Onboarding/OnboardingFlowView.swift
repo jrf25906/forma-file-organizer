@@ -15,6 +15,7 @@ struct OnboardingFlowView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var state = OnboardingState()
 
@@ -24,12 +25,20 @@ struct OnboardingFlowView: View {
             Color.formaBackground
                 .ignoresSafeArea()
 
+            // Living mesh gradient background (subtle, behind all content)
+            if !reduceMotion {
+                AnimatedMeshBackground()
+                    .opacity(0.5)
+                    .ignoresSafeArea()
+            }
+
             VStack(spacing: 0) {
-                // Progress indicator (hidden on welcome)
+                // Progress indicator (hidden on welcome, slides in from top)
                 if state.currentStep != .welcome {
                     OnboardingProgressBar(currentStep: state.currentStep)
                         .padding(.top, FormaSpacing.standard)
                         .padding(.horizontal, FormaSpacing.huge)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 // Step content
@@ -71,14 +80,11 @@ struct OnboardingFlowView: View {
                         )
                     }
                 }
-                .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
+                .transition(.onboardingStep(direction: state.transitionDirection))
             }
         }
         .frame(width: 650, height: 720)
-        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: state.currentStep)
+        .animation(FormaAnimation.premiumSpring, value: state.currentStep)
     }
 
     // MARK: - Navigation

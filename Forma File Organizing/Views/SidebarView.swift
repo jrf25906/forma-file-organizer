@@ -7,36 +7,23 @@ struct SidebarView: View {
     @EnvironmentObject var services: AppServices
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.openSettings) private var openSettings
     @Binding var shouldFocusSearch: Bool
+    @Binding var showKeyboardHelp: Bool
 
     @ObservedObject private var folderService = BookmarkFolderService.shared
     @State private var isAddingFolder = false
     @State private var isKeyWindow = true
-
-    private var sidebarBorderGradient: LinearGradient {
-        let topOpacity: Double = colorScheme == .dark
-            ? (isKeyWindow ? 0.2 : 0.12)
-            : (isKeyWindow ? 0.3 : 0.18)
-        let bottomOpacity: Double = colorScheme == .dark
-            ? (isKeyWindow ? 0.06 : 0.03)
-            : (isKeyWindow ? 0.1 : 0.05)
-
-        return LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(topOpacity),
-                Color.formaBoneWhite.opacity(bottomOpacity)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
+    @State private var isAddLocationHovered = false
+    @State private var isSettingsHovered = false
+    @State private var isHelpHovered = false
 
     var body: some View {
         // Sidebar content
         VStack(alignment: .leading, spacing: 0) {
             // Spacer to position content below traffic lights (Apple pattern)
-            // Fixed height of 54pt to match standard Unified Toolbar height
-            Color.clear.frame(height: 54)
+            // Tuned to 52pt to keep search aligned under traffic-light chrome.
+            Color.clear.frame(height: 52)
 
             // Search Bar (Moved to top)
             SidebarSearchBar(
@@ -55,14 +42,21 @@ struct SidebarView: View {
                         Spacer()
                         Button(action: { addNewLocation() }) {
                             Image(systemName: "plus")
-                                .font(.formaCaptionBold)
-                                .foregroundColor(Color.formaTertiaryLabel) // Match section header color
-                                .frame(width: 20, height: 20)
-                                .contentShape(Rectangle())
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(isAddLocationHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                                .frame(width: 26, height: 26)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(isAddLocationHovered ? footerHoverFill : Color.clear)
+                                )
+                                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .disabled(isAddingFolder)
                         .help("Add a new location")
+                        .onHover { hovering in
+                            isAddLocationHovered = hovering
+                        }
                         .padding(.top, FormaSpacing.standard)
                         .padding(.bottom, FormaSpacing.micro)
                     }
@@ -92,29 +86,63 @@ struct SidebarView: View {
                     }
 
                     // Create Rule Convenience Button
-                    Button(action: {
+                    SidebarNativeRow(
+                        title: "New Rule",
+                        icon: "plus",
+                        isSelected: false
+                    ) {
                         dashboardViewModel.showRuleBuilderPanel()
-                    }) {
-                        HStack(spacing: FormaSpacing.standard) {
-                            Image(systemName: "plus")
-                                .font(.formaCaptionBold)
-                                .foregroundColor(Color.formaSecondaryLabel)
-                                .frame(width: 20, alignment: .center)
-
-                            Text("New Rule")
-                                .font(.formaBody)
-                            Spacer()
-                        }
-                        .foregroundColor(Color.formaSecondaryLabel)
-                        .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
-                        .padding(.vertical, FormaSpacing.tight)
                     }
-                    .buttonStyle(.plain)
                     .help("Create a new organization rule (R)")
                 }
                 .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
             }
 
+            HStack(spacing: FormaSpacing.tight) {
+                Button(action: { openSettings() }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 13, weight: .medium))
+
+                        Text("Settings")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundColor(isSettingsHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(isSettingsHovered ? footerHoverFill : Color.clear)
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("Open Settings (⌘,)")
+                .accessibilityIdentifier("sidebarSettingsButton")
+                .onHover { hovering in
+                    isSettingsHovered = hovering
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: { showKeyboardHelp = true }) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(isHelpHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                        .frame(width: 26, height: 26)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(isHelpHovered ? footerHoverFill : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("Keyboard Shortcuts (?)")
+                .accessibilityIdentifier("sidebarKeyboardHelpButton")
+                .onHover { hovering in
+                    isHelpHovered = hovering
+                }
+            }
+            .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
+            .padding(.vertical, FormaSpacing.tight)
         }
         // Native Flush/Replica Sidebar:
         .background {
@@ -131,11 +159,9 @@ struct SidebarView: View {
                 cornerRadius: FormaLayout.FloatingCard.cornerRadius,
                 style: .continuous
             )
-            .strokeBorder(sidebarBorderGradient, lineWidth: 1)
+            .strokeBorder(sidebarShellStroke, lineWidth: 0.85)
         }
-        .overlay(alignment: .trailing) {
-            EmptyView()
-        }
+        .shadow(color: sidebarShadowColor, radius: 14, x: 0, y: 2)
         .overlay {
             WindowKeyObserver(isKeyWindow: $isKeyWindow)
                 .frame(width: 0, height: 0)
@@ -158,25 +184,13 @@ struct SidebarView: View {
     
     @ViewBuilder
     private func sidebarItem(_ title: String, icon: String, selection: NavigationSelection) -> some View {
-        Button(action: { nav.select(selection) }) {
-            HStack(spacing: FormaSpacing.standard) {
-                Image(systemName: icon)
-                    .font(.formaH3)
-                    .frame(width: 20, alignment: .center)
-
-                Text(title)
-                    .font(.formaBody)
-                Spacer()
-            }
-            .foregroundColor(nav.selection == selection ? Color.formaLabel : Color.formaSecondaryLabel)
-            .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
-            .padding(.vertical, FormaSpacing.tight)
-            .background(
-                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                    .fill(nav.selection == selection ? Color.formaSteelBlue.opacity(Color.FormaOpacity.medium) : Color.clear)
-            )
+        SidebarNativeRow(
+            title: title,
+            icon: icon,
+            isSelected: nav.selection == selection
+        ) {
+            nav.select(selection)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Bookmark Folder Item
@@ -186,26 +200,13 @@ struct SidebarView: View {
         let selection = NavigationSelection.from(folderType: folder.folderType)
         let isSelected = isFolderSelected(folder)
 
-        Button(action: { nav.select(selection) }) {
-            HStack(spacing: FormaSpacing.standard) {
-                Image(systemName: folder.iconName)
-                    .font(.formaH3)
-                    .frame(width: 20, alignment: .center)
-
-                Text(folder.displayName)
-                    .font(.formaBody)
-                    .lineLimit(1)
-                Spacer()
-            }
-            .foregroundColor(isSelected ? Color.formaLabel : Color.formaSecondaryLabel)
-            .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
-            .padding(.vertical, FormaSpacing.tight)
-            .background(
-                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                    .fill(isSelected ? Color.formaSteelBlue.opacity(Color.FormaOpacity.medium) : Color.clear)
-            )
+        SidebarNativeRow(
+            title: folder.displayName,
+            icon: folder.iconName,
+            isSelected: isSelected
+        ) {
+            nav.select(selection)
         }
-        .buttonStyle(.plain)
         .contextMenu {
             Button(role: .destructive) {
                 removeFolder(folder)
@@ -324,5 +325,90 @@ struct SidebarView: View {
         }
 
         Log.info("SidebarView: Removed location '\(folderName)'", category: .filesystem)
+    }
+
+    private var footerHoverFill: Color {
+        Color.formaControlBackground.opacity(colorScheme == .dark ? 0.65 : 0.9)
+    }
+
+    private var sidebarShellStroke: LinearGradient {
+        let topOpacity: Double = colorScheme == .dark
+            ? (isKeyWindow ? 0.26 : 0.18)
+            : (isKeyWindow ? 0.34 : 0.24)
+        let bottomOpacity: Double = colorScheme == .dark
+            ? (isKeyWindow ? 0.09 : 0.06)
+            : (isKeyWindow ? 0.14 : 0.10)
+
+        return LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(topOpacity),
+                Color.formaBoneWhite.opacity(bottomOpacity)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var sidebarShadowColor: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(isKeyWindow ? 0.32 : 0.2)
+            : Color.black.opacity(isKeyWindow ? 0.14 : 0.09)
+    }
+}
+
+private struct SidebarNativeRow: View {
+    let title: String
+    let icon: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 18, alignment: .center)
+
+                Text(title)
+                    .font(.system(size: 13, weight: isSelected ? .medium : .regular))
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+            }
+            .foregroundColor(foregroundColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(minHeight: 30)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(backgroundFill)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+
+    private var foregroundColor: Color {
+        if isSelected || isHovered {
+            return .formaLabel
+        }
+        return .formaSecondaryLabelHigh
+    }
+
+    private var backgroundFill: Color {
+        if isSelected {
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.28 : 0.2)
+        }
+        if isHovered {
+            return Color.formaControlBackground.opacity(colorScheme == .dark ? 0.65 : 0.9)
+        }
+        return .clear
     }
 }
