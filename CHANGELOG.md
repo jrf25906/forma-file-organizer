@@ -17,6 +17,8 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Dashboard file card/list/grid views now use a readability-first layout with stronger filename hierarchy, a single primary status chip, human-readable metadata summaries, and cleaner hover-only secondary actions.
 - Dashboard file presentations now use the spacious density treatment across card/list/grid with expanded spacing and larger visual targets.
+- Toolbar view-mode controls now use a native segmented capsule style with shared glass surface, divider rails, and a sliding active state for grid/list/tile switching.
+- Pending/All Files toolbar toggle now uses the same segmented capsule treatment, and both segmented controls now include a subtle native-style hover highlight.
 - Dark-mode control and text-input surfaces now use deeper charcoal tokens, and checkbox chrome has stronger contrast for clearer affordance.
 - Learned patterns persist unified Destinations for bookmark-aware suggestions.
 - ML destination predictions incorporate project clusters, real training counts, and bookmark-backed destinations when possible.

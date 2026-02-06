@@ -170,80 +170,24 @@ struct UnifiedToolbar: View {
     
     private var leftPill: some View {
         HStack(spacing: compressionLevel.spacing) {
-            // Main Toggles
-            HStack(spacing: 4) {
-                // Pending Actions Toggle (with iOS-style badge)
-                ModeToggleButton(
-                    isActive: viewModel.reviewFilterMode == .needsReview,
-                    icon: "tray",
-                    label: "Pending",
-                    badgeCount: viewModel.needsReviewCount,
-                    color: .formaWarmOrange,
-                    id: "needsReview",
-                    compressionLevel: compressionLevel,
-                    namespace: animation
-                ) {
-                    viewModel.reviewFilterMode = .needsReview
-                }
-
-                // All Files Toggle
-                ModeToggleButton(
-                    isActive: viewModel.reviewFilterMode == .all,
-                    icon: "folder",
-                    label: "All Files",
-                    badgeCount: 0,
-                    color: .formaSteelBlue,
-                    id: "allFiles",
-                    compressionLevel: compressionLevel,
-                    namespace: animation
-                ) {
-                    viewModel.reviewFilterMode = .all
-                }
+            StocksStyleReviewModeControl(
+                selectedMode: viewModel.reviewFilterMode,
+                pendingCount: viewModel.needsReviewCount,
+                namespace: animation
+            ) { mode in
+                viewModel.reviewFilterMode = mode
             }
-            .padding(FormaSpacing.micro)
-            .formaMaterialTier(.raised, cornerRadius: 20)
         }
     }
 
     private var rightPill: some View {
         HStack(spacing: compressionLevel.spacing) {
-            // View Type Section - always icon-only for cleaner toolbar
-            HStack(spacing: 4) {
-                ViewTypeButton(
-                    isActive: viewModel.currentViewMode == .grid,
-                    icon: "square.grid.2x2",
-                    label: "Grid",
-                    namespace: animation,
-                    compact: true  // Always icon-only
-                ) {
-                    viewModel.currentViewMode = .grid
-                }
-                .help("Grid view (⌘1)")
-
-                ViewTypeButton(
-                    isActive: viewModel.currentViewMode == .list,
-                    icon: "list.bullet",
-                    label: "List",
-                    namespace: animation,
-                    compact: true  // Always icon-only
-                ) {
-                    viewModel.currentViewMode = .list
-                }
-                .help("List view (⌘2)")
-
-                ViewTypeButton(
-                    isActive: viewModel.currentViewMode == .card,
-                    icon: "rectangle.grid.1x2",
-                    label: "Tile",
-                    namespace: animation,
-                    compact: true  // Always icon-only
-                ) {
-                    viewModel.currentViewMode = .card
-                }
-                .help("Tile view (⌘3)")
+            StocksStyleViewModeControl(
+                selectedMode: viewModel.currentViewMode,
+                namespace: animation
+            ) { mode in
+                viewModel.currentViewMode = mode
             }
-            .padding(FormaSpacing.micro)
-            .formaMaterialTier(.raised, cornerRadius: 20)
 
             // Grouping section - only show in All Files mode
             if viewModel.reviewFilterMode == .all {
@@ -321,99 +265,488 @@ struct UnifiedToolbar: View {
 
 // MARK: - Subcomponents
 
-struct ModeToggleButton: View {
-    let isActive: Bool
-    let icon: String
-    let label: String
-    let badgeCount: Int
-    let color: Color
-    let id: String
-    let compressionLevel: CompressionLevel
+private struct StocksStyleReviewModeControl: View {
+    let selectedMode: ReviewFilterMode
+    let pendingCount: Int
     let namespace: Namespace.ID
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.formaCompact)
+    let onSelect: (ReviewFilterMode) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var hoveredMode: ReviewFilterMode?
 
-                Text(label)
-                    .font(.formaBodyMedium)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-            .padding(.horizontal, compressionLevel == .compact ? 10 : 12)
-            .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
-            .frame(minHeight: 32)
-            // IMPORTANT: foregroundColor MUST come before background
-            // for VisualEffectView's .withinWindow blending to work correctly
-            .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabelHigh)
-            .background {
-                if isActive {
-                    ToolbarGlassyCapsuleBackground(
-                        tint: Color.formaSteelBlue.opacity(0.68),
-                        cornerRadius: 999
-                    )
-                    .matchedGeometryEffect(id: "activeModeToggle", in: namespace)
+    private struct Segment: Identifiable {
+        let mode: ReviewFilterMode
+        let icon: String
+        let label: String
+        let help: String
+        let accessibilityID: String
+
+        var id: ReviewFilterMode { mode }
+    }
+
+    private let segments: [Segment] = [
+        Segment(
+            mode: .needsReview,
+            icon: "tray",
+            label: "Pending",
+            help: "Show pending files",
+            accessibilityID: "reviewMode_needsReview"
+        ),
+        Segment(
+            mode: .all,
+            icon: "folder",
+            label: "All Files",
+            help: "Show all files",
+            accessibilityID: "reviewMode_allFiles"
+        ),
+    ]
+
+    private let containerCornerRadius: CGFloat = 17
+    private let selectedCornerRadius: CGFloat = 13
+    private let segmentHeight: CGFloat = 30
+    private let segmentPlateHorizontalInset: CGFloat = 4
+    private let segmentPlateVerticalInset: CGFloat = 1.5
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
+                segmentButton(segment)
+
+                if index < segments.count - 1 {
+                    Rectangle()
+                        .fill(separatorColor)
+                        .frame(width: 1, height: 22)
+                        .allowsHitTesting(false)
                 }
             }
+        }
+        .padding(3)
+        .background {
+            ToolbarGlassyCapsuleBackground(tint: nil, cornerRadius: containerCornerRadius)
+                .overlay(
+                    RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                        .stroke(topRimColor, lineWidth: 0.6)
+                )
+        }
+        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedMode)
+        .animation(.easeOut(duration: 0.16), value: hoveredMode)
+        .accessibilityElement(children: .contain)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func segmentButton(_ segment: Segment) -> some View {
+        let isSelected = selectedMode == segment.mode
+        let isHovered = hoveredMode == segment.mode
+
+        return Button(action: { onSelect(segment.mode) }) {
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(activeFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .stroke(activeBorder, lineWidth: 0.9)
+                        )
+                        .overlay(alignment: .top) {
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .fill(selectedHighlight)
+                                .frame(height: 8)
+                                .padding(.horizontal, 4)
+                                .padding(.top, 2)
+                        }
+                        .shadow(color: selectedGlowColor, radius: 7, x: 0, y: 0)
+                        .shadow(color: selectedDropShadowColor, radius: 2.5, x: 0, y: 1)
+                        .matchedGeometryEffect(id: "activeReviewSegment", in: namespace)
+                        .padding(.vertical, segmentPlateVerticalInset)
+                        .padding(.horizontal, segmentPlateHorizontalInset)
+                } else if isHovered {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(hoverFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .stroke(hoverBorder, lineWidth: 0.7)
+                        )
+                        .overlay(alignment: .top) {
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .fill(hoverHighlight)
+                                .frame(height: 6)
+                                .padding(.horizontal, 4)
+                                .padding(.top, 2)
+                        }
+                        .padding(.vertical, segmentPlateVerticalInset)
+                        .padding(.horizontal, segmentPlateHorizontalInset)
+                }
+
+                HStack(spacing: 6) {
+                    Image(systemName: segment.icon)
+                        .font(.system(size: 11.5, weight: isSelected ? .medium : .regular))
+
+                    Text(segment.label)
+                        .font(.system(size: 13.5, weight: isSelected ? .medium : .regular))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 12)
+                .frame(height: segmentHeight)
+                .foregroundColor(
+                    isSelected
+                        ? .formaLabel
+                        : (isHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                )
+            }
+            .frame(height: segmentHeight)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .overlay(alignment: .topTrailing) {
-            if badgeCount > 0 {
-                Text("\(badgeCount)")
-                    .font(.formaSmallSemibold)
+            if segment.mode == .needsReview && pendingCount > 0 {
+                Text(pendingBadgeText)
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundColor(.formaBoneWhite)
-                    .padding(.horizontal, FormaSpacing.tight - (FormaSpacing.micro / 2))
-                    .padding(.vertical, FormaSpacing.micro / 2)
-                    .background(Capsule().fill(color))
-                    .offset(x: 8, y: -8)
+                    .frame(minWidth: 14, minHeight: 14)
+                    .padding(.horizontal, 3.5)
+                    .background {
+                        Capsule().fill(badgeFill)
+                    }
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.formaBoneWhite.opacity(0.24), lineWidth: 0.5)
+                    )
+                    .shadow(color: Color.black.opacity(0.22), radius: 1.2, x: 0, y: 1)
+                    .offset(x: 6, y: -7)
             }
         }
-        .accessibilityIdentifier("reviewMode_\(id)")
-        .accessibilityLabel(label)
-        .accessibilityValue(badgeCount > 0 ? "\(badgeCount)" : "")
+        .help(segment.help)
+        .accessibilityIdentifier(segment.accessibilityID)
+        .accessibilityLabel(segment.label)
+        .accessibilityValue(segment.mode == .needsReview && pendingCount > 0 ? "\(pendingCount)" : "")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .onHover { hovering in
+            if hovering {
+                hoveredMode = segment.mode
+            } else if hoveredMode == segment.mode {
+                hoveredMode = nil
+            }
+        }
+    }
+
+    private var separatorColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.30)
+            : Color.formaObsidian.opacity(0.20)
+    }
+
+    private var topRimColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.22)
+            : Color.formaBoneWhite.opacity(0.45)
+    }
+
+    private var activeBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.30)
+            : Color.formaObsidian.opacity(0.13)
+    }
+
+    private var activeFill: AnyShapeStyle {
+        if colorScheme == .dark {
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [
+                        Color.formaBoneWhite.opacity(0.18),
+                        Color.formaBoneWhite.opacity(0.06),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+
+        return AnyShapeStyle(
+            LinearGradient(
+                colors: [
+                    Color.formaBoneWhite.opacity(0.90),
+                    Color.formaBoneWhite.opacity(0.70),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+    }
+
+    private var selectedHighlight: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
+                Color.formaBoneWhite.opacity(0.0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var selectedGlowColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.06)
+            : Color.formaSteelBlue.opacity(0.05)
+    }
+
+    private var selectedDropShadowColor: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.24)
+            : Color.formaObsidian.opacity(0.08)
+    }
+
+    private var hoverFill: AnyShapeStyle {
+        if colorScheme == .dark {
+            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.12))
+        }
+        return AnyShapeStyle(Color.formaObsidian.opacity(0.08))
+    }
+
+    private var hoverBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.10)
+    }
+
+    private var hoverHighlight: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
+                Color.formaBoneWhite.opacity(0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var pendingBadgeText: String {
+        pendingCount > 99 ? "99+" : "\(pendingCount)"
+    }
+
+    private var badgeFill: some ShapeStyle {
+        LinearGradient(
+            colors: [
+                Color.formaWarmOrange.blend(with: .red, ratio: 0.22),
+                Color.formaWarmOrange.opacity(0.95),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 }
 
-struct ViewTypeButton: View {
-    let isActive: Bool
-    let icon: String
-    let label: String
+private struct StocksStyleViewModeControl: View {
+    let selectedMode: ViewMode
     let namespace: Namespace.ID
-    let compact: Bool  // When true, show icon only
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: compact ? 0 : 6) {
-                Image(systemName: icon)
-                    .font(.formaCompact)
+    let onSelect: (ViewMode) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var hoveredMode: ViewMode?
 
-                if !compact {
-                    Text(label)
-                        .font(.formaBodyMedium)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                }
-            }
-            .padding(.horizontal, compact ? (FormaSpacing.tight + (FormaSpacing.micro / 2)) : (FormaSpacing.standard - FormaSpacing.micro))
-            .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
-            .frame(minHeight: 32)
-            .foregroundColor(isActive ? .formaLabel : .formaSecondaryLabelHigh)
-            .background {
-                if isActive {
-                    ToolbarGlassyCapsuleBackground(
-                        tint: Color.formaSteelBlue.opacity(0.68),
-                        cornerRadius: 999
-                    )
-                    .matchedGeometryEffect(id: "activeView", in: namespace)
+    private struct Segment: Identifiable {
+        let mode: ViewMode
+        let icon: String
+        let help: String
+
+        var id: ViewMode { mode }
+    }
+
+    private let segments: [Segment] = [
+        Segment(mode: .grid, icon: "square.grid.2x2", help: "Grid view (⌘1)"),
+        Segment(mode: .list, icon: "list.bullet", help: "List view (⌘2)"),
+        Segment(mode: .card, icon: "rectangle.grid.1x2", help: "Tile view (⌘3)"),
+    ]
+
+    private let containerCornerRadius: CGFloat = 17
+    private let selectedCornerRadius: CGFloat = 13
+    private let segmentWidth: CGFloat = 40
+    private let segmentHeight: CGFloat = 30
+    private let segmentPlateHorizontalInset: CGFloat = 4
+    private let segmentPlateVerticalInset: CGFloat = 1.5
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
+                segmentButton(segment)
+
+                if index < segments.count - 1 {
+                    Rectangle()
+                        .fill(separatorColor)
+                        .frame(width: 1, height: 22)
+                        .allowsHitTesting(false)
                 }
             }
         }
+        .padding(3)
+        .background {
+            ToolbarGlassyCapsuleBackground(tint: nil, cornerRadius: containerCornerRadius)
+                .overlay(
+                    RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                        .stroke(topRimColor, lineWidth: 0.6)
+                )
+        }
+        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedMode)
+        .animation(.easeOut(duration: 0.16), value: hoveredMode)
+        .accessibilityElement(children: .contain)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func segmentButton(_ segment: Segment) -> some View {
+        let isSelected = selectedMode == segment.mode
+        let isHovered = hoveredMode == segment.mode
+
+        return Button(action: { onSelect(segment.mode) }) {
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(activeFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .stroke(activeBorder, lineWidth: 0.9)
+                        )
+                        .overlay(alignment: .top) {
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .fill(selectedHighlight)
+                                .frame(height: 8)
+                                .padding(.horizontal, 4)
+                                .padding(.top, 2)
+                        }
+                        .shadow(color: selectedGlowColor, radius: 7, x: 0, y: 0)
+                        .shadow(color: selectedDropShadowColor, radius: 2.5, x: 0, y: 1)
+                        .matchedGeometryEffect(id: "activeViewSegment", in: namespace)
+                        .padding(.vertical, segmentPlateVerticalInset)
+                        .padding(.horizontal, segmentPlateHorizontalInset)
+                } else if isHovered {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(hoverFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .stroke(hoverBorder, lineWidth: 0.7)
+                        )
+                        .overlay(alignment: .top) {
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .fill(hoverHighlight)
+                                .frame(height: 6)
+                                .padding(.horizontal, 4)
+                                .padding(.top, 2)
+                        }
+                        .padding(.vertical, segmentPlateVerticalInset)
+                        .padding(.horizontal, segmentPlateHorizontalInset)
+                }
+
+                Image(systemName: segment.icon)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundColor(
+                        isSelected
+                            ? .formaLabel
+                            : (isHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                    )
+                    .frame(width: segmentWidth, height: segmentHeight)
+            }
+            .frame(width: segmentWidth, height: segmentHeight)
+            .contentShape(Rectangle())
+        }
         .buttonStyle(.plain)
+        .help(segment.help)
+        .accessibilityLabel(segment.mode.displayName)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .onHover { hovering in
+            if hovering {
+                hoveredMode = segment.mode
+            } else if hoveredMode == segment.mode {
+                hoveredMode = nil
+            }
+        }
+    }
+
+    private var separatorColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.30)
+            : Color.formaObsidian.opacity(0.20)
+    }
+
+    private var activeBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.30)
+            : Color.formaObsidian.opacity(0.13)
+    }
+
+    private var activeFill: AnyShapeStyle {
+        if colorScheme == .dark {
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [
+                        Color.formaBoneWhite.opacity(0.18),
+                        Color.formaBoneWhite.opacity(0.06),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+
+        return AnyShapeStyle(
+            LinearGradient(
+                colors: [
+                    Color.formaBoneWhite.opacity(0.90),
+                    Color.formaBoneWhite.opacity(0.70),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+    }
+
+    private var topRimColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.22)
+            : Color.formaBoneWhite.opacity(0.45)
+    }
+
+    private var selectedHighlight: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
+                Color.formaBoneWhite.opacity(0.0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var selectedGlowColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.06)
+            : Color.formaSteelBlue.opacity(0.05)
+    }
+
+    private var selectedDropShadowColor: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.24)
+            : Color.formaObsidian.opacity(0.08)
+    }
+
+    private var hoverFill: AnyShapeStyle {
+        if colorScheme == .dark {
+            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.12))
+        }
+        return AnyShapeStyle(Color.formaObsidian.opacity(0.08))
+    }
+
+    private var hoverBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.10)
+    }
+
+    private var hoverHighlight: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
+                Color.formaBoneWhite.opacity(0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 }
 
