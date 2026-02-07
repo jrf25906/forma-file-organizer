@@ -167,7 +167,7 @@ export default function HeroSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden px-6 pt-[8.5rem] pb-20 md:pt-[11rem] md:pb-28"
+      className="relative overflow-hidden px-6 pt-[11.5rem] pb-20 md:pt-[15.5rem] md:pb-28"
     >
       {/* Background gradient orbs */}
       <div
@@ -211,9 +211,9 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         {/* HEADLINE                                                       */}
         {/* ─────────────────────────────────────────────────────────────── */}
-        <div ref={headlineRef} className="opacity-0">
+        <div ref={headlineRef}>
           <RevealText
-            className="headline-hero justify-center text-4xl sm:text-5xl md:text-6xl lg:text-[4rem] font-display leading-[1.05] tracking-tight text-forma-bone"
+            className="headline-hero justify-center text-4xl sm:text-5xl md:text-[3.35rem] lg:text-[3.55rem] font-display leading-[1.08] tracking-tight text-forma-bone"
             delay={0.5}
           >
             A file organizer for people who gave up on file organizers.
@@ -225,7 +225,7 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         <p
           ref={subtextRef}
-          className="mx-auto mt-7 max-w-2xl text-lg leading-relaxed text-forma-bone/65 opacity-0 md:text-xl"
+          className="mx-auto mt-7 max-w-2xl text-lg leading-relaxed text-black/70 md:text-xl"
         >
           Your desktop is a dumping ground. Your Downloads folder is worse.
           You&apos;ve tried to fix it before.
@@ -236,7 +236,7 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         <p
           ref={bodyRef}
-          className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-forma-bone/75 opacity-0 md:text-lg"
+          className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-black/80 md:text-lg"
         >
           You make rules. Forma follows them. Screenshots go here, PDFs go
           there. You preview what&apos;s about to happen, approve it, and
@@ -249,7 +249,7 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         <div
           ref={ctaRef}
-          className="mt-9 flex flex-col items-center justify-center gap-3.5 opacity-0 sm:flex-row"
+          className="mt-9 flex flex-col items-center justify-center gap-3.5 sm:flex-row"
         >
           {/* Primary CTA - Download for Mac */}
           <a
@@ -277,7 +277,7 @@ export default function HeroSection() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <div
         ref={mockupRef}
-        className="relative z-10 mx-auto mt-14 w-full max-w-5xl opacity-0 md:mt-20"
+        className="relative z-10 mx-auto mt-14 w-full max-w-5xl md:mt-20"
       >
         <div className="app-mockup-glow">
           <MacWindowFrame className="w-full">

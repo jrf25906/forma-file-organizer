@@ -17,6 +17,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Consolidated marketing web code to `forma-website/` and removed legacy `website/` + `forma-marketing-site/` directories.
 - `forma-website` now uses normal in-flow footer layout (no fixed negative-z reveal), and web metadata/sitemap/robots now target `https://formafiles.com`.
 - `forma-website` hero/header spacing and anchor offsets were refined to prevent top overlap, and light-mode feature demos now use readable high-contrast surfaces.
+- `forma-website` light-mode typography contrast and feature-demo default visibility were corrected, and hero spacing/scale were further tuned for cleaner first paint.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Dashboard file card/list/grid views now use a readability-first layout with stronger filename hierarchy, a single primary status chip, human-readable metadata summaries, and cleaner hover-only secondary actions.
 - Dashboard file presentations now use the spacious density treatment across card/list/grid with expanded spacing and larger visual targets.

@@ -28,7 +28,7 @@ interface FeatureConfig {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function useInteractionState(ref: React.RefObject<HTMLDivElement | null>) {
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(true);
   const [isTouch, setIsTouch] = useState(false);
   const tappedRef = useRef(false);
 
@@ -37,8 +37,12 @@ function useInteractionState(ref: React.RefObject<HTMLDivElement | null>) {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(pointer: coarse)");
     setIsTouch(mq.matches);
+    setActive(!mq.matches);
 
-    const handleChange = (e: MediaQueryListEvent) => setIsTouch(e.matches);
+    const handleChange = (e: MediaQueryListEvent) => {
+      setIsTouch(e.matches);
+      setActive(!e.matches);
+    };
     mq.addEventListener("change", handleChange);
     return () => mq.removeEventListener("change", handleChange);
   }, []);
@@ -139,10 +143,11 @@ function NaturalLanguageDemo({ active }: { active: boolean }) {
   }, [active, charIndex, isDeleting, ruleIndex]);
 
   // Derive a simple parsed target from the current text
+  const previewText = displayText || RULE_EXAMPLES[0];
   const parsedTarget =
-    displayText.split(" to ")[1] ||
-    displayText.split(" -> ")[1] ||
-    displayText.split(" into ")[1] ||
+    previewText.split(" to ")[1] ||
+    previewText.split(" -> ")[1] ||
+    previewText.split(" into ")[1] ||
     null;
 
   return (
@@ -150,7 +155,7 @@ function NaturalLanguageDemo({ active }: { active: boolean }) {
       {/* Faux terminal input */}
       <div className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 font-mono text-sm">
         <span className="text-forma-steel-blue/50 select-none">$ </span>
-        <span className="text-forma-bone/90">{displayText}</span>
+        <span className="text-forma-bone/90">{previewText}</span>
         <span
           className={`inline-block w-[2px] h-4 ml-0.5 align-text-bottom bg-forma-steel-blue ${
             active ? "animate-blink" : "opacity-0"
@@ -161,7 +166,7 @@ function NaturalLanguageDemo({ active }: { active: boolean }) {
       {/* Parsed rule preview */}
       <div
         className={`rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 transition-all duration-500 ${
-          parsedTarget ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+          parsedTarget ? "opacity-100 translate-y-0" : "opacity-60 translate-y-1"
         }`}
       >
         <div className="flex items-center gap-2 text-xs text-forma-bone/40 mb-1.5">
@@ -252,7 +257,7 @@ function SmartConnectionsDemo({ active }: { active: boolean }) {
                 <span
                   key={file}
                   className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-mono text-forma-bone/60 ${group.borderColor} bg-white/[0.03] transition-all duration-300 ${
-                    active ? "opacity-100 scale-100" : "opacity-0 scale-90"
+                    active ? "opacity-100 scale-100" : "opacity-70 scale-95"
                   }`}
                   style={{
                     transitionDelay: active
@@ -332,7 +337,7 @@ function TotalControlDemo({ active }: { active: boolean }) {
           key={file.name}
           onClick={() => toggleCheck(idx)}
           className={`w-full flex items-center gap-2.5 rounded px-2 py-1.5 text-left transition-all duration-300 hover:bg-white/[0.04] ${
-            active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+            active ? "opacity-100 translate-y-0" : "opacity-75 translate-y-0"
           }`}
           style={{ transitionDelay: active ? `${idx * 80}ms` : "0ms" }}
         >
@@ -427,7 +432,7 @@ function FullUndoDemo({ active }: { active: boolean }) {
           <div
             key={idx}
             className={`flex items-center gap-2.5 rounded px-2 py-2 transition-all duration-400 ${
-              active ? "opacity-100 translate-x-0" : "opacity-0 translate-x-3"
+              active ? "opacity-100 translate-x-0" : "opacity-75 translate-x-0"
             } ${isUndone ? "opacity-50" : ""}`}
             style={{ transitionDelay: active ? `${idx * 100}ms` : "0ms" }}
           >

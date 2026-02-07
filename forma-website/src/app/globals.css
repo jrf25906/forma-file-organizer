@@ -352,10 +352,14 @@ body {
 [data-theme="light"] .text-forma-bone { color: var(--text-primary); }
 [data-theme="light"] .text-forma-bone\/20 { color: rgba(26, 26, 26, 0.35); }
 [data-theme="light"] .text-forma-bone\/30 { color: rgba(26, 26, 26, 0.5); }
+[data-theme="light"] .text-forma-bone\/25 { color: rgba(26, 26, 26, 0.42); }
+[data-theme="light"] .text-forma-bone\/35 { color: rgba(26, 26, 26, 0.56); }
 [data-theme="light"] .text-forma-bone\/40 { color: rgba(26, 26, 26, 0.65); }
 [data-theme="light"] .text-forma-bone\/50 { color: rgba(26, 26, 26, 0.7); }
 [data-theme="light"] .text-forma-bone\/60 { color: rgba(26, 26, 26, 0.75); }
+[data-theme="light"] .text-forma-bone\/65 { color: rgba(26, 26, 26, 0.8); }
 [data-theme="light"] .text-forma-bone\/70 { color: rgba(26, 26, 26, 0.7); }
+[data-theme="light"] .text-forma-bone\/75 { color: rgba(26, 26, 26, 0.76); }
 [data-theme="light"] .text-forma-bone\/80 { color: rgba(26, 26, 26, 0.8); }
 [data-theme="light"] .text-forma-bone\/90 { color: rgba(26, 26, 26, 0.9); }
 
