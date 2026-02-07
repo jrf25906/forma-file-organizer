@@ -34,11 +34,7 @@ struct DefaultPanelView: View {
 
     /// Primary-action ownership for the current dashboard state.
     private var primaryActionSource: PrimaryActionSource {
-        let hasBulkReviewControls =
-            dashboardViewModel.isSelectionMode ||
-            (dashboardViewModel.reviewFilterMode == .needsReview &&
-             !dashboardViewModel.reviewableFiles.isEmpty)
-        return hasBulkReviewControls ? .floatingActionBar : .rightPanelPinned
+        dashboardViewModel.isSelectionMode ? .floatingActionBar : .rightPanelPinned
     }
 
     /// Hide right-panel primary CTA when another surface owns primary action or
@@ -147,7 +143,7 @@ struct DefaultPanelView: View {
 
                     // Main headline with contextual count
                     Text("\(reviewCount) \(taskDescription)")
-                        .font(.title2.weight(.semibold))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(Color.formaLabel)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -296,10 +292,25 @@ struct DefaultPanelView: View {
             }
             .frame(height: 6)
 
-            // Percentage label
-                Text("\(Int(organizationProgress * 100))% organized")
-                    .font(.formaCaption)
+            // Progress labels: percentage left, file count right
+            HStack {
+                HStack(spacing: 3) {
+                    Text("\(Int(organizationProgress * 100))%")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    Text("ORGANIZED")
+                        .font(.system(size: 9, weight: .semibold))
+                        .tracking(0.3)
+                }
+                .foregroundStyle(progressLabelColor)
+
+                Spacer()
+
+                Text("\(organizedFilesCount)/\(totalFilesCount + organizedFilesCount) Files")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .monospacedDigit()
                     .foregroundStyle(progressLabelColor)
+            }
         }
     }
 
@@ -446,7 +457,7 @@ struct DefaultPanelView: View {
                 Text("Quick Actions")
                     .font(.formaCompactMedium)
             }
-            .foregroundStyle(quickActionsLabelColor)
+            .foregroundStyle(Color.formaTertiaryLabel)
 
             // Single prominent insight card (first visible)
             if let topInsight = visible.first {
@@ -479,7 +490,7 @@ struct DefaultPanelView: View {
                         Image(systemName: showAllInsights ? "chevron.up" : "chevron.down")
                             .font(.system(size: 11, weight: .semibold))
 
-                        Text(showAllInsights ? "Show Less" : "See \(visible.count - 1) More Suggestions")
+                        Text(showAllInsights ? "Show Less" : "See \(visible.count - 1) More Quick Actions")
                             .font(.formaSmallSemibold)
 
                         Spacer()
@@ -561,12 +572,6 @@ struct DefaultPanelView: View {
     private var progressLabelColor: Color {
         colorScheme == .dark
             ? Color.formaBoneWhite.opacity(0.76)
-            : Color.formaLabel.opacity(0.6)
-    }
-
-    private var quickActionsLabelColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.8)
             : Color.formaLabel.opacity(0.6)
     }
 
@@ -674,10 +679,6 @@ struct QuickActionCard: View {
             : Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
     }
 
-    private var ignoreTextColor: Color {
-        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.9) : Color.formaSecondaryLabel
-    }
-
     private var dismissBackgroundColor: Color {
         colorScheme == .dark
             ? Color.formaTextBackground.opacity(isDismissHovered ? 0.96 : 0.84)
@@ -701,15 +702,6 @@ struct QuickActionCard: View {
         )
     }
 
-    private var ignoreContrastRatio: Double {
-        FormaContrastMetrics.contrastRatio(
-            foreground: ignoreTextColor,
-            background: quickActionCardBackground,
-            colorScheme: colorScheme,
-            baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
-        )
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             // Header: Icon + Message + Dismiss
@@ -717,7 +709,7 @@ struct QuickActionCard: View {
                 // Icon with category background
                 ZStack {
                     RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                        .fill(insight.categoryColor.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle))
+                        .fill(insight.categoryColor.opacity(Color.FormaOpacity.medium))
                         .frame(width: 44, height: 44)
 
                     Image(systemName: insight.iconName)
@@ -727,17 +719,24 @@ struct QuickActionCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(insight.message)
-                        .font(.formaBodyMedium)
+                        .font(.formaBodySemibold)
                         .foregroundStyle(Color.formaLabel)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    // Affected count subtitle
+                    if let count = insight.affectedCount, count > 0 {
+                        Text("\(count) files affected")
+                            .font(.formaCaptionSemibold)
+                            .foregroundStyle(insight.categoryColor)
+                    }
 
                     // Contextual detail line
                     if let detail = insight.detail {
                         Text(detail)
                             .font(.formaCaption)
                             .foregroundStyle(secondaryTextColor)
-                            .lineLimit(1)
+                            .lineLimit(2)
                     }
                 }
 
@@ -794,20 +793,6 @@ struct QuickActionCard: View {
                     .pressAnimation()
 
                     Spacer()
-
-                    // Secondary dismiss as text button
-                    if onDismiss != nil {
-                        Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                                onDismiss?()
-                            }
-                        } label: {
-                            Text("Ignore")
-                                .font(.formaSmall)
-                                .foregroundStyle(ignoreTextColor)
-                        }
-                        .buttonStyle(.plain)
-                    }
                 }
             }
         }
@@ -829,7 +814,7 @@ struct QuickActionCard: View {
         .accessibilityIdentifier("quickActionCard")
         .accessibilityValue(
             isUITesting
-                ? "primaryAction=\(String(format: "%.2f", primaryActionContrastRatio));ignore=\(String(format: "%.2f", ignoreContrastRatio))"
+                ? "primaryAction=\(String(format: "%.2f", primaryActionContrastRatio))"
                 : ""
         )
     }
@@ -919,17 +904,12 @@ extension View {
 
 extension FileInsight {
     var categoryColor: Color {
-        // Map insight type to appropriate color
-        switch iconName {
-        case "photo.fill", "camera.fill":
-            return .formaWarmOrange
-        case "doc.fill", "doc.text.fill":
-            return .formaMutedBlue
-        case "arrow.down.circle.fill":
-            return .formaSoftGreen
-        default:
-            return .formaSteelBlue
+        // Use file type category color when available (matches category stat pills),
+        // otherwise fall back to neutral steelBlue for cross-category insights.
+        if let category = fileTypeCategory {
+            return category.color
         }
+        return .formaSteelBlue
     }
 }
 

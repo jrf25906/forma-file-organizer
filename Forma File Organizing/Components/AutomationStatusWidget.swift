@@ -67,9 +67,9 @@ struct AutomationStatusWidget: View {
             // Section Header with status label
             HStack {
                 Text("AUTOMATION")
-                    .font(.formaBodySemibold)
-                    .tracking(0.5)
-                    .foregroundStyle(Color.formaSecondaryLabelHigh)
+                    .font(.formaCaption)
+                    .tracking(0.8)
+                    .foregroundStyle(Color.formaTertiaryLabel)
 
                 Spacer()
 
@@ -92,7 +92,7 @@ struct AutomationStatusWidget: View {
                 HStack(alignment: .center, spacing: FormaSpacing.standard) {
                     // Countdown ring
                     countdownRing
-                        .frame(width: 52, height: 52)
+                        .frame(width: 40, height: 40)
 
                     // Status text
                     VStack(alignment: .leading, spacing: 2) {
@@ -112,14 +112,31 @@ struct AutomationStatusWidget: View {
 
                     Spacer()
 
-                    // Scan Now button (hidden when running or paused)
-                    if !isPaused && !engine.state.isRunning {
-                        scanNowButton
-                            .transition(.scale.combined(with: .opacity))
-                    }
+                    // Grouped control strip: Scan + Pause/Resume
+                    HStack(spacing: 0) {
+                        // Scan Now button (hidden when running or paused)
+                        if !isPaused && !engine.state.isRunning {
+                            scanNowButtonInline
+                                .transition(.scale.combined(with: .opacity))
 
-                    // Pause/Resume toggle
-                    pauseResumeButton
+                            // Thin vertical divider
+                            Rectangle()
+                                .fill(Color.formaSeparator.opacity(0.5))
+                                .frame(width: 1, height: 20)
+                        }
+
+                        // Pause/Resume toggle
+                        pauseResumeButtonInline
+                    }
+                    .background(
+                        Capsule()
+                            .fill(controlStripFill)
+                    )
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(controlStripBorder, lineWidth: 1)
+                    )
+                    .fixedSize()
                 }
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPaused)
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: engine.state.isRunning)
@@ -186,7 +203,7 @@ struct AutomationStatusWidget: View {
             Circle()
                 .stroke(
                     Color.formaObsidian.opacity(Color.FormaOpacity.light),
-                    lineWidth: 4
+                    lineWidth: 3
                 )
 
             // Progress ring with gradient (depletes clockwise)
@@ -194,7 +211,7 @@ struct AutomationStatusWidget: View {
                 .trim(from: 0, to: engine.state.isRunning ? 1.0 : countdownProgress)
                 .stroke(
                     isPaused ? AnyShapeStyle(Color.formaWarmOrange) : AnyShapeStyle(ringGradient),
-                    style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
                 .animation(
@@ -211,7 +228,7 @@ struct AutomationStatusWidget: View {
             } else {
                 // Countdown text - use dominant color from gradient
                 Text(countdownText)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(isPaused ? Color.formaWarmOrange : Color.formaSteelBlue)
                     .monospacedDigit()
             }
@@ -318,6 +335,66 @@ struct AutomationStatusWidget: View {
                             lineWidth: 1
                         )
                 )
+        }
+        .buttonStyle(.plain)
+        .help(isPaused ? "Resume automation" : "Pause automation")
+    }
+
+    // MARK: - Grouped Control Strip Styling
+
+    private var controlStripFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaObsidian.opacity(0.06)
+    }
+
+    private var controlStripBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(0.12)
+    }
+
+    /// Scan button for inline control strip (no individual background)
+    @ViewBuilder
+    private var scanNowButtonInline: some View {
+        Button {
+            Task {
+                await engine.triggerManualScan()
+            }
+        } label: {
+            HStack(spacing: FormaSpacing.micro) {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("Scan")
+                    .font(.formaSmallSemibold)
+            }
+            .foregroundStyle(Color.formaSteelBlue)
+            .padding(.horizontal, FormaSpacing.standard)
+            .padding(.vertical, 6)
+            .fixedSize()
+        }
+        .buttonStyle(.plain)
+        .disabled(engine.state.isRunning)
+        .opacity(engine.state.isRunning ? 0.5 : 1.0)
+        .help("Trigger an immediate scan")
+    }
+
+    /// Pause/Resume button for inline control strip (no individual background)
+    @ViewBuilder
+    private var pauseResumeButtonInline: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                if isPaused {
+                    engine.start()
+                } else {
+                    engine.stop()
+                }
+            }
+        }) {
+            Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(isPaused ? Color.formaSage : Color.formaSecondaryLabelHigh)
+                .frame(width: 32, height: 32)
         }
         .buttonStyle(.plain)
         .help(isPaused ? "Resume automation" : "Pause automation")

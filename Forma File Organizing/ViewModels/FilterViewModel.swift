@@ -60,6 +60,13 @@ class FilterViewModel: ObservableObject {
         }
     }
 
+    /// Sort mode for file ordering
+    @Published var sortMode: SortMode = .newestFirst {
+        didSet {
+            applyFilterDebounced()
+        }
+    }
+
     /// Current view mode (card/list/grid)
     @Published var currentViewMode: ViewMode = .card
 
@@ -248,6 +255,7 @@ class FilterViewModel: ObservableObject {
         filterManager.selectedSecondaryFilter = selectedSecondaryFilter
         filterManager.reviewFilterMode = reviewFilterMode
         filterManager.groupingMode = groupingMode
+        filterManager.sortMode = sortMode
     }
 
     /// Get view mode for a specific category

@@ -90,21 +90,15 @@ struct RightPanelView: View {
                 }
             }
         }
-        // Card styling temporarily removed to test transparent background
-        // .background(
-        //     Material.regular
-        // )
-        // .clipShape(RoundedRectangle(cornerRadius: FormaLayout.RightPanel.cornerRadius, style: .continuous))
-        // .shadow(
-        //     color: Color.black.opacity(0.1),
-        //     radius: 12,
-        //     x: 0,
-        //     y: 4
-        // )
-        // .overlay(
-        //     RoundedRectangle(cornerRadius: FormaLayout.RightPanel.cornerRadius, style: .continuous)
-        //         .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
-        // )
+        .background(
+            RoundedRectangle(cornerRadius: FormaLayout.RightPanel.cornerRadius, style: .continuous)
+                .fill(Color.formaControlBackground)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: FormaLayout.RightPanel.cornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaLayout.RightPanel.cornerRadius, style: .continuous)
+                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.medium), lineWidth: 0.5)
+        )
         .animation(
             reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85),
             value: dashboardViewModel.rightPanelMode

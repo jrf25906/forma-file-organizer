@@ -55,12 +55,12 @@ struct RuleManagementCard: View {
                         .foregroundColor(.formaLabel)
                 }
             } else {
-                // Compound
+                // Compound — fix singular/plural grammar
                 let count = rule.conditions.count
                 HStack(spacing: 0) {
                     Text("Matches ")
                         .foregroundColor(secondaryTextColor)
-                    Text("\(count) conditions")
+                    Text("\(count) \(count == 1 ? "condition" : "conditions")")
                         .foregroundColor(.formaLabel)
                 }
             }
@@ -222,12 +222,12 @@ struct RuleManagementCard: View {
                 HStack(spacing: 4) {
                     descriptionText
                         .font(.formaSmall)
-                    
+
                     Image(systemName: "arrow.right")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundColor(tertiaryTextColor.opacity(0.7))
                         .padding(.horizontal, 2)
-                    
+
                     Image(systemName: actionIcon)
                         .font(.formaCompact)
                         .foregroundColor(secondaryTextColor)
@@ -243,6 +243,18 @@ struct RuleManagementCard: View {
                         .foregroundColor(destinationTextColor)
                         .lineLimit(1)
                         .truncationMode(.middle)
+
+                    if let lastTriggered = rule.lastTriggeredDate {
+                        Spacer().frame(width: 4)
+
+                        Text("·")
+                            .foregroundColor(tertiaryTextColor)
+
+                        Text(lastTriggered.relativeRuleTimestamp)
+                            .font(.formaCaption)
+                            .foregroundColor(tertiaryTextColor)
+                            .lineLimit(1)
+                    }
                 }
             }
             
@@ -300,6 +312,8 @@ struct RuleManagementCard: View {
             x: 0,
             y: isHovered ? 2 : 1
         )
+        .opacity(destinationWarning != nil ? 0.65 : 1.0)
+        .saturation(destinationWarning != nil ? 0.4 : 1.0)
         .scaleEffect(isHovered ? 1.005 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .onHover { hovering in
@@ -334,6 +348,35 @@ struct RuleManagementCard: View {
                         "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio))"
                     )
             }
+        }
+    }
+}
+
+// MARK: - Date Formatting for Rule Cards
+
+private extension Date {
+    /// Compact relative timestamp for rule cards (e.g., "2m ago", "3h ago", "Yesterday")
+    var relativeRuleTimestamp: String {
+        let now = Date()
+        let interval = now.timeIntervalSince(self)
+
+        if interval < 60 {
+            return "Just now"
+        } else if interval < 3600 {
+            let minutes = Int(interval / 60)
+            return "\(minutes)m ago"
+        } else if interval < 86400 {
+            let hours = Int(interval / 3600)
+            return "\(hours)h ago"
+        } else if interval < 172800 {
+            return "Yesterday"
+        } else if interval < 604800 {
+            let days = Int(interval / 86400)
+            return "\(days)d ago"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: self)
         }
     }
 }

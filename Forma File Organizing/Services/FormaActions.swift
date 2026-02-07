@@ -148,6 +148,90 @@ final class FormaActions: ObservableObject {
         }
     }
 
+    /// Fetches actual pending FileItem objects sorted by creation date.
+    ///
+    /// - Parameter limit: Maximum number of items to return (default 50)
+    /// - Returns: Array of pending FileItem objects
+    func getPendingFileItems(limit: Int = 50) async -> [FileItem] {
+        guard let context = modelContext else { return [] }
+
+        let pendingRaw = FileItem.OrganizationStatus.pending.rawValue
+        let readyRaw = FileItem.OrganizationStatus.ready.rawValue
+        var descriptor = FetchDescriptor<FileItem>(
+            predicate: #Predicate { $0.statusRaw == pendingRaw || $0.statusRaw == readyRaw },
+            sortBy: [SortDescriptor(\.creationDate, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            Log.error("FormaActions: Failed to fetch pending items - \(error.localizedDescription)", category: .general)
+            return []
+        }
+    }
+
+    /// Gets counts of files organized today and this week.
+    ///
+    /// - Returns: Tuple with today and this-week organized counts
+    func getOrganizedCounts() async -> (today: Int, thisWeek: Int) {
+        guard let context = modelContext else { return (0, 0) }
+
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())) ?? startOfToday
+
+        let organizeTypes: Set<String> = [
+            ActivityItem.ActivityType.fileOrganized.rawValue,
+            ActivityItem.ActivityType.fileMoved.rawValue,
+            ActivityItem.ActivityType.automationAutoOrganized.rawValue
+        ]
+
+        var descriptor = FetchDescriptor<ActivityItem>(
+            predicate: #Predicate { $0.timestamp >= startOfWeek }
+        )
+        descriptor.fetchLimit = 500
+
+        do {
+            let activities = try context.fetch(descriptor)
+            let organized = activities.filter { organizeTypes.contains($0.activityType.rawValue) }
+            let todayCount = organized.filter { $0.timestamp >= startOfToday }.count
+            return (today: todayCount, thisWeek: organized.count)
+        } catch {
+            Log.error("FormaActions: Failed to fetch organized counts - \(error.localizedDescription)", category: .general)
+            return (0, 0)
+        }
+    }
+
+    /// Organizes a single file using the organization coordinator.
+    ///
+    /// - Parameter file: The FileItem to organize
+    /// - Returns: true if organization succeeded
+    func organizeFile(_ file: FileItem) async -> Bool {
+        guard let context = modelContext, let coordinator = organizationCoordinator else {
+            Log.warning("FormaActions: Cannot organize file - not configured", category: .automation)
+            return false
+        }
+
+        return await withCheckedContinuation { continuation in
+            Task {
+                await coordinator.organizeFile(file, context: context, onSuccess: { _ in
+                    continuation.resume(returning: true)
+                }, onError: { error in
+                    Log.error("FormaActions: Single file organize failed - \(error.localizedDescription)", category: .automation)
+                    continuation.resume(returning: false)
+                })
+            }
+        }
+    }
+
+    /// Skips a single file (marks it as skipped).
+    ///
+    /// - Parameter file: The FileItem to skip
+    func skipFile(_ file: FileItem) {
+        organizationCoordinator?.skipFile(file, context: modelContext)
+    }
+
     /// Gets the count of files pending organization.
     ///
     /// - Returns: File count statistics by source

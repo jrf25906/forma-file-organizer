@@ -246,6 +246,10 @@ class DashboardViewModel: ObservableObject {
         get { filterViewModel.groupingMode }
         set { filterViewModel.groupingMode = newValue }
     }
+    var sortMode: SortMode {
+        get { filterViewModel.sortMode }
+        set { filterViewModel.sortMode = newValue }
+    }
 
     func selectCategory(_ category: FileTypeCategory) {
         filterViewModel.selectedCategory = category
@@ -717,7 +721,8 @@ class DashboardViewModel: ObservableObject {
         hasPicturesAccess = fileSystemService.hasPicturesAccess()
         hasMusicAccess = fileSystemService.hasMusicAccess()
 
-        showOnboarding = !hasDesktopAccess || !hasDownloadsAccess || !hasDocumentsAccess || !hasPicturesAccess || !hasMusicAccess
+        // Onboarding is shown once; after completion it never reappears
+        showOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
     }
 
     enum FolderType: Hashable {
@@ -787,10 +792,36 @@ class DashboardViewModel: ObservableObject {
     }
 
     private func updateOnboardingVisibility() {
-        showOnboarding = !hasDesktopAccess || !hasDownloadsAccess || !hasDocumentsAccess || !hasPicturesAccess || !hasMusicAccess
+        // After completion, onboarding stays dismissed regardless of permission state
+        showOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
     }
 
     func completeOnboarding() {
+        // Mark complete so onboarding never reappears
+        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+
+        // Apply PARA template as default for all 5 folders
+        let defaultSelection = OnboardingFolderSelection() // all true
+        var templateSelection = FolderTemplateSelection()
+        for folder in OnboardingFolder.allCases {
+            templateSelection.setTemplate(.para, for: folder)
+        }
+        defaultSelection.save()
+        templateSelection.save()
+
+        // Apply per-folder template rules with PARA for all folders
+        if let context = modelContext {
+            applyPerFolderTemplates(
+                folderSelection: defaultSelection,
+                templateSelection: templateSelection,
+                personality: nil,
+                context: context
+            )
+        }
+
+        // Refresh folder service so sidebar updates
+        BookmarkFolderService.shared.refresh()
+
         showOnboarding = false
     }
 

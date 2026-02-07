@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forma Grid Card Exploration</title>
+<style>
+  :root {
+    --bg: #1c1c1e;
+    --surface: #2c2c2e;
+    --card: #38383a;
+    --border: rgba(255,255,255,0.08);
+    --label: #f0ece4;
+    --secondary: rgba(240,236,228,0.55);
+    --tertiary: rgba(240,236,228,0.35);
+    --steel: #6ba4c9;
+    --sage: #7a9e7e;
+    --warning: #d4a054;
+    --rail-blue: #5b8fb8;
+    --rail-green: #6b9a6e;
+    --rail-purple: #8b7bb8;
+    --rail-orange: #c4884a;
+    --radius: 10px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--label);
+    font-family: var(--font);
+    padding: 32px;
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--label);
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--secondary);
+    margin-bottom: 40px;
+  }
+
+  .option-section {
+    margin-bottom: 48px;
+  }
+
+  .option-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .option-header h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--label);
+  }
+
+  .option-tag {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--steel);
+    background: rgba(107,164,201,0.15);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .option-desc {
+    font-size: 12px;
+    color: var(--tertiary);
+    margin-bottom: 16px;
+    max-width: 700px;
+    line-height: 1.5;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    max-width: 1100px;
+  }
+
+  /* Shared thumbnail placeholder */
+  .thumb {
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tertiary);
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .thumb.screenshot {
+    background: linear-gradient(135deg, rgba(180,180,170,0.15), rgba(120,120,115,0.08));
+  }
+  .thumb.psd {
+    background: linear-gradient(135deg, rgba(160,120,100,0.2), rgba(140,100,80,0.08));
+    color: rgba(200,150,120,0.6);
+  }
+  .thumb.pdf {
+    background: linear-gradient(135deg, rgba(100,130,170,0.15), rgba(80,110,150,0.08));
+    color: rgba(130,160,200,0.6);
+  }
+  .thumb.zip {
+    background: linear-gradient(135deg, rgba(100,160,110,0.15), rgba(80,140,90,0.08));
+    color: rgba(120,180,130,0.6);
+  }
+
+  .confidence-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .confidence-dot.high { background: var(--sage); }
+  .confidence-dot.med { background: var(--warning); }
+
+  .rail {
+    width: 2px;
+    border-radius: 1px;
+    flex-shrink: 0;
+    align-self: stretch;
+  }
+
+  .checkbox {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(255,255,255,0.25);
+    flex-shrink: 0;
+    opacity: 0.6;
+  }
+
+  .dest { color: var(--steel); }
+  .no-dest { color: var(--tertiary); }
+  .meta { color: var(--tertiary); font-size: 11px; }
+  .filename { font-size: 13px; font-weight: 600; color: var(--label); line-height: 1.3; }
+
+  /* ═══════════════════════════════════════════
+     OPTION A — Current (baseline)
+     Centered thumb, floating checkbox, text block below
+     ═══════════════════════════════════════════ */
+  .card-a {
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    height: 220px;
+    position: relative;
+  }
+  .card-a .rail { margin: 10px 0 10px 8px; }
+  .card-a .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0 10px 0;
+    gap: 8px;
+  }
+  .card-a .thumb-row {
+    display: flex;
+    justify-content: center;
+  }
+  .card-a .thumb { width: 84px; height: 84px; }
+  .card-a .text-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 12px;
+  }
+  .card-a .filename-block { height: 34px; overflow: hidden; }
+  .card-a .meta-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .card-a .dest-line {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+  }
+  .card-a .checkbox-float {
+    position: absolute;
+    top: 10px;
+    left: 22px;
+  }
+
+  /* ═══════════════════════════════════════════
+     OPTION B — Unified left edge
+     Thumb left-aligned with text, checkbox above thumb on same edge
+     ═══════════════════════════════════════════ */
+  .card-b {
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    height: 220px;
+  }
+  .card-b .rail { margin: 10px 0 10px 8px; }
+  .card-b .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .card-b .thumb-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .card-b .thumb { width: 80px; height: 80px; }
+  .card-b .thumb-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-top: 2px;
+  }
+  .card-b .text-block {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .card-b .filename-block { max-height: 34px; overflow: hidden; }
+  .card-b .meta-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .card-b .dest-line {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+  }
+
+  /* ═══════════════════════════════════════════
+     OPTION C — Full-bleed thumbnail
+     Thumb spans full card width at top, text in compact footer
+     ═══════════════════════════════════════════ */
+  .card-c {
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 220px;
+    position: relative;
+  }
+  .card-c .thumb-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.02);
+    position: relative;
+    min-height: 0;
+  }
+  .card-c .thumb { width: 100%; height: 100%; border-radius: 0; }
+  .card-c .rail-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    border-radius: 0;
+  }
+  .card-c .footer {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px 10px;
+    border-top: 0.5px solid var(--border);
+  }
+  .card-c .footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .card-c .filename { font-size: 12px; }
+  .card-c .meta-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+  }
+  .card-c .dest-inline { font-size: 10px; }
+  .card-c .checkbox-float {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+  }
+
+  /* ═══════════════════════════════════════════
+     OPTION D — Horizontal mini-card
+     Thumb on left, text on right (landscape orientation in grid)
+     ═══════════════════════════════════════════ */
+  .card-d {
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    height: 105px;
+  }
+  .card-d .rail { margin: 8px 0 8px 6px; }
+  .card-d .thumb-col {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+  }
+  .card-d .thumb { width: 64px; height: 64px; }
+  .card-d .text-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 12px 8px 4px;
+    min-width: 0;
+  }
+  .card-d .filename {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-d .meta-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+  }
+  .card-d .dest-line {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+  }
+
+  .card-grid-d {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    max-width: 1100px;
+  }
+
+  /* ═══════════════════════════════════════════
+     OPTION E — Checkbox in text row
+     Centered thumb, but checkbox is inline next to filename
+     ═══════════════════════════════════════════ */
+  .card-e {
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    height: 220px;
+  }
+  .card-e .rail { margin: 10px 0 10px 8px; }
+  .card-e .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+    gap: 8px;
+  }
+  .card-e .thumb-row { display: flex; justify-content: center; }
+  .card-e .thumb { width: 84px; height: 84px; }
+  .card-e .text-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 12px;
+  }
+  .card-e .filename-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .card-e .filename-row .checkbox { margin-top: 1px; }
+  .card-e .filename-block { flex: 1; height: 34px; overflow: hidden; }
+  .card-e .meta-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .card-e .dest-line {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+  }
+
+  /* ═══════════════════════════════════════════
+     OPTION F — Two-line footer (no destination line)
+     Centered thumb, metadata + destination merged into one line
+     ═══════════════════════════════════════════ */
+  .card-f {
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    height: 200px;
+    position: relative;
+  }
+  .card-f .rail { margin: 10px 0 10px 8px; }
+  .card-f .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+    gap: 8px;
+  }
+  .card-f .thumb-row { display: flex; justify-content: center; flex: 1; align-items: center; }
+  .card-f .thumb { width: 84px; height: 84px; }
+  .card-f .text-block {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0 12px;
+  }
+  .card-f .filename {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-f .combined-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--tertiary);
+  }
+  .card-f .combined-meta .dest-part { color: var(--steel); }
+  .card-f .checkbox-float {
+    position: absolute;
+    top: 10px;
+    left: 22px;
+  }
+
+  /* Divider between sections */
+  .divider {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin: 8px 0 48px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Grid Card Layout Exploration</h1>
+<p class="subtitle">6 layout approaches for the Forma file grid cards. Same data, different structures.</p>
+
+<!-- ════════ OPTION A ════════ -->
+<div class="option-section">
+  <div class="option-header">
+    <h2>A — Current Layout (Baseline)</h2>
+    <span class="option-tag">Current</span>
+  </div>
+  <p class="option-desc">
+    Centered thumbnail, floating checkbox overlay, text block below with 3 lines.
+    Checkbox and text have different left edges.
+  </p>
+  <div class="card-grid">
+
+    <div class="card-a">
+      <div class="rail" style="background:var(--rail-blue)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb screenshot">🖼</div></div>
+        <div class="text-block">
+          <div class="filename-block"><div class="filename">Screenshot 2026-01-13 at 7.26.03 PM.png</div></div>
+          <div class="meta-line"><span class="meta">PNG · 23d · Ready</span> <span class="confidence-dot high"></span></div>
+          <div class="dest-line dest">📁 Screenshots</div>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+    <div class="card-a">
+      <div class="rail" style="background:var(--rail-purple)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb psd">🎨</div></div>
+        <div class="text-block">
+          <div class="filename-block"><div class="filename">album-artwork-final.psd</div></div>
+          <div class="meta-line"><span class="meta">PSD · 21d · Needs Dest</span></div>
+          <div class="dest-line no-dest">▫ No destination</div>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+    <div class="card-a">
+      <div class="rail" style="background:var(--rail-orange)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb pdf">📄</div></div>
+        <div class="text-block">
+          <div class="filename-block"><div class="filename">Invoice-Parkside-Design-Dec2024.pdf</div></div>
+          <div class="meta-line"><span class="meta">PDF · 21d · Ready</span> <span class="confidence-dot high"></span></div>
+          <div class="dest-line dest">📁 Invoices</div>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+    <div class="card-a">
+      <div class="rail" style="background:var(--rail-green)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb zip">📦</div></div>
+        <div class="text-block">
+          <div class="filename-block"><div class="filename">website-assets-v2.zip</div></div>
+          <div class="meta-line"><span class="meta">ZIP · 21d · Ready</span> <span class="confidence-dot high"></span></div>
+          <div class="dest-line dest">📁 Archives</div>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════ OPTION B ════════ -->
+<div class="option-section">
+  <div class="option-header">
+    <h2>B — Unified Left Edge</h2>
+    <span class="option-tag">Structured</span>
+  </div>
+  <p class="option-desc">
+    Thumbnail left-aligned with text. Checkbox above, sharing the same left margin.
+    Everything anchors to one vertical line. Metadata sits beside the thumbnail.
+  </p>
+  <div class="card-grid">
+
+    <div class="card-b">
+      <div class="rail" style="background:var(--rail-blue)"></div>
+      <div class="content">
+        <div class="checkbox"></div>
+        <div class="thumb-section">
+          <div class="thumb screenshot" style="width:72px;height:72px;">🖼</div>
+          <div class="thumb-meta">
+            <span class="meta">PNG · 23d</span>
+            <span class="meta">Ready <span class="confidence-dot high"></span></span>
+            <span class="dest" style="font-size:11px;">📁 Screenshots</span>
+          </div>
+        </div>
+        <div class="text-block">
+          <div class="filename">Screenshot 2026-01-13 at 7.26.03 PM.png</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-b">
+      <div class="rail" style="background:var(--rail-purple)"></div>
+      <div class="content">
+        <div class="checkbox"></div>
+        <div class="thumb-section">
+          <div class="thumb psd" style="width:72px;height:72px;">🎨</div>
+          <div class="thumb-meta">
+            <span class="meta">PSD · 21d</span>
+            <span class="meta">Needs Dest</span>
+            <span class="no-dest" style="font-size:11px;">▫ No destination</span>
+          </div>
+        </div>
+        <div class="text-block">
+          <div class="filename">album-artwork-final.psd</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-b">
+      <div class="rail" style="background:var(--rail-orange)"></div>
+      <div class="content">
+        <div class="checkbox"></div>
+        <div class="thumb-section">
+          <div class="thumb pdf" style="width:72px;height:72px;">📄</div>
+          <div class="thumb-meta">
+            <span class="meta">PDF · 21d</span>
+            <span class="meta">Ready <span class="confidence-dot high"></span></span>
+            <span class="dest" style="font-size:11px;">📁 Invoices</span>
+          </div>
+        </div>
+        <div class="text-block">
+          <div class="filename">Invoice-Parkside-Design-Dec2024.pdf</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-b">
+      <div class="rail" style="background:var(--rail-green)"></div>
+      <div class="content">
+        <div class="checkbox"></div>
+        <div class="thumb-section">
+          <div class="thumb zip" style="width:72px;height:72px;">📦</div>
+          <div class="thumb-meta">
+            <span class="meta">ZIP · 21d</span>
+            <span class="meta">Ready <span class="confidence-dot high"></span></span>
+            <span class="dest" style="font-size:11px;">📁 Archives</span>
+          </div>
+        </div>
+        <div class="text-block">
+          <div class="filename">website-assets-v2.zip</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════ OPTION C ════════ -->
+<div class="option-section">
+  <div class="option-header">
+    <h2>C — Full-Bleed Thumbnail</h2>
+    <span class="option-tag">Visual-first</span>
+  </div>
+  <p class="option-desc">
+    Thumbnail fills the entire top area edge-to-edge. Compact 2-line footer below with filename and metadata.
+    Category shown as a top-edge bar instead of side rail. Maximizes visual preview space.
+  </p>
+  <div class="card-grid">
+
+    <div class="card-c">
+      <div class="rail-top" style="background:var(--rail-blue)"></div>
+      <div class="thumb-area"><div class="thumb screenshot" style="font-size:32px;">🖼</div></div>
+      <div class="footer">
+        <div class="footer-row">
+          <div class="filename" style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Screenshot 2026-01-13 at 7.26.03 PM.png</div>
+        </div>
+        <div class="footer-row">
+          <div class="meta-line"><span class="meta">PNG · 23d · Ready</span> <span class="confidence-dot high"></span></div>
+          <span class="dest-inline dest">→ Screenshots</span>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+    <div class="card-c">
+      <div class="rail-top" style="background:var(--rail-purple)"></div>
+      <div class="thumb-area"><div class="thumb psd" style="font-size:32px;">🎨</div></div>
+      <div class="footer">
+        <div class="footer-row">
+          <div class="filename" style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">album-artwork-final.psd</div>
+        </div>
+        <div class="footer-row">
+          <div class="meta-line"><span class="meta">PSD · 21d · Needs Dest</span></div>
+          <span class="dest-inline no-dest">? None</span>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+    <div class="card-c">
+      <div class="rail-top" style="background:var(--rail-orange)"></div>
+      <div class="thumb-area"><div class="thumb pdf" style="font-size:32px;">📄</div></div>
+      <div class="footer">
+        <div class="footer-row">
+          <div class="filename" style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Invoice-Parkside-Design-Dec2024.pdf</div>
+        </div>
+        <div class="footer-row">
+          <div class="meta-line"><span class="meta">PDF · 21d · Ready</span> <span class="confidence-dot high"></span></div>
+          <span class="dest-inline dest">→ Invoices</span>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+    <div class="card-c">
+      <div class="rail-top" style="background:var(--rail-green)"></div>
+      <div class="thumb-area"><div class="thumb zip" style="font-size:32px;">📦</div></div>
+      <div class="footer">
+        <div class="footer-row">
+          <div class="filename" style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">website-assets-v2.zip</div>
+        </div>
+        <div class="footer-row">
+          <div class="meta-line"><span class="meta">ZIP · 21d · Ready</span> <span class="confidence-dot high"></span></div>
+          <span class="dest-inline dest">→ Archives</span>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════ OPTION D ════════ -->
+<div class="option-section">
+  <div class="option-header">
+    <h2>D — Horizontal Mini-Cards</h2>
+    <span class="option-tag">Scannable</span>
+  </div>
+  <p class="option-desc">
+    Half-height landscape cards. Thumbnail on left, text on right. Fits 2× more cards
+    on screen. Good for large file counts. Trades visual richness for density.
+  </p>
+  <div class="card-grid-d">
+
+    <div class="card-d">
+      <div class="rail" style="background:var(--rail-blue)"></div>
+      <div class="thumb-col"><div class="thumb screenshot" style="width:64px;height:64px;">🖼</div></div>
+      <div class="text-block">
+        <div class="filename">Screenshot 2026-01-13 at 7.26.03 PM.png</div>
+        <div class="meta-line"><span class="meta">PNG · 23d · Ready</span> <span class="confidence-dot high"></span></div>
+        <div class="dest-line dest" style="font-size:10px;">📁 Screenshots</div>
+      </div>
+    </div>
+
+    <div class="card-d">
+      <div class="rail" style="background:var(--rail-purple)"></div>
+      <div class="thumb-col"><div class="thumb psd" style="width:64px;height:64px;">🎨</div></div>
+      <div class="text-block">
+        <div class="filename">album-artwork-final.psd</div>
+        <div class="meta-line"><span class="meta">PSD · 21d · Needs Dest</span></div>
+        <div class="dest-line no-dest" style="font-size:10px;">▫ No destination</div>
+      </div>
+    </div>
+
+    <div class="card-d">
+      <div class="rail" style="background:var(--rail-orange)"></div>
+      <div class="thumb-col"><div class="thumb pdf" style="width:64px;height:64px;">📄</div></div>
+      <div class="text-block">
+        <div class="filename">Invoice-Parkside-Design-Dec2024.pdf</div>
+        <div class="meta-line"><span class="meta">PDF · 21d · Ready</span> <span class="confidence-dot high"></span></div>
+        <div class="dest-line dest" style="font-size:10px;">📁 Invoices</div>
+      </div>
+    </div>
+
+    <div class="card-d">
+      <div class="rail" style="background:var(--rail-green)"></div>
+      <div class="thumb-col"><div class="thumb zip" style="width:64px;height:64px;">📦</div></div>
+      <div class="text-block">
+        <div class="filename">website-assets-v2.zip</div>
+        <div class="meta-line"><span class="meta">ZIP · 21d · Ready</span> <span class="confidence-dot high"></span></div>
+        <div class="dest-line dest" style="font-size:10px;">📁 Archives</div>
+      </div>
+    </div>
+
+    <div class="card-d">
+      <div class="rail" style="background:var(--rail-blue)"></div>
+      <div class="thumb-col"><div class="thumb screenshot" style="width:64px;height:64px;">🖼</div></div>
+      <div class="text-block">
+        <div class="filename">Screenshot 2026-02-05 at 12.59.41 PM.png</div>
+        <div class="meta-line"><span class="meta">PNG · today · Ready</span> <span class="confidence-dot high"></span></div>
+        <div class="dest-line dest" style="font-size:10px;">📁 Screenshots</div>
+      </div>
+    </div>
+
+    <div class="card-d">
+      <div class="rail" style="background:var(--rail-blue)"></div>
+      <div class="thumb-col"><div class="thumb screenshot" style="width:64px;height:64px;">🖼</div></div>
+      <div class="text-block">
+        <div class="filename">Screenshot 2026-01-15 at 5.39.53 PM.png</div>
+        <div class="meta-line"><span class="meta">PNG · 21d · Ready</span> <span class="confidence-dot high"></span></div>
+        <div class="dest-line dest" style="font-size:10px;">📁 Screenshots</div>
+      </div>
+    </div>
+
+    <div class="card-d">
+      <div class="rail" style="background:var(--rail-purple)"></div>
+      <div class="thumb-col"><div class="thumb pdf" style="width:64px;height:64px;">📝</div></div>
+      <div class="text-block">
+        <div class="filename">thesis-chapter4-draft-v3.docx</div>
+        <div class="meta-line"><span class="meta">DOCX · 21d · Needs Dest</span></div>
+        <div class="dest-line no-dest" style="font-size:10px;">▫ No destination</div>
+      </div>
+    </div>
+
+    <div class="card-d">
+      <div class="rail" style="background:var(--rail-blue)"></div>
+      <div class="thumb-col"><div class="thumb screenshot" style="width:64px;height:64px;">🖼</div></div>
+      <div class="text-block">
+        <div class="filename">Screenshot 2026-02-05 at 8.14.43 PM.png</div>
+        <div class="meta-line"><span class="meta">PNG · today · Ready</span> <span class="confidence-dot high"></span></div>
+        <div class="dest-line dest" style="font-size:10px;">📁 Screenshots</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════ OPTION E ════════ -->
+<div class="option-section">
+  <div class="option-header">
+    <h2>E — Checkbox in Text Row</h2>
+    <span class="option-tag">Integrated</span>
+  </div>
+  <p class="option-desc">
+    Centered thumbnail (same as current) but the checkbox moves from floating overlay
+    into the filename row, inline with the text. Everything below the thumbnail shares
+    the same left edge. Nothing floats.
+  </p>
+  <div class="card-grid">
+
+    <div class="card-e">
+      <div class="rail" style="background:var(--rail-blue)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb screenshot" style="width:84px;height:84px;">🖼</div></div>
+        <div class="text-block">
+          <div class="filename-row">
+            <div class="checkbox"></div>
+            <div class="filename-block"><div class="filename">Screenshot 2026-01-13 at 7.26.03 PM.png</div></div>
+          </div>
+          <div class="meta-line"><span class="meta">PNG · 23d · Ready</span> <span class="confidence-dot high"></span></div>
+          <div class="dest-line dest">📁 Screenshots</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-e">
+      <div class="rail" style="background:var(--rail-purple)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb psd" style="width:84px;height:84px;">🎨</div></div>
+        <div class="text-block">
+          <div class="filename-row">
+            <div class="checkbox"></div>
+            <div class="filename-block"><div class="filename">album-artwork-final.psd</div></div>
+          </div>
+          <div class="meta-line"><span class="meta">PSD · 21d · Needs Dest</span></div>
+          <div class="dest-line no-dest">▫ No destination</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-e">
+      <div class="rail" style="background:var(--rail-orange)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb pdf" style="width:84px;height:84px;">📄</div></div>
+        <div class="text-block">
+          <div class="filename-row">
+            <div class="checkbox"></div>
+            <div class="filename-block"><div class="filename">Invoice-Parkside-Design-Dec2024.pdf</div></div>
+          </div>
+          <div class="meta-line"><span class="meta">PDF · 21d · Ready</span> <span class="confidence-dot high"></span></div>
+          <div class="dest-line dest">📁 Invoices</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-e">
+      <div class="rail" style="background:var(--rail-green)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb zip" style="width:84px;height:84px;">📦</div></div>
+        <div class="text-block">
+          <div class="filename-row">
+            <div class="checkbox"></div>
+            <div class="filename-block"><div class="filename">website-assets-v2.zip</div></div>
+          </div>
+          <div class="meta-line"><span class="meta">ZIP · 21d · Ready</span> <span class="confidence-dot high"></span></div>
+          <div class="dest-line dest">📁 Archives</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════ OPTION F ════════ -->
+<div class="option-section">
+  <div class="option-header">
+    <h2>F — Two-Line Footer (Merged Metadata)</h2>
+    <span class="option-tag">Minimal</span>
+  </div>
+  <p class="option-desc">
+    Same centered thumbnail, but the text area is only 2 lines: filename, then metadata
+    and destination merged into a single line. "PDF · 23d · Ready → Screenshots".
+    Shortest text block, most breathing room. Filename gets 1 line (truncated).
+  </p>
+  <div class="card-grid">
+
+    <div class="card-f">
+      <div class="rail" style="background:var(--rail-blue)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb screenshot" style="width:84px;height:84px;">🖼</div></div>
+        <div class="text-block">
+          <div class="filename">Screenshot 2026-01-13 at 7.26.03 PM.png</div>
+          <div class="combined-meta">
+            <span>PNG · 23d · Ready</span>
+            <span class="confidence-dot high"></span>
+            <span class="dest-part">→ Screenshots</span>
+          </div>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+    <div class="card-f">
+      <div class="rail" style="background:var(--rail-purple)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb psd" style="width:84px;height:84px;">🎨</div></div>
+        <div class="text-block">
+          <div class="filename">album-artwork-final.psd</div>
+          <div class="combined-meta">
+            <span>PSD · 21d · Needs Dest</span>
+            <span style="color:var(--tertiary)">· ? None</span>
+          </div>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+    <div class="card-f">
+      <div class="rail" style="background:var(--rail-orange)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb pdf" style="width:84px;height:84px;">📄</div></div>
+        <div class="text-block">
+          <div class="filename">Invoice-Parkside-Design-Dec2024.pdf</div>
+          <div class="combined-meta">
+            <span>PDF · 21d · Ready</span>
+            <span class="confidence-dot high"></span>
+            <span class="dest-part">→ Invoices</span>
+          </div>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+    <div class="card-f">
+      <div class="rail" style="background:var(--rail-green)"></div>
+      <div class="content">
+        <div class="thumb-row"><div class="thumb zip" style="width:84px;height:84px;">📦</div></div>
+        <div class="text-block">
+          <div class="filename">website-assets-v2.zip</div>
+          <div class="combined-meta">
+            <span>ZIP · 21d · Ready</span>
+            <span class="confidence-dot high"></span>
+            <span class="dest-part">→ Archives</span>
+          </div>
+        </div>
+      </div>
+      <div class="checkbox-float"><div class="checkbox"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<div style="height:64px;"></div>
+
+</body>
+</html>

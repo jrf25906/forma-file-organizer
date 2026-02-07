@@ -9,6 +9,11 @@ struct FileInsight: Identifiable, Equatable {
     let action: (() -> Void)?
     let priority: Int
     let iconName: String
+    /// Optional file type category for consistent color tinting.
+    /// When set, the card icon uses the category's canonical color.
+    /// When nil, falls back to a neutral accent (steelBlue).
+    let fileTypeCategory: FileTypeCategory?
+    let affectedCount: Int?
 
     init(id: UUID = UUID(),
          message: String,
@@ -16,7 +21,9 @@ struct FileInsight: Identifiable, Equatable {
          actionLabel: String? = nil,
          action: (() -> Void)? = nil,
          priority: Int = 0,
-         iconName: String = "lightbulb.fill") {
+         iconName: String = "lightbulb.fill",
+         fileTypeCategory: FileTypeCategory? = nil,
+         affectedCount: Int? = nil) {
         self.id = id
         self.message = message
         self.detail = detail
@@ -24,6 +31,8 @@ struct FileInsight: Identifiable, Equatable {
         self.action = action
         self.priority = priority
         self.iconName = iconName
+        self.fileTypeCategory = fileTypeCategory
+        self.affectedCount = affectedCount
     }
 
     static func == (lhs: FileInsight, rhs: FileInsight) -> Bool {
@@ -32,7 +41,9 @@ struct FileInsight: Identifiable, Equatable {
         lhs.detail == rhs.detail &&
         lhs.actionLabel == rhs.actionLabel &&
         lhs.priority == rhs.priority &&
-        lhs.iconName == rhs.iconName
+        lhs.iconName == rhs.iconName &&
+        lhs.fileTypeCategory == rhs.fileTypeCategory &&
+        lhs.affectedCount == rhs.affectedCount
     }
 }
 
@@ -106,7 +117,9 @@ class InsightsService {
                 message: "You have \(screenshots.count) screenshots waiting - set up auto-organization?",
                 actionLabel: "Create Rule",
                 priority: 8,
-                iconName: "camera.viewfinder"
+                iconName: "camera.viewfinder",
+                fileTypeCategory: .images,
+                affectedCount: screenshots.count
             ))
         }
         
@@ -123,18 +136,22 @@ class InsightsService {
                 message: "\(downloadsFiles.count) files in Downloads need review",
                 actionLabel: "Review Now",
                 priority: 7,
-                iconName: "arrow.down.circle"
+                iconName: "arrow.down.circle",
+                affectedCount: downloadsFiles.count
             ))
         }
         
         // Unorganized files of same type
         let extensionGroups = Dictionary(grouping: files.filter { $0.status == .pending || $0.status == .ready }, by: { $0.fileExtension })
         for (ext, groupFiles) in extensionGroups where groupFiles.count >= 5 {
+            let category = FileTypeCategory.category(for: ext)
             insights.append(FileInsight(
                 message: "\(groupFiles.count) \(ext.uppercased()) files need organization",
                 actionLabel: "Create Rule",
                 priority: 6,
-                iconName: "doc.text"
+                iconName: category.iconName,
+                fileTypeCategory: category == .all ? nil : category,
+                affectedCount: groupFiles.count
             ))
         }
         
@@ -156,7 +173,8 @@ class InsightsService {
                 message: "\(largeFiles.count) large files taking up \(formattedSize)",
                 actionLabel: "Review Files",
                 priority: 9,
-                iconName: "externaldrive.fill"
+                iconName: "externaldrive.fill",
+                affectedCount: largeFiles.count
             ))
         }
         

@@ -539,6 +539,10 @@ final class Rule: Ruleable {
     /// The date when the rule was created.
     var creationDate: Date
 
+    /// The date when the rule last matched and acted on a file.
+    /// Updated by the automation engine each time this rule triggers.
+    var lastTriggeredDate: Date?
+
     /// The priority order for rule evaluation (lower values = higher priority).
     ///
     /// Rules are evaluated in ascending sortOrder. When multiple rules could match

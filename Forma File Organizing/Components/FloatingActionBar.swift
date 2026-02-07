@@ -7,7 +7,7 @@ enum FloatingActionBarMode {
 
 struct FloatingActionBar: View {
     /// Visual bar height used to reserve scroll-content space in parent views.
-    static let chromeHeight: CGFloat = 52
+    static let chromeHeight: CGFloat = 44
 
     /// Bottom offset from window edge used by the overlay placement.
     static let bottomOffset: CGFloat = FormaSpacing.large + FormaSpacing.tight
@@ -87,7 +87,7 @@ struct FloatingActionBar: View {
                     .font(.formaBodyMedium)
                     .foregroundColor(Color.formaSecondaryLabel)
             }
-            .padding(.leading, FormaSpacing.generous)
+            .padding(.leading, FormaSpacing.standard)
 
             Spacer()
 
@@ -124,13 +124,18 @@ struct FloatingActionBar: View {
                     // Let's implement "Skip" as the secondary action as requested, and "Move" (Bulk Edit) as a primary util.
                 }
 
-                // Skip button (Ghost / Text Link style per feedback)
+                // Skip button (Ghost outline style)
                 Button(action: onSkip) {
                     Text(mode == .selection ? "Skip Selection" : "Skip")
                         .font(.formaBodyMedium)
                         .foregroundColor(Color.formaSecondaryLabel)
-                        .padding(.horizontal, 8)
-                        .contentShape(Rectangle()) // Make it easier to click
+                        .padding(.horizontal, 12)
+                        .frame(height: 32)
+                        .background(
+                            Capsule()
+                                .strokeBorder(Color.formaSeparator, lineWidth: 0.5)
+                        )
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .onHover { inside in
@@ -182,14 +187,14 @@ struct FloatingActionBar: View {
                     Color.clear.frame(width: 32, height: 32)
                 }
             }
-            .padding(.trailing, FormaSpacing.generous)
+            .padding(.trailing, FormaSpacing.standard)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .frame(minHeight: Self.chromeHeight)
         .frame(maxWidth: .infinity)
         .background {
             FormaMaterialSurface(tier: .overlay, cornerRadius: FormaRadius.pill)
-                .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 6)
+                .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
         }
         .padding(.horizontal, FormaSpacing.large)
         .transition(.move(edge: .bottom).combined(with: .opacity))

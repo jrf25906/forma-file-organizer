@@ -42,3 +42,6 @@ claude-oracle/
 
 # Worktrees
 .worktrees/
+
+# Large media
+forma-videos/

@@ -243,7 +243,7 @@ enum AppLifecycleState: Equatable, Sendable {
         case .activeWithWindow: return 1.0
         case .activeWindowClosed: return 2.0  // Half frequency
         case .backgrounded: return 0.0        // Paused
-        case .menuBarOnly: return 0.0         // On-demand only
+        case .menuBarOnly: return 3.0          // Reduced frequency
         }
     }
 
@@ -251,7 +251,8 @@ enum AppLifecycleState: Equatable, Sendable {
     var allowsScheduledScans: Bool {
         switch self {
         case .activeWithWindow, .activeWindowClosed: return true
-        case .backgrounded, .menuBarOnly: return false
+        case .backgrounded: return false
+        case .menuBarOnly: return true
         }
     }
 }

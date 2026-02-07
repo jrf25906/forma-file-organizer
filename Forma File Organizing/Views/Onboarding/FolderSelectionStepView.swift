@@ -137,14 +137,14 @@ struct FolderRowItem: View {
 
                 Spacer()
             }
-            .padding(.vertical, 14)
-            .padding(.horizontal, 18)
+            .padding(.vertical, FormaSpacing.standard)
+            .padding(.horizontal, FormaSpacing.large)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                     .fill(isSelected ? folder.color.opacity(0.06) : (isHovered ? folder.color.opacity(0.04) : Color.formaControlBackground))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                     .stroke(isSelected ? folder.color : Color.formaSeparator.opacity(0.5),
                             lineWidth: isSelected ? 1.5 : 1)
             )

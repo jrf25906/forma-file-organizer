@@ -33,13 +33,13 @@ struct AutomationLifecycleModifier: ViewModifier {
             content
                 .onAppear {
                     configureAutomationEngineIfNeeded()
+                    WindowLifecycleManager.shared.mainWindowDidAppear()
                 }
                 .onChange(of: scenePhase) { oldPhase, newPhase in
                     handleScenePhaseChange(from: oldPhase, to: newPhase)
                 }
                 .onDisappear {
-                    // Stop automation when the main window disappears
-                    AutomationEngine.shared.stop()
+                    WindowLifecycleManager.shared.mainWindowDidDisappear()
                 }
         }
     }

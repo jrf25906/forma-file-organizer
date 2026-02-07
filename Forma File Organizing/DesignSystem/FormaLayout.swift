@@ -8,7 +8,7 @@ enum FormaLayout {
 
     enum Gutters {
         /// Horizontal inset used by the center pane header and content container.
-        static let center: CGFloat = FormaSpacing.extraLarge
+        static let center: CGFloat = FormaSpacing.large
 
         /// Horizontal inset used within the sidebar when expanded.
         static let sidebar: CGFloat = FormaSpacing.standard
@@ -37,7 +37,7 @@ enum FormaLayout {
 
     enum Toolbar {
         /// Spacing between the toolbar pills row and content below.
-        static let bottomToContentSpacing: CGFloat = 12
+        static let bottomToContentSpacing: CGFloat = 6
 
         /// Height for the secondary toolbar row (filters/grouping). Kept fixed to avoid
         /// layout jumps when switching between Pending and All Files.

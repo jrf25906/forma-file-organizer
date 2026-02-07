@@ -35,6 +35,8 @@ struct UnifiedToolbar: View {
     @EnvironmentObject var viewModel: DashboardViewModel
     @Namespace private var animation
 
+    @Environment(\.colorScheme) private var colorScheme
+
     // Local state for dropdown visibility
     @State private var showGrouping: Bool = false
     
@@ -51,20 +53,23 @@ struct UnifiedToolbar: View {
         return viewModel.reviewFilterMode == .all && availableWidth < 650
     }
 
-    private var primaryRowHeight: CGFloat { 44 }
+    private var primaryRowHeight: CGFloat { 30 }
 
     var body: some View {
         // Use a fixed-height container that NEVER changes size between modes
         // This ensures content below starts at the exact same Y position
         VStack(spacing: 0) {
             // Main toolbar row - fixed height
-            ZStack {
-                centeredPills
+            HStack(spacing: 12) {
+                leftPill
 
-                HStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    trailingControls
-                }
+                Spacer(minLength: 0)
+
+                sortDropdown
+
+                rightPill
+
+                trailingControls
             }
             .frame(height: primaryRowHeight)
             .frame(maxWidth: .infinity)
@@ -84,18 +89,8 @@ struct UnifiedToolbar: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var centeredPills: some View {
-        HStack(spacing: FormaSpacing.tight) {
-            leftPill
-
-            Rectangle()
-                .fill(Color.formaSeparator.opacity(Color.FormaOpacity.strong))
-                .frame(width: 1, height: 32)
-
-            rightPill
-        }
-        .padding(FormaSpacing.tight)
-        .frame(height: primaryRowHeight)
+    private var isInspectorDisabled: Bool {
+        viewModel.rightPanelMode == .analytics
     }
 
     private var trailingControls: some View {
@@ -117,6 +112,34 @@ struct UnifiedToolbar: View {
                 .formaCornerRadius(FormaRadius.small)
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
+
+            // Inspector toggle (sidebar.right) - toggles right panel visibility
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    viewModel.isRightPanelVisible.toggle()
+                }
+            }) {
+                EmptyView()
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("i", modifiers: .command)
+            .frame(width: 0, height: 0)
+            .opacity(0.001)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+
+            StocksStyleToolbarIconButton(
+                icon: "sidebar.right",
+                isSelected: viewModel.isRightPanelVisible,
+                help: "Toggle Inspector (\u{2318}I)"
+            ) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    viewModel.isRightPanelVisible.toggle()
+                }
+            }
+            .disabled(isInspectorDisabled)
+            .opacity(isInspectorDisabled ? 0.4 : 1.0)
+            .accessibilityIdentifier("toolbarInspectorToggle")
         }
         .frame(height: primaryRowHeight)
     }
@@ -131,6 +154,53 @@ struct UnifiedToolbar: View {
                 viewModel.reviewFilterMode = mode
             }
         }
+    }
+
+    private var sortDropdown: some View {
+        Menu {
+            ForEach(SortMode.allCases) { mode in
+                Button(action: { viewModel.sortMode = mode }) {
+                    Label(mode.rawValue, systemImage: mode.icon)
+                }
+                .disabled(viewModel.sortMode == mode)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.up.arrow.down")
+                    .font(.system(size: 10.5, weight: .medium))
+                if compressionLevel != .compact {
+                    Text(viewModel.sortMode.rawValue)
+                        .font(.system(size: 12, weight: .regular))
+                        .lineLimit(1)
+                }
+            }
+            .foregroundColor(.formaSecondaryLabelHigh)
+            .padding(.horizontal, 10)
+            .frame(height: 24)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(sortDropdownFill)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(sortDropdownBorder, lineWidth: 0.5)
+                    )
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
+    private var sortDropdownFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaObsidian.opacity(0.06)
+    }
+
+    private var sortDropdownBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(0.12)
     }
 
     private var rightPill: some View {
@@ -208,11 +278,11 @@ private struct StocksStyleReviewModeControl: View {
         ),
     ]
 
-    private let containerCornerRadius: CGFloat = 17
-    private let selectedCornerRadius: CGFloat = 13
-    private let segmentHeight: CGFloat = 30
-    private let segmentPlateHorizontalInset: CGFloat = 4
-    private let segmentPlateVerticalInset: CGFloat = 1.5
+    private let containerCornerRadius: CGFloat = 8
+    private let selectedCornerRadius: CGFloat = 6
+    private let segmentHeight: CGFloat = 24
+    private let segmentPlateHorizontalInset: CGFloat = 2
+    private let segmentPlateVerticalInset: CGFloat = 2
 
     var body: some View {
         HStack(spacing: 0) {
@@ -222,17 +292,18 @@ private struct StocksStyleReviewModeControl: View {
                 if index < segments.count - 1 {
                     Rectangle()
                         .fill(separatorColor)
-                        .frame(width: 1, height: 22)
+                        .frame(width: 1, height: 16)
                         .allowsHitTesting(false)
                 }
             }
         }
-        .padding(3)
+        .padding(2)
         .background {
-            ToolbarGlassyCapsuleBackground(tint: nil, cornerRadius: containerCornerRadius)
+            RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                .fill(containerFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                        .stroke(topRimColor, lineWidth: 0.6)
+                        .stroke(containerBorder, lineWidth: 0.5)
                 )
         }
         .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedMode)
@@ -252,47 +323,40 @@ private struct StocksStyleReviewModeControl: View {
                         .fill(activeFill)
                         .overlay(
                             RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.9)
+                                .stroke(activeBorder, lineWidth: 0.5)
                         )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(selectedHighlight)
-                                .frame(height: 8)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
-                        .shadow(color: selectedGlowColor, radius: 7, x: 0, y: 0)
-                        .shadow(color: selectedDropShadowColor, radius: 2.5, x: 0, y: 1)
+                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
                         .matchedGeometryEffect(id: "activeReviewSegment", in: namespace)
                         .padding(.vertical, segmentPlateVerticalInset)
                         .padding(.horizontal, segmentPlateHorizontalInset)
                 } else if isHovered {
                     RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
                         .fill(hoverFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(hoverBorder, lineWidth: 0.7)
-                        )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(hoverHighlight)
-                                .frame(height: 6)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
                         .padding(.vertical, segmentPlateVerticalInset)
                         .padding(.horizontal, segmentPlateHorizontalInset)
                 }
 
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Image(systemName: segment.icon)
-                        .font(.system(size: 11.5, weight: isSelected ? .medium : .regular))
+                        .font(.system(size: 10.5, weight: isSelected ? .medium : .regular))
 
                     Text(segment.label)
-                        .font(.system(size: 13.5, weight: isSelected ? .medium : .regular))
+                        .font(.system(size: 12, weight: isSelected ? .medium : .regular))
                         .lineLimit(1)
+
+                    // Inline badge count
+                    if segment.mode == .needsReview && pendingCount > 0 {
+                        Text(pendingBadgeText)
+                            .font(.system(size: 8.5, weight: .bold))
+                            .foregroundColor(.formaBoneWhite)
+                            .frame(minWidth: 14, minHeight: 14)
+                            .padding(.horizontal, 1.5)
+                            .background {
+                                Capsule().fill(badgeFill)
+                            }
+                    }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 10)
                 .frame(height: segmentHeight)
                 .foregroundColor(
                     isSelected
@@ -304,24 +368,6 @@ private struct StocksStyleReviewModeControl: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .topTrailing) {
-            if segment.mode == .needsReview && pendingCount > 0 {
-                Text(pendingBadgeText)
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(.formaBoneWhite)
-                    .frame(minWidth: 14, minHeight: 14)
-                    .padding(.horizontal, 3.5)
-                    .background {
-                        Capsule().fill(badgeFill)
-                    }
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.formaBoneWhite.opacity(0.24), lineWidth: 0.5)
-                    )
-                    .shadow(color: Color.black.opacity(0.22), radius: 1.2, x: 0, y: 1)
-                    .offset(x: 6, y: -7)
-            }
-        }
         .help(segment.help)
         .accessibilityIdentifier(segment.accessibilityID)
         .accessibilityLabel(segment.label)
@@ -338,93 +384,44 @@ private struct StocksStyleReviewModeControl: View {
 
     private var separatorColor: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.20)
+            ? Color.formaBoneWhite.opacity(0.20)
+            : Color.formaObsidian.opacity(0.12)
     }
 
-    private var topRimColor: Color {
+    private var containerFill: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaBoneWhite.opacity(0.45)
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaObsidian.opacity(0.06)
+    }
+
+    private var containerBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(0.12)
     }
 
     private var activeBorder: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.13)
+            ? Color.formaBoneWhite.opacity(0.22)
+            : Color.formaObsidian.opacity(0.08)
     }
 
-    private var activeFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        Color.formaBoneWhite.opacity(0.18),
-                        Color.formaBoneWhite.opacity(0.06),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-        }
-
-        return AnyShapeStyle(
-            LinearGradient(
-                colors: [
-                    Color.formaBoneWhite.opacity(0.90),
-                    Color.formaBoneWhite.opacity(0.70),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-    }
-
-    private var selectedHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0.0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var selectedGlowColor: Color {
+    private var activeFill: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.06)
-            : Color.formaSteelBlue.opacity(0.05)
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaBoneWhite.opacity(0.90)
     }
 
     private var selectedDropShadowColor: Color {
         colorScheme == .dark
-            ? Color.black.opacity(0.24)
-            : Color.formaObsidian.opacity(0.08)
-    }
-
-    private var hoverFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.12))
-        }
-        return AnyShapeStyle(Color.formaObsidian.opacity(0.08))
-    }
-
-    private var hoverBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.18)
+            ? Color.black.opacity(0.20)
             : Color.formaObsidian.opacity(0.10)
     }
 
-    private var hoverHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+    private var hoverFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.10)
+            : Color.formaObsidian.opacity(0.05)
     }
 
     private var pendingBadgeText: String {
@@ -464,12 +461,12 @@ private struct StocksStyleViewModeControl: View {
         Segment(mode: .card, icon: "rectangle.grid.1x2", help: "Tile view (⌘3)"),
     ]
 
-    private let containerCornerRadius: CGFloat = 17
-    private let selectedCornerRadius: CGFloat = 13
-    private let segmentWidth: CGFloat = 40
-    private let segmentHeight: CGFloat = 30
-    private let segmentPlateHorizontalInset: CGFloat = 4
-    private let segmentPlateVerticalInset: CGFloat = 1.5
+    private let containerCornerRadius: CGFloat = 8
+    private let selectedCornerRadius: CGFloat = 6
+    private let segmentWidth: CGFloat = 32
+    private let segmentHeight: CGFloat = 24
+    private let segmentPlateHorizontalInset: CGFloat = 2
+    private let segmentPlateVerticalInset: CGFloat = 2
 
     var body: some View {
         HStack(spacing: 0) {
@@ -479,17 +476,18 @@ private struct StocksStyleViewModeControl: View {
                 if index < segments.count - 1 {
                     Rectangle()
                         .fill(separatorColor)
-                        .frame(width: 1, height: 22)
+                        .frame(width: 1, height: 16)
                         .allowsHitTesting(false)
                 }
             }
         }
-        .padding(3)
+        .padding(2)
         .background {
-            ToolbarGlassyCapsuleBackground(tint: nil, cornerRadius: containerCornerRadius)
+            RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                .fill(containerFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                        .stroke(topRimColor, lineWidth: 0.6)
+                        .stroke(containerBorder, lineWidth: 0.5)
                 )
         }
         .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedMode)
@@ -509,40 +507,21 @@ private struct StocksStyleViewModeControl: View {
                         .fill(activeFill)
                         .overlay(
                             RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.9)
+                                .stroke(activeBorder, lineWidth: 0.5)
                         )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(selectedHighlight)
-                                .frame(height: 8)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
-                        .shadow(color: selectedGlowColor, radius: 7, x: 0, y: 0)
-                        .shadow(color: selectedDropShadowColor, radius: 2.5, x: 0, y: 1)
+                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
                         .matchedGeometryEffect(id: "activeViewSegment", in: namespace)
                         .padding(.vertical, segmentPlateVerticalInset)
                         .padding(.horizontal, segmentPlateHorizontalInset)
                 } else if isHovered {
                     RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
                         .fill(hoverFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(hoverBorder, lineWidth: 0.7)
-                        )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(hoverHighlight)
-                                .frame(height: 6)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
                         .padding(.vertical, segmentPlateVerticalInset)
                         .padding(.horizontal, segmentPlateHorizontalInset)
                 }
 
                 Image(systemName: segment.icon)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(
                         isSelected
                             ? .formaLabel
@@ -568,93 +547,44 @@ private struct StocksStyleViewModeControl: View {
 
     private var separatorColor: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.20)
+            ? Color.formaBoneWhite.opacity(0.20)
+            : Color.formaObsidian.opacity(0.12)
+    }
+
+    private var containerFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaObsidian.opacity(0.06)
+    }
+
+    private var containerBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(0.12)
     }
 
     private var activeBorder: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.13)
-    }
-
-    private var activeFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        Color.formaBoneWhite.opacity(0.18),
-                        Color.formaBoneWhite.opacity(0.06),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-        }
-
-        return AnyShapeStyle(
-            LinearGradient(
-                colors: [
-                    Color.formaBoneWhite.opacity(0.90),
-                    Color.formaBoneWhite.opacity(0.70),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-    }
-
-    private var topRimColor: Color {
-        colorScheme == .dark
             ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaBoneWhite.opacity(0.45)
+            : Color.formaObsidian.opacity(0.08)
     }
 
-    private var selectedHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0.0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var selectedGlowColor: Color {
+    private var activeFill: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.06)
-            : Color.formaSteelBlue.opacity(0.05)
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaBoneWhite.opacity(0.90)
     }
 
     private var selectedDropShadowColor: Color {
         colorScheme == .dark
-            ? Color.black.opacity(0.24)
-            : Color.formaObsidian.opacity(0.08)
-    }
-
-    private var hoverFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.12))
-        }
-        return AnyShapeStyle(Color.formaObsidian.opacity(0.08))
-    }
-
-    private var hoverBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.18)
+            ? Color.black.opacity(0.20)
             : Color.formaObsidian.opacity(0.10)
     }
 
-    private var hoverHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+    private var hoverFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.10)
+            : Color.formaObsidian.opacity(0.05)
     }
 }
 
@@ -682,12 +612,12 @@ private struct StocksStyleGroupingControl: View {
         Segment(mode: .combined, icon: "sparkles", label: "Smart", help: "Use smart grouping"),
     ]
 
-    private let containerCornerRadius: CGFloat = 17
-    private let selectedCornerRadius: CGFloat = 13
-    private let segmentHeight: CGFloat = 30
-    private let compactMinWidth: CGFloat = 36
-    private let segmentPlateHorizontalInset: CGFloat = 4
-    private let segmentPlateVerticalInset: CGFloat = 1.5
+    private let containerCornerRadius: CGFloat = 8
+    private let selectedCornerRadius: CGFloat = 6
+    private let segmentHeight: CGFloat = 24
+    private let compactMinWidth: CGFloat = 30
+    private let segmentPlateHorizontalInset: CGFloat = 2
+    private let segmentPlateVerticalInset: CGFloat = 2
 
     var body: some View {
         HStack(spacing: 0) {
@@ -697,17 +627,18 @@ private struct StocksStyleGroupingControl: View {
                 if index < segments.count - 1 {
                     Rectangle()
                         .fill(separatorColor)
-                        .frame(width: 1, height: 22)
+                        .frame(width: 1, height: 16)
                         .allowsHitTesting(false)
                 }
             }
         }
-        .padding(3)
+        .padding(2)
         .background {
-            ToolbarGlassyCapsuleBackground(tint: nil, cornerRadius: containerCornerRadius)
+            RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                .fill(containerFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                        .stroke(topRimColor, lineWidth: 0.6)
+                        .stroke(containerBorder, lineWidth: 0.5)
                 )
         }
         .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedMode)
@@ -726,49 +657,30 @@ private struct StocksStyleGroupingControl: View {
                         .fill(activeFill)
                         .overlay(
                             RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.9)
+                                .stroke(activeBorder, lineWidth: 0.5)
                         )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(selectedHighlight)
-                                .frame(height: 8)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
-                        .shadow(color: selectedGlowColor, radius: 7, x: 0, y: 0)
-                        .shadow(color: selectedDropShadowColor, radius: 2.5, x: 0, y: 1)
+                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
                         .matchedGeometryEffect(id: "activeGroupingSegment", in: namespace)
                         .padding(.vertical, segmentPlateVerticalInset)
                         .padding(.horizontal, segmentPlateHorizontalInset)
                 } else if isHovered {
                     RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
                         .fill(hoverFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(hoverBorder, lineWidth: 0.7)
-                        )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(hoverHighlight)
-                                .frame(height: 6)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
                         .padding(.vertical, segmentPlateVerticalInset)
                         .padding(.horizontal, segmentPlateHorizontalInset)
                 }
 
-                HStack(spacing: compact ? 0 : 5) {
+                HStack(spacing: compact ? 0 : 4) {
                     Image(systemName: segment.icon)
-                        .font(.system(size: 11.5, weight: isSelected ? .medium : .regular))
+                        .font(.system(size: 10.5, weight: isSelected ? .medium : .regular))
 
                     if !compact {
                         Text(segment.label)
-                            .font(.system(size: 13, weight: isSelected ? .medium : .regular))
+                            .font(.system(size: 12, weight: isSelected ? .medium : .regular))
                             .lineLimit(1)
                     }
                 }
-                .padding(.horizontal, compact ? 10 : 11)
+                .padding(.horizontal, compact ? 8 : 9)
                 .frame(minWidth: compact ? compactMinWidth : nil)
                 .frame(height: segmentHeight)
                 .foregroundColor(
@@ -793,93 +705,44 @@ private struct StocksStyleGroupingControl: View {
 
     private var separatorColor: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.20)
+            ? Color.formaBoneWhite.opacity(0.20)
+            : Color.formaObsidian.opacity(0.12)
     }
 
-    private var topRimColor: Color {
+    private var containerFill: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaBoneWhite.opacity(0.45)
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaObsidian.opacity(0.06)
+    }
+
+    private var containerBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(0.12)
     }
 
     private var activeBorder: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.13)
+            ? Color.formaBoneWhite.opacity(0.22)
+            : Color.formaObsidian.opacity(0.08)
     }
 
-    private var activeFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        Color.formaBoneWhite.opacity(0.18),
-                        Color.formaBoneWhite.opacity(0.06),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-        }
-
-        return AnyShapeStyle(
-            LinearGradient(
-                colors: [
-                    Color.formaBoneWhite.opacity(0.90),
-                    Color.formaBoneWhite.opacity(0.70),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-    }
-
-    private var selectedHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0.0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var selectedGlowColor: Color {
+    private var activeFill: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.06)
-            : Color.formaSteelBlue.opacity(0.05)
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaBoneWhite.opacity(0.90)
     }
 
     private var selectedDropShadowColor: Color {
         colorScheme == .dark
-            ? Color.black.opacity(0.24)
-            : Color.formaObsidian.opacity(0.08)
-    }
-
-    private var hoverFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.12))
-        }
-        return AnyShapeStyle(Color.formaObsidian.opacity(0.08))
-    }
-
-    private var hoverBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.18)
+            ? Color.black.opacity(0.20)
             : Color.formaObsidian.opacity(0.10)
     }
 
-    private var hoverHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+    private var hoverFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.10)
+            : Color.formaObsidian.opacity(0.05)
     }
 }
 
@@ -893,12 +756,12 @@ private struct StocksStyleToolbarIconButton: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
 
-    private let containerCornerRadius: CGFloat = 17
-    private let selectedCornerRadius: CGFloat = 13
-    private let segmentWidth: CGFloat = 40
-    private let segmentHeight: CGFloat = 30
-    private let segmentPlateHorizontalInset: CGFloat = 4
-    private let segmentPlateVerticalInset: CGFloat = 1.5
+    private let containerCornerRadius: CGFloat = 8
+    private let selectedCornerRadius: CGFloat = 6
+    private let segmentWidth: CGFloat = 32
+    private let segmentHeight: CGFloat = 24
+    private let segmentPlateHorizontalInset: CGFloat = 2
+    private let segmentPlateVerticalInset: CGFloat = 2
 
     var body: some View {
         Button(action: action) {
@@ -908,42 +771,23 @@ private struct StocksStyleToolbarIconButton: View {
                         .fill(activeFill)
                         .overlay(
                             RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.9)
+                                .stroke(activeBorder, lineWidth: 0.5)
                         )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(selectedHighlight)
-                                .frame(height: 8)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
-                        .shadow(color: selectedGlowColor, radius: 7, x: 0, y: 0)
-                        .shadow(color: selectedDropShadowColor, radius: 2.5, x: 0, y: 1)
+                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
                         .padding(.vertical, segmentPlateVerticalInset)
                         .padding(.horizontal, segmentPlateHorizontalInset)
                 } else if isHovered {
                     RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
                         .fill(hoverFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(hoverBorder, lineWidth: 0.7)
-                        )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(hoverHighlight)
-                                .frame(height: 6)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
                         .padding(.vertical, segmentPlateVerticalInset)
                         .padding(.horizontal, segmentPlateHorizontalInset)
                 }
 
                 Image(systemName: icon)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(
                         isSelected
-                            ? .formaLabel
+                            ? (activeTint != nil ? activeTint! : .formaLabel)
                             : (isHovered ? .formaLabel : .formaSecondaryLabelHigh)
                     )
                     .frame(width: segmentWidth, height: segmentHeight)
@@ -952,13 +796,14 @@ private struct StocksStyleToolbarIconButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(showOuterShell ? 3 : 0)
+        .padding(showOuterShell ? 2 : 0)
         .background {
             if showOuterShell {
-                ToolbarGlassyCapsuleBackground(tint: nil, cornerRadius: containerCornerRadius)
+                RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                    .fill(containerFill)
                     .overlay(
                         RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                            .stroke(topRimColor, lineWidth: 0.6)
+                            .stroke(containerBorder, lineWidth: 0.5)
                     )
             }
         }
@@ -970,102 +815,43 @@ private struct StocksStyleToolbarIconButton: View {
         }
     }
 
-    private var topRimColor: Color {
+    private var containerFill: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaBoneWhite.opacity(0.45)
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaObsidian.opacity(0.06)
+    }
+
+    private var containerBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(0.12)
     }
 
     private var activeBorder: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.13)
+            ? Color.formaBoneWhite.opacity(0.22)
+            : Color.formaObsidian.opacity(0.08)
     }
 
-    private var activeFill: AnyShapeStyle {
+    private var activeFill: Color {
         if let activeTint {
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        activeTint.opacity(colorScheme == .dark ? 0.34 : 0.28),
-                        activeTint.opacity(colorScheme == .dark ? 0.16 : 0.14),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+            return activeTint.opacity(colorScheme == .dark ? 0.20 : 0.15)
         }
-
-        if colorScheme == .dark {
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        Color.formaBoneWhite.opacity(0.18),
-                        Color.formaBoneWhite.opacity(0.06),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-        }
-
-        return AnyShapeStyle(
-            LinearGradient(
-                colors: [
-                    Color.formaBoneWhite.opacity(0.90),
-                    Color.formaBoneWhite.opacity(0.70),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-    }
-
-    private var selectedHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var selectedGlowColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.06)
-            : Color.formaSteelBlue.opacity(0.05)
+        return colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaBoneWhite.opacity(0.90)
     }
 
     private var selectedDropShadowColor: Color {
         colorScheme == .dark
-            ? Color.black.opacity(0.24)
-            : Color.formaObsidian.opacity(0.08)
-    }
-
-    private var hoverFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.12))
-        }
-        return AnyShapeStyle(Color.formaObsidian.opacity(0.08))
-    }
-
-    private var hoverBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.18)
+            ? Color.black.opacity(0.20)
             : Color.formaObsidian.opacity(0.10)
     }
 
-    private var hoverHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+    private var hoverFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.10)
+            : Color.formaObsidian.opacity(0.05)
     }
 }
 

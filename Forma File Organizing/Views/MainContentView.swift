@@ -31,6 +31,10 @@ struct MainContentView: View {
     @State private var showCommandPalette = false
 
     @State private var unifiedToolbarHeight: CGFloat = 0
+
+    // First-run suggestion banner
+    @AppStorage("firstRunBannerDismissCount") private var firstRunBannerDismissCount = 0
+    @State private var firstRunBannerDismissedThisSession = false
     
     init(
         selection: NavigationSelection,
@@ -45,15 +49,49 @@ struct MainContentView: View {
         // DashboardViewModel state rather than a local @Query.
     }
     
+    /// Whether the currently selected folder lacks permission
+    private var selectedFolderNeedsPermission: Bool {
+        guard let folderType = nav.selection.folderType else { return false }
+        return !BookmarkFolderService.shared.hasAccess(to: folderType)
+    }
+
+    /// Display name for the currently selected folder
+    private var currentLockedFolderName: String {
+        nav.selection.folderType?.displayName ?? "this folder"
+    }
+
+    @ObservedObject private var folderService = BookmarkFolderService.shared
+
+    /// Request access for the currently selected folder via NSOpenPanel
+    private func requestAccessForSelectedFolder() {
+        Task {
+            switch nav.selection {
+            case .desktop: _ = await dashboardViewModel.requestDesktopAccess()
+            case .downloads: _ = await dashboardViewModel.requestDownloadsAccess()
+            case .documents: _ = await dashboardViewModel.requestDocumentsAccess()
+            case .pictures: _ = await dashboardViewModel.requestPicturesAccess()
+            case .music: _ = await dashboardViewModel.requestMusicAccess()
+            default: break
+            }
+        }
+    }
+
+    /// Whether the first-run suggestion banner should be shown
+    private var shouldShowFirstRunBanner: Bool {
+        UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+        && firstRunBannerDismissCount < 3
+        && !firstRunBannerDismissedThisSession
+        && !dashboardViewModel.visibleFiles.isEmpty
+    }
+
     /// Whether the floating action bar should be displayed
     private var shouldShowFAB: Bool {
-        dashboardViewModel.isSelectionMode ||
-        (dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.reviewableFiles.isEmpty)
+        dashboardViewModel.isSelectionMode
     }
 
     /// Primary-action ownership for the current screen state.
     private var primaryActionSource: PrimaryActionSource {
-        shouldShowFAB ? .floatingActionBar : .rightPanelPinned
+        dashboardViewModel.isSelectionMode ? .floatingActionBar : .rightPanelPinned
     }
 
     /// Row-level primary buttons are hidden when the bottom bulk bar is the active primary action.
@@ -70,7 +108,16 @@ struct MainContentView: View {
             ZStack(alignment: .top) {
                 // Content
                 Group {
-                    if dashboardViewModel.isLoading && dashboardViewModel.visibleFiles.isEmpty {
+                    if selectedFolderNeedsPermission {
+                        // JIT Permission: folder selected but no access granted
+                        JITPermissionCard(
+                            folderName: currentLockedFolderName,
+                            onGrantAccess: {
+                                requestAccessForSelectedFolder()
+                            }
+                        )
+                        .padding(.top, unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing)
+                    } else if dashboardViewModel.isLoading && dashboardViewModel.visibleFiles.isEmpty {
                         // Show loading state during initial file scan
                         Spacer()
                         VStack(spacing: FormaSpacing.generous) {
@@ -202,24 +249,6 @@ struct MainContentView: View {
                 onDeselect: {
                     dashboardViewModel.deselectAll()
                 }
-            )
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .zIndex(100)
-            .padding(.bottom, FloatingActionBar.bottomOffset)
-        } else if dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.reviewableFiles.isEmpty {
-            // Review mode floating action bar - use cached reviewableFiles
-            FloatingActionBar(
-                mode: .review,
-                count: dashboardViewModel.reviewableFiles.count,
-                canOrganizeAll: dashboardViewModel.reviewableFiles.contains { $0.status == .ready },
-                onOrganize: {
-                    dashboardViewModel.organizeAllReadyFiles(context: modelContext)
-                },
-                onSkip: {
-                    dashboardViewModel.skipAllPendingFiles()
-                },
-                onBulkEdit: nil,
-                onDeselect: nil
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(100)
@@ -550,46 +579,71 @@ struct MainContentView: View {
         return FloatingActionBar.chromeHeight + FloatingActionBar.bottomOffset + FormaSpacing.standard
     }
     private var fileDisplayDensity: FileDisplayDensity { .spacious }
+    /// Unique destinations from visible files, for inline destination pickers.
+    private var availableDestinations: [Destination] {
+        let destinations = dashboardViewModel.visibleFiles.compactMap(\.destination)
+        var seen = Set<Destination>()
+        return destinations.filter { seen.insert($0).inserted }
+    }
+
+    @ViewBuilder
+    private var firstRunBannerIfNeeded: some View {
+        if shouldShowFirstRunBanner {
+            FirstRunSuggestionBanner(
+                fileCount: dashboardViewModel.visibleFiles.count,
+                folderName: dashboardViewModel.selectedFolder.displayName,
+                onOrganize: {
+                    dashboardViewModel.organizeAllReadyFiles(context: modelContext)
+                    firstRunBannerDismissedThisSession = true
+                },
+                onDismiss: {
+                    firstRunBannerDismissCount += 1
+                    firstRunBannerDismissedThisSession = true
+                }
+            )
+        }
+    }
+
     private var cardRowSpacing: CGFloat {
         switch fileDisplayDensity {
-        case .tight: return FormaSpacing.tight + (FormaSpacing.micro / 2)
-        case .balanced: return FormaSpacing.standard
-        case .spacious: return FormaSpacing.generous
+        case .tight: return 4
+        case .balanced: return 6
+        case .spacious: return 8
         }
     }
     private var listRowSpacing: CGFloat {
         switch fileDisplayDensity {
-        case .tight: return FormaSpacing.micro
-        case .balanced: return FormaSpacing.tight
-        case .spacious: return FormaSpacing.standard - FormaSpacing.micro
+        case .tight: return 0
+        case .balanced: return 0
+        case .spacious: return 0
         }
     }
     private var gridColumnSpacing: CGFloat {
         switch fileDisplayDensity {
-        case .tight: return FormaSpacing.tight + (FormaSpacing.micro / 2)
-        case .balanced: return FormaSpacing.standard
-        case .spacious: return FormaSpacing.standard + (FormaSpacing.tight / 2)
+        case .tight: return 8
+        case .balanced: return 10
+        case .spacious: return 12
         }
     }
     private var gridRowSpacing: CGFloat {
         switch fileDisplayDensity {
-        case .tight: return FormaSpacing.standard + (FormaSpacing.tight / 2)
-        case .balanced: return FormaSpacing.large
-        case .spacious: return FormaSpacing.extraLarge - FormaSpacing.tight
+        case .tight: return 12
+        case .balanced: return 16
+        case .spacious: return 20
         }
     }
     private var gridMinimumWidth: CGFloat {
         switch fileDisplayDensity {
-        case .tight: return 170
-        case .balanced: return 186
-        case .spacious: return 208
+        case .tight: return 156
+        case .balanced: return 170
+        case .spacious: return 186
         }
     }
     private var gridMaximumWidth: CGFloat {
         switch fileDisplayDensity {
-        case .tight: return 228
-        case .balanced: return 244
-        case .spacious: return 272
+        case .tight: return 200
+        case .balanced: return 220
+        case .spacious: return 240
         }
     }
 
@@ -608,6 +662,9 @@ struct MainContentView: View {
                 // Force view update when content search results change
                 // Using VStack wrapper to establish proper SwiftUI observation
                 VStack(spacing: 0) {
+                    firstRunBannerIfNeeded
+                        .padding(.bottom, FormaSpacing.tight)
+
                     LazyVStack(spacing: cardRowSpacing) {
                         ForEach(dashboardViewModel.visibleFiles) { file in
                             FileRow(
@@ -620,6 +677,12 @@ struct MainContentView: View {
                                 showKeyboardHints: dashboardViewModel.isKeyboardNavigating,
                                 searchMatchType: dashboardViewModel.searchMatchType(for: file),
                                 contentSnippet: dashboardViewModel.contentSnippet(for: file),
+                                availableDestinations: availableDestinations,
+                                onChangeDestination: { item, destination in
+                                    item.destination = destination
+                                    item.status = .ready
+                                    dashboardViewModel.filterViewModel.applyFilterImmediately()
+                                },
                                 onOrganize: { item in
                                     organizeFileWithAnimation(item)
                                 },
@@ -672,7 +735,12 @@ struct MainContentView: View {
     private var listView: some View {
         ScrollView {
             contentContainer {
-                listViewContent
+                VStack(spacing: 0) {
+                    firstRunBannerIfNeeded
+                        .padding(.bottom, FormaSpacing.tight)
+
+                    listViewContent
+                }
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
             .padding(.bottom, fabReservedSpace)
@@ -689,6 +757,13 @@ struct MainContentView: View {
         LazyVStack(spacing: listRowSpacing) {
             ForEach(Array(dashboardViewModel.visibleFiles.enumerated()), id: \.element.id) { index, file in
                 listFileRow(file: file, index: index)
+
+                // Separator between list rows (not after the last row)
+                if index < dashboardViewModel.visibleFiles.count - 1 {
+                    Color.formaSeparator.opacity(0.3)
+                        .frame(height: 0.5)
+                        .padding(.leading, 52)
+                }
             }
         }
     }
@@ -740,7 +815,11 @@ struct MainContentView: View {
                 GridItem(.adaptive(minimum: gridMinimumWidth, maximum: gridMaximumWidth), spacing: gridColumnSpacing)
             ]
             contentContainer {
-                LazyVGrid(
+                VStack(spacing: 0) {
+                    firstRunBannerIfNeeded
+                        .padding(.bottom, FormaSpacing.tight)
+
+                    LazyVGrid(
                     columns: columns,
                     alignment: .leading,
                     spacing: gridRowSpacing
@@ -785,6 +864,7 @@ struct MainContentView: View {
                             )
                         )
                     }
+                }
                 }
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)

@@ -42,6 +42,22 @@ final class NotificationService: Sendable {
         }
     }
 
+    /// Registers notification categories with actions for interactive notifications.
+    func registerCategories() {
+        let reviewAction = UNNotificationAction(
+            identifier: "REVIEW_ACTION",
+            title: "Review",
+            options: [.foreground]
+        )
+        let category = UNNotificationCategory(
+            identifier: "BACKLOG_REMINDER",
+            actions: [reviewAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+
     // MARK: - Notification Methods
 
     /// Shows a notification for a single file being organized
@@ -227,6 +243,7 @@ final class NotificationService: Sendable {
         let content = UNMutableNotificationContent()
         content.title = "Files Need Attention"
         content.sound = .default
+        content.categoryIdentifier = "BACKLOG_REMINDER"
 
         var body = "You have \(pendingCount) file\(pendingCount == 1 ? "" : "s") waiting for review."
         if let days = oldestAgeDays, days > 0 {

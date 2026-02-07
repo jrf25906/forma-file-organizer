@@ -22,6 +22,7 @@ class FileFilterManager: ObservableObject {
     }
     @Published var reviewFilterMode: ReviewFilterMode = .needsReview
     @Published var groupingMode: FileGroupingService.GroupingMode = .date
+    @Published var sortMode: SortMode = .newestFirst
     
     // MARK: - Cached Values (Performance Optimization)
     
@@ -106,6 +107,7 @@ class FileFilterManager: ObservableObject {
         hasher.combine(reviewFilterMode)
         hasher.combine(selectedSecondaryFilter)
         hasher.combine(groupingMode)
+        hasher.combine(sortMode)
         if !searchText.isEmpty {
             hasher.combine(contentMatchGeneration)
         }
@@ -222,7 +224,37 @@ class FileFilterManager: ObservableObject {
             // Placeholder: until we support a flagged property, leave files unchanged
             break
         }
-        
+
+        // Apply user-selected sort mode
+        switch sortMode {
+        case .newestFirst:
+            files.sort { $0.creationDate > $1.creationDate }
+        case .oldestFirst:
+            files.sort { $0.creationDate < $1.creationDate }
+        case .largest:
+            files.sort { $0.sizeInBytes > $1.sizeInBytes }
+        case .nameAZ:
+            files.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        case .priority:
+            files.sort { lhs, rhs in
+                func priorityOrder(_ status: FileItem.OrganizationStatus) -> Int {
+                    switch status {
+                    case .pending: return 0
+                    case .ready: return 1
+                    case .skipped: return 2
+                    case .completed: return 3
+                    }
+                }
+                let lhsPriority = priorityOrder(lhs.status)
+                let rhsPriority = priorityOrder(rhs.status)
+                if lhsPriority != rhsPriority {
+                    return lhsPriority < rhsPriority
+                }
+                // Within the same priority, sort by newest first
+                return lhs.creationDate > rhs.creationDate
+            }
+        }
+
         cachedVisibleFiles = files
         
         // Update grouped files

@@ -89,7 +89,7 @@ enum FormaSpacing {
     /// Toolbar spacing constants
     struct Toolbar {
         /// Minimal breathing room between window top and toolbar content
-        static let topOffset: CGFloat = 20
+        static let topOffset: CGFloat = 12
     }
 
 }

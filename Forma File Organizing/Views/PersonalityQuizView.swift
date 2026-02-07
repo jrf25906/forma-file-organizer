@@ -57,8 +57,6 @@ struct PersonalityQuizView: View {
                 quizContent
             }
         }
-        .frame(width: 650, height: 720)
-        .background(Color.formaBackground)
     }
     
     // MARK: - Quiz Content
@@ -68,27 +66,29 @@ struct PersonalityQuizView: View {
             // Header
             header
                 .padding(.top, FormaSpacing.large)
-                .padding(.horizontal, FormaSpacing.huge)
-            
-            // Progress
-            progressBar
-                .padding(.horizontal, FormaSpacing.huge)
-                .padding(.top, FormaSpacing.large)
-            
+                .padding(.horizontal, FormaSpacing.extraLarge)
+
+            // Progress (hidden when embedded in onboarding flow which has its own progress bar)
+            if showStepIndicator {
+                progressBar
+                    .padding(.horizontal, FormaSpacing.extraLarge)
+                    .padding(.top, FormaSpacing.large)
+            }
+
             // Question
             ScrollView {
                 VStack(spacing: FormaSpacing.generous) {
                     questionCard
-                    
+
                     answerOptions
                 }
-                .padding(.horizontal, FormaSpacing.huge)
-                .padding(.vertical, FormaSpacing.huge)
+                .padding(.horizontal, FormaSpacing.extraLarge)
+                .padding(.vertical, FormaSpacing.extraLarge)
             }
-            
+
             // Navigation
             navigationButtons
-                .padding(.horizontal, FormaSpacing.huge)
+                .padding(.horizontal, FormaSpacing.extraLarge)
                 .padding(.vertical, FormaSpacing.generous)
         }
     }
@@ -155,8 +155,14 @@ struct PersonalityQuizView: View {
             .multilineTextAlignment(.center)
             .lineSpacing(4)
             .padding(.top, FormaSpacing.standard)
+            .id(currentQuestion)
+            .transition(.asymmetric(
+                insertion: .offset(y: 16).combined(with: .opacity),
+                removal: .offset(y: -8).combined(with: .scale(scale: 0.98)).combined(with: .opacity)
+            ))
+            .animation(FormaAnimation.onboardingEntrance, value: currentQuestion)
     }
-    
+
     private var answerOptions: some View {
         VStack(spacing: FormaSpacing.standard) {
             ForEach(Array(questions[currentQuestion].options.enumerated()), id: \.offset) { index, option in
@@ -167,12 +173,12 @@ struct PersonalityQuizView: View {
                         selectAnswer(index)
                     }
                 )
-                // PHASE 5: Staggered entrance animation for each answer card
+                // Staggered entrance animation with 60ms delays
                 .formaSlideIn(from: .bottom, delay: FormaAnimation.staggerDelay(index: index, base: 0.06))
                 .transition(.scale.combined(with: .opacity))
             }
         }
-        .id(currentQuestion) // PHASE 5: Force view recreation on question change to re-trigger slide-in
+        .id(currentQuestion)
     }
     
     private var navigationButtons: some View {
@@ -232,13 +238,17 @@ struct PersonalityQuizView: View {
     private var resultView: some View {
         let personality = calculatePersonality()
 
-        return VStack(spacing: FormaSpacing.huge) {
+        return VStack(spacing: FormaSpacing.extraLarge) {
             Spacer()
 
             // Celebration
             VStack(spacing: FormaSpacing.generous) {
                 Text("✨")
                     .font(.formaIconLarge)
+                    // Sparkle "ta-da" bounce
+                    .scaleEffect(showCelebration ? 1.0 : 0.5)
+                    .rotationEffect(.degrees(showCelebration ? 0 : -10))
+                    .animation(reduceMotion ? nil : FormaAnimation.onboardingBounce, value: showCelebration)
 
                 Text("Your Organization Style")
                     .font(.formaH3)
@@ -248,8 +258,8 @@ struct PersonalityQuizView: View {
                     .font(.formaHero)
                     .foregroundColor(.formaLabel)
                     .multilineTextAlignment(.center)
-                    // PHASE 5: Scale-bounce on result appearance
-                    .scaleEffect(showCelebration ? 1.0 : 0.8)
+                    // Scale-bounce on result appearance
+                    .scaleEffect(showCelebration ? 1.0 : 0.92)
                     .opacity(showCelebration ? 1.0 : 0)
                     .animation(reduceMotion ? nil : FormaAnimation.premiumSpring, value: showCelebration)
             }
@@ -262,7 +272,7 @@ struct PersonalityQuizView: View {
                 
                 TemplatePreviewCard(template: personality.suggestedTemplate)
             }
-            .padding(.horizontal, FormaSpacing.huge)
+            .padding(.horizontal, FormaSpacing.extraLarge)
             
             Spacer()
             
@@ -288,8 +298,8 @@ struct PersonalityQuizView: View {
                 .shadow(color: Color.formaSage.opacity(Color.FormaOpacity.medium), radius: 6, x: 0, y: 3)
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, FormaSpacing.huge)
-            .padding(.bottom, FormaSpacing.huge)
+            .padding(.horizontal, FormaSpacing.extraLarge)
+            .padding(.bottom, FormaSpacing.extraLarge)
         }
         // PHASE 5: Celebration confetti overlay on quiz completion
         .overlay {

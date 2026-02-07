@@ -10,7 +10,6 @@ struct DashboardView: View {
     @State private var scanTask: Task<Void, Never>?
     @State private var shouldFocusSearch = false
     @State private var showKeyboardHelp = false
-    @State private var isInspectorToggleHovered = false
 
     // MARK: - Extracted Views (helps compiler type-checking)
 
@@ -66,96 +65,6 @@ struct DashboardView: View {
         .opacity(0.001)
         .accessibilityHidden(true)
         .allowsHitTesting(false)
-    }
-
-    /// Explicit top-right inspector toggle (Xcode-style placement near trailing window chrome).
-    private var inspectorToggleButton: some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                dashboardViewModel.isRightPanelVisible.toggle()
-            }
-        }) {
-            Image(systemName: "sidebar.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(
-                    nav.selection == .analytics
-                        ? .formaTertiaryLabel
-                        : (isInspectorToggleHovered ? .formaLabel : .formaSecondaryLabelHigh)
-                )
-                .frame(width: 32, height: 30)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isInspectorToggleHovered ? inspectorHoverFill : inspectorPlateFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(inspectorPlateBorderColor, lineWidth: 0.8)
-                        )
-                )
-                .padding(3)
-                .background(
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(inspectorBaseFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                .stroke(inspectorBorderColor, lineWidth: 0.95)
-                        )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                .fill(inspectorTopHighlight)
-                                .frame(height: 9)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .help("Toggle Inspector (⌘I)")
-        .keyboardShortcut("i", modifiers: .command)
-        .disabled(nav.selection == .analytics)
-        .accessibilityIdentifier("toolbarInspectorToggle")
-        .onHover { hovering in
-            isInspectorToggleHovered = hovering
-        }
-    }
-
-    private var inspectorHoverFill: Color {
-        Color.formaControlBackground.opacity(colorScheme == .dark ? 0.65 : 0.9)
-    }
-
-    private var inspectorBaseFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.13)
-            : Color.formaObsidian.opacity(0.08)
-    }
-
-    private var inspectorPlateFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.07)
-            : Color.formaBoneWhite.opacity(0.12)
-    }
-
-    private var inspectorBorderColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaBoneWhite.opacity(0.42)
-    }
-
-    private var inspectorPlateBorderColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.16)
-            : Color.formaObsidian.opacity(0.14)
-    }
-
-    private var inspectorTopHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.18 : 0.24),
-                Color.clear
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
     }
 
     /// ⌘F action: focuses the toolbar search field
@@ -275,11 +184,6 @@ struct DashboardView: View {
             }
             .overlay(alignment: .topLeading) {
                 searchShortcutBridge
-            }
-            .overlay(alignment: .topTrailing) {
-                inspectorToggleButton
-                    .padding(.top, FormaLayout.FloatingCard.edgeInset + 16)
-                    .padding(.trailing, FormaLayout.FloatingCard.edgeInset + 16)
             }
         }
         .ignoresSafeArea() // Ensure the NavigationStack itself allows content to bleed into window chrome

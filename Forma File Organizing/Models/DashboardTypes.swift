@@ -58,6 +58,27 @@ enum FolderLocation: Equatable, Hashable, CaseIterable {
     }
 }
 
+/// Sort modes for file display ordering
+enum SortMode: String, CaseIterable, Identifiable {
+    case newestFirst = "Newest First"
+    case oldestFirst = "Oldest First"
+    case largest = "Largest"
+    case nameAZ = "A-Z"
+    case priority = "Priority"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .newestFirst: return "arrow.down.circle"
+        case .oldestFirst: return "arrow.up.circle"
+        case .largest: return "externaldrive"
+        case .nameAZ: return "textformat.abc"
+        case .priority: return "flag"
+        }
+    }
+}
+
 /// Secondary filter options for file display
 enum SecondaryFilter: Hashable, Sendable {
     case none

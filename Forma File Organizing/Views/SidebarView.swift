@@ -14,7 +14,6 @@ struct SidebarView: View {
     @ObservedObject private var folderService = BookmarkFolderService.shared
     @State private var isAddingFolder = false
     @State private var isKeyWindow = true
-    @State private var isAddLocationHovered = false
     @State private var isSettingsHovered = false
     @State private var isHelpHovered = false
 
@@ -36,39 +35,16 @@ struct SidebarView: View {
             // Navigation
             ScrollView {
                 VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-                    // Locations - dynamically populated from granted permissions
-                    HStack {
-                        sectionHeader("LOCATIONS")
-                        Spacer()
-                        Button(action: { addNewLocation() }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(isAddLocationHovered ? .formaLabel : .formaSecondaryLabelHigh)
-                                .frame(width: 26, height: 26)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(isAddLocationHovered ? footerHoverFill : Color.clear)
-                                )
-                                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(isAddingFolder)
-                        .help("Add a new location")
-                        .onHover { hovering in
-                            isAddLocationHovered = hovering
-                        }
-                        .padding(.top, FormaSpacing.standard)
-                        .padding(.bottom, FormaSpacing.micro)
-                    }
-                    .padding(.trailing, FormaLayout.Sidebar.expandedHorizontalPadding)
+                    // Locations - all 5 standard folders, lock icon if no access
+                    sectionHeader("LOCATIONS")
 
-                    // Show folders that have granted permissions (from Keychain)
-                    if folderService.availableFolders.isEmpty {
-                        // Empty state - prompt to add locations
-                        emptyLocationsPrompt
-                    } else {
-                        ForEach(folderService.availableFolders) { folder in
+                    ForEach(BookmarkFolder.FolderType.allCases, id: \.self) { folderType in
+                        let hasAccess = folderService.hasAccess(to: folderType)
+                        let folder = BookmarkFolder(folderType: folderType)
+                        if hasAccess {
                             bookmarkFolderItem(folder)
+                        } else {
+                            lockedFolderItem(folder)
                         }
                     }
 
@@ -84,19 +60,36 @@ struct SidebarView: View {
                     if services.featureFlags.isEnabled(.analyticsAndInsights) {
                         sidebarItem("Analytics", icon: "chart.pie.fill", selection: .analytics)
                     }
-
-                    // Create Rule Convenience Button
-                    SidebarNativeRow(
-                        title: "New Rule",
-                        icon: "plus",
-                        isSelected: false
-                    ) {
-                        dashboardViewModel.showRuleBuilderPanel()
-                    }
-                    .help("Create a new organization rule (R)")
                 }
                 .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
             }
+
+            // MARK: - Actions Section
+            Color.formaSeparator
+                .frame(height: 0.5)
+                .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
+
+            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                sectionHeader("ACTIONS")
+
+                SidebarActionRow(title: "New Rule", icon: "plus") {
+                    dashboardViewModel.showRuleBuilderPanel()
+                }
+                .help("Create a new organization rule (R)")
+
+                SidebarActionRow(title: "Add Folder", icon: "folder.badge.plus") {
+                    addNewLocation()
+                }
+                .disabled(isAddingFolder)
+                .help("Add a new location")
+            }
+            .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
+            .padding(.bottom, FormaSpacing.tight)
+
+            // MARK: - Settings Footer
+            Color.formaSeparator
+                .frame(height: 0.5)
+                .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
 
             HStack(spacing: FormaSpacing.tight) {
                 Button(action: { openSettings() }) {
@@ -193,6 +186,22 @@ struct SidebarView: View {
         }
     }
 
+    // MARK: - Locked Folder Item (JIT Permission)
+
+    @ViewBuilder
+    private func lockedFolderItem(_ folder: BookmarkFolder) -> some View {
+        let selection = NavigationSelection.from(folderType: folder.folderType)
+
+        SidebarNativeRow(
+            title: folder.displayName,
+            icon: folder.iconName,
+            isSelected: false,
+            trailingIcon: "lock.fill"
+        ) {
+            nav.select(selection)
+        }
+    }
+
     // MARK: - Bookmark Folder Item
 
     @ViewBuilder
@@ -203,7 +212,8 @@ struct SidebarView: View {
         SidebarNativeRow(
             title: folder.displayName,
             icon: folder.iconName,
-            isSelected: isSelected
+            isSelected: isSelected,
+            badgeCount: fileCount(for: folder)
         ) {
             nav.select(selection)
         }
@@ -221,25 +231,12 @@ struct SidebarView: View {
         nav.selection.folderType == folder.folderType
     }
 
-    // MARK: - Empty State
-
-    @ViewBuilder
-    private var emptyLocationsPrompt: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-            HStack(spacing: FormaSpacing.tight) {
-                Image(systemName: "folder.badge.questionmark")
-                    .font(.formaBodyLarge)
-                    .foregroundColor(Color.formaTertiaryLabel)
-                Text("No locations added")
-                    .font(.formaCaption)
-                    .foregroundColor(Color.formaTertiaryLabel)
-            }
-            Text("Add folders to organize")
-                .font(.formaSmall)
-                .foregroundColor(Color.formaTertiaryLabel.opacity(Color.FormaOpacity.high))
-        }
-        .padding(.horizontal, FormaLayout.Sidebar.itemHorizontalPadding)
-        .padding(.vertical, FormaSpacing.tight)
+    /// Count of files in the given bookmark folder that need review
+    private func fileCount(for folder: BookmarkFolder) -> Int {
+        let folderPath = "/\(folder.folderType.displayName)/"
+        return dashboardViewModel.allFiles.filter { file in
+            file.path.contains(folderPath) && file.status != .completed
+        }.count
     }
 
     // MARK: - Folder Management Actions
@@ -360,16 +357,21 @@ private struct SidebarNativeRow: View {
     let title: String
     let icon: String
     let isSelected: Bool
+    var badgeCount: Int? = nil
+    var trailingIcon: String? = nil
     let action: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
+
+    private let rowRadius: CGFloat = 7
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 9) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(iconColor)
                     .frame(width: 18, alignment: .center)
 
                 Text(title)
@@ -377,6 +379,17 @@ private struct SidebarNativeRow: View {
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
+
+                if let trailing = trailingIcon {
+                    Image(systemName: trailing)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.formaTertiaryLabel)
+                } else if let count = badgeCount, count > 0 {
+                    Text("\(count)")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                }
             }
             .foregroundColor(foregroundColor)
             .padding(.horizontal, 10)
@@ -384,15 +397,27 @@ private struct SidebarNativeRow: View {
             .frame(minHeight: 30)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: rowRadius, style: .continuous)
                     .fill(backgroundFill)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: rowRadius, style: .continuous)
+                    .strokeBorder(selectedBorder, lineWidth: isSelected ? 0.5 : 0)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: rowRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hovering in
             isHovered = hovering
         }
+        .animation(.easeOut(duration: 0.15), value: isHovered)
+    }
+
+    private var iconColor: Color {
+        if isSelected {
+            return .formaSteelBlue
+        }
+        return foregroundColor
     }
 
     private var foregroundColor: Color {
@@ -404,11 +429,63 @@ private struct SidebarNativeRow: View {
 
     private var backgroundFill: Color {
         if isSelected {
-            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.28 : 0.2)
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.22 : 0.14)
         }
         if isHovered {
-            return Color.formaControlBackground.opacity(colorScheme == .dark ? 0.65 : 0.9)
+            return Color.formaControlBackground.opacity(colorScheme == .dark ? 0.55 : 0.8)
         }
         return .clear
+    }
+
+    private var selectedBorder: Color {
+        if isSelected {
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.35 : 0.2)
+        }
+        return .clear
+    }
+}
+
+/// Action row for the sidebar ACTIONS section.
+/// Visually distinct from navigation rows: uses secondary label color for icons
+/// and lighter text weight to read as "do something" rather than "go somewhere".
+private struct SidebarActionRow: View {
+    let title: String
+    let icon: String
+    let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.formaSecondaryLabelHigh)
+                    .frame(width: 18, alignment: .center)
+
+                Text(title)
+                    .font(.system(size: 13, weight: .regular))
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+            }
+            .foregroundColor(isHovered ? .formaLabel : .formaSecondaryLabelHigh)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(minHeight: 30)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isHovered
+                        ? Color.formaControlBackground.opacity(colorScheme == .dark ? 0.65 : 0.9)
+                        : Color.clear)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }

@@ -49,29 +49,26 @@ struct RuleSuggestionView: View {
     // MARK: - Patterns List
     
     private var patternsList: some View {
-        ScrollView {
-            LazyVStack(spacing: FormaSpacing.standard) {
-                ForEach(suggestablePatterns) { pattern in
-                    PatternCard(
-                        pattern: pattern,
-                        onCreateRule: {
-                            onCreateRule(pattern)
-                        },
-                        onDismiss: {
-                            pattern.recordRejection()
-                            onDismiss(pattern)
-                            do {
-                                try modelContext.save()
-                            } catch {
-                                Log.error("Failed to save pattern rejection: \\(error.localizedDescription)", category: .analytics)
-                            }
+        VStack(spacing: FormaSpacing.standard) {
+            ForEach(suggestablePatterns) { pattern in
+                PatternCard(
+                    pattern: pattern,
+                    onCreateRule: {
+                        onCreateRule(pattern)
+                    },
+                    onDismiss: {
+                        pattern.recordRejection()
+                        onDismiss(pattern)
+                        do {
+                            try modelContext.save()
+                        } catch {
+                            Log.error("Failed to save pattern rejection: \\(error.localizedDescription)", category: .analytics)
                         }
-                    )
-                }
+                    }
+                )
             }
-            .padding(.horizontal, FormaSpacing.large)
-            .padding(.vertical, FormaSpacing.standard)
         }
+        .padding(.vertical, FormaSpacing.standard)
     }
     
     // MARK: - Empty State
@@ -106,6 +103,7 @@ private struct PatternCard: View {
     
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
@@ -199,7 +197,6 @@ private struct PatternCard: View {
                         RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                             .fill(Color.formaSteelBlue)
                     )
-                    .shadow(color: Color.formaSteelBlue.opacity(Color.FormaOpacity.medium), radius: 4, x: 0, y: 2)
                 }
                 .buttonStyle(.plain)
 
@@ -225,27 +222,22 @@ private struct PatternCard: View {
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .fill(
                     isHovered
-                        ? Color.formaBoneWhite.opacity(Color.FormaOpacity.prominent)
-                        : Color.formaBoneWhite.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light)
+                        ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.28 : Color.FormaOpacity.light)
+                        : Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
                 )
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .strokeBorder(
-                    isHovered ? Color.formaSteelBlue.opacity(Color.FormaOpacity.medium) : Color.formaSeparator.opacity(Color.FormaOpacity.strong),
+                    Color.formaObsidian.opacity(
+                        isHovered
+                            ? (colorScheme == .dark ? 0.35 : Color.FormaOpacity.medium)
+                            : (colorScheme == .dark ? 0.25 : Color.FormaOpacity.light)
+                    ),
                     lineWidth: 1
                 )
         )
-        .shadow(
-            color: Color.formaObsidian.opacity(
-                isHovered ? (Color.FormaOpacity.ultraSubtle * 3) : (Color.FormaOpacity.subtle - Color.FormaOpacity.ultraSubtle)
-            ),
-            radius: isHovered ? 8 : 4,
-            x: 0,
-            y: 2
-        )
-        .scaleEffect(isHovered ? 1.01 : 1.0)
-        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: isHovered)
+        .animation(.easeOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }

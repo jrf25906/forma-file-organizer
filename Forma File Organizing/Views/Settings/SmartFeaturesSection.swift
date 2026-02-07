@@ -18,6 +18,9 @@ struct SmartFeaturesSection: View {
     @AppStorage(FeatureFlagService.Feature.autoOrganize.rawValue) private var autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
     @AppStorage(FeatureFlagService.Feature.automationReminders.rawValue) private var automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue
 
+    // Organization Style
+    @State private var showPersonalityQuiz = false
+
     // Automation user settings
     @AppStorage(AutomationUserSettings.Keys.mode) private var automationModeRaw = AutomationMode.scanOnly.rawValue
     @AppStorage(AutomationUserSettings.Keys.scanInterval) private var scanInterval = FormaConfig.Automation.defaultScanIntervalMinutes
@@ -271,6 +274,23 @@ struct SmartFeaturesSection: View {
                     .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
                 }
 
+                // Organization Style Section
+                SettingsSection("Organization Style") {
+                    VStack(spacing: 0) {
+                        SettingsRow(
+                            "Retake Organization Style Quiz",
+                            subtitle: "Discover your organization personality and get personalized template suggestions."
+                        ) {
+                            Button("Take Quiz") {
+                                showPersonalityQuiz = true
+                            }
+                            .buttonStyle(.plain)
+                            .font(.formaBodySemibold)
+                            .foregroundColor(.formaSteelBlue)
+                        }
+                    }
+                }
+
                 // Reset Button
                 Button("Reset to Defaults") {
                     resetToDefaults()
@@ -283,6 +303,17 @@ struct SmartFeaturesSection: View {
         }
         .background(Color.clear)
         .frame(minWidth: 400)
+        .sheet(isPresented: $showPersonalityQuiz) {
+            PersonalityQuizView(
+                onComplete: { personality in
+                    // Save personality and update template suggestions
+                    personality.save()
+                    showPersonalityQuiz = false
+                },
+                showStepIndicator: false
+            )
+            .frame(width: 600, height: 520)
+        }
     }
 
     private func resetToDefaults() {

@@ -34,6 +34,7 @@ struct FeatureFlagService: Sendable {
         case backgroundMonitoring = "feature.backgroundMonitoring"
         case autoOrganize = "feature.autoOrganize"
         case automationReminders = "feature.automationReminders"
+        case menuBarFileReview = "feature.menuBarFileReview"
 
         var id: String { rawValue }
 
@@ -55,6 +56,7 @@ struct FeatureFlagService: Sendable {
             case .backgroundMonitoring: return true
             case .autoOrganize: return false  // Opt-in for initial release
             case .automationReminders: return true
+            case .menuBarFileReview: return true
             }
         }
 
@@ -76,6 +78,7 @@ struct FeatureFlagService: Sendable {
             case .backgroundMonitoring: return "Background monitoring"
             case .autoOrganize: return "Auto-organize files"
             case .automationReminders: return "Smart reminders"
+            case .menuBarFileReview: return "Menu bar file review"
             }
         }
 
@@ -111,6 +114,8 @@ struct FeatureFlagService: Sendable {
                 return "Automatically move files that match rules with high confidence."
             case .automationReminders:
                 return "Get notified when files need attention or automation takes action."
+            case .menuBarFileReview:
+                return "Review and organize files directly from the menu bar dropdown."
             }
         }
 
@@ -132,6 +137,7 @@ struct FeatureFlagService: Sendable {
             case .backgroundMonitoring: return "eye.circle"
             case .autoOrganize: return "bolt.circle"
             case .automationReminders: return "bell.badge"
+            case .menuBarFileReview: return "menubar.rectangle"
             }
         }
 
@@ -159,6 +165,8 @@ struct FeatureFlagService: Sendable {
                 return [.backgroundMonitoring]  // Needs monitoring to auto-organize
             case .automationReminders:
                 return [.backgroundMonitoring]  // Needs monitoring for context
+            case .menuBarFileReview:
+                return []  // Independent feature
             }
         }
     }

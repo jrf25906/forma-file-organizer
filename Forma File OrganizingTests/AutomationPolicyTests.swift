@@ -429,7 +429,7 @@ final class AutomationPolicyTests: XCTestCase {
         XCTAssertEqual(AppLifecycleState.activeWithWindow.scanIntervalMultiplier, 1.0)
         XCTAssertEqual(AppLifecycleState.activeWindowClosed.scanIntervalMultiplier, 2.0)
         XCTAssertEqual(AppLifecycleState.backgrounded.scanIntervalMultiplier, 0.0)
-        XCTAssertEqual(AppLifecycleState.menuBarOnly.scanIntervalMultiplier, 0.0)
+        XCTAssertEqual(AppLifecycleState.menuBarOnly.scanIntervalMultiplier, 3.0)
     }
 
     /// Test: AppLifecycleState allowsScheduledScans
@@ -437,7 +437,7 @@ final class AutomationPolicyTests: XCTestCase {
         XCTAssertTrue(AppLifecycleState.activeWithWindow.allowsScheduledScans)
         XCTAssertTrue(AppLifecycleState.activeWindowClosed.allowsScheduledScans)
         XCTAssertFalse(AppLifecycleState.backgrounded.allowsScheduledScans)
-        XCTAssertFalse(AppLifecycleState.menuBarOnly.allowsScheduledScans)
+        XCTAssertTrue(AppLifecycleState.menuBarOnly.allowsScheduledScans)
     }
 
     // MARK: - Helpers

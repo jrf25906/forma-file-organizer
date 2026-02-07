@@ -28,37 +28,30 @@ final class DashboardViewModelTests: XCTestCase {
 	            mockService = nil
 	            mockPipeline = nil
 	        }
+	        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
 	        try await super.tearDown()
 	    }
     
     func testInitialPermissionsCheck() {
-        // Given
-        mockService.hasDesktop = false
-        mockService.hasDownloads = false
-        mockService.hasDocuments = false
-        mockService.hasPictures = false
-        mockService.hasMusic = false
-        
+        // Given - onboarding not yet completed
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+
         // When
         viewModel.checkPermissions()
-        
+
         // Then
-        XCTAssertTrue(viewModel.showOnboarding, "Onboarding should be shown when permissions are missing")
+        XCTAssertTrue(viewModel.showOnboarding, "Onboarding should be shown when not yet completed")
     }
-    
+
     func testPermissionsGranted() {
-        // Given
-        mockService.hasDesktop = true
-        mockService.hasDownloads = true
-        mockService.hasDocuments = true
-        mockService.hasPictures = true
-        mockService.hasMusic = true
-        
+        // Given - onboarding already completed
+        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+
         // When
         viewModel.checkPermissions()
-        
+
         // Then
-        XCTAssertFalse(viewModel.showOnboarding, "Onboarding should not be shown when all permissions are granted")
+        XCTAssertFalse(viewModel.showOnboarding, "Onboarding should not be shown after completion")
     }
     
 	    func testRequestDesktopAccess() async {

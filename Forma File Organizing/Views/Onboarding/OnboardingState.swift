@@ -3,31 +3,23 @@ import SwiftData
 
 // MARK: - Onboarding State
 
-/// Centralized state management for the onboarding flow.
-/// Shared between all step components to maintain consistency.
+/// Centralized state management for the streamlined onboarding flow.
+/// Reduced from 4 steps to 2: welcome screen then done.
 @Observable
 class OnboardingState {
     var currentStep: OnboardingStep = .welcome
     var folderSelection = OnboardingFolderSelection()
-    var personality: OrganizationPersonality?
     var templateSelection = FolderTemplateSelection()
     var isRequestingPermissions = false
 
-    /// Direction of the most recent step change (for transition animation)
-    var transitionDirection: OnboardingTransitionDirection = .forward
-
     enum OnboardingStep: Int, CaseIterable {
         case welcome = 0
-        case folders = 1
-        case quiz = 2
-        case preview = 3
+        case done = 1
 
         var title: String {
             switch self {
             case .welcome: return "Welcome"
-            case .folders: return "Folders"
-            case .quiz: return "Style"
-            case .preview: return "Preview"
+            case .done: return "Done"
             }
         }
     }
@@ -40,19 +32,6 @@ class OnboardingState {
         if folderSelection.pictures { folders.append(.pictures) }
         if folderSelection.music { folders.append(.music) }
         return folders
-    }
-
-    // MARK: - Navigation
-
-    func advance(to step: OnboardingStep) {
-        transitionDirection = step.rawValue > currentStep.rawValue ? .forward : .backward
-        withAnimation(FormaAnimation.premiumSpring) { currentStep = step }
-    }
-
-    func goBack() {
-        guard let previousStep = OnboardingStep(rawValue: currentStep.rawValue - 1) else { return }
-        transitionDirection = .backward
-        withAnimation(FormaAnimation.premiumSpring) { currentStep = previousStep }
     }
 }
 

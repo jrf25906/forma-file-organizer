@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 /// View for managing all saved rules with create, edit, delete, and enable/disable functionality
 struct RulesManagementView: View {
@@ -34,6 +35,16 @@ struct RulesManagementView: View {
 
     private var sortedCategories: [RuleCategory] {
         categories.sortedByOrder
+    }
+
+    /// Categories that provide meaningful filtering (exclude if only one category holds all rules)
+    private var meaningfulCategories: [RuleCategory] {
+        let sorted = sortedCategories
+        // If there's only one category and it contains all rules, no tab adds value
+        if sorted.count <= 1 {
+            return []
+        }
+        return sorted
     }
 
     @State private var searchText = ""
@@ -181,8 +192,8 @@ struct RulesManagementView: View {
                         
                         Spacer()
                         
-                        // Filter Tabs (Compact)
-                        if !sortedCategories.isEmpty {
+                        // Filter Tabs (Compact) — only show when multiple categories exist
+                        if !meaningfulCategories.isEmpty {
                             categoryTabBar
                         }
                     }
@@ -228,40 +239,42 @@ struct RulesManagementView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: listRowSpacing) {
-                        ForEach(filteredRules) { rule in
-                            RuleManagementCard(
-                                rule: rule,
-                                onEdit: {
-                                    // Primary flow: open rule builder in right panel for editing
-                                    dashboardViewModel.showRuleBuilderPanel(editingRule: rule)
-                                },
-                                onDelete: {
-                                    deleteRule(rule)
-                                },
-                                onToggle: {
-                                    toggleRule(rule)
+                        ForEach(Array(filteredRules.enumerated()), id: \.element.id) { index, rule in
+                            HStack(alignment: .center, spacing: FormaSpacing.tight) {
+                                // Priority number — visible when not searching
+                                if searchText.isEmpty && !filterNeedsAccessOnly {
+                                    Text("\(index + 1)")
+                                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(colorScheme == .dark ? .formaTertiaryLabelHigh : .formaTertiaryLabel)
+                                        .frame(width: 20, alignment: .trailing)
                                 }
-                            )
-                            .draggable(rule.id.uuidString) {
-                                // Drag preview
+
                                 RuleManagementCard(
                                     rule: rule,
-                                    onEdit: {},
-                                    onDelete: {},
-                                    onToggle: {}
+                                    onEdit: {
+                                        // Primary flow: open rule builder in right panel for editing
+                                        dashboardViewModel.showRuleBuilderPanel(editingRule: rule)
+                                    },
+                                    onDelete: {
+                                        deleteRule(rule)
+                                    },
+                                    onToggle: {
+                                        toggleRule(rule)
+                                    }
                                 )
-                                .opacity(Color.FormaOpacity.prominent)
-                                .frame(width: 300)
                             }
-                            .dropDestination(for: String.self) { items, location in
-                                guard let draggedId = items.first,
-                                      let draggedUUID = UUID(uuidString: draggedId),
-                                      draggedUUID != rule.id else {
-                                    return false
+                            .blockWindowDrag()
+                            .onDrag {
+                                NSItemProvider(object: rule.id.uuidString as NSString)
+                            }
+                            .onDrop(of: [.text], delegate: RuleDropDelegate(
+                                targetRule: rule,
+                                allRules: allRules,
+                                onReorder: { draggedId, targetId in
+                                    reorderRule(draggedId: draggedId, targetId: targetId)
                                 }
-                                reorderRule(draggedId: draggedUUID, targetId: rule.id)
-                                return true
-                            }
+                            ))
                         }
                     }
                     .padding(listContentPadding)
@@ -319,12 +332,12 @@ struct RulesManagementView: View {
                     }
                 }
 
-                if !sortedCategories.isEmpty {
+                if !meaningfulCategories.isEmpty {
                     categoryTabDivider
                 }
 
                 // Category tabs
-                ForEach(Array(sortedCategories.enumerated()), id: \.element.id) { index, category in
+                ForEach(Array(meaningfulCategories.enumerated()), id: \.element.id) { index, category in
                     CategoryTab(
                         title: category.name,
                         count: rulesInCategory(category),
@@ -339,7 +352,7 @@ struct RulesManagementView: View {
                         }
                     }
 
-                    if index < sortedCategories.count - 1 {
+                    if index < meaningfulCategories.count - 1 {
                         categoryTabDivider
                     }
                 }
@@ -658,6 +671,70 @@ struct RulesManagementView: View {
         } catch {
             Log.error("RulesManagementView: Failed to reorder rules - \(error.localizedDescription)", category: .analytics)
         }
+    }
+}
+
+// MARK: - Drag-to-Reorder Drop Delegate
+
+/// Uses the older onDrag/onDrop API to avoid the macOS window-drag conflict
+/// that occurs with SwiftUI's `.draggable()` in unified title bar windows.
+private struct RuleDropDelegate: DropDelegate {
+    let targetRule: Rule
+    let allRules: [Rule]
+    let onReorder: (UUID, UUID) -> Void
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [.text]).first else {
+            return false
+        }
+
+        // Load the dragged rule ID asynchronously
+        _ = provider.loadObject(ofClass: NSString.self) { nsString, _ in
+            guard let idString = nsString as? String,
+                  let draggedUUID = UUID(uuidString: idString),
+                  draggedUUID != targetRule.id else {
+                return
+            }
+            DispatchQueue.main.async {
+                onReorder(draggedUUID, targetRule.id)
+            }
+        }
+        return true
+    }
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.text])
+    }
+
+    func dropEntered(info: DropInfo) {
+        // Optional: could add hover highlight here
+    }
+}
+
+// MARK: - Window-Drag Prevention
+
+/// An NSView subclass that returns `false` for `mouseDownCanMoveWindow`,
+/// preventing `isMovableByWindowBackground` from intercepting drag gestures
+/// on child SwiftUI views (e.g., rule cards that support onDrag reordering).
+private class NonDraggableNSView: NSView {
+    override var mouseDownCanMoveWindow: Bool { false }
+}
+
+/// Wraps a SwiftUI view in a layer that blocks window-background dragging,
+/// allowing system drag-and-drop (onDrag/onDrop) to work correctly.
+private struct WindowDragBlocker: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NonDraggableNSView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+extension View {
+    /// Prevents `isMovableByWindowBackground` from capturing mouse events on this view.
+    fileprivate func blockWindowDrag() -> some View {
+        self.background(WindowDragBlocker())
     }
 }
 

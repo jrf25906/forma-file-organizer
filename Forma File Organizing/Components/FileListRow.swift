@@ -29,54 +29,40 @@ struct FileListRow: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - Constants
-    private let categoryBorderWidth: CGFloat = 3
+
+    /// Category accent rail width: 2pt for all densities.
+    private let categoryRailWidth: CGFloat = 2
 
     private var thumbnailSize: CGFloat {
         switch density {
-        case .tight: return 38
-        case .balanced: return 44
-        case .spacious: return 50
+        case .tight: return 20
+        case .balanced: return 24
+        case .spacious: return 28
         }
     }
 
     private var rowMinHeight: CGFloat {
         switch density {
-        case .tight: return 66
-        case .balanced: return 74
-        case .spacious: return 88
+        case .tight: return 36
+        case .balanced: return 44
+        case .spacious: return 48
         }
     }
 
     private var rowVerticalPadding: CGFloat {
         switch density {
-        case .tight: return FormaSpacing.tight - 2
-        case .balanced: return FormaSpacing.tight + 1
-        case .spacious: return FormaSpacing.standard - 2
+        case .tight: return 4
+        case .balanced: return 6
+        case .spacious: return 8
         }
     }
 
     private var contentSpacing: CGFloat {
         switch density {
-        case .tight: return FormaSpacing.tight + (FormaSpacing.micro / 2)
-        case .balanced: return FormaSpacing.standard
-        case .spacious: return FormaSpacing.standard + (FormaSpacing.micro / 2)
+        case .tight: return 6
+        case .balanced: return 8
+        case .spacious: return 10
         }
-    }
-
-    private var infoSpacing: CGFloat {
-        switch density {
-        case .tight: return FormaSpacing.micro + 1
-        case .balanced: return FormaSpacing.micro + 2
-        case .spacious: return FormaSpacing.tight
-        }
-    }
-
-    private var chipHorizontalPadding: CGFloat {
-        density == .tight ? (FormaSpacing.tight - 2) : FormaSpacing.tight
-    }
-
-    private var chipVerticalPadding: CGFloat {
-        density == .spacious ? (FormaSpacing.micro + 1) : FormaSpacing.micro
     }
 
     private var selectionControlEmphasisOpacity: Double {
@@ -100,62 +86,55 @@ struct FileListRow: View {
         return "today"
     }
 
-    private var ageSummaryText: String {
-        compactAgeText == "today" ? "today" : "\(compactAgeText) old"
-    }
-
-    private var statusChipConfig: (label: String, icon: String, color: Color) {
+    /// Status label + color for inline dot-and-label indicator.
+    private var statusLabelConfig: (label: String, color: Color) {
         switch file.status {
         case .pending:
             if file.destination == nil {
-                return ("Needs Destination", "questionmark.circle.fill", .formaWarning)
+                return ("Needs Dest", .formaWarning)
             }
-            return ("Needs Review", "exclamationmark.circle.fill", .formaWarning)
+            return ("Review", .formaWarning)
         case .ready:
-            return ("Ready", "checkmark.circle.fill", .formaSage)
+            return ("Ready", .formaSage)
         case .completed:
-            return ("Organized", "checkmark.seal.fill", .formaSage)
+            return ("Organized", .formaSage)
         case .skipped:
-            return ("Skipped", "forward.fill", .formaSecondaryLabelHigh)
+            return ("Skipped", .formaSecondaryLabelHigh)
         }
     }
 
-    private var summaryLineText: String {
-        var segments = [file.fileExtension.uppercased(), file.category.displayName, ageSummaryText]
-
-        if let reason = file.matchReason, !reason.isEmpty {
-            segments.append("Rule: \(reason)")
-        } else if let destination = file.destination {
-            let destinationLabel = destination.isTrash ? "Trash" : truncatePath(destination.displayName)
-            segments.append("Destination: \(destinationLabel)")
-        } else {
-            segments.append("No destination set")
-        }
-
-        return segments.joined(separator: " • ")
+    /// Right-aligned metadata string: "PDF · 32d · Review"
+    private var metadataText: String {
+        let segments: [String] = [
+            file.fileExtension.uppercased(),
+            compactAgeText,
+            statusLabelConfig.label
+        ]
+        return segments.joined(separator: " \u{00B7} ")
     }
 
     // MARK: - Body
 
     var body: some View {
         HStack(spacing: 0) {
-            // Single accent rail for category/priority.
-            RoundedRectangle(cornerRadius: categoryBorderWidth / 2)
+            // Category accent rail (2pt).
+            RoundedRectangle(cornerRadius: categoryRailWidth / 2)
                 .fill(file.category.color.opacity(Color.FormaOpacity.prominent))
-                .frame(width: categoryBorderWidth)
+                .frame(width: categoryRailWidth)
                 .padding(.vertical, rowVerticalPadding)
                 .help("Category: \(file.category.displayName)")
 
-            HStack(alignment: .top, spacing: contentSpacing) {
+            // Main single-line content.
+            HStack(spacing: contentSpacing) {
                 FormaCheckbox.premium(
                     isSelected: isSelected,
                     isVisible: true,
                     action: onToggleSelection
                 )
-                    .opacity(selectionControlEmphasisOpacity)
-                    .frame(width: 32, height: 32, alignment: .top)
-                    .contentShape(Rectangle())
-                    .help(isSelected ? "Deselect file" : "Select file")
+                .opacity(selectionControlEmphasisOpacity)
+                .frame(width: 24, height: 24, alignment: .center)
+                .contentShape(Rectangle())
+                .help(isSelected ? "Deselect file" : "Select file")
 
                 FormaThumbnail(
                     file: file,
@@ -166,7 +145,9 @@ struct FileListRow: View {
                     onQuickLook: onQuickLook
                 )
 
-                VStack(alignment: .leading, spacing: infoSpacing) {
+                // Text area: (1) filename, (2) metadata, (3) destination
+                VStack(alignment: .leading, spacing: 2) {
+                    // Line 1 — Filename [search badge]
                     HStack(spacing: FormaSpacing.tight - 2) {
                         Text(file.name)
                             .font(.formaBodySemibold)
@@ -174,27 +155,73 @@ struct FileListRow: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
 
-                        statusChip
-
                         if let matchType = searchMatchType {
                             SearchMatchBadge(matchType: matchType)
                         }
-
-                        if let confidence = file.confidenceScore {
-                            ConfidenceDot(score: confidence, matchReason: file.matchReason, size: 10)
-                        }
                     }
 
-                    Text(summaryLineText)
-                        .font(.formaSmall)
-                        .foregroundStyle(Color.formaSecondaryLabelHigh)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    // Line 2 — Static metadata + Active status + destination
+                    HStack(spacing: FormaSpacing.tight - 2) {
+                        // Static: type + age with icons
+                        HStack(spacing: 3) {
+                            Image(systemName: "doc")
+                                .font(.system(size: 9))
+                            Text(file.fileExtension.uppercased())
+                                .font(.formaCaption)
+                        }
+                        .foregroundStyle(Color.formaTertiaryLabelHigh)
+
+                        HStack(spacing: 3) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 9))
+                            Text(compactAgeText)
+                                .font(.formaCaption)
+                        }
+                        .foregroundStyle(Color.formaTertiaryLabelHigh)
+
+                        // Active: status dot
+                        Circle()
+                            .fill(statusLabelConfig.color)
+                            .frame(width: 5, height: 5)
+                            .help(statusLabelConfig.label)
+
+                        if let confidence = file.confidenceScore {
+                            ConfidenceDot(score: confidence, matchReason: file.matchReason, size: 5)
+                        }
+
+                        if let destination = file.destination {
+                            Text("→ \(truncatePath(destination.displayName))")
+                                .font(.formaCaption)
+                                .foregroundStyle(Color.formaSteelBlue)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .help("Destination: \(destination.displayName)")
+                        } else {
+                            Button(action: onEdit) {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "folder.badge.plus")
+                                        .font(.system(size: 9, weight: .semibold))
+                                    Text("Set destination")
+                                        .font(.formaCaption)
+                                }
+                                .foregroundStyle(Color.formaSteelBlue)
+                                .padding(.horizontal, FormaSpacing.tight - 2)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .help("Set file destination")
+                        }
+                    }
                 }
 
-                Spacer(minLength: FormaSpacing.standard)
+                Spacer(minLength: FormaSpacing.tight)
 
-                HStack(spacing: FormaSpacing.tight - 2) {
+                // Action buttons area
+                HStack(spacing: FormaSpacing.micro) {
                     if hasRuleActions && (isHovered || !matchingRules.isEmpty),
                        let onCreateRule,
                        let onApplyRule {
@@ -207,33 +234,34 @@ struct FileListRow: View {
                         .transition(.opacity.combined(with: .move(edge: .trailing)))
                     }
 
-                    if isHovered && !isSelectionMode {
-                        HStack(spacing: FormaSpacing.micro) {
-                            FormaActionButton.compact(icon: "forward.fill", tooltip: "Skip", action: onSkip)
-                            FormaActionButton.compact(icon: "eye.fill", tooltip: "Quick Look", action: onQuickLook)
+                    if !isSelectionMode && showsPrimaryActionButton {
+                        if hasDestination {
+                            Button(action: onOrganize) {
+                                Image(systemName: "checkmark")
+                                    .font(.formaSmallSemibold)
+                                    .foregroundStyle(Color.formaBoneWhite)
+                                    .frame(width: 26, height: 26)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.formaSage)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .help("Organize \u{2022} \u{23CE}")
+                        } else {
+                            Button(action: onEdit) {
+                                Image(systemName: "folder.badge.plus")
+                                    .font(.formaSmallSemibold)
+                                    .foregroundStyle(Color.formaSteelBlue)
+                                    .frame(width: 26, height: 26)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.formaSteelBlue.opacity(0.12))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .help("Set Destination")
                         }
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
-                    }
-
-                    if hasDestination && !isSelectionMode && showsPrimaryActionButton {
-                        Button(action: onOrganize) {
-                            Image(systemName: "checkmark")
-                                .font(.formaSmallSemibold)
-                                .foregroundStyle(Color.formaBoneWhite)
-                                .frame(width: 30, height: 30)
-                                .background(
-                                    Circle()
-                                        .fill(Color.formaSage)
-                                        .shadow(
-                                            color: Color.formaSage.opacity(Color.FormaOpacity.overlay),
-                                            radius: 4,
-                                            x: 0,
-                                            y: 2
-                                        )
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .help("Organize • ⏎")
                     }
 
                     if isHovered || isSelectionMode {
@@ -278,7 +306,7 @@ struct FileListRow: View {
                             Image(systemName: "ellipsis")
                                 .font(.formaCompactMedium)
                                 .foregroundStyle(Color.formaSecondaryLabelHigh)
-                                .frame(width: 30, height: 30)
+                                .frame(width: 26, height: 26)
                                 .background(
                                     Circle()
                                         .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
@@ -289,20 +317,18 @@ struct FileListRow: View {
                         .help("More Actions")
                     }
                 }
-                .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: isHovered)
+                .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isHovered)
             }
-            .padding(.leading, FormaSpacing.standard)
-            .padding(.trailing, FormaSpacing.standard)
+            .padding(.leading, FormaSpacing.tight)
+            .padding(.trailing, FormaSpacing.tight)
             .padding(.vertical, rowVerticalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.leading, FormaSpacing.tight)
         .frame(minHeight: rowMinHeight)
         .background(rowBackground)
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous))
         .overlay(rowBorder)
-        .shadow(color: rowShadowColor, radius: rowShadowRadius, x: 0, y: rowShadowY)
-        .scaleEffect(rowScale)
         .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isHovered)
         .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isFocused)
         // PERF: Keep stable identity to avoid unnecessary full row recreation.
@@ -320,101 +346,50 @@ struct FileListRow: View {
 
     // MARK: - Component Helpers
 
-    private var statusChip: some View {
-        HStack(spacing: FormaSpacing.micro) {
-            Image(systemName: statusChipConfig.icon)
-                .font(.formaCaptionSemibold)
-            Text(statusChipConfig.label)
-                .font(.formaCaptionSemibold)
-        }
-        .foregroundStyle(statusChipConfig.color.opacity(Color.FormaOpacity.high))
-        .padding(.horizontal, chipHorizontalPadding)
-        .padding(.vertical, chipVerticalPadding)
-        .background(
-            Capsule(style: .continuous)
-                .fill(statusChipConfig.color.opacity(Color.FormaOpacity.light))
-        )
-    }
-
     private func truncatePath(_ path: String) -> String {
         let components = path.split(separator: "/")
         if components.count <= 2 { return path }
         guard let last = components.last else { return path }
-        return "…/\(last)"
+        return "\u{2026}/\(last)"
     }
 
     // MARK: - Surface Styling
 
     @ViewBuilder
     private var rowBackground: some View {
-        if isSelected {
-            LinearGradient(
-                colors: [
-                    Color.formaSteelBlue.opacity(Color.FormaOpacity.medium),
-                    Color.formaSteelBlue.opacity(Color.FormaOpacity.light)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else if isHovered || isFocused {
-            LinearGradient(
-                colors: [
-                    Color.formaCardBackground.opacity(Color.FormaOpacity.prominent),
-                    Color.formaCardBackground.opacity(Color.FormaOpacity.high + Color.FormaOpacity.light)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else {
-            LinearGradient(
-                colors: [
-                    Color.formaCardBackground.opacity(Color.FormaOpacity.high + Color.FormaOpacity.light),
-                    Color.formaCardBackground.opacity(Color.FormaOpacity.high)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-    }
-
-    private var rowBorder: some View {
-        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-            .strokeBorder(
-                isFocused ? Color.formaSteelBlue.opacity(Color.FormaOpacity.prominent) :
-                isSelected ? Color.formaSteelBlue.opacity(Color.FormaOpacity.strong) :
-                Color.formaBoneWhite.opacity(isHovered ? Color.FormaOpacity.medium : Color.FormaOpacity.light),
-                lineWidth: isFocused ? 1.5 : 1
-            )
-    }
-
-    private var rowShadowColor: Color {
-        if isFocused {
-            return Color.formaSteelBlue.opacity(Color.FormaOpacity.medium)
-        } else if isSelected {
-            return Color.formaSteelBlue.opacity(Color.FormaOpacity.light)
+        if isSelected || isFocused {
+            Color.formaSteelBlue.opacity(0.12)
         } else if isHovered {
-            return Color.formaObsidian.opacity(Color.FormaOpacity.medium)
+            Color.formaCardBackground
+        } else if rowIndex % 2 == 1 {
+            Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle)
         } else {
-            return Color.formaObsidian.opacity(Color.FormaOpacity.light)
+            Color.clear
         }
     }
 
-    private var rowShadowRadius: CGFloat {
-        if isFocused || isSelected { return 8 }
-        if isHovered { return 6 }
-        return 3
-    }
-
-    private var rowShadowY: CGFloat {
-        if isFocused || isSelected { return 3 }
-        if isHovered { return 2 }
-        return 1
-    }
-
-    private var rowScale: CGFloat {
-        if isHovered && !isSelected && !isFocused {
-            return 1.002
+    @ViewBuilder
+    private var rowBorder: some View {
+        if isFocused {
+            RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+                .strokeBorder(
+                    Color.formaSteelBlue.opacity(0.80),
+                    lineWidth: 1.5
+                )
+        } else if isSelected {
+            RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+                .strokeBorder(
+                    Color.formaSteelBlue.opacity(0.50),
+                    lineWidth: 1
+                )
+        } else if isHovered {
+            RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+                .strokeBorder(
+                    Color.formaSeparator.opacity(0.5),
+                    lineWidth: 0.5
+                )
+        } else {
+            EmptyView()
         }
-        return 1.0
     }
 }

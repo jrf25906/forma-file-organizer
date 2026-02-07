@@ -85,6 +85,13 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         // PHASE 2: Compute evaluation
         let ruleEvaluated = ruleEngine.evaluateFiles(files, rules: rules)
 
+        // Stamp lastTriggeredDate on rules that matched at least one file
+        let matchedRuleIDs = Set(ruleEvaluated.compactMap(\.matchedRuleID))
+        let now = Date()
+        for rule in rules where matchedRuleIDs.contains(rule.id) {
+            rule.lastTriggeredDate = now
+        }
+
         let positivePatterns = patterns.filter { !$0.isNegativePattern }
         let patternEvaluated = applyLearnedPatterns(to: ruleEvaluated, patterns: positivePatterns)
 

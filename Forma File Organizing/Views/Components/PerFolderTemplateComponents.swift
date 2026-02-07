@@ -444,7 +444,9 @@ struct FolderTemplateStepView: View {
                 VStack(spacing: FormaSpacing.generous) {
                     // Header
                     VStack(spacing: FormaSpacing.standard) {
-                        OnboardingGeometricIcon(style: .system)
+                        Image(systemName: "square.grid.2x2.fill")
+                            .font(.system(size: 40))
+                            .foregroundStyle(Color.formaSteelBlue)
                             .frame(width: 64, height: 64)
 
                         Text("Customize Each Space")
