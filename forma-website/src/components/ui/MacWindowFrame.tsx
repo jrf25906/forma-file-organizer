@@ -108,7 +108,7 @@ export default function MacWindowFrame({
       </div>
 
       {/* Window Content */}
-      <div className="relative flex min-h-[400px]">
+      <div className="relative">
         {children}
       </div>
     </div>

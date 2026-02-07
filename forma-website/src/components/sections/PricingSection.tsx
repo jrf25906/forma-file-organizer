@@ -153,7 +153,7 @@ export default function PricingSection() {
             href="https://apps.apple.com/app/forma/id0000000000"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 bg-forma-obsidian text-forma-bone rounded-xl py-4 px-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-forma-steel-blue/20 active:scale-[0.98] border border-white/10"
+            className="dark-button inline-flex items-center gap-3 rounded-xl py-4 px-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-forma-steel-blue/20 active:scale-[0.98] border"
           >
             <AppleLogo className="w-6 h-6 flex-shrink-0" />
             <div className="flex flex-col items-start leading-tight">

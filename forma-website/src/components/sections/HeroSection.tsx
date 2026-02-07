@@ -216,7 +216,7 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         <div ref={headlineRef} className="opacity-0">
           <RevealText
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-[3.75rem] font-display text-forma-obsidian leading-[1.08] tracking-tight justify-center headline-hero"
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-[3.75rem] font-display text-forma-bone leading-[1.08] tracking-tight justify-center headline-hero"
             delay={0.5}
           >
             A file organizer for people who gave up on file organizers.
@@ -228,7 +228,7 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         <p
           ref={subtextRef}
-          className="mt-6 text-lg md:text-xl text-forma-obsidian/60 max-w-2xl mx-auto leading-relaxed opacity-0"
+          className="mt-6 text-lg md:text-xl text-forma-bone/60 max-w-2xl mx-auto leading-relaxed opacity-0"
         >
           Your desktop is a dumping ground. Your Downloads folder is worse.
           You&apos;ve tried to fix it before.
@@ -239,7 +239,7 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         <p
           ref={bodyRef}
-          className="mt-5 text-base md:text-lg text-forma-obsidian/75 max-w-2xl mx-auto leading-relaxed opacity-0"
+          className="mt-5 text-base md:text-lg text-forma-bone/70 max-w-2xl mx-auto leading-relaxed opacity-0"
         >
           You make rules. Forma follows them. Screenshots go here, PDFs go
           there. You preview what&apos;s about to happen, approve it, and
@@ -259,7 +259,7 @@ export default function HeroSection() {
             href="https://apps.apple.com/app/forma/id0000000000"
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-primary inline-flex items-center gap-2.5 px-8 py-3.5 text-white text-base font-medium rounded-xl shadow-xl shadow-forma-steel-blue/20 hover:shadow-2xl hover:shadow-forma-steel-blue/30 transition-all duration-300"
+            className="btn-primary inline-flex items-center gap-2.5 px-8 py-3.5 text-white force-white-text text-base font-medium rounded-xl shadow-xl shadow-forma-steel-blue/20 hover:shadow-2xl hover:shadow-forma-steel-blue/30 transition-all duration-300"
           >
             <AppleLogo className="w-[14px] h-[17px]" />
             <span>Download for Mac</span>

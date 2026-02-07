@@ -583,7 +583,7 @@ function FeatureCard({ feature }: { feature: FeatureConfig }) {
         {/* Right side -- interactive demo */}
         <div className="md:w-[280px] lg:w-[320px] flex-shrink-0">
           <div
-            className={`rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition-all duration-300 ${
+            className={`demo-area rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition-all duration-300 ${
               active
                 ? "border-white/10 bg-white/[0.04] shadow-lg shadow-black/10"
                 : ""
@@ -677,7 +677,7 @@ export default function FeaturesSection() {
     <section
       ref={sectionRef}
       id="features"
-      className="scroll-mt-20 relative py-24 md:py-32 px-6 overflow-hidden"
+      className="scroll-mt-20 relative py-24 md:py-32 px-6 overflow-hidden features-section"
     >
       {/* Background gradients */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">

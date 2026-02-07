@@ -377,6 +377,17 @@ body {
 [data-theme="light"] input, [data-theme="light"] textarea { background-color: rgba(255, 255, 255, 0.8); border-color: rgba(0, 0, 0, 0.1); color: #1A1A1A; }
 [data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3, [data-theme="light"] h4, [data-theme="light"] h5, [data-theme="light"] h6 { color: #1A1A1A; }
 [data-theme="light"] .text-white { color: #1A1A1A; }
+
+/* Dark button — stays dark in both themes */
+.dark-button {
+  background-color: #1A1A1A !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+.dark-button, .dark-button * { color: #FFFFFF !important; }
+.dark-button:hover { background-color: #2A2A2A !important; }
+
+/* Force white text (for colored/gradient bg buttons) */
+.force-white-text, .force-white-text * { color: #FFFFFF !important; }
 [data-theme="light"] .orb { opacity: 0.3; }
 [data-theme="light"] .font-mono { color: rgba(26, 26, 26, 0.8); }
 
@@ -529,4 +540,47 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 
 @media (pointer: coarse) {
   button, a, [role="button"] { min-height: 44px; min-width: 44px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FEATURES SECTION — LIGHT MODE
+   Force dark surface for interactive demos to maintain contrast
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] .features-section {
+  background: linear-gradient(180deg, #F4F5F7 0%, #E8EAEE 50%, #F4F5F7 100%);
+}
+
+[data-theme="light"] .features-section .feature-card.glass-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .features-section .feature-card .demo-area {
+  background: #1A1A1A;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FOOTER — LIGHT MODE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] footer[role="contentinfo"] {
+  background: #1A1A1A !important;
+}
+
+[data-theme="light"] footer[role="contentinfo"] p,
+[data-theme="light"] footer[role="contentinfo"] a,
+[data-theme="light"] footer[role="contentinfo"] span {
+  color: rgba(250, 250, 248, 0.4) !important;
+}
+
+[data-theme="light"] footer[role="contentinfo"] a:hover {
+  color: rgba(250, 250, 248, 0.6) !important;
+}
+
+[data-theme="light"] footer[role="contentinfo"] .forma-logo-dot {
+  background-color: #FAFAF8 !important;
 }

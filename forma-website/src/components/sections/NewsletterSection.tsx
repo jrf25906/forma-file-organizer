@@ -148,7 +148,7 @@ export default function NewsletterSection() {
               <button
                 type="submit"
                 disabled={formState === "loading"}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-forma-obsidian text-forma-bone border border-white/10 px-6 py-3 font-display transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-forma-steel-blue/15 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+                className="dark-button inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3 font-display transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-forma-steel-blue/15 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
               >
                 {formState === "loading" ? (
                   <>

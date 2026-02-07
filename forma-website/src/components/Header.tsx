@@ -267,7 +267,7 @@ function MobileMenu({ isOpen, onClose, navLinks }: MobileMenuProps) {
                 rel="noopener noreferrer"
                 onClick={onClose}
                 className="flex items-center justify-center gap-2 w-full px-5 py-3
-                           rounded-xl bg-forma-obsidian text-white text-[14px] font-semibold
+                           rounded-xl dark-button text-[14px] font-semibold
                            tracking-[-0.01em] hover:bg-forma-obsidian/90
                            transition-colors duration-200 font-display"
               >
@@ -434,7 +434,7 @@ export function Header() {
             target="_blank"
             rel="noopener noreferrer"
             className="hidden md:inline-flex items-center justify-center shrink-0
-                       h-8 rounded-full bg-forma-obsidian text-white
+                       h-8 rounded-full dark-button
                        text-[12.5px] font-semibold tracking-[-0.01em]
                        hover:bg-forma-obsidian/90 active:scale-[0.97]
                        transition-all duration-200 whitespace-nowrap
