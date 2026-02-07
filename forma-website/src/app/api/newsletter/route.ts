@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isSupabaseConfigured) {
+      return NextResponse.json(
+        { error: "Newsletter signup is not yet available." },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const { email } = body;
 
