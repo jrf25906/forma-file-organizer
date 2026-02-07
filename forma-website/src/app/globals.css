@@ -544,7 +544,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* ═══════════════════════════════════════════════════════════════════════════
    FEATURES SECTION — LIGHT MODE
-   Force dark surface for interactive demos to maintain contrast
    ═══════════════════════════════════════════════════════════════════════════ */
 
 [data-theme="light"] .features-section {
@@ -558,9 +557,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 [data-theme="light"] .features-section .feature-card .demo-area {
-  background: #1A1A1A;
-  border-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(245, 247, 250, 0.9) 100%);
+  border-color: rgba(26, 26, 26, 0.08);
   border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .features-section .feature-card .demo-area [class*="text-forma-bone"] {
+  color: rgba(26, 26, 26, 0.8) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

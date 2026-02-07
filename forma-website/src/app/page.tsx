@@ -12,7 +12,7 @@ import Footer from "@/components/Footer";
 export default function Home() {
   return (
     <div className="gradient-bg">
-      <main className="relative overflow-hidden shadow-2xl">
+      <main id="top" className="relative overflow-hidden">
         <HeroSection />
         <CredibilityStrip />
         <FeaturesSection />

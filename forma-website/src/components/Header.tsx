@@ -73,7 +73,7 @@ function SmoothScrollLink({
 
       if (lenis) {
         lenis.scrollTo(target as HTMLElement, {
-          offset: -100,
+          offset: -120,
           duration: 1.2,
         });
       } else {
@@ -299,21 +299,17 @@ const NAV_LINKS = [
 export function Header() {
   const headerRef = useRef<HTMLElement>(null);
   const islandRef = useRef<HTMLDivElement>(null);
-  const ctaRef = useRef<HTMLAnchorElement>(null);
 
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isPastHero, setIsPastHero] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // ── Scroll state listener ──────────────────────────────────────────────
   useEffect(() => {
     const SCROLL_THRESHOLD = 20;
-    const HERO_THRESHOLD = 500;
 
     const handleScroll = () => {
       const y = window.scrollY;
       setIsScrolled(y > SCROLL_THRESHOLD);
-      setIsPastHero(y > HERO_THRESHOLD);
     };
 
     // Initial check
@@ -340,23 +336,6 @@ export function Header() {
     );
   }, []);
 
-  // ── CTA appear/disappear based on scroll ──────────────────────────────
-  useGSAP(() => {
-    if (!ctaRef.current) return;
-
-    gsap.to(ctaRef.current, {
-      opacity: isPastHero ? 1 : 0,
-      scale: isPastHero ? 1 : 0.92,
-      width: isPastHero ? "auto" : 0,
-      paddingLeft: isPastHero ? 20 : 0,
-      paddingRight: isPastHero ? 20 : 0,
-      marginLeft: isPastHero ? 8 : 0,
-      duration: 0.4,
-      ease: formaReveal,
-      overwrite: true,
-    });
-  }, [isPastHero]);
-
   const closeMobileMenu = useCallback(() => {
     setIsMobileMenuOpen(false);
   }, []);
@@ -370,16 +349,16 @@ export function Header() {
       <header
         ref={headerRef}
         className="fixed top-0 left-0 right-0 z-[100] flex justify-center
-                   px-4 pt-4 pointer-events-none"
+                   px-4 pt-5 md:pt-6 pointer-events-none"
       >
         <div
           ref={islandRef}
           className={cn(
             "header-glass pointer-events-auto opacity-0",
-            "flex items-center gap-1 px-2 py-2 md:px-3 md:py-2",
+            "flex items-center gap-1.5 px-2.5 py-2.5 md:px-3.5 md:py-2.5",
             "rounded-full border transition-all duration-500 ease-out",
             // Glass morphism base
-            "bg-white/70 backdrop-blur-xl",
+            "bg-white/80 backdrop-blur-xl",
             "shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)]",
             // Adaptive border based on scroll
             isScrolled
@@ -390,11 +369,11 @@ export function Header() {
           {/* ── Logo ────────────────────────────────────────────────── */}
           <SmoothScrollLink
             href="#top"
-            className="flex items-center gap-2.5 pl-2.5 pr-3 py-1.5 rounded-full
+            className="flex items-center gap-2.5 pl-3 pr-3.5 py-2 rounded-full
                        hover:bg-black/[0.03] transition-colors duration-200 shrink-0"
           >
-            <GridLogo size={4} gap={2.5} />
-            <span className="text-[15px] font-semibold tracking-tight text-forma-obsidian font-display">
+            <GridLogo size={4.5} gap={2.5} />
+            <span className="text-[15.5px] font-semibold tracking-tight text-forma-obsidian font-display">
               Forma
             </span>
           </SmoothScrollLink>
@@ -413,7 +392,7 @@ export function Header() {
                 <SmoothScrollLink
                   href={link.href}
                   className={cn(
-                    "px-3.5 py-1.5 rounded-full text-[13px] font-medium",
+                    "px-4 py-2 rounded-full text-[13.5px] font-medium",
                     "text-forma-obsidian/60 hover:text-forma-obsidian",
                     "hover:bg-black/[0.04] transition-all duration-200",
                     "tracking-[-0.01em]"
@@ -425,18 +404,16 @@ export function Header() {
             ))}
           </nav>
 
-          {/* ── Desktop CTA (appears after scrolling past hero) ───── */}
+          {/* ── Desktop CTA ─────────────────────────────────────────── */}
           <a
-            ref={ctaRef}
             href={MAC_APP_STORE_URL}
             {...MAC_APP_STORE_LINK_PROPS}
             className="hidden md:inline-flex items-center justify-center shrink-0
-                       h-8 rounded-full dark-button
+                       h-9 rounded-full dark-button
                        text-[12.5px] font-semibold tracking-[-0.01em]
                        hover:bg-forma-obsidian/90 active:scale-[0.97]
                        transition-all duration-200 whitespace-nowrap
-                       opacity-0 overflow-hidden font-display"
-            style={{ width: 0, paddingLeft: 0, paddingRight: 0, marginLeft: 0 }}
+                       px-5 font-display"
           >
             Download for Mac
           </a>

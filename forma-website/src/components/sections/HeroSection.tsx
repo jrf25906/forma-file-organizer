@@ -1,10 +1,9 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef } from "react";
 import Image from "next/image";
 import { gsap, useGSAP } from "@/lib/animation/gsap-config";
-import { formaReveal, formaDuration, formaStagger } from "@/lib/animation/ease-curves";
-import { ScrollReveal } from "@/components/animation/ScrollReveal";
+import { formaReveal, formaDuration } from "@/lib/animation/ease-curves";
 import { RevealText } from "@/components/animation/RevealText";
 import MacWindowFrame from "@/components/ui/MacWindowFrame";
 import { useTheme } from "@/components/ThemeProvider";
@@ -36,14 +35,7 @@ function AppleLogo({ className = "" }: { className?: string }) {
 
 function AppScreenshot() {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Prevent hydration mismatch by defaulting to light during SSR
-  const isDark = mounted ? resolvedTheme === "dark" : false;
+  const isDark = resolvedTheme === "dark";
 
   return (
     <Image
@@ -175,7 +167,7 @@ export default function HeroSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative min-h-screen flex flex-col items-center justify-center py-24 px-6 overflow-hidden"
+      className="relative overflow-hidden px-6 pt-[8.5rem] pb-20 md:pt-[11rem] md:pb-28"
     >
       {/* Background gradient orbs */}
       <div
@@ -183,7 +175,7 @@ export default function HeroSection() {
         aria-hidden="true"
       >
         <div
-          className="absolute w-[700px] h-[700px] rounded-full blur-[140px] opacity-20"
+          className="absolute w-[700px] h-[700px] rounded-full blur-[140px] opacity-12"
           style={{
             background:
               "radial-gradient(circle, rgba(91, 124, 153, 0.4) 0%, transparent 70%)",
@@ -192,7 +184,7 @@ export default function HeroSection() {
           }}
         />
         <div
-          className="absolute w-[500px] h-[500px] rounded-full blur-[120px] opacity-15"
+          className="absolute w-[500px] h-[500px] rounded-full blur-[120px] opacity-10"
           style={{
             background:
               "radial-gradient(circle, rgba(122, 157, 126, 0.35) 0%, transparent 70%)",
@@ -201,7 +193,7 @@ export default function HeroSection() {
           }}
         />
         <div
-          className="absolute w-[400px] h-[400px] rounded-full blur-[100px] opacity-10"
+          className="absolute w-[400px] h-[400px] rounded-full blur-[100px] opacity-8"
           style={{
             background:
               "radial-gradient(circle, rgba(201, 126, 102, 0.3) 0%, transparent 70%)",
@@ -211,13 +203,17 @@ export default function HeroSection() {
         />
       </div>
 
-      <div className="relative max-w-4xl mx-auto text-center z-10">
+      <div className="relative z-10 mx-auto max-w-4xl text-center">
+        <p className="mx-auto mb-5 inline-flex rounded-full border border-forma-bone/15 bg-white/[0.04] px-4 py-1.5 text-xs tracking-[0.06em] text-forma-bone/65 uppercase">
+          Built for messy desktops
+        </p>
+
         {/* ─────────────────────────────────────────────────────────────── */}
         {/* HEADLINE                                                       */}
         {/* ─────────────────────────────────────────────────────────────── */}
         <div ref={headlineRef} className="opacity-0">
           <RevealText
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-[3.75rem] font-display text-forma-bone leading-[1.08] tracking-tight justify-center headline-hero"
+            className="headline-hero justify-center text-4xl sm:text-5xl md:text-6xl lg:text-[4rem] font-display leading-[1.05] tracking-tight text-forma-bone"
             delay={0.5}
           >
             A file organizer for people who gave up on file organizers.
@@ -229,7 +225,7 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         <p
           ref={subtextRef}
-          className="mt-6 text-lg md:text-xl text-forma-bone/60 max-w-2xl mx-auto leading-relaxed opacity-0"
+          className="mx-auto mt-7 max-w-2xl text-lg leading-relaxed text-forma-bone/65 opacity-0 md:text-xl"
         >
           Your desktop is a dumping ground. Your Downloads folder is worse.
           You&apos;ve tried to fix it before.
@@ -240,7 +236,7 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         <p
           ref={bodyRef}
-          className="mt-5 text-base md:text-lg text-forma-bone/70 max-w-2xl mx-auto leading-relaxed opacity-0"
+          className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-forma-bone/75 opacity-0 md:text-lg"
         >
           You make rules. Forma follows them. Screenshots go here, PDFs go
           there. You preview what&apos;s about to happen, approve it, and
@@ -253,13 +249,13 @@ export default function HeroSection() {
         {/* ─────────────────────────────────────────────────────────────── */}
         <div
           ref={ctaRef}
-          className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 opacity-0"
+          className="mt-9 flex flex-col items-center justify-center gap-3.5 opacity-0 sm:flex-row"
         >
           {/* Primary CTA - Download for Mac */}
           <a
             href={MAC_APP_STORE_URL}
             {...MAC_APP_STORE_LINK_PROPS}
-            className="btn-primary inline-flex items-center gap-2.5 px-8 py-3.5 text-white force-white-text text-base font-medium rounded-xl shadow-xl shadow-forma-steel-blue/20 hover:shadow-2xl hover:shadow-forma-steel-blue/30 transition-all duration-300"
+            className="btn-primary inline-flex items-center gap-2.5 rounded-xl px-8 py-3.5 text-base font-medium text-white shadow-xl shadow-forma-steel-blue/20 transition-all duration-300 hover:shadow-2xl hover:shadow-forma-steel-blue/30 force-white-text"
           >
             <AppleLogo className="w-[14px] h-[17px]" />
             <span>Download for Mac</span>
@@ -281,7 +277,7 @@ export default function HeroSection() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <div
         ref={mockupRef}
-        className="relative w-full max-w-5xl mx-auto mt-16 md:mt-20 z-10 opacity-0"
+        className="relative z-10 mx-auto mt-14 w-full max-w-5xl opacity-0 md:mt-20"
       >
         <div className="app-mockup-glow">
           <MacWindowFrame className="w-full">
