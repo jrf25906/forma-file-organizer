@@ -11,8 +11,8 @@ import Footer from "@/components/Footer";
 
 export default function Home() {
   return (
-    <>
-      <main className="relative mb-[220px] shadow-2xl overflow-hidden gradient-bg">
+    <div className="gradient-bg">
+      <main className="relative overflow-hidden shadow-2xl">
         <HeroSection />
         <CredibilityStrip />
         <FeaturesSection />
@@ -22,6 +22,6 @@ export default function Home() {
         <NewsletterSection />
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

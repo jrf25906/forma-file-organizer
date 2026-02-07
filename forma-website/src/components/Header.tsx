@@ -5,6 +5,7 @@ import { Menu, X, ArrowUpRight } from "lucide-react";
 import { gsap, useGSAP, useLenisScroll, formaReveal, formaDuration } from "@/lib/animation";
 import MagneticButton from "@/components/animation/MagneticButton";
 import { cn } from "@/lib/utils";
+import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    GRID LOGO
@@ -262,9 +263,8 @@ function MobileMenu({ isOpen, onClose, navLinks }: MobileMenuProps) {
             {/* Mobile CTA */}
             <div className="mt-6 pt-6 border-t border-black/[0.06]">
               <a
-                href="https://apps.apple.com/app/forma/id0000000000"
-                target="_blank"
-                rel="noopener noreferrer"
+                href={MAC_APP_STORE_URL}
+                {...MAC_APP_STORE_LINK_PROPS}
                 onClick={onClose}
                 className="flex items-center justify-center gap-2 w-full px-5 py-3
                            rounded-xl dark-button text-[14px] font-semibold
@@ -290,8 +290,6 @@ const NAV_LINKS = [
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ] as const;
-
-const MAC_APP_STORE_URL = "https://apps.apple.com/app/forma/id0000000000";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    HEADER (main export)
@@ -431,8 +429,7 @@ export function Header() {
           <a
             ref={ctaRef}
             href={MAC_APP_STORE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+            {...MAC_APP_STORE_LINK_PROPS}
             className="hidden md:inline-flex items-center justify-center shrink-0
                        h-8 rounded-full dark-button
                        text-[12.5px] font-semibold tracking-[-0.01em]

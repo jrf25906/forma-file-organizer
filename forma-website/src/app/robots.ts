@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://forma.app/sitemap.xml",
+    sitemap: "https://formafiles.com/sitemap.xml",
   };
 }

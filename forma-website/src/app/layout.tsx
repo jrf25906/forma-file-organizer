@@ -29,7 +29,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://forma.app"),
+  metadataBase: new URL("https://formafiles.com"),
   title: {
     default: "Forma | Give your files form",
     template: "%s | Forma",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     title: "Forma | Give your files form",
     description:
       "A file organizer for people who gave up on file organizers. $29 once, forever.",
-    url: "https://forma.app",
+    url: "https://formafiles.com",
     siteName: "Forma",
     locale: "en_US",
     type: "website",

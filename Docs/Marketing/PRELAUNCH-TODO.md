@@ -40,7 +40,7 @@ Use this file as the canonical “pre-launch” TODO since the Codex plan panel 
 - [ ] No clipping, fuzz, or inconsistent padding/alignment across sizes.
 
 **Tasks**
-- [x] Confirm final source artwork (SVG or 1024+ PNG) and lock the design: `forma-marketing-site/public/app-icon-1024.svg`
+- [x] Confirm final source artwork (SVG or 1024+ PNG) and lock the design: `forma-website/public/app-icon-1024.png`
 - [x] Replace AppIcon PNGs in `AppIcon.appiconset` (ensure filenames match `Contents.json`). *(Script: `Scripts/generate_app_icons.swift`)*
 - [x] Validate the menu bar SVG is pixel-aligned and uses template rendering. *(Reverted to 3×3 gradient in `MenuBarIcon.imageset/menubar-icon.svg`)*
 

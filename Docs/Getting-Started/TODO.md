@@ -48,7 +48,7 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] 9. OrganizationPersonality.swift:126-163 — remove `preferredViewMode`, `suggestedFolderDepth`, `suggestionsFrequency`, and nested `SuggestionsFrequency` enum.
 - [x] 10. LearningService.swift:282-288 — remove commented-out `sizeRanges`.
 - [x] 11. AIInsightsView.swift:3 — keep `Combine` import (required for `ObservableObject`/`@StateObject` in this file).
-- [x] 12. SVG decision: `logo-mark-light.svg` is used by `website/`; keep it. Keep `logo-lockup.svg` as a brand asset (docs reference). No deletion.
+- [x] 12. SVG decision: keep `logo-mark-light.svg` as a brand asset and retain `logo-lockup.svg` for docs references. No deletion.
 - [x] 13. Remove empty asset directory `Assets.xcassets/Icon.iconset/`.
 
 ### Phase 3: Code Hygiene

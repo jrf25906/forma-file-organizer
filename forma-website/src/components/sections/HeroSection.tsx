@@ -8,6 +8,7 @@ import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import { RevealText } from "@/components/animation/RevealText";
 import MacWindowFrame from "@/components/ui/MacWindowFrame";
 import { useTheme } from "@/components/ThemeProvider";
+import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // APPLE LOGO SVG
@@ -256,9 +257,8 @@ export default function HeroSection() {
         >
           {/* Primary CTA - Download for Mac */}
           <a
-            href="https://apps.apple.com/app/forma/id0000000000"
-            target="_blank"
-            rel="noopener noreferrer"
+            href={MAC_APP_STORE_URL}
+            {...MAC_APP_STORE_LINK_PROPS}
             className="btn-primary inline-flex items-center gap-2.5 px-8 py-3.5 text-white force-white-text text-base font-medium rounded-xl shadow-xl shadow-forma-steel-blue/20 hover:shadow-2xl hover:shadow-forma-steel-blue/30 transition-all duration-300"
           >
             <AppleLogo className="w-[14px] h-[17px]" />

@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 
 function GridLogo() {
@@ -31,72 +29,75 @@ const legalLinks = [
 ] as const;
 
 export default function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer
-      className="fixed inset-x-0 bottom-0 z-[-1] h-[220px] bg-forma-obsidian"
-      role="contentinfo"
-    >
-      <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-8">
-        {/* Left: Logo + founder story */}
-        <div className="flex items-start gap-5">
-          <div className="mt-[3px]">
+    <footer className="bg-forma-obsidian border-t border-forma-bone/10" role="contentinfo">
+      <div className="mx-auto max-w-6xl px-6 py-10 md:px-8 md:py-12">
+        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_auto] md:items-start">
+          {/* Left: Logo + founder story */}
+          <div className="flex items-start gap-4">
             <GridLogo />
+            <p className="max-w-sm text-sm leading-relaxed text-[rgba(250,250,248,0.55)]">
+              Built by someone who got tired of seeing{" "}
+              <span className="font-mono text-[rgba(250,250,248,0.45)]">
+                Screenshot 2024-01-15 at 3.42.17 PM.png
+              </span>{" "}
+              fifty times on their desktop.
+            </p>
           </div>
-          <p className="max-w-[300px] text-[13px] leading-relaxed text-forma-bone/50">
-            Built by someone who got tired of seeing{" "}
-            <span className="font-mono text-forma-bone/50">
-              Screenshot 2024-01-15 at 3.42.17 PM.png
-            </span>{" "}
-            fifty times on their desktop.
-          </p>
-        </div>
 
-        {/* Center: Link columns */}
-        <div className="flex gap-16">
-          {/* Product links */}
-          <nav aria-label="Product">
-            <ul className="flex flex-col gap-2.5">
-              {productLinks.map(({ label, href }) => (
-                <li key={href}>
-                  <a
-                    href={href}
-                    className="text-[13px] text-forma-bone/40 transition-colors duration-200 hover:text-forma-bone/60"
-                  >
-                    {label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          {/* Center: Link columns */}
+          <div className="grid grid-cols-2 gap-10 sm:max-w-sm">
+            <nav aria-label="Product">
+              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[rgba(250,250,248,0.38)]">
+                Product
+              </p>
+              <ul className="space-y-2.5">
+                {productLinks.map(({ label, href }) => (
+                  <li key={href}>
+                    <a
+                      href={href}
+                      className="text-sm text-[rgba(250,250,248,0.58)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
+                    >
+                      {label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
 
-          {/* Legal links */}
-          <nav aria-label="Legal">
-            <ul className="flex flex-col gap-2.5">
-              {legalLinks.map(({ label, href }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className="text-[13px] text-forma-bone/40 transition-colors duration-200 hover:text-forma-bone/60"
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
+            <nav aria-label="Legal">
+              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[rgba(250,250,248,0.38)]">
+                Legal
+              </p>
+              <ul className="space-y-2.5">
+                {legalLinks.map(({ label, href }) => (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className="text-sm text-[rgba(250,250,248,0.58)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </div>
 
-        {/* Right: Contact + copyright */}
-        <div className="flex flex-col items-end gap-3">
-          <a
-            href="mailto:hello@forma.app"
-            className="text-[13px] text-forma-bone/40 transition-colors duration-200 hover:text-forma-bone/60"
-          >
-            hello@forma.app
-          </a>
-          <p className="text-[12px] text-forma-bone/40">
-            &copy; 2026 Forma. macOS app.
-          </p>
+          {/* Right: Contact + copyright */}
+          <div className="flex flex-col gap-3 md:items-end">
+            <a
+              href="mailto:hello@forma.app"
+              className="text-sm text-[rgba(250,250,248,0.58)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
+            >
+              hello@forma.app
+            </a>
+            <p className="text-xs text-[rgba(250,250,248,0.42)]">
+              &copy; {currentYear} Forma. macOS app.
+            </p>
+          </div>
         </div>
       </div>
     </footer>

@@ -166,7 +166,7 @@ Forma File Organizing/
 
 ## Marketing Site
 
-The marketing site at [formafiles.com](https://formafiles.com) is a Next.js app located in `forma-marketing-site/`.
+The marketing site at [formafiles.com](https://formafiles.com) is a Next.js app located in `forma-website/`.
 
 | Stack | Details |
 |-------|---------|
@@ -176,7 +176,7 @@ The marketing site at [formafiles.com](https://formafiles.com) is a Next.js app 
 
 To run locally:
 ```bash
-cd forma-marketing-site
+cd forma-website
 npm install
 npm run dev
 ```

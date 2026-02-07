@@ -76,7 +76,7 @@ Forma File Organizing/
 ### Marketing (Synced)
 
 ```
-forma-marketing-site/public/
+forma-website/public/
 ├── logo.svg                       ← Same as logo-mark.svg
 ├── logo-light.svg                 ← Inverted for dark backgrounds
 └── logo-menubar.svg               ← Menu bar version
@@ -172,7 +172,7 @@ The menu bar icon uses **template image** rendering so macOS automatically adapt
 - **Brand Guidelines**: `Docs/Design/Forma-Brand-Guidelines.md`
 - **Brand Overview**: `Docs/Design/BRAND-OVERVIEW.md`
 - **Logo Design Brief**: `Docs/Design/LOGO_DESIGN_BRIEF.md`
-- **Logo Exploration**: `forma-marketing-site/LOGO_EXPLORATION.md`
+- **Logo Exploration**: `Docs/Design/LOGO_DESIGN_BRIEF.md`
 
 ---
 

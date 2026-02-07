@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { Check, Monitor, Shield, Clock, Undo2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaStagger, formaDuration } from "@/lib/animation";
+import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 
 const features = [
   {
@@ -150,9 +151,8 @@ export default function PricingSection() {
         <div ref={ctaRef} className="mt-14 flex flex-col items-center gap-4">
           {/* Mac App Store button */}
           <a
-            href="https://apps.apple.com/app/forma/id0000000000"
-            target="_blank"
-            rel="noopener noreferrer"
+            href={MAC_APP_STORE_URL}
+            {...MAC_APP_STORE_LINK_PROPS}
             className="dark-button inline-flex items-center gap-3 rounded-xl py-4 px-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-forma-steel-blue/20 active:scale-[0.98] border"
           >
             <AppleLogo className="w-6 h-6 flex-shrink-0" />
