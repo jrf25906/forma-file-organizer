@@ -130,9 +130,12 @@ export default function PricingSection() {
 
       <div className="site-container relative">
         <div className="mx-auto max-w-xl text-center">
+          <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/60">
+            Pricing
+          </p>
           <h2
             ref={headlineRef}
-            className="font-display text-4xl md:text-5xl lg:text-[3.25rem] text-forma-obsidian tracking-tight"
+            className="font-display text-5xl md:text-6xl lg:text-[4rem] text-forma-obsidian tracking-tight"
           >
             $29. Once. Forever.
           </h2>

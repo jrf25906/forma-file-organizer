@@ -95,13 +95,13 @@ export default function CredibilityStrip() {
       <div className="site-container relative">
         <div
           ref={badgesRef}
-          className="mx-auto flex max-w-3xl flex-col items-center justify-center gap-5 sm:flex-row sm:gap-6 md:gap-8"
+          className="mx-auto flex max-w-3xl flex-col items-center justify-center gap-4 sm:flex-row sm:gap-4 md:gap-6"
         >
           {badges.map(({ icon: Icon, label, description }) => (
             <div
               key={label}
               data-badge
-              className="flex items-center gap-3.5 rounded-xl border border-black/[0.06] bg-white/80 px-5 py-3.5 shadow-sm"
+              className="flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white/80 px-4 py-3 shadow-sm"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-forma-steel-blue/10 flex-shrink-0">
                 <Icon

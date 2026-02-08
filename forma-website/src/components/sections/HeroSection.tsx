@@ -39,11 +39,11 @@ export default function HeroSection() {
 
       <div className="site-container relative">
         <div className="mx-auto max-w-[820px] text-center">
-          <h1 className="mx-auto max-w-[720px] font-display text-[2.45rem] leading-[1.08] tracking-tight text-forma-obsidian sm:text-[2.95rem] lg:text-[3.45rem]">
+          <h1 className="mx-auto max-w-[720px] font-display text-[2.75rem] leading-[1.08] tracking-[-0.025em] text-forma-obsidian text-balance sm:text-[3.5rem] lg:text-[4.25rem]">
             A file organizer for people who gave up on file organizers.
           </h1>
 
-          <p className="mx-auto mt-6 max-w-[580px] text-lg leading-relaxed text-forma-obsidian/68 md:text-[1.2rem]">
+          <p className="mx-auto mt-6 max-w-[580px] text-lg leading-relaxed text-forma-obsidian/60 md:text-[1.2rem]">
             You make rules. Forma follows them. Preview what happens,
             approve it, undo anything.
           </p>
@@ -66,12 +66,12 @@ export default function HeroSection() {
             </a>
           </div>
 
-          <p className="mt-4 text-[13px] text-forma-obsidian/45">
+          <p className="mt-5 border-t border-black/[0.04] pt-3 text-[13px] text-forma-obsidian/50 inline-block">
             $29 once. macOS 14+. No subscription.
           </p>
         </div>
 
-        <div className="mx-auto mt-14 max-w-[980px] rounded-2xl border border-black/[0.08] bg-white/80 p-1.5 shadow-[0_24px_80px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.06)] backdrop-blur-sm md:mt-16 md:rounded-[20px] md:p-2">
+        <div className="relative app-mockup-glow mx-auto mt-14 max-w-[980px] rounded-2xl border border-black/[0.08] bg-white/80 p-1.5 shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.04),0_12px_32px_rgba(0,0,0,0.08),0_32px_80px_rgba(0,0,0,0.12)] backdrop-blur-sm md:mt-16 md:rounded-[20px] md:p-2">
           <MacWindowFrame className="w-full">
             <AppScreenshot />
           </MacWindowFrame>

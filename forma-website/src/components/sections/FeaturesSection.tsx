@@ -12,6 +12,7 @@ type Feature = {
   description: string;
   accentText: string;
   accentBg: string;
+  accentBorder: string;
 };
 
 const features: Feature[] = [
@@ -23,6 +24,7 @@ const features: Feature[] = [
       "Tell it what to do in plain English. No syntax to learn, no config files to edit. Just say where things should go.",
     accentText: "text-forma-steel-blue",
     accentBg: "bg-forma-steel-blue/12",
+    accentBorder: "bg-forma-steel-blue/50",
   },
   {
     id: "smart-connections",
@@ -32,6 +34,7 @@ const features: Feature[] = [
       "It sees patterns you'd miss. Related files are grouped automatically so your rules can work across entire categories.",
     accentText: "text-forma-sage",
     accentBg: "bg-forma-sage/12",
+    accentBorder: "bg-forma-sage/50",
   },
   {
     id: "total-control",
@@ -41,6 +44,7 @@ const features: Feature[] = [
       "Preview everything before it happens. See exactly which files move where, toggle individual items, then approve the batch.",
     accentText: "text-forma-muted-blue",
     accentBg: "bg-forma-muted-blue/12",
+    accentBorder: "bg-forma-muted-blue/50",
   },
   {
     id: "full-undo",
@@ -50,20 +54,27 @@ const features: Feature[] = [
       "Reverse any move, any time. Every action is tracked in a timeline you can step through and roll back.",
     accentText: "text-forma-warm-orange",
     accentBg: "bg-forma-warm-orange/12",
+    accentBorder: "bg-forma-warm-orange/50",
   },
 ];
 
 function RulePreview() {
+  const rules = [
+    { text: 'Move screenshots to', target: '~/Screenshots', status: 'Active' },
+    { text: 'Rename invoices by', target: 'date', status: 'Active' },
+    { text: 'Sort code files into', target: '~/Projects', status: '3 matched' },
+  ];
+
   return (
-    <div className="space-y-2.5">
-      <div className="rounded-lg border border-black/[0.06] bg-white px-3.5 py-2.5 font-mono text-[12px] text-forma-obsidian/80">
-        Move screenshots to <span className="text-forma-steel-blue">~/Screenshots</span>
-      </div>
-      <div className="flex items-center gap-2 text-[11px] text-forma-obsidian/50">
-        <span className="h-px flex-1 bg-forma-obsidian/8" />
-        <span>Moves matching files to target folder</span>
-        <span className="h-px flex-1 bg-forma-obsidian/8" />
-      </div>
+    <div className="space-y-2">
+      {rules.map((rule) => (
+        <div key={rule.text} className="flex items-center justify-between rounded-lg border border-black/[0.06] bg-white px-3.5 py-2.5">
+          <span className="font-mono text-[11px] text-forma-obsidian/75">
+            {rule.text} <span className="text-forma-steel-blue">{rule.target}</span>
+          </span>
+          <span className="rounded-full bg-forma-sage/12 px-2 py-0.5 text-[9px] font-medium text-forma-sage">{rule.status}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -100,14 +111,14 @@ function ConnectionPreview() {
           <div className="mb-1 flex items-center gap-1.5">
             <span className={`h-1.5 w-1.5 rounded-full ${group.dotClass}`} />
             <span className={`text-[11px] font-medium ${group.textClass}`}>
-              {group.name}
+              {group.name} ({group.files.length})
             </span>
           </div>
           <div className="flex flex-wrap gap-1">
             {group.files.map((file) => (
               <span
                 key={file}
-                className="rounded bg-black/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-forma-obsidian/55"
+                className="rounded bg-black/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-forma-obsidian/65"
               >
                 {file}
               </span>
@@ -121,9 +132,9 @@ function ConnectionPreview() {
 
 function ControlPreview() {
   const files = [
-    { name: "Screenshot 2024-01-15.png", from: "~/Desktop", to: "~/Screenshots" },
-    { name: "Invoice_March.pdf", from: "~/Downloads", to: "~/Documents/PDFs" },
-    { name: "notes.txt", from: "~/Desktop", to: "~/Documents" },
+    { name: "Screenshot 2024-01-15.png", from: "~/Desktop", to: "~/Screenshots", checked: true },
+    { name: "Invoice_March.pdf", from: "~/Downloads", to: "~/Documents/PDFs", checked: true },
+    { name: "notes.txt", from: "~/Desktop", to: "~/Documents", checked: false },
   ];
 
   return (
@@ -131,9 +142,9 @@ function ControlPreview() {
       {files.map((file) => (
         <div
           key={file.name}
-          className="flex items-start gap-2 rounded-lg border border-black/[0.05] bg-white px-3 py-2"
+          className={`flex items-start gap-2 rounded-lg border border-black/[0.05] bg-white px-3 py-2${!file.checked ? " opacity-60" : ""}`}
         >
-          <span className="mt-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded bg-forma-muted-blue text-[8px] text-white flex-shrink-0">
+          <span className={`mt-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded flex-shrink-0 text-[8px] ${file.checked ? "bg-forma-muted-blue text-white" : "border border-forma-muted-blue/40 bg-transparent text-transparent"}`}>
             ✓
           </span>
           <div className="min-w-0 flex-1">
@@ -150,9 +161,9 @@ function ControlPreview() {
 
 function UndoPreview() {
   const rows = [
-    { file: "report.pdf", detail: "~/Documents · 2m ago" },
-    { file: "hero.png", detail: "~/Screenshots · 5m ago" },
-    { file: "backup.zip", detail: "~/Archive · 12m ago" },
+    { file: "report.pdf", detail: "~/Documents · 2m ago", undone: false },
+    { file: "hero.png", detail: "~/Screenshots · 5m ago", undone: false },
+    { file: "backup.zip", detail: "~/Archive · 12m ago", undone: true },
   ];
 
   return (
@@ -163,14 +174,14 @@ function UndoPreview() {
           className="flex items-center justify-between rounded-lg border border-black/[0.05] bg-white px-3 py-2"
         >
           <div className="min-w-0 pr-3">
-            <p className="truncate text-[11px] text-forma-obsidian/75">{row.file}</p>
+            <p className={`truncate text-[11px] text-forma-obsidian/75${row.undone ? " line-through" : ""}`}>{row.file}</p>
             <p className="truncate text-[10px] text-forma-obsidian/45">{row.detail}</p>
           </div>
           <button
             type="button"
-            className="flex-shrink-0 rounded-md bg-forma-warm-orange/8 px-2 py-1 text-[10px] font-medium text-forma-warm-orange/80"
+            className={`flex-shrink-0 rounded-md px-2 py-1 text-[10px] font-medium ${row.undone ? "bg-forma-sage/12 text-forma-sage" : "bg-forma-warm-orange/15 text-forma-warm-orange"}`}
           >
-            Undo
+            {row.undone ? "Done" : "Undo"}
           </button>
         </div>
       ))}
@@ -230,6 +241,9 @@ export default function FeaturesSection() {
       <div className="site-container relative">
         <div className="mx-auto max-w-5xl">
           <div className="mb-14 text-center md:mb-16">
+            <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/60">
+              Features
+            </p>
             <h2
               ref={headlineRef}
               className="font-display text-3xl tracking-tight text-forma-obsidian md:text-4xl lg:text-[2.75rem]"
@@ -248,8 +262,10 @@ export default function FeaturesSection() {
               return (
                 <article
                   key={feature.id}
-                  className="flex flex-col rounded-2xl border border-black/[0.06] bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-shadow duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.07)]"
+                  className="flex flex-col overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_3px_rgba(0,0,0,0.06),0_8px_24px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_4px_12px_rgba(0,0,0,0.08),0_20px_48px_rgba(0,0,0,0.08)] hover:-translate-y-1"
                 >
+                  <div className={`h-1 w-full ${feature.accentBorder}`} />
+                  <div className="p-6 flex flex-col flex-1">
                   <div className="flex items-center gap-3 mb-3">
                     <div
                       className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${feature.accentBg}`}
@@ -264,8 +280,9 @@ export default function FeaturesSection() {
                     {feature.description}
                   </p>
 
-                  <div className="mt-auto rounded-xl border border-black/[0.05] bg-[#f8f9fb] p-4">
+                  <div className="mt-auto rounded-xl border border-black/[0.08] bg-[#eef1f5] p-4">
                     <PreviewForFeature id={feature.id} />
+                  </div>
                   </div>
                 </article>
               );

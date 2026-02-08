@@ -188,6 +188,9 @@ export default function FAQSection() {
     >
       <div className="site-container">
         <div className="mx-auto max-w-2xl">
+          <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/60 text-center">
+            FAQ
+          </p>
           <h2
             ref={headingRef}
             className="font-display text-3xl md:text-[2.25rem] text-forma-obsidian text-center mb-10"
