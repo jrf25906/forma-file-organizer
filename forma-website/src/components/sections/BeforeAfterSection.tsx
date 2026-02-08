@@ -204,16 +204,6 @@ export default function BeforeAfterSection() {
                 ))}
               </ul>
 
-              {/* Summary stats to balance height with Before card */}
-              <div className="relative mt-6 rounded-xl border border-forma-sage/15 bg-forma-sage/[0.06] px-4 py-3.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-display text-forma-sage">6 files sorted</span>
-                  <span className="text-forma-obsidian/65">3 folders created</span>
-                </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-forma-obsidian/65">
-                  Organized in one click. Every move reversible.
-                </p>
-              </div>
             </div>
           </TiltCard>
         </div>

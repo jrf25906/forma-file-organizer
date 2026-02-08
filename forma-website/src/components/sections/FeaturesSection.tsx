@@ -231,7 +231,7 @@ export default function FeaturesSection() {
     <section
       ref={sectionRef}
       id="features"
-      className="features-section relative scroll-mt-16 overflow-hidden bg-[#f4f6f8] py-24 md:py-30"
+      className="features-section relative scroll-mt-16 overflow-hidden bg-[#f4f6f8] py-24 md:py-32"
     >
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.65)_0%,rgba(244,246,248,1)_100%)]" />

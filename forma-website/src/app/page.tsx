@@ -2,7 +2,6 @@ import {
   HeroSection,
   CredibilityStrip,
   FeaturesSection,
-  MidPageCTA,
   BeforeAfterSection,
   PricingSection,
   FAQSection,
@@ -17,9 +16,7 @@ export default function Home() {
         <HeroSection />
         <CredibilityStrip />
         <FeaturesSection />
-        <MidPageCTA heading="Ready to get organized?" />
         <BeforeAfterSection />
-        <MidPageCTA heading="Join thousands of organized desktops." />
         <PricingSection />
         <FAQSection />
         <NewsletterSection />
