@@ -78,7 +78,7 @@ export default function HeroSection() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="inline-flex items-center gap-2.5 rounded-xl bg-forma-obsidian px-8 py-3.5 text-base font-semibold text-forma-bone shadow-lg shadow-black/10 transition-colors hover:bg-forma-obsidian/90"
+              className="inline-flex items-center gap-2.5 rounded-xl bg-forma-obsidian px-8 py-3.5 text-base font-semibold text-forma-bone shadow-lg shadow-black/10 transition-all duration-300 hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-xl hover:shadow-black/15 active:translate-y-0"
             >
               <AppleLogo className="h-[17px] w-[14px]" />
               <span>Download for Mac</span>
@@ -86,7 +86,7 @@ export default function HeroSection() {
 
             <a
               href="#features"
-              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.12] bg-white/70 px-8 py-3.5 text-base font-medium text-forma-obsidian/85 transition-colors hover:bg-white hover:text-forma-obsidian"
+              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.2] bg-white/80 px-8 py-3.5 text-base font-medium text-forma-obsidian/85 transition-colors hover:bg-white hover:text-forma-obsidian hover:border-black/[0.3]"
             >
               See how it works
             </a>

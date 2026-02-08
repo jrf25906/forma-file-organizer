@@ -122,10 +122,20 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* Mobile compact CTA -- visible only below md */}
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="hidden md:inline-flex h-9 items-center rounded-full bg-forma-obsidian px-4 text-[12.5px] font-semibold text-forma-bone hover:bg-forma-obsidian/90 transition-colors"
+              className="inline-flex md:hidden h-8 items-center rounded-full bg-forma-obsidian px-3.5 text-[11.5px] font-semibold text-forma-bone hover:bg-forma-obsidian/90 transition-all hover:-translate-y-px hover:shadow-md"
+            >
+              Download
+            </a>
+
+            {/* Desktop CTA */}
+            <a
+              href={MAC_APP_STORE_URL}
+              {...MAC_APP_STORE_LINK_PROPS}
+              className="hidden md:inline-flex h-9 items-center rounded-full bg-forma-obsidian px-4 text-[12.5px] font-semibold text-forma-bone transition-all hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-md"
             >
               Download for Mac
             </a>

@@ -33,9 +33,9 @@ type ButtonProps = ButtonAsButton | ButtonAsAnchor;
 const variantStyles: Record<ButtonVariant, string> = {
   primary: cn(
     "bg-forma-obsidian text-forma-bone",
-    "hover:bg-forma-obsidian/90",
-    "active:bg-forma-obsidian/80",
-    "shadow-sm hover:shadow-md",
+    "hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-lg hover:shadow-black/15",
+    "active:bg-forma-obsidian/80 active:translate-y-0",
+    "shadow-sm",
     "border border-transparent"
   ),
   secondary: cn(

@@ -55,7 +55,8 @@ export async function POST(request: NextRequest) {
       { message: "Successfully subscribed!" },
       { status: 201 }
     );
-  } catch {
+  } catch (error) {
+    console.error("Newsletter API error:", error);
     return NextResponse.json(
       { error: "Invalid request" },
       { status: 400 }

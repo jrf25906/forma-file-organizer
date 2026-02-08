@@ -4,6 +4,9 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Terms of Use",
   description: "Terms of use for the Forma macOS app and related services.",
+  alternates: {
+    canonical: "https://formafiles.com/terms",
+  },
 };
 
 export default function TermsPage() {

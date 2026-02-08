@@ -32,7 +32,7 @@ const badges = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function CredibilityStrip() {
-  const enableScrollAnimations = false;
+  const enableScrollAnimations = true;
   const sectionRef = useRef<HTMLElement>(null);
   const badgesRef = useRef<HTMLDivElement>(null);
 

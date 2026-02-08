@@ -29,21 +29,19 @@ const organizedFolders = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function BeforeAfterSection() {
-  const enableScrollAnimations = false;
+  const enableScrollAnimations = true;
   const sectionRef = useRef<HTMLElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const beforeCardRef = useRef<HTMLDivElement>(null);
   const afterCardRef = useRef<HTMLDivElement>(null);
-  const [isTouchDevice, setIsTouchDevice] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(pointer: coarse)").matches
-  );
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   // Detect touch / coarse-pointer devices to disable tilt
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(pointer: coarse)");
+
+    setIsTouchDevice(mq.matches);
 
     const handler = (e: MediaQueryListEvent) => setIsTouchDevice(e.matches);
     mq.addEventListener("change", handler);
@@ -72,7 +70,7 @@ export default function BeforeAfterSection() {
         scrollTrigger: {
           trigger: sectionRef.current,
           start: "top 75%",
-          toggleActions: "play none none reverse",
+          toggleActions: "play none none none",
         },
       });
 
@@ -199,12 +197,23 @@ export default function BeforeAfterSection() {
                     <span className="font-mono text-sm tracking-wide text-forma-obsidian">
                       {folder.name}
                     </span>
-                    <span className="text-xs text-forma-obsidian/45">
+                    <span className="text-xs text-forma-obsidian/65">
                       {folder.count}
                     </span>
                   </li>
                 ))}
               </ul>
+
+              {/* Summary stats to balance height with Before card */}
+              <div className="relative mt-6 rounded-xl border border-forma-sage/15 bg-forma-sage/[0.06] px-4 py-3.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-display text-forma-sage">6 files sorted</span>
+                  <span className="text-forma-obsidian/65">3 folders created</span>
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-forma-obsidian/65">
+                  Organized in one click. Every move reversible.
+                </p>
+              </div>
             </div>
           </TiltCard>
         </div>

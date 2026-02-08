@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Support",
   description:
     "Get help with Forma, contact support, and find troubleshooting tips.",
+  alternates: {
+    canonical: "https://formafiles.com/support",
+  },
 };
 
 export default function SupportPage() {

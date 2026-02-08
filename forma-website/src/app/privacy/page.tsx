@@ -4,6 +4,9 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "How Forma handles data in the app and on the website.",
+  alternates: {
+    canonical: "https://formafiles.com/privacy",
+  },
 };
 
 export default function PrivacyPolicyPage() {

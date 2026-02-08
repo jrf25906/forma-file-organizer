@@ -88,14 +88,17 @@ function FAQItem({
         aria-controls={`faq-answer-${index}`}
         className="w-full py-5 flex items-start justify-between gap-4 text-left group cursor-pointer"
       >
-        <span className="font-display text-lg text-forma-obsidian group-hover:text-forma-obsidian/85 transition-colors">
+        <span
+          id={`faq-question-${index}`}
+          className="font-display text-lg text-forma-obsidian group-hover:text-forma-obsidian/85 transition-colors"
+        >
           {faq.question}
         </span>
         <div className="shrink-0 mt-1 w-5 h-5 rounded-full bg-black/[0.04] flex items-center justify-center transition-colors group-hover:bg-black/[0.07]">
           {isOpen ? (
-            <Minus className="w-3.5 h-3.5 text-forma-obsidian/45" />
+            <Minus className="w-3.5 h-3.5 text-forma-obsidian/65" />
           ) : (
-            <Plus className="w-3.5 h-3.5 text-forma-obsidian/45" />
+            <Plus className="w-3.5 h-3.5 text-forma-obsidian/65" />
           )}
         </div>
       </button>

@@ -1,6 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import { Eye, GitBranch, Type, Undo2 } from "lucide-react";
+import { gsap, useGSAP } from "@/lib/animation";
+import { formaReveal, formaDuration } from "@/lib/animation";
 
 type Feature = {
   id: string;
@@ -57,7 +60,7 @@ function RulePreview() {
         Move screenshots to <span className="text-forma-steel-blue">~/Screenshots</span>
       </div>
       <div className="rounded-lg border border-black/[0.08] bg-[#f8fafc] px-3.5 py-2.5">
-        <p className="text-[10px] uppercase tracking-wide text-forma-obsidian/45">
+        <p className="text-[10px] uppercase tracking-wide text-forma-obsidian/65">
           Parsed Action
         </p>
         <p className="mt-1.5 text-[12px] text-forma-obsidian/74">
@@ -128,7 +131,7 @@ function ControlPreview() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between pb-1 text-[10px] uppercase tracking-wide text-forma-obsidian/45">
+      <div className="flex items-center justify-between pb-1 text-[10px] uppercase tracking-wide text-forma-obsidian/65">
         <span>Preview</span>
         <span>3 selected</span>
       </div>
@@ -142,7 +145,7 @@ function ControlPreview() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[11px] text-forma-obsidian/82">{file.name}</p>
-            <p className="mt-0.5 truncate text-[10px] text-forma-obsidian/52">
+            <p className="mt-0.5 truncate text-[10px] text-forma-obsidian/65">
               {file.from} → <span className="text-forma-sage">{file.to}</span>
             </p>
           </div>
@@ -161,7 +164,7 @@ function UndoPreview() {
 
   return (
     <div className="space-y-2">
-      <p className="pb-1 text-[10px] uppercase tracking-wide text-forma-obsidian/45">
+      <p className="pb-1 text-[10px] uppercase tracking-wide text-forma-obsidian/65">
         Activity Timeline
       </p>
       {rows.map((row) => (
@@ -171,7 +174,7 @@ function UndoPreview() {
         >
           <div className="min-w-0 pr-3">
             <p className="truncate text-[11px] text-forma-obsidian/84">{row.file}</p>
-            <p className="truncate text-[10px] text-forma-obsidian/52">{row.detail}</p>
+            <p className="truncate text-[10px] text-forma-obsidian/65">{row.detail}</p>
           </div>
           <button
             type="button"
@@ -193,8 +196,40 @@ function PreviewForFeature({ id }: { id: string }) {
 }
 
 export default function FeaturesSection() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const headlineRef = useRef<HTMLHeadingElement>(null);
+
+  useGSAP(
+    () => {
+      if (!sectionRef.current || !headlineRef.current) return;
+
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+      if (prefersReducedMotion) {
+        gsap.set(headlineRef.current, { opacity: 1, y: 0 });
+        return;
+      }
+
+      gsap.from(headlineRef.current, {
+        opacity: 0,
+        y: 40,
+        duration: formaDuration.normal,
+        ease: formaReveal,
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          start: "top 80%",
+          toggleActions: "play none none none",
+        },
+      });
+    },
+    { scope: sectionRef }
+  );
+
   return (
     <section
+      ref={sectionRef}
       id="features"
       className="features-section relative scroll-mt-16 overflow-hidden bg-[#f4f6f8] py-24 md:py-30"
     >
@@ -205,7 +240,10 @@ export default function FeaturesSection() {
       <div className="site-container relative">
         <div className="mx-auto max-w-4xl">
           <div className="mb-14 text-center md:mb-18">
-            <h2 className="font-display text-3xl tracking-tight text-forma-obsidian md:text-4xl lg:text-5xl">
+            <h2
+              ref={headlineRef}
+              className="font-display text-3xl tracking-tight text-forma-obsidian md:text-4xl lg:text-5xl"
+            >
               How it actually works
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-forma-obsidian/72 md:text-xl">
@@ -231,10 +269,10 @@ export default function FeaturesSection() {
                     <h3 className="mt-4 font-display text-2xl tracking-tight text-forma-obsidian md:text-[1.75rem]">
                       {feature.title}
                     </h3>
-                    <p className="mt-3 text-base leading-relaxed text-forma-obsidian/72">
+                    <p className="mt-3 max-w-[65ch] text-base leading-relaxed text-forma-obsidian/72">
                       {feature.description}
                     </p>
-                    <p className="mt-5 text-[11px] uppercase tracking-[0.08em] text-forma-obsidian/45">
+                    <p className="mt-5 text-[11px] uppercase tracking-[0.08em] text-forma-obsidian/65">
                       Live preview
                     </p>
 

@@ -103,7 +103,7 @@ export default function NewsletterSection() {
       className="py-24 md:py-32"
     >
       <div className="site-container">
-        <div className="mx-auto max-w-xl text-center">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-black/[0.08] bg-[#f7f9fb] px-6 py-12 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)] md:px-12 md:py-16">
         {/* Heading */}
         <h2
           ref={headingRef}

@@ -39,7 +39,7 @@ function AppleLogo({ className }: { className?: string }) {
 }
 
 export default function PricingSection() {
-  const enableScrollAnimations = false;
+  const enableScrollAnimations = true;
   const sectionRef = useRef<HTMLElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const subtextRef = useRef<HTMLParagraphElement>(null);
@@ -51,11 +51,26 @@ export default function PricingSection() {
       if (!enableScrollAnimations) return;
       if (!sectionRef.current) return;
 
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+      if (prefersReducedMotion) {
+        gsap.set(
+          [headlineRef.current, subtextRef.current, ctaRef.current],
+          { opacity: 1, y: 0 }
+        );
+        if (featuresRef.current?.children) {
+          gsap.set(featuresRef.current.children, { opacity: 1, y: 0 });
+        }
+        return;
+      }
+
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: sectionRef.current,
           start: "top 75%",
-          toggleActions: "play none none reverse",
+          toggleActions: "play none none none",
         },
       });
 
@@ -156,7 +171,7 @@ export default function PricingSection() {
           <a
             href={MAC_APP_STORE_URL}
             {...MAC_APP_STORE_LINK_PROPS}
-            className="dark-button inline-flex items-center gap-3 rounded-xl py-4 px-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-forma-steel-blue/20 active:scale-[0.98] border"
+            className="dark-button inline-flex items-center gap-3 rounded-xl py-4 px-8 transition-all duration-300 hover:-translate-y-px hover:shadow-xl hover:shadow-forma-steel-blue/20 active:translate-y-0 border"
           >
             <AppleLogo className="w-6 h-6 flex-shrink-0" />
             <div className="flex flex-col items-start leading-tight">
@@ -170,7 +185,7 @@ export default function PricingSection() {
           </a>
 
           {/* System requirements */}
-          <p className="text-xs text-forma-obsidian/52 mt-2">
+          <p className="text-xs text-forma-obsidian/65 mt-2">
             Requires macOS 14 (Sonoma) or later. Apple Silicon and Intel.
           </p>
         </div>

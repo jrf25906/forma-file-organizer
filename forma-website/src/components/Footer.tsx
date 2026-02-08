@@ -38,9 +38,9 @@ export default function Footer() {
           {/* Left: Logo + founder story */}
           <div className="flex items-start gap-4">
             <GridLogo />
-            <p className="max-w-sm text-sm leading-relaxed text-[rgba(250,250,248,0.55)]">
+            <p className="max-w-sm text-sm leading-relaxed text-[rgba(250,250,248,0.65)]">
               Built by someone who got tired of seeing{" "}
-              <span className="font-mono text-[rgba(250,250,248,0.45)]">
+              <span className="font-mono text-[rgba(250,250,248,0.6)]">
                 Screenshot 2024-01-15 at 3.42.17 PM.png
               </span>{" "}
               fifty times on their desktop.
@@ -50,7 +50,7 @@ export default function Footer() {
           {/* Center: Link columns */}
           <div className="grid grid-cols-2 gap-10 sm:max-w-sm">
             <nav aria-label="Product">
-              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[rgba(250,250,248,0.38)]">
+              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[rgba(250,250,248,0.55)]">
                 Product
               </p>
               <ul className="space-y-2.5">
@@ -58,7 +58,7 @@ export default function Footer() {
                   <li key={href}>
                     <a
                       href={href}
-                      className="text-sm text-[rgba(250,250,248,0.58)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
+                      className="text-sm text-[rgba(250,250,248,0.65)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
                     >
                       {label}
                     </a>
@@ -68,7 +68,7 @@ export default function Footer() {
             </nav>
 
             <nav aria-label="Legal">
-              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[rgba(250,250,248,0.38)]">
+              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[rgba(250,250,248,0.55)]">
                 Legal
               </p>
               <ul className="space-y-2.5">
@@ -76,7 +76,7 @@ export default function Footer() {
                   <li key={href}>
                     <Link
                       href={href}
-                      className="text-sm text-[rgba(250,250,248,0.58)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
+                      className="text-sm text-[rgba(250,250,248,0.65)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
                     >
                       {label}
                     </Link>
@@ -90,11 +90,11 @@ export default function Footer() {
           <div className="flex flex-col gap-3 md:items-end">
             <a
               href="mailto:hello@forma.app"
-              className="text-sm text-[rgba(250,250,248,0.58)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
+              className="text-sm text-[rgba(250,250,248,0.65)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
             >
               hello@forma.app
             </a>
-            <p className="text-xs text-[rgba(250,250,248,0.42)]">
+            <p className="text-xs text-[rgba(250,250,248,0.55)]">
               &copy; {currentYear} Forma. macOS app.
             </p>
           </div>
