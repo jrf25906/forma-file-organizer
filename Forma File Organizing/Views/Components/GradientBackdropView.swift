@@ -81,6 +81,7 @@ struct GradientBackdropView: View {
             )
         }
         .blur(radius: blurRadius)
+        .formaGradientDrift(isAnimating: animated)
         .opacity(intensity)
         .ignoresSafeArea()
     }

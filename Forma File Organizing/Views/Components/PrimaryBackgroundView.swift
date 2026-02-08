@@ -20,7 +20,7 @@ struct PrimaryBackgroundView: View {
 
             // Active State: Gradient Backdrop
             // This is the vibrant Forma-brand gradient content.
-            GradientBackdropView(intensity: 1.0)
+            GradientBackdropView(intensity: 1.0, animated: isKeyWindow)
                 .opacity(isKeyWindow ? 1 : 0)
                 .animation(.easeInOut(duration: 0.2), value: isKeyWindow)
             

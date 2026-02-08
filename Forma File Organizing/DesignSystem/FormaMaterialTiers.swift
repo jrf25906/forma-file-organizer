@@ -75,18 +75,29 @@ struct FormaMaterialSurface: View {
         if reduceTransparency || specularOpacity <= 0.0 {
             EmptyView()
         } else {
-            LinearGradient(
-                colors: [
-                    Color.formaBoneWhite.opacity(Color.FormaOpacity.strong - (Color.FormaOpacity.ultraSubtle * 2)),
-                    Color.formaBoneWhite.opacity(Color.FormaOpacity.light),
-                    Color.formaBoneWhite.opacity(Color.FormaOpacity.ultraSubtle - Color.FormaOpacity.ultraSubtle),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .opacity(specularOpacity)
-            .clipShape(shape)
-            .blendMode(.screen)
+            Color.formaBoneWhite
+                .visualEffect { view, proxy in
+                    view.colorEffect(
+                        ShaderLibrary.specularRim(
+                            .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                            .float(specularShaderIntensity)
+                        )
+                    )
+                }
+                .opacity(specularOpacity)
+                .clipShape(shape)
+                .blendMode(.screen)
+        }
+    }
+
+    private var specularShaderIntensity: Float {
+        switch tier {
+        case .base:
+            return 0.4
+        case .raised:
+            return 0.6
+        case .overlay:
+            return 1.0
         }
     }
 

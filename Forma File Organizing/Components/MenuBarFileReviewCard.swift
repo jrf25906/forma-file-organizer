@@ -20,6 +20,26 @@ struct MenuBarFileReviewCard: View {
     let onPrevious: () -> Void
     let onNext: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    // MARK: - Adaptive Colors
+
+    private var cardBackground: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.06) : .formaBoneWhite
+    }
+
+    private var cardBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaSeparator.opacity(0.5)
+    }
+
+    private var cardShadow: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.12)
+            : Color.black.opacity(0.04)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             // Row 1: File icon + file name
@@ -40,8 +60,15 @@ struct MenuBarFileReviewCard: View {
             paginationRow
         }
         .padding(FormaSpacing.standard)
-        .background(Color.formaLabel.opacity(0.05))
-        .formaCornerRadius(FormaRadius.card)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(cardBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(cardBorder, lineWidth: 1)
+        )
+        .shadow(color: cardShadow, radius: 3, x: 0, y: 1)
         .id(file.path)
         .transition(
             .asymmetric(
@@ -51,13 +78,33 @@ struct MenuBarFileReviewCard: View {
         )
     }
 
+    private var iconCircleBackground: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.08) : .formaControlBackground
+    }
+
+    private var iconCircleBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaSeparator.opacity(0.5)
+    }
+
     // MARK: - Row 1: File Header
 
     private var fileHeaderRow: some View {
         HStack(spacing: FormaSpacing.tight) {
-            Image(systemName: file.iconName)
-                .font(.formaMenuItem)
-                .foregroundColor(.formaSteelBlue)
+            ZStack {
+                Circle()
+                    .fill(iconCircleBackground)
+                    .frame(width: 32, height: 32)
+
+                Image(systemName: file.iconName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.formaSteelBlue)
+            }
+            .overlay(
+                Circle()
+                    .strokeBorder(iconCircleBorder, lineWidth: 1)
+            )
 
             Text(file.name)
                 .font(.formaMenuTitle)
@@ -96,15 +143,25 @@ struct MenuBarFileReviewCard: View {
 
     // MARK: - Row 4: Action Buttons
 
+    private var skipButtonBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.15)
+    }
+
     private var actionButtonsRow: some View {
         HStack(spacing: FormaSpacing.tight) {
-            // Skip button (secondary style)
+            // Skip button (secondary style with border)
             Button(action: onSkip) {
                 Text("Skip")
                     .font(.formaMenuItem)
                     .foregroundColor(.formaSecondaryLabel)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, FormaSpacing.tight)
+                    .background(
+                        RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                            .strokeBorder(skipButtonBorder, lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
             .contentShape(Rectangle())

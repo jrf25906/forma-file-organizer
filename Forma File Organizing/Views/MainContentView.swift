@@ -133,6 +133,7 @@ struct MainContentView: View {
                         if dashboardViewModel.reviewFilterMode == .needsReview {
                             AllCaughtUpView()
                                 .background(.ultraThinMaterial)
+                                .formaFrostedTexture()
                                 .padding(.top, unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing)
                         } else {
                             VStack(spacing: FormaSpacing.generous) {
@@ -170,6 +171,7 @@ struct MainContentView: View {
                                 )
                             }
                             .background(.ultraThinMaterial)
+                            .formaFrostedTexture()
                             .padding(.top, unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing)
                         }
                     } else {
