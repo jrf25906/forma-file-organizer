@@ -29,16 +29,21 @@ const organizedFolders = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function BeforeAfterSection() {
+  const enableScrollAnimations = false;
   const sectionRef = useRef<HTMLElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const beforeCardRef = useRef<HTMLDivElement>(null);
   const afterCardRef = useRef<HTMLDivElement>(null);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches
+  );
 
   // Detect touch / coarse-pointer devices to disable tilt
   useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(pointer: coarse)");
-    setIsTouchDevice(mq.matches);
 
     const handler = (e: MediaQueryListEvent) => setIsTouchDevice(e.matches);
     mq.addEventListener("change", handler);
@@ -48,6 +53,7 @@ export default function BeforeAfterSection() {
   // ScrollTrigger stagger: before card from left, after card from right
   useGSAP(
     () => {
+      if (!enableScrollAnimations) return;
       if (!sectionRef.current) return;
 
       const prefersReducedMotion = window.matchMedia(
@@ -108,24 +114,25 @@ export default function BeforeAfterSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative py-24 md:py-32 px-6 overflow-hidden"
+      className="relative py-24 md:py-32 overflow-hidden"
     >
-      {/* Section heading */}
-      <h2
-        ref={headlineRef}
-        className="font-display text-3xl md:text-4xl lg:text-5xl text-forma-bone tracking-tight text-center mb-16"
-      >
-        Sound familiar?
-      </h2>
+      <div className="site-container relative">
+        {/* Section heading */}
+        <h2
+          ref={headlineRef}
+          className="mb-16 text-center font-display text-3xl tracking-tight text-forma-obsidian md:text-4xl lg:text-5xl"
+        >
+          Sound familiar?
+        </h2>
 
-      {/* Card grid */}
-      <div className="relative max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Card grid */}
+        <div className="relative mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2">
         {/* ─────────────────────────────────────────────────────────── */}
         {/* BEFORE CARD                                                */}
         {/* ─────────────────────────────────────────────────────────── */}
         <div ref={beforeCardRef}>
           <TiltCard enabled={!isTouchDevice} className="h-full">
-            <div className="glass-card rounded-2xl p-6 md:p-8 h-full flex flex-col border-forma-warm-orange/10">
+            <div className="flex h-full flex-col rounded-2xl border border-black/[0.08] bg-white p-6 md:p-8">
               {/* Warm chaos glow */}
               <div
                 className="absolute inset-0 rounded-2xl pointer-events-none"
@@ -150,7 +157,7 @@ export default function BeforeAfterSection() {
                 {chaosFiles.map((file) => (
                   <li
                     key={file}
-                    className="font-mono text-sm text-forma-bone/60 truncate leading-relaxed"
+                    className="truncate font-mono text-sm leading-relaxed text-forma-obsidian/65"
                   >
                     {file}
                   </li>
@@ -165,7 +172,7 @@ export default function BeforeAfterSection() {
         {/* ─────────────────────────────────────────────────────────── */}
         <div ref={afterCardRef}>
           <TiltCard enabled={!isTouchDevice} className="h-full">
-            <div className="glass-card rounded-2xl p-6 md:p-8 h-full flex flex-col border-forma-sage/10">
+            <div className="flex h-full flex-col rounded-2xl border border-black/[0.08] bg-white p-6 md:p-8">
               {/* Calm sage glow */}
               <div
                 className="absolute inset-0 rounded-2xl pointer-events-none"
@@ -189,10 +196,10 @@ export default function BeforeAfterSection() {
               >
                 {organizedFolders.map((folder) => (
                   <li key={folder.name} className="flex items-baseline gap-3">
-                    <span className="font-mono text-sm text-forma-bone tracking-wide">
+                    <span className="font-mono text-sm tracking-wide text-forma-obsidian">
                       {folder.name}
                     </span>
-                    <span className="text-xs text-forma-bone/40">
+                    <span className="text-xs text-forma-obsidian/45">
                       {folder.count}
                     </span>
                   </li>
@@ -200,6 +207,7 @@ export default function BeforeAfterSection() {
               </ul>
             </div>
           </TiltCard>
+        </div>
         </div>
       </div>
     </section>

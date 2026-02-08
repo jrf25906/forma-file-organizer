@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import clsx from "clsx";
-import { LenisGSAPProvider } from "@/lib/animation";
 import { Header } from "@/components/Header";
-import { SpotlightCursor } from "@/components/ui/SpotlightCursor";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 const instrumentSerif = Instrument_Serif({
@@ -78,9 +76,6 @@ export const metadata: Metadata = {
   },
 };
 
-// Static theme detection script - no user input, safe to inline
-const THEME_SCRIPT = `(function(){try{var t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t)}catch(e){}})()`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -109,11 +104,7 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* FOUC Prevention: static script applies theme before React hydration */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-      </head>
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <body
         className={clsx(
           "min-h-screen antialiased overflow-x-hidden font-body",
@@ -122,7 +113,7 @@ export default function RootLayout({
           jetbrainsMono.variable
         )}
       >
-        <ThemeProvider>
+        <ThemeProvider defaultTheme="light">
           <a
             href="#main-content"
             className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-forma-obsidian focus:text-forma-bone focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-forma-steel-blue"
@@ -135,20 +126,9 @@ export default function RootLayout({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
           />
           <Header />
-          <LenisGSAPProvider
-            options={{
-              lerp: 0.1,
-              duration: 1.2,
-              smoothWheel: true,
-              wheelMultiplier: 1,
-              touchMultiplier: 2,
-            }}
-          >
-            <div id="main-content" tabIndex={-1} className="outline-none">
-              {children}
-            </div>
-            <SpotlightCursor />
-          </LenisGSAPProvider>
+          <div id="main-content" tabIndex={-1} className="outline-none">
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>

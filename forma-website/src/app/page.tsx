@@ -11,7 +11,7 @@ import Footer from "@/components/Footer";
 
 export default function Home() {
   return (
-    <div className="gradient-bg">
+    <div className="bg-[linear-gradient(180deg,#ffffff_0%,#f2f4f7_100%)]">
       <main id="top" className="relative overflow-hidden">
         <HeroSection />
         <CredibilityStrip />

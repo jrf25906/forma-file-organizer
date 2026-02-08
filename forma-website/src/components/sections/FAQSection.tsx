@@ -81,21 +81,21 @@ function FAQItem({
   );
 
   return (
-    <div className="border-b border-forma-bone/10 last:border-0">
+    <div className="border-b border-black/10 last:border-0">
       <button
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={`faq-answer-${index}`}
         className="w-full py-5 flex items-start justify-between gap-4 text-left group cursor-pointer"
       >
-        <span className="font-display text-lg text-forma-bone group-hover:text-forma-bone/90 transition-colors">
+        <span className="font-display text-lg text-forma-obsidian group-hover:text-forma-obsidian/85 transition-colors">
           {faq.question}
         </span>
-        <div className="shrink-0 mt-1 w-5 h-5 rounded-full bg-forma-bone/5 flex items-center justify-center transition-colors group-hover:bg-forma-bone/10">
+        <div className="shrink-0 mt-1 w-5 h-5 rounded-full bg-black/[0.04] flex items-center justify-center transition-colors group-hover:bg-black/[0.07]">
           {isOpen ? (
-            <Minus className="w-3.5 h-3.5 text-forma-bone/40" />
+            <Minus className="w-3.5 h-3.5 text-forma-obsidian/45" />
           ) : (
-            <Plus className="w-3.5 h-3.5 text-forma-bone/40" />
+            <Plus className="w-3.5 h-3.5 text-forma-obsidian/45" />
           )}
         </div>
       </button>
@@ -109,7 +109,7 @@ function FAQItem({
         style={{ height: 0, opacity: 0 }}
       >
         <div ref={innerRef}>
-          <p className="pb-5 text-forma-bone/60 leading-relaxed pr-8">
+          <p className="pb-5 text-forma-obsidian/72 leading-relaxed pr-8">
             {faq.answer}
           </p>
         </div>
@@ -119,6 +119,7 @@ function FAQItem({
 }
 
 export default function FAQSection() {
+  const enableScrollAnimations = false;
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -134,6 +135,7 @@ export default function FAQSection() {
 
   useGSAP(
     () => {
+      if (!enableScrollAnimations) return;
       if (!sectionRef.current) return;
 
       const tl = gsap.timeline({
@@ -179,13 +181,14 @@ export default function FAQSection() {
     <section
       ref={sectionRef}
       id="faq"
-      className="scroll-mt-20 py-24 md:py-32 px-6"
+      className="scroll-mt-16 py-24 md:py-32"
     >
-      <div className="max-w-2xl mx-auto">
+      <div className="site-container">
+        <div className="mx-auto max-w-3xl">
         {/* Heading */}
         <h2
           ref={headingRef}
-          className="font-display text-3xl md:text-4xl text-forma-bone text-center mb-12"
+          className="font-display text-3xl md:text-4xl text-forma-obsidian text-center mb-12"
         >
           Questions
         </h2>
@@ -205,15 +208,16 @@ export default function FAQSection() {
 
         {/* Contact link */}
         <div ref={contactRef} className="text-center mt-12">
-          <p className="text-forma-bone/50">
+          <p className="text-forma-obsidian/62">
             Something else?{" "}
             <a
               href="mailto:hello@forma.app"
-              className="text-forma-bone underline underline-offset-4 decoration-forma-bone/30 hover:decoration-forma-bone/60 hover:text-forma-bone/80 transition-all"
+              className="text-forma-obsidian underline underline-offset-4 decoration-black/25 hover:decoration-black/50 hover:text-forma-obsidian/82 transition-all"
             >
               hello@forma.app
             </a>
           </p>
+        </div>
         </div>
       </div>
     </section>

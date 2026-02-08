@@ -12,6 +12,7 @@ function isValidEmail(email: string): boolean {
 }
 
 export default function NewsletterSection() {
+  const enableScrollAnimations = false;
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const subtextRef = useRef<HTMLParagraphElement>(null);
@@ -23,6 +24,7 @@ export default function NewsletterSection() {
 
   useGSAP(
     () => {
+      if (!enableScrollAnimations) return;
       if (!sectionRef.current) return;
 
       const tl = gsap.timeline({
@@ -98,13 +100,14 @@ export default function NewsletterSection() {
     <section
       ref={sectionRef}
       id="newsletter"
-      className="py-24 md:py-32 px-6"
+      className="py-24 md:py-32"
     >
-      <div className="max-w-xl mx-auto text-center">
+      <div className="site-container">
+        <div className="mx-auto max-w-xl text-center">
         {/* Heading */}
         <h2
           ref={headingRef}
-          className="font-display text-3xl md:text-4xl text-forma-bone"
+          className="font-display text-3xl md:text-4xl text-forma-obsidian"
         >
           Stay in the loop
         </h2>
@@ -112,7 +115,7 @@ export default function NewsletterSection() {
         {/* Subtext */}
         <p
           ref={subtextRef}
-          className="mt-4 text-forma-bone/60 leading-relaxed"
+          className="mt-4 text-forma-obsidian/72 leading-relaxed"
         >
           Updates on new features, tips, and the occasional file organization
           joke.
@@ -142,7 +145,7 @@ export default function NewsletterSection() {
                   required
                   disabled={formState === "loading"}
                   aria-label="Email address"
-                  className="w-full rounded-xl bg-white/5 border border-forma-bone/10 px-4 py-3 text-forma-bone placeholder:text-forma-bone/30 focus:outline-none focus:border-forma-steel-blue/50 focus:ring-1 focus:ring-forma-steel-blue/30 transition-all disabled:opacity-50"
+                  className="w-full rounded-xl bg-white border border-black/[0.12] px-4 py-3 text-forma-obsidian placeholder:text-forma-obsidian/35 focus:outline-none focus:border-forma-steel-blue/50 focus:ring-1 focus:ring-forma-steel-blue/30 transition-all disabled:opacity-50"
                 />
               </div>
               <button
@@ -171,6 +174,7 @@ export default function NewsletterSection() {
               {errorMessage}
             </p>
           )}
+        </div>
         </div>
       </div>
     </section>

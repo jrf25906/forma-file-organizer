@@ -32,11 +32,14 @@ const badges = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function CredibilityStrip() {
+  const enableScrollAnimations = false;
   const sectionRef = useRef<HTMLElement>(null);
   const badgesRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
+      if (!enableScrollAnimations) return;
+
       const section = sectionRef.current;
       const container = badgesRef.current;
       if (!section || !container) return;
@@ -86,19 +89,19 @@ export default function CredibilityStrip() {
     <section
       ref={sectionRef}
       id="credibility"
-      className="relative py-12 md:py-16 px-6 overflow-hidden"
+      className="relative py-10 md:py-14 overflow-hidden"
       aria-label="Why trust Forma"
     >
-      <div className="relative max-w-4xl mx-auto">
+      <div className="site-container relative">
         <div
           ref={badgesRef}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 md:gap-6"
+          className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5 md:gap-6"
         >
           {badges.map(({ icon: Icon, label, description }) => (
             <div
               key={label}
               data-badge
-              className="group relative flex items-center gap-3.5 rounded-2xl bg-white/5 border border-forma-bone/10 px-5 py-4 backdrop-blur-sm transition-colors duration-300 hover:bg-white/[0.08] hover:border-forma-bone/15"
+              className="group relative flex items-center gap-3.5 rounded-2xl bg-white/80 border border-black/[0.08] px-5 py-4 backdrop-blur-sm transition-colors duration-300 hover:bg-white hover:border-black/[0.14]"
             >
               {/* Icon circle */}
               <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-forma-steel-blue/10 border border-forma-steel-blue/15 transition-transform duration-300 group-hover:scale-105">
@@ -110,10 +113,10 @@ export default function CredibilityStrip() {
 
               {/* Text */}
               <div className="flex flex-col">
-                <span className="text-sm font-display font-medium text-forma-bone tracking-tight">
+                <span className="text-sm font-display font-medium text-forma-obsidian tracking-tight">
                   {label}
                 </span>
-                <span className="text-xs text-forma-bone/60 leading-snug mt-0.5">
+                <span className="text-xs text-forma-obsidian/65 leading-snug mt-0.5">
                   {description}
                 </span>
               </div>

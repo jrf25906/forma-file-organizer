@@ -39,6 +39,7 @@ function AppleLogo({ className }: { className?: string }) {
 }
 
 export default function PricingSection() {
+  const enableScrollAnimations = false;
   const sectionRef = useRef<HTMLElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const subtextRef = useRef<HTMLParagraphElement>(null);
@@ -47,6 +48,7 @@ export default function PricingSection() {
 
   useGSAP(
     () => {
+      if (!enableScrollAnimations) return;
       if (!sectionRef.current) return;
 
       const tl = gsap.timeline({
@@ -103,7 +105,7 @@ export default function PricingSection() {
     <section
       ref={sectionRef}
       id="pricing"
-      className="scroll-mt-20 relative py-24 md:py-32 px-6 overflow-hidden"
+      className="scroll-mt-16 relative py-24 md:py-32 overflow-hidden"
     >
       {/* Subtle gradient background */}
       <div className="absolute inset-0 pointer-events-none">
@@ -111,11 +113,12 @@ export default function PricingSection() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-forma-steel-blue/[0.06] blur-[120px]" />
       </div>
 
-      <div className="relative max-w-3xl mx-auto text-center">
+      <div className="site-container relative">
+        <div className="mx-auto max-w-4xl text-center">
         {/* Headline */}
         <h2
           ref={headlineRef}
-          className="font-display text-3xl md:text-4xl lg:text-5xl text-forma-bone tracking-tight"
+          className="font-display text-3xl md:text-4xl lg:text-5xl text-forma-obsidian tracking-tight"
         >
           $29. Once. Forever.
         </h2>
@@ -123,7 +126,7 @@ export default function PricingSection() {
         {/* Subtext */}
         <p
           ref={subtextRef}
-          className="mt-6 text-lg md:text-xl text-forma-bone/60 leading-relaxed max-w-2xl mx-auto"
+          className="mt-6 text-lg md:text-xl text-forma-obsidian/72 leading-relaxed max-w-2xl mx-auto"
         >
           No subscription. No account. No &lsquo;premium tiers.&rsquo; Pay
           once, own it, use it until your Mac turns to dust.
@@ -137,7 +140,7 @@ export default function PricingSection() {
           {features.map((feature) => (
             <li
               key={feature.text}
-              className="flex items-start gap-3 text-forma-bone/80"
+              className="flex items-start gap-3 text-forma-obsidian/82"
             >
               <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-forma-sage/15 flex items-center justify-center">
                 <Check className="w-3 h-3 text-forma-sage" strokeWidth={3} />
@@ -157,7 +160,7 @@ export default function PricingSection() {
           >
             <AppleLogo className="w-6 h-6 flex-shrink-0" />
             <div className="flex flex-col items-start leading-tight">
-              <span className="text-[11px] font-body text-forma-bone/60 tracking-wide uppercase">
+              <span className="text-[11px] font-body text-white/70 tracking-wide uppercase">
                 Download on the
               </span>
               <span className="text-lg font-display -mt-0.5">
@@ -167,9 +170,10 @@ export default function PricingSection() {
           </a>
 
           {/* System requirements */}
-          <p className="text-xs text-forma-bone/40 mt-2">
+          <p className="text-xs text-forma-obsidian/52 mt-2">
             Requires macOS 14 (Sonoma) or later. Apple Silicon and Intel.
           </p>
+        </div>
         </div>
       </div>
     </section>

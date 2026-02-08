@@ -10,10 +10,11 @@ if (typeof window !== "undefined") {
   gsap.defaults({
     ease: "power3.out",
     duration: 0.85,
+    immediateRender: false,
   });
 
   ScrollTrigger.defaults({
-    toggleActions: "play none none reverse",
+    toggleActions: "play none none none",
     start: "top 80%",
     end: "bottom 20%",
   });

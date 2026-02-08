@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 type Theme = "dark" | "light" | "system";
 type ResolvedTheme = "dark" | "light";
@@ -49,73 +42,17 @@ interface ThemeProviderProps {
  */
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
+  defaultTheme = "light",
 }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(defaultTheme);
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("dark");
-  const [mounted, setMounted] = useState(false);
+  const theme: Theme = defaultTheme === "light" ? "light" : "light";
+  const resolvedTheme: ResolvedTheme = "light";
 
-  // Resolve system preference to actual theme
-  const resolveTheme = useCallback(
-    (themeValue: Theme): ResolvedTheme => {
-      if (themeValue === "system") {
-        if (typeof window === "undefined") return "dark";
-        return window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
-      }
-      return themeValue;
-    },
-    []
-  );
+  // Marketing site currently ships in a single, deterministic light theme.
+  const setTheme: ThemeContextType["setTheme"] = () => {};
 
-  // Apply theme to document
-  const applyTheme = useCallback((resolved: ResolvedTheme) => {
-    document.documentElement.setAttribute("data-theme", resolved);
-    setResolvedTheme(resolved);
-  }, []);
-
-  // Set theme handler
-  const setTheme = useCallback(
-    (newTheme: Theme) => {
-      setThemeState(newTheme);
-      const resolved = resolveTheme(newTheme);
-      applyTheme(resolved);
-    },
-    [resolveTheme, applyTheme]
-  );
-
-  // Initialize on mount and listen for system preference changes
-  useEffect(() => {
-    setMounted(true);
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-    // Set initial theme
-    const resolved = resolveTheme(theme);
-    applyTheme(resolved);
-
-    // Listen for system preference changes
-    const handleChange = () => {
-      // Only update if current theme is "system"
-      if (theme === "system") {
-        const newResolved = mediaQuery.matches ? "dark" : "light";
-        applyTheme(newResolved);
-      }
-    };
-
-    mediaQuery.addEventListener("change", handleChange);
-
-    return () => {
-      mediaQuery.removeEventListener("change", handleChange);
-    };
-  }, [theme, resolveTheme, applyTheme]);
-
-  // Prevent flash by not rendering until mounted
-  // The server will render with default theme, client will reconcile
   const value: ThemeContextType = {
     theme,
-    resolvedTheme: mounted ? resolvedTheme : "dark",
+    resolvedTheme,
     setTheme,
   };
 
