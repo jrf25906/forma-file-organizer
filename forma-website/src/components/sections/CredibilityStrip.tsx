@@ -89,29 +89,31 @@ export default function CredibilityStrip() {
     <section
       ref={sectionRef}
       id="credibility"
-      className="relative py-8 md:py-12"
+      className="relative py-10 md:py-14"
       aria-label="Why trust Forma"
     >
       <div className="site-container relative">
         <div
           ref={badgesRef}
-          className="mx-auto flex max-w-3xl flex-col items-center justify-center gap-6 sm:flex-row sm:gap-10 md:gap-14"
+          className="mx-auto flex max-w-3xl flex-col items-center justify-center gap-5 sm:flex-row sm:gap-6 md:gap-8"
         >
           {badges.map(({ icon: Icon, label, description }) => (
             <div
               key={label}
               data-badge
-              className="flex items-center gap-3"
+              className="flex items-center gap-3.5 rounded-xl border border-black/[0.06] bg-white/80 px-5 py-3.5 shadow-sm"
             >
-              <Icon
-                className="w-4 h-4 text-forma-obsidian/40 flex-shrink-0"
-                strokeWidth={1.75}
-              />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-forma-steel-blue/10 flex-shrink-0">
+                <Icon
+                  className="w-[18px] h-[18px] text-forma-steel-blue"
+                  strokeWidth={1.75}
+                />
+              </div>
               <div className="flex flex-col">
-                <span className="text-[13px] font-medium text-forma-obsidian/80 tracking-tight whitespace-nowrap">
+                <span className="text-[14px] font-semibold text-forma-obsidian tracking-tight whitespace-nowrap">
                   {label}
                 </span>
-                <span className="text-[11px] text-forma-obsidian/50 leading-snug">
+                <span className="text-[12px] text-forma-obsidian/55 leading-snug">
                   {description}
                 </span>
               </div>

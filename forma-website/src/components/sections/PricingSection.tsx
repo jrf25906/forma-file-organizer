@@ -122,65 +122,67 @@ export default function PricingSection() {
       id="pricing"
       className="scroll-mt-16 relative py-24 md:py-32 overflow-hidden"
     >
-      {/* Subtle gradient background */}
+      {/* Distinct background */}
+      <div className="absolute inset-0 bg-[#f0f3f7] pointer-events-none" />
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-forma-steel-blue/[0.04] to-transparent" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-forma-steel-blue/[0.06] blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full bg-forma-steel-blue/[0.08] blur-[150px]" />
       </div>
 
       <div className="site-container relative">
-        <div className="mx-auto max-w-2xl text-center">
-        <h2
-          ref={headlineRef}
-          className="font-display text-3xl md:text-4xl lg:text-[2.75rem] text-forma-obsidian tracking-tight"
-        >
-          $29. Once. Forever.
-        </h2>
-
-        <p
-          ref={subtextRef}
-          className="mt-5 text-base md:text-lg text-forma-obsidian/60 leading-relaxed max-w-md mx-auto"
-        >
-          No subscription. No account. No &lsquo;premium tiers.&rsquo; Pay
-          once, own it forever.
-        </p>
-
-        <ul
-          ref={featuresRef}
-          className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3 text-left max-w-md mx-auto"
-        >
-          {features.map((feature) => (
-            <li
-              key={feature.text}
-              className="flex items-start gap-2.5"
-            >
-              <Check className="w-3.5 h-3.5 text-forma-sage/70 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
-              <span className="text-[13px] leading-relaxed text-forma-obsidian/60">{feature.text}</span>
-            </li>
-          ))}
-        </ul>
-
-        <div ref={ctaRef} className="mt-12 flex flex-col items-center gap-3">
-          <a
-            href={MAC_APP_STORE_URL}
-            {...MAC_APP_STORE_LINK_PROPS}
-            className="dark-button inline-flex items-center gap-3 rounded-xl py-3.5 px-7 transition-all duration-300 hover:-translate-y-px hover:shadow-lg active:translate-y-0 border"
+        <div className="mx-auto max-w-xl text-center">
+          <h2
+            ref={headlineRef}
+            className="font-display text-4xl md:text-5xl lg:text-[3.25rem] text-forma-obsidian tracking-tight"
           >
-            <AppleLogo className="w-5 h-5 flex-shrink-0" />
-            <div className="flex flex-col items-start leading-tight">
-              <span className="text-[10px] font-body text-white/60 tracking-wide uppercase">
-                Download on the
-              </span>
-              <span className="text-base font-display -mt-0.5">
-                Mac App Store
-              </span>
-            </div>
-          </a>
+            $29. Once. Forever.
+          </h2>
 
-          <p className="text-[12px] text-forma-obsidian/40 mt-1">
-            Requires macOS 14 (Sonoma) or later.
+          <p
+            ref={subtextRef}
+            className="mt-5 text-base md:text-lg text-forma-obsidian/65 leading-relaxed max-w-md mx-auto"
+          >
+            No subscription. No account. No &lsquo;premium tiers.&rsquo; Pay
+            once, own it forever.
           </p>
-        </div>
+
+          <ul
+            ref={featuresRef}
+            className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left max-w-lg mx-auto"
+          >
+            {features.map((feature) => (
+              <li
+                key={feature.text}
+                className="flex items-start gap-3"
+              >
+                <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-forma-sage/15 flex-shrink-0">
+                  <Check className="w-3 h-3 text-forma-sage" strokeWidth={3} />
+                </span>
+                <span className="text-[14px] leading-relaxed text-forma-obsidian/70">{feature.text}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div ref={ctaRef} className="mt-12 flex flex-col items-center gap-4">
+            <a
+              href={MAC_APP_STORE_URL}
+              {...MAC_APP_STORE_LINK_PROPS}
+              className="dark-button inline-flex items-center gap-4 rounded-2xl py-4 px-8 transition-all duration-300 hover:-translate-y-px hover:shadow-xl active:translate-y-0 border shadow-lg"
+            >
+              <AppleLogo className="w-6 h-6 flex-shrink-0" />
+              <div className="flex flex-col items-start leading-tight">
+                <span className="text-[10px] font-body text-white/60 tracking-wide uppercase">
+                  Download on the
+                </span>
+                <span className="text-lg font-display -mt-0.5">
+                  Mac App Store
+                </span>
+              </div>
+            </a>
+
+            <p className="text-[13px] text-forma-obsidian/45 mt-1">
+              Requires macOS 14 (Sonoma) or later.
+            </p>
+          </div>
         </div>
       </div>
     </section>

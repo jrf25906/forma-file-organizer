@@ -52,7 +52,7 @@ export default function HeroSection() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="inline-flex items-center gap-2.5 rounded-xl bg-forma-obsidian px-7 py-3 text-[15px] font-semibold text-forma-bone shadow-lg shadow-black/8 transition-all duration-300 hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-xl hover:shadow-black/12 active:translate-y-0"
+              className="inline-flex items-center gap-2.5 rounded-xl bg-forma-obsidian px-8 py-3.5 text-[16px] font-semibold text-forma-bone shadow-lg shadow-black/10 transition-all duration-300 hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-xl hover:shadow-black/15 active:translate-y-0"
             >
               <AppleLogo className="h-[15px] w-[12px]" />
               <span>Download for Mac</span>
@@ -60,7 +60,7 @@ export default function HeroSection() {
 
             <a
               href="#features"
-              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.12] px-7 py-3 text-[15px] font-medium text-forma-obsidian/70 transition-colors hover:text-forma-obsidian hover:border-black/[0.22]"
+              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.12] px-8 py-3.5 text-[16px] font-medium text-forma-obsidian/70 transition-colors hover:text-forma-obsidian hover:border-black/[0.22]"
             >
               See how it works
             </a>
@@ -71,7 +71,7 @@ export default function HeroSection() {
           </p>
         </div>
 
-        <div className="mx-auto mt-14 max-w-[980px] rounded-2xl border border-black/[0.06] bg-white/70 p-1.5 shadow-[0_24px_60px_rgba(0,0,0,0.08)] backdrop-blur-sm md:mt-16 md:rounded-[20px] md:p-2">
+        <div className="mx-auto mt-14 max-w-[980px] rounded-2xl border border-black/[0.08] bg-white/80 p-1.5 shadow-[0_24px_80px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.06)] backdrop-blur-sm md:mt-16 md:rounded-[20px] md:p-2">
           <MacWindowFrame className="w-full">
             <AppScreenshot />
           </MacWindowFrame>

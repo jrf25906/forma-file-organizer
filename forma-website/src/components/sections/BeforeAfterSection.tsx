@@ -19,9 +19,9 @@ const chaosFiles = [
 ];
 
 const organizedFolders = [
-  { name: "Screenshots/", count: "3 files" },
-  { name: "Documents/", count: "2 files" },
-  { name: "Videos/", count: "1 file" },
+  { name: "Screenshots/", count: "3 files", icon: "\uD83D\uDDBC\uFE0F" },
+  { name: "Documents/", count: "2 files", icon: "\uD83D\uDCC4" },
+  { name: "Videos/", count: "1 file", icon: "\uD83C\uDFAC" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -126,20 +126,20 @@ export default function BeforeAfterSection() {
         {/* BEFORE CARD */}
         <div ref={beforeCardRef}>
           <TiltCard enabled={!isTouchDevice} className="h-full">
-            <div className="flex h-full flex-col rounded-2xl border border-black/[0.06] bg-white p-5 md:p-6">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-widest text-forma-warm-orange/70 uppercase mb-5">
-                <span className="w-1.5 h-1.5 rounded-full bg-forma-warm-orange/50" />
+            <div className="flex h-full flex-col rounded-2xl border border-forma-warm-orange/15 bg-forma-warm-orange/[0.03] p-6">
+              <span className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-widest text-forma-warm-orange uppercase mb-5">
+                <span className="w-2 h-2 rounded-full bg-forma-warm-orange/60" />
                 Before
               </span>
 
               <ul
-                className="flex-1 space-y-2"
+                className="flex-1 space-y-2.5"
                 aria-label="Messy file listing"
               >
                 {chaosFiles.map((file) => (
                   <li
                     key={file}
-                    className="truncate font-mono text-[12px] leading-relaxed text-forma-obsidian/55"
+                    className="truncate rounded-lg bg-white/80 px-3 py-1.5 font-mono text-[12px] leading-relaxed text-forma-obsidian/60 border border-black/[0.04]"
                   >
                     {file}
                   </li>
@@ -152,27 +152,34 @@ export default function BeforeAfterSection() {
         {/* AFTER CARD */}
         <div ref={afterCardRef}>
           <TiltCard enabled={!isTouchDevice} className="h-full">
-            <div className="flex h-full flex-col rounded-2xl border border-black/[0.06] bg-white p-5 md:p-6">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-widest text-forma-sage/80 uppercase mb-5">
-                <span className="w-1.5 h-1.5 rounded-full bg-forma-sage/60" />
+            <div className="flex h-full flex-col rounded-2xl border border-forma-sage/15 bg-forma-sage/[0.04] p-6">
+              <span className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-widest text-forma-sage uppercase mb-5">
+                <span className="w-2 h-2 rounded-full bg-forma-sage/60" />
                 After
               </span>
 
               <ul
-                className="flex-1 space-y-2.5"
+                className="flex-1 space-y-3"
                 aria-label="Organized folder structure"
               >
                 {organizedFolders.map((folder) => (
-                  <li key={folder.name} className="flex items-baseline gap-2">
-                    <span className="font-mono text-[13px] tracking-wide text-forma-obsidian/80">
-                      {folder.name}
-                    </span>
-                    <span className="text-[11px] text-forma-obsidian/40">
-                      {folder.count}
-                    </span>
+                  <li key={folder.name} className="flex items-center gap-3 rounded-lg bg-white/80 px-4 py-3 border border-black/[0.04]">
+                    <span className="text-lg">{folder.icon}</span>
+                    <div className="flex flex-col">
+                      <span className="font-mono text-[13px] font-medium tracking-wide text-forma-obsidian/85">
+                        {folder.name}
+                      </span>
+                      <span className="text-[11px] text-forma-obsidian/45">
+                        {folder.count}
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ul>
+
+              <div className="mt-4 flex items-center gap-2 rounded-lg bg-forma-sage/10 px-3 py-2">
+                <span className="text-[11px] font-medium text-forma-sage">Organized in seconds</span>
+              </div>
             </div>
           </TiltCard>
         </div>

@@ -100,25 +100,25 @@ export default function NewsletterSection() {
     <section
       ref={sectionRef}
       id="newsletter"
-      className="py-20 md:py-28"
+      className="py-16 md:py-20"
     >
       <div className="site-container">
-        <div className="mx-auto max-w-xl text-center">
-        <h2
-          ref={headingRef}
-          className="font-display text-2xl md:text-3xl text-forma-obsidian"
-        >
-          Stay in the loop
-        </h2>
+        <div className="mx-auto max-w-2xl rounded-2xl border border-black/[0.06] bg-[#f8f9fb] px-8 py-10 md:px-12 md:py-12 text-center">
+          <h2
+            ref={headingRef}
+            className="font-display text-2xl md:text-3xl text-forma-obsidian"
+          >
+            Stay in the loop
+          </h2>
 
-        <p
-          ref={subtextRef}
-          className="mt-3 text-[15px] text-forma-obsidian/50 leading-relaxed"
-        >
-          Updates on new features and the occasional file organization joke.
-        </p>
+          <p
+            ref={subtextRef}
+            className="mt-3 text-[15px] text-forma-obsidian/55 leading-relaxed"
+          >
+            Updates on new features and the occasional file organization joke.
+          </p>
 
-        <div ref={formWrapperRef} className="mt-8">
+          <div ref={formWrapperRef} className="mt-8">
           {formState === "success" ? (
             <div className="flex items-center justify-center gap-2 text-forma-sage py-3">
               <CheckCircle2 className="w-4 h-4" />
@@ -166,7 +166,7 @@ export default function NewsletterSection() {
               {errorMessage}
             </p>
           )}
-        </div>
+          </div>
         </div>
       </div>
     </section>

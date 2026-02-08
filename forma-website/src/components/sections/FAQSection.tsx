@@ -81,7 +81,7 @@ function FAQItem({
   );
 
   return (
-    <div className="border-b border-black/[0.06] last:border-0">
+    <div className="border-b border-black/[0.08] last:border-0">
       <button
         onClick={onToggle}
         aria-expanded={isOpen}
@@ -90,7 +90,7 @@ function FAQItem({
       >
         <span
           id={`faq-question-${index}`}
-          className="font-display text-[17px] text-forma-obsidian/85 group-hover:text-forma-obsidian transition-colors"
+          className="font-display text-[17px] text-forma-obsidian group-hover:text-forma-obsidian/80 transition-colors"
         >
           {faq.question}
         </span>
@@ -112,7 +112,7 @@ function FAQItem({
         style={{ height: 0, opacity: 0 }}
       >
         <div ref={innerRef}>
-          <p className="pb-4 text-[15px] text-forma-obsidian/55 leading-relaxed pr-8">
+          <p className="pb-5 text-[15px] text-forma-obsidian/60 leading-relaxed pr-8">
             {faq.answer}
           </p>
         </div>
@@ -188,38 +188,38 @@ export default function FAQSection() {
     >
       <div className="site-container">
         <div className="mx-auto max-w-2xl">
-        <h2
-          ref={headingRef}
-          className="font-display text-3xl md:text-[2.25rem] text-forma-obsidian text-center mb-10"
-        >
-          Questions
-        </h2>
+          <h2
+            ref={headingRef}
+            className="font-display text-3xl md:text-[2.25rem] text-forma-obsidian text-center mb-10"
+          >
+            Questions
+          </h2>
 
-        {/* FAQ list */}
-        <div ref={listRef}>
-          {faqs.map((faq, index) => (
-            <FAQItem
-              key={index}
-              faq={faq}
-              index={index}
-              isOpen={openIndex === index}
-              onToggle={() => handleToggle(index)}
-            />
-          ))}
-        </div>
+          {/* FAQ list */}
+          <div ref={listRef} className="rounded-2xl border border-black/[0.06] bg-white px-6 md:px-8 shadow-sm">
+            {faqs.map((faq, index) => (
+              <FAQItem
+                key={index}
+                faq={faq}
+                index={index}
+                isOpen={openIndex === index}
+                onToggle={() => handleToggle(index)}
+              />
+            ))}
+          </div>
 
-        {/* Contact link */}
-        <div ref={contactRef} className="text-center mt-10">
-          <p className="text-[14px] text-forma-obsidian/45">
-            Something else?{" "}
-            <a
-              href="mailto:hello@forma.app"
-              className="text-forma-obsidian underline underline-offset-4 decoration-black/25 hover:decoration-black/50 hover:text-forma-obsidian/82 transition-all"
-            >
-              hello@forma.app
-            </a>
-          </p>
-        </div>
+          {/* Contact link */}
+          <div ref={contactRef} className="text-center mt-10">
+            <p className="text-[14px] text-forma-obsidian/50">
+              Something else?{" "}
+              <a
+                href="mailto:hello@forma.app"
+                className="text-forma-steel-blue font-medium underline underline-offset-4 decoration-forma-steel-blue/30 hover:decoration-forma-steel-blue/60 transition-all"
+              >
+                hello@forma.app
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </section>
