@@ -81,24 +81,24 @@ function FAQItem({
   );
 
   return (
-    <div className="border-b border-black/10 last:border-0">
+    <div className="border-b border-black/[0.06] last:border-0">
       <button
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={`faq-answer-${index}`}
-        className="w-full py-5 flex items-start justify-between gap-4 text-left group cursor-pointer"
+        className="w-full py-4.5 flex items-center justify-between gap-4 text-left group cursor-pointer"
       >
         <span
           id={`faq-question-${index}`}
-          className="font-display text-lg text-forma-obsidian group-hover:text-forma-obsidian/85 transition-colors"
+          className="font-display text-[17px] text-forma-obsidian/85 group-hover:text-forma-obsidian transition-colors"
         >
           {faq.question}
         </span>
-        <div className="shrink-0 mt-1 w-5 h-5 rounded-full bg-black/[0.04] flex items-center justify-center transition-colors group-hover:bg-black/[0.07]">
+        <div className="shrink-0 w-5 h-5 flex items-center justify-center">
           {isOpen ? (
-            <Minus className="w-3.5 h-3.5 text-forma-obsidian/65" />
+            <Minus className="w-3.5 h-3.5 text-forma-obsidian/35" />
           ) : (
-            <Plus className="w-3.5 h-3.5 text-forma-obsidian/65" />
+            <Plus className="w-3.5 h-3.5 text-forma-obsidian/35" />
           )}
         </div>
       </button>
@@ -112,7 +112,7 @@ function FAQItem({
         style={{ height: 0, opacity: 0 }}
       >
         <div ref={innerRef}>
-          <p className="pb-5 text-forma-obsidian/72 leading-relaxed pr-8">
+          <p className="pb-4 text-[15px] text-forma-obsidian/55 leading-relaxed pr-8">
             {faq.answer}
           </p>
         </div>
@@ -187,11 +187,10 @@ export default function FAQSection() {
       className="scroll-mt-16 py-24 md:py-32"
     >
       <div className="site-container">
-        <div className="mx-auto max-w-3xl">
-        {/* Heading */}
+        <div className="mx-auto max-w-2xl">
         <h2
           ref={headingRef}
-          className="font-display text-3xl md:text-4xl text-forma-obsidian text-center mb-12"
+          className="font-display text-3xl md:text-[2.25rem] text-forma-obsidian text-center mb-10"
         >
           Questions
         </h2>
@@ -210,8 +209,8 @@ export default function FAQSection() {
         </div>
 
         {/* Contact link */}
-        <div ref={contactRef} className="text-center mt-12">
-          <p className="text-forma-obsidian/62">
+        <div ref={contactRef} className="text-center mt-10">
+          <p className="text-[14px] text-forma-obsidian/45">
             Something else?{" "}
             <a
               href="mailto:hello@forma.app"

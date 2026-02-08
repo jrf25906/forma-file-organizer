@@ -55,17 +55,14 @@ const features: Feature[] = [
 
 function RulePreview() {
   return (
-    <div className="space-y-3">
-      <div className="rounded-lg border border-black/[0.08] bg-white px-3.5 py-3 font-mono text-[13px] text-forma-obsidian/88">
+    <div className="space-y-2.5">
+      <div className="rounded-lg border border-black/[0.06] bg-white px-3.5 py-2.5 font-mono text-[12px] text-forma-obsidian/80">
         Move screenshots to <span className="text-forma-steel-blue">~/Screenshots</span>
       </div>
-      <div className="rounded-lg border border-black/[0.08] bg-[#f8fafc] px-3.5 py-2.5">
-        <p className="text-[10px] uppercase tracking-wide text-forma-obsidian/65">
-          Parsed Action
-        </p>
-        <p className="mt-1.5 text-[12px] text-forma-obsidian/74">
-          Move file to target folder when rule matches.
-        </p>
+      <div className="flex items-center gap-2 text-[11px] text-forma-obsidian/50">
+        <span className="h-px flex-1 bg-forma-obsidian/8" />
+        <span>Moves matching files to target folder</span>
+        <span className="h-px flex-1 bg-forma-obsidian/8" />
       </div>
     </div>
   );
@@ -94,23 +91,23 @@ function ConnectionPreview() {
   ];
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {groups.map((group) => (
         <div
           key={group.name}
-          className="rounded-lg border border-black/[0.07] bg-white px-3 py-2.5"
+          className="rounded-lg border border-black/[0.05] bg-white px-3 py-2"
         >
-          <div className="mb-1.5 flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${group.dotClass}`} />
-            <span className={`text-[11px] font-semibold ${group.textClass}`}>
+          <div className="mb-1 flex items-center gap-1.5">
+            <span className={`h-1.5 w-1.5 rounded-full ${group.dotClass}`} />
+            <span className={`text-[11px] font-medium ${group.textClass}`}>
               {group.name}
             </span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {group.files.map((file) => (
               <span
                 key={file}
-                className="rounded border border-black/[0.08] bg-[#f7f9fb] px-1.5 py-0.5 font-mono text-[10px] text-forma-obsidian/62"
+                className="rounded bg-black/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-forma-obsidian/55"
               >
                 {file}
               </span>
@@ -130,22 +127,18 @@ function ControlPreview() {
   ];
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between pb-1 text-[10px] uppercase tracking-wide text-forma-obsidian/65">
-        <span>Preview</span>
-        <span>3 selected</span>
-      </div>
+    <div className="space-y-1.5">
       {files.map((file) => (
         <div
           key={file.name}
-          className="flex items-start gap-2.5 rounded-lg border border-black/[0.07] bg-white px-3 py-2.5"
+          className="flex items-start gap-2 rounded-lg border border-black/[0.05] bg-white px-3 py-2"
         >
-          <span className="mt-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-[4px] bg-forma-steel-blue text-[9px] text-white">
+          <span className="mt-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded bg-forma-muted-blue text-[8px] text-white flex-shrink-0">
             ✓
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[11px] text-forma-obsidian/82">{file.name}</p>
-            <p className="mt-0.5 truncate text-[10px] text-forma-obsidian/65">
+            <p className="truncate text-[11px] text-forma-obsidian/75">{file.name}</p>
+            <p className="truncate text-[10px] text-forma-obsidian/45">
               {file.from} → <span className="text-forma-sage">{file.to}</span>
             </p>
           </div>
@@ -157,28 +150,25 @@ function ControlPreview() {
 
 function UndoPreview() {
   const rows = [
-    { file: "report.pdf", detail: "Moved to ~/Documents · 2m ago" },
-    { file: "hero.png", detail: "Moved to ~/Screenshots · 5m ago" },
-    { file: "backup.zip", detail: "Moved to ~/Archive · 12m ago" },
+    { file: "report.pdf", detail: "~/Documents · 2m ago" },
+    { file: "hero.png", detail: "~/Screenshots · 5m ago" },
+    { file: "backup.zip", detail: "~/Archive · 12m ago" },
   ];
 
   return (
-    <div className="space-y-2">
-      <p className="pb-1 text-[10px] uppercase tracking-wide text-forma-obsidian/65">
-        Activity Timeline
-      </p>
+    <div className="space-y-1.5">
       {rows.map((row) => (
         <div
           key={row.file}
-          className="flex items-center justify-between rounded-lg border border-black/[0.07] bg-white px-3 py-2.5"
+          className="flex items-center justify-between rounded-lg border border-black/[0.05] bg-white px-3 py-2"
         >
           <div className="min-w-0 pr-3">
-            <p className="truncate text-[11px] text-forma-obsidian/84">{row.file}</p>
-            <p className="truncate text-[10px] text-forma-obsidian/65">{row.detail}</p>
+            <p className="truncate text-[11px] text-forma-obsidian/75">{row.file}</p>
+            <p className="truncate text-[10px] text-forma-obsidian/45">{row.detail}</p>
           </div>
           <button
             type="button"
-            className="rounded-md border border-forma-warm-orange/35 bg-forma-warm-orange/10 px-2 py-1 text-[10px] font-medium text-forma-warm-orange"
+            className="flex-shrink-0 rounded-md bg-forma-warm-orange/8 px-2 py-1 text-[10px] font-medium text-forma-warm-orange/80"
           >
             Undo
           </button>
@@ -238,47 +228,44 @@ export default function FeaturesSection() {
       </div>
 
       <div className="site-container relative">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-14 text-center md:mb-18">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-14 text-center md:mb-16">
             <h2
               ref={headlineRef}
-              className="font-display text-3xl tracking-tight text-forma-obsidian md:text-4xl lg:text-5xl"
+              className="font-display text-3xl tracking-tight text-forma-obsidian md:text-4xl lg:text-[2.75rem]"
             >
               How it actually works
             </h2>
-            <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-forma-obsidian/72 md:text-xl">
-              Four things that make the difference between a tool you install and a
-              tool you keep.
+            <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-forma-obsidian/60 md:text-lg">
+              Four things that make the difference between a tool you install
+              and a tool you keep.
             </p>
           </div>
 
-          <div className="space-y-6 md:space-y-7">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
                 <article
                   key={feature.id}
-                  className="rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_10px_28px_rgba(0,0,0,0.06)] md:p-7"
+                  className="flex flex-col rounded-2xl border border-black/[0.06] bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-shadow duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.07)]"
                 >
-                  <div className="min-w-0">
+                  <div className="flex items-center gap-3 mb-3">
                     <div
-                      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${feature.accentBg}`}
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${feature.accentBg}`}
                     >
-                      <Icon className={`h-5 w-5 ${feature.accentText}`} />
+                      <Icon className={`h-[18px] w-[18px] ${feature.accentText}`} />
                     </div>
-                    <h3 className="mt-4 font-display text-2xl tracking-tight text-forma-obsidian md:text-[1.75rem]">
+                    <h3 className="font-display text-xl tracking-tight text-forma-obsidian">
                       {feature.title}
                     </h3>
-                    <p className="mt-3 max-w-[65ch] text-base leading-relaxed text-forma-obsidian/72">
-                      {feature.description}
-                    </p>
-                    <p className="mt-5 text-[11px] uppercase tracking-[0.08em] text-forma-obsidian/65">
-                      Live preview
-                    </p>
+                  </div>
+                  <p className="text-[14px] leading-relaxed text-forma-obsidian/60 mb-5">
+                    {feature.description}
+                  </p>
 
-                    <div className="mt-4 rounded-2xl border border-black/[0.08] bg-[#f7f9fb] p-4 md:p-5">
-                      <PreviewForFeature id={feature.id} />
-                    </div>
+                  <div className="mt-auto rounded-xl border border-black/[0.05] bg-[#f8f9fb] p-4">
+                    <PreviewForFeature id={feature.id} />
                   </div>
                 </article>
               );

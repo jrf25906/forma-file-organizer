@@ -89,34 +89,29 @@ export default function CredibilityStrip() {
     <section
       ref={sectionRef}
       id="credibility"
-      className="relative py-10 md:py-14 overflow-hidden"
+      className="relative py-8 md:py-12"
       aria-label="Why trust Forma"
     >
       <div className="site-container relative">
         <div
           ref={badgesRef}
-          className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5 md:gap-6"
+          className="mx-auto flex max-w-3xl flex-col items-center justify-center gap-6 sm:flex-row sm:gap-10 md:gap-14"
         >
           {badges.map(({ icon: Icon, label, description }) => (
             <div
               key={label}
               data-badge
-              className="group relative flex items-center gap-3.5 rounded-2xl bg-white/80 border border-black/[0.08] px-5 py-4 backdrop-blur-sm transition-colors duration-300 hover:bg-white hover:border-black/[0.14]"
+              className="flex items-center gap-3"
             >
-              {/* Icon circle */}
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-forma-steel-blue/10 border border-forma-steel-blue/15 transition-transform duration-300 group-hover:scale-105">
-                <Icon
-                  className="w-5 h-5 text-forma-steel-blue"
-                  strokeWidth={1.75}
-                />
-              </div>
-
-              {/* Text */}
+              <Icon
+                className="w-4 h-4 text-forma-obsidian/40 flex-shrink-0"
+                strokeWidth={1.75}
+              />
               <div className="flex flex-col">
-                <span className="text-sm font-display font-medium text-forma-obsidian tracking-tight">
+                <span className="text-[13px] font-medium text-forma-obsidian/80 tracking-tight whitespace-nowrap">
                   {label}
                 </span>
-                <span className="text-xs text-forma-obsidian/65 leading-snug mt-0.5">
+                <span className="text-[11px] text-forma-obsidian/50 leading-snug">
                   {description}
                 </span>
               </div>

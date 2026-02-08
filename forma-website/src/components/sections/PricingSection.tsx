@@ -129,64 +129,56 @@ export default function PricingSection() {
       </div>
 
       <div className="site-container relative">
-        <div className="mx-auto max-w-4xl text-center">
-        {/* Headline */}
+        <div className="mx-auto max-w-2xl text-center">
         <h2
           ref={headlineRef}
-          className="font-display text-3xl md:text-4xl lg:text-5xl text-forma-obsidian tracking-tight"
+          className="font-display text-3xl md:text-4xl lg:text-[2.75rem] text-forma-obsidian tracking-tight"
         >
           $29. Once. Forever.
         </h2>
 
-        {/* Subtext */}
         <p
           ref={subtextRef}
-          className="mt-6 text-lg md:text-xl text-forma-obsidian/72 leading-relaxed max-w-2xl mx-auto"
+          className="mt-5 text-base md:text-lg text-forma-obsidian/60 leading-relaxed max-w-md mx-auto"
         >
           No subscription. No account. No &lsquo;premium tiers.&rsquo; Pay
-          once, own it, use it until your Mac turns to dust.
+          once, own it forever.
         </p>
 
-        {/* Feature list */}
         <ul
           ref={featuresRef}
-          className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left max-w-xl mx-auto"
+          className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3 text-left max-w-md mx-auto"
         >
           {features.map((feature) => (
             <li
               key={feature.text}
-              className="flex items-start gap-3 text-forma-obsidian/82"
+              className="flex items-start gap-2.5"
             >
-              <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-forma-sage/15 flex items-center justify-center">
-                <Check className="w-3 h-3 text-forma-sage" strokeWidth={3} />
-              </span>
-              <span className="text-sm leading-relaxed">{feature.text}</span>
+              <Check className="w-3.5 h-3.5 text-forma-sage/70 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
+              <span className="text-[13px] leading-relaxed text-forma-obsidian/60">{feature.text}</span>
             </li>
           ))}
         </ul>
 
-        {/* CTA area */}
-        <div ref={ctaRef} className="mt-14 flex flex-col items-center gap-4">
-          {/* Mac App Store button */}
+        <div ref={ctaRef} className="mt-12 flex flex-col items-center gap-3">
           <a
             href={MAC_APP_STORE_URL}
             {...MAC_APP_STORE_LINK_PROPS}
-            className="dark-button inline-flex items-center gap-3 rounded-xl py-4 px-8 transition-all duration-300 hover:-translate-y-px hover:shadow-xl hover:shadow-forma-steel-blue/20 active:translate-y-0 border"
+            className="dark-button inline-flex items-center gap-3 rounded-xl py-3.5 px-7 transition-all duration-300 hover:-translate-y-px hover:shadow-lg active:translate-y-0 border"
           >
-            <AppleLogo className="w-6 h-6 flex-shrink-0" />
+            <AppleLogo className="w-5 h-5 flex-shrink-0" />
             <div className="flex flex-col items-start leading-tight">
-              <span className="text-[11px] font-body text-white/70 tracking-wide uppercase">
+              <span className="text-[10px] font-body text-white/60 tracking-wide uppercase">
                 Download on the
               </span>
-              <span className="text-lg font-display -mt-0.5">
+              <span className="text-base font-display -mt-0.5">
                 Mac App Store
               </span>
             </div>
           </a>
 
-          {/* System requirements */}
-          <p className="text-xs text-forma-obsidian/65 mt-2">
-            Requires macOS 14 (Sonoma) or later. Apple Silicon and Intel.
+          <p className="text-[12px] text-forma-obsidian/40 mt-1">
+            Requires macOS 14 (Sonoma) or later.
           </p>
         </div>
         </div>

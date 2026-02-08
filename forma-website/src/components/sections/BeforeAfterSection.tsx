@@ -112,50 +112,34 @@ export default function BeforeAfterSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative py-24 md:py-32 overflow-hidden"
+      className="relative py-24 md:py-32"
     >
       <div className="site-container relative">
-        {/* Section heading */}
         <h2
           ref={headlineRef}
-          className="mb-16 text-center font-display text-3xl tracking-tight text-forma-obsidian md:text-4xl lg:text-5xl"
+          className="mb-12 text-center font-display text-3xl tracking-tight text-forma-obsidian md:mb-14 md:text-4xl lg:text-[2.75rem]"
         >
           Sound familiar?
         </h2>
 
-        {/* Card grid */}
-        <div className="relative mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2">
-        {/* ─────────────────────────────────────────────────────────── */}
-        {/* BEFORE CARD                                                */}
-        {/* ─────────────────────────────────────────────────────────── */}
+        <div className="relative mx-auto grid max-w-3xl grid-cols-1 gap-5 md:grid-cols-2">
+        {/* BEFORE CARD */}
         <div ref={beforeCardRef}>
           <TiltCard enabled={!isTouchDevice} className="h-full">
-            <div className="flex h-full flex-col rounded-2xl border border-black/[0.08] bg-white p-6 md:p-8">
-              {/* Warm chaos glow */}
-              <div
-                className="absolute inset-0 rounded-2xl pointer-events-none"
-                aria-hidden="true"
-                style={{
-                  background:
-                    "radial-gradient(ellipse at 30% 20%, rgba(201, 126, 102, 0.1) 0%, transparent 60%)",
-                }}
-              />
-
-              {/* Card label */}
-              <span className="relative inline-flex items-center gap-2 text-sm font-display tracking-wide text-forma-warm-orange/60 uppercase mb-6">
-                <span className="w-2 h-2 rounded-full bg-forma-warm-orange/50" />
+            <div className="flex h-full flex-col rounded-2xl border border-black/[0.06] bg-white p-5 md:p-6">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-widest text-forma-warm-orange/70 uppercase mb-5">
+                <span className="w-1.5 h-1.5 rounded-full bg-forma-warm-orange/50" />
                 Before
               </span>
 
-              {/* Chaotic file list */}
               <ul
-                className="relative flex-1 space-y-2.5"
+                className="flex-1 space-y-2"
                 aria-label="Messy file listing"
               >
                 {chaosFiles.map((file) => (
                   <li
                     key={file}
-                    className="truncate font-mono text-sm leading-relaxed text-forma-obsidian/65"
+                    className="truncate font-mono text-[12px] leading-relaxed text-forma-obsidian/55"
                   >
                     {file}
                   </li>
@@ -165,45 +149,30 @@ export default function BeforeAfterSection() {
           </TiltCard>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────── */}
-        {/* AFTER CARD                                                 */}
-        {/* ─────────────────────────────────────────────────────────── */}
+        {/* AFTER CARD */}
         <div ref={afterCardRef}>
           <TiltCard enabled={!isTouchDevice} className="h-full">
-            <div className="flex h-full flex-col rounded-2xl border border-black/[0.08] bg-white p-6 md:p-8">
-              {/* Calm sage glow */}
-              <div
-                className="absolute inset-0 rounded-2xl pointer-events-none"
-                aria-hidden="true"
-                style={{
-                  background:
-                    "radial-gradient(ellipse at 70% 80%, rgba(122, 157, 126, 0.1) 0%, transparent 60%)",
-                }}
-              />
-
-              {/* Card label */}
-              <span className="relative inline-flex items-center gap-2 text-sm font-display tracking-wide text-forma-sage uppercase mb-6">
-                <span className="w-2 h-2 rounded-full bg-forma-sage/60" />
+            <div className="flex h-full flex-col rounded-2xl border border-black/[0.06] bg-white p-5 md:p-6">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-widest text-forma-sage/80 uppercase mb-5">
+                <span className="w-1.5 h-1.5 rounded-full bg-forma-sage/60" />
                 After
               </span>
 
-              {/* Organized folder list */}
               <ul
-                className="relative flex-1 space-y-3"
+                className="flex-1 space-y-2.5"
                 aria-label="Organized folder structure"
               >
                 {organizedFolders.map((folder) => (
-                  <li key={folder.name} className="flex items-baseline gap-3">
-                    <span className="font-mono text-sm tracking-wide text-forma-obsidian">
+                  <li key={folder.name} className="flex items-baseline gap-2">
+                    <span className="font-mono text-[13px] tracking-wide text-forma-obsidian/80">
                       {folder.name}
                     </span>
-                    <span className="text-xs text-forma-obsidian/65">
+                    <span className="text-[11px] text-forma-obsidian/40">
                       {folder.count}
                     </span>
                   </li>
                 ))}
               </ul>
-
             </div>
           </TiltCard>
         </div>

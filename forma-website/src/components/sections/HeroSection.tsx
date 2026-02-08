@@ -35,65 +35,43 @@ function AppScreenshot() {
 
 export default function HeroSection() {
   return (
-    <section className="relative pb-18 pt-18 md:pb-22 md:pt-22">
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div
-          className="absolute left-[-10%] top-[6%] h-[620px] w-[620px] rounded-full blur-[120px] opacity-10"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(91, 124, 153, 0.38) 0%, transparent 72%)",
-          }}
-        />
-        <div
-          className="absolute right-[-8%] top-[25%] h-[460px] w-[460px] rounded-full blur-[110px] opacity-8"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(122, 157, 126, 0.35) 0%, transparent 72%)",
-          }}
-        />
-      </div>
+    <section className="relative pt-16 pb-16 md:pt-20 md:pb-20">
 
       <div className="site-container relative">
-        <div className="mx-auto max-w-[860px] text-center">
-          <p className="mx-auto mb-7 inline-flex rounded-full border border-black/[0.08] bg-white/80 px-4 py-1.5 text-xs uppercase tracking-[0.08em] text-forma-obsidian/70">
-            Built for messy desktops
-          </p>
-
-          <h1 className="mx-auto max-w-[760px] font-display text-[2.45rem] leading-[1.08] tracking-tight text-forma-obsidian sm:text-[2.95rem] lg:text-[3.45rem]">
+        <div className="mx-auto max-w-[820px] text-center">
+          <h1 className="mx-auto max-w-[720px] font-display text-[2.45rem] leading-[1.08] tracking-tight text-forma-obsidian sm:text-[2.95rem] lg:text-[3.45rem]">
             A file organizer for people who gave up on file organizers.
           </h1>
 
-          <p className="mx-auto mt-7 max-w-[760px] text-lg leading-relaxed text-forma-obsidian/78 md:text-xl">
-            Your desktop is a dumping ground. Your Downloads folder is worse.
-            You&apos;ve tried to fix it before.
+          <p className="mx-auto mt-6 max-w-[580px] text-lg leading-relaxed text-forma-obsidian/68 md:text-[1.2rem]">
+            You make rules. Forma follows them. Preview what happens,
+            approve it, undo anything.
           </p>
 
-          <p className="mx-auto mt-4 max-w-[760px] text-base leading-relaxed text-forma-obsidian/72 md:text-lg">
-            You make rules. Forma follows them. Preview what&apos;s about to
-            happen, approve it, and it&apos;s done. If you don&apos;t like it,
-            undo it.
-          </p>
-
-          <div className="mt-10 flex flex-col items-center justify-center gap-3.5 sm:flex-row">
+          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="inline-flex items-center gap-2.5 rounded-xl bg-forma-obsidian px-8 py-3.5 text-base font-semibold text-forma-bone shadow-lg shadow-black/10 transition-all duration-300 hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-xl hover:shadow-black/15 active:translate-y-0"
+              className="inline-flex items-center gap-2.5 rounded-xl bg-forma-obsidian px-7 py-3 text-[15px] font-semibold text-forma-bone shadow-lg shadow-black/8 transition-all duration-300 hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-xl hover:shadow-black/12 active:translate-y-0"
             >
-              <AppleLogo className="h-[17px] w-[14px]" />
+              <AppleLogo className="h-[15px] w-[12px]" />
               <span>Download for Mac</span>
             </a>
 
             <a
               href="#features"
-              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.2] bg-white/80 px-8 py-3.5 text-base font-medium text-forma-obsidian/85 transition-colors hover:bg-white hover:text-forma-obsidian hover:border-black/[0.3]"
+              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.12] px-7 py-3 text-[15px] font-medium text-forma-obsidian/70 transition-colors hover:text-forma-obsidian hover:border-black/[0.22]"
             >
               See how it works
             </a>
           </div>
+
+          <p className="mt-4 text-[13px] text-forma-obsidian/45">
+            $29 once. macOS 14+. No subscription.
+          </p>
         </div>
 
-        <div className="mx-auto mt-11 max-w-[1080px] rounded-[28px] border border-black/[0.08] bg-white/85 p-2 shadow-[0_20px_54px_rgba(0,0,0,0.09)] backdrop-blur-sm md:mt-13 md:p-3">
+        <div className="mx-auto mt-14 max-w-[980px] rounded-2xl border border-black/[0.06] bg-white/70 p-1.5 shadow-[0_24px_60px_rgba(0,0,0,0.08)] backdrop-blur-sm md:mt-16 md:rounded-[20px] md:p-2">
           <MacWindowFrame className="w-full">
             <AppScreenshot />
           </MacWindowFrame>

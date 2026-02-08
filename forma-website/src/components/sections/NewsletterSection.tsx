@@ -100,38 +100,34 @@ export default function NewsletterSection() {
     <section
       ref={sectionRef}
       id="newsletter"
-      className="py-24 md:py-32"
+      className="py-20 md:py-28"
     >
       <div className="site-container">
-        <div className="mx-auto max-w-2xl rounded-2xl border border-black/[0.08] bg-[#f7f9fb] px-6 py-12 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)] md:px-12 md:py-16">
-        {/* Heading */}
+        <div className="mx-auto max-w-xl text-center">
         <h2
           ref={headingRef}
-          className="font-display text-3xl md:text-4xl text-forma-obsidian"
+          className="font-display text-2xl md:text-3xl text-forma-obsidian"
         >
           Stay in the loop
         </h2>
 
-        {/* Subtext */}
         <p
           ref={subtextRef}
-          className="mt-4 text-forma-obsidian/72 leading-relaxed"
+          className="mt-3 text-[15px] text-forma-obsidian/50 leading-relaxed"
         >
-          Updates on new features, tips, and the occasional file organization
-          joke.
+          Updates on new features and the occasional file organization joke.
         </p>
 
-        {/* Form */}
-        <div ref={formWrapperRef} className="mt-10">
+        <div ref={formWrapperRef} className="mt-8">
           {formState === "success" ? (
-            <div className="flex items-center justify-center gap-2 text-forma-sage py-4">
-              <CheckCircle2 className="w-5 h-5" />
-              <span className="font-display text-lg">You&apos;re in!</span>
+            <div className="flex items-center justify-center gap-2 text-forma-sage py-3">
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="font-display text-base">You&apos;re in.</span>
             </div>
           ) : (
             <form
               onSubmit={handleSubmit}
-              className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+              className="flex flex-col sm:flex-row gap-2.5 max-w-sm mx-auto"
             >
               <div className="flex-1 relative">
                 <input
@@ -145,32 +141,28 @@ export default function NewsletterSection() {
                   required
                   disabled={formState === "loading"}
                   aria-label="Email address"
-                  className="w-full rounded-xl bg-white border border-black/[0.12] px-4 py-3 text-forma-obsidian placeholder:text-forma-obsidian/35 focus:outline-none focus:border-forma-steel-blue/50 focus:ring-1 focus:ring-forma-steel-blue/30 transition-all disabled:opacity-50"
+                  className="w-full rounded-lg bg-white border border-black/[0.1] px-3.5 py-2.5 text-[14px] text-forma-obsidian placeholder:text-forma-obsidian/30 focus:outline-none focus:border-forma-steel-blue/40 focus:ring-1 focus:ring-forma-steel-blue/20 transition-all disabled:opacity-50"
                 />
               </div>
               <button
                 type="submit"
                 disabled={formState === "loading"}
-                className="dark-button inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3 font-display transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-forma-steel-blue/15 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+                className="dark-button inline-flex items-center justify-center gap-2 rounded-lg border px-5 py-2.5 text-[14px] font-medium transition-all duration-200 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
               >
                 {formState === "loading" ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     <span>Subscribing</span>
                   </>
                 ) : (
-                  <>
-                    <span>Subscribe</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
+                  <span>Subscribe</span>
                 )}
               </button>
             </form>
           )}
 
-          {/* Error message */}
           {formState === "error" && errorMessage && (
-            <p className="mt-3 text-sm text-forma-warm-orange">
+            <p className="mt-2 text-[13px] text-forma-warm-orange">
               {errorMessage}
             </p>
           )}
