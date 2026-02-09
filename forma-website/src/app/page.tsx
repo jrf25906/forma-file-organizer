@@ -8,13 +8,18 @@ import {
   NewsletterSection,
 } from "@/components/sections";
 import Footer from "@/components/Footer";
+import { AuroraBackground } from "@/components/ui/AuroraBackground";
+import { SpotlightCursor } from "@/components/ui/SpotlightCursor";
 
 export default function Home() {
   return (
-    <div className="bg-[linear-gradient(180deg,#ffffff_0%,#f2f4f7_100%)]">
+    <div className="bg-forma-bone">
+      <SpotlightCursor />
       <main id="top" className="relative overflow-hidden">
-        <HeroSection />
-        <CredibilityStrip />
+        <AuroraBackground>
+          <HeroSection />
+          <CredibilityStrip />
+        </AuroraBackground>
         <FeaturesSection />
         <BeforeAfterSection />
         <PricingSection />

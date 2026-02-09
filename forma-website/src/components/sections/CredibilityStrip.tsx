@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { Monitor, Shield, Undo2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration, formaStagger } from "@/lib/animation";
+import { HoverScale } from "@/components/animation/HoverScale";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BADGE DATA
@@ -89,7 +90,7 @@ export default function CredibilityStrip() {
     <section
       ref={sectionRef}
       id="credibility"
-      className="relative py-10 md:py-14"
+      className="relative py-10 md:py-14 bg-forma-steel-blue/[0.03] border-y border-black/[0.06]"
       aria-label="Why trust Forma"
     >
       <div className="site-container relative">
@@ -98,26 +99,27 @@ export default function CredibilityStrip() {
           className="mx-auto flex max-w-3xl flex-col items-center justify-center gap-4 sm:flex-row sm:gap-4 md:gap-6"
         >
           {badges.map(({ icon: Icon, label, description }) => (
-            <div
-              key={label}
-              data-badge
-              className="flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white/80 px-4 py-3 shadow-sm"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-forma-steel-blue/10 flex-shrink-0">
-                <Icon
-                  className="w-[18px] h-[18px] text-forma-steel-blue"
-                  strokeWidth={1.75}
-                />
+            <HoverScale key={label} scale={1.04}>
+              <div
+                data-badge
+                className="glass-card flex items-center gap-3 rounded-xl px-4 py-3"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-forma-steel-blue/10 flex-shrink-0">
+                  <Icon
+                    className="w-[18px] h-[18px] text-forma-steel-blue"
+                    strokeWidth={1.75}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[14px] font-semibold text-forma-obsidian tracking-tight whitespace-nowrap">
+                    {label}
+                  </span>
+                  <span className="text-[12px] text-forma-obsidian/55 leading-snug">
+                    {description}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-[14px] font-semibold text-forma-obsidian tracking-tight whitespace-nowrap">
-                  {label}
-                </span>
-                <span className="text-[12px] text-forma-obsidian/55 leading-snug">
-                  {description}
-                </span>
-              </div>
-            </div>
+            </HoverScale>
           ))}
         </div>
       </div>

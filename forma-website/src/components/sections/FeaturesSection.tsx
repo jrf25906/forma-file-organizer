@@ -4,6 +4,8 @@ import { useRef } from "react";
 import { Eye, GitBranch, Type, Undo2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
+import { TiltCard } from "@/components/animation/TiltCard";
+import { ScrollReveal } from "@/components/animation/ScrollReveal";
 
 type Feature = {
   id: string;
@@ -13,6 +15,7 @@ type Feature = {
   accentText: string;
   accentBg: string;
   accentBorder: string;
+  glowClass: string;
 };
 
 const features: Feature[] = [
@@ -25,6 +28,7 @@ const features: Feature[] = [
     accentText: "text-forma-steel-blue",
     accentBg: "bg-forma-steel-blue/12",
     accentBorder: "bg-forma-steel-blue/50",
+    glowClass: "hover:shadow-glow-blue",
   },
   {
     id: "smart-connections",
@@ -35,6 +39,7 @@ const features: Feature[] = [
     accentText: "text-forma-sage",
     accentBg: "bg-forma-sage/12",
     accentBorder: "bg-forma-sage/50",
+    glowClass: "hover:shadow-glow-sage",
   },
   {
     id: "total-control",
@@ -45,6 +50,7 @@ const features: Feature[] = [
     accentText: "text-forma-muted-blue",
     accentBg: "bg-forma-muted-blue/12",
     accentBorder: "bg-forma-muted-blue/50",
+    glowClass: "hover:shadow-glow-blue",
   },
   {
     id: "full-undo",
@@ -55,6 +61,7 @@ const features: Feature[] = [
     accentText: "text-forma-warm-orange",
     accentBg: "bg-forma-warm-orange/12",
     accentBorder: "bg-forma-warm-orange/50",
+    glowClass: "hover:shadow-glow-orange",
   },
 ];
 
@@ -232,10 +239,13 @@ export default function FeaturesSection() {
     <section
       ref={sectionRef}
       id="features"
-      className="features-section relative scroll-mt-16 overflow-hidden bg-[#f4f6f8] py-24 md:py-32"
+      className="features-section relative scroll-mt-16 overflow-hidden bg-[#e8ecf1] py-24 md:py-32"
     >
+      {/* Background overlay with gradient + orbs */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.65)_0%,rgba(244,246,248,1)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(232,236,241,0.3)_0%,rgba(210,218,228,0.5)_50%,rgba(232,236,241,0.3)_100%)]" />
+        <div className="absolute -left-32 top-1/4 h-96 w-96 rounded-full bg-forma-steel-blue/10 blur-[120px]" />
+        <div className="absolute -right-24 bottom-1/4 h-80 w-80 rounded-full bg-forma-sage/8 blur-[100px]" />
       </div>
 
       <div className="site-container relative">
@@ -256,38 +266,41 @@ export default function FeaturesSection() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {features.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <article
-                  key={feature.id}
-                  className="flex flex-col overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_3px_rgba(0,0,0,0.06),0_8px_24px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_4px_12px_rgba(0,0,0,0.08),0_20px_48px_rgba(0,0,0,0.08)] hover:-translate-y-1"
-                >
-                  <div className={`h-1 w-full ${feature.accentBorder}`} />
-                  <div className="p-6 flex flex-col flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${feature.accentBg}`}
+          <ScrollReveal stagger={0.12} threshold={85}>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              {features.map((feature) => {
+                const Icon = feature.icon;
+                return (
+                  <TiltCard key={feature.id} maxRotation={6} scale={1.01}>
+                    <article
+                      className={`feature-card glass-card-strong flex flex-col overflow-hidden rounded-2xl transition-shadow duration-300 ${feature.glowClass}`}
                     >
-                      <Icon className={`h-[18px] w-[18px] ${feature.accentText}`} />
-                    </div>
-                    <h3 className="font-display text-xl tracking-tight text-forma-obsidian">
-                      {feature.title}
-                    </h3>
-                  </div>
-                  <p className="text-[14px] leading-relaxed text-forma-obsidian/60 mb-5">
-                    {feature.description}
-                  </p>
+                      <div className={`h-1.5 w-full ${feature.accentBorder}`} />
+                      <div className="p-6 flex flex-col flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${feature.accentBg}`}
+                          >
+                            <Icon className={`h-[18px] w-[18px] ${feature.accentText}`} />
+                          </div>
+                          <h3 className="font-display text-xl tracking-tight text-forma-obsidian">
+                            {feature.title}
+                          </h3>
+                        </div>
+                        <p className="text-[14px] leading-relaxed text-forma-obsidian/60 mb-5">
+                          {feature.description}
+                        </p>
 
-                  <div className="mt-auto rounded-xl border border-black/[0.08] bg-[#eef1f5] p-4">
-                    <PreviewForFeature id={feature.id} />
-                  </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                        <div className="demo-area mt-auto rounded-xl border border-black/[0.08] bg-[#eef1f5] p-4">
+                          <PreviewForFeature id={feature.id} />
+                        </div>
+                      </div>
+                    </article>
+                  </TiltCard>
+                );
+              })}
+            </div>
+          </ScrollReveal>
         </div>
       </div>
     </section>

@@ -5,6 +5,8 @@ import { Check, Monitor, Shield, Clock, Undo2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaStagger, formaDuration } from "@/lib/animation";
 import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
+import { MagneticButton } from "@/components/animation/MagneticButton";
+import { RevealText } from "@/components/animation/RevealText";
 
 const features = [
   {
@@ -129,15 +131,15 @@ export default function PricingSection() {
       </div>
 
       <div className="site-container relative">
-        <div className="mx-auto max-w-xl text-center">
+        <div className="glass-card-strong mx-auto max-w-xl rounded-3xl px-8 py-12 md:px-12 md:py-14 text-center">
           <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/60">
             Pricing
           </p>
           <h2
             ref={headlineRef}
-            className="font-display text-5xl md:text-6xl lg:text-[4rem] text-forma-obsidian tracking-tight"
+            className="font-display text-6xl md:text-7xl lg:text-[5.5rem] tracking-tight gradient-text"
           >
-            $29. Once. Forever.
+            <RevealText>$29. Once. Forever.</RevealText>
           </h2>
 
           <p
@@ -166,21 +168,23 @@ export default function PricingSection() {
           </ul>
 
           <div ref={ctaRef} className="mt-12 flex flex-col items-center gap-4">
-            <a
-              href={MAC_APP_STORE_URL}
-              {...MAC_APP_STORE_LINK_PROPS}
-              className="dark-button inline-flex items-center gap-3.5 rounded-2xl py-4 px-8 transition-all duration-300 hover:-translate-y-px hover:shadow-xl active:translate-y-0 border shadow-lg"
-            >
-              <AppleLogo className="w-7 h-7 flex-shrink-0" />
-              <div className="flex flex-col items-start leading-tight">
-                <span className="text-[10px] font-body opacity-60 tracking-wide uppercase">
-                  Download on the
-                </span>
-                <span className="text-lg font-display -mt-0.5">
-                  Mac App Store
-                </span>
-              </div>
-            </a>
+            <MagneticButton strength={0.25}>
+              <a
+                href={MAC_APP_STORE_URL}
+                {...MAC_APP_STORE_LINK_PROPS}
+                className="dark-button inline-flex items-center gap-3.5 rounded-2xl py-4 px-8 transition-all duration-300 hover:-translate-y-px hover:shadow-xl active:translate-y-0 border shadow-lg"
+              >
+                <AppleLogo className="w-7 h-7 flex-shrink-0" />
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="text-[10px] font-body opacity-60 tracking-wide uppercase">
+                    Download on the
+                  </span>
+                  <span className="text-lg font-display -mt-0.5">
+                    Mac App Store
+                  </span>
+                </div>
+              </a>
+            </MagneticButton>
 
             <p className="text-[13px] text-forma-obsidian/45 mt-1">
               Requires macOS 14 (Sonoma) or later.

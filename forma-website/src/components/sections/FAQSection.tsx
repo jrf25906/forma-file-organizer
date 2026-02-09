@@ -122,7 +122,7 @@ function FAQItem({
 }
 
 export default function FAQSection() {
-  const enableScrollAnimations = false;
+  const enableScrollAnimations = true;
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -141,6 +141,18 @@ export default function FAQSection() {
       if (!enableScrollAnimations) return;
       if (!sectionRef.current) return;
 
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+      if (prefersReducedMotion) {
+        gsap.set(
+          [headingRef.current, listRef.current, contactRef.current],
+          { opacity: 1, y: 0 }
+        );
+        return;
+      }
+
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: sectionRef.current,
@@ -156,11 +168,10 @@ export default function FAQSection() {
         ease: formaReveal,
       })
         .from(
-          listRef.current?.children ?? [],
+          listRef.current,
           {
             opacity: 0,
             y: 20,
-            stagger: formaStagger.normal,
             duration: formaDuration.fast,
             ease: formaReveal,
           },
@@ -184,7 +195,7 @@ export default function FAQSection() {
     <section
       ref={sectionRef}
       id="faq"
-      className="scroll-mt-16 py-24 md:py-32"
+      className="scroll-mt-16 py-24 md:py-32 bg-[#f7f8fa]"
     >
       <div className="site-container">
         <div className="mx-auto max-w-2xl">
@@ -199,7 +210,7 @@ export default function FAQSection() {
           </h2>
 
           {/* FAQ list */}
-          <div ref={listRef} className="rounded-2xl border border-black/[0.06] bg-white px-6 md:px-8 shadow-sm">
+          <div ref={listRef} className="glass-card-strong rounded-2xl px-6 md:px-8">
             {faqs.map((faq, index) => (
               <FAQItem
                 key={index}
