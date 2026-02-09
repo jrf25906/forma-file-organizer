@@ -86,7 +86,7 @@ struct AllCaughtUpView: View {
             .padding(FormaSpacing.generous)
             .background(Color.formaControlBackground.opacity(Color.FormaOpacity.overlay))
             .formaCornerRadius(FormaRadius.card)
-            
+
             Spacer()
         }
         .padding(.horizontal, FormaSpacing.extraLarge + (FormaSpacing.standard - FormaSpacing.micro))

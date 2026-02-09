@@ -34,7 +34,6 @@ struct FileRow: View {
 
     @State private var isHovered = false
     @State private var showQuickLookHint = false
-    @State private var showReasoning = false
     @State private var isDestinationHovered = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
@@ -240,22 +239,6 @@ struct FileRow: View {
                             .frame(width: 6, height: 6)
                             .help(statusIndicatorConfig.label)
 
-                        if let confidence = file.confidenceScore {
-                            Button(action: { showReasoning.toggle() }) {
-                                ConfidenceBadge(
-                                    score: confidence,
-                                    matchReason: file.matchReason,
-                                    showsChevron: true,
-                                    isExpanded: showReasoning
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-
-                    if showReasoning, let reasoning = file.matchReason {
-                        ReasoningView(reasoning: reasoning, isExpanded: showReasoning)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
                     if let snippet = contentSnippet {

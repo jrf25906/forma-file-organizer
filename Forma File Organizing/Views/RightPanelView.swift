@@ -5,6 +5,8 @@ struct RightPanelView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isKeyWindow = true
     @Namespace private var panelTransition
 
     // MARK: - Mode Header Properties
@@ -91,18 +93,49 @@ struct RightPanelView: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: FormaLayout.RightPanel.cornerRadius, style: .continuous)
-                .fill(Color.formaControlBackground)
+            .thickMaterial,
+            in: RoundedRectangle(cornerRadius: FormaLayout.RightPanel.cornerRadius, style: .continuous)
         )
         .clipShape(RoundedRectangle(cornerRadius: FormaLayout.RightPanel.cornerRadius, style: .continuous))
-        .overlay(
+        .overlay {
             RoundedRectangle(cornerRadius: FormaLayout.RightPanel.cornerRadius, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.medium), lineWidth: 0.5)
-        )
+                .strokeBorder(panelShellStroke, lineWidth: 0.85)
+        }
+        .shadow(color: panelShadowColor, radius: 14, x: 0, y: 2)
+        .overlay {
+            WindowKeyObserver(isKeyWindow: $isKeyWindow)
+                .frame(width: 0, height: 0)
+        }
         .animation(
             reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85),
             value: dashboardViewModel.rightPanelMode
         )
+    }
+
+    // MARK: - Panel Shell Styling
+
+    private var panelShellStroke: LinearGradient {
+        let topOpacity: Double = colorScheme == .dark
+            ? (isKeyWindow ? 0.26 : 0.18)
+            : (isKeyWindow ? 0.34 : 0.24)
+        let bottomOpacity: Double = colorScheme == .dark
+            ? (isKeyWindow ? 0.09 : 0.06)
+            : (isKeyWindow ? 0.14 : 0.10)
+
+        return LinearGradient(
+            colors: [
+                Color.formaBoneWhite.opacity(topOpacity),
+                Color.formaBoneWhite.opacity(bottomOpacity)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var panelShadowColor: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(isKeyWindow ? 0.32 : 0.2)
+            : Color.black.opacity(isKeyWindow ? 0.14 : 0.09)
     }
 
     // MARK: - Mode Header View

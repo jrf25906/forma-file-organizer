@@ -132,8 +132,6 @@ struct MainContentView: View {
                         // Show empty state if in review mode and all caught up
                         if dashboardViewModel.reviewFilterMode == .needsReview {
                             AllCaughtUpView()
-                                .background(.ultraThinMaterial)
-                                .formaFrostedTexture()
                                 .padding(.top, unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing)
                         } else {
                             VStack(spacing: FormaSpacing.generous) {
