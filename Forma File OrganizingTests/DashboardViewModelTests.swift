@@ -185,9 +185,10 @@ final class DashboardViewModelTests: XCTestCase {
     
     func testFocusNextAndPrevious() {
         // Given
-        let one = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
-        let two = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
-        let three = FileItem(path: "/f/3.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let referenceDate = Date()
+        let one = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: referenceDate.addingTimeInterval(3), destination: nil, status: .pending)
+        let two = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: referenceDate.addingTimeInterval(2), destination: nil, status: .pending)
+        let three = FileItem(path: "/f/3.txt", sizeInBytes: 1_000, creationDate: referenceDate.addingTimeInterval(1), destination: nil, status: .pending)
         viewModel._testSetFiles([one, two, three])
         viewModel.selectedFolder = .home
         viewModel.reviewFilterMode = .all
@@ -423,6 +424,54 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isSelected(file3))
         XCTAssertFalse(viewModel.isSelected(file4))
         XCTAssertEqual(viewModel.selectedFileIDs.count, 3)
+    }
+
+    func testSelectionAnchorTracksLastToggledFile() {
+        // Given
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file2 = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        viewModel._testSetFiles([file1, file2])
+        viewModel.selectedFolder = .home
+
+        // When
+        viewModel.toggleSelection(for: file1)
+        viewModel.toggleSelection(for: file2)
+
+        // Then
+        XCTAssertEqual(viewModel.rangeSelectionAnchorPath, file2.path)
+    }
+
+    func testSelectRangeUpdatesSelectionAnchorToRangeEnd() {
+        // Given
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file2 = FileItem(path: "/f/2.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        let file3 = FileItem(path: "/f/3.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        viewModel._testSetFiles([file1, file2, file3])
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .all
+        viewModel.selectCategory(.all)
+        viewModel.toggleSelection(for: file1)
+
+        // When
+        viewModel.selectRange(from: file1, to: file3)
+
+        // Then
+        XCTAssertEqual(viewModel.rangeSelectionAnchorPath, file3.path)
+    }
+
+    func testDeselectAllClearsSelectionAnchor() {
+        // Given
+        let file1 = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        viewModel._testSetFiles([file1])
+        viewModel.selectedFolder = .home
+        viewModel.toggleSelection(for: file1)
+        XCTAssertEqual(viewModel.rangeSelectionAnchorPath, file1.path)
+
+        // When
+        viewModel.deselectAll()
+
+        // Then
+        XCTAssertNil(viewModel.rangeSelectionAnchorPath)
     }
     
     // MARK: - Selection Persistence Tests

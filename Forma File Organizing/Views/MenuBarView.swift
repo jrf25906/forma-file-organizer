@@ -12,6 +12,7 @@ import SwiftUI
 struct MenuBarView: View {
     @StateObject private var viewModel: MenuBarViewModel
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @Environment(\.colorScheme) private var colorScheme
 
     init(viewModel: MenuBarViewModel = MenuBarViewModel()) {
@@ -437,24 +438,6 @@ struct MenuBarView: View {
     }
 
     // MARK: - Helpers
-
-    private func openSettings() {
-        let event = NSEvent.keyEvent(
-            with: .keyDown,
-            location: NSPoint.zero,
-            modifierFlags: .command,
-            timestamp: 0,
-            windowNumber: 0,
-            context: nil,
-            characters: ",",
-            charactersIgnoringModifiers: ",",
-            isARepeat: false,
-            keyCode: 43
-        )
-        if let event = event {
-            NSApp.postEvent(event, atStart: true)
-        }
-    }
 
     private func openMainInterface() {
         WindowLifecycleManager.shared.mainWindowDidAppear()

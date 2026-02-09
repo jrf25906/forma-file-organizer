@@ -17,6 +17,9 @@ class SelectionManager: ObservableObject {
     
     /// Whether user is navigating with keyboard
     @Published var isKeyboardNavigating: Bool = false
+
+    /// Anchor path for range selection (Shift+Click)
+    @Published var rangeSelectionAnchorPath: String?
     
     // MARK: - Selection Operations
     
@@ -27,18 +30,21 @@ class SelectionManager: ObservableObject {
         } else {
             selectedFileIDs.insert(file.path)
         }
+        rangeSelectionAnchorPath = file.path
         updateSelectionMode()
     }
     
     /// Select all visible files
     func selectAll(visibleFiles: [FileItem]) {
         selectedFileIDs = Set(visibleFiles.map { $0.path })
+        rangeSelectionAnchorPath = visibleFiles.first?.path
         updateSelectionMode()
     }
     
     /// Deselect all files
     func deselectAll() {
         selectedFileIDs.removeAll()
+        rangeSelectionAnchorPath = nil
         updateSelectionMode()
     }
     
@@ -53,6 +59,7 @@ class SelectionManager: ObservableObject {
         for index in range {
             selectedFileIDs.insert(visibleFiles[index].path)
         }
+        rangeSelectionAnchorPath = endFile.path
         updateSelectionMode()
     }
     

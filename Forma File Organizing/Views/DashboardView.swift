@@ -7,9 +7,11 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
+    @AppStorage("autoScanOnLaunch") private var autoScanOnLaunch = true
     @State private var scanTask: Task<Void, Never>?
     @State private var shouldFocusSearch = false
     @State private var showKeyboardHelp = false
+    @State private var tourState = GuidedTourState()
 
     // MARK: - Extracted Views (helps compiler type-checking)
 
@@ -130,7 +132,7 @@ struct DashboardView: View {
                             }
                         }
                         .opacity(nav.isShowingRuleEditor ? 0.5 : 1.0)
-                        .disabled(nav.isShowingRuleEditor)
+                        .disabled(nav.isShowingRuleEditor || tourState.isActive)
 
                         // Sidebar overlay - full-height navigator (Xcode-style)
                         SidebarView(
@@ -165,6 +167,14 @@ struct DashboardView: View {
 
                 // Rule Editor Overlay - Centered Modal
                 ruleEditorOverlay
+
+                // Guided Tour Overlay
+                GuidedTourOverlay(tourState: tourState)
+            }
+            .onPreferenceChange(GuidedTourRegionPreferenceKey.self) { frames in
+                for regionFrame in frames {
+                    tourState.regionFrames[regionFrame.region] = regionFrame.frame
+                }
             }
             // .background(.thickMaterial) removed to allow window transparency
             .background(Color.clear) // Ensure SwiftUI root view is clear so NSWindow background shows through
@@ -200,6 +210,9 @@ struct DashboardView: View {
             if dashboardViewModel.showOnboarding {
                 return
             }
+            guard autoScanOnLaunch else {
+                return
+            }
             // Initial scan when dashboard appears
             await dashboardViewModel.scanFiles(context: modelContext)
         }
@@ -210,14 +223,24 @@ struct DashboardView: View {
         .onChange(of: dashboardViewModel.showOnboarding) { wasShowingOnboarding, isShowingOnboarding in
             // Trigger scan when onboarding completes (was showing, now dismissed)
             if wasShowingOnboarding && !isShowingOnboarding {
-                scanTask?.cancel()
-                scanTask = Task {
-                    await dashboardViewModel.scanFiles(context: modelContext)
+                if autoScanOnLaunch {
+                    scanTask?.cancel()
+                    scanTask = Task {
+                        await dashboardViewModel.scanFiles(context: modelContext)
+                    }
+                }
+                // Show guided tour after onboarding with delay for frames to populate
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(800))
+                    tourState.checkShouldShowTour()
                 }
             }
         }
         .onDisappear {
             scanTask?.cancel()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .replayGuidedTour)) { _ in
+            tourState.replayTour()
         }
         .sheet(isPresented: $dashboardViewModel.showQuickLookSheet) {
             if let url = dashboardViewModel.quickLookURL {

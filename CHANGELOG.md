@@ -61,6 +61,9 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Folder scans now use prefetched URL resource keys and parallelized standard-folder scan tasks to reduce filesystem syscall overhead.
 - Thumbnail loading now checks memory/disk caches before opening security scopes and skips redundant stale-metadata checks on disk-cache hits.
 - Duplicate detection now reuses compiled regexes, streams file hashing in chunks, and uses bucketed near-name matching to reduce memory and comparison cost.
+- Settings "Launch at Login" now syncs with macOS Login Items (`SMAppService`) and reports failures instead of failing silently.
+- Dashboard startup scans now respect the "Auto-scan on Launch" setting, including post-onboarding auto-scan behavior.
+- Menu bar Settings now uses the shared app settings opener instead of synthetic keyboard events.
 
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.
@@ -68,6 +71,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - File selection checkboxes now keep a stable position and larger click target across card/list/grid views for more reliable selection.
 - Toolbar controls now use explicit sizing to avoid ambiguous AppKit toolbar layout warnings.
 - Scroll views now reserve deterministic bottom space for the floating action bar to prevent content overlap in all view modes.
+- Shift-click range selection now works consistently across card/list/grid file views by using a shared selection anchor.
 
 ### Removed
 - Deprecated API cleanup: removed legacy `FileItem`/`FileMetadata` initializers, `RuleService.addRule(_:)`, and deprecated error type aliases.

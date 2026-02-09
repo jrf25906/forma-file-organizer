@@ -184,6 +184,7 @@ struct MainContentView: View {
                                 gridView
                             }
                         }
+                        .guidedTourRegion(.mainFileList)
                         .animation(.easeInOut(duration: 0.2), value: dashboardViewModel.currentViewMode)
                     }
                 }
@@ -380,6 +381,25 @@ struct MainContentView: View {
         }
         dashboardViewModel.selectFolder(folder)
         dashboardViewModel.updateSearchText(nav.searchText)
+    }
+
+    private func handleSelectionToggle(for file: FileItem) {
+        guard !attemptRangeSelection(for: file) else { return }
+        dashboardViewModel.toggleSelection(for: file)
+    }
+
+    private func attemptRangeSelection(for file: FileItem) -> Bool {
+        guard NSApp.currentEvent?.modifierFlags.contains(.shift) == true else { return false }
+
+        let anchorPath = dashboardViewModel.rangeSelectionAnchorPath ?? dashboardViewModel.selectedFileIDs.first
+        guard let anchorPath,
+              anchorPath != file.path,
+              let anchor = dashboardViewModel.visibleFiles.first(where: { $0.path == anchorPath }) else {
+            return false
+        }
+
+        dashboardViewModel.selectRange(from: anchor, to: file)
+        return true
     }
     
     private func handleKeyEvent(_ event: NSEvent) -> Bool {
@@ -703,7 +723,7 @@ struct MainContentView: View {
                                     dashboardViewModel.showQuickLook(for: item)
                                 },
                                 onToggleSelection: { item in
-                                    dashboardViewModel.toggleSelection(for: item)
+                                    handleSelectionToggle(for: item)
                                 },
                                 onThumbnailHover: handleThumbnailHover
                             )
@@ -779,7 +799,7 @@ struct MainContentView: View {
             isSelectionMode: dashboardViewModel.isSelectionMode,
             showsPrimaryActionButton: showsRowPrimaryActionButtons,
             searchMatchType: dashboardViewModel.searchMatchType(for: file),
-            onToggleSelection: { dashboardViewModel.toggleSelection(for: file) },
+            onToggleSelection: { handleSelectionToggle(for: file) },
             onOrganize: { organizeFileWithAnimation(file) },
             onEdit: { dashboardViewModel.beginEditingDestination(for: file) },
             onSkip: { dashboardViewModel.skipFile(file) },
@@ -835,7 +855,7 @@ struct MainContentView: View {
                             showsPrimaryActionButton: showsRowPrimaryActionButtons,
                             searchMatchType: dashboardViewModel.searchMatchType(for: file),
                             onToggleSelection: {
-                                dashboardViewModel.toggleSelection(for: file)
+                                handleSelectionToggle(for: file)
                             },
                             onOrganize: {
                                 organizeFileWithAnimation(file)

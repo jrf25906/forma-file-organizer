@@ -1,6 +1,6 @@
 # Forma - Project TODO
 
-**Last Updated:** February 5, 2026
+**Last Updated:** February 9, 2026
 
 ---
 
@@ -32,6 +32,13 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] 8. Contrast/accessibility pass: raise secondary text/icon/chip contrast in both themes.
 - [x] 9. Status semantics pass: simplify redundant status cues (stripe, pill, icon, copy) into a single coherent system.
 - [x] 10. Interaction polish across card/list/grid: focus visibility, hit targets, hover/pressed states, motion consistency.
+
+### macOS UX Conventions Sprint (February 9, 2026)
+- [x] Wire `Launch at Login` to macOS `SMAppService` so the toggle applies immediately and reports failures.
+- [x] Honor `Auto-scan on Launch` before startup scans and post-onboarding auto-scan triggers.
+- [x] Replace menu bar synthetic `Cmd+,` settings opening with the shared settings opener.
+- [x] Implement Shift-click range selection behavior for card/list/grid file selection flows.
+- [x] Add regression tests for range-selection anchor updates and deselect reset behavior.
 
 ### Phase 1: Safety Fixes (zero behavioral change, prevents crashes)
 - [x] 1. MenuBarViewModel.swift:185 — replace `self!` in [weak self] closure with `guard let self else { return }` (fallback: early return).

@@ -24,6 +24,9 @@ class SelectionViewModel: ObservableObject {
     /// Whether user is navigating with keyboard
     @Published var isKeyboardNavigating: Bool = false
 
+    /// Anchor path used for Shift+Click range selection.
+    @Published private(set) var rangeSelectionAnchorPath: String?
+
     // MARK: - Dependencies
 
     private let selectionManager: SelectionManager
@@ -130,6 +133,7 @@ class SelectionViewModel: ObservableObject {
         isSelectionMode = selectionManager.isSelectionMode
         focusedFilePath = selectionManager.focusedFilePath
         isKeyboardNavigating = selectionManager.isKeyboardNavigating
+        rangeSelectionAnchorPath = selectionManager.rangeSelectionAnchorPath
     }
 
     /// Setup forwarding from SelectionManager

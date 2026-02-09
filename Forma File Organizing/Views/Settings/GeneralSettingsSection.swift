@@ -6,6 +6,8 @@ struct GeneralSettingsSection: View {
     @AppStorage("showNotifications") private var showNotifications = true
     @AppStorage("autoScanOnLaunch") private var autoScanOnLaunch = true
     @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
+    @State private var launchAtLoginErrorMessage: String?
+    @State private var isApplyingLaunchAtLogin = false
 
     var body: some View {
         ScrollView {
@@ -52,6 +54,18 @@ struct GeneralSettingsSection: View {
                     }
                 }
 
+                // Help Section
+                SettingsSection("Help") {
+                    SettingsRow("Guided Tour", subtitle: "Walk through Forma's main features") {
+                        Button("Replay Tour") {
+                            UserDefaults.standard.set(false, forKey: "hasSeenGuidedTour")
+                            // Post notification so DashboardView can pick it up
+                            NotificationCenter.default.post(name: .replayGuidedTour, object: nil)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+
                 // Reset Button
                 Button("Reset All Settings") {
                     resetAllSettings()
@@ -64,15 +78,46 @@ struct GeneralSettingsSection: View {
         }
         .background(Color.clear)
         .frame(minWidth: 400)
+        .onAppear {
+            syncLaunchAtLoginStateFromSystem()
+        }
+        .onChange(of: launchAtLogin) { _, newValue in
+            applyLaunchAtLoginChange(enabled: newValue)
+        }
+        .alert(
+            "Couldn't Update Launch at Login",
+            isPresented: Binding(
+                get: { launchAtLoginErrorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        launchAtLoginErrorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                launchAtLoginErrorMessage = nil
+            }
+        } message: {
+            Text(launchAtLoginErrorMessage ?? "Unknown error")
+        }
     }
 
-    private func setLaunchAtLogin(enabled: Bool) {
+    private func syncLaunchAtLoginStateFromSystem() {
+        guard #available(macOS 13.0, *) else { return }
+        isApplyingLaunchAtLogin = true
+        launchAtLogin = SMAppService.mainApp.status == .enabled
+        isApplyingLaunchAtLogin = false
+    }
+
+    private func applyLaunchAtLoginChange(enabled: Bool) {
+        guard !isApplyingLaunchAtLogin else { return }
         // Use SMAppService for macOS 13+
         if #available(macOS 13.0, *) {
             let service = SMAppService.mainApp
             do {
                 if enabled {
-                    if service.status == .notRegistered {
+                    if service.status != .enabled {
                         try service.register()
                     }
                 } else {
@@ -82,6 +127,10 @@ struct GeneralSettingsSection: View {
                 }
             } catch {
                 Log.error("Failed to \(enabled ? "enable" : "disable") launch at login: \(error)", category: .ui)
+                isApplyingLaunchAtLogin = true
+                launchAtLogin = !enabled
+                isApplyingLaunchAtLogin = false
+                launchAtLoginErrorMessage = "macOS rejected the startup-item change. Check System Settings > General > Login Items and try again."
             }
         }
     }
@@ -91,6 +140,6 @@ struct GeneralSettingsSection: View {
         showNotifications = true
         autoScanOnLaunch = true
         appearanceMode = AppearanceMode.system.rawValue
-        setLaunchAtLogin(enabled: false)
+        applyLaunchAtLoginChange(enabled: false)
     }
 }

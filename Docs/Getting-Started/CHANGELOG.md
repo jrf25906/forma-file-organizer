@@ -120,10 +120,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Folder scans now use prefetched URL resource keys and parallelized standard-folder scan tasks to reduce filesystem syscall overhead.
 - Thumbnail loading now checks memory/disk caches before opening security scopes and skips redundant stale-metadata checks on disk-cache hits.
 - Duplicate detection now reuses compiled regexes, streams file hashing in chunks, and uses bucketed near-name matching to reduce memory and comparison cost.
+- Settings "Launch at Login" now syncs with macOS Login Items (`SMAppService`) and reports failures instead of failing silently.
+- Dashboard startup scans now respect the "Auto-scan on Launch" setting, including post-onboarding auto-scan behavior.
+- Menu bar Settings now uses the shared app settings opener instead of synthetic keyboard events.
 
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.
 - Reduced repeated rule-scan warnings for unresolvable placeholder destinations.
+- Shift-click range selection now works consistently across card/list/grid file views by using a shared selection anchor.
 
 ### Removed - Deprecated APIs
 - Removed legacy initializers for `FileItem` and `FileMetadata`.

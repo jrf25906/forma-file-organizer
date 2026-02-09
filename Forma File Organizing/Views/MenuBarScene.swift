@@ -8,6 +8,7 @@ struct MenuBarScene: Scene {
     var body: some Scene {
         MenuBarExtra {
             MenuBarView()
+                .environment(\.openSettings, SettingsOpener.open)
         } label: {
             MenuBarLabelView()
         }

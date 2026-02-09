@@ -287,6 +287,7 @@ class DashboardViewModel: ObservableObject {
         get { selectionViewModel.focusedFilePath }
         set { selectionViewModel.focusedFilePath = newValue }
     }
+    var rangeSelectionAnchorPath: String? { selectionViewModel.rangeSelectionAnchorPath }
 
     func toggleSelection(for file: FileItem) {
         selectionViewModel.toggleSelection(for: file)
