@@ -1,11 +1,11 @@
 "use client";
 
+import { useRef } from "react";
 import Image from "next/image";
 import MacWindowFrame from "@/components/ui/MacWindowFrame";
 import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
-import { RevealText } from "@/components/animation/RevealText";
-import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import { MagneticButton } from "@/components/animation/MagneticButton";
+import { gsap, useGSAP } from "@/lib/animation";
 
 function AppleLogo({ className = "" }: { className?: string }) {
   return (
@@ -37,47 +37,105 @@ function AppScreenshot() {
 }
 
 export default function HeroSection() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const headlineRef = useRef<HTMLHeadingElement>(null);
+  const subtitleRef = useRef<HTMLParagraphElement>(null);
+  const ctaRef = useRef<HTMLDivElement>(null);
+  const metaRef = useRef<HTMLParagraphElement>(null);
+
+  // Simple mount animation for above-fold content (no ScrollTrigger)
+  useGSAP(
+    () => {
+      if (!sectionRef.current) return;
+
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+      if (prefersReducedMotion) {
+        gsap.set([headlineRef.current, subtitleRef.current, ctaRef.current, metaRef.current], {
+          opacity: 1,
+          y: 0,
+        });
+        return;
+      }
+
+      // Staggered entrance on mount
+      const tl = gsap.timeline({ delay: 0.1 });
+
+      tl.fromTo(
+        headlineRef.current,
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }
+      )
+        .fromTo(
+          subtitleRef.current,
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" },
+          "-=0.4"
+        )
+        .fromTo(
+          ctaRef.current,
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" },
+          "-=0.3"
+        )
+        .fromTo(
+          metaRef.current,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.4, ease: "power2.out" },
+          "-=0.2"
+        );
+    },
+    { scope: sectionRef }
+  );
+
   return (
-    <section className="relative pt-16 pb-16 md:pt-20 md:pb-20">
+    <section ref={sectionRef} className="relative pt-16 pb-16 md:pt-20 md:pb-20">
 
       <div className="site-container relative">
         <div className="mx-auto max-w-[820px] text-center">
-          <h1 className="mx-auto max-w-[720px] font-display text-[2.75rem] leading-[1.08] tracking-[-0.025em] text-forma-obsidian text-balance sm:text-[3.5rem] lg:text-[4.25rem]">
-            <RevealText threshold={0.05}>
-              A file organizer for people who gave up on file organizers.
-            </RevealText>
+          <h1
+            ref={headlineRef}
+            className="mx-auto max-w-[720px] font-display text-[2.75rem] leading-[1.08] tracking-[-0.025em] text-forma-obsidian text-balance sm:text-[3.5rem] lg:text-[4.25rem] opacity-0"
+          >
+            A file organizer for people who gave up on file organizers.
           </h1>
 
-          <ScrollReveal delay={200} threshold={10}>
-            <p className="mx-auto mt-6 max-w-[580px] text-lg leading-relaxed text-forma-obsidian/60 md:text-[1.2rem]">
-              You make rules. Forma follows them. Preview what happens,
-              approve it, undo anything.
-            </p>
+          <p
+            ref={subtitleRef}
+            className="mx-auto mt-6 max-w-[580px] text-lg leading-relaxed text-forma-obsidian/60 md:text-[1.2rem] opacity-0"
+          >
+            You make rules. Forma follows them. Preview what happens,
+            approve it, undo anything.
+          </p>
 
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <MagneticButton strength={0.25}>
-                <a
-                  href={MAC_APP_STORE_URL}
-                  {...MAC_APP_STORE_LINK_PROPS}
-                  className="inline-flex items-center gap-2.5 rounded-xl bg-forma-obsidian px-8 py-3.5 text-[16px] font-semibold text-forma-bone shadow-lg shadow-black/10 transition-all duration-300 hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-xl hover:shadow-black/15 active:translate-y-0"
-                >
-                  <AppleLogo className="h-[15px] w-[12px]" />
-                  <span>Download for Mac</span>
-                </a>
-              </MagneticButton>
+          <div ref={ctaRef} className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row opacity-0">
+            <MagneticButton strength={0.25}>
+              <a
+                href={MAC_APP_STORE_URL}
+                {...MAC_APP_STORE_LINK_PROPS}
+                className="inline-flex items-center gap-2.5 rounded-xl bg-forma-obsidian px-8 py-3.5 text-[16px] font-semibold text-forma-bone shadow-lg shadow-black/10 transition-all duration-300 hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-xl hover:shadow-black/15 active:translate-y-0"
+              >
+                <AppleLogo className="h-[15px] w-[12px]" />
+                <span>Download for Mac</span>
+              </a>
+            </MagneticButton>
 
-              <MagneticButton strength={0.2}>
-                <a
-                  href="#features"
-                  className="inline-flex items-center gap-2 rounded-xl border border-black/[0.12] px-8 py-3.5 text-[16px] font-medium text-forma-obsidian/70 transition-colors hover:text-forma-obsidian hover:border-black/[0.22]"
-                >
-                  See how it works
-                </a>
-              </MagneticButton>
-            </div>
-          </ScrollReveal>
+            <MagneticButton strength={0.2}>
+              <a
+                href="#features"
+                className="inline-flex items-center gap-2 rounded-xl border border-black/[0.12] px-8 py-3.5 text-[16px] font-medium text-forma-obsidian/70 transition-colors hover:text-forma-obsidian hover:border-black/[0.22]"
+              >
+                See how it works
+              </a>
+            </MagneticButton>
+          </div>
 
-          <p className="mt-5 border-t border-black/[0.04] pt-3 text-[13px] text-forma-obsidian/50 inline-block">
+          <p
+            ref={metaRef}
+            className="mt-5 border-t border-black/[0.04] pt-3 text-[13px] text-forma-obsidian/50 inline-block opacity-0"
+          >
             $29 once. macOS 14+. No subscription.
           </p>
         </div>

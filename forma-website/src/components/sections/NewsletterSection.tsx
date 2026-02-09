@@ -35,17 +35,21 @@ export default function NewsletterSection() {
         return;
       }
 
-      gsap.from(cardRef.current, {
-        opacity: 0,
-        y: 40,
-        duration: formaDuration.normal,
-        ease: formaReveal,
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "top 80%",
-          toggleActions: "play none none reverse",
-        },
-      });
+      gsap.fromTo(
+        cardRef.current,
+        { opacity: 0, y: 40 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: formaDuration.normal,
+          ease: formaReveal,
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 85%",
+            toggleActions: "play none none none",
+          },
+        }
+      );
     },
     { scope: sectionRef }
   );

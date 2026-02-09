@@ -4,7 +4,6 @@ import { useRef, useState, useEffect } from "react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
 import { TiltCard } from "@/components/animation/TiltCard";
-import { RevealText } from "@/components/animation/RevealText";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA
@@ -126,7 +125,7 @@ export default function BeforeAfterSection() {
           ref={headlineRef}
           className="mb-12 text-center font-display text-3xl tracking-tight text-forma-bone md:mb-14 md:text-4xl lg:text-[2.75rem]"
         >
-          <RevealText>Sound familiar?</RevealText>
+          Sound familiar?
         </h2>
 
         <div className="relative mx-auto grid max-w-3xl grid-cols-1 gap-5 md:grid-cols-2">

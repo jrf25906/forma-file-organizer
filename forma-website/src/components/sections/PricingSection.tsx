@@ -6,7 +6,6 @@ import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaStagger, formaDuration } from "@/lib/animation";
 import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 import { MagneticButton } from "@/components/animation/MagneticButton";
-import { RevealText } from "@/components/animation/RevealText";
 
 const features = [
   {
@@ -139,7 +138,7 @@ export default function PricingSection() {
             ref={headlineRef}
             className="font-display text-6xl md:text-7xl lg:text-[5.5rem] tracking-tight gradient-text"
           >
-            <RevealText>$29. Once. Forever.</RevealText>
+            $29. Once. Forever.
           </h2>
 
           <p
