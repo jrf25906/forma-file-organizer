@@ -23,17 +23,17 @@ struct EmptyStateView: View {
 
             Text(title)
                 .formaH2Style()
-                .foregroundColor(Color.formaObsidian)
+                .foregroundColor(Color.formaLabel)
 
             Text(message)
                 .formaBodyStyle()
-                .foregroundColor(Color.formaObsidian.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light))
+                .foregroundColor(Color.formaSecondaryLabel)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, FormaSpacing.extraLarge)
 
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.formaBoneWhite)
+        .background(Color.formaBackground)
     }
 }

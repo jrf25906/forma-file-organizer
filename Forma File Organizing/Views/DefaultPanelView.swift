@@ -179,6 +179,48 @@ struct DefaultPanelView: View {
                         .foregroundStyle(currentTaskSubtextColor)
                 }
 
+                // Next actions
+                HStack(spacing: FormaSpacing.tight) {
+                    Button(action: {
+                        nav.select(.analytics)
+                    }) {
+                        HStack(spacing: FormaSpacing.micro) {
+                            Image(systemName: "chart.bar")
+                                .font(.formaSmallSemibold)
+                            Text("View Activity")
+                                .font(.formaSmallSemibold)
+                        }
+                        .foregroundStyle(Color.formaSteelBlue)
+                        .padding(.horizontal, FormaSpacing.standard)
+                        .padding(.vertical, FormaSpacing.tight)
+                        .background(
+                            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                                .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: {
+                        nav.select(.rules)
+                    }) {
+                        HStack(spacing: FormaSpacing.micro) {
+                            Image(systemName: "gearshape")
+                                .font(.formaSmallSemibold)
+                            Text("Manage Rules")
+                                .font(.formaSmallSemibold)
+                        }
+                        .foregroundStyle(Color.formaSecondaryLabel)
+                        .padding(.horizontal, FormaSpacing.standard)
+                        .padding(.vertical, FormaSpacing.tight)
+                        .background(
+                            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                                .fill(Color.formaLabel.opacity(Color.FormaOpacity.subtle))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, FormaSpacing.tight)
+
                 // Progress at 100%
                 progressSection
 

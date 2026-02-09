@@ -131,9 +131,9 @@ export default function FAQSection() {
 
   const handleToggle = useCallback(
     (index: number) => {
-      setOpenIndex(openIndex === index ? null : index);
+      setOpenIndex((prev) => (prev === index ? null : index));
     },
-    [openIndex]
+    []
   );
 
   useGSAP(
@@ -206,7 +206,7 @@ export default function FAQSection() {
             ref={headingRef}
             className="font-display text-3xl md:text-[2.25rem] text-forma-obsidian text-center mb-10"
           >
-            Questions
+            Common Questions
           </h2>
 
           {/* FAQ list */}

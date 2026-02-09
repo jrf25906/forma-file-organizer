@@ -90,8 +90,6 @@ export const TiltCard = forwardRef<HTMLDivElement, TiltCardProps>(
           // Only apply 3D perspective when tilt is enabled
           shouldEnableTilt && "[perspective:1000px]",
           shouldEnableTilt && "[transform-style:preserve-3d]",
-          // Performance hint only when animating
-          shouldEnableTilt && "will-change-transform",
           className
         )}
         {...props}

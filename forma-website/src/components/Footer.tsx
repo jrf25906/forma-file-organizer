@@ -1,18 +1,31 @@
-import Link from "next/link";
+"use client";
 
-function GridLogo() {
-  const opacities = [1, 1, 1, 0.7, 0.7, 0.7, 0.4, 0.4, 0.4];
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { GridLogo } from "@/components/icons";
+
+interface SmoothScrollLinkProps {
+  href: string;
+  className?: string;
+  children: ReactNode;
+}
+
+function SmoothScrollLink({ href, className, children }: SmoothScrollLinkProps) {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!href.startsWith("#")) return;
+
+    e.preventDefault();
+    const target = document.querySelector(href);
+    if (!target) return;
+
+    const y = target.getBoundingClientRect().top + window.scrollY - 100;
+    window.scrollTo({ top: y, behavior: "smooth" });
+  };
 
   return (
-    <div className="grid grid-cols-3 gap-[3px]">
-      {opacities.map((opacity, i) => (
-        <div
-          key={i}
-          className="forma-logo-dot h-[5px] w-[5px] rounded-full"
-          style={{ opacity }}
-        />
-      ))}
-    </div>
+    <a href={href} className={className} onClick={handleClick}>
+      {children}
+    </a>
   );
 }
 
@@ -37,7 +50,7 @@ export default function Footer() {
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_auto] md:items-start">
           {/* Left: Logo + founder story */}
           <div className="flex items-start gap-4">
-            <GridLogo />
+            <GridLogo size={5} gap={3} />
             <p className="max-w-sm text-sm leading-relaxed text-[rgba(250,250,248,0.65)]">
               Built by someone who got tired of seeing{" "}
               <span className="font-mono text-[rgba(250,250,248,0.6)]">
@@ -56,12 +69,12 @@ export default function Footer() {
               <ul className="space-y-2.5">
                 {productLinks.map(({ label, href }) => (
                   <li key={href}>
-                    <a
+                    <SmoothScrollLink
                       href={href}
                       className="text-sm text-[rgba(250,250,248,0.65)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
                     >
                       {label}
-                    </a>
+                    </SmoothScrollLink>
                   </li>
                 ))}
               </ul>

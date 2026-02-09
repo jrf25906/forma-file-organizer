@@ -6,22 +6,7 @@ import MacWindowFrame from "@/components/ui/MacWindowFrame";
 import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 import { MagneticButton } from "@/components/animation/MagneticButton";
 import { gsap, useGSAP } from "@/lib/animation";
-
-function AppleLogo({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="14"
-      height="17"
-      viewBox="0 0 14 17"
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path d="M13.3 13.16c-.31.71-.67 1.36-1.09 1.96-.57.81-1.04 1.37-1.4 1.68-.56.51-1.16.77-1.8.79-.46 0-1.02-.13-1.67-.4-.65-.26-1.25-.4-1.8-.4-.57 0-1.19.14-1.84.4-.66.27-1.19.41-1.59.43-.62.03-1.23-.24-1.84-.82-.39-.34-.88-.92-1.47-1.75C.27 14.3-.12 13.43-.12 12.5c0-1.06.23-1.97.69-2.73a4.02 4.02 0 0 1 3.37-2.02c.49 0 1.13.15 1.93.44.8.3 1.31.44 1.53.44.17 0 .73-.17 1.68-.51.9-.32 1.65-.45 2.27-.4 1.68.14 2.94.81 3.78 2.02-1.5.91-2.24 2.19-2.22 3.82.02 1.27.47 2.33 1.37 3.16.41.39.86.69 1.37.9-.11.32-.23.62-.35.93zM10.2.34c0 1-.36 1.93-1.09 2.8-.87 1.03-1.93 1.62-3.07 1.53a3.1 3.1 0 0 1-.02-.37c0-.96.42-1.98 1.16-2.82.37-.42.84-.77 1.42-1.06.57-.28 1.11-.43 1.62-.46.01.13.02.25.02.38h-.04z" />
-    </svg>
-  );
-}
+import { AppleLogo } from "@/components/icons";
 
 function AppScreenshot() {
   return (
@@ -31,6 +16,7 @@ function AppScreenshot() {
       width={1280}
       height={800}
       className="w-full h-auto"
+      sizes="(max-width: 768px) 100vw, 980px"
       priority
     />
   );

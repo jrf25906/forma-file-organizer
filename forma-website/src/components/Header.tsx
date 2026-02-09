@@ -4,38 +4,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
-
-interface GridLogoProps {
-  size?: number;
-  gap?: number;
-  className?: string;
-}
-
-function GridLogo({ size = 4.5, gap = 2.5, className }: GridLogoProps) {
-  const opacities = [1, 1, 1, 0.7, 0.7, 0.7, 0.4, 0.4, 0.4];
-
-  return (
-    <div
-      className={cn("grid grid-cols-3", className)}
-      style={{ gap: `${gap}px` }}
-      aria-hidden="true"
-    >
-      {opacities.map((opacity, i) => (
-        <span
-          key={i}
-          className="forma-logo-dot rounded-full"
-          style={{ width: `${size}px`, height: `${size}px`, opacity }}
-        />
-      ))}
-    </div>
-  );
-}
+import { GridLogo } from "@/components/icons";
 
 interface SmoothScrollLinkProps {
   href: string;
   className?: string;
   onClick?: () => void;
   children: ReactNode;
+  "aria-label"?: string;
 }
 
 function SmoothScrollLink({
@@ -43,6 +19,7 @@ function SmoothScrollLink({
   className,
   onClick,
   children,
+  "aria-label": ariaLabel,
 }: SmoothScrollLinkProps) {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!href.startsWith("#")) return;
@@ -57,16 +34,16 @@ function SmoothScrollLink({
   };
 
   return (
-    <a href={href} className={className} onClick={handleClick}>
+    <a href={href} className={className} onClick={handleClick} aria-label={ariaLabel}>
       {children}
     </a>
   );
 }
 
 const NAV_LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Features", href: "#features", ariaLabel: "Jump to features section" },
+  { label: "Pricing", href: "#pricing", ariaLabel: "Jump to pricing section" },
+  { label: "FAQ", href: "#faq", ariaLabel: "Jump to frequently asked questions" },
 ] as const;
 
 export function Header() {
@@ -113,6 +90,7 @@ export function Header() {
               <SmoothScrollLink
                 key={link.href}
                 href={link.href}
+                aria-label={link.ariaLabel}
                 className="rounded-full px-3.5 py-2 text-[13px] font-medium text-forma-obsidian/70 hover:text-forma-obsidian hover:bg-black/[0.04] transition-colors"
                 onClick={closeMobileMenu}
               >
@@ -126,7 +104,7 @@ export function Header() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="inline-flex md:hidden h-8 items-center rounded-full bg-forma-obsidian px-3.5 text-[11.5px] font-semibold text-forma-bone hover:bg-forma-obsidian/90 transition-all hover:-translate-y-px hover:shadow-md"
+              className="inline-flex md:hidden h-8 items-center rounded-xl bg-forma-obsidian px-3.5 text-[11.5px] font-semibold text-forma-bone hover:bg-forma-obsidian/90 transition-all hover:-translate-y-px hover:shadow-md"
             >
               Download
             </a>
@@ -135,7 +113,7 @@ export function Header() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="hidden md:inline-flex h-9 items-center rounded-full bg-forma-obsidian px-4 text-[12.5px] font-semibold text-forma-bone transition-all hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-md"
+              className="hidden md:inline-flex h-9 items-center rounded-xl bg-forma-obsidian px-4 text-[12.5px] font-semibold text-forma-bone transition-all hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-md"
             >
               Download for Mac
             </a>
@@ -179,6 +157,7 @@ export function Header() {
             <SmoothScrollLink
               key={link.href}
               href={link.href}
+              aria-label={link.ariaLabel}
               onClick={closeMobileMenu}
               className="rounded-xl px-3 py-2.5 text-[15px] font-medium text-forma-obsidian/85 hover:bg-black/[0.04]"
             >

@@ -108,7 +108,7 @@ export function SpotlightCursor({
     <div
       ref={spotlightRef}
       className={cn(
-        "fixed top-0 left-0 z-[9999]",
+        "fixed top-0 left-0 z-[50]",
         "rounded-full",
         "bg-forma-steel-blue/20",
         "blur-[12px]",

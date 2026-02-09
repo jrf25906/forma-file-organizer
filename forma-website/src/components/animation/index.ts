@@ -8,15 +8,10 @@
  * the Forma brand motion guidelines.
  */
 
-// Scroll and text reveal animations
+// Scroll reveal animations
 export { ScrollReveal } from "./ScrollReveal";
-export { RevealText } from "./RevealText";
 
 // Microinteraction wrappers
 export { MagneticButton } from "./MagneticButton";
 export { TiltCard } from "./TiltCard";
 export { HoverScale } from "./HoverScale";
-
-// Lottie animations
-export { LottieAnimation } from "./LottieAnimation";
-export type { LottieAnimationProps } from "./LottieAnimation";

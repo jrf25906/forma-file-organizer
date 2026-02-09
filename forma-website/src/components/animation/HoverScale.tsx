@@ -67,6 +67,9 @@ export const HoverScale = forwardRef<HTMLDivElement, HoverScaleProps>(
       const element = containerRef.current;
       if (!element || !enabled) return;
 
+      // Promote to compositor layer only during interaction
+      element.style.willChange = "transform";
+
       // Kill any ongoing animation before starting new one
       if (tweenRef.current) {
         tweenRef.current.kill();
@@ -90,12 +93,17 @@ export const HoverScale = forwardRef<HTMLDivElement, HoverScaleProps>(
         tweenRef.current.kill();
       }
 
-      // Return to normal with smooth easing
+      // Return to normal with smooth easing, then remove compositor hint
       tweenRef.current = gsap.to(element, {
         scale: 1,
         duration: duration,
         ease: formaReveal,
         overwrite: "auto",
+        onComplete: () => {
+          if (element) {
+            element.style.willChange = "auto";
+          }
+        },
       });
     }, [duration, enabled]);
 
@@ -131,7 +139,6 @@ export const HoverScale = forwardRef<HTMLDivElement, HoverScaleProps>(
         ref={combinedRef}
         className={cn(
           "inline-block",
-          "will-change-transform",
           className
         )}
         {...props}

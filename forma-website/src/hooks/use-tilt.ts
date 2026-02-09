@@ -160,7 +160,7 @@ export function useTilt<T extends HTMLElement = HTMLDivElement>(
       animationRef.current.kill();
     }
 
-    // Smoothly return to flat with reveal easing
+    // Smoothly return to flat with reveal easing, then remove compositor hint
     animationRef.current = gsap.to(element, {
       rotateX: 0,
       rotateY: 0,
@@ -168,6 +168,11 @@ export function useTilt<T extends HTMLElement = HTMLDivElement>(
       duration: duration,
       ease: formaReveal,
       overwrite: "auto",
+      onComplete: () => {
+        if (element) {
+          element.style.willChange = "auto";
+        }
+      },
     });
 
     // Fade out glare
@@ -184,6 +189,9 @@ export function useTilt<T extends HTMLElement = HTMLDivElement>(
   const handleMouseEnter = useCallback(() => {
     const element = ref.current;
     if (!element || !enabled) return;
+
+    // Promote to compositor layer only during interaction
+    element.style.willChange = "transform";
 
     // Set initial transform style for 3D effect
     gsap.set(element, {

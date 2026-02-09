@@ -57,6 +57,31 @@ struct JITPermissionCard: View {
                         .font(.formaSmall)
                         .foregroundColor(.formaTertiaryLabel)
                 }
+
+                // Recovery guidance for users who previously denied access
+                VStack(spacing: FormaSpacing.micro) {
+                    Text("If you previously denied access, you can grant it in")
+                        .font(.formaCaption)
+                        .foregroundColor(.formaQuaternaryLabel)
+                    Button(action: {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: FormaSpacing.micro) {
+                            Text("System Settings")
+                                .font(.formaCaptionSemibold)
+                            Image(systemName: "arrow.up.forward")
+                                .font(.system(size: 8, weight: .semibold))
+                        }
+                        .foregroundColor(.formaSteelBlue)
+                    }
+                    .buttonStyle(.plain)
+                    Text("Privacy & Security \u{2192} Files and Folders")
+                        .font(.formaCaption)
+                        .foregroundColor(.formaQuaternaryLabel)
+                }
+                .padding(.top, FormaSpacing.tight)
             }
 
             Spacer()
