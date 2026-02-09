@@ -169,11 +169,11 @@ export default function PricingSection() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="dark-button inline-flex items-center gap-4 rounded-2xl py-4 px-8 transition-all duration-300 hover:-translate-y-px hover:shadow-xl active:translate-y-0 border shadow-lg"
+              className="dark-button inline-flex items-center gap-3.5 rounded-2xl py-4 px-8 transition-all duration-300 hover:-translate-y-px hover:shadow-xl active:translate-y-0 border shadow-lg"
             >
-              <AppleLogo className="w-6 h-6 flex-shrink-0" />
+              <AppleLogo className="w-7 h-7 flex-shrink-0" />
               <div className="flex flex-col items-start leading-tight">
-                <span className="text-[10px] font-body text-white/60 tracking-wide uppercase">
+                <span className="text-[10px] font-body opacity-60 tracking-wide uppercase">
                   Download on the
                 </span>
                 <span className="text-lg font-display -mt-0.5">
