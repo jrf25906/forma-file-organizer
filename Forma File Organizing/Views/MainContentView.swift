@@ -102,9 +102,6 @@ struct MainContentView: View {
     var body: some View {
         ZStack(alignment: .bottom) { // Use ZStack as root for overlay alignment
             VStack(alignment: .leading, spacing: 0) {
-            // Align toolbar to sidebar's visual top (traffic lights clearance)
-            Color.clear.frame(height: FormaSpacing.Toolbar.topOffset)
-
             ZStack(alignment: .top) {
                 // Content
                 Group {

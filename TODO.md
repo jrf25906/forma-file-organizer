@@ -38,6 +38,10 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] Implement Shift-click range selection behavior for card/list/grid file selection flows.
 - [x] Add regression tests for range-selection anchor updates and deselect reset behavior.
 
+### macOS Chrome Architecture Sprint (February 9, 2026)
+- [x] Replace custom overlay shell in `DashboardView` with `NavigationSplitView` (sidebar/content/inspector columns).
+- [x] Remove custom traffic-light/titlebar geometry assumptions from main app window configuration.
+
 ### Phase 1: Safety Fixes (zero behavioral change, prevents crashes)
 - [x] 1. MenuBarViewModel.swift:185 — replace `self!` in [weak self] closure with `guard let self else { return }` (fallback: early return).
 - [x] 2. ContextDetectionService.swift:336 — guard `dates.max()`/`dates.min()`; if empty, skip cluster.

@@ -237,15 +237,12 @@ struct Forma_File_OrganizingApp: App {
         .commands {
             SidebarCommands()
         }
-        .windowToolbarStyle(.unified(showsTitle: false))
+        .windowToolbarStyle(.unified)
     }
 
     private var dashboardRootView: some View {
         DashboardView()
             .frame(minWidth: 1200, minHeight: 800)
-            // .background(.regularMaterial) removed to allow custom PrimaryBackgroundView to control background
-            .background(Color.clear)
-            .configureForFullHeightSidebar()  // Xcode/ChatGPT-style window configuration
             .environment(\.openSettings, SettingsOpener.open)
             .environmentObject(services)
             .environmentObject(dashboardViewModel)

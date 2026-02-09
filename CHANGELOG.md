@@ -64,6 +64,8 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Settings "Launch at Login" now syncs with macOS Login Items (`SMAppService`) and reports failures instead of failing silently.
 - Dashboard startup scans now respect the "Auto-scan on Launch" setting, including post-onboarding auto-scan behavior.
 - Menu bar Settings now uses the shared app settings opener instead of synthetic keyboard events.
+- Dashboard window chrome now uses native `NavigationSplitView` columns (sidebar/content/inspector) instead of floating overlay panes.
+- Main app window chrome now relies on standard macOS titlebar/traffic-light geometry rather than custom repositioning.
 
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.

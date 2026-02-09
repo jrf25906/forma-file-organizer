@@ -5,13 +5,13 @@ struct DashboardView: View {
     @StateObject private var nav = NavigationViewModel()
     @EnvironmentObject private var dashboardViewModel: DashboardViewModel
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
     @AppStorage("autoScanOnLaunch") private var autoScanOnLaunch = true
     @State private var scanTask: Task<Void, Never>?
     @State private var shouldFocusSearch = false
     @State private var showKeyboardHelp = false
     @State private var tourState = GuidedTourState()
+    @State private var splitViewVisibility: NavigationSplitViewVisibility = .all
 
     // MARK: - Extracted Views (helps compiler type-checking)
 
@@ -74,114 +74,95 @@ struct DashboardView: View {
         shouldFocusSearch = true
     }
 
+    private var showsInspectorColumn: Bool {
+        dashboardViewModel.isRightPanelVisible && nav.selection != .analytics
+    }
+
+    @ViewBuilder
+    private func centerContent(availableWidth: CGFloat) -> some View {
+        if nav.selection == .rules {
+            RulesManagementView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if nav.selection == .analytics {
+            ProductivityReportView(
+                modelContext: modelContext,
+                navigation: nav,
+                dashboardViewModel: dashboardViewModel
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            MainContentView(
+                selection: nav.selection,
+                searchText: nav.searchText,
+                activeChips: nav.activeChips,
+                availableWidth: availableWidth,
+                showKeyboardHelp: $showKeyboardHelp
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func updateSplitViewVisibility() {
+        splitViewVisibility = showsInspectorColumn ? .all : .doubleColumn
+    }
+
     // MARK: - Body
 
     var body: some View {
         NavigationStack(path: $nav.path) {
             ToastHost(viewModel: dashboardViewModel) {
-                GeometryReader { geometry in
-                    let sidebarWidth: CGFloat = FormaLayout.Dashboard.sidebarExpandedWidth
-                    let rightPanelWidth: CGFloat = dashboardViewModel.isRightPanelVisible ? FormaLayout.Dashboard.rightPanelIdealWidth : 0
-                    let shouldShowRightPanel = geometry.size.width >= 1200 &&
-                        dashboardViewModel.isRightPanelVisible &&
-                        nav.selection != .analytics
-                    let interPaneSpacing = FormaLayout.Dashboard.interPaneSpacing
-                    let sidebarSpacerWidth = max(0, sidebarWidth - interPaneSpacing)
-                    let sidebarEdgeInset = FormaLayout.FloatingCard.edgeInset
-                    let rightPanelEdgeInset = FormaLayout.RightPanel.edgeInset
-                    // Right panel overlay handles its own padding; no extra inset needed here
-                    let availableWidth = geometry.size.width - sidebarWidth - (shouldShowRightPanel ? rightPanelWidth : 0) - (shouldShowRightPanel ? interPaneSpacing : 0)
-
-                    // ZStack layout with sidebar and right panel overlays (Xcode/ChatGPT-style)
-                    ZStack(alignment: .topLeading) {
-                        // Background layer - focus-aware glass/gradient
-                        PrimaryBackgroundView()
-
-                        // Main content layer
-                        HStack(alignment: .top, spacing: interPaneSpacing) {
-                            // Spacer for sidebar area
-                            Color.clear
-                                .frame(width: sidebarSpacerWidth)
-
-                            // Main Content
-                            if nav.selection == .rules {
-                                RulesManagementView()
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            } else if nav.selection == .analytics {
-                                ProductivityReportView(
-                                    modelContext: modelContext,
-                                    navigation: nav,
-                                    dashboardViewModel: dashboardViewModel
-                                )
-                                    .frame(minWidth: availableWidth, idealWidth: availableWidth, maxWidth: availableWidth, maxHeight: .infinity)
-                            } else {
-                                MainContentView(
-                                    selection: nav.selection,
-                                    searchText: nav.searchText,
-                                    activeChips: nav.activeChips,
-                                    availableWidth: availableWidth,
-                                    showKeyboardHelp: $showKeyboardHelp
-                                )
-                                .frame(minWidth: availableWidth, idealWidth: availableWidth, maxWidth: availableWidth, maxHeight: .infinity)
-                            }
-
-                            // Spacer for right panel area (when visible)
-                            if shouldShowRightPanel {
-                                Color.clear
-                                    .frame(width: rightPanelWidth)
-                            }
-                        }
-                        .opacity(nav.isShowingRuleEditor ? 0.5 : 1.0)
-                        .disabled(nav.isShowingRuleEditor || tourState.isActive)
-
-                        // Sidebar overlay - full-height navigator (Xcode-style)
+                ZStack {
+                    NavigationSplitView(columnVisibility: $splitViewVisibility) {
                         SidebarView(
                             shouldFocusSearch: $shouldFocusSearch,
                             showKeyboardHelp: $showKeyboardHelp
                         )
-                        .frame(
-                            width: max(0, sidebarWidth - (sidebarEdgeInset * 2)),
-                            height: max(0, geometry.size.height - (sidebarEdgeInset * 2)),
-                            alignment: .topLeading
-                        )
-                        .padding(.horizontal, sidebarEdgeInset)
-                        .padding(.vertical, sidebarEdgeInset)
-
-                        // Right Panel overlay - floating panel (matches sidebar style)
-                        if shouldShowRightPanel {
-                            HStack(spacing: 0) {
-                                Spacer()
-                                RightPanelView()
-                                    .frame(
-                                        width: max(0, rightPanelWidth - (rightPanelEdgeInset * 2)),
-                                        height: max(0, geometry.size.height - (rightPanelEdgeInset * 2))
-                                    )
-                            }
-                            .padding(rightPanelEdgeInset)
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+                    } content: {
+                        GeometryReader { proxy in
+                            centerContent(availableWidth: proxy.size.width)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         }
-
-
+                        .navigationSplitViewColumnWidth(min: 680, ideal: 960)
+                    } detail: {
+                        Group {
+                            if showsInspectorColumn {
+                                RightPanelView()
+                            } else {
+                                EmptyView()
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 420)
                     }
+                    .navigationSplitViewStyle(.balanced)
+                    .onAppear {
+                        updateSplitViewVisibility()
+                    }
+                    .onChange(of: dashboardViewModel.isRightPanelVisible) { _, _ in
+                        updateSplitViewVisibility()
+                    }
+                    .onChange(of: nav.selection) { _, _ in
+                        updateSplitViewVisibility()
+                    }
+                    .disabled(nav.isShowingRuleEditor || tourState.isActive)
+
+                    // Rule Editor Overlay - Centered Modal
+                    ruleEditorOverlay
+
+                    // Guided Tour Overlay
+                    GuidedTourOverlay(tourState: tourState)
                 }
-
-                // Rule Editor Overlay - Centered Modal
-                ruleEditorOverlay
-
-                // Guided Tour Overlay
-                GuidedTourOverlay(tourState: tourState)
             }
             .onPreferenceChange(GuidedTourRegionPreferenceKey.self) { frames in
                 for regionFrame in frames {
                     tourState.regionFrames[regionFrame.region] = regionFrame.frame
                 }
             }
-            // .background(.thickMaterial) removed to allow window transparency
-            .background(Color.clear) // Ensure SwiftUI root view is clear so NSWindow background shows through
+            .background(Color.formaBackground)
             .frame(minWidth: 1200, idealWidth: 1400, minHeight: 600)
             .navigationTitle("Forma: File Management")
-            .toolbarBackground(.hidden, for: .windowToolbar)
-            .ignoresSafeArea()
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .category(let cat):
@@ -196,7 +177,6 @@ struct DashboardView: View {
                 searchShortcutBridge
             }
         }
-        .ignoresSafeArea() // Ensure the NavigationStack itself allows content to bleed into window chrome
         .environmentObject(nav)
         .preferredColorScheme(AppearanceMode(rawValue: appearanceMode)?.colorScheme)
         .task {
@@ -253,6 +233,7 @@ struct DashboardView: View {
             } else if case .analytics = dashboardViewModel.rightPanelMode {
                 dashboardViewModel.rightPanelMode = .default
             }
+            updateSplitViewVisibility()
         }
     }
 }
