@@ -14,13 +14,22 @@ class OnboardingState {
 
     enum OnboardingStep: Int, CaseIterable {
         case welcome = 0
-        case done = 1
+        case howItWorks = 1
+        case getStarted = 2
+        case done = 3
 
         var title: String {
             switch self {
             case .welcome: return "Welcome"
+            case .howItWorks: return "How It Works"
+            case .getStarted: return "Get Started"
             case .done: return "Done"
             }
+        }
+
+        /// Steps shown in the onboarding UI (excludes .done)
+        static var visibleSteps: [OnboardingStep] {
+            [.welcome, .howItWorks, .getStarted]
         }
     }
 

@@ -270,6 +270,7 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
             openPanel.canChooseDirectories = true
             openPanel.allowsMultipleSelection = false
             openPanel.canCreateDirectories = false
+            openPanel.level = .modalPanel
 
             // Pre-select the target folder
             let folderURL = FileManager.default.homeDirectoryForCurrentUser

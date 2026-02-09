@@ -7,7 +7,7 @@ import AppKit
 /// No animation delays — content is immediately visible and actionable.
 /// Respects reduceMotion by skipping entrance animations entirely.
 struct WelcomeStepView: View {
-    let onStartOrganizing: () -> Void
+    let onContinue: () -> Void
     let onSkip: () -> Void
 
     @State private var fileCount: Int?
@@ -74,9 +74,9 @@ struct WelcomeStepView: View {
             // CTA section
             VStack(spacing: FormaSpacing.standard) {
                 // Primary CTA
-                Button(action: onStartOrganizing) {
+                Button(action: onContinue) {
                     HStack(spacing: 10) {
-                        Text("Start Organizing")
+                        Text("Continue")
                             .font(.formaBodyLarge)
                             .fontWeight(.semibold)
                         Image(systemName: "arrow.right")
@@ -178,9 +178,9 @@ struct WelcomeStepView: View {
 
 #Preview("Welcome Step") {
     WelcomeStepView(
-        onStartOrganizing: {},
+        onContinue: {},
         onSkip: {}
     )
-    .frame(width: 520, height: 480)
+    .frame(width: 520, height: 520)
     .background(Color.formaBackground)
 }

@@ -36,17 +36,20 @@ struct SidebarView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: FormaSpacing.micro) {
                     // Locations - all 5 standard folders, lock icon if no access
-                    sectionHeader("LOCATIONS")
+                    VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                        sectionHeader("LOCATIONS")
 
-                    ForEach(BookmarkFolder.FolderType.allCases, id: \.self) { folderType in
-                        let hasAccess = folderService.hasAccess(to: folderType)
-                        let folder = BookmarkFolder(folderType: folderType)
-                        if hasAccess {
-                            bookmarkFolderItem(folder)
-                        } else {
-                            lockedFolderItem(folder)
+                        ForEach(BookmarkFolder.FolderType.allCases, id: \.self) { folderType in
+                            let hasAccess = folderService.hasAccess(to: folderType)
+                            let folder = BookmarkFolder(folderType: folderType)
+                            if hasAccess {
+                                bookmarkFolderItem(folder)
+                            } else {
+                                lockedFolderItem(folder)
+                            }
                         }
                     }
+                    .guidedTourRegion(.sidebarLocations)
 
 
 
@@ -76,6 +79,7 @@ struct SidebarView: View {
                     dashboardViewModel.showRuleBuilderPanel()
                 }
                 .help("Create a new organization rule (R)")
+                .guidedTourRegion(.newRuleButton)
 
                 SidebarActionRow(title: "Add Folder", icon: "folder.badge.plus") {
                     addNewLocation()
@@ -254,6 +258,7 @@ struct SidebarView: View {
             panel.allowsMultipleSelection = false
             panel.message = "Choose a folder to organize"
             panel.prompt = "Grant Access"
+            panel.level = .modalPanel
 
             let response = await panel.begin()
             guard response == .OK, let url = panel.url else {
