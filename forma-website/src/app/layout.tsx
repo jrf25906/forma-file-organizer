@@ -4,7 +4,6 @@ import "./globals.css";
 import clsx from "clsx";
 import { Header } from "@/components/Header";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { SmoothScroll } from "@/components/SmoothScroll";
 
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
@@ -120,7 +119,6 @@ export default function RootLayout({
         )}
       >
         <ThemeProvider defaultTheme="dark">
-          <SmoothScroll>
             <a
               href="#main-content"
               className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-forma-obsidian focus:text-forma-bone focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-forma-steel-blue"
@@ -136,7 +134,6 @@ export default function RootLayout({
             <div id="main-content" tabIndex={-1} className="outline-none">
               {children}
             </div>
-          </SmoothScroll>
         </ThemeProvider>
       </body>
     </html>

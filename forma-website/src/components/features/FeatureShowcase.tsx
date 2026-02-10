@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { useScrollSceneProgress } from "@/components/animation/ScrollScene";
 import { gsap } from "@/lib/animation/gsap-config";
 import { formaReveal, formaDuration } from "@/lib/animation/ease-curves";
+import MacWindowFrame from "@/components/ui/MacWindowFrame";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -189,7 +190,7 @@ export function FeatureShowcase({ features }: FeatureShowcaseProps) {
               type="button"
               tabIndex={-1}
               aria-label={f.title}
-              className="h-2 w-2 rounded-full bg-forma-obsidian/50 transition-colors"
+              className="h-2 w-2 rounded-full bg-white/50 transition-colors"
               style={{
                 opacity: i === 0 ? 1 : 0.35,
                 transform: i === 0 ? "scale(1.5)" : "scale(1)",
@@ -259,10 +260,10 @@ function FeatureTextBlock({ feature }: { feature: ShowcaseFeature }) {
       <div className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${feature.accentBg}`}>
         <Icon className={`h-5 w-5 ${feature.accentText}`} />
       </div>
-      <h3 className="font-display text-2xl tracking-tight text-forma-obsidian lg:text-3xl">
+      <h3 className="font-display text-2xl tracking-tight text-[var(--text-primary)] lg:text-3xl">
         {feature.title}
       </h3>
-      <p className="text-[15px] leading-relaxed text-forma-obsidian/60 lg:text-base">
+      <p className="text-[15px] leading-relaxed text-[var(--text-secondary)] lg:text-base">
         {feature.description}
       </p>
     </div>
@@ -286,18 +287,9 @@ function FeatureDemoContent({
 
 function DemoFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-[#eef1f5] shadow-lg">
-      {/* Faux window chrome */}
-      <div className="flex items-center gap-1.5 border-b border-black/[0.06] bg-white/60 px-4 py-2.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-black/10" />
-        <span className="h-2.5 w-2.5 rounded-full bg-black/10" />
-        <span className="h-2.5 w-2.5 rounded-full bg-black/10" />
-        <span className="ml-3 text-[10px] font-medium uppercase tracking-wide text-forma-obsidian/40">
-          Preview
-        </span>
-      </div>
+    <MacWindowFrame title="Forma">
       <div className="p-5 lg:p-6">{children}</div>
-    </div>
+    </MacWindowFrame>
   );
 }
 

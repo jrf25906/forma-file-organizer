@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
-import { GridLogo } from "@/components/icons";
-import { SoundToggle } from "@/components/ui/SoundToggle";
 
 interface SmoothScrollLinkProps {
   href: string;
@@ -71,13 +70,19 @@ export function Header() {
             : "bg-[#0A0A0B]/80 backdrop-blur-lg border-white/[0.05]"
         )}
       >
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="site-container flex h-16 items-center justify-between">
           <SmoothScrollLink
             href="#top"
             className="flex items-center gap-2.5 rounded-full px-2.5 py-1.5 text-[var(--text-primary)] hover:bg-white/[0.04] transition-colors"
             onClick={closeMobileMenu}
           >
-            <GridLogo />
+            <Image
+              src="/app-icon-1024.png"
+              alt=""
+              width={28}
+              height={28}
+              className="rounded-md"
+            />
             <span className="font-display text-[17px] leading-none tracking-tight">
               Forma
             </span>
@@ -101,8 +106,6 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <SoundToggle />
-
             {/* Mobile compact CTA -- visible only below md */}
             <a
               href={MAC_APP_STORE_URL}

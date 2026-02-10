@@ -5,8 +5,6 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
-import { MagneticButton } from "@/components/animation/MagneticButton";
-import { ParallaxLayer } from "@/components/animation/ParallaxLayer";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -90,18 +88,11 @@ export default function NewsletterSection() {
       className="py-16 md:py-20"
     >
       <div className="site-container">
-        {/* Glow halo behind the dark card - wrapped in parallax for depth */}
-        <div className="relative mx-auto max-w-2xl">
-          <ParallaxLayer speed={-0.3} className="absolute -inset-8">
-            <div
-              className="w-full h-full rounded-3xl bg-[radial-gradient(ellipse_at_center,rgba(91,124,153,0.15)_0%,rgba(122,157,126,0.08)_40%,transparent_70%)] blur-2xl pointer-events-none"
-              aria-hidden="true"
-            />
-          </ParallaxLayer>
-
+        <div className="mx-auto max-w-2xl">
           <div
             ref={cardRef}
-            className="relative rounded-2xl bg-[var(--bg-tertiary)] px-8 py-10 md:px-12 md:py-12 text-center"
+            className="bg-[var(--bg-secondary)] border border-white/[0.06] rounded-2xl p-8 md:px-12 md:py-12 text-center"
+            style={{ opacity: 0 }}
           >
             <h2 className="font-display text-2xl md:text-3xl text-forma-bone">
               Stay in the loop
@@ -137,22 +128,20 @@ export default function NewsletterSection() {
                       className={`w-full rounded-lg bg-white/10 border px-3.5 py-2.5 text-[14px] text-forma-bone placeholder:text-forma-bone/30 focus:outline-none focus:border-forma-steel-blue/50 focus:ring-1 focus:ring-forma-steel-blue/30 transition-all disabled:opacity-50 ${formState === "error" ? "border-red-400" : "border-white/15"}`}
                     />
                   </div>
-                  <MagneticButton strength={0.2}>
-                    <button
-                      type="submit"
-                      disabled={formState === "loading"}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-forma-bone text-forma-obsidian border border-forma-bone/20 px-5 py-2.5 text-[14px] font-medium transition-all duration-200 hover:bg-forma-bone/90 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
-                    >
-                      {formState === "loading" ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Subscribing</span>
-                        </>
-                      ) : (
-                        <span>Subscribe</span>
-                      )}
-                    </button>
-                  </MagneticButton>
+                  <button
+                    type="submit"
+                    disabled={formState === "loading"}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-forma-bone text-forma-obsidian border border-forma-bone/20 px-5 py-2.5 text-[14px] font-medium transition-all duration-200 hover:bg-forma-bone/90 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+                  >
+                    {formState === "loading" ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Subscribing</span>
+                      </>
+                    ) : (
+                      <span>Subscribe</span>
+                    )}
+                  </button>
                 </form>
               )}
 

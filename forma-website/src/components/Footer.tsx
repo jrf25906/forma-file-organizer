@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import type { ReactNode } from "react";
-import { GridLogo } from "@/components/icons";
 
 interface SmoothScrollLinkProps {
   href: string;
@@ -46,11 +46,17 @@ export default function Footer() {
 
   return (
     <footer className="bg-[#050506] border-t border-white/[0.06]" role="contentinfo">
-      <div className="mx-auto max-w-6xl px-6 py-10 md:px-8 md:py-12">
+      <div className="site-container py-10 md:py-12">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_auto] md:items-start">
           {/* Left: Logo + founder story */}
           <div className="flex items-start gap-4">
-            <GridLogo size={5} gap={3} />
+            <Image
+              src="/app-icon-1024.png"
+              alt=""
+              width={32}
+              height={32}
+              className="rounded-md flex-shrink-0"
+            />
             <p className="max-w-sm text-sm leading-relaxed text-[rgba(250,250,248,0.65)]">
               Built by someone who got tired of seeing{" "}
               <span className="font-mono text-[rgba(250,250,248,0.6)]">

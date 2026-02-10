@@ -44,13 +44,20 @@ export function TextReveal({
       ));
     }
 
-    return children.split(" ").map((word, i) => (
-      <span key={i} className="inline-block overflow-hidden mr-[0.25em]">
-        <span className="inline-block" data-reveal-element>
-          {word}
-        </span>
-      </span>
-    ));
+    const words = children.split(" ");
+    return words.flatMap((word, i) => {
+      const els = [
+        <span key={`w${i}`} className="inline-block overflow-hidden">
+          <span className="inline-block" data-reveal-element>
+            {word}
+          </span>
+        </span>,
+      ];
+      if (i < words.length - 1) {
+        els.push(<span key={`s${i}`} className="inline"> </span>);
+      }
+      return els;
+    });
   }, [children, type]);
 
   useGSAP(

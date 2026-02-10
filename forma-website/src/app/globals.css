@@ -29,11 +29,6 @@
   --spacing-section-lg: 8rem;
 
   /* Animations */
-  --animate-float: float 6s ease-in-out infinite;
-  --animate-float-slow: float 8s ease-in-out infinite;
-  --animate-float-slower: float 10s ease-in-out infinite;
-  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-gradient-shift: gradient-shift 15s ease infinite;
   --animate-fade-in: fade-in 0.6s ease-out forwards;
   --animate-fade-in-up: fade-in-up 0.8s ease-out forwards;
   --animate-slide-up: slide-up 0.6s ease-out forwards;
@@ -43,14 +38,6 @@
   --animate-blink: blink 1s step-end infinite;
   --animate-forma-settle: forma-settle 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-20px); }
-  }
-  @keyframes gradient-shift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-  }
   @keyframes fade-in {
     0% { opacity: 0; }
     100% { opacity: 1; }
@@ -83,18 +70,6 @@
     0% { opacity: 0; transform: translateY(12px) scale(0.98); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
   }
-  @keyframes chaos-drift {
-    0%, 100% { transform: translate(0, 0) rotate(var(--chaos-rotate, 0deg)); }
-    25% { transform: translate(3px, -2px) rotate(calc(var(--chaos-rotate, 0deg) + 2deg)); }
-    50% { transform: translate(-2px, 3px) rotate(calc(var(--chaos-rotate, 0deg) - 1deg)); }
-    75% { transform: translate(2px, 1px) rotate(calc(var(--chaos-rotate, 0deg) + 1deg)); }
-  }
-  @keyframes file-chaos-drift {
-    0%, 100% { translate: 0 0; rotate: 0deg; }
-    25% { translate: calc(var(--chaos-dx, 3px) * var(--drift-intensity, 1)) calc(var(--chaos-dy, -2px) * var(--drift-intensity, 1)); rotate: calc(var(--chaos-dr, 1deg) * var(--drift-intensity, 1)); }
-    50% { translate: calc(var(--chaos-dx, 3px) * var(--drift-intensity, 1) * -0.7) calc(var(--chaos-dy, -2px) * var(--drift-intensity, 1) * -1); rotate: calc(var(--chaos-dr, 1deg) * var(--drift-intensity, 1) * -0.5); }
-    75% { translate: calc(var(--chaos-dx, 3px) * var(--drift-intensity, 1) * 0.5) calc(var(--chaos-dy, -2px) * var(--drift-intensity, 1) * 0.6); rotate: calc(var(--chaos-dr, 1deg) * var(--drift-intensity, 1) * 0.3); }
-  }
   @keyframes settle-in {
     0% { opacity: 0; transform: translateY(10px) scale(0.95); }
     60% { opacity: 1; transform: translateY(-2px) scale(1.02); }
@@ -103,26 +78,6 @@
   @keyframes text-reveal {
     0% { opacity: 0; transform: translateY(20px); filter: blur(10px); }
     100% { opacity: 1; transform: translateY(0); filter: blur(0); }
-  }
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
-  @keyframes bounce-subtle {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
-  }
-  @keyframes spin-slow {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  @keyframes scale-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-  }
-  @keyframes pulse-glow {
-    0%, 100% { opacity: 0.4; box-shadow: 0 0 20px rgba(91, 124, 153, 0.3); }
-    50% { opacity: 0.7; box-shadow: 0 0 40px rgba(91, 124, 153, 0.5); }
   }
 }
 
@@ -147,13 +102,6 @@
   --text-primary: #F0F0F2;
   --text-secondary: rgba(240, 240, 242, 0.7);
   --text-muted: rgba(240, 240, 242, 0.45);
-  --glass-bg: rgba(255, 255, 255, 0.04);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-shadow: rgba(0, 0, 0, 0.4);
-  --glass-white: rgba(255, 255, 255, 0.03);
-  --glass-white-strong: rgba(255, 255, 255, 0.05);
-  --glass-border-color: rgba(255, 255, 255, 0.08);
-
   --focus-ring: 0 0 0 2px #0A0A0B, 0 0 0 4px #6B9BC2;
 }
 
@@ -179,14 +127,7 @@
 
 /* Dark mode is the only mode — all values defined directly in :root above */
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
 html {
-  /* scroll-behavior handled by Lenis */
   overflow-x: hidden;
 }
 
@@ -198,8 +139,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-/* Noise overlay removed — AuroraBackground provides its own scoped noise texture */
 
 /* Design-forward global polish */
 h1, h2, h3, h4, h5, h6 {
@@ -231,21 +170,8 @@ input, textarea { background-color: rgba(255, 255, 255, 0.06); border-color: rgb
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @layer components {
-  .glass-card {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  }
-  .glass-card-strong {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  }
   .gradient-text {
-    background: linear-gradient(135deg, #F0F0F2 0%, var(--forma-steel-blue) 50%, var(--forma-sage) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    color: var(--text-primary);
   }
   .btn-primary {
     @apply px-6 py-3 rounded-xl font-medium transition-all duration-300;
@@ -264,24 +190,10 @@ input, textarea { background-color: rgba(255, 255, 255, 0.06); border-color: rgb
 
 .gradient-bg {
   background:
-    radial-gradient(ellipse 80% 50% at 20% 40%, rgba(74, 107, 136, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(107, 143, 113, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse 50% 30% at 40% 80%, rgba(184, 107, 82, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 50% at 20% 40%, rgba(74, 107, 136, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(107, 143, 113, 0.05) 0%, transparent 50%),
     #0A0A0B;
-  background-size: 200% 200%;
-  animation: gradient-shift 20s ease infinite;
 }
-
-.noise-overlay::before {
-  content: ''; position: absolute; inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  opacity: 0.03; pointer-events: none; mix-blend-mode: overlay;
-}
-
-.orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.3; pointer-events: none; }
-.orb-blue { background: var(--forma-steel-blue); }
-.orb-sage { background: var(--forma-sage); }
-.orb-orange { background: var(--forma-warm-orange); }
 
 .reveal { opacity: 0; transform: translateY(40px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
 .reveal.visible { opacity: 1; transform: translateY(0); }
@@ -301,24 +213,7 @@ input, textarea { background-color: rgba(255, 255, 255, 0.06); border-color: rgb
   filter: blur(40px); border-radius: 32px; z-index: -1;
 }
 
-.animate-chaos-drift { animation: chaos-drift 2s ease-in-out infinite; }
-.animate-file-chaos-drift { animation: file-chaos-drift 3s ease-in-out infinite; }
 .animate-settle-in { animation: settle-in 0.6s ease-out forwards; }
-.animate-float { animation: float 6s ease-in-out infinite; }
-.animate-float-slower { animation: float 10s ease-in-out infinite; }
-.animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
-.animate-shimmer { background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%); background-size: 200% 100%; animation: shimmer 3s infinite; }
-.animate-bounce-subtle { animation: bounce-subtle 2s ease-in-out infinite; }
-.animate-spin-slow { animation: spin-slow 20s linear infinite; }
-.animate-scale-pulse { animation: scale-pulse 2s ease-in-out infinite; }
-
-.card-lift { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-.card-lift:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 80px rgba(91, 124, 153, 0.15); }
-
-.shadow-glow-blue { box-shadow: 0 0 40px rgba(91, 124, 153, 0.3); }
-.shadow-glow-sage { box-shadow: 0 0 40px rgba(122, 157, 126, 0.3); }
-.shadow-glow-orange { box-shadow: 0 0 40px rgba(201, 126, 102, 0.3); }
-.shadow-glass-lg { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ACCESSIBILITY
@@ -350,25 +245,19 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto !important; }
-  .animate-float, .animate-float-slow, .animate-float-slower, .animate-pulse, .animate-pulse-glow,
-  .animate-shimmer, .animate-bounce-subtle, .animate-spin-slow, .animate-scale-pulse,
-  .animate-chaos-drift, .animate-file-chaos-drift, .animate-settle-in,
+  .animate-settle-in,
   .animate-fade-in, .animate-fade-in-up, .animate-slide-up, .animate-slide-down,
   .animate-scale-in, .animate-blur-in, .animate-forma-settle { animation: none !important; opacity: 1 !important; }
   .file-sort-card { animation: none !important; }
-  .orb { animation: none !important; }
-  .gradient-bg { animation: none !important; background-size: 100% 100% !important; }
   .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
   .reveal.visible { transform: none !important; }
   .stagger-children > * { opacity: 1 !important; transform: none !important; animation: none !important; }
-  .btn-primary, .btn-secondary, .glass-card, a, button {
+  .btn-primary, .btn-secondary, a, button {
     transition-property: background-color, border-color, color, opacity !important;
     transition-duration: 0.15s !important; transition-timing-function: ease !important;
     transform: none !important;
   }
   .btn-primary:hover, .btn-secondary:hover { transform: none !important; }
-  .card-lift, .card-lift:hover { transform: none !important; }
-  .shadow-glow-blue, .shadow-glow-sage, .shadow-glow-orange { animation: none !important; }
   .app-mockup-glow::before { animation: none !important; }
   .skip-link { transition-property: top !important; transition-duration: 0.15s !important; }
 }

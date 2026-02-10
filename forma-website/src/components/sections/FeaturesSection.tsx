@@ -24,7 +24,6 @@ type FeatureMeta = {
   accentText: string;
   accentBg: string;
   accentBorder: string;
-  glowClass: string;
 };
 
 const features: FeatureMeta[] = [
@@ -37,18 +36,16 @@ const features: FeatureMeta[] = [
     accentText: "text-forma-steel-blue",
     accentBg: "bg-forma-steel-blue/12",
     accentBorder: "bg-forma-steel-blue/50",
-    glowClass: "hover:shadow-glow-blue",
   },
   {
-    id: "smart-connections",
+    id: "auto-grouping",
     icon: GitBranch,
-    title: "Smart Connections",
+    title: "Auto-Grouping",
     description:
-      "It sees patterns you'd miss. Related files are grouped automatically so your rules can work across entire categories.",
+      "You have 200 screenshots named IMG_xxxx.HEIC. Forma groups them by type so one rule handles all of them \u2014 instead of writing 200 rules.",
     accentText: "text-forma-sage",
     accentBg: "bg-forma-sage/12",
     accentBorder: "bg-forma-sage/50",
-    glowClass: "hover:shadow-glow-sage",
   },
   {
     id: "total-control",
@@ -59,7 +56,6 @@ const features: FeatureMeta[] = [
     accentText: "text-forma-muted-blue",
     accentBg: "bg-forma-muted-blue/12",
     accentBorder: "bg-forma-muted-blue/50",
-    glowClass: "hover:shadow-glow-blue",
   },
   {
     id: "full-undo",
@@ -70,12 +66,11 @@ const features: FeatureMeta[] = [
     accentText: "text-forma-warm-orange",
     accentBg: "bg-forma-warm-orange/12",
     accentBorder: "bg-forma-warm-orange/50",
-    glowClass: "hover:shadow-glow-orange",
   },
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Preview components                                                 */
+/*  Preview components (static fallbacks for mobile)                   */
 /* ------------------------------------------------------------------ */
 
 function RulePreview() {
@@ -255,7 +250,7 @@ function UndoPreview() {
 
 function PreviewForFeature({ id }: { id: string }) {
   if (id === "natural-language") return <RulePreview />;
-  if (id === "smart-connections") return <ConnectionPreview />;
+  if (id === "auto-grouping") return <ConnectionPreview />;
   if (id === "total-control") return <ControlPreview />;
   return <UndoPreview />;
 }
@@ -267,7 +262,7 @@ function PreviewForFeature({ id }: { id: string }) {
 /** Map feature ID to its animated demo component. */
 const animatedDemoMap: Record<string, ComponentType<{ progress: number }>> = {
   "natural-language": AnimatedRuleDemo,
-  "smart-connections": AnimatedConnectionDemo,
+  "auto-grouping": AnimatedConnectionDemo,
   "total-control": AnimatedPreviewDemo,
   "full-undo": AnimatedUndoDemo,
 };
@@ -291,7 +286,7 @@ function DesktopFeatures() {
   const headlineRef = useRef<HTMLDivElement>(null);
 
   return (
-    <ScrollScene id="features-showcase" scrubLength={5} pin={true}>
+    <ScrollScene id="features-showcase" scrubLength={3} pin={true}>
       <div className="relative h-screen w-full">
         {/* Section header - sits inside the pinned scene and fades based on progress */}
         <SectionHeader ref={headlineRef} />
@@ -342,8 +337,8 @@ const SectionHeader = forwardRef<HTMLDivElement>(function SectionHeader(_, ref) 
           How it actually works
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">
-          Four things that make the difference between a tool you install and a
-          tool you keep.
+          You&apos;ve probably tried other organizers. Here&apos;s why this one
+          might actually stick.
         </p>
       </div>
     </div>
@@ -400,8 +395,8 @@ function MobileFeatures() {
             How it actually works
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">
-            Four things that make the difference between a tool you install and
-            a tool you keep.
+            You&apos;ve probably tried other organizers. Here&apos;s why this
+            one might actually stick.
           </p>
         </div>
 
@@ -412,7 +407,7 @@ function MobileFeatures() {
               return (
                 <article
                   key={feature.id}
-                  className="feature-card glass-card-strong flex flex-col overflow-hidden rounded-2xl"
+                  className="flex flex-col overflow-hidden rounded-2xl bg-[var(--bg-secondary)] border border-white/[0.06]"
                 >
                   <div className={`h-1.5 w-full ${feature.accentBorder}`} />
                   <div className="flex flex-1 flex-col p-6">
@@ -468,13 +463,6 @@ export default function FeaturesSection() {
       id="features"
       className="features-section relative scroll-mt-16 overflow-hidden bg-transparent"
     >
-      {/* Background overlay with gradient + orbs */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(232,236,241,0.3)_0%,rgba(210,218,228,0.5)_50%,rgba(232,236,241,0.3)_100%)]" />
-        <div className="absolute -left-32 top-1/4 h-96 w-96 rounded-full bg-forma-steel-blue/10 blur-[120px]" />
-        <div className="absolute -right-24 bottom-1/4 h-80 w-80 rounded-full bg-forma-sage/8 blur-[100px]" />
-      </div>
-
       <div className="site-container relative">
         {/* Before mount, render mobile layout to avoid layout shift */}
         {!hasMounted ? (

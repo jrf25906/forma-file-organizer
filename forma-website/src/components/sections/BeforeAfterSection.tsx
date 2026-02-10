@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ScrollScene, useScrollSceneProgress } from "@/components/animation/ScrollScene";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import FileSortAnimation from "@/components/sections/FileSortAnimation";
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ===================================================================
 // DATA (preserved from original)
-// ═══════════════════════════════════════════════════════════════════════════
+// ===================================================================
 
 const chaosFiles = [
   "Screenshot 2024-01-15 at 3.42.17 PM.png",
@@ -24,72 +23,43 @@ const organizedFolders = [
   { name: "Videos/", count: "1 file", icon: "\uD83C\uDFAC" },
 ];
 
-// ═══════════════════════════════════════════════════════════════════════════
-// DESKTOP INNER CONTENT
-// Reads scroll scene progress for the crossfade heading and animation.
-// ═══════════════════════════════════════════════════════════════════════════
+// ===================================================================
+// DESKTOP CONTENT
+// Shows "Sound familiar?" heading, the FileSortAnimation (self-triggered),
+// and "Problem solved." heading below.
+// ===================================================================
 
 function DesktopContent() {
-  const progress = useScrollSceneProgress();
-
-  // Heading crossfade:
-  // progress < 0.3  => "Sound familiar?" fully visible
-  // 0.3 - 0.5       => crossfade transition
-  // progress > 0.5  => "Problem solved." fully visible
-  const headingTransition = Math.max(0, Math.min(1, (progress - 0.3) / 0.2));
-
   return (
-    <div className="relative min-h-screen flex items-center bg-[var(--bg-primary)] overflow-hidden">
-      {/* Decorative orbs */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-forma-warm-orange/10 blur-[100px]" />
-        <div className="absolute -right-16 bottom-1/4 h-64 w-64 rounded-full bg-forma-sage/8 blur-[100px]" />
-      </div>
-
-      <div className="site-container relative w-full py-24 md:py-32">
-        {/* Crossfading heading */}
-        <div className="relative mb-12 md:mb-14" style={{ height: "1.3em" }}>
-          <h2
-            className="absolute inset-0 text-center font-display text-3xl tracking-tight text-forma-bone md:text-4xl lg:text-[2.75rem]"
-            style={{ opacity: 1 - headingTransition, transition: "none" }}
-            aria-hidden={headingTransition > 0.5}
-          >
+    <div className="relative py-12 md:py-16 bg-[var(--bg-primary)] overflow-hidden">
+      <div className="site-container relative w-full">
+        <ScrollReveal direction="up" distance={30}>
+          <h2 className="mb-10 md:mb-12 text-center font-display text-3xl tracking-tight text-forma-bone md:text-4xl lg:text-[2.75rem]">
             Sound familiar?
           </h2>
-          <h2
-            className="absolute inset-0 text-center font-display text-3xl tracking-tight text-forma-bone md:text-4xl lg:text-[2.75rem]"
-            style={{ opacity: headingTransition, transition: "none" }}
-            aria-hidden={headingTransition <= 0.5}
-          >
+        </ScrollReveal>
+
+        {/* File sort animation triggers itself via intersection observer */}
+        <FileSortAnimation />
+
+        <ScrollReveal direction="up" distance={20}>
+          <h2 className="mt-12 md:mt-14 text-center font-display text-3xl tracking-tight text-forma-bone md:text-4xl lg:text-[2.75rem]">
             Problem solved.
           </h2>
-          {/* Accessible heading for screen readers */}
-          <span className="sr-only">
-            {headingTransition > 0.5 ? "Problem solved." : "Sound familiar?"}
-          </span>
-        </div>
-
-        {/* File sort animation */}
-        <FileSortAnimation />
+        </ScrollReveal>
       </div>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ===================================================================
 // MOBILE FALLBACK
 // Static before/after cards with ScrollReveal, no pinning.
-// ═══════════════════════════════════════════════════════════════════════════
+// ===================================================================
 
 function MobileFallback() {
   return (
     <div className="relative py-20 bg-[var(--bg-primary)] overflow-hidden">
-      {/* Decorative orbs */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-forma-warm-orange/10 blur-[100px]" />
-        <div className="absolute -right-16 bottom-1/4 h-64 w-64 rounded-full bg-forma-sage/8 blur-[100px]" />
-      </div>
-
       <div className="site-container relative">
         <ScrollReveal direction="up" distance={30}>
           <h2 className="mb-10 text-center font-display text-3xl tracking-tight text-forma-bone">
@@ -197,11 +167,11 @@ function MobileFallback() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// BEFORE / AFTER SECTION — RESPONSIVE WRAPPER
-// Desktop: ScrollScene with pinned FileSortAnimation
+// ===================================================================
+// BEFORE / AFTER SECTION -- RESPONSIVE WRAPPER
+// Desktop: Normal scrolling with intersection-triggered FileSortAnimation
 // Mobile: Static before/after cards with ScrollReveal
-// ═══════════════════════════════════════════════════════════════════════════
+// ===================================================================
 
 export default function BeforeAfterSection() {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -234,9 +204,7 @@ export default function BeforeAfterSection() {
 
   return (
     <section id="before-after" aria-label="Before and after file organization">
-      <ScrollScene id="before-after-scene" scrubLength={2} pin>
-        <DesktopContent />
-      </ScrollScene>
+      <DesktopContent />
     </section>
   );
 }

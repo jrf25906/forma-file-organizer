@@ -11,7 +11,3 @@
 // Scroll reveal animations
 export { ScrollReveal } from "./ScrollReveal";
 
-// Microinteraction wrappers
-export { MagneticButton } from "./MagneticButton";
-export { TiltCard } from "./TiltCard";
-export { HoverScale } from "./HoverScale";

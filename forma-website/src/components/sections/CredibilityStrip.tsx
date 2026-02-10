@@ -1,127 +1,38 @@
 "use client";
 
-import { useRef } from "react";
-import { Monitor, Shield, Undo2 } from "lucide-react";
-import { gsap, useGSAP } from "@/lib/animation";
-import { formaReveal, formaDuration, formaStagger } from "@/lib/animation";
-import { HoverScale } from "@/components/animation/HoverScale";
-
-// ═══════════════════════════════════════════════════════════════════════════
-// BADGE DATA
-// ═══════════════════════════════════════════════════════════════════════════
-
-const badges = [
-  {
-    icon: Monitor,
-    label: "Mac-Native",
-    description: "Built with Swift for macOS",
-  },
-  {
-    icon: Shield,
-    label: "Privacy-First",
-    description: "Your files never leave your Mac",
-  },
-  {
-    icon: Undo2,
-    label: "Always Reversible",
-    description: "Undo any move, anytime",
-  },
-] as const;
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CREDIBILITY STRIP
-// ═══════════════════════════════════════════════════════════════════════════
+import { Monitor, Shield, RotateCcw } from "lucide-react";
+import { ScrollReveal } from "@/components/animation/ScrollReveal";
 
 export default function CredibilityStrip() {
-  const enableScrollAnimations = true;
-  const sectionRef = useRef<HTMLElement>(null);
-  const badgesRef = useRef<HTMLDivElement>(null);
-
-  useGSAP(
-    () => {
-      if (!enableScrollAnimations) return;
-
-      const section = sectionRef.current;
-      const container = badgesRef.current;
-      if (!section || !container) return;
-
-      const prefersReducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)"
-      ).matches;
-
-      const badgeElements = container.querySelectorAll("[data-badge]");
-
-      if (prefersReducedMotion) {
-        gsap.set(badgeElements, { opacity: 1, y: 0 });
-        return;
-      }
-
-      // Initial hidden state
-      gsap.set(badgeElements, {
-        opacity: 0,
-        y: 24,
-      });
-
-      // Scroll-triggered staggered reveal
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: section,
-          start: "top 85%",
-          toggleActions: "play none none none",
-        },
-      });
-
-      tl.to(badgeElements, {
-        opacity: 1,
-        y: 0,
-        duration: formaDuration.fast,
-        stagger: formaStagger.normal,
-        ease: formaReveal,
-      });
-
-      return () => {
-        tl.kill();
-      };
-    },
-    { scope: sectionRef }
-  );
-
   return (
     <section
-      ref={sectionRef}
       id="credibility"
-      className="relative py-10 md:py-14 bg-white/[0.02] border-y border-white/[0.06]"
+      className="py-6 md:py-8"
       aria-label="Why trust Forma"
     >
-      <div className="site-container relative">
-        <div
-          ref={badgesRef}
-          className="mx-auto flex max-w-3xl flex-col items-center justify-center gap-4 sm:flex-row sm:gap-4 md:gap-6"
-        >
-          {badges.map(({ icon: Icon, label, description }) => (
-            <HoverScale key={label} scale={1.04}>
-              <div
-                data-badge
-                className="glass-card flex items-center gap-3 rounded-xl px-4 py-3"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-forma-steel-blue/10 flex-shrink-0">
-                  <Icon
-                    className="w-[18px] h-[18px] text-forma-steel-blue"
-                    strokeWidth={1.75}
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[14px] font-semibold text-[var(--text-primary)] tracking-tight whitespace-nowrap">
-                    {label}
-                  </span>
-                  <span className="text-[12px] text-[var(--text-muted)] leading-snug">
-                    {description}
-                  </span>
-                </div>
-              </div>
-            </HoverScale>
-          ))}
-        </div>
+      <div className="site-container">
+        <ScrollReveal direction="up" distance={16} once>
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-[var(--text-secondary)]">
+            <span className="flex items-center gap-2">
+              <Monitor size={15} className="text-[var(--accent-steel-blue)]" />
+              Native Swift app
+            </span>
+            <span className="hidden sm:inline text-white/20" aria-hidden="true">
+              &middot;
+            </span>
+            <span className="flex items-center gap-2">
+              <Shield size={15} className="text-[var(--accent-steel-blue)]" />
+              Files never leave your Mac
+            </span>
+            <span className="hidden sm:inline text-white/20" aria-hidden="true">
+              &middot;
+            </span>
+            <span className="flex items-center gap-2">
+              <RotateCcw size={15} className="text-[var(--accent-steel-blue)]" />
+              Undo everything
+            </span>
+          </div>
+        </ScrollReveal>
       </div>
     </section>
   );
