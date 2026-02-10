@@ -143,7 +143,8 @@ export default function FileSortAnimation() {
 
       // Stagger: offset each file slightly so they don't all move in lockstep
       const staggerOffset = i * 0.06;
-      const fileSort = Math.max(0, Math.min(1, (sortProgress - staggerOffset) / (1 - staggerOffset * files.length * 0.5)));
+      const staggerDenom = Math.max(0.1, 1 - staggerOffset * files.length * 0.5);
+      const fileSort = Math.max(0, Math.min(1, (sortProgress - staggerOffset) / staggerDenom));
       const easedFileSort = fileSort < 0.5
         ? 2 * fileSort * fileSort
         : 1 - Math.pow(-2 * fileSort + 2, 2) / 2;

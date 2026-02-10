@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
 import { Text } from "@react-three/drei";
 
@@ -23,14 +23,35 @@ export function FileCard({
   position,
   rotation = [0, 0, 0],
 }: FileCardProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const color = typeColors[fileType];
   const displayName =
     filename.length > 22 ? filename.slice(0, 22) + "..." : filename;
 
+  // Pre-create the geometry used by edgesGeometry to avoid recreating on render
+  const edgeSourceGeometry = useMemo(() => new THREE.BoxGeometry(1.6, 1.1, 0.04), []);
+
+  // Dispose all geometries and materials on unmount
+  useEffect(() => {
+    return () => {
+      edgeSourceGeometry.dispose();
+      if (groupRef.current) {
+        groupRef.current.traverse((child) => {
+          if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments) {
+            child.geometry?.dispose();
+            if (child.material) {
+              const materials = Array.isArray(child.material) ? child.material : [child.material];
+              materials.forEach((mat) => mat.dispose());
+            }
+          }
+        });
+      }
+    };
+  }, [edgeSourceGeometry]);
+
   return (
-    <group position={position} rotation={rotation}>
-      <mesh ref={meshRef}>
+    <group ref={groupRef} position={position} rotation={rotation}>
+      <mesh>
         <boxGeometry args={[1.6, 1.1, 0.04]} />
         <meshStandardMaterial
           color="#1C1C1E"
@@ -67,7 +88,7 @@ export function FileCard({
       ))}
       {/* Border outline */}
       <lineSegments>
-        <edgesGeometry args={[new THREE.BoxGeometry(1.6, 1.1, 0.04)]} />
+        <edgesGeometry args={[edgeSourceGeometry]} />
         <lineBasicMaterial color={color} opacity={0.2} transparent />
       </lineSegments>
     </group>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ScrollScene, useScrollSceneProgress } from "@/components/animation/ScrollScene";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import FileSortAnimation from "@/components/sections/FileSortAnimation";
@@ -204,30 +204,27 @@ function MobileFallback() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function BeforeAfterSection() {
-  const [isMobile, setIsMobile] = useState(false);
-  const [hasMounted, setHasMounted] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  useEffect(() => {
-    setHasMounted(true);
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+  const checkViewport = useCallback(() => {
+    setIsDesktop(window.innerWidth >= 768);
   }, []);
 
-  // Render a placeholder until we know the viewport to avoid layout shift
-  if (!hasMounted) {
-    return (
-      <section
-        id="before-after"
-        aria-label="Before and after file organization"
-        className="relative bg-[var(--bg-primary)]"
-        style={{ minHeight: "100vh" }}
-      />
-    );
-  }
+  useEffect(() => {
+    checkViewport();
+    const handleResize = () => {
+      clearTimeout(resizeTimerRef.current);
+      resizeTimerRef.current = setTimeout(checkViewport, 150);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(resizeTimerRef.current);
+    };
+  }, [checkViewport]);
 
-  if (isMobile) {
+  if (!isDesktop) {
     return (
       <section id="before-after" aria-label="Before and after file organization">
         <MobileFallback />

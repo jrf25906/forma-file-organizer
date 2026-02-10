@@ -166,5 +166,21 @@ class SoundEngine {
   }
 }
 
-// Singleton
-export const soundEngine = new SoundEngine();
+// Lazy singleton — avoids instantiation during SSR (no window/localStorage)
+let _instance: SoundEngine | null = null;
+
+export function getSoundEngine(): SoundEngine {
+  if (!_instance) {
+    _instance = new SoundEngine();
+  }
+  return _instance;
+}
+
+// Backwards-compatible named export (getter-based, still lazy)
+export const soundEngine: SoundEngine = new Proxy({} as SoundEngine, {
+  get(_target, prop) {
+    const engine = getSoundEngine();
+    const value = (engine as unknown as Record<string | symbol, unknown>)[prop];
+    return typeof value === "function" ? value.bind(engine) : value;
+  },
+});

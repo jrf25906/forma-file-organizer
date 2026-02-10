@@ -36,6 +36,7 @@ export function ScrollScene({
   className,
 }: ScrollSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const lastUpdateRef = useRef(0);
   const [progress, setProgress] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -52,7 +53,7 @@ export function ScrollScene({
     () => {
       if (isDisabled || !containerRef.current) return;
 
-      ScrollTrigger.create({
+      const trigger = ScrollTrigger.create({
         trigger: containerRef.current,
         start: "top top",
         end: () => `+=${scrubLength * window.innerHeight}`,
@@ -60,11 +61,19 @@ export function ScrollScene({
         scrub: 1,
         id: id,
         onUpdate: (self) => {
-          setProgress(self.progress);
+          const now = performance.now();
+          if (now - lastUpdateRef.current > 33) {
+            setProgress(self.progress);
+            lastUpdateRef.current = now;
+          }
           onProgress?.(self.progress);
         },
         invalidateOnRefresh: true,
       });
+
+      return () => {
+        trigger.kill();
+      };
     },
     { scope: containerRef, dependencies: [isDisabled, scrubLength, pin, id] }
   );
