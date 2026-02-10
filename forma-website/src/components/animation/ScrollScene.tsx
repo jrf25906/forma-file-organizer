@@ -88,7 +88,7 @@ export function ScrollScene({
 
   return (
     <ScrollProgressContext.Provider value={progress}>
-      <div ref={containerRef} className={className} style={{ willChange: "transform", width: "100%" }}>
+      <div ref={containerRef} className={className} style={{ width: "100%" }}>
         {children}
       </div>
     </ScrollProgressContext.Provider>

@@ -7,36 +7,24 @@ import { formaReveal, formaDuration, formaStagger } from "@/lib/animation/ease-c
 import { ScrollScene, useScrollSceneProgress } from "@/components/animation/ScrollScene";
 import { TextReveal } from "@/components/animation/TextReveal";
 import { AppleLogo } from "@/components/icons";
+import { FormaFileCard } from "@/components/ui/FormaFileCard";
+import { heroFiles, categoryColors } from "@/lib/forma-design-tokens";
+import type { FileCategory } from "@/lib/forma-design-tokens";
 
 // ---------------------------------------------------------------------------
-// File card data for the 2D sort visualization
+// Folder grouping for organized grid labels
 // ---------------------------------------------------------------------------
-const files = [
-  { name: "Screenshot 2024-01-15.png", type: "image", folder: 0 },
-  { name: "IMG_4829.HEIC", type: "image", folder: 0 },
-  { name: "Document (3).pdf", type: "document", folder: 1 },
-  { name: "final_v2_FINAL.docx", type: "document", folder: 1 },
-  { name: "app.tsx", type: "code", folder: 2 },
-  { name: "styles.css", type: "code", folder: 2 },
-  { name: "recording.mov", type: "video", folder: 3 },
-  { name: "tutorial.mp4", type: "video", folder: 3 },
+const folderGroups: { label: string; category: FileCategory }[] = [
+  { label: "Images",    category: "images" },
+  { label: "Documents", category: "documents" },
+  { label: "Videos",    category: "videos" },
+  { label: "Audio",     category: "audio" },
 ];
 
-const typeColors: Record<string, string> = {
-  image: "bg-[#C17E4A]",
-  document: "bg-[#5B7C99]",
-  code: "bg-[#7A9D7E]",
-  video: "bg-[#6A8FAA]",
-};
-
-const folderLabels = ["Images", "Documents", "Code", "Videos"];
-
-const folderLabelColors: Record<number, string> = {
-  0: "text-[#C17E4A]",
-  1: "text-[#5B7C99]",
-  2: "text-[#7A9D7E]",
-  3: "text-[#6A8FAA]",
-};
+// Map each hero file to its folder group index
+function folderIndexFor(category: FileCategory): number {
+  return folderGroups.findIndex((g) => g.category === category);
+}
 
 function seededRandom(seed: number) {
   const x = Math.sin(seed * 9301 + 49297) * 233280;
@@ -44,28 +32,30 @@ function seededRandom(seed: number) {
 }
 
 // ---------------------------------------------------------------------------
-// FileSortShowcase - lightweight 2D visualization of files organizing
-// Uses CSS transitions driven by a single "sorted" boolean from scroll progress
+// FileSortShowcase - CSS transition driven by a single "sorted" boolean
 // ---------------------------------------------------------------------------
 function FileSortShowcase({ sorted }: { sorted: boolean }) {
+  // Chaos spread: 300×200 (wider than before to accommodate larger cards)
   const chaosPositions = useMemo(
     () =>
-      files.map((_, i) => ({
-        x: Math.round((seededRandom(i * 3 + 1) - 0.5) * 240 * 100) / 100,
-        y: Math.round((seededRandom(i * 3 + 2) - 0.5) * 160 * 100) / 100,
+      heroFiles.map((_, i) => ({
+        x: Math.round((seededRandom(i * 3 + 1) - 0.5) * 300 * 100) / 100,
+        y: Math.round((seededRandom(i * 3 + 2) - 0.5) * 200 * 100) / 100,
         rotation: Math.round((seededRandom(i * 3 + 3) - 0.5) * 14 * 100) / 100,
       })),
     [],
   );
 
-  // Organized positions: files grouped into rows by folder
+  // Organized grid — compact cards are 200px min-width.
+  // Container is ~800px (center ±400). Keep cards within visible bounds.
   const organizedPositions = useMemo(() => {
     const counts = [0, 0, 0, 0];
-    return files.map((file) => {
-      const col = counts[file.folder]++;
+    return heroFiles.map((file) => {
+      const fi = folderIndexFor(file.category);
+      const col = counts[fi]++;
       return {
-        x: -80 + col * 170,
-        y: -80 + file.folder * 56,
+        x: -110 + col * 215,
+        y: -85 + fi * 56,
         rotation: 0,
       };
     });
@@ -73,24 +63,28 @@ function FileSortShowcase({ sorted }: { sorted: boolean }) {
 
   return (
     <div
-      className="relative w-full h-[300px] md:h-[360px]"
+      className="relative w-full h-[340px] md:h-[400px]"
       aria-hidden="true"
     >
       {/* Folder labels - appear when sorted */}
-      {folderLabels.map((label, i) => (
+      {folderGroups.map((group, i) => (
         <span
-          key={label}
-          className={`absolute left-1/2 top-1/2 font-mono text-[10px] uppercase tracking-wider ${folderLabelColors[i]} transition-opacity duration-500`}
+          key={group.label}
+          className="absolute text-[10px] font-semibold uppercase tracking-wider transition-opacity duration-500"
           style={{
-            transform: `translate(calc(-50% + ${-170}px), calc(-50% + ${-80 + i * 56 - 16}px))`,
+            left: "50%",
+            top: "50%",
+            transform: `translate3d(${-310}px, ${-85 + i * 56 - 16}px, 0)`,
             opacity: sorted ? 0.5 : 0,
+            color: categoryColors[group.category],
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
           }}
         >
-          {label}
+          {group.label}
         </span>
       ))}
 
-      {files.map((file, i) => {
+      {heroFiles.map((file, i) => {
         const chaos = chaosPositions[i];
         const org = organizedPositions[i];
         const pos = sorted ? org : chaos;
@@ -99,22 +93,17 @@ function FileSortShowcase({ sorted }: { sorted: boolean }) {
         return (
           <div
             key={i}
-            className="absolute left-1/2 top-1/2 rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2 shadow-lg shadow-black/20"
+            className="absolute"
             style={{
-              transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px)) rotate(${pos.rotation}deg)`,
+              left: "50%",
+              top: "50%",
+              transform: `translate3d(${pos.x}px, ${pos.y}px, 0) rotate(${pos.rotation}deg)`,
+              marginLeft: "-105px",
+              marginTop: "-24px",
               transition: `transform 700ms cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
             }}
           >
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full ${typeColors[file.type]} shrink-0`}
-              />
-              <span className="font-mono text-[11px] text-[var(--text-secondary)] whitespace-nowrap">
-                {file.name.length > 20
-                  ? file.name.slice(0, 20) + "..."
-                  : file.name}
-              </span>
-            </div>
+            <FormaFileCard file={file} scale="compact" />
           </div>
         );
       })}

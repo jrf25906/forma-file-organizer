@@ -3,39 +3,13 @@
 import { useRef, useMemo, useEffect, useCallback, useState } from "react";
 import { gsap } from "@/lib/animation/gsap-config";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
-
-// ===================================================================
-// FILE DATA
-// ===================================================================
-
-type FileType = "screenshot" | "document" | "video";
-
-interface FileItem {
-  name: string;
-  type: FileType;
-  folder: string;
-}
-
-const files: FileItem[] = [
-  { name: "Screenshot 2024-01-15 at 3.42.17 PM.png", type: "screenshot", folder: "Screenshots/" },
-  { name: "IMG_4829.HEIC", type: "screenshot", folder: "Screenshots/" },
-  { name: "Document (3).pdf", type: "document", folder: "Documents/" },
-  { name: "Screen Recording 2024-02-01 at 10.15.23 AM.mov", type: "video", folder: "Videos/" },
-  { name: "final_FINAL_v2_actual_final.docx", type: "document", folder: "Documents/" },
-  { name: "Untitled.txt", type: "screenshot", folder: "Screenshots/" },
-];
-
-const folderLabels = [
-  { name: "Screenshots/", count: "3 files", icon: "\uD83D\uDDBC\uFE0F" },
-  { name: "Documents/", count: "2 files", icon: "\uD83D\uDCC4" },
-  { name: "Videos/", count: "1 file", icon: "\uD83C\uDFAC" },
-];
-
-const typeColors: Record<FileType, string> = {
-  screenshot: "bg-forma-steel-blue",
-  document: "bg-forma-sage",
-  video: "bg-forma-warm-orange",
-};
+import { FormaFileCard } from "@/components/ui/FormaFileCard";
+import {
+  beforeAfterFiles,
+  folderGroups,
+  categoryColors,
+  cardTokens,
+} from "@/lib/forma-design-tokens";
 
 // ===================================================================
 // POSITION TYPES
@@ -68,30 +42,40 @@ export default function FileSortAnimation() {
   const hasTriggered = useRef(false);
   const [triggered, setTriggered] = useState(false);
 
-  // Chaos positions (scattered within container)
+  // Chaos positions — wider spread for larger cards
   const chaosPositions = useMemo<Position[]>(() => {
-    return files.map((_, i) => ({
-      x: seededRandom(i * 3 + 1) * 300 - 150,
-      y: seededRandom(i * 3 + 2) * 180 - 90,
+    return beforeAfterFiles.map((_, i) => ({
+      x: seededRandom(i * 3 + 1) * 400 - 200,
+      y: seededRandom(i * 3 + 2) * 240 - 120,
       rotation: seededRandom(i * 3 + 3) * 14 - 7,
     }));
   }, []);
 
-  // Organized positions (3 rows, grouped by folder)
+  // Organized positions — 3 rows grouped by folder
+  // Full cards are 280px wide; container is 780px. Center-offset cards need
+  // to stay within ±390px of center, so gap=295 with startX=-145 keeps them in bounds.
   const organizedPositions = useMemo<Position[]>(() => {
     const folderOrder = ["Screenshots/", "Documents/", "Videos/"];
-    const rowStartX = -30;
-    const rowGap = 160;
-    const rowYBase = -55;
-    const rowSpacing = 55;
+    const rowStartX = -120;
+    const rowGap = 295;
+    const rowYBase = -72;
+    const rowSpacing = 72;
 
     const positions: Position[] = [];
     const folderCounts: Record<string, number> = {};
 
-    files.forEach((file) => {
-      const folderIndex = folderOrder.indexOf(file.folder);
-      const countInFolder = folderCounts[file.folder] || 0;
-      folderCounts[file.folder] = countInFolder + 1;
+    // Map file destinations to folder names
+    const destToFolder: Record<string, string> = {
+      Screenshots: "Screenshots/",
+      Documents: "Documents/",
+      Videos: "Videos/",
+    };
+
+    beforeAfterFiles.forEach((file) => {
+      const folder = file.destination ? destToFolder[file.destination] || "Documents/" : "Documents/";
+      const folderIndex = folderOrder.indexOf(folder);
+      const countInFolder = folderCounts[folder] || 0;
+      folderCounts[folder] = countInFolder + 1;
 
       positions.push({
         x: rowStartX + countInFolder * rowGap,
@@ -123,7 +107,7 @@ export default function FileSortAnimation() {
     const reducedMotion = getReducedMotionValue();
 
     if (reducedMotion) {
-      // Show organized state immediately for reduced motion
+      // Show organized state immediately
       fileRefs.current.forEach((el, i) => {
         if (!el) return;
         const organized = organizedPositions[i];
@@ -192,11 +176,10 @@ export default function FileSortAnimation() {
         },
         staggerDelay
       );
-
     });
 
     // Fade in folder labels after files settle
-    const labelsStartTime = files.length * 0.12 + 0.4;
+    const labelsStartTime = beforeAfterFiles.length * 0.12 + 0.4;
     folderLabelRefs.current.forEach((el, i) => {
       if (!el) return;
       tl.to(
@@ -223,51 +206,67 @@ export default function FileSortAnimation() {
   return (
     <div
       ref={containerRef}
-      className="relative mx-auto w-full max-w-[780px] h-[300px] overflow-hidden"
+      className="relative mx-auto w-full max-w-[780px] h-[380px] overflow-hidden"
       aria-label="File sorting animation"
       role="img"
     >
       {/* File cards */}
-      {files.map((file, i) => (
+      {beforeAfterFiles.map((file, i) => (
         <div
           key={file.name}
           ref={setFileRef(i)}
-          className="file-sort-card absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/[0.08] bg-white/[0.04] backdrop-blur-sm px-3 py-2 shadow-lg will-change-transform"
+          className="absolute"
+          style={{ left: "50%", top: "50%", marginLeft: "-145px", marginTop: "-30px" }}
         >
-          <div className="flex items-center gap-2 pointer-events-none select-none">
-            <span
-              className={`w-2 h-2 shrink-0 rounded-full ${typeColors[file.type]}`}
-              aria-hidden="true"
-            />
-            <span className="font-mono text-[11px] text-[var(--text-secondary)] truncate max-w-[130px]">
-              {file.name}
-            </span>
-          </div>
+          <FormaFileCard file={file} scale="full" />
         </div>
       ))}
 
       {/* Folder labels (fade in when organized) */}
-      {folderLabels.map((folder, i) => {
+      {folderGroups.map((folder, i) => {
         // Position labels to the left of the file cards
-        // Container is 300px tall, center is 150px. Cards at y = -55, 0, +55 from center.
-        const labelTop = 150 + (-55 + i * 55) - 10;
+        // Container is 380px tall, center is 190px. Rows at y = -72, 0, +72 from center.
+        const labelTop = 190 + (-72 + i * 72) - 10;
+        const color = categoryColors[folder.category];
         return (
           <div
             key={folder.name}
             ref={setFolderLabelRef(i)}
             className="absolute flex items-center gap-2 opacity-0"
             style={{
-              left: "40px",
+              left: "28px",
               top: `${labelTop}px`,
             }}
           >
-            <span className="text-sm" aria-hidden="true">{folder.icon}</span>
+            <div
+              className="w-5 h-5 rounded flex items-center justify-center"
+              style={{ background: `${color}20` }}
+            >
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill={color}
+                style={{ opacity: 0.7 }}
+              >
+                <path d="M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6Z" />
+              </svg>
+            </div>
             <div className="flex flex-col">
-              <span className="font-mono text-[11px] font-medium text-[var(--text-primary)] tracking-wide">
+              <span
+                className="text-[11px] font-semibold tracking-wide"
+                style={{
+                  color: "rgba(255,255,255,0.85)",
+                  fontFamily: cardTokens.font,
+                }}
+              >
                 {folder.name}
               </span>
-              <span className="text-[10px] text-[var(--text-muted)]">
-                {folder.count}
+              <span
+                className="text-[10px]"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+              >
+                {folder.fileCount} {folder.fileCount === 1 ? "file" : "files"}
               </span>
             </div>
           </div>
