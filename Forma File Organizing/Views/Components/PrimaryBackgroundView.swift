@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// A focus-aware background view that switches between a vibrant gradient (when active)
 /// and a frosted glass slab (when inactive), similar to proper macOS widgets.
@@ -29,5 +30,294 @@ struct PrimaryBackgroundView: View {
                 .frame(width: 0, height: 0)
         }
         .ignoresSafeArea()
+    }
+}
+
+/// Shared pane background styling for split-view columns.
+/// Keeps native macOS chrome while restoring Forma's depth and vibrancy.
+struct PaneMaterialBackground: View {
+    enum Role {
+        case sidebar
+        case content
+        case inspector
+    }
+
+    let role: Role
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.controlActiveState) private var controlActiveState
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private enum DebugFlags {
+        #if DEBUG
+        private static let arguments = Set(CommandLine.arguments)
+        static let baseOnly = arguments.contains("--debug-pane-base-only")
+        static let baseSurfaceEnabled = !arguments.contains("--debug-pane-disable-base")
+        static let ambientOverlayEnabled = !arguments.contains("--debug-pane-disable-ambient")
+        static let accentOverlayEnabled = !arguments.contains("--debug-pane-disable-accent")
+        static let sheenOverlayEnabled = !arguments.contains("--debug-pane-disable-sheen")
+        static let grainOverlayEnabled = !arguments.contains("--debug-pane-disable-grain")
+        #else
+        static let baseOnly = false
+        static let baseSurfaceEnabled = true
+        static let ambientOverlayEnabled = true
+        static let accentOverlayEnabled = true
+        static let sheenOverlayEnabled = true
+        static let grainOverlayEnabled = true
+        #endif
+
+        static var showsAmbientOverlay: Bool { !baseOnly && ambientOverlayEnabled }
+        static var showsAccentOverlay: Bool { !baseOnly && accentOverlayEnabled }
+        static var showsSheenOverlay: Bool { !baseOnly && sheenOverlayEnabled }
+        static var showsGrainOverlay: Bool { !baseOnly && grainOverlayEnabled }
+    }
+
+    private var isWindowActive: Bool {
+        controlActiveState != .inactive
+    }
+
+    var body: some View {
+        ZStack {
+            if reduceTransparency {
+                fallbackColor
+            } else {
+                Rectangle()
+                    .fill(Color.clear)
+                    .background {
+                        if DebugFlags.baseSurfaceEnabled {
+                            FormaMaterialSurface(
+                                tier: materialTier,
+                                cornerRadius: 0,
+                                tint: tintColor.opacity(surfaceTintOpacity)
+                            )
+                        } else {
+                            Color.clear
+                        }
+                    }
+                    .overlay {
+                        if DebugFlags.showsAmbientOverlay {
+                            paneAmbientGradient
+                                .blendMode(.overlay)
+                                .opacity(backdropOverlayOpacity)
+                        }
+                    }
+                    .overlay {
+                        if DebugFlags.showsAccentOverlay {
+                            roleAccentGradient
+                                .blendMode(.overlay)
+                                .opacity(accentOverlayOpacity)
+                        }
+                    }
+                    .overlay {
+                        if DebugFlags.showsSheenOverlay {
+                            LinearGradient(
+                                colors: [
+                                    Color.formaBoneWhite.opacity(sheenTopOpacity),
+                                    Color.formaBoneWhite.opacity(sheenBottomOpacity)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .blendMode(.screen)
+                        }
+                    }
+                    .overlay {
+                        if DebugFlags.showsGrainOverlay {
+                            Rectangle()
+                                .fill(Color.formaBoneWhite.opacity(0.001))
+                                .formaFrostedTexture(intensity: grainIntensity)
+                                .opacity(grainOpacity)
+                        }
+                    }
+            }
+
+            edgeDivider
+        }
+    }
+
+    private var paneAmbientGradient: LinearGradient {
+        let top = Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.10 : 0.14)
+        let mid = tintColor.opacity(colorScheme == .dark ? 0.18 : 0.14)
+        let bottom = Color.formaObsidian.opacity(colorScheme == .dark ? 0.10 : 0.05)
+
+        return LinearGradient(
+            colors: [top, mid, bottom],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var materialTier: FormaMaterialTier {
+        switch role {
+        case .sidebar:
+            return .raised
+        case .content:
+            return .base
+        case .inspector:
+            return .raised
+        }
+    }
+
+    private var fallbackColor: Color {
+        switch role {
+        case .sidebar:
+            return Color.formaControlBackground.opacity(colorScheme == .dark ? 0.84 : 0.95)
+        case .content:
+            return Color.formaBackground
+        case .inspector:
+            return Color.formaControlBackground.opacity(colorScheme == .dark ? 0.82 : 0.94)
+        }
+    }
+
+    private var tintColor: Color {
+        switch role {
+        case .sidebar:
+            return Color.formaSteelBlue
+        case .content:
+            return Color.formaMutedBlue
+        case .inspector:
+            return Color.formaSage
+        }
+    }
+
+    private var surfaceTintOpacity: Double {
+        let activeMultiplier = isWindowActive ? 1.0 : 0.82
+
+        let base: Double
+        switch role {
+        case .sidebar:
+            base = colorScheme == .dark ? 0.92 : 0.78
+        case .content:
+            base = colorScheme == .dark ? 0.65 : 0.52
+        case .inspector:
+            base = colorScheme == .dark ? 0.88 : 0.74
+        }
+
+        return base * activeMultiplier
+    }
+
+    private var sheenTopOpacity: Double {
+        let activeMultiplier = isWindowActive ? 1.0 : 0.78
+
+        let base: Double
+        switch role {
+        case .sidebar:
+            base = colorScheme == .dark ? 0.10 : 0.16
+        case .content:
+            base = colorScheme == .dark ? 0.08 : 0.12
+        case .inspector:
+            base = colorScheme == .dark ? 0.10 : 0.15
+        }
+
+        return base * activeMultiplier
+    }
+
+    private var sheenBottomOpacity: Double {
+        let activeMultiplier = isWindowActive ? 1.0 : 0.78
+
+        let base: Double
+        switch role {
+        case .sidebar:
+            base = colorScheme == .dark ? 0.03 : 0.06
+        case .content:
+            base = colorScheme == .dark ? 0.02 : 0.05
+        case .inspector:
+            base = colorScheme == .dark ? 0.03 : 0.06
+        }
+
+        return base * activeMultiplier
+    }
+
+    private var backdropOverlayOpacity: Double {
+        let activeMultiplier = isWindowActive ? 1.0 : 0.72
+
+        switch role {
+        case .sidebar:
+            return (colorScheme == .dark ? 0.46 : 0.36) * activeMultiplier
+        case .content:
+            return (colorScheme == .dark ? 0.30 : 0.24) * activeMultiplier
+        case .inspector:
+            return (colorScheme == .dark ? 0.42 : 0.34) * activeMultiplier
+        }
+    }
+
+    private var grainIntensity: Float {
+        switch role {
+        case .sidebar:
+            return 1.05
+        case .content:
+            return 0.85
+        case .inspector:
+            return 1.0
+        }
+    }
+
+    private var grainOpacity: Double {
+        switch role {
+        case .sidebar:
+            return colorScheme == .dark ? 0.20 : 0.16
+        case .content:
+            return colorScheme == .dark ? 0.15 : 0.12
+        case .inspector:
+            return colorScheme == .dark ? 0.18 : 0.15
+        }
+    }
+
+    private var roleAccentGradient: LinearGradient {
+        let top: Color
+        let middle: Color
+
+        switch role {
+        case .sidebar:
+            top = Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.70 : 0.56)
+            middle = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.52 : 0.40)
+        case .content:
+            top = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.46 : 0.34)
+            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.30 : 0.20)
+        case .inspector:
+            top = Color.formaSage.opacity(colorScheme == .dark ? 0.66 : 0.50)
+            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.34 : 0.24)
+        }
+
+        return LinearGradient(
+            colors: [top, middle, Color.clear],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var accentOverlayOpacity: Double {
+        let activeMultiplier = isWindowActive ? 1.0 : 0.75
+
+        switch role {
+        case .sidebar:
+            return (colorScheme == .dark ? 0.34 : 0.26) * activeMultiplier
+        case .content:
+            return (colorScheme == .dark ? 0.22 : 0.16) * activeMultiplier
+        case .inspector:
+            return (colorScheme == .dark ? 0.32 : 0.24) * activeMultiplier
+        }
+    }
+
+    @ViewBuilder
+    private var edgeDivider: some View {
+        switch role {
+        case .sidebar:
+            HStack(spacing: 0) {
+                Spacer()
+                Rectangle()
+                    .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.12 : 0.2))
+                    .frame(width: 1)
+            }
+        case .content:
+            EmptyView()
+        case .inspector:
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.1 : 0.18))
+                    .frame(width: 1)
+                Spacer()
+            }
+        }
     }
 }

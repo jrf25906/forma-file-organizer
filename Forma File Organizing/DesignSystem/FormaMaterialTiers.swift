@@ -14,6 +14,16 @@ struct FormaMaterialSurface: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.controlActiveState) private var controlActiveState
 
+    private enum DebugFlags {
+        #if DEBUG
+        static let disableGlassEffect = CommandLine.arguments.contains("--debug-disable-glass-effect")
+        static let forceGlassEffect = CommandLine.arguments.contains("--debug-force-glass-effect")
+        #else
+        static let disableGlassEffect = false
+        static let forceGlassEffect = false
+        #endif
+    }
+
     init(
         tier: FormaMaterialTier,
         cornerRadius: CGFloat = FormaRadius.card,
@@ -43,6 +53,9 @@ struct FormaMaterialSurface: View {
     private func baseSurface(shape: RoundedRectangle) -> some View {
         if reduceTransparency {
             shape.fill(Color.formaControlBackground.opacity(Color.FormaOpacity.prominent + Color.FormaOpacity.light))
+        } else if shouldUseFallbackMaterial {
+            VisualEffectView(material: fallbackEffectMaterial, blendingMode: .withinWindow)
+                .clipShape(shape)
         } else if #available(macOS 26.0, *) {
             if let tint {
                 shape.glassEffect(.regular.tint(tint.opacity(glassTintOpacity)))
@@ -53,6 +66,20 @@ struct FormaMaterialSurface: View {
             VisualEffectView(material: fallbackEffectMaterial, blendingMode: .withinWindow)
                 .clipShape(shape)
         }
+    }
+
+    private var shouldUseFallbackMaterial: Bool {
+        if DebugFlags.forceGlassEffect {
+            return false
+        }
+
+        if DebugFlags.disableGlassEffect {
+            return true
+        }
+
+        // Full-bleed split-view panes can render giant lens-like contours when
+        // treated as one large glass shape. Use AppKit material for those surfaces.
+        return cornerRadius <= 0.01
     }
 
     @ViewBuilder
@@ -72,7 +99,9 @@ struct FormaMaterialSurface: View {
 
     @ViewBuilder
     private func specularOverlay(shape: RoundedRectangle) -> some View {
-        if reduceTransparency || specularOpacity <= 0.0 {
+        // Full-bleed pane surfaces (cornerRadius == 0) should not use the radial
+        // specular shader, which can create oversized contour artifacts.
+        if reduceTransparency || specularOpacity <= 0.0 || cornerRadius <= 0 {
             EmptyView()
         } else {
             Color.formaBoneWhite

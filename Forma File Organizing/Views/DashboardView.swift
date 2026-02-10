@@ -13,6 +13,14 @@ struct DashboardView: View {
     @State private var tourState = GuidedTourState()
     @State private var splitViewVisibility: NavigationSplitViewVisibility = .all
 
+    private enum DebugFlags {
+        #if DEBUG
+        static let disableGuidedTourOverlay = CommandLine.arguments.contains("--debug-disable-guided-tour-overlay")
+        #else
+        static let disableGuidedTourOverlay = false
+        #endif
+    }
+
     // MARK: - Extracted Views (helps compiler type-checking)
 
     @ViewBuilder
@@ -112,6 +120,8 @@ struct DashboardView: View {
         NavigationStack(path: $nav.path) {
             ToastHost(viewModel: dashboardViewModel) {
                 ZStack {
+                    PrimaryBackgroundView()
+
                     NavigationSplitView(columnVisibility: $splitViewVisibility) {
                         SidebarView(
                             shouldFocusSearch: $shouldFocusSearch,
@@ -146,13 +156,15 @@ struct DashboardView: View {
                     .onChange(of: nav.selection) { _, _ in
                         updateSplitViewVisibility()
                     }
-                    .disabled(nav.isShowingRuleEditor || tourState.isActive)
+                    .disabled(nav.isShowingRuleEditor || (tourState.isActive && !DebugFlags.disableGuidedTourOverlay))
 
                     // Rule Editor Overlay - Centered Modal
                     ruleEditorOverlay
 
                     // Guided Tour Overlay
-                    GuidedTourOverlay(tourState: tourState)
+                    if !DebugFlags.disableGuidedTourOverlay {
+                        GuidedTourOverlay(tourState: tourState)
+                    }
                 }
             }
             .onPreferenceChange(GuidedTourRegionPreferenceKey.self) { frames in

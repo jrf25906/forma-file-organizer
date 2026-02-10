@@ -65,7 +65,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Dashboard startup scans now respect the "Auto-scan on Launch" setting, including post-onboarding auto-scan behavior.
 - Menu bar Settings now uses the shared app settings opener instead of synthetic keyboard events.
 - Dashboard window chrome now uses native `NavigationSplitView` columns (sidebar/content/inspector) instead of floating overlay panes.
-- Main app window chrome now relies on standard macOS titlebar/traffic-light geometry rather than custom repositioning.
+- Restored layered vibrancy in the native split-view shell via pane-specific materials and a gradient-backed window surface.
 
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.
@@ -74,6 +74,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Toolbar controls now use explicit sizing to avoid ambiguous AppKit toolbar layout warnings.
 - Scroll views now reserve deterministic bottom space for the floating action bar to prevent content overlap in all view modes.
 - Shift-click range selection now works consistently across card/list/grid file views by using a shared selection anchor.
+- Removed oversized translucent "lens" artifacts from split-view panes by avoiding full-bleed `glassEffect` and using pane-safe native material fallback while retaining layered vibrancy.
 
 ### Removed
 - Deprecated API cleanup: removed legacy `FileItem`/`FileMetadata` initializers, `RuleService.addRule(_:)`, and deprecated error type aliases.

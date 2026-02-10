@@ -57,6 +57,7 @@ struct RightPanelView: View {
                 switch dashboardViewModel.rightPanelMode {
                 case .default:
                     DefaultPanelView()
+                        .padding(.top, -FormaSpacing.Toolbar.topOffset)
                         .matchedGeometryEffect(id: "panel", in: panelTransition)
                         .transition(.opacity)
 
@@ -87,7 +88,10 @@ struct RightPanelView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.formaBackground)
+        .background(
+            PaneMaterialBackground(role: .inspector)
+                .ignoresSafeArea(edges: .top)
+        )
         .animation(
             reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85),
             value: dashboardViewModel.rightPanelMode

@@ -66,6 +66,7 @@ struct DefaultPanelView: View {
                 // Primary Action (pinned)
                 if shouldShowPinnedPrimaryAction {
                     pinnedPrimaryAction
+                        .guidedTourRegion(.organizeButton)
                 }
             }
             .padding(.horizontal, FormaSpacing.standard)

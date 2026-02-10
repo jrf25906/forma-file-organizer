@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AppKit
 
 @main
 @MainActor
@@ -246,6 +247,7 @@ struct Forma_File_OrganizingApp: App {
             .environment(\.openSettings, SettingsOpener.open)
             .environmentObject(services)
             .environmentObject(dashboardViewModel)
+            .background(WindowChromeConfiguratorView())
             .automationLifecycle()  // v1.4: Automation engine lifecycle management
     }
 
@@ -280,4 +282,28 @@ struct Forma_File_OrganizingApp: App {
         }
     }
 
+}
+
+private struct WindowChromeConfiguratorView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            if let window = view.window {
+                configure(window)
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        if let window = nsView.window {
+            configure(window)
+        }
+    }
+
+    private func configure(_ window: NSWindow) {
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask.insert(.fullSizeContentView)
+    }
 }

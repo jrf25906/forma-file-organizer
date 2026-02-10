@@ -136,7 +136,10 @@ struct SidebarView: View {
             .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
             .padding(.vertical, FormaSpacing.tight)
         }
-        .background(Color.formaBackground)
+        .background(
+            PaneMaterialBackground(role: .sidebar)
+                .ignoresSafeArea(edges: .top)
+        )
         .onAppear {
             // Refresh folder service when sidebar appears to ensure locations are current
             folderService.refresh()

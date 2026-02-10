@@ -96,28 +96,13 @@ struct ProductivityReportView: View {
     }
 
     private var periodSelector: some View {
-        HStack(spacing: 4) {
-            let periods: [(UsagePeriod, String)] = [
-                (.day, "Day"),
-                (.week, "Week"),
-                (.month, "Month")
-            ]
-
-            ForEach(periods, id: \.0) { period, title in
-                ProductivityPeriodTab(
-                    title: title,
-                    isSelected: viewModel.selectedPeriod == period,
-                    namespace: periodAnimation,
-                    action: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            viewModel.selectedPeriod = period
-                        }
-                    }
-                )
+        StocksStylePeriodControl(
+            selectedPeriod: viewModel.selectedPeriod,
+            namespace: periodAnimation,
+            onSelect: { period in
+                viewModel.selectedPeriod = period
             }
-        }
-        .padding(FormaSpacing.micro)
-        .formaMaterialTier(.raised, cornerRadius: 20)
+        )
     }
 
     private func errorBanner(_ message: String) -> some View {
@@ -378,65 +363,175 @@ private struct ProductivityEmptyState: View {
     }
 }
 
-// MARK: - Period Tab
+// MARK: - Period Control (Stocks Style)
 
-private struct ProductivityPeriodTab: View {
-    let title: String
-    let isSelected: Bool
+private struct StocksStylePeriodControl: View {
+    let selectedPeriod: UsagePeriod
     let namespace: Namespace.ID
-    let action: () -> Void
+    let onSelect: (UsagePeriod) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var hoveredPeriod: UsagePeriod?
+
+    private let periods: [(UsagePeriod, String)] = [
+        (.day, "Day"),
+        (.week, "Week"),
+        (.month, "Month"),
+    ]
+
+    private let containerCornerRadius: CGFloat = 8
+    private let selectedCornerRadius: CGFloat = 6
+    private let segmentHeight: CGFloat = 24
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.formaBodyMedium)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .padding(.horizontal, FormaSpacing.standard - FormaSpacing.micro)
-                .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
-                .foregroundColor(isSelected ? .formaLabel : .formaSecondaryLabel)
-                .background {
-                    if isSelected {
-                        ProductivityPeriodGlassBackground(cornerRadius: 999)
-                            .matchedGeometryEffect(id: "activePeriod", in: namespace)
-                    }
+        HStack(spacing: 0) {
+            ForEach(Array(periods.enumerated()), id: \.element.0) { index, item in
+                let (period, title) = item
+                segmentButton(period: period, title: title)
+
+                if index < periods.count - 1 {
+                    Rectangle()
+                        .fill(separatorColor)
+                        .frame(width: 1, height: 16)
+                        .allowsHitTesting(false)
                 }
+            }
         }
-        .buttonStyle(.plain)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isSelected)
-    }
-}
-
-private struct ProductivityPeriodGlassBackground: View {
-    let cornerRadius: CGFloat
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        if #available(macOS 26.0, *) {
-            shape
-                .glassEffect(.regular.tint(Color.formaSteelBlue.opacity(Color.FormaOpacity.overlay)))
-                .overlay(shape.stroke(Color.formaBoneWhite.opacity(Color.FormaOpacity.medium), lineWidth: 1))
-        } else {
+        .padding(2)
+        .background {
             ZStack {
-                VisualEffectView(material: .popover, blendingMode: .withinWindow)
-                    .clipShape(shape)
+                FormaMaterialSurface(
+                    tier: .raised,
+                    cornerRadius: containerCornerRadius,
+                    tint: containerTint
+                )
 
-                shape.fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.overlay))
+                RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                    .stroke(containerBorder, lineWidth: 0.5)
 
                 LinearGradient(
                     colors: [
-                        Color.formaBoneWhite.opacity(Color.FormaOpacity.medium),
-                        Color.formaBoneWhite.opacity(Color.FormaOpacity.subtle),
-                        Color.formaBoneWhite.opacity(0)
+                        Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.10 : 0.16),
+                        Color.clear
                     ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
-                .clipShape(shape)
-
-                shape.stroke(Color.formaBoneWhite.opacity(Color.FormaOpacity.medium), lineWidth: 1)
+                .clipShape(RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous))
             }
         }
+        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedPeriod)
+        .animation(.easeOut(duration: 0.16), value: hoveredPeriod)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func segmentButton(period: UsagePeriod, title: String) -> some View {
+        let isSelected = selectedPeriod == period
+        let isHovered = hoveredPeriod == period
+
+        return Button(action: { onSelect(period) }) {
+            ZStack {
+                if isSelected {
+                    FormaMaterialSurface(
+                        tier: .overlay,
+                        cornerRadius: selectedCornerRadius,
+                        tint: selectedTint
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                            .stroke(activeBorder, lineWidth: 0.5)
+                    )
+                    .overlay(
+                        LinearGradient(
+                            colors: [
+                                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.14 : 0.20),
+                                Color.clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous))
+                    )
+                    .shadow(color: selectedDropShadowColor, radius: 2, x: 0, y: 1)
+                        .matchedGeometryEffect(id: "activePeriod", in: namespace)
+                        .padding(.vertical, 2)
+                        .padding(.horizontal, 2)
+                } else if isHovered {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(hoverFill)
+                        .padding(.vertical, 2)
+                        .padding(.horizontal, 2)
+                }
+
+                Text(title)
+                    .font(.system(size: 12, weight: isSelected ? .medium : .regular))
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .frame(height: segmentHeight)
+                    .foregroundColor(
+                        isSelected
+                            ? selectedForeground
+                            : (isHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                    )
+            }
+            .frame(height: segmentHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            if hovering {
+                hoveredPeriod = period
+            } else if hoveredPeriod == period {
+                hoveredPeriod = nil
+            }
+        }
+    }
+
+    // MARK: - Colors
+
+    private var separatorColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.12)
+    }
+
+    private var containerTint: Color {
+        colorScheme == .dark
+            ? Color.formaSage.opacity(0.18)
+            : Color.formaMutedBlue.opacity(0.10)
+    }
+
+    private var containerBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.20)
+            : Color.formaObsidian.opacity(0.10)
+    }
+
+    private var activeBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.26)
+            : Color.formaObsidian.opacity(0.14)
+    }
+
+    private var selectedTint: Color {
+        colorScheme == .dark
+            ? Color.formaSage.opacity(0.30)
+            : Color.formaSteelBlue.opacity(0.16)
+    }
+
+    private var selectedForeground: Color {
+        colorScheme == .dark ? .formaBoneWhite : .formaLabel
+    }
+
+    private var selectedDropShadowColor: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.24)
+            : Color.formaObsidian.opacity(0.12)
+    }
+
+    private var hoverFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.08)
+            : Color.formaSteelBlue.opacity(0.06)
     }
 }
 
