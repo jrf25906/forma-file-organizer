@@ -1,13 +1,22 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect, useState, forwardRef, type ComponentType } from "react";
 import { Eye, GitBranch, Type, Undo2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
-import { TiltCard } from "@/components/animation/TiltCard";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
+import { ScrollScene, useScrollSceneProgress } from "@/components/animation/ScrollScene";
+import { FeatureShowcase, type ShowcaseFeature } from "@/components/features/FeatureShowcase";
+import { AnimatedRuleDemo } from "@/components/features/AnimatedRuleDemo";
+import { AnimatedConnectionDemo } from "@/components/features/AnimatedConnectionDemo";
+import { AnimatedPreviewDemo } from "@/components/features/AnimatedPreviewDemo";
+import { AnimatedUndoDemo } from "@/components/features/AnimatedUndoDemo";
 
-type Feature = {
+/* ------------------------------------------------------------------ */
+/*  Feature data                                                       */
+/* ------------------------------------------------------------------ */
+
+type FeatureMeta = {
   id: string;
   icon: typeof Type;
   title: string;
@@ -18,7 +27,7 @@ type Feature = {
   glowClass: string;
 };
 
-const features: Feature[] = [
+const features: FeatureMeta[] = [
   {
     id: "natural-language",
     icon: Type,
@@ -65,21 +74,31 @@ const features: Feature[] = [
   },
 ];
 
+/* ------------------------------------------------------------------ */
+/*  Preview components                                                 */
+/* ------------------------------------------------------------------ */
+
 function RulePreview() {
   const rules = [
-    { text: 'Move screenshots to', target: '~/Screenshots', status: 'Active' },
-    { text: 'Rename invoices by', target: 'date', status: 'Active' },
-    { text: 'Sort code files into', target: '~/Projects', status: '3 matched' },
+    { text: "Move screenshots to", target: "~/Screenshots", status: "Active" },
+    { text: "Rename invoices by", target: "date", status: "Active" },
+    { text: "Sort code files into", target: "~/Projects", status: "3 matched" },
   ];
 
   return (
     <div className="space-y-2">
       {rules.map((rule) => (
-        <div key={rule.text} className="flex items-center justify-between rounded-lg border border-black/[0.06] bg-white px-3.5 py-2.5">
-          <span className="font-mono text-[11px] text-forma-obsidian/75">
-            {rule.text} <span className="text-forma-steel-blue">{rule.target}</span>
+        <div
+          key={rule.text}
+          className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-2.5"
+        >
+          <span className="font-mono text-[11px] text-[var(--text-secondary)]">
+            {rule.text}{" "}
+            <span className="text-forma-steel-blue">{rule.target}</span>
           </span>
-          <span className="rounded-full bg-forma-sage/12 px-2 py-0.5 text-[9px] font-medium text-forma-sage">{rule.status}</span>
+          <span className="rounded-full bg-forma-sage/12 px-2 py-0.5 text-[9px] font-medium text-forma-sage">
+            {rule.status}
+          </span>
         </div>
       ))}
     </div>
@@ -113,7 +132,7 @@ function ConnectionPreview() {
       {groups.map((group) => (
         <div
           key={group.name}
-          className="rounded-lg border border-black/[0.05] bg-white px-3 py-2"
+          className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2"
         >
           <div className="mb-1 flex items-center gap-1.5">
             <span className={`h-1.5 w-1.5 rounded-full ${group.dotClass}`} />
@@ -125,7 +144,7 @@ function ConnectionPreview() {
             {group.files.map((file) => (
               <span
                 key={file}
-                className="rounded bg-black/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-forma-obsidian/65"
+                className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]"
               >
                 {file}
               </span>
@@ -139,9 +158,24 @@ function ConnectionPreview() {
 
 function ControlPreview() {
   const files = [
-    { name: "Screenshot 2024-01-15.png", from: "~/Desktop", to: "~/Screenshots", checked: true },
-    { name: "Invoice_March.pdf", from: "~/Downloads", to: "~/Documents/PDFs", checked: true },
-    { name: "notes.txt", from: "~/Desktop", to: "~/Documents", checked: false },
+    {
+      name: "Screenshot 2024-01-15.png",
+      from: "~/Desktop",
+      to: "~/Screenshots",
+      checked: true,
+    },
+    {
+      name: "Invoice_March.pdf",
+      from: "~/Downloads",
+      to: "~/Documents/PDFs",
+      checked: true,
+    },
+    {
+      name: "notes.txt",
+      from: "~/Desktop",
+      to: "~/Documents",
+      checked: false,
+    },
   ];
 
   return (
@@ -149,15 +183,26 @@ function ControlPreview() {
       {files.map((file) => (
         <div
           key={file.name}
-          className={`flex items-start gap-2 rounded-lg border border-black/[0.05] bg-white px-3 py-2${!file.checked ? " opacity-60" : ""}`}
+          className={`flex items-start gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2${
+            !file.checked ? " opacity-60" : ""
+          }`}
         >
-          <span className={`mt-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded flex-shrink-0 text-[8px] ${file.checked ? "bg-forma-muted-blue text-white" : "border border-forma-muted-blue/40 bg-transparent text-transparent"}`}>
-            ✓
+          <span
+            className={`mt-0.5 inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded text-[8px] ${
+              file.checked
+                ? "bg-forma-muted-blue text-white"
+                : "border border-forma-muted-blue/40 bg-transparent text-transparent"
+            }`}
+          >
+            {"\u2713"}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[11px] text-forma-obsidian/75">{file.name}</p>
-            <p className="truncate text-[10px] text-forma-obsidian/45">
-              {file.from} → <span className="text-forma-sage">{file.to}</span>
+            <p className="truncate text-[11px] text-[var(--text-secondary)]">
+              {file.name}
+            </p>
+            <p className="truncate text-[10px] text-[var(--text-muted)]">
+              {file.from} {"\u2192"}{" "}
+              <span className="text-forma-sage">{file.to}</span>
             </p>
           </div>
         </div>
@@ -168,9 +213,9 @@ function ControlPreview() {
 
 function UndoPreview() {
   const rows = [
-    { file: "report.pdf", detail: "~/Documents · 2m ago", undone: false },
-    { file: "hero.png", detail: "~/Screenshots · 5m ago", undone: false },
-    { file: "backup.zip", detail: "~/Archive · 12m ago", undone: true },
+    { file: "report.pdf", detail: "~/Documents \u00b7 2m ago", undone: false },
+    { file: "hero.png", detail: "~/Screenshots \u00b7 5m ago", undone: false },
+    { file: "backup.zip", detail: "~/Archive \u00b7 12m ago", undone: true },
   ];
 
   return (
@@ -178,15 +223,27 @@ function UndoPreview() {
       {rows.map((row) => (
         <div
           key={row.file}
-          className="flex items-center justify-between rounded-lg border border-black/[0.05] bg-white px-3 py-2"
+          className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2"
         >
           <div className="min-w-0 pr-3">
-            <p className={`truncate text-[11px] text-forma-obsidian/75${row.undone ? " line-through" : ""}`}>{row.file}</p>
-            <p className="truncate text-[10px] text-forma-obsidian/45">{row.detail}</p>
+            <p
+              className={`truncate text-[11px] text-[var(--text-secondary)]${
+                row.undone ? " line-through" : ""
+              }`}
+            >
+              {row.file}
+            </p>
+            <p className="truncate text-[10px] text-[var(--text-muted)]">
+              {row.detail}
+            </p>
           </div>
           <button
             type="button"
-            className={`flex-shrink-0 rounded-md px-2 py-1 text-[10px] font-medium ${row.undone ? "bg-forma-sage/12 text-forma-sage" : "bg-forma-warm-orange/15 text-forma-warm-orange"}`}
+            className={`flex-shrink-0 rounded-md px-2 py-1 text-[10px] font-medium ${
+              row.undone
+                ? "bg-forma-sage/12 text-forma-sage"
+                : "bg-forma-warm-orange/15 text-forma-warm-orange"
+            }`}
           >
             {row.undone ? "Done" : "Undo"}
           </button>
@@ -203,9 +260,103 @@ function PreviewForFeature({ id }: { id: string }) {
   return <UndoPreview />;
 }
 
-export default function FeaturesSection() {
-  const sectionRef = useRef<HTMLElement>(null);
+/* ------------------------------------------------------------------ */
+/*  Build showcase data from feature meta + preview components         */
+/* ------------------------------------------------------------------ */
+
+/** Map feature ID to its animated demo component. */
+const animatedDemoMap: Record<string, ComponentType<{ progress: number }>> = {
+  "natural-language": AnimatedRuleDemo,
+  "smart-connections": AnimatedConnectionDemo,
+  "total-control": AnimatedPreviewDemo,
+  "full-undo": AnimatedUndoDemo,
+};
+
+const showcaseFeatures: ShowcaseFeature[] = features.map((f) => ({
+  id: f.id,
+  icon: f.icon,
+  title: f.title,
+  description: f.description,
+  accentText: f.accentText,
+  accentBg: f.accentBg,
+  preview: <PreviewForFeature id={f.id} />,
+  animatedDemo: animatedDemoMap[f.id],
+}));
+
+/* ------------------------------------------------------------------ */
+/*  Desktop: pinned scroll showcase                                    */
+/* ------------------------------------------------------------------ */
+
+function DesktopFeatures() {
+  const headlineRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <ScrollScene id="features-showcase" scrubLength={5} pin={true}>
+      <div className="relative h-screen w-full">
+        {/* Section header - sits inside the pinned scene and fades based on progress */}
+        <SectionHeader ref={headlineRef} />
+
+        {/* The showcase fills the viewport */}
+        <FeatureShowcase features={showcaseFeatures} />
+      </div>
+    </ScrollScene>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Section header (used by both desktop and mobile)                   */
+/* ------------------------------------------------------------------ */
+
+const SectionHeader = forwardRef<HTMLDivElement>(function SectionHeader(_, ref) {
+  const progress = useScrollSceneProgress();
+
+  /* On desktop the header is inside the ScrollScene and should only
+     show during the intro portion of the scroll (progress 0-0.06).
+     On mobile (progress is always 1 because ScrollScene is disabled),
+     we render it separately so this component is not used there. */
+  const headerOpacity =
+    progress < 0.02
+      ? progress / 0.02
+      : progress < 0.05
+        ? 1
+        : progress < 0.08
+          ? 1 - (progress - 0.05) / 0.03
+          : 0;
+
+  const headerTranslateY = progress > 0.05 ? -20 * ((progress - 0.05) / 0.03) : 0;
+
+  return (
+    <div
+      ref={ref}
+      className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-screen items-center justify-center"
+      style={{
+        opacity: Math.max(0, Math.min(1, headerOpacity)),
+        transform: `translateY(${headerTranslateY}px)`,
+      }}
+    >
+      <div className="text-center">
+        <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-forma-steel-blue/70">
+          Features
+        </p>
+        <h2 className="font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
+          How it actually works
+        </h2>
+        <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">
+          Four things that make the difference between a tool you install and a
+          tool you keep.
+        </p>
+      </div>
+    </div>
+  );
+});
+
+/* ------------------------------------------------------------------ */
+/*  Mobile: stacked card grid (no pinning)                             */
+/* ------------------------------------------------------------------ */
+
+function MobileFeatures() {
   const headlineRef = useRef<HTMLHeadingElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
@@ -236,10 +387,86 @@ export default function FeaturesSection() {
   );
 
   return (
+    <div ref={sectionRef}>
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-14 text-center md:mb-16">
+          <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-forma-steel-blue/70">
+            Features
+          </p>
+          <h2
+            ref={headlineRef}
+            className="font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]"
+          >
+            How it actually works
+          </h2>
+          <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">
+            Four things that make the difference between a tool you install and
+            a tool you keep.
+          </p>
+        </div>
+
+        <ScrollReveal stagger={0.12} threshold={85}>
+          <div className="grid grid-cols-1 gap-5">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <article
+                  key={feature.id}
+                  className="feature-card glass-card-strong flex flex-col overflow-hidden rounded-2xl"
+                >
+                  <div className={`h-1.5 w-full ${feature.accentBorder}`} />
+                  <div className="flex flex-1 flex-col p-6">
+                    <div className="mb-3 flex items-center gap-3">
+                      <div
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${feature.accentBg}`}
+                      >
+                        <Icon
+                          className={`h-[18px] w-[18px] ${feature.accentText}`}
+                        />
+                      </div>
+                      <h3 className="font-display text-xl tracking-tight text-[var(--text-primary)]">
+                        {feature.title}
+                      </h3>
+                    </div>
+                    <p className="mb-5 text-[14px] leading-relaxed text-[var(--text-secondary)]">
+                      {feature.description}
+                    </p>
+
+                    <div className="demo-area mt-auto rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
+                      <PreviewForFeature id={feature.id} />
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </ScrollReveal>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Exported FeaturesSection                                           */
+/* ------------------------------------------------------------------ */
+
+export default function FeaturesSection() {
+  const [isMobile, setIsMobile] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+    setHasMounted(true);
+
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return (
     <section
-      ref={sectionRef}
       id="features"
-      className="features-section relative scroll-mt-16 overflow-hidden bg-[#e8ecf1] py-24 md:py-32"
+      className="features-section relative scroll-mt-16 overflow-hidden bg-transparent"
     >
       {/* Background overlay with gradient + orbs */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
@@ -249,59 +476,18 @@ export default function FeaturesSection() {
       </div>
 
       <div className="site-container relative">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-14 text-center md:mb-16">
-            <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/60">
-              Features
-            </p>
-            <h2
-              ref={headlineRef}
-              className="font-display text-3xl tracking-tight text-forma-obsidian md:text-4xl lg:text-[2.75rem]"
-            >
-              How it actually works
-            </h2>
-            <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-forma-obsidian/60 md:text-lg">
-              Four things that make the difference between a tool you install
-              and a tool you keep.
-            </p>
+        {/* Before mount, render mobile layout to avoid layout shift */}
+        {!hasMounted ? (
+          <div className="py-24 md:py-32">
+            <MobileFeatures />
           </div>
-
-          <ScrollReveal stagger={0.12} threshold={85}>
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              {features.map((feature) => {
-                const Icon = feature.icon;
-                return (
-                  <TiltCard key={feature.id} maxRotation={6} scale={1.01}>
-                    <article
-                      className={`feature-card glass-card-strong flex flex-col overflow-hidden rounded-2xl transition-shadow duration-300 ${feature.glowClass}`}
-                    >
-                      <div className={`h-1.5 w-full ${feature.accentBorder}`} />
-                      <div className="p-6 flex flex-col flex-1">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div
-                            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${feature.accentBg}`}
-                          >
-                            <Icon className={`h-[18px] w-[18px] ${feature.accentText}`} />
-                          </div>
-                          <h3 className="font-display text-xl tracking-tight text-forma-obsidian">
-                            {feature.title}
-                          </h3>
-                        </div>
-                        <p className="text-[14px] leading-relaxed text-forma-obsidian/60 mb-5">
-                          {feature.description}
-                        </p>
-
-                        <div className="demo-area mt-auto rounded-xl border border-black/[0.08] bg-[#eef1f5] p-4">
-                          <PreviewForFeature id={feature.id} />
-                        </div>
-                      </div>
-                    </article>
-                  </TiltCard>
-                );
-              })}
-            </div>
-          </ScrollReveal>
-        </div>
+        ) : isMobile ? (
+          <div className="py-24">
+            <MobileFeatures />
+          </div>
+        ) : (
+          <DesktopFeatures />
+        )}
       </div>
     </section>
   );

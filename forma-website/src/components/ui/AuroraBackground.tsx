@@ -41,8 +41,8 @@ export function AuroraBackground({
           {/* Steel Blue orb */}
           <div
             className={cn(
-              "absolute rounded-full mix-blend-multiply",
-              "blur-[100px] opacity-60",
+              "absolute rounded-full mix-blend-screen",
+              "blur-[100px] opacity-70",
               "animate-float-slower"
             )}
             style={{
@@ -60,8 +60,8 @@ export function AuroraBackground({
           {/* Sage orb */}
           <div
             className={cn(
-              "absolute rounded-full mix-blend-multiply",
-              "blur-[120px] opacity-50",
+              "absolute rounded-full mix-blend-screen",
+              "blur-[120px] opacity-65",
               "animate-float-slower"
             )}
             style={{
@@ -79,8 +79,8 @@ export function AuroraBackground({
           {/* Warm Orange orb */}
           <div
             className={cn(
-              "absolute rounded-full mix-blend-multiply",
-              "blur-[80px] opacity-40",
+              "absolute rounded-full mix-blend-screen",
+              "blur-[80px] opacity-55",
               "animate-float-slower"
             )}
             style={{

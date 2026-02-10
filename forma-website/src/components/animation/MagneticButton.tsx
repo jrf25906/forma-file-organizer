@@ -3,6 +3,7 @@
 import React, { forwardRef } from "react";
 import { useMagnetic } from "@/hooks/use-magnetic";
 import { cn } from "@/lib/utils";
+import { soundEngine } from "@/lib/sound/sound-engine";
 
 interface MagneticButtonProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Strength of the magnetic pull (0-1, default 0.3) */
@@ -37,7 +38,7 @@ interface MagneticButtonProps extends React.HTMLAttributes<HTMLDivElement> {
  * ```
  */
 export const MagneticButton = forwardRef<HTMLDivElement, MagneticButtonProps>(
-  ({ children, strength = 0.3, className, enabled = true, ...props }, ref) => {
+  ({ children, strength = 0.3, className, enabled = true, onMouseEnter, ...props }, ref) => {
     const magneticRef = useMagnetic<HTMLDivElement>({ strength, enabled });
 
     // Combine refs
@@ -51,10 +52,16 @@ export const MagneticButton = forwardRef<HTMLDivElement, MagneticButtonProps>(
       }
     };
 
+    const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+      soundEngine.play("tick");
+      onMouseEnter?.(e);
+    };
+
     return (
       <div
         ref={setRef}
         className={cn("inline-block", className)}
+        onMouseEnter={handleMouseEnter}
         {...props}
       >
         {children}

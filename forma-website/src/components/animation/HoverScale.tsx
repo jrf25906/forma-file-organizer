@@ -111,6 +111,11 @@ export const HoverScale = forwardRef<HTMLDivElement, HoverScaleProps>(
       const element = containerRef.current;
       if (!element || !enabled) return;
 
+      // Skip on touch/coarse-pointer devices (mobile, tablets)
+      if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) {
+        return;
+      }
+
       // Create GSAP context for proper cleanup
       const ctx = gsap.context(() => {
         // Set initial state

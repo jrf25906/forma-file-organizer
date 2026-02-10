@@ -204,6 +204,11 @@ export function useTilt<T extends HTMLElement = HTMLDivElement>(
     const element = ref.current;
     if (!element || !enabled) return;
 
+    // Skip on touch/coarse-pointer devices (mobile, tablets)
+    if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) {
+      return;
+    }
+
     // Check for reduced motion preference
     // This runs on mount and won't react to changes, but the component
     // using this hook should pass enabled=false when reduced motion is detected

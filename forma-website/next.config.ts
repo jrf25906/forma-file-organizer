@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["gsap", "@gsap/react", "lenis"],
+  transpilePackages: ["gsap", "@gsap/react", "lenis", "three", "@react-three/fiber", "@react-three/drei"],
   async headers() {
     return [
       {

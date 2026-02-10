@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { Plus, Minus } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaStagger, formaDuration } from "@/lib/animation";
+import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
 
 const faqs = [
   {
@@ -81,7 +82,7 @@ function FAQItem({
   );
 
   return (
-    <div className="border-b border-black/[0.08] last:border-0">
+    <div className="border-b border-white/[0.08] last:border-0">
       <button
         onClick={onToggle}
         aria-expanded={isOpen}
@@ -90,15 +91,15 @@ function FAQItem({
       >
         <span
           id={`faq-question-${index}`}
-          className="font-display text-[17px] text-forma-obsidian group-hover:text-forma-obsidian/80 transition-colors"
+          className="font-display text-[17px] text-[var(--text-primary)] group-hover:text-[var(--text-primary)]/80 transition-colors"
         >
           {faq.question}
         </span>
         <div className="shrink-0 w-5 h-5 flex items-center justify-center">
           {isOpen ? (
-            <Minus className="w-3.5 h-3.5 text-forma-obsidian/35" />
+            <Minus className="w-3.5 h-3.5 text-[var(--text-muted)]" />
           ) : (
-            <Plus className="w-3.5 h-3.5 text-forma-obsidian/35" />
+            <Plus className="w-3.5 h-3.5 text-[var(--text-muted)]" />
           )}
         </div>
       </button>
@@ -112,7 +113,7 @@ function FAQItem({
         style={{ height: 0, opacity: 0 }}
       >
         <div ref={innerRef}>
-          <p className="pb-5 text-[15px] text-forma-obsidian/60 leading-relaxed pr-8">
+          <p className="pb-5 text-[15px] text-[var(--text-secondary)] leading-relaxed pr-8">
             {faq.answer}
           </p>
         </div>
@@ -122,9 +123,9 @@ function FAQItem({
 }
 
 export default function FAQSection() {
-  const enableScrollAnimations = true;
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const labelRef = useRef<HTMLParagraphElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const contactRef = useRef<HTMLDivElement>(null);
   const [openIndex, setOpenIndex] = useState<number | null>(0);
@@ -138,55 +139,85 @@ export default function FAQSection() {
 
   useGSAP(
     () => {
-      if (!enableScrollAnimations) return;
       if (!sectionRef.current) return;
 
-      const prefersReducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)"
-      ).matches;
+      const reducedMotion = getReducedMotionValue();
 
-      if (prefersReducedMotion) {
+      if (reducedMotion) {
         gsap.set(
-          [headingRef.current, listRef.current, contactRef.current],
+          [labelRef.current, headingRef.current, listRef.current, contactRef.current],
           { opacity: 1, y: 0 }
         );
         return;
       }
 
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "top 75%",
-          toggleActions: "play none none none",
-        },
-      });
+      // Section label scrub reveal
+      gsap.fromTo(
+        labelRef.current,
+        { opacity: 0, y: 20 },
+        {
+          opacity: 1,
+          y: 0,
+          ease: formaReveal,
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 85%",
+            end: "top 55%",
+            scrub: 1,
+          },
+        }
+      );
 
-      tl.from(headingRef.current, {
-        opacity: 0,
-        y: 30,
-        duration: formaDuration.normal,
-        ease: formaReveal,
-      })
-        .from(
-          listRef.current,
-          {
-            opacity: 0,
-            y: 20,
-            duration: formaDuration.fast,
-            ease: formaReveal,
+      // Heading scrub reveal
+      gsap.fromTo(
+        headingRef.current,
+        { opacity: 0, y: 30 },
+        {
+          opacity: 1,
+          y: 0,
+          ease: formaReveal,
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 82%",
+            end: "top 50%",
+            scrub: 1,
           },
-          "-=0.5"
-        )
-        .from(
-          contactRef.current,
-          {
-            opacity: 0,
-            y: 15,
-            duration: formaDuration.fast,
-            ease: formaReveal,
+        }
+      );
+
+      // FAQ list card scrub reveal
+      gsap.fromTo(
+        listRef.current,
+        { opacity: 0, y: 20 },
+        {
+          opacity: 1,
+          y: 0,
+          ease: formaReveal,
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 75%",
+            end: "top 40%",
+            scrub: 1,
           },
-          "-=0.2"
-        );
+        }
+      );
+
+      // Contact link scrub reveal
+      gsap.fromTo(
+        contactRef.current,
+        { opacity: 0, y: 15 },
+        {
+          opacity: 1,
+          y: 0,
+          ease: formaReveal,
+          scrollTrigger: {
+            trigger: contactRef.current,
+            start: "top 90%",
+            end: "top 65%",
+            scrub: 1,
+          },
+        }
+      );
     },
     { scope: sectionRef }
   );
@@ -195,22 +226,27 @@ export default function FAQSection() {
     <section
       ref={sectionRef}
       id="faq"
-      className="scroll-mt-16 py-24 md:py-32 bg-[#f7f8fa]"
+      className="scroll-mt-16 py-24 md:py-32 bg-[var(--bg-secondary)]"
     >
       <div className="site-container">
         <div className="mx-auto max-w-2xl">
-          <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/60 text-center">
+          <p
+            ref={labelRef}
+            className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/70 text-center"
+            style={{ opacity: 0 }}
+          >
             FAQ
           </p>
           <h2
             ref={headingRef}
-            className="font-display text-3xl md:text-[2.25rem] text-forma-obsidian text-center mb-10"
+            className="font-display text-3xl md:text-[2.25rem] text-[var(--text-primary)] text-center mb-10"
+            style={{ opacity: 0 }}
           >
             Common Questions
           </h2>
 
           {/* FAQ list */}
-          <div ref={listRef} className="glass-card-strong rounded-2xl px-6 md:px-8">
+          <div ref={listRef} className="glass-card-strong rounded-2xl px-6 md:px-8" style={{ opacity: 0 }}>
             {faqs.map((faq, index) => (
               <FAQItem
                 key={index}
@@ -223,8 +259,8 @@ export default function FAQSection() {
           </div>
 
           {/* Contact link */}
-          <div ref={contactRef} className="text-center mt-10">
-            <p className="text-[14px] text-forma-obsidian/50">
+          <div ref={contactRef} className="text-center mt-10" style={{ opacity: 0 }}>
+            <p className="text-[14px] text-[var(--text-muted)]">
               Something else?{" "}
               <a
                 href="mailto:hello@forma.app"

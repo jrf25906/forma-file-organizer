@@ -4,7 +4,9 @@ import { useState, useRef, type FormEvent } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
+import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
 import { MagneticButton } from "@/components/animation/MagneticButton";
+import { ParallaxLayer } from "@/components/animation/ParallaxLayer";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -13,7 +15,6 @@ function isValidEmail(email: string): boolean {
 }
 
 export default function NewsletterSection() {
-  const enableScrollAnimations = true;
   const sectionRef = useRef<HTMLElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -23,14 +24,11 @@ export default function NewsletterSection() {
 
   useGSAP(
     () => {
-      if (!enableScrollAnimations) return;
       if (!sectionRef.current || !cardRef.current) return;
 
-      const prefersReducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)"
-      ).matches;
+      const reducedMotion = getReducedMotionValue();
 
-      if (prefersReducedMotion) {
+      if (reducedMotion) {
         gsap.set(cardRef.current, { opacity: 1, y: 0 });
         return;
       }
@@ -92,13 +90,18 @@ export default function NewsletterSection() {
       className="py-16 md:py-20"
     >
       <div className="site-container">
-        {/* Glow halo behind the dark card */}
+        {/* Glow halo behind the dark card - wrapped in parallax for depth */}
         <div className="relative mx-auto max-w-2xl">
-          <div className="pointer-events-none absolute -inset-8 rounded-3xl bg-[radial-gradient(ellipse_at_center,rgba(91,124,153,0.15)_0%,rgba(122,157,126,0.08)_40%,transparent_70%)] blur-2xl" aria-hidden="true" />
+          <ParallaxLayer speed={-0.3} className="absolute -inset-8">
+            <div
+              className="w-full h-full rounded-3xl bg-[radial-gradient(ellipse_at_center,rgba(91,124,153,0.15)_0%,rgba(122,157,126,0.08)_40%,transparent_70%)] blur-2xl pointer-events-none"
+              aria-hidden="true"
+            />
+          </ParallaxLayer>
 
           <div
             ref={cardRef}
-            className="relative rounded-2xl bg-forma-obsidian px-8 py-10 md:px-12 md:py-12 text-center"
+            className="relative rounded-2xl bg-[var(--bg-tertiary)] px-8 py-10 md:px-12 md:py-12 text-center"
           >
             <h2 className="font-display text-2xl md:text-3xl text-forma-bone">
               Stay in the loop

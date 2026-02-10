@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 import { GridLogo } from "@/components/icons";
+import { SoundToggle } from "@/components/ui/SoundToggle";
 
 interface SmoothScrollLinkProps {
   href: string;
@@ -66,14 +67,14 @@ export function Header() {
         className={cn(
           "sticky inset-x-0 top-0 z-[120] border-b transition-all duration-200",
           isScrolled
-            ? "bg-white/96 backdrop-blur-xl border-black/[0.08]"
-            : "bg-white/88 backdrop-blur-lg border-black/[0.05]"
+            ? "bg-[#0A0A0B]/90 backdrop-blur-xl border-white/[0.08]"
+            : "bg-[#0A0A0B]/80 backdrop-blur-lg border-white/[0.05]"
         )}
       >
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <SmoothScrollLink
             href="#top"
-            className="flex items-center gap-2.5 rounded-full px-2.5 py-1.5 text-forma-obsidian hover:bg-black/[0.04] transition-colors"
+            className="flex items-center gap-2.5 rounded-full px-2.5 py-1.5 text-[var(--text-primary)] hover:bg-white/[0.04] transition-colors"
             onClick={closeMobileMenu}
           >
             <GridLogo />
@@ -91,7 +92,7 @@ export function Header() {
                 key={link.href}
                 href={link.href}
                 aria-label={link.ariaLabel}
-                className="rounded-full px-3.5 py-2 text-[13px] font-medium text-forma-obsidian/70 hover:text-forma-obsidian hover:bg-black/[0.04] transition-colors"
+                className="rounded-full px-3.5 py-2 text-[13px] font-medium text-[var(--text-primary)]/70 hover:text-[var(--text-primary)] hover:bg-white/[0.06] transition-colors"
                 onClick={closeMobileMenu}
               >
                 {link.label}
@@ -100,11 +101,13 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <SoundToggle />
+
             {/* Mobile compact CTA -- visible only below md */}
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="inline-flex md:hidden h-8 items-center rounded-xl bg-forma-obsidian px-3.5 text-[11.5px] font-semibold text-forma-bone hover:bg-forma-obsidian/90 transition-all hover:-translate-y-px hover:shadow-md"
+              className="inline-flex md:hidden h-8 items-center rounded-xl bg-[#F0F0F2] px-3.5 text-[11.5px] font-semibold text-[#0A0A0B] hover:bg-[#E0E0E2] transition-all hover:-translate-y-px hover:shadow-md"
             >
               Download
             </a>
@@ -113,14 +116,14 @@ export function Header() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="hidden md:inline-flex h-9 items-center rounded-xl bg-forma-obsidian px-4 text-[12.5px] font-semibold text-forma-bone transition-all hover:bg-forma-obsidian/90 hover:-translate-y-px hover:shadow-md"
+              className="hidden md:inline-flex h-9 items-center rounded-xl bg-[#F0F0F2] px-4 text-[12.5px] font-semibold text-[#0A0A0B] transition-all hover:bg-[#E0E0E2] hover:-translate-y-px hover:shadow-md"
             >
               Download for Mac
             </a>
 
             <button
               onClick={() => setIsMobileMenuOpen((open) => !open)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-forma-obsidian hover:bg-black/[0.04] transition-colors md:hidden"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-primary)] hover:bg-white/[0.04] transition-colors md:hidden"
               aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={isMobileMenuOpen}
             >
@@ -132,7 +135,7 @@ export function Header() {
 
       <div
         className={cn(
-          "fixed inset-0 z-[110] bg-black/20 transition-opacity md:hidden",
+          "fixed inset-0 z-[110] bg-black/40 transition-opacity md:hidden",
           isMobileMenuOpen
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0"
@@ -143,7 +146,7 @@ export function Header() {
 
       <div
         className={cn(
-          "fixed inset-x-0 top-16 z-[121] border-b border-black/[0.08] bg-white/98 px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.10)] backdrop-blur-xl md:hidden transition-all duration-200",
+          "fixed inset-x-0 top-16 z-[121] border-b border-white/[0.08] bg-[#0A0A0B]/98 px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.4)] backdrop-blur-xl md:hidden transition-all duration-200",
           isMobileMenuOpen
             ? "translate-y-0 opacity-100"
             : "-translate-y-2 opacity-0 pointer-events-none"
@@ -159,7 +162,7 @@ export function Header() {
               href={link.href}
               aria-label={link.ariaLabel}
               onClick={closeMobileMenu}
-              className="rounded-xl px-3 py-2.5 text-[15px] font-medium text-forma-obsidian/85 hover:bg-black/[0.04]"
+              className="rounded-xl px-3 py-2.5 text-[15px] font-medium text-[var(--text-primary)]/85 hover:bg-white/[0.04]"
             >
               {link.label}
             </SmoothScrollLink>
@@ -168,7 +171,7 @@ export function Header() {
             href={MAC_APP_STORE_URL}
             {...MAC_APP_STORE_LINK_PROPS}
             onClick={closeMobileMenu}
-            className="mt-1 inline-flex h-11 items-center justify-center rounded-xl bg-forma-obsidian px-4 text-[14px] font-semibold text-forma-bone hover:bg-forma-obsidian/90 transition-colors"
+            className="mt-1 inline-flex h-11 items-center justify-center rounded-xl bg-[#F0F0F2] px-4 text-[14px] font-semibold text-[#0A0A0B] hover:bg-[#E0E0E2] transition-colors"
           >
             Download for Mac
           </a>

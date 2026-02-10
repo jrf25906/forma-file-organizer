@@ -44,10 +44,10 @@ export function ThemeProvider({
   children,
   defaultTheme = "light",
 }: ThemeProviderProps) {
-  const theme: Theme = defaultTheme === "light" ? "light" : "light";
-  const resolvedTheme: ResolvedTheme = "light";
+  const theme: Theme = "dark";
+  const resolvedTheme: ResolvedTheme = "dark";
 
-  // Marketing site currently ships in a single, deterministic light theme.
+  // Marketing site now ships in a dark theme.
   const setTheme: ThemeContextType["setTheme"] = () => {};
 
   const value: ThemeContextType = {

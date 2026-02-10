@@ -90,7 +90,7 @@ export default function CredibilityStrip() {
     <section
       ref={sectionRef}
       id="credibility"
-      className="relative py-10 md:py-14 bg-forma-steel-blue/[0.03] border-y border-black/[0.06]"
+      className="relative py-10 md:py-14 bg-white/[0.02] border-y border-white/[0.06]"
       aria-label="Why trust Forma"
     >
       <div className="site-container relative">
@@ -111,10 +111,10 @@ export default function CredibilityStrip() {
                   />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[14px] font-semibold text-forma-obsidian tracking-tight whitespace-nowrap">
+                  <span className="text-[14px] font-semibold text-[var(--text-primary)] tracking-tight whitespace-nowrap">
                     {label}
                   </span>
-                  <span className="text-[12px] text-forma-obsidian/55 leading-snug">
+                  <span className="text-[12px] text-[var(--text-muted)] leading-snug">
                     {description}
                   </span>
                 </div>

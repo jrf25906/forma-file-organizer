@@ -4,9 +4,12 @@ import { useRef, useEffect, useState } from "react";
 import { Check, Monitor, Shield, Clock, Undo2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaStagger, formaDuration } from "@/lib/animation";
+import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
 import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 import { MagneticButton } from "@/components/animation/MagneticButton";
+import { CountUp } from "@/components/animation/CountUp";
 import { AppleLogo } from "@/components/icons";
+import { soundEngine } from "@/lib/sound/sound-engine";
 
 const features = [
   {
@@ -37,79 +40,120 @@ export default function PricingSection() {
     setIsMac(mac);
   }, []);
 
-  const enableScrollAnimations = true;
   const sectionRef = useRef<HTMLElement>(null);
-  const headlineRef = useRef<HTMLHeadingElement>(null);
+  const headlineRef = useRef<HTMLDivElement>(null);
   const subtextRef = useRef<HTMLParagraphElement>(null);
   const featuresRef = useRef<HTMLUListElement>(null);
   const ctaRef = useRef<HTMLDivElement>(null);
+  const glowRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
-      if (!enableScrollAnimations) return;
       if (!sectionRef.current) return;
 
-      const prefersReducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)"
-      ).matches;
+      const reducedMotion = getReducedMotionValue();
 
-      if (prefersReducedMotion) {
+      if (reducedMotion) {
         gsap.set(
           [headlineRef.current, subtextRef.current, ctaRef.current],
-          { opacity: 1, y: 0 }
+          { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
         );
         if (featuresRef.current?.children) {
           gsap.set(featuresRef.current.children, { opacity: 1, y: 0 });
         }
+        if (glowRef.current) {
+          gsap.set(glowRef.current, { opacity: 0.12 });
+        }
         return;
       }
 
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "top 75%",
-          toggleActions: "play none none none",
-        },
-      });
+      // Dramatic headline entrance: starts scaled up and blurred, resolves on scroll
+      gsap.fromTo(
+        headlineRef.current,
+        { scale: 2, opacity: 0, filter: "blur(12px)" },
+        {
+          scale: 1,
+          opacity: 1,
+          filter: "blur(0px)",
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 80%",
+            end: "top 30%",
+            scrub: 1,
+            onEnter: () => soundEngine.play("reveal"),
+          },
+        }
+      );
 
-      tl.from(headlineRef.current, {
-        opacity: 0,
-        y: 40,
-        duration: formaDuration.normal,
-        ease: formaReveal,
-      })
-        .from(
-          subtextRef.current,
-          {
-            opacity: 0,
-            y: 30,
-            duration: formaDuration.normal,
-            ease: formaReveal,
+      // Subtext fades in with scroll scrub
+      gsap.fromTo(
+        subtextRef.current,
+        { opacity: 0, y: 30 },
+        {
+          opacity: 1,
+          y: 0,
+          ease: formaReveal,
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 65%",
+            end: "top 35%",
+            scrub: 1,
           },
-          "-=0.5"
-        )
-        .from(
-          featuresRef.current?.children ?? [],
-          {
-            opacity: 0,
-            y: 20,
-            stagger: formaStagger.normal,
-            duration: formaDuration.fast,
-            ease: formaReveal,
+        }
+      );
+
+      // Feature checkmarks stagger in with dramatic timing
+      gsap.fromTo(
+        featuresRef.current?.children ?? [],
+        { opacity: 0, y: 30 },
+        {
+          opacity: 1,
+          y: 0,
+          stagger: 0.15,
+          ease: formaReveal,
+          scrollTrigger: {
+            trigger: featuresRef.current,
+            start: "top 75%",
+            end: "top 45%",
+            scrub: 1,
           },
-          "-=0.4"
-        )
-        .from(
-          ctaRef.current,
-          {
-            opacity: 0,
-            y: 20,
-            scale: 0.97,
-            duration: formaDuration.normal,
-            ease: formaReveal,
+        }
+      );
+
+      // CTA button entrance
+      gsap.fromTo(
+        ctaRef.current,
+        { opacity: 0, y: 20, scale: 0.97 },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          ease: formaReveal,
+          scrollTrigger: {
+            trigger: ctaRef.current,
+            start: "top 85%",
+            end: "top 60%",
+            scrub: 1,
           },
-          "-=0.3"
-        );
+        }
+      );
+
+      // Glow orb intensifies as section enters view
+      gsap.fromTo(
+        glowRef.current,
+        { opacity: 0.05 },
+        {
+          opacity: 0.12,
+          ease: "power1.inOut",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 80%",
+            end: "top 20%",
+            scrub: 1,
+          },
+        }
+      );
     },
     { scope: sectionRef }
   );
@@ -121,26 +165,33 @@ export default function PricingSection() {
       className="scroll-mt-16 relative py-24 md:py-32 overflow-hidden"
     >
       {/* Distinct background */}
-      <div className="absolute inset-0 bg-[#f0f3f7] pointer-events-none" />
+      <div className="absolute inset-0 bg-[var(--bg-secondary)] pointer-events-none" />
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full bg-forma-steel-blue/[0.08] blur-[150px]" />
+        <div
+          ref={glowRef}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full bg-forma-steel-blue blur-[150px]"
+          style={{ opacity: 0.05 }}
+        />
       </div>
 
       <div className="site-container relative">
         <div className="glass-card-strong mx-auto max-w-xl rounded-3xl px-8 py-12 md:px-12 md:py-14 text-center">
-          <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/60">
+          <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/70">
             Pricing
           </p>
-          <h2
+          <div
             ref={headlineRef}
             className="font-display text-6xl md:text-7xl lg:text-[5.5rem] tracking-tight gradient-text"
+            style={{ opacity: 0, scale: 2, filter: "blur(12px)" }}
           >
-            $29. Once. Forever.
-          </h2>
+            <CountUp target={29} prefix="$" scrub className="font-display" />
+            <span>. Once. Forever.</span>
+          </div>
 
           <p
             ref={subtextRef}
-            className="mt-5 text-base md:text-lg text-forma-obsidian/65 leading-relaxed max-w-md mx-auto"
+            className="mt-5 text-base md:text-lg text-[var(--text-secondary)] leading-relaxed max-w-md mx-auto"
+            style={{ opacity: 0 }}
           >
             No subscription. No account. No &lsquo;premium tiers.&rsquo; Pay
             once, own it forever.
@@ -154,16 +205,17 @@ export default function PricingSection() {
               <li
                 key={feature.text}
                 className="flex items-start gap-3"
+                style={{ opacity: 0 }}
               >
                 <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-forma-sage/15 flex-shrink-0">
                   <Check className="w-3 h-3 text-forma-sage" strokeWidth={3} />
                 </span>
-                <span className="text-[14px] leading-relaxed text-forma-obsidian/70">{feature.text}</span>
+                <span className="text-[14px] leading-relaxed text-[var(--text-secondary)]">{feature.text}</span>
               </li>
             ))}
           </ul>
 
-          <div ref={ctaRef} className="mt-12 flex flex-col items-center gap-4">
+          <div ref={ctaRef} className="mt-12 flex flex-col items-center gap-4" style={{ opacity: 0 }}>
             <MagneticButton strength={0.25}>
               <a
                 href={MAC_APP_STORE_URL}
@@ -182,12 +234,12 @@ export default function PricingSection() {
               </a>
             </MagneticButton>
 
-            <p className="text-[13px] text-forma-obsidian/45 mt-1">
+            <p className="text-[13px] text-[var(--text-muted)] mt-1">
               Requires macOS 14 (Sonoma) or later.
             </p>
 
             {!isMac && (
-              <p className="text-[12px] text-forma-obsidian/40 mt-2">
+              <p className="text-[12px] text-[var(--text-muted)] mt-2">
                 Open this page on your Mac to download.
               </p>
             )}

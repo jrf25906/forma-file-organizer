@@ -45,7 +45,7 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-forma-obsidian border-t border-forma-bone/10" role="contentinfo">
+    <footer className="bg-[#050506] border-t border-white/[0.06]" role="contentinfo">
       <div className="mx-auto max-w-6xl px-6 py-10 md:px-8 md:py-12">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_auto] md:items-start">
           {/* Left: Logo + founder story */}
