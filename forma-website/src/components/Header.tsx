@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
+import { FormaLogoImage } from "@/components/icons";
 
 interface SmoothScrollLinkProps {
   href: string;
@@ -76,13 +76,7 @@ export function Header() {
             className="flex items-center gap-2.5 rounded-full px-2.5 py-1.5 text-[var(--text-primary)] hover:bg-[var(--surface-glass)] transition-colors"
             onClick={closeMobileMenu}
           >
-            <Image
-              src="/app-icon-1024.png"
-              alt=""
-              width={28}
-              height={28}
-              className="rounded-md"
-            />
+            <FormaLogoImage size={28} />
             <span className="font-display text-[17px] leading-none tracking-tight">
               Forma
             </span>

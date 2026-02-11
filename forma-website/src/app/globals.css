@@ -383,6 +383,17 @@ h1, h2, h3, h4, h5, h6 {
 
 .forma-logo-dot { background-color: var(--logo-dot); }
 
+.forma-logo-image-light { display: block; }
+.forma-logo-image-dark { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .forma-logo-image-light { display: none; }
+  :root:not([data-theme="light"]) .forma-logo-image-dark { display: block; }
+}
+
+[data-theme="dark"] .forma-logo-image-light { display: none; }
+[data-theme="dark"] .forma-logo-image-dark { display: block; }
+
 /* Form elements */
 input, textarea { background-color: var(--input-bg); border-color: var(--input-border); color: var(--input-text); }
 

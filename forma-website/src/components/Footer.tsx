@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import type { ReactNode } from "react";
+import { FormaLogoImage } from "@/components/icons";
 
 interface SmoothScrollLinkProps {
   href: string;
@@ -50,13 +50,7 @@ export default function Footer() {
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_auto] md:items-start">
           {/* Left: Logo + founder story */}
           <div className="flex items-start gap-4">
-            <Image
-              src="/app-icon-1024.png"
-              alt=""
-              width={32}
-              height={32}
-              className="rounded-md flex-shrink-0"
-            />
+            <FormaLogoImage size={32} className="flex-shrink-0" />
             <p className="max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
               Built by someone who got tired of seeing{" "}
               <span className="font-mono text-[var(--text-muted)]">

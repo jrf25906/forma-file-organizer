@@ -22,6 +22,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` mobile spacing rhythm was tightened between hero, feature, before/after, pricing, FAQ, and newsletter sections, and the mobile-menu scrim now uses theme-specific light/dark tokens.
 - `forma-website` desktop feature handoff was refined by preventing feature-header/showcase overlap and tightening the Features→Before/After transition spacing.
 - `forma-website` now includes a subtle theme-aware WebGL atmosphere shader overlay (grain + soft light drift + vignette) to add depth without heavy motion.
+- `forma-website` header/footer branding now swaps to the inverse logo asset in dark mode for clearer contrast.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Dashboard file card/list/grid views now use a readability-first layout with stronger filename hierarchy, a single primary status chip, human-readable metadata summaries, and cleaner hover-only secondary actions.
 - Dashboard file presentations now use the spacious density treatment across card/list/grid with expanded spacing and larger visual targets.

@@ -107,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `forma-website` mobile spacing rhythm was tightened between hero, feature, before/after, pricing, FAQ, and newsletter sections, and the mobile-menu scrim now uses theme-specific light/dark tokens.
 - `forma-website` desktop feature handoff was refined by preventing feature-header/showcase overlap and tightening the Features→Before/After transition spacing.
 - `forma-website` now includes a subtle theme-aware WebGL atmosphere shader overlay (grain + soft light drift + vignette) to add depth without heavy motion.
+- `forma-website` header/footer branding now swaps to the inverse logo asset in dark mode for clearer contrast.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Learned patterns persist unified Destinations for bookmark-aware suggestions.
 - ML destination predictions incorporate project clusters, real training counts, and bookmark-backed destinations when possible.
