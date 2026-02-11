@@ -38,16 +38,25 @@ export function ScrollScene({
   const containerRef = useRef<HTMLDivElement>(null);
   const lastUpdateRef = useRef(0);
   const [progress, setProgress] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768;
+  });
+  const [hasMeasuredViewport, setHasMeasuredViewport] = useState(false);
 
   useEffect(() => {
     setIsMobile(window.innerWidth < 768);
+    setHasMeasuredViewport(true);
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const isDisabled = disabled || isMobile || getReducedMotionValue();
+  const reducedMotion = getReducedMotionValue();
+  // Before viewport is measured, keep ScrollTrigger disabled to avoid mobile pin/unpin flash.
+  const disableForViewport = !hasMeasuredViewport;
+  const disableForMode = disabled || isMobile || reducedMotion;
+  const isDisabled = disableForViewport || disableForMode;
 
   useGSAP(
     () => {
@@ -80,7 +89,7 @@ export function ScrollScene({
 
   if (isDisabled) {
     return (
-      <ScrollProgressContext.Provider value={1}>
+      <ScrollProgressContext.Provider value={disableForMode ? 1 : 0}>
         <div className={className}>{children}</div>
       </ScrollProgressContext.Provider>
     );
