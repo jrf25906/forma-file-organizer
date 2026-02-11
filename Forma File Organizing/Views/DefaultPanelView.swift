@@ -632,7 +632,11 @@ struct DefaultPanelView: View {
     }
 
     private var defaultPanelIgnoreContrastRatio: Double {
-        let foreground = colorScheme == .dark ? Color.formaBoneWhite.opacity(0.88) : Color.formaSecondaryLabel
+        // Use an explicit light-mode foreground color so the measured contrast
+        // reflects the rendered quick-action secondary text.
+        let foreground = colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.82)
+            : Color.formaObsidian.opacity(0.62)
         let background = Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
         return FormaContrastMetrics.contrastRatio(
             foreground: foreground,
@@ -713,7 +717,9 @@ struct QuickActionCard: View {
     }
 
     private var secondaryTextColor: Color {
-        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.8) : Color.formaSecondaryLabelHigh
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.82)
+            : Color.formaObsidian.opacity(0.62)
     }
 
     private var quickActionCardBackground: Color {
