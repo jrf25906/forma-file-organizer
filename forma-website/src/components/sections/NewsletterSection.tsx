@@ -31,18 +31,31 @@ export default function NewsletterSection() {
         return;
       }
 
+      const triggerTop = sectionRef.current.getBoundingClientRect().top;
+      if (triggerTop <= window.innerHeight * 0.85) {
+        gsap.set(cardRef.current, { opacity: 1, y: 0 });
+        return;
+      }
+
       gsap.fromTo(
         cardRef.current,
-        { opacity: 0, y: 40 },
+        { opacity: 0.88, y: 24 },
         {
           opacity: 1,
           y: 0,
+          immediateRender: false,
           duration: formaDuration.normal,
           ease: formaReveal,
           scrollTrigger: {
             trigger: sectionRef.current,
             start: "top 85%",
             toggleActions: "play none none none",
+            invalidateOnRefresh: true,
+            onRefresh: (self) => {
+              if (self.progress > 0) {
+                gsap.set(cardRef.current, { opacity: 1, y: 0 });
+              }
+            },
           },
         }
       );
@@ -85,14 +98,13 @@ export default function NewsletterSection() {
     <section
       ref={sectionRef}
       id="newsletter"
-      className="py-16 md:py-20"
+      className="py-10 md:py-16"
     >
       <div className="site-container">
         <div className="mx-auto max-w-2xl">
           <div
             ref={cardRef}
-            className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-8 md:px-12 md:py-12 text-center"
-            style={{ opacity: 0 }}
+            className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-6 md:px-12 md:py-12 text-center"
           >
             <h2 className="font-display text-2xl md:text-3xl text-[var(--text-primary)]">
               Stay in the loop
@@ -102,7 +114,7 @@ export default function NewsletterSection() {
               Updates on new features and the occasional file organization joke.
             </p>
 
-            <div className="mt-8">
+            <div className="mt-6">
               {formState === "success" ? (
                 <div className="flex items-center justify-center gap-2 text-forma-sage py-3">
                   <CheckCircle2 className="w-4 h-4" />

@@ -63,7 +63,7 @@ function FileSortShowcase({ sorted }: { sorted: boolean }) {
 
   return (
     <div
-      className="relative w-full h-[340px] md:h-[400px]"
+      className="relative h-[240px] w-full sm:h-[280px] md:h-[400px]"
       aria-hidden="true"
     >
       {/* Folder labels - appear when sorted */}
@@ -168,7 +168,7 @@ function HeroContent() {
   const sorted = progress > 0.35;
 
   return (
-    <section className="relative min-h-screen flex flex-col justify-start pt-16 pb-10 md:pt-20 md:pb-14 overflow-hidden">
+    <section className="relative flex flex-col justify-start overflow-hidden pt-10 pb-4 sm:pt-12 sm:pb-6 md:min-h-screen md:pt-20 md:pb-14">
       <div className="site-container relative">
         {/* Text block */}
         <div className="mx-auto max-w-[820px] text-center">
@@ -183,7 +183,7 @@ function HeroContent() {
 
           <p
             ref={subtitleRef}
-            className="mx-auto mt-6 max-w-[580px] text-lg leading-relaxed text-[var(--text-secondary)] md:text-[1.2rem] opacity-0"
+            className="mx-auto mt-5 max-w-[580px] text-lg leading-relaxed text-[var(--text-secondary)] opacity-0 md:text-[1.2rem]"
           >
             You make rules. Forma follows them. Preview what happens,
             approve it, undo anything.
@@ -191,7 +191,7 @@ function HeroContent() {
 
           <div
             ref={ctaRef}
-            className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row opacity-0"
+            className="mt-6 flex flex-col items-center justify-center gap-3 opacity-0 sm:flex-row"
           >
             <a
               href={MAC_APP_STORE_URL}
@@ -212,7 +212,7 @@ function HeroContent() {
 
           <p
             ref={metaRef}
-            className="mt-5 border-t border-[var(--border-subtle)] pt-3 text-[13px] text-[var(--text-muted)] inline-block opacity-0"
+            className="mt-3 inline-block border-t border-[var(--border-subtle)] pt-3 text-[13px] text-[var(--text-muted)] opacity-0"
           >
             $29 once. macOS 14+. No subscription.
           </p>
@@ -220,7 +220,7 @@ function HeroContent() {
 
         {/* Product showcase - 2D file sort visualization */}
         <div
-          className="relative mx-auto mt-14 max-w-[800px] md:mt-16"
+          className="relative mx-auto mt-7 max-w-[800px] sm:mt-9 md:mt-16"
         >
           <div className="relative w-full overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
             <FileSortShowcase sorted={sorted} />

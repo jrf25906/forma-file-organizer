@@ -145,19 +145,32 @@ export default function FAQSection() {
         return;
       }
 
+      const triggerTop = sectionRef.current.getBoundingClientRect().top;
+      if (triggerTop <= window.innerHeight * 0.8) {
+        gsap.set(contentRef.current, { opacity: 1, y: 0 });
+        return;
+      }
+
       // Single scroll reveal for the whole section content
       gsap.fromTo(
         contentRef.current,
-        { opacity: 0, y: 40 },
+        { opacity: 0.88, y: 24 },
         {
           opacity: 1,
           y: 0,
+          immediateRender: false,
           duration: formaDuration.normal,
           ease: formaReveal,
           scrollTrigger: {
             trigger: sectionRef.current,
             start: "top 80%",
             toggleActions: "play none none none",
+            invalidateOnRefresh: true,
+            onRefresh: (self) => {
+              if (self.progress > 0) {
+                gsap.set(contentRef.current, { opacity: 1, y: 0 });
+              }
+            },
           },
         }
       );
@@ -169,18 +182,18 @@ export default function FAQSection() {
     <section
       ref={sectionRef}
       id="faq"
-      className="scroll-mt-16 py-16 md:py-24 bg-[var(--bg-secondary)]"
+      className="scroll-mt-16 bg-[var(--bg-secondary)] py-10 md:py-20"
     >
       <div className="site-container">
-        <div ref={contentRef} className="mx-auto max-w-2xl" style={{ opacity: 0 }}>
+        <div ref={contentRef} className="mx-auto max-w-2xl">
           <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/70 text-center">
             FAQ
           </p>
-          <h2 className="font-display text-3xl md:text-[2.25rem] text-[var(--text-primary)] text-center mb-10">
+          <h2 className="mb-6 text-center font-display text-3xl text-[var(--text-primary)] md:text-[2.25rem]">
             Common Questions
           </h2>
 
-          <div className="border border-[var(--border-subtle)] rounded-2xl px-6 md:px-8">
+          <div className="border border-[var(--border-subtle)] rounded-2xl px-5 md:px-8">
             {faqs.map((faq, index) => (
               <FAQItem
                 key={index}
@@ -193,7 +206,7 @@ export default function FAQSection() {
           </div>
 
           {/* Contact link */}
-          <div className="text-center mt-10">
+          <div className="mt-6 text-center">
             <p className="text-[14px] text-[var(--text-muted)]">
               Something else?{" "}
               <a

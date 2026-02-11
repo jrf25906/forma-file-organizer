@@ -16,11 +16,11 @@ export default function Home() {
       <main id="top" className="relative overflow-x-clip">
         <HeroSection />
         <CredibilityStrip />
-        <SectionTransition fromColor="var(--bg-primary)" toColor="var(--features-bg-from)" height="40px" />
+        <SectionTransition fromColor="var(--bg-primary)" toColor="var(--features-bg-from)" height="clamp(8px, 1.8vw, 24px)" />
         <FeaturesSection />
-        <SectionTransition fromColor="var(--features-bg-from)" toColor="var(--bg-primary)" height="32px" />
+        <SectionTransition fromColor="var(--features-bg-from)" toColor="var(--bg-primary)" height="clamp(6px, 1.5vw, 18px)" />
         <BeforeAfterSection />
-        <SectionTransition fromColor="var(--bg-primary)" toColor="var(--bg-secondary)" height="40px" />
+        <SectionTransition fromColor="var(--bg-primary)" toColor="var(--bg-secondary)" height="clamp(8px, 1.8vw, 24px)" />
         <PricingSection />
         <FAQSection />
         <NewsletterSection />

@@ -116,6 +116,7 @@
   --cta-bg: #F0F0F2;
   --cta-text: #0A0A0B;
   --cta-bg-hover: #E0E0E2;
+  --overlay-scrim: rgba(0, 0, 0, 0.5);
 
   /* Section-specific tokens */
   --features-bg-from: #0F0F11;
@@ -132,6 +133,7 @@
 
   /* Logo dot */
   --logo-dot: #F0F0F2;
+  --accent-steel-blue: #5B7C99;
 
   /* Form elements */
   --input-bg: rgba(255, 255, 255, 0.06);
@@ -206,6 +208,7 @@
     --cta-bg: #1A1A1A;
     --cta-text: #FAFAF8;
     --cta-bg-hover: #2A2A2A;
+    --overlay-scrim: rgba(17, 17, 19, 0.25);
 
     --features-bg-from: #F0F0EE;
     --features-bg-mid: #EAEAE8;
@@ -218,6 +221,7 @@
     --divider-color: rgba(0, 0, 0, 0.15);
 
     --logo-dot: #1A1A1A;
+    --accent-steel-blue: #4A6B88;
 
     --input-bg: rgba(0, 0, 0, 0.04);
     --input-border: rgba(0, 0, 0, 0.12);
@@ -281,6 +285,7 @@
   --cta-bg: #1A1A1A;
   --cta-text: #FAFAF8;
   --cta-bg-hover: #2A2A2A;
+  --overlay-scrim: rgba(17, 17, 19, 0.25);
 
   --features-bg-from: #F0F0EE;
   --features-bg-mid: #EAEAE8;
@@ -293,6 +298,7 @@
   --divider-color: rgba(0, 0, 0, 0.15);
 
   --logo-dot: #1A1A1A;
+  --accent-steel-blue: #4A6B88;
 
   --input-bg: rgba(0, 0, 0, 0.04);
   --input-border: rgba(0, 0, 0, 0.12);

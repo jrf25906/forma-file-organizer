@@ -104,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `forma-website` hero/header spacing and anchor offsets were refined to prevent top overlap, and light-mode feature demos now use readable high-contrast surfaces.
 - `forma-website` light-mode typography contrast and feature-demo default visibility were corrected, and hero spacing/scale were further tuned for cleaner first paint.
 - `forma-website` theme parity was tightened by adding complementary light/dark component tokens for Mac window chrome, feature demos, file cards, before/after, newsletter, and legal/support content surfaces.
+- `forma-website` mobile spacing rhythm was tightened between hero, feature, before/after, pricing, FAQ, and newsletter sections, and the mobile-menu scrim now uses theme-specific light/dark tokens.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Learned patterns persist unified Destinations for bookmark-aware suggestions.
 - ML destination predictions incorporate project clusters, real training counts, and bookmark-backed destinations when possible.
@@ -131,6 +132,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.
 - Reduced repeated rule-scan warnings for unresolvable placeholder destinations.
+- `forma-website` pricing count-up now resolves correctly when users deep-link below the pricing section, preventing a stale `$0` label.
+- `forma-website` feature/pricing/FAQ/newsletter reveal animations now force visible state when a section is already past its trigger (deep links and long screenshots), preventing hidden-content gaps.
 - Shift-click range selection now works consistently across card/list/grid file views by using a shared selection anchor.
 - Removed oversized translucent "lens" artifacts from split-view panes by avoiding full-bleed `glassEffect` and using pane-safe native material fallback while retaining layered vibrancy.
 - Full-bleed pane surfaces now always prefer native fallback material, even when debug glass-force flags are enabled, preventing circular contour artifacts from returning.

@@ -31,7 +31,7 @@ const organizedFolders = [
 
 function DesktopContent() {
   return (
-    <div className="relative py-12 md:py-16 bg-[var(--bg-primary)] overflow-hidden">
+    <div className="relative py-10 md:py-16 bg-[var(--bg-primary)] overflow-hidden">
       <div className="site-container relative w-full">
         <ScrollReveal direction="up" distance={30}>
           <h2 className="mb-10 md:mb-12 text-center font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
@@ -43,7 +43,7 @@ function DesktopContent() {
         <FileSortAnimation />
 
         <ScrollReveal direction="up" distance={20}>
-          <h2 className="mt-12 md:mt-14 text-center font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
+          <h2 className="mt-10 md:mt-14 text-center font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
             Problem solved.
           </h2>
         </ScrollReveal>
@@ -59,19 +59,19 @@ function DesktopContent() {
 
 function MobileFallback() {
   return (
-    <div className="relative py-20 bg-[var(--bg-primary)] overflow-hidden">
+    <div className="relative overflow-hidden bg-[var(--bg-primary)] py-10 sm:py-12">
       <div className="site-container relative">
         <ScrollReveal direction="up" distance={30}>
-          <h2 className="mb-10 text-center font-display text-3xl tracking-tight text-[var(--text-primary)]">
+          <h2 className="mb-6 text-center font-display text-3xl tracking-tight text-[var(--text-primary)]">
             Sound familiar?
           </h2>
         </ScrollReveal>
 
-        <div className="mx-auto grid max-w-md grid-cols-1 gap-5">
+        <div className="mx-auto grid max-w-md grid-cols-1 gap-4">
           {/* BEFORE CARD */}
           <ScrollReveal direction="up" distance={40} delay={100}>
-            <div className="flex flex-col rounded-2xl border border-forma-warm-orange/25 bg-forma-warm-orange/[0.08] p-6">
-              <span className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-widest text-forma-warm-orange uppercase mb-5">
+            <div className="flex flex-col rounded-2xl border border-forma-warm-orange/25 bg-forma-warm-orange/[0.08] p-5">
+              <span className="mb-4 inline-flex items-center gap-2 text-[12px] font-semibold tracking-widest text-forma-warm-orange uppercase">
                 <span className="w-2 h-2 rounded-full bg-forma-warm-orange/60" />
                 Before
               </span>
@@ -110,8 +110,8 @@ function MobileFallback() {
 
           {/* AFTER CARD */}
           <ScrollReveal direction="up" distance={40} delay={200}>
-            <div className="flex flex-col rounded-2xl border border-forma-sage/25 bg-forma-sage/[0.08] p-6">
-              <span className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-widest text-forma-sage uppercase mb-5">
+            <div className="flex flex-col rounded-2xl border border-forma-sage/25 bg-forma-sage/[0.08] p-5">
+              <span className="mb-4 inline-flex items-center gap-2 text-[12px] font-semibold tracking-widest text-forma-sage uppercase">
                 <span className="w-2 h-2 rounded-full bg-forma-sage/60" />
                 After
               </span>
@@ -158,7 +158,7 @@ function MobileFallback() {
         </div>
 
         <ScrollReveal direction="up" distance={20} delay={400}>
-          <h2 className="mt-10 text-center font-display text-3xl tracking-tight text-[var(--text-primary)]">
+          <h2 className="mt-6 text-center font-display text-3xl tracking-tight text-[var(--text-primary)]">
             Problem solved.
           </h2>
         </ScrollReveal>

@@ -32,19 +32,32 @@ export default function PricingSection() {
         return;
       }
 
+      const triggerTop = sectionRef.current.getBoundingClientRect().top;
+      if (triggerTop <= window.innerHeight * 0.8) {
+        gsap.set(cardRef.current, { opacity: 1, y: 0 });
+        return;
+      }
+
       // Simple fade-up entrance for the entire card
       gsap.fromTo(
         cardRef.current,
-        { opacity: 0, y: 40 },
+        { opacity: 0.88, y: 24 },
         {
           opacity: 1,
           y: 0,
+          immediateRender: false,
           duration: formaDuration.normal,
           ease: formaReveal,
           scrollTrigger: {
             trigger: sectionRef.current,
             start: "top 80%",
             toggleActions: "play none none none",
+            invalidateOnRefresh: true,
+            onRefresh: (self) => {
+              if (self.progress > 0) {
+                gsap.set(cardRef.current, { opacity: 1, y: 0 });
+              }
+            },
           },
         }
       );
@@ -56,7 +69,7 @@ export default function PricingSection() {
     <section
       ref={sectionRef}
       id="pricing"
-      className="scroll-mt-16 relative py-16 md:py-24 overflow-hidden"
+      className="scroll-mt-16 relative overflow-hidden py-10 md:py-20"
     >
       {/* Distinct background */}
       <div className="absolute inset-0 bg-[var(--bg-secondary)] pointer-events-none" />
@@ -64,10 +77,9 @@ export default function PricingSection() {
       <div className="site-container relative">
         <div
           ref={cardRef}
-          className="mx-auto max-w-xl bg-[var(--bg-tertiary)] border border-[var(--border-medium)] rounded-2xl px-8 py-12 md:px-12 md:py-14 text-center"
-          style={{ opacity: 0 }}
+          className="mx-auto max-w-xl rounded-2xl border border-[var(--border-medium)] bg-[var(--bg-tertiary)] px-6 py-8 text-center sm:px-7 md:px-12 md:py-14"
         >
-          <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/70">
+          <p className="mb-3 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/70">
             Pricing
           </p>
           <div className="font-display text-6xl md:text-7xl lg:text-[5.5rem] tracking-tight text-[var(--text-primary)]">
@@ -75,12 +87,12 @@ export default function PricingSection() {
             <span>. Once. Forever.</span>
           </div>
 
-          <p className="mt-5 text-base md:text-lg text-[var(--text-secondary)] leading-relaxed max-w-md mx-auto">
+          <p className="mt-4 text-base md:text-lg text-[var(--text-secondary)] leading-relaxed max-w-md mx-auto">
             No subscription. No account. No &lsquo;premium tiers.&rsquo; Pay
             once, own it forever.
           </p>
 
-          <ul className="mt-10 space-y-3.5 text-left max-w-md mx-auto">
+          <ul className="mx-auto mt-6 max-w-md space-y-3.5 text-left">
             {[
               "One payment, yours forever — no subscription tricks",
               "Works offline, no account required",
@@ -95,7 +107,7 @@ export default function PricingSection() {
             ))}
           </ul>
 
-          <div className="mt-12 flex flex-col items-center gap-4">
+          <div className="mt-8 flex flex-col items-center gap-4">
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}

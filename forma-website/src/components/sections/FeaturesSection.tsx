@@ -366,6 +366,12 @@ function MobileFeatures() {
         return;
       }
 
+      const triggerTop = sectionRef.current.getBoundingClientRect().top;
+      if (triggerTop <= window.innerHeight * 0.8) {
+        gsap.set(headlineRef.current, { opacity: 1, y: 0 });
+        return;
+      }
+
       gsap.from(headlineRef.current, {
         opacity: 0,
         y: 40,
@@ -375,6 +381,12 @@ function MobileFeatures() {
           trigger: sectionRef.current,
           start: "top 80%",
           toggleActions: "play none none none",
+          invalidateOnRefresh: true,
+          onRefresh: (self) => {
+            if (self.progress > 0) {
+              gsap.set(headlineRef.current, { opacity: 1, y: 0 });
+            }
+          },
         },
       });
     },
@@ -384,7 +396,7 @@ function MobileFeatures() {
   return (
     <div ref={sectionRef}>
       <div className="mx-auto max-w-5xl">
-        <div className="mb-14 text-center md:mb-16">
+        <div className="mb-7 text-center md:mb-14">
           <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-forma-steel-blue/70">
             Features
           </p>
@@ -401,7 +413,7 @@ function MobileFeatures() {
         </div>
 
         <ScrollReveal stagger={0.12} threshold={85}>
-          <div className="grid grid-cols-1 gap-5">
+          <div className="grid grid-cols-1 gap-4">
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
@@ -410,7 +422,7 @@ function MobileFeatures() {
                   className="flex flex-col overflow-hidden rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)]"
                 >
                   <div className={`h-1.5 w-full ${feature.accentBorder}`} />
-                  <div className="flex flex-1 flex-col p-6">
+                  <div className="flex flex-1 flex-col p-5 sm:p-6">
                     <div className="mb-3 flex items-center gap-3">
                       <div
                         className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${feature.accentBg}`}
@@ -423,7 +435,7 @@ function MobileFeatures() {
                         {feature.title}
                       </h3>
                     </div>
-                    <p className="mb-5 text-[14px] leading-relaxed text-[var(--text-secondary)]">
+                    <p className="mb-4 text-[14px] leading-relaxed text-[var(--text-secondary)]">
                       {feature.description}
                     </p>
 
@@ -466,11 +478,11 @@ export default function FeaturesSection() {
       <div className="site-container relative">
         {/* Before mount, render mobile layout to avoid layout shift */}
         {!hasMounted ? (
-          <div className="py-24 md:py-32">
+          <div className="py-12 md:py-32">
             <MobileFeatures />
           </div>
         ) : isMobile ? (
-          <div className="py-24">
+          <div className="py-10 sm:py-12">
             <MobileFeatures />
           </div>
         ) : (

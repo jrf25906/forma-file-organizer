@@ -19,6 +19,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` hero/header spacing and anchor offsets were refined to prevent top overlap, and light-mode feature demos now use readable high-contrast surfaces.
 - `forma-website` light-mode typography contrast and feature-demo default visibility were corrected, and hero spacing/scale were further tuned for cleaner first paint.
 - `forma-website` theme parity was tightened by adding complementary light/dark component tokens for Mac window chrome, feature demos, file cards, before/after, newsletter, and legal/support content surfaces.
+- `forma-website` mobile spacing rhythm was tightened between hero, feature, before/after, pricing, FAQ, and newsletter sections, and the mobile-menu scrim now uses theme-specific light/dark tokens.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Dashboard file card/list/grid views now use a readability-first layout with stronger filename hierarchy, a single primary status chip, human-readable metadata summaries, and cleaner hover-only secondary actions.
 - Dashboard file presentations now use the spacious density treatment across card/list/grid with expanded spacing and larger visual targets.
@@ -72,6 +73,8 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.
 - Reduced repeated rule-scan warnings for unresolvable placeholder destinations.
+- `forma-website` pricing count-up now resolves correctly when users deep-link below the pricing section, preventing a stale `$0` label.
+- `forma-website` feature/pricing/FAQ/newsletter reveal animations now force visible state when a section is already past its trigger (deep links and long screenshots), preventing hidden-content gaps.
 - File selection checkboxes now keep a stable position and larger click target across card/list/grid views for more reliable selection.
 - Toolbar controls now use explicit sizing to avoid ambiguous AppKit toolbar layout warnings.
 - Scroll views now reserve deterministic bottom space for the floating action bar to prevent content overlap in all view modes.

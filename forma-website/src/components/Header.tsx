@@ -138,7 +138,7 @@ export function Header() {
 
       <div
         className={cn(
-          "fixed inset-0 z-[110] bg-black/40 transition-opacity md:hidden",
+          "fixed inset-0 z-[110] bg-[var(--overlay-scrim)] transition-opacity md:hidden",
           isMobileMenuOpen
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0"
