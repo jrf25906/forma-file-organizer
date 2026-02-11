@@ -30,6 +30,8 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` now includes a subtle theme-aware WebGL atmosphere shader overlay (grain + soft light drift + vignette) to add depth without heavy motion.
 - `forma-website` header/footer branding now swaps to the inverse logo asset in dark mode for clearer contrast.
 - `forma-website` header navigation now uses a compact pill state on scroll, and hash-based nav/brand links consistently resolve back to home sections from non-home pages.
+- `forma-website` accessibility polish pass strengthened light/dark contrast tokens, increased small-label readability, and boosted scrolled-header pill separation so the floating state remains visible while scrolling.
+- `forma-website` favicon metadata now prefers explicit Forma icon assets with cache-busted URLs to prevent stale default tab icons.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Dashboard file card/list/grid views now use a readability-first layout with stronger filename hierarchy, a single primary status chip, human-readable metadata summaries, and cleaner hover-only secondary actions.
 - Dashboard file presentations now use the spacious density treatment across card/list/grid with expanded spacing and larger visual targets.

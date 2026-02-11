@@ -330,7 +330,7 @@ const SectionHeader = forwardRef<HTMLDivElement>(function SectionHeader(_, ref) 
       }}
     >
       <div className="text-center">
-        <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-forma-steel-blue/70">
+        <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-forma-steel-blue">
           Features
         </p>
         <h2
@@ -400,7 +400,7 @@ function MobileFeatures() {
     <div ref={sectionRef}>
       <div className="mx-auto max-w-5xl">
         <div className="mb-7 text-center md:mb-14">
-          <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-forma-steel-blue/70">
+          <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-forma-steel-blue">
             Features
           </p>
           <h2

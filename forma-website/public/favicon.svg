@@ -1,7 +1,14 @@
-<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Forma Favicon: 2x2 grid optimized for 16-32px -->
-  <rect x="4" y="4" width="11" height="11" rx="2" fill="#1A1A1A"/>
-  <rect x="17" y="4" width="11" height="11" rx="2" fill="#1A1A1A"/>
-  <rect x="4" y="17" width="11" height="11" rx="2" fill="#1A1A1A" opacity="0.6"/>
-  <rect x="17" y="17" width="11" height="11" rx="2" fill="#1A1A1A" opacity="0.6"/>
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Pixel-grid aligned 3x3 mark optimized for Safari/Chrome tab sizes -->
+  <rect x="1" y="1" width="4" height="4" fill="#1A1A1A"/>
+  <rect x="6" y="1" width="4" height="4" fill="#1A1A1A"/>
+  <rect x="11" y="1" width="4" height="4" fill="#1A1A1A"/>
+
+  <rect x="1" y="6" width="4" height="4" fill="#1A1A1A"/>
+  <rect x="6" y="6" width="4" height="4" fill="#1A1A1A"/>
+  <rect x="11" y="6" width="4" height="4" fill="#1A1A1A"/>
+
+  <rect x="1" y="11" width="4" height="4" fill="#1A1A1A"/>
+  <rect x="6" y="11" width="4" height="4" fill="#1A1A1A"/>
+  <rect x="11" y="11" width="4" height="4" fill="#1A1A1A"/>
 </svg>

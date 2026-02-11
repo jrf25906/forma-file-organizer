@@ -101,7 +101,7 @@
   --bg-tertiary: #1A1A1D;
   --text-primary: #F0F0F2;
   --text-secondary: rgba(240, 240, 242, 0.7);
-  --text-muted: rgba(240, 240, 242, 0.45);
+  --text-muted: rgba(240, 240, 242, 0.5);
   --focus-ring: 0 0 0 2px #0A0A0B, 0 0 0 4px #6B9BC2;
 
   /* Surface & border tokens */
@@ -175,7 +175,7 @@
   --file-card-border: rgba(255, 255, 255, 0.08);
   --file-card-label-primary: rgba(255, 255, 255, 0.92);
   --file-card-label-secondary: rgba(255, 255, 255, 0.55);
-  --file-card-label-tertiary: rgba(255, 255, 255, 0.38);
+  --file-card-label-tertiary: rgba(255, 255, 255, 0.56);
   --file-card-pill-bg: rgba(91, 124, 153, 0.12);
   --file-card-pill-border: rgba(91, 124, 153, 0.20);
   --file-card-pill-text: #5B7C99;
@@ -195,7 +195,7 @@
     --bg-tertiary: #E8E8E6;
     --text-primary: #1A1A1A;
     --text-secondary: rgba(26, 26, 26, 0.65);
-    --text-muted: rgba(26, 26, 26, 0.42);
+    --text-muted: rgba(26, 26, 26, 0.62);
     --focus-ring: 0 0 0 2px #FAFAF8, 0 0 0 4px #4A6B88;
 
     --surface-glass: rgba(0, 0, 0, 0.03);
@@ -203,7 +203,7 @@
     --border-subtle: rgba(0, 0, 0, 0.07);
     --border-medium: rgba(0, 0, 0, 0.12);
     --border-strong: rgba(0, 0, 0, 0.18);
-    --shadow-color: rgba(0, 0, 0, 0.08);
+    --shadow-color: rgba(0, 0, 0, 0.14);
 
     --cta-bg: #1A1A1A;
     --cta-text: #FAFAF8;
@@ -257,7 +257,7 @@
     --file-card-border: rgba(0, 0, 0, 0.10);
     --file-card-label-primary: rgba(26, 26, 26, 0.88);
     --file-card-label-secondary: rgba(26, 26, 26, 0.60);
-    --file-card-label-tertiary: rgba(26, 26, 26, 0.45);
+    --file-card-label-tertiary: rgba(26, 26, 26, 0.66);
     --file-card-pill-bg: rgba(74, 107, 136, 0.12);
     --file-card-pill-border: rgba(74, 107, 136, 0.20);
     --file-card-pill-text: #4A6B88;
@@ -272,7 +272,7 @@
   --bg-tertiary: #E8E8E6;
   --text-primary: #1A1A1A;
   --text-secondary: rgba(26, 26, 26, 0.65);
-  --text-muted: rgba(26, 26, 26, 0.42);
+  --text-muted: rgba(26, 26, 26, 0.62);
   --focus-ring: 0 0 0 2px #FAFAF8, 0 0 0 4px #4A6B88;
 
   --surface-glass: rgba(0, 0, 0, 0.03);
@@ -280,7 +280,7 @@
   --border-subtle: rgba(0, 0, 0, 0.07);
   --border-medium: rgba(0, 0, 0, 0.12);
   --border-strong: rgba(0, 0, 0, 0.18);
-  --shadow-color: rgba(0, 0, 0, 0.08);
+  --shadow-color: rgba(0, 0, 0, 0.14);
 
   --cta-bg: #1A1A1A;
   --cta-text: #FAFAF8;
@@ -334,7 +334,7 @@
   --file-card-border: rgba(0, 0, 0, 0.10);
   --file-card-label-primary: rgba(26, 26, 26, 0.88);
   --file-card-label-secondary: rgba(26, 26, 26, 0.60);
-  --file-card-label-tertiary: rgba(26, 26, 26, 0.45);
+  --file-card-label-tertiary: rgba(26, 26, 26, 0.66);
   --file-card-pill-bg: rgba(74, 107, 136, 0.12);
   --file-card-pill-border: rgba(74, 107, 136, 0.20);
   --file-card-pill-text: #4A6B88;

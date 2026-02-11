@@ -13,6 +13,7 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] Launch in-repo MDX blog with initial keyword-targeted guides (`/blog`, `/blog/[slug]`).
 - [x] Add machine-readable AI routes (`/llms.txt`, `/for-agents`, `/openapi.json`, `/api/public/*`).
 - [x] Document MCP-readiness constraints and planned future tool contracts (`Docs/Marketing/MCP-READINESS.md`).
+- [x] Complete marketing-site accessibility hardening pass: raise low-contrast text tokens, improve floating header pill visibility on scroll, and ensure Forma favicon branding replaces default tab icon.
 
 ### Performance Optimization Sprint (February 5, 2026)
 - [x] Move content search scanning off the main actor and keep UI lookup O(1) by path.

@@ -77,7 +77,7 @@ export default function PricingSection() {
           ref={cardRef}
           className="mx-auto max-w-xl rounded-2xl border border-[var(--border-medium)] bg-[var(--bg-tertiary)] px-6 py-8 text-center sm:px-7 md:px-12 md:py-14"
         >
-          <p className="mb-3 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/70">
+          <p className="mb-3 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue">
             Pricing
           </p>
           <div className="font-display text-6xl md:text-7xl lg:text-[5.5rem] tracking-tight text-[var(--text-primary)]">

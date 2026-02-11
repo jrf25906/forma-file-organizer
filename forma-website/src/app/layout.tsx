@@ -69,8 +69,11 @@ export const metadata: Metadata = {
     type: "website",
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: [
+      { url: "/favicon.svg?v=20260211b", type: "image/svg+xml", sizes: "any" },
+      { url: "/favicon.ico?v=20260211b", type: "image/x-icon" },
+    ],
+    shortcut: "/favicon.ico?v=20260211b",
     apple: "/app-icon-1024.png",
   },
   twitter: {
@@ -145,4 +148,3 @@ export default function RootLayout({
     </html>
   );
 }
-

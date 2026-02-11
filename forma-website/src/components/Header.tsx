@@ -64,7 +64,7 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 10);
+    const onScroll = () => setIsScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -77,7 +77,7 @@ export function Header() {
       <header
         role="banner"
         className={cn(
-          "sticky inset-x-0 top-0 z-[120] transition-all duration-300",
+          "fixed inset-x-0 top-0 z-[120] transition-all duration-300",
           isScrolled
             ? "bg-transparent pt-2 md:pt-3"
             : "border-b border-[var(--border-subtle)] bg-[var(--bg-primary)]/80 backdrop-blur-lg"
@@ -86,10 +86,10 @@ export function Header() {
         <div className="site-container">
           <div
             className={cn(
-              "flex items-center justify-between transition-all duration-300",
+              "mx-auto flex items-center justify-between transition-[height,background-color,box-shadow,border-color,width,max-width,transform,padding] duration-300",
               isScrolled
-                ? "h-12 rounded-full border border-[var(--border-medium)] bg-[var(--bg-primary)]/92 px-3 shadow-[0_12px_30px_var(--shadow-color)] backdrop-blur-xl md:px-4"
-                : "h-16"
+                ? "h-12 w-full md:w-[min(920px,calc(100%-1.5rem))] rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)]/98 px-3 shadow-[0_18px_44px_rgba(0,0,0,0.2)] ring-1 ring-[var(--border-medium)] backdrop-blur-2xl md:px-4"
+                : "h-16 w-full"
             )}
           >
             <SmoothScrollLink
@@ -137,7 +137,12 @@ export function Header() {
               {/* Desktop CTA */}
               <TrackedAppStoreLink
                 location="header_desktop"
-                className="hidden md:inline-flex h-9 items-center rounded-xl bg-[var(--cta-bg)] px-4 text-[12.5px] font-semibold text-[var(--cta-text)] transition-all hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px hover:shadow-md"
+                className={cn(
+                  "hidden md:inline-flex items-center justify-center bg-[var(--cta-bg)] font-semibold text-[var(--cta-text)] transition-[height,padding,border-radius,background-color,transform,box-shadow] duration-300 hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px",
+                  isScrolled
+                    ? "h-8 rounded-full px-3.5 text-[12px] shadow-[inset_0_0_0_1px_var(--border-subtle)]"
+                    : "h-9 rounded-xl px-4 text-[12.5px] shadow-md"
+                )}
               >
                 Download for Mac
               </TrackedAppStoreLink>
