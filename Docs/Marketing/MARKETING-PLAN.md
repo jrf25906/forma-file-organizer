@@ -59,8 +59,8 @@ Forma is a premium macOS application for intelligent file organization. It helps
 
 - **Version:** 1.0 (build 1)
 - **Platform:** macOS 15.0+
-- **Pricing (current plan):** $29 one-time (website), or $4.99/mo / $49.99/yr subscription (App Store description)
-- **Website:** formafiles.com (Next.js 16, built but not yet deployed to production)
+- **Pricing (current plan):** $29 one-time purchase
+- **Website:** formafiles.com (Next.js 16, live in production)
 - **Marketing docs:** Comprehensive foundation already exists (see Section 13)
 
 ---
@@ -143,7 +143,7 @@ The website (formafiles.com) is built and builds cleanly, but has several issues
 
 | Issue | Description | Fix |
 |-------|-------------|-----|
-| **CTA fallback** | When `NEXT_PUBLIC_MAC_APP_STORE_URL` isn't set, all CTAs link to `/support` (a troubleshooting page) | Create `/get-forma` waitlist/pre-launch page, or fall back to newsletter signup |
+| **CTA fallback** | If `NEXT_PUBLIC_MAC_APP_STORE_URL` is missing, CTA links should route to a dedicated download/waitlist page instead of support docs | Keep fallback on `/get-forma`, then set production `NEXT_PUBLIC_MAC_APP_STORE_URL` and verify all CTA targets in build preview |
 | **No social proof** | Zero testimonials, reviews, press mentions, or user quotes anywhere on the page | Add 2-3 beta tester testimonials (see Section 5) |
 
 ### High Priority (Should Fix)
@@ -202,14 +202,14 @@ This is identified as the **single highest-impact gap** across the entire market
 
 ### Pre-Launch (Now → Feb 16)
 
-- [ ] Fix website CTA fallback
+- [ ] Set production `NEXT_PUBLIC_MAC_APP_STORE_URL`
 - [ ] Collect 3-5 beta tester testimonials
 - [ ] Add testimonials to website and App Store description
 - [ ] Enable website scroll animations
 - [ ] Record demo video (20-30s for App Store, 60-90s for YouTube/website)
 - [ ] Finalize App Store screenshots (review current 12, select final 8)
 - [ ] Verify formafiles.com/privacy and /terms are live
-- [ ] Set up basic analytics (GA4 on website)
+- [ ] Set up privacy-first analytics dashboard and Search Console reporting
 - [ ] Start "build in public" posts on Twitter/X (3-5 per week)
 - [ ] Begin engaging in r/macapps, r/macOS, and Hacker News communities
 - [ ] Build Product Hunt page (followers before launch day)
@@ -301,11 +301,11 @@ This is identified as the **single highest-impact gap** across the entire market
 
 ### Blog Strategy (formafiles.com/blog)
 
-Blog does not currently exist on the website. Recommended content pillars:
+Blog now exists at `formafiles.com/blog`. Recommended content pillars:
 
 **Pillar 1: File Organization Guides (Top of Funnel)**
 - "How to Organize Your Mac Desktop in 2026"
-- "The Ultimate Guide to Folder Structures for [Creatives/Developers/Students]"
+- "The Ultimate Guide to Folder Structures for Creatives, Developers, and Students"
 - "10 Signs Your Digital Files Are Out of Control"
 - "PARA Method for File Organization on Mac"
 - "Johnny Decimal System: A Practical Guide for Mac Users"
@@ -332,7 +332,7 @@ Blog does not currently exist on the website. Recommended content pillars:
 
 - **App Store preview:** 20-30s, 1920x1080, H.264 (specs in `PreviewVideo/README.md`)
 - **YouTube demo:** 60-90s problem→solution→transformation narrative
-- **Tutorial series:** "Setting up rules for [screenshots/invoices/downloads]"
+- **Tutorial series:** "Setting up rules for screenshots, invoices, and downloads"
 - Invest in good audio quality — 94% of customers say video builds purchase confidence
 
 ### 2026 Content Trends
@@ -440,7 +440,7 @@ Blog does not currently exist on the website. Recommended content pillars:
 
 ### Current Plan
 
-The website says "$29. Once. Forever." but the App Store description mentions $4.99/mo or $49.99/yr subscription. This inconsistency needs to be resolved before launch.
+Current website and marketing positioning uses a one-time $29 purchase model. Keep pricing copy synchronized across all channels whenever monetization changes.
 
 ### Market Context
 
@@ -478,7 +478,7 @@ The website says "$29. Once. Forever." but the App Store description mentions $4
 - Or $3.99/mo for ongoing updates + AI features
 - Launch discount: 50% off first year for first 1,000 users
 
-**Key Decision:** Resolve the $29 one-time vs. subscription inconsistency before launch. Whatever you choose, the messaging should be clear and consistent across website and App Store.
+**Key Decision:** If pricing experiments are introduced later, ship copy updates for website, App Store, and launch collateral in a single coordinated release.
 
 ---
 
@@ -566,12 +566,12 @@ The website says "$29. Once. Forever." but the App Store description mentions $4
 
 1. **Social proof / testimonials** — highest conversion impact
 2. **Demo video** — planned but not produced
-3. **Pricing clarity** — resolve $29 one-time vs. subscription inconsistency
+3. **Pricing experiment framework** — define when and how to test alternative monetization without messaging drift
 4. **Website deployment** — DNS not yet pointed to formafiles.com
 5. **Email marketing plan** — templates, sequences, nurture flows
 6. **Product Hunt launch preparation** — page setup, follower building
 7. **Content calendar** — blog posts, social media posting schedule
-8. **Analytics setup** — GA4, conversion funnels, KPI targets
+8. **Analytics setup** — privacy-first tracking, conversion funnels, KPI targets
 9. **Media contact list** — specific journalist names and emails for pitching
 10. **Influencer/partnership outreach list** — Mac productivity space contacts
 11. **A/B testing roadmap** — website copy and App Store variants
@@ -580,8 +580,8 @@ The website says "$29. Once. Forever." but the App Store description mentions $4
 ### Immediate Actions (This Week)
 
 - [ ] Collect beta tester testimonials (3-5 quotes)
-- [ ] Fix website CTA fallback
-- [ ] Resolve pricing model decision
+- [ ] Verify production `NEXT_PUBLIC_MAC_APP_STORE_URL` is configured
+- [ ] Define pricing experiment hypotheses (if any)
 - [ ] Start Twitter/X "build in public" posts
 - [ ] Set up Product Hunt page
 - [ ] Begin recording demo video

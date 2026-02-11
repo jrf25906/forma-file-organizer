@@ -1,4 +1,5 @@
 const PLACEHOLDER_MAC_APP_STORE_URL = "https://apps.apple.com/app/forma/id0000000000";
+const DOWNLOAD_FALLBACK_PATH = "/get-forma";
 
 export type AppStoreLinkLocation =
   | "header_mobile"
@@ -14,11 +15,11 @@ const resolvedMacAppStoreUrl =
   configuredMacAppStoreUrl &&
   configuredMacAppStoreUrl !== PLACEHOLDER_MAC_APP_STORE_URL
     ? configuredMacAppStoreUrl
-    : "/support";
+    : DOWNLOAD_FALLBACK_PATH;
 
-if (resolvedMacAppStoreUrl === "/support") {
+if (resolvedMacAppStoreUrl === DOWNLOAD_FALLBACK_PATH) {
   console.warn(
-    "[Forma] NEXT_PUBLIC_MAC_APP_STORE_URL is not configured. CTA buttons will link to /support."
+    "[Forma] NEXT_PUBLIC_MAC_APP_STORE_URL is not configured. CTA buttons will link to /get-forma."
   );
 }
 

@@ -1,6 +1,6 @@
 # Forma Launch Copy & Messaging
 
-**Launch Date**: Mid-January 2025
+**Launch Date**: February 2026
 **Purpose**: Ready-to-use copy for all launch channels
 
 ---
@@ -28,9 +28,9 @@ See every file move before it happens, undo anything, and keep complete control.
 
 Forma brings order to your digital workspace without acting on its own. Create rules in plain language. See every proposed move before it happens. Undo anything with one click.
 
-Built natively for macOS. 100% local processing. Download free from the Mac App Store.
+Built natively for macOS. 100% local processing. One-time $29 purchase.
 
-[Download Forma →]
+[Download Forma](https://formafiles.com/get-forma)
 
 ### Long Version (Blog Post, Product Hunt)
 **Introducing Forma: File Organization Without Surprises**
@@ -49,9 +49,9 @@ Changed your mind? Every action is recorded. Undo anything with one click.
 - **Stay in control**: Nothing moves without your approval
 - **Complete privacy**: 100% local processing on your Mac
 
-Forma is free to try. Unlimited features with a subscription: $4.99/month or $49.99/year.
+Forma is available with a one-time $29 purchase.
 
-[Download from Mac App Store →]
+[Download Forma for Mac](https://formafiles.com/get-forma)
 
 ---
 
@@ -66,7 +66,7 @@ Forma is free to try. Unlimited features with a subscription: $4.99/month or $49
 >
 > Your files. Your rules. Your approval.
 >
-> [Link]
+> https://formafiles.com
 
 **Tweet 2** (Problem)
 > Your Downloads folder: 847 files
@@ -99,12 +99,12 @@ Forma is free to try. Unlimited features with a subscription: $4.99/month or $49
 > Just your computer organizing your files.
 
 **Tweet 6** (CTA)
-> Forma is live on the Mac App Store.
+> Forma is live.
 >
-> Free to try. $4.99/mo or $49.99/yr for unlimited rules.
+> One-time $29 purchase. No subscription.
 >
 > Give your files form.
-> [Link]
+> https://formafiles.com
 
 ---
 
@@ -128,7 +128,7 @@ Key features:
 
 If you've ever wished file organization was less risky to experiment with, I'd love for you to try Forma.
 
-Available now on the Mac App Store. Free to download.
+Available now via https://formafiles.com/get-forma.
 
 #productivity #macos #indiedev #launch
 
@@ -155,9 +155,9 @@ Technical details:
 
 Looking for feedback on the preview-first workflow. Does showing proposed changes before execution increase trust, or does it add friction?
 
-Free tier available. Subscription for unlimited rules.
+One-time $29 purchase.
 
-Mac App Store: [link]
+Download: https://formafiles.com/get-forma
 
 ---
 
@@ -187,7 +187,7 @@ Would love your feedback on the preview workflow—is it the right balance of co
 
 **Subject**: Forma is live
 
-Forma is now available on the Mac App Store.
+Forma is now available.
 
 **What is it?**
 A file organizer that proposes changes and waits for your approval. Nothing moves until you say so. Everything can be undone.
@@ -198,13 +198,13 @@ A file organizer that proposes changes and waits for your approval. Nothing move
 - 100% local processing—files never leave your Mac
 
 **How to get it:**
-Download free from the Mac App Store. Unlimited features with subscription ($4.99/mo or $49.99/yr).
+One-time $29 purchase. Download from https://formafiles.com/get-forma.
 
-[Download Forma →]
+[Download Forma](https://formafiles.com/get-forma)
 
 Thanks for waiting. I'd love to hear what you think.
 
-[Signature]
+— Forma team
 
 ---
 
@@ -225,7 +225,7 @@ Move a file, then undo it. The action history is always there.
 
 Questions? Reply to this email.
 
-[Signature]
+— Forma team
 
 ---
 
@@ -237,7 +237,7 @@ Questions? Reply to this email.
 
 **Subhead**: The file organizer that proposes changes, waits for your approval, and lets you undo everything.
 
-**CTA**: Download Free
+**CTA**: Download for Mac
 
 ---
 
@@ -290,4 +290,4 @@ Just your Mac organizing your files.
 
 ---
 
-*Last updated: January 2025*
+*Last updated: February 2026*

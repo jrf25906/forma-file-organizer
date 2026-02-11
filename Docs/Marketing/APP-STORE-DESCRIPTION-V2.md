@@ -50,10 +50,8 @@ Built exclusively for macOS with native file APIs. All processing happens on you
 
 ---
 
-**SUBSCRIPTION**
-Forma is free to download and try. Unlock unlimited rules and all features with:
-- Monthly: $4.99
-- Annual: $49.99
+**PRICING**
+Forma is available as a one-time $29 purchase. No subscription tiers.
 
 ---
 
@@ -100,21 +98,21 @@ Forma proposes changes. You approve them. Nothing moves without your permission.
 
 Unlike AI organizers that act on their own, Forma respects your decisions. See every proposed file move before it happens. Reject what doesn't look right. Undo anything that goes wrong.
 
-[Rest of features as above]
+Includes preview queue, full undo history, natural-language rules, and local-only processing.
 
 ### Variant B: Problem-Focused
 **Your Downloads folder has 847 files. Let's fix that.**
 
 Forma turns folder chaos into organized structure—but only after you approve. No surprises. No autonomous AI. Just clear proposals you can accept, reject, or undo.
 
-[Rest of features as above]
+Includes preview queue, full undo history, natural-language rules, and local-only processing.
 
 ### Variant C: Comparison-Focused
 **More approachable than Hazel. More transparent than AI organizers.**
 
 Forma is the file organizer for people who want automation without losing control. Define rules visually. Preview every change. Undo anything.
 
-[Rest of features as above]
+Includes preview queue, full undo history, natural-language rules, and local-only processing.
 
 ---
 

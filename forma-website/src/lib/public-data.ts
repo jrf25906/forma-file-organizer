@@ -5,7 +5,7 @@ import { PUBLIC_API_VERSION, WEBSITE_LAST_UPDATED_ISO } from "@/lib/site";
 export const publicProduct = {
   name: "Forma",
   tagline: "Give your files form",
-  platform: "macOS 14+",
+  platform: "macOS 15+",
   price_usd: 29,
   purchase_url: MAC_APP_STORE_URL,
   last_updated: WEBSITE_LAST_UPDATED_ISO,
@@ -25,4 +25,3 @@ export function createApiEnvelope<T>(data: T) {
     data,
   };
 }
-

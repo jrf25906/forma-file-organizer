@@ -213,7 +213,7 @@ function HeroContent() {
             ref={metaRef}
             className="mt-3 inline-block border-t border-[var(--border-subtle)] pt-3 text-[13px] text-[var(--text-muted)] opacity-0"
           >
-            $29 once. macOS 14+. No subscription.
+            $29 once. macOS 15+. No subscription.
           </p>
         </div>
 

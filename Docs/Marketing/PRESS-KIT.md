@@ -1,7 +1,7 @@
 # Forma Press Kit
 
-**Embargo Date**: [TBD]
-**Launch Date**: Mid-January 2025
+**Embargo Date**: TBD
+**Launch Date**: February 2026
 **Contact**: hello@formafiles.com
 
 ---
@@ -13,11 +13,11 @@
 | **App Name** | Forma: File Organizer |
 | **Tagline** | Give your files form. |
 | **Platform** | macOS (Apple Silicon and Intel) |
-| **Price** | Free to try / $4.99 monthly / $49.99 annually |
+| **Price** | $29 one-time purchase |
 | **Category** | Productivity, Utilities |
-| **Developer** | [Your Name / Company] |
-| **Website** | [forma-app.com or similar] |
-| **App Store** | [Link when available] |
+| **Developer** | Forma |
+| **Website** | https://formafiles.com |
+| **App Store / Download** | https://formafiles.com/get-forma |
 
 ---
 
@@ -33,11 +33,11 @@ Forma brings order to your digital workspace without acting on its own. Unlike A
 
 ### Forma Launches: The File Organizer That Respects Your Decisions
 
-**[City, Date]** — Forma, a new macOS utility, offers a fresh approach to file organization: propose first, act second.
+**Remote, February 2026** — Forma, a new macOS utility, offers a fresh approach to file organization: propose first, act second.
 
 While automation tools like Hazel require scripting expertise and AI organizers like Sparkle act autonomously, Forma occupies the middle ground. Users create declarative rules through a visual interface—"Move screenshots older than 7 days to Archive"—and Forma proposes destinations for matching files. Nothing moves until the user approves.
 
-"People treat their file system like a bank vault," says [Founder Name]. "They need an organizer they can trust. Forma earns that trust by showing exactly what it plans to do, waiting for approval, and making every action reversible."
+"People treat their file system like a bank vault," says the Forma team. "They need an organizer they can trust. Forma earns that trust by showing exactly what it plans to do, waiting for approval, and making every action reversible."
 
 **Key Features:**
 - **Preview Queue**: See every proposed change before execution
@@ -46,7 +46,7 @@ While automation tools like Hazel require scripting expertise and AI organizers 
 - **100% Local**: On-device processing; files never leave your Mac
 - **Native macOS**: Built with native APIs, not Electron
 
-Forma is available now on the Mac App Store. Free to download and try, with unlimited features available via subscription ($4.99/month or $49.99/year).
+Forma is available with a one-time $29 purchase. For current download options and support links, visit https://formafiles.com/get-forma.
 
 ---
 
@@ -101,15 +101,13 @@ Built exclusively for macOS using native file APIs. All processing happens on-de
 
 | Tier | Price | Features |
 |------|-------|----------|
-| **Free** | $0 | Limited rules, full preview/undo |
-| **Monthly** | $4.99 | Unlimited rules, all features |
-| **Annual** | $49.99 | Unlimited rules, all features |
+| **One-time Purchase** | $29 | Full app access, preview/undo workflow, no subscription |
 
 ---
 
 ## Founder Bio
 
-[Placeholder for your bio — 2-3 sentences about background and motivation for building Forma]
+Forma is built as an independent macOS-focused product. The project prioritizes transparent automation, local-first privacy, and reversible workflows for professional file organization.
 
 ---
 
@@ -140,8 +138,8 @@ See `/Docs/Marketing/Screenshots/` for current captures
 
 **Press Inquiries**: hello@formafiles.com
 **Support**: hello@formafiles.com
-**Twitter/X**: [@handle]
-**Website**: [URL]
+**Twitter/X**: TBD
+**Website**: https://formafiles.com
 
 ---
 
@@ -154,4 +152,4 @@ See `/Docs/Marketing/Screenshots/` for current captures
 
 ---
 
-*Press kit last updated: January 2025*
+*Press kit last updated: February 2026*

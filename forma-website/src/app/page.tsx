@@ -19,7 +19,7 @@ export default function Home() {
     "@type": "SoftwareApplication",
     name: SITE_NAME,
     applicationCategory: "ProductivityApplication",
-    operatingSystem: "macOS 14+",
+    operatingSystem: "macOS 15+",
     offers: {
       "@type": "Offer",
       price: "29",
@@ -151,4 +151,3 @@ export default function Home() {
     </div>
   );
 }
-

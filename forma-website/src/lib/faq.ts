@@ -21,7 +21,7 @@ export const faqs: FaqEntry[] = [
     id: "macos-version",
     question: "What macOS version do I need?",
     answer:
-      "macOS 14 (Sonoma) or later. Forma supports both Intel and Apple Silicon Macs.",
+      "macOS 15 or later. Forma supports both Intel and Apple Silicon Macs.",
     category: "compatibility",
     lastUpdated: WEBSITE_LAST_UPDATED_ISO,
   },
@@ -58,4 +58,3 @@ export const faqs: FaqEntry[] = [
     lastUpdated: WEBSITE_LAST_UPDATED_ISO,
   },
 ];
-

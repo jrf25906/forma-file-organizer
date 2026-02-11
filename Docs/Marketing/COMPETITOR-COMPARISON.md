@@ -9,7 +9,7 @@
 
 | Feature | Forma | Hazel | Sparkle | Sorted | AI File Sorter |
 |---------|-------|-------|---------|--------|----------------|
-| **Price** | $4.99/mo or $49.99/yr | $42 one-time | Subscription | ~$0.01/sort | Free |
+| **Price** | $29 one-time | $42 one-time | Subscription | ~$0.01/sort | Free |
 | **Platform** | macOS | macOS | macOS | macOS | Cross-platform |
 | **Preview Before Move** | Yes | No | No | No | Yes |
 | **Full Undo History** | Yes | Limited | No | No | No |
@@ -139,13 +139,13 @@
 
 | App | Model | Annual Cost | 3-Year Cost |
 |-----|-------|-------------|-------------|
-| Forma | Subscription | $49.99 | $149.97 |
+| Forma | One-time | $29 | $29 |
 | Hazel | One-time | $42 | $42 |
 | Sparkle | Subscription | Est. $60-120 | Est. $180-360 |
 | Sorted | Per-use | Variable | Variable |
 | AI File Sorter | Free | $0 | $0 |
 
-**Positioning note**: Forma sits between Hazel's power-user one-time cost and Sparkle's premium AI subscription. The subscription model funds ongoing development and ensures continuous improvement.
+**Positioning note**: Forma sits between Hazel's power-user one-time cost and higher-priced AI automation tools, while retaining transparent preview + undo control.
 
 ---
 

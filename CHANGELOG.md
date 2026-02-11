@@ -20,6 +20,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Consolidated marketing web code to `forma-website/` and removed legacy `website/` + `forma-marketing-site/` directories.
 - `forma-website` now uses normal in-flow footer layout (no fixed negative-z reveal), and web metadata/sitemap/robots now target `https://formafiles.com`.
 - `forma-website` metadata now includes expanded structured data (`SoftwareApplication`, `Organization`, `WebSite`, `FAQPage`) and keyword coverage for Mac file-organization intent.
+- `forma-website` download CTAs now fall back to `/get-forma` (instead of `/support`) when the App Store URL is unset, and launch copy now consistently reflects one-time `$29` pricing and `macOS 15+`.
 - `forma-website` robots and sitemap generation now include explicit AI/search crawler directives and stable last-modified handling for static/blog routes.
 - `forma-website` hero/header spacing and anchor offsets were refined to prevent top overlap, and light-mode feature demos now use readable high-contrast surfaces.
 - `forma-website` light-mode typography contrast and feature-demo default visibility were corrected, and hero spacing/scale were further tuned for cleaner first paint.

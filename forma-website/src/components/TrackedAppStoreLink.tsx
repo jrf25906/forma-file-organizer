@@ -35,7 +35,7 @@ export function TrackedAppStoreLink({
   const handleClick: MouseEventHandler<HTMLAnchorElement> = (event) => {
     trackEvent("download_click", {
       location,
-      destination: IS_APP_STORE_URL_CONFIGURED ? "app_store" : "support_fallback",
+      destination: IS_APP_STORE_URL_CONFIGURED ? "app_store" : "get_forma_fallback",
     });
 
     extraEvents?.forEach((extra) => {
@@ -51,4 +51,3 @@ export function TrackedAppStoreLink({
     </a>
   );
 }
-

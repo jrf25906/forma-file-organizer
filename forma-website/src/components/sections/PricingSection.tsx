@@ -96,7 +96,7 @@ export default function PricingSection() {
             {[
               "One payment, yours forever — no subscription tricks",
               "Works offline, no account required",
-              "Not another Electron wrapper — native Swift on macOS 14+",
+              "Not another Electron wrapper — native Swift on macOS 15+",
             ].map((item) => (
               <li key={item} className="flex items-start gap-3 text-[14px] leading-relaxed text-[var(--text-secondary)]">
                 <svg className="w-4 h-4 mt-0.5 shrink-0 text-forma-sage" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -124,7 +124,7 @@ export default function PricingSection() {
             </TrackedAppStoreLink>
 
             <p className="text-[13px] text-[var(--text-muted)] mt-1">
-              Requires macOS 14 (Sonoma) or later.
+              Requires macOS 15 or later.
             </p>
 
             {!isMac && (

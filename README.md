@@ -11,7 +11,7 @@ A premium macOS application for intelligent file organization.
 
 ## Overview
 
-Forma helps you organize files from Desktop, Downloads, and other folders using intelligent rule-based automation. Built with SwiftUI and SwiftData for macOS 14+.
+Forma helps you organize files from Desktop, Downloads, and other folders using intelligent rule-based automation. Built with SwiftUI and SwiftData for macOS 15+.
 
 **Design Philosophy:** Precise, Refined, Confident—crafted to Apple Design Award standards.
 
@@ -162,7 +162,7 @@ Forma File Organizing/
 - **Framework**: SwiftUI
 - **Persistence**: SwiftData
 - **Architecture**: MVVM with Service Layer
-- **Minimum**: macOS 14.0+, Swift 5.9+
+- **Minimum**: macOS 15.0+, Swift 5.9+
 
 ## Marketing Site
 
