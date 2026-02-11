@@ -167,12 +167,17 @@ export function FeatureShowcase({ features }: FeatureShowcaseProps) {
     prevIndexRef.current = activeIndex;
   }, [activeIndex]);
 
-  /* ---- Intro/outro opacity based on raw progress ---- */
+  /* ---- Intro opacity based on raw progress ----
+     Delay showcase fade-in until the standalone section header has faded out.
+     Keep showcase fully visible through the end of the pinned scene to avoid
+     a dead/blank zone before the next section enters. */
+  const introFadeStart = 0.08;
+  const introFadeEnd = 0.12;
   const sectionOpacity =
-    progress < 0.03
-      ? progress / 0.03
-      : progress > 0.95
-        ? (1 - progress) / 0.05
+    progress < introFadeStart
+      ? 0
+      : progress < introFadeEnd
+        ? (progress - introFadeStart) / (introFadeEnd - introFadeStart)
         : 1;
 
   return (

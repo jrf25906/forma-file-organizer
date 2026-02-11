@@ -20,6 +20,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` light-mode typography contrast and feature-demo default visibility were corrected, and hero spacing/scale were further tuned for cleaner first paint.
 - `forma-website` theme parity was tightened by adding complementary light/dark component tokens for Mac window chrome, feature demos, file cards, before/after, newsletter, and legal/support content surfaces.
 - `forma-website` mobile spacing rhythm was tightened between hero, feature, before/after, pricing, FAQ, and newsletter sections, and the mobile-menu scrim now uses theme-specific light/dark tokens.
+- `forma-website` desktop feature handoff was refined by preventing feature-header/showcase overlap and tightening the Features→Before/After transition spacing.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Dashboard file card/list/grid views now use a readability-first layout with stronger filename hierarchy, a single primary status chip, human-readable metadata summaries, and cleaner hover-only secondary actions.
 - Dashboard file presentations now use the spacious density treatment across card/list/grid with expanded spacing and larger visual targets.

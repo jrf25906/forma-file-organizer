@@ -18,7 +18,7 @@ export default function Home() {
         <CredibilityStrip />
         <SectionTransition fromColor="var(--bg-primary)" toColor="var(--features-bg-from)" height="clamp(8px, 1.8vw, 24px)" />
         <FeaturesSection />
-        <SectionTransition fromColor="var(--features-bg-from)" toColor="var(--bg-primary)" height="clamp(6px, 1.5vw, 18px)" />
+        <SectionTransition fromColor="var(--features-bg-from)" toColor="var(--bg-primary)" height="clamp(4px, 1vw, 12px)" />
         <BeforeAfterSection />
         <SectionTransition fromColor="var(--bg-primary)" toColor="var(--bg-secondary)" height="clamp(8px, 1.8vw, 24px)" />
         <PricingSection />

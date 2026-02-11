@@ -31,7 +31,7 @@ const organizedFolders = [
 
 function DesktopContent() {
   return (
-    <div className="relative py-10 md:py-16 bg-[var(--bg-primary)] overflow-hidden">
+    <div className="relative overflow-hidden bg-[var(--bg-primary)] pt-6 pb-10 md:pt-10 md:pb-14">
       <div className="site-container relative w-full">
         <ScrollReveal direction="up" distance={30}>
           <h2 className="mb-10 md:mb-12 text-center font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
