@@ -88,7 +88,7 @@ export function AnimatedRuleDemo({ progress }: AnimatedRuleDemoProps) {
   return (
     <div className="space-y-3">
       {/* First input area */}
-      <div className="rounded-lg border border-white/[0.08] bg-white/[0.06] px-3 py-2.5">
+      <div className="rounded-lg border border-[var(--demo-row-border)] bg-[var(--demo-row-bg-strong)] px-3 py-2.5">
         <span className="font-mono text-[11px] text-[var(--text-secondary)]">
           {computed.visible1}
           {computed.showCursor1 && (
@@ -96,7 +96,7 @@ export function AnimatedRuleDemo({ progress }: AnimatedRuleDemoProps) {
           )}
         </span>
         {!computed.visible1 && !computed.showCursor1 && (
-          <span className="text-[11px] text-white/20">&nbsp;</span>
+          <span className="text-[11px] text-[var(--demo-placeholder)]">&nbsp;</span>
         )}
       </div>
 
@@ -107,7 +107,7 @@ export function AnimatedRuleDemo({ progress }: AnimatedRuleDemoProps) {
           transform: `translateY(${computed.card1Y}px)`,
         }}
       >
-        <div className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2">
+        <div className="flex items-center justify-between rounded-lg border border-[var(--demo-row-border)] bg-[var(--demo-row-bg)] px-3 py-2">
           <span className="font-mono text-[11px] text-[var(--text-secondary)]">
             Move screenshots to{" "}
             <span className="text-forma-steel-blue">~/Screenshots</span>
@@ -131,7 +131,7 @@ export function AnimatedRuleDemo({ progress }: AnimatedRuleDemoProps) {
 
       {/* Second input area */}
       <div
-        className="rounded-lg border border-white/[0.08] bg-white/[0.06] px-3 py-2.5"
+        className="rounded-lg border border-[var(--demo-row-border)] bg-[var(--demo-row-bg-strong)] px-3 py-2.5"
         style={{ opacity: computed.input2Opacity }}
       >
         <span className="font-mono text-[11px] text-[var(--text-secondary)]">
@@ -141,7 +141,7 @@ export function AnimatedRuleDemo({ progress }: AnimatedRuleDemoProps) {
           )}
         </span>
         {!computed.visible2 && !computed.showCursor2 && (
-          <span className="text-[11px] text-white/20">&nbsp;</span>
+          <span className="text-[11px] text-[var(--demo-placeholder)]">&nbsp;</span>
         )}
       </div>
 
@@ -152,7 +152,7 @@ export function AnimatedRuleDemo({ progress }: AnimatedRuleDemoProps) {
           transform: `translateY(${computed.card2Y}px)`,
         }}
       >
-        <div className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2">
+        <div className="flex items-center justify-between rounded-lg border border-[var(--demo-row-border)] bg-[var(--demo-row-bg)] px-3 py-2">
           <span className="font-mono text-[11px] text-[var(--text-secondary)]">
             Sort code files into{" "}
             <span className="text-forma-steel-blue">~/Projects</span>

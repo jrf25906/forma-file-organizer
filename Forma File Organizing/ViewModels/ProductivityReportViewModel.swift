@@ -37,7 +37,15 @@ final class ProductivityReportViewModel: ObservableObject {
     private let navigation: NavigationViewModel
     private let dashboardViewModel: DashboardViewModel
     private var dismissedInsightIds: Set<UUID> = []
-    private var openSettings: (@MainActor () -> Void)?
+    private var refreshTask: Task<Void, Never>?
+    private var reportCache: [UsagePeriod: CachedReport] = [:]
+
+    private struct CachedReport {
+        let report: ProductivityHealthReport
+        let timestamp: Date
+    }
+
+    private let cacheTTL: TimeInterval = 60
 
     // MARK: - Derived UI State
 
@@ -80,22 +88,38 @@ final class ProductivityReportViewModel: ObservableObject {
         self.dashboardViewModel = dashboardViewModel
     }
 
-    func configureOpenSettings(_ action: @escaping @MainActor () -> Void) {
-        openSettings = action
-    }
-
     // MARK: - Lifecycle
 
     func onAppear() {
-        guard productivityMetrics == nil, !isLoading else { return }
-        Task { await refresh() }
+        guard !isLoading else { return }
+        scheduleRefresh(force: productivityMetrics == nil)
     }
 
     // MARK: - Data Loading
 
-    func refresh() async {
+    func scheduleRefresh(force: Bool = false) {
+        refreshTask?.cancel()
+        refreshTask = Task { [weak self] in
+            guard let self else { return }
+            await self.refresh(force: force)
+        }
+    }
+
+    func cancelRefresh() {
+        refreshTask?.cancel()
+        refreshTask = nil
+    }
+
+    private func refresh(force: Bool = false) async {
         guard FeatureFlagService.shared.isEnabled(.analyticsAndInsights) else {
             errorMessage = "Analytics is disabled."
+            return
+        }
+
+        if !force,
+           let cached = reportCache[selectedPeriod],
+           Date().timeIntervalSince(cached.timestamp) < cacheTTL {
+            applyReport(cached.report)
             return
         }
 
@@ -105,6 +129,7 @@ final class ProductivityReportViewModel: ObservableObject {
         do {
             // Ensure we have a recent snapshot
             try await analyticsService.recordDailySnapshotIfNeeded(container: modelContext.container)
+            guard !Task.isCancelled else { return }
 
             // Load the entire productivity report in one detached pass to avoid
             // repeated main-actor fetches of FileItem and snapshot data.
@@ -112,18 +137,24 @@ final class ProductivityReportViewModel: ObservableObject {
                 for: selectedPeriod,
                 container: modelContext.container
             )
+            guard !Task.isCancelled else { return }
 
-            productivityMetrics = report.metrics
-            automationTimeline = report.automationTimeline
-            storageTreemap = report.storageTreemap
-            stalenessCalendar = report.stalenessCalendar
-            smartInsights = report.insights.filter { !dismissedInsightIds.contains($0.id) }
-
-            errorMessage = nil
+            reportCache[selectedPeriod] = CachedReport(report: report, timestamp: Date())
+            applyReport(report)
         } catch {
+            guard !Task.isCancelled else { return }
             Log.error("ProductivityReportViewModel: Failed to refresh - \(error.localizedDescription)", category: .analytics)
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func applyReport(_ report: ProductivityHealthReport) {
+        productivityMetrics = report.metrics
+        automationTimeline = report.automationTimeline
+        storageTreemap = report.storageTreemap
+        stalenessCalendar = report.stalenessCalendar
+        smartInsights = report.insights.filter { !dismissedInsightIds.contains($0.id) }
+        errorMessage = nil
     }
 
     // MARK: - User Interactions
@@ -165,7 +196,7 @@ final class ProductivityReportViewModel: ObservableObject {
                 navigation.isShowingRuleEditor = true
             }
         case .enableAutomation:
-            openSettings?()
+            Log.info("ProductivityReportViewModel: Enable automation action is handled by SettingsLink", category: .analytics)
         case .reviewFolder(let path):
             Log.info("ProductivityReportViewModel: Review folder - \(path.path)", category: .analytics)
             navigateToFolder(path)
@@ -187,7 +218,8 @@ final class ProductivityReportViewModel: ObservableObject {
     func runInitialScan() {
         Task { @MainActor in
             await dashboardViewModel.scanFiles(context: modelContext)
-            await refresh()
+            reportCache.removeAll()
+            scheduleRefresh(force: true)
         }
     }
 

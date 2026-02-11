@@ -18,6 +18,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` now uses normal in-flow footer layout (no fixed negative-z reveal), and web metadata/sitemap/robots now target `https://formafiles.com`.
 - `forma-website` hero/header spacing and anchor offsets were refined to prevent top overlap, and light-mode feature demos now use readable high-contrast surfaces.
 - `forma-website` light-mode typography contrast and feature-demo default visibility were corrected, and hero spacing/scale were further tuned for cleaner first paint.
+- `forma-website` theme parity was tightened by adding complementary light/dark component tokens for Mac window chrome, feature demos, file cards, before/after, newsletter, and legal/support content surfaces.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Dashboard file card/list/grid views now use a readability-first layout with stronger filename hierarchy, a single primary status chip, human-readable metadata summaries, and cleaner hover-only secondary actions.
 - Dashboard file presentations now use the spacious density treatment across card/list/grid with expanded spacing and larger visual targets.
@@ -66,6 +67,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Menu bar Settings now uses the shared app settings opener instead of synthetic keyboard events.
 - Dashboard window chrome now uses native `NavigationSplitView` columns (sidebar/content/inspector) instead of floating overlay panes.
 - Restored layered vibrancy in the native split-view shell via pane-specific materials and a gradient-backed window surface.
+- Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
 
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.
@@ -75,6 +77,12 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Scroll views now reserve deterministic bottom space for the floating action bar to prevent content overlap in all view modes.
 - Shift-click range selection now works consistently across card/list/grid file views by using a shared selection anchor.
 - Removed oversized translucent "lens" artifacts from split-view panes by avoiding full-bleed `glassEffect` and using pane-safe native material fallback while retaining layered vibrancy.
+- Full-bleed pane surfaces now always prefer native fallback material, even when debug glass-force flags are enabled, preventing circular contour artifacts from returning.
+- Analytics now keeps the left sidebar visible when the inspector column is hidden, preventing unintended sidebar collapse when switching views.
+- Productivity period and category segmented controls now use corrected active tints and shared control-shell fills so selected states remain readable and visually consistent.
+- Analytics refresh work is now cancellable and period-cached to avoid redundant recomputation and reduce energy/memory churn during rapid navigation.
+- Main-screen Settings entry points now use native `SettingsLink` (sidebar, review toolbar, menu bar, and productivity insight actions) for consistent Settings-scene opening.
+- File Inspector now wires previously inert actions: "Based on rule..." opens the matched rule editor, and the trash button now executes a confirmed move-to-trash flow.
 
 ### Removed
 - Deprecated API cleanup: removed legacy `FileItem`/`FileMetadata` initializers, `RuleService.addRule(_:)`, and deprecated error type aliases.

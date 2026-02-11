@@ -23,19 +23,19 @@ export const categoryColors: Record<FileCategory, string> = {
   archives:  "#8BA688",
 };
 
-// Card chrome tokens — from FormaColors.swift dark-mode values
+// Card chrome tokens — resolved through CSS variables for theme parity
 export const cardTokens = {
-  bg:            "#22252A",
-  border:        "rgba(255,255,255,0.08)",
+  bg:            "var(--file-card-bg)",
+  border:        "var(--file-card-border)",
   railWidth:     2,
-  statusReady:   "#7A9D7E",  // formaSage
-  statusPending: "#FF9F0A",  // system orange (dark)
-  labelPrimary:  "rgba(255,255,255,0.92)",
-  labelSecondary:"rgba(255,255,255,0.55)",
-  labelTertiary: "rgba(255,255,255,0.38)",
-  pillBg:        "rgba(91,124,153,0.12)",  // steelBlue at light opacity
-  pillBorder:    "rgba(91,124,153,0.20)",
-  pillText:      "#5B7C99",
+  statusReady:   "var(--file-card-status-ready)",
+  statusPending: "var(--file-card-status-pending)",
+  labelPrimary:  "var(--file-card-label-primary)",
+  labelSecondary:"var(--file-card-label-secondary)",
+  labelTertiary: "var(--file-card-label-tertiary)",
+  pillBg:        "var(--file-card-pill-bg)",
+  pillBorder:    "var(--file-card-pill-border)",
+  pillText:      "var(--file-card-pill-text)",
   font:          "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
 };
 

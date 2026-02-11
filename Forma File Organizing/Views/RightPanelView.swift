@@ -104,6 +104,8 @@ struct RightPanelView: View {
     @ViewBuilder
     private var panelModeHeader: some View {
         HStack(spacing: 12) {
+
+
             // Back to dashboard button
             Button(action: {
                 dashboardViewModel.returnToDefaultPanel()

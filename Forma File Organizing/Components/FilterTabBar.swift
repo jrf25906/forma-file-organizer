@@ -7,9 +7,9 @@ struct FilterTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var hoveredCategory: FileTypeCategory?
 
-    private let containerCornerRadius: CGFloat = 8
-    private let selectedCornerRadius: CGFloat = 6
-    private let segmentHeight: CGFloat = 24
+    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
+    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
+    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
 
     var body: some View {
         HStack(spacing: 0) {
@@ -19,7 +19,7 @@ struct FilterTabBar: View {
                 if index < FileTypeCategory.allCases.count - 1 {
                     Rectangle()
                         .fill(separatorColor)
-                        .frame(width: 1, height: 16)
+                        .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
                         .allowsHitTesting(false)
                 }
             }
@@ -60,35 +60,21 @@ struct FilterTabBar: View {
         return Button(action: { selectedCategory = category }) {
             ZStack {
                 if isSelected {
-                    FormaMaterialSurface(
-                        tier: .overlay,
-                        cornerRadius: selectedCornerRadius,
-                        tint: selectedTint
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                            .stroke(activeBorder, lineWidth: 0.5)
-                    )
-                    .overlay(
-                        LinearGradient(
-                            colors: [
-                                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.14 : 0.20),
-                                Color.clear
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(activeFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .stroke(activeBorder, lineWidth: 0.5)
                         )
-                        .clipShape(RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous))
-                    )
-                    .shadow(color: selectedDropShadowColor, radius: 2, x: 0, y: 1)
+                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
                         .matchedGeometryEffect(id: "activeFilterSegment", in: filterAnimation)
-                        .padding(.vertical, 2)
-                        .padding(.horizontal, 2)
+                        .padding(.vertical, FormaControlChromeMetrics.shellInset)
+                        .padding(.horizontal, FormaControlChromeMetrics.shellInset)
                 } else if isHovered {
                     RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
                         .fill(hoverFill)
-                        .padding(.vertical, 2)
-                        .padding(.horizontal, 2)
+                        .padding(.vertical, FormaControlChromeMetrics.shellInset)
+                        .padding(.horizontal, FormaControlChromeMetrics.shellInset)
                 }
 
                 HStack(spacing: 5) {
@@ -114,14 +100,18 @@ struct FilterTabBar: View {
                 .frame(height: segmentHeight)
                 .foregroundColor(
                     isSelected
-                        ? selectedForeground
-                        : (isHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                        ? FormaControlChromePalette.selectedForeground(colorScheme)
+                        : (
+                            isHovered
+                                ? FormaControlChromePalette.highlightedForeground(colorScheme)
+                                : FormaControlChromePalette.normalForeground(colorScheme)
+                        )
                 )
             }
             .frame(height: segmentHeight)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FormaControlPressButtonStyle())
         .onHover { hovering in
             if hovering {
                 hoveredCategory = category
@@ -151,9 +141,7 @@ struct FilterTabBar: View {
     // MARK: - Colors
 
     private var separatorColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.18)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.separator(colorScheme)
     }
 
     private var containerTint: Color {
@@ -163,37 +151,27 @@ struct FilterTabBar: View {
     }
 
     private var containerBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.20)
-            : Color.formaObsidian.opacity(0.10)
+        FormaControlChromePalette.containerBorder(colorScheme)
     }
 
     private var activeBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.26)
-            : Color.formaObsidian.opacity(0.14)
+        FormaControlChromePalette.activeBorder(colorScheme)
+    }
+
+    private var activeFill: Color {
+        FormaControlChromePalette.activeFill(colorScheme, tint: selectedTint)
     }
 
     private var selectedTint: Color {
-        colorScheme == .dark
-            ? Color.formaSteelBlue.opacity(0.30)
-            : Color.formaSteelBlue.opacity(0.16)
-    }
-
-    private var selectedForeground: Color {
-        colorScheme == .dark ? .formaBoneWhite : .formaLabel
+        Color.formaSteelBlue
     }
 
     private var selectedDropShadowColor: Color {
-        colorScheme == .dark
-            ? Color.black.opacity(0.24)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.activeShadow(colorScheme)
     }
 
     private var hoverFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.08)
-            : Color.formaSteelBlue.opacity(0.06)
+        FormaControlChromePalette.hoverFill(colorScheme, tint: selectedTint)
     }
 }
 

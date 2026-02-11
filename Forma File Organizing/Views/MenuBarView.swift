@@ -12,7 +12,6 @@ import SwiftUI
 struct MenuBarView: View {
     @StateObject private var viewModel: MenuBarViewModel
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.openSettings) private var openSettings
     @Environment(\.colorScheme) private var colorScheme
 
     init(viewModel: MenuBarViewModel = MenuBarViewModel()) {
@@ -407,7 +406,7 @@ struct MenuBarView: View {
             Spacer()
 
             // Settings gear
-            Button(action: openSettings) {
+            SettingsLink {
                 Image(systemName: "gearshape")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.formaSecondaryLabel)
@@ -420,7 +419,6 @@ struct MenuBarView: View {
                     )
             }
             .buttonStyle(.plain)
-            .keyboardShortcut(",", modifiers: .command)
             .help("Settings")
 
             // Quit

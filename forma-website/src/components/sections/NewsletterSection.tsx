@@ -94,11 +94,11 @@ export default function NewsletterSection() {
             className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-8 md:px-12 md:py-12 text-center"
             style={{ opacity: 0 }}
           >
-            <h2 className="font-display text-2xl md:text-3xl text-forma-bone">
+            <h2 className="font-display text-2xl md:text-3xl text-[var(--text-primary)]">
               Stay in the loop
             </h2>
 
-            <p className="mt-3 text-[15px] text-forma-bone/55 leading-relaxed">
+            <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
               Updates on new features and the occasional file organization joke.
             </p>
 
@@ -131,7 +131,7 @@ export default function NewsletterSection() {
                   <button
                     type="submit"
                     disabled={formState === "loading"}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-forma-bone text-forma-obsidian border border-forma-bone/20 px-5 py-2.5 text-[14px] font-medium transition-all duration-200 hover:bg-forma-bone/90 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+                    className="inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[var(--border-medium)] bg-[var(--cta-bg)] px-5 py-2.5 text-[14px] font-medium text-[var(--cta-text)] transition-all duration-200 hover:bg-[var(--cta-bg-hover)] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {formState === "loading" ? (
                       <>

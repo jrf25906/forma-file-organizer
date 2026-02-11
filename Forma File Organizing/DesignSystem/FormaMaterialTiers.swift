@@ -69,6 +69,12 @@ struct FormaMaterialSurface: View {
     }
 
     private var shouldUseFallbackMaterial: Bool {
+        // Full-bleed split-view panes should never be rendered as one giant
+        // glass shape, even when debug flags force glass on other surfaces.
+        if cornerRadius <= 0.01 {
+            return true
+        }
+
         if DebugFlags.forceGlassEffect {
             return false
         }
@@ -77,9 +83,7 @@ struct FormaMaterialSurface: View {
             return true
         }
 
-        // Full-bleed split-view panes can render giant lens-like contours when
-        // treated as one large glass shape. Use AppKit material for those surfaces.
-        return cornerRadius <= 0.01
+        return false
     }
 
     @ViewBuilder

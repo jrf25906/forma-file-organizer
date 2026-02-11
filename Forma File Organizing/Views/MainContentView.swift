@@ -181,12 +181,11 @@ struct MainContentView: View {
                                 gridView
                             }
                         }
+                        .mask(scrollFadeMask)
                         .guidedTourRegion(.mainFileList)
                         .animation(.easeInOut(duration: 0.2), value: dashboardViewModel.currentViewMode)
                     }
                 }
-
-                // TaperedFocusOverlay removed - fade effect didn't look right
 
                 UnifiedToolbar(availableWidth: availableWidth)
                     .padding(.horizontal, FormaLayout.Gutters.center)
@@ -591,6 +590,27 @@ struct MainContentView: View {
 
     private var contentTopPadding: CGFloat { FormaLayout.Content.topPadding }
     private var scrollContentTopInset: CGFloat { unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing }
+
+    /// Mask applied to the scroll view group so content fades to transparent
+    /// as it scrolls under the toolbar, letting the real background show through.
+    private var scrollFadeMask: some View {
+        VStack(spacing: 0) {
+            // Fully transparent under the toolbar — content here is invisible
+            Color.clear
+                .frame(height: scrollContentTopInset)
+
+            // Short fade from transparent to opaque
+            LinearGradient(
+                colors: [.clear, .black],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 2)
+
+            // Fully visible content area
+            Rectangle().fill(.black)
+        }
+    }
     private var fabReservedSpace: CGFloat {
         guard shouldShowFAB else { return FormaSpacing.generous }
         return FloatingActionBar.chromeHeight + FloatingActionBar.bottomOffset + FormaSpacing.standard
@@ -674,7 +694,7 @@ struct MainContentView: View {
     }
 
     private var cardView: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             contentContainer {
                 // Force view update when content search results change
                 // Using VStack wrapper to establish proper SwiftUI observation
@@ -750,7 +770,7 @@ struct MainContentView: View {
     }
 
     private var listView: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             contentContainer {
                 VStack(spacing: 0) {
                     firstRunBannerIfNeeded
@@ -827,7 +847,7 @@ struct MainContentView: View {
     }
 
     private var gridView: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             let columns = [
                 GridItem(.adaptive(minimum: gridMinimumWidth, maximum: gridMaximumWidth), spacing: gridColumnSpacing)
             ]

@@ -7,7 +7,6 @@ struct SidebarView: View {
     @EnvironmentObject var services: AppServices
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.openSettings) private var openSettings
     @Binding var shouldFocusSearch: Bool
     @Binding var showKeyboardHelp: Bool
 
@@ -91,7 +90,7 @@ struct SidebarView: View {
                 .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
 
             HStack(spacing: FormaSpacing.tight) {
-                Button(action: { openSettings() }) {
+                SettingsLink {
                     HStack(spacing: 6) {
                         Image(systemName: "gearshape")
                             .font(.system(size: 13, weight: .medium))

@@ -98,7 +98,7 @@ struct UnifiedToolbar: View {
             if viewModel.isLoading {
                 HStack(spacing: 4) {
                     ProgressView()
-                        .scaleEffect(0.6)
+                        .controlSize(.small)
 
                     if compressionLevel != .compact {
                         Text("Scanning...")
@@ -278,11 +278,11 @@ private struct StocksStyleReviewModeControl: View {
         ),
     ]
 
-    private let containerCornerRadius: CGFloat = 8
-    private let selectedCornerRadius: CGFloat = 6
-    private let segmentHeight: CGFloat = 24
-    private let segmentPlateHorizontalInset: CGFloat = 2
-    private let segmentPlateVerticalInset: CGFloat = 2
+    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
+    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
+    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
+    private let segmentPlateHorizontalInset: CGFloat = FormaControlChromeMetrics.shellInset
+    private let segmentPlateVerticalInset: CGFloat = FormaControlChromeMetrics.shellInset
 
     var body: some View {
         HStack(spacing: 0) {
@@ -292,7 +292,7 @@ private struct StocksStyleReviewModeControl: View {
                 if index < segments.count - 1 {
                     Rectangle()
                         .fill(separatorColor)
-                        .frame(width: 1, height: 16)
+                        .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
                         .allowsHitTesting(false)
                 }
             }
@@ -360,14 +360,18 @@ private struct StocksStyleReviewModeControl: View {
                 .frame(height: segmentHeight)
                 .foregroundColor(
                     isSelected
-                        ? .formaLabel
-                        : (isHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                        ? FormaControlChromePalette.selectedForeground(colorScheme)
+                        : (
+                            isHovered
+                                ? FormaControlChromePalette.highlightedForeground(colorScheme)
+                                : FormaControlChromePalette.normalForeground(colorScheme)
+                        )
                 )
             }
             .frame(height: segmentHeight)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FormaControlPressButtonStyle())
         .help(segment.help)
         .accessibilityIdentifier(segment.accessibilityID)
         .accessibilityLabel(segment.label)
@@ -383,45 +387,31 @@ private struct StocksStyleReviewModeControl: View {
     }
 
     private var separatorColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.20)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.separator(colorScheme)
     }
 
     private var containerFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.08)
-            : Color.formaObsidian.opacity(0.06)
+        FormaControlChromePalette.containerFill(colorScheme)
     }
 
     private var containerBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.containerBorder(colorScheme)
     }
 
     private var activeBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaObsidian.opacity(0.08)
+        FormaControlChromePalette.activeBorder(colorScheme)
     }
 
     private var activeFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.16)
-            : Color.formaBoneWhite.opacity(0.90)
+        FormaControlChromePalette.activeFill(colorScheme)
     }
 
     private var selectedDropShadowColor: Color {
-        colorScheme == .dark
-            ? Color.black.opacity(0.20)
-            : Color.formaObsidian.opacity(0.10)
+        FormaControlChromePalette.activeShadow(colorScheme)
     }
 
     private var hoverFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.10)
-            : Color.formaObsidian.opacity(0.05)
+        FormaControlChromePalette.hoverFill(colorScheme)
     }
 
     private var pendingBadgeText: String {
@@ -461,12 +451,12 @@ private struct StocksStyleViewModeControl: View {
         Segment(mode: .card, icon: "rectangle.grid.1x2", help: "Tile view (⌘3)"),
     ]
 
-    private let containerCornerRadius: CGFloat = 8
-    private let selectedCornerRadius: CGFloat = 6
+    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
+    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
     private let segmentWidth: CGFloat = 32
-    private let segmentHeight: CGFloat = 24
-    private let segmentPlateHorizontalInset: CGFloat = 2
-    private let segmentPlateVerticalInset: CGFloat = 2
+    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
+    private let segmentPlateHorizontalInset: CGFloat = FormaControlChromeMetrics.shellInset
+    private let segmentPlateVerticalInset: CGFloat = FormaControlChromeMetrics.shellInset
 
     var body: some View {
         HStack(spacing: 0) {
@@ -476,7 +466,7 @@ private struct StocksStyleViewModeControl: View {
                 if index < segments.count - 1 {
                     Rectangle()
                         .fill(separatorColor)
-                        .frame(width: 1, height: 16)
+                        .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
                         .allowsHitTesting(false)
                 }
             }
@@ -524,15 +514,19 @@ private struct StocksStyleViewModeControl: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(
                         isSelected
-                            ? .formaLabel
-                            : (isHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                            ? FormaControlChromePalette.selectedForeground(colorScheme)
+                            : (
+                                isHovered
+                                    ? FormaControlChromePalette.highlightedForeground(colorScheme)
+                                    : FormaControlChromePalette.normalForeground(colorScheme)
+                            )
                     )
                     .frame(width: segmentWidth, height: segmentHeight)
             }
             .frame(width: segmentWidth, height: segmentHeight)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FormaControlPressButtonStyle())
         .help(segment.help)
         .accessibilityLabel(segment.mode.displayName)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
@@ -546,45 +540,31 @@ private struct StocksStyleViewModeControl: View {
     }
 
     private var separatorColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.20)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.separator(colorScheme)
     }
 
     private var containerFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.08)
-            : Color.formaObsidian.opacity(0.06)
+        FormaControlChromePalette.containerFill(colorScheme)
     }
 
     private var containerBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.containerBorder(colorScheme)
     }
 
     private var activeBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaObsidian.opacity(0.08)
+        FormaControlChromePalette.activeBorder(colorScheme)
     }
 
     private var activeFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.16)
-            : Color.formaBoneWhite.opacity(0.90)
+        FormaControlChromePalette.activeFill(colorScheme)
     }
 
     private var selectedDropShadowColor: Color {
-        colorScheme == .dark
-            ? Color.black.opacity(0.20)
-            : Color.formaObsidian.opacity(0.10)
+        FormaControlChromePalette.activeShadow(colorScheme)
     }
 
     private var hoverFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.10)
-            : Color.formaObsidian.opacity(0.05)
+        FormaControlChromePalette.hoverFill(colorScheme)
     }
 }
 
@@ -612,12 +592,12 @@ private struct StocksStyleGroupingControl: View {
         Segment(mode: .combined, icon: "sparkles", label: "Smart", help: "Use smart grouping"),
     ]
 
-    private let containerCornerRadius: CGFloat = 8
-    private let selectedCornerRadius: CGFloat = 6
-    private let segmentHeight: CGFloat = 24
+    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
+    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
+    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
     private let compactMinWidth: CGFloat = 30
-    private let segmentPlateHorizontalInset: CGFloat = 2
-    private let segmentPlateVerticalInset: CGFloat = 2
+    private let segmentPlateHorizontalInset: CGFloat = FormaControlChromeMetrics.shellInset
+    private let segmentPlateVerticalInset: CGFloat = FormaControlChromeMetrics.shellInset
 
     var body: some View {
         HStack(spacing: 0) {
@@ -627,7 +607,7 @@ private struct StocksStyleGroupingControl: View {
                 if index < segments.count - 1 {
                     Rectangle()
                         .fill(separatorColor)
-                        .frame(width: 1, height: 16)
+                        .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
                         .allowsHitTesting(false)
                 }
             }
@@ -685,14 +665,18 @@ private struct StocksStyleGroupingControl: View {
                 .frame(height: segmentHeight)
                 .foregroundColor(
                     isSelected
-                        ? .formaLabel
-                        : (isHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                        ? FormaControlChromePalette.selectedForeground(colorScheme)
+                        : (
+                            isHovered
+                                ? FormaControlChromePalette.highlightedForeground(colorScheme)
+                                : FormaControlChromePalette.normalForeground(colorScheme)
+                        )
                 )
             }
             .frame(height: segmentHeight)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FormaControlPressButtonStyle())
         .help(segment.help)
         .onHover { hovering in
             if hovering {
@@ -704,45 +688,31 @@ private struct StocksStyleGroupingControl: View {
     }
 
     private var separatorColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.20)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.separator(colorScheme)
     }
 
     private var containerFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.08)
-            : Color.formaObsidian.opacity(0.06)
+        FormaControlChromePalette.containerFill(colorScheme)
     }
 
     private var containerBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.containerBorder(colorScheme)
     }
 
     private var activeBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaObsidian.opacity(0.08)
+        FormaControlChromePalette.activeBorder(colorScheme)
     }
 
     private var activeFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.16)
-            : Color.formaBoneWhite.opacity(0.90)
+        FormaControlChromePalette.activeFill(colorScheme)
     }
 
     private var selectedDropShadowColor: Color {
-        colorScheme == .dark
-            ? Color.black.opacity(0.20)
-            : Color.formaObsidian.opacity(0.10)
+        FormaControlChromePalette.activeShadow(colorScheme)
     }
 
     private var hoverFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.10)
-            : Color.formaObsidian.opacity(0.05)
+        FormaControlChromePalette.hoverFill(colorScheme)
     }
 }
 
@@ -756,12 +726,12 @@ private struct StocksStyleToolbarIconButton: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
 
-    private let containerCornerRadius: CGFloat = 8
-    private let selectedCornerRadius: CGFloat = 6
+    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
+    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
     private let segmentWidth: CGFloat = 32
-    private let segmentHeight: CGFloat = 24
-    private let segmentPlateHorizontalInset: CGFloat = 2
-    private let segmentPlateVerticalInset: CGFloat = 2
+    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
+    private let segmentPlateHorizontalInset: CGFloat = FormaControlChromeMetrics.shellInset
+    private let segmentPlateVerticalInset: CGFloat = FormaControlChromeMetrics.shellInset
 
     var body: some View {
         Button(action: action) {
@@ -787,15 +757,19 @@ private struct StocksStyleToolbarIconButton: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(
                         isSelected
-                            ? (activeTint != nil ? activeTint! : .formaLabel)
-                            : (isHovered ? .formaLabel : .formaSecondaryLabelHigh)
+                            ? (activeTint ?? FormaControlChromePalette.selectedForeground(colorScheme))
+                            : (
+                                isHovered
+                                    ? FormaControlChromePalette.highlightedForeground(colorScheme)
+                                    : FormaControlChromePalette.normalForeground(colorScheme)
+                            )
                     )
                     .frame(width: segmentWidth, height: segmentHeight)
             }
             .frame(width: segmentWidth, height: segmentHeight)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FormaControlPressButtonStyle())
         .padding(showOuterShell ? 2 : 0)
         .background {
             if showOuterShell {
@@ -816,42 +790,27 @@ private struct StocksStyleToolbarIconButton: View {
     }
 
     private var containerFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.08)
-            : Color.formaObsidian.opacity(0.06)
+        FormaControlChromePalette.containerFill(colorScheme)
     }
 
     private var containerBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.containerBorder(colorScheme)
     }
 
     private var activeBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaObsidian.opacity(0.08)
+        FormaControlChromePalette.activeBorder(colorScheme)
     }
 
     private var activeFill: Color {
-        if let activeTint {
-            return activeTint.opacity(colorScheme == .dark ? 0.20 : 0.15)
-        }
-        return colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.16)
-            : Color.formaBoneWhite.opacity(0.90)
+        FormaControlChromePalette.activeFill(colorScheme, tint: activeTint)
     }
 
     private var selectedDropShadowColor: Color {
-        colorScheme == .dark
-            ? Color.black.opacity(0.20)
-            : Color.formaObsidian.opacity(0.10)
+        FormaControlChromePalette.activeShadow(colorScheme)
     }
 
     private var hoverFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.10)
-            : Color.formaObsidian.opacity(0.05)
+        FormaControlChromePalette.hoverFill(colorScheme, tint: activeTint)
     }
 }
 

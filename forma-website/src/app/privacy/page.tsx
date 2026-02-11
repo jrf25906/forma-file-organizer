@@ -17,14 +17,14 @@ export default function PrivacyPolicyPage() {
 
       <div className="relative z-10 max-w-3xl mx-auto px-6">
         <div className="glass-card rounded-2xl p-8 md:p-12">
-          <h1 className="font-display text-3xl md:text-4xl text-forma-obsidian mb-2">
+          <h1 className="mb-2 font-display text-3xl text-[var(--text-primary)] md:text-4xl">
             Privacy Policy
           </h1>
-          <p className="text-sm text-forma-obsidian/50 mb-8">
+          <p className="mb-8 text-sm text-[var(--text-muted)]">
             Effective date: 2026-02-04
           </p>
 
-          <div className="space-y-8 text-forma-obsidian/70 leading-relaxed">
+          <div className="space-y-8 leading-relaxed text-[var(--text-secondary)]">
             <section className="space-y-3">
               <p>
                 Forma is built to keep your files private. The app runs
@@ -34,7 +34,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="font-display text-xl text-forma-obsidian">
+              <h2 className="font-display text-xl text-[var(--text-primary)]">
                 What the app stores on your device
               </h2>
               <p>
@@ -47,7 +47,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="font-display text-xl text-forma-obsidian">
+              <h2 className="font-display text-xl text-[var(--text-primary)]">
                 Folder permissions and bookmarks
               </h2>
               <p>
@@ -59,7 +59,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="font-display text-xl text-forma-obsidian">
+              <h2 className="font-display text-xl text-[var(--text-primary)]">
                 Website data
               </h2>
               <p>
@@ -72,7 +72,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="font-display text-xl text-forma-obsidian">
+              <h2 className="font-display text-xl text-[var(--text-primary)]">
                 Contact
               </h2>
               <p>
@@ -88,10 +88,10 @@ export default function PrivacyPolicyPage() {
             </section>
           </div>
 
-          <div className="mt-12 pt-8 border-t border-forma-obsidian/10">
+          <div className="mt-12 border-t border-[var(--border-subtle)] pt-8">
             <Link
               href="/"
-              className="text-sm text-forma-obsidian/50 hover:text-forma-obsidian/70 transition-colors"
+              className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
             >
               &larr; Back to home
             </Link>

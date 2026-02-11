@@ -92,7 +92,7 @@ export function AnimatedUndoDemo({ progress }: AnimatedUndoDemoProps) {
         return (
           <div
             key={row.file}
-            className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2"
+            className="flex items-center justify-between rounded-lg border border-[var(--demo-row-border)] bg-[var(--demo-row-bg)] px-3 py-2"
             style={{
               opacity: rowOpacity,
               transform: `translateX(${translateX}px) translateY(${8 * (1 - rowOpacity)}px)`,

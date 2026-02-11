@@ -3,7 +3,6 @@ import SwiftData
 
 struct ReviewView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.openSettings) private var openSettings
     @EnvironmentObject var nav: NavigationViewModel
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @StateObject private var viewModel = ReviewViewModel()
@@ -142,7 +141,7 @@ struct ReviewView: View {
                     .buttonStyle(.plain)
 
                     // Settings Button
-                    Button(action: { openSettings() }) {
+                    SettingsLink {
                         Image(systemName: "gearshape")
                             .font(.formaBodyMedium)
                             .foregroundColor(Color.formaObsidian.opacity(Color.FormaOpacity.high))

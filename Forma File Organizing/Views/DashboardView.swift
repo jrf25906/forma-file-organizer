@@ -111,7 +111,9 @@ struct DashboardView: View {
     }
 
     private func updateSplitViewVisibility() {
-        splitViewVisibility = showsInspectorColumn ? .all : .doubleColumn
+        // `.doubleColumn` in a three-column split can drop the sidebar.
+        // Keep sidebar+content visible when inspector is hidden.
+        splitViewVisibility = showsInspectorColumn ? .all : .automatic
     }
 
     // MARK: - Body

@@ -244,7 +244,6 @@ struct Forma_File_OrganizingApp: App {
     private var dashboardRootView: some View {
         DashboardView()
             .frame(minWidth: 1200, minHeight: 800)
-            .environment(\.openSettings, SettingsOpener.open)
             .environmentObject(services)
             .environmentObject(dashboardViewModel)
             .background(WindowChromeConfiguratorView())

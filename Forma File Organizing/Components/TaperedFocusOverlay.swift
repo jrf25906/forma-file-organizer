@@ -1,36 +1,41 @@
 import SwiftUI
 
-/// A top-aligned, material-based blur overlay that fades out vertically.
-/// Use to create a "cards coming into focus" effect as content scrolls underneath.
+/// A top-aligned gradient overlay that fades from the window background to clear.
+/// The `solidHeight` portion stays fully opaque (covering the toolbar zone), then
+/// a short `fadeLength` tail tapers to transparent below it.
 struct TaperedFocusOverlay: View {
-    let height: CGFloat
+    /// Height of the fully opaque zone (typically the toolbar height).
+    let solidHeight: CGFloat
+    /// Length of the fade tail below the solid zone.
+    let fadeLength: CGFloat
 
-    init(height: CGFloat = FormaLayout.Content.taperedFocusHeight) {
-        self.height = height
+    init(solidHeight: CGFloat, fadeLength: CGFloat = 28) {
+        self.solidHeight = solidHeight
+        self.fadeLength = fadeLength
+    }
+
+    private var totalHeight: CGFloat { solidHeight + fadeLength }
+
+    /// The fraction where the solid zone ends and the fade begins.
+    private var fadeStart: CGFloat {
+        guard totalHeight > 0 else { return 1.0 }
+        return solidHeight / totalHeight
     }
 
     var body: some View {
-        Rectangle()
-            .fill(.ultraThinMaterial)
-            .mask(maskGradient)
-            .frame(height: height)
-            .frame(maxWidth: .infinity)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-    }
-
-    private var maskGradient: LinearGradient {
         LinearGradient(
             stops: [
-                .init(color: Color.formaBoneWhite.opacity(Color.FormaOpacity.prominent + Color.FormaOpacity.medium), location: 0.0),
-                .init(color: Color.formaBoneWhite.opacity(Color.FormaOpacity.prominent + Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle), location: 0.12),
-                .init(color: Color.formaBoneWhite.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.subtle), location: 0.28),
-                .init(color: Color.formaBoneWhite.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle), location: 0.52),
-                .init(color: Color.formaBoneWhite.opacity(Color.FormaOpacity.ultraSubtle - Color.FormaOpacity.ultraSubtle), location: 0.74),
+                .init(color: Color.formaBackground, location: 0.0),
+                .init(color: Color.formaBackground, location: fadeStart),
+                .init(color: Color.formaBackground.opacity(0.0), location: 1.0),
             ],
             startPoint: .top,
             endPoint: .bottom
         )
+        .frame(height: totalHeight)
+        .frame(maxWidth: .infinity)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -45,11 +50,11 @@ struct TaperedFocusOverlay: View {
                         .overlay(Text("Card \(index)"))
                 }
             }
-            .padding(.top, FormaSpacing.tight)
+            .padding(.top, 60)
             .padding()
         }
 
-        TaperedFocusOverlay(height: 200)
+        TaperedFocusOverlay(solidHeight: 42, fadeLength: 28)
     }
     .frame(width: 900, height: 600)
     .background(GradientBackdropView())

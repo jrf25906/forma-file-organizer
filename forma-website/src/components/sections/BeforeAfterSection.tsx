@@ -34,7 +34,7 @@ function DesktopContent() {
     <div className="relative py-12 md:py-16 bg-[var(--bg-primary)] overflow-hidden">
       <div className="site-container relative w-full">
         <ScrollReveal direction="up" distance={30}>
-          <h2 className="mb-10 md:mb-12 text-center font-display text-3xl tracking-tight text-forma-bone md:text-4xl lg:text-[2.75rem]">
+          <h2 className="mb-10 md:mb-12 text-center font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
             Sound familiar?
           </h2>
         </ScrollReveal>
@@ -43,7 +43,7 @@ function DesktopContent() {
         <FileSortAnimation />
 
         <ScrollReveal direction="up" distance={20}>
-          <h2 className="mt-12 md:mt-14 text-center font-display text-3xl tracking-tight text-forma-bone md:text-4xl lg:text-[2.75rem]">
+          <h2 className="mt-12 md:mt-14 text-center font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
             Problem solved.
           </h2>
         </ScrollReveal>
@@ -62,7 +62,7 @@ function MobileFallback() {
     <div className="relative py-20 bg-[var(--bg-primary)] overflow-hidden">
       <div className="site-container relative">
         <ScrollReveal direction="up" distance={30}>
-          <h2 className="mb-10 text-center font-display text-3xl tracking-tight text-forma-bone">
+          <h2 className="mb-10 text-center font-display text-3xl tracking-tight text-[var(--text-primary)]">
             Sound familiar?
           </h2>
         </ScrollReveal>
@@ -80,7 +80,7 @@ function MobileFallback() {
                 {chaosFiles.map((file) => (
                   <li
                     key={file}
-                    className="truncate rounded-lg bg-[var(--surface-glass-hover)] px-3 py-1.5 font-mono text-[12px] leading-relaxed text-forma-bone/70 border border-[var(--border-subtle)]"
+                    className="truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-glass-hover)] px-3 py-1.5 font-mono text-[12px] leading-relaxed text-[var(--text-secondary)]"
                   >
                     {file}
                   </li>
@@ -93,7 +93,7 @@ function MobileFallback() {
           <div className="flex justify-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-glass-hover)] border border-[var(--border-strong)] shadow-md">
               <svg
-                className="w-4 h-4 text-forma-bone/60 rotate-90"
+                className="h-4 w-4 rotate-90 text-[var(--text-muted)]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -124,10 +124,10 @@ function MobileFallback() {
                   >
                     <span className="text-lg">{folder.icon}</span>
                     <div className="flex flex-col">
-                      <span className="font-mono text-[13px] font-medium tracking-wide text-forma-bone/85">
+                      <span className="font-mono text-[13px] font-medium tracking-wide text-[var(--text-primary)]">
                         {folder.name}
                       </span>
-                      <span className="text-[11px] text-forma-bone/45">
+                      <span className="text-[11px] text-[var(--text-muted)]">
                         {folder.count}
                       </span>
                     </div>
@@ -158,7 +158,7 @@ function MobileFallback() {
         </div>
 
         <ScrollReveal direction="up" distance={20} delay={400}>
-          <h2 className="mt-10 text-center font-display text-3xl tracking-tight text-forma-bone">
+          <h2 className="mt-10 text-center font-display text-3xl tracking-tight text-[var(--text-primary)]">
             Problem solved.
           </h2>
         </ScrollReveal>

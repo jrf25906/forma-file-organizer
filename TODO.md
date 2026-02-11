@@ -3,7 +3,7 @@
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
 ## Codebase Cleanup Checklist (v2)
-**Last Updated:** February 9, 2026
+**Last Updated:** February 10, 2026
 
 This checklist tracks the cleanup execution plan; keep it aligned with the canonical roadmap if it becomes a release goal.
 
@@ -35,12 +35,17 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] Wire `Launch at Login` to macOS `SMAppService` so the toggle applies immediately and reports failures.
 - [x] Honor `Auto-scan on Launch` before startup scans and post-onboarding auto-scan triggers.
 - [x] Replace menu bar synthetic `Cmd+,` settings opening with the shared settings opener.
+- [x] Standardize user-visible settings entry points on native `SettingsLink` to avoid unbound actions and Settings-scene warnings.
 - [x] Implement Shift-click range selection behavior for card/list/grid file selection flows.
 - [x] Add regression tests for range-selection anchor updates and deselect reset behavior.
 
-### macOS Chrome Architecture Sprint (February 9, 2026)
+### macOS Chrome Architecture Sprint (February 10, 2026)
 - [x] Replace custom overlay shell in `DashboardView` with `NavigationSplitView` (sidebar/content/inspector columns).
 - [x] Remove custom traffic-light/titlebar geometry assumptions from main app window configuration.
+- [x] Establish shared control-chrome tokens for segmented/toggle shells (`DesignSystem/FormaControlChrome.swift`).
+- [x] Normalize segmented/toggle shells and hover/pressed/active states across center toolbar and inspector controls.
+- [x] Align category tabs and productivity period controls to the same control-shell state model for center/inspector cohesion.
+- [x] Harden full-bleed pane material fallback so debug glass flags cannot reintroduce oversized contour artifacts.
 
 ### Phase 1: Safety Fixes (zero behavioral change, prevents crashes)
 - [x] 1. MenuBarViewModel.swift:185 — replace `self!` in [weak self] closure with `guard let self else { return }` (fallback: early return).

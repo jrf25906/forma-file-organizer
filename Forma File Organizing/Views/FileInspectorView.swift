@@ -6,12 +6,14 @@ import QuickLook
 struct FileInspectorView: View {
     let files: [FileItem]
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
     private let sectionSpacing: CGFloat = FormaSpacing.large
     private let inspectorPadding: CGFloat = FormaSpacing.generous
     private let previewHeight: CGFloat = 200
+    @State private var pendingTrashFile: FileItem?
     
     var body: some View {
         ScrollView {
@@ -40,6 +42,32 @@ struct FileInspectorView: View {
                     .accessibilityValue(
                         "titleOnCard=\(String(format: "%.2f", inspectorTitleContrastRatio));secondaryOnCard=\(String(format: "%.2f", inspectorSecondaryContrastRatio));quickLook=\(String(format: "%.2f", inspectorQuickLookContrastRatio));sectionSpacing=\(Int(sectionSpacing));panelPadding=\(Int(inspectorPadding));previewHeight=\(Int(previewHeight))"
                     )
+            }
+        }
+        .confirmationDialog(
+            "Move file to Trash?",
+            isPresented: Binding(
+                get: { pendingTrashFile != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        pendingTrashFile = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Move to Trash", role: .destructive) {
+                guard let pendingTrashFile else { return }
+                moveToTrash(pendingTrashFile)
+                self.pendingTrashFile = nil
+            }
+
+            Button("Cancel", role: .cancel) {
+                pendingTrashFile = nil
+            }
+        } message: {
+            if let pendingTrashFile {
+                Text("\"\(pendingTrashFile.name)\" will be moved to Trash.")
             }
         }
     }
@@ -255,17 +283,20 @@ struct FileInspectorView: View {
             .formaCornerRadius(FormaRadius.small)
             
             // Why this suggestion?
-            if let matchingRules = dashboardViewModel.getMatchingRules(for: file).first {
-                Button(action: {}) {
+            if let matchingRule = dashboardViewModel.getMatchingRules(for: file).first {
+                Button(action: {
+                    openRuleEditor(for: matchingRule, file: file)
+                }) {
                     HStack(spacing: FormaSpacing.micro) {
                         Image(systemName: "info.circle")
                             .font(.formaCompact)
-                        Text("Based on rule: \"\(matchingRules.name)\"")
+                        Text("Based on rule: \"\(matchingRule.name)\"")
                             .font(.formaCaption)
                     }
                     .foregroundColor(.formaSteelBlue)
                 }
                 .buttonStyle(.plain)
+                .help("Open rule details")
             }
         }
         .padding(FormaSpacing.large)
@@ -386,7 +417,7 @@ struct FileInspectorView: View {
                 }
                 
                 Button(action: {
-                    // Delete action - would need confirmation
+                    pendingTrashFile = file
                 }) {
                         Image(systemName: "trash")
                             .font(.formaBody)
@@ -761,6 +792,20 @@ struct FileInspectorView: View {
         
         return nil
     }
+
+    private func openRuleEditor(for rule: Rule, file: FileItem) {
+        nav.editingRule = rule
+        nav.ruleEditorFileContext = file
+        nav.ruleEditorSuggestedText = nil
+        withAnimation(.easeInOut(duration: 0.2)) {
+            nav.isShowingRuleEditor = true
+        }
+    }
+
+    private func moveToTrash(_ file: FileItem) {
+        dashboardViewModel.updateDestination(for: file, to: .trash)
+        dashboardViewModel.organizeFile(file, context: modelContext)
+    }
     
     private func formatDate(_ date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
@@ -793,6 +838,7 @@ private enum FileInspectorViewPreviews {
 
         return FileInspectorView(files: [file])
             .environmentObject(DashboardViewModel())
+            .environmentObject(NavigationViewModel())
             .modelContainer(container)
             .frame(width: 360, height: 800)
     }
@@ -810,6 +856,7 @@ private enum FileInspectorViewPreviews {
 
         return FileInspectorView(files: files)
             .environmentObject(DashboardViewModel())
+            .environmentObject(NavigationViewModel())
             .modelContainer(container)
             .frame(width: 360, height: 800)
     }

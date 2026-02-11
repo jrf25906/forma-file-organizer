@@ -18,18 +18,18 @@ export default function SupportPage() {
 
       <div className="relative z-10 max-w-3xl mx-auto px-6">
         <div className="glass-card rounded-2xl p-8 md:p-12">
-          <h1 className="font-display text-3xl md:text-4xl text-forma-obsidian mb-4">
+          <h1 className="mb-4 font-display text-3xl text-[var(--text-primary)] md:text-4xl">
             Support
           </h1>
-          <p className="text-forma-obsidian/70 leading-relaxed mb-8">
+          <p className="mb-8 leading-relaxed text-[var(--text-secondary)]">
             Need help with Forma? Email us and include any details that might
             help (macOS version, what you expected to happen, and what
             happened).
           </p>
 
-          <div className="space-y-6 text-forma-obsidian/70 leading-relaxed">
+          <div className="space-y-6 leading-relaxed text-[var(--text-secondary)]">
             <section className="space-y-3">
-              <h2 className="font-display text-xl text-forma-obsidian">
+              <h2 className="font-display text-xl text-[var(--text-primary)]">
                 Contact
               </h2>
               <p>
@@ -43,7 +43,7 @@ export default function SupportPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="font-display text-xl text-forma-obsidian">
+              <h2 className="font-display text-xl text-[var(--text-primary)]">
                 Common issues
               </h2>
               <ul className="list-disc pl-5 space-y-2">
@@ -63,10 +63,10 @@ export default function SupportPage() {
             </section>
           </div>
 
-          <div className="mt-12 pt-8 border-t border-forma-obsidian/10">
+          <div className="mt-12 border-t border-[var(--border-subtle)] pt-8">
             <Link
               href="/"
-              className="text-sm text-forma-obsidian/50 hover:text-forma-obsidian/70 transition-colors"
+              className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
             >
               &larr; Back to home
             </Link>

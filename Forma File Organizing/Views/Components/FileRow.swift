@@ -34,7 +34,6 @@ struct FileRow: View {
 
     @State private var isHovered = false
     @State private var showQuickLookHint = false
-    @State private var isDestinationHovered = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     // MARK: - Constants
@@ -160,9 +159,9 @@ struct FileRow: View {
                     }
                 )
 
-                // 2-line layout: (1) filename + destination pill, (2) metadata
+                // 2-line layout: (1) filename, (2) metadata — destination lives in action zone
                 VStack(alignment: .leading, spacing: infoStackSpacing) {
-                    // Line 1 — Filename [search badge] ... [destination pill]
+                    // Line 1 — Filename [search badge]
                     HStack(spacing: FormaSpacing.tight - 2) {
                         Text(file.name)
                             .font(.system(size: 15, weight: .semibold))
@@ -172,43 +171,6 @@ struct FileRow: View {
 
                         if let matchType = searchMatchType {
                             SearchMatchBadge(matchType: matchType)
-                        }
-
-                        Spacer(minLength: FormaSpacing.tight)
-
-                        // Destination badge (right-justified)
-                        if let onChangeDestination, !availableDestinations.isEmpty {
-                            destinationPicker(onChangeDestination: onChangeDestination)
-                        } else if let destination = file.destination {
-                            destinationBadge(
-                                text: truncatePath(destination.displayName),
-                                icon: destination.isTrash ? "trash" : "folder",
-                                color: Color.formaSteelBlue
-                            )
-                            .help("Destination: \(destination.displayName)")
-                        } else {
-                            Button(action: { onEditDestination?(file) }) {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "folder.badge.plus")
-                                        .font(.formaCaptionSemibold)
-                                    Text("Set destination")
-                                        .font(.formaCaptionSemibold)
-                                        .lineLimit(1)
-                                }
-                                .foregroundStyle(Color.formaSteelBlue)
-                                .padding(.horizontal, FormaSpacing.tight)
-                                .padding(.vertical, FormaSpacing.micro)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
-                                )
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.medium), lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .help("Set file destination")
                         }
                     }
 
@@ -249,19 +211,7 @@ struct FileRow: View {
 
                 Spacer(minLength: contentSpacing)
 
-                HStack(spacing: FormaSpacing.tight - 2) {
-                    // Primary action ownership is controlled by MainContentView action map.
-                    if showsPrimaryActionButton {
-                        PrimaryActionButton(
-                            label: primaryActionConfig.label,
-                            icon: primaryActionConfig.icon,
-                            color: primaryActionConfig.color,
-                            action: primaryActionConfig.action
-                        )
-                    }
-                }
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isHovered)
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isFocused)
+                actionZone
             }
             .padding(.leading, contentLeadingPadding)
             .padding(.trailing, contentTrailingPadding)
@@ -289,49 +239,74 @@ struct FileRow: View {
         .accessibilityIdentifier("fileRow_\(file.name)")
     }
 
-    // MARK: - Destination Badge
+    private var destinationPickerColor: Color {
+        file.destination != nil ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh
+    }
 
-    /// Static destination badge (non-interactive fallback), styled like ConfidenceBadge.
-    private func destinationBadge(text: String, icon: String, color: Color) -> some View {
+    // MARK: - Action Zone
+
+    /// Unified right-side column: destination context above primary action button.
+    private var actionZone: some View {
+        VStack(alignment: .trailing, spacing: FormaSpacing.micro) {
+            destinationContextLabel
+
+            if showsPrimaryActionButton {
+                PrimaryActionButton(
+                    label: primaryActionConfig.label,
+                    icon: primaryActionConfig.icon,
+                    color: primaryActionConfig.color,
+                    action: primaryActionConfig.action
+                )
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: FormaAnimation.disclosureDuration), value: isHovered)
+        .animation(reduceMotion ? nil : .easeOut(duration: FormaAnimation.disclosureDuration), value: isFocused)
+    }
+
+    /// State-dependent destination label for the action zone.
+    /// - Has destination + picker available → compact picker menu
+    /// - Has destination, no picker → static muted label
+    /// - No destination → nothing (the action button already says "Set Destination")
+    @ViewBuilder
+    private var destinationContextLabel: some View {
+        if let onChangeDestination, !availableDestinations.isEmpty {
+            destinationPickerCompact(onChangeDestination: onChangeDestination)
+        } else if let destination = file.destination {
+            destinationLabelCompact(destination: destination)
+                .help("Destination: \(destination.displayName)")
+        }
+        // No destination → emit nothing; button already reads "Set Destination"
+    }
+
+    /// Plain-text destination label — no capsule chrome, intentionally recessive.
+    private func destinationLabelCompact(destination: Destination) -> some View {
         HStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.formaCaptionSemibold)
-            Text(text)
-                .font(.formaCaptionSemibold)
+            Image(systemName: destination.isTrash ? "trash" : "folder")
+                .font(.system(size: 9))
+            Text(truncatePath(destination.displayName))
+                .font(.formaSmall)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .foregroundStyle(color)
-        .padding(.horizontal, FormaSpacing.tight)
-        .padding(.vertical, FormaSpacing.micro)
-        .background(
-            Capsule()
-                .fill(color.opacity(Color.FormaOpacity.light))
-        )
-        .overlay(
-            Capsule()
-                .strokeBorder(color.opacity(Color.FormaOpacity.medium), lineWidth: 1)
-        )
+        .foregroundStyle(Color.formaSecondaryLabelHigh)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Destination: \(destination.displayName)")
     }
 
-    // MARK: - Inline Destination Picker
-
-    /// Menu styled like ConfidenceBadge that lets users change destination without leaving the card.
-    private func destinationPicker(onChangeDestination: @escaping (FileItem, Destination) -> Void) -> some View {
+    /// Compact picker menu restyled without capsule background for the action zone.
+    private func destinationPickerCompact(onChangeDestination: @escaping (FileItem, Destination) -> Void) -> some View {
         Menu {
             // Current destination (checked)
             if let current = file.destination {
-                Button(action: {}) {
-                    Label(current.displayName, systemImage: current.isTrash ? "trash" : "folder")
-                }
-                .disabled(true)
+                Label(current.displayName, systemImage: current.isTrash ? "trash" : "folder")
+                    .foregroundStyle(Color.formaSecondaryLabelHigh)
 
                 Divider()
             }
 
             // Available destinations (excluding current)
             let otherDestinations = availableDestinations.filter { $0 != file.destination }
-            ForEach(Array(otherDestinations.prefix(8).enumerated()), id: \.offset) { _, dest in
+            ForEach(Array(otherDestinations.prefix(8)), id: \.self) { dest in
                 Button(action: { onChangeDestination(file, dest) }) {
                     Label(dest.displayName, systemImage: dest.isTrash ? "trash" : "folder")
                 }
@@ -357,63 +332,32 @@ struct FileRow: View {
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: file.destination != nil ? "folder" : "questionmark.folder")
-                    .font(.formaCaptionSemibold)
+                    .font(.system(size: 9))
 
                 if let destination = file.destination {
                     Text(truncatePath(destination.displayName))
-                        .font(.formaCaptionSemibold)
+                        .font(.formaSmall)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 } else {
                     Text("Set destination")
-                        .font(.formaCaptionSemibold)
+                        .font(.formaSmall)
                         .lineLimit(1)
                 }
 
                 Image(systemName: "chevron.down")
-                    .font(.formaCaptionSemibold)
+                    .font(.system(size: 8, weight: .medium))
             }
             .foregroundStyle(destinationPickerColor)
-            .padding(.horizontal, FormaSpacing.tight)
-            .padding(.vertical, FormaSpacing.micro)
-            .background(
-                Capsule()
-                    .fill(destinationPickerColor.opacity(Color.FormaOpacity.light))
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(
-                        destinationPickerColor.opacity(isDestinationHovered ? Color.FormaOpacity.overlay : Color.FormaOpacity.medium),
-                        lineWidth: 1
-                    )
-            )
-            .scaleEffect(isDestinationHovered ? 1.05 : 1.0)
-            .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.8), value: isDestinationHovered)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize(horizontal: false, vertical: true)
-        .onHover { hovering in
-            isDestinationHovered = hovering
-        }
+        .accessibilityLabel(file.destination != nil ? "Destination: \(file.destination!.displayName). Change destination" : "Set destination")
         .help(file.destination != nil ? "Change destination" : "Set destination")
     }
 
-    private var destinationPickerColor: Color {
-        file.destination != nil ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh
-    }
-
     // MARK: - Computed Styles
-
-    /// Single-line metadata string: "PDF · 32d · Review"
-    private var metadataString: String {
-        let segments: [String] = [
-            file.fileExtension.uppercased(),
-            compactAgeText,
-            statusIndicatorConfig.label
-        ]
-        return segments.joined(separator: " \u{00B7} ")
-    }
 
     private var statusIndicatorConfig: (label: String, color: Color) {
         switch file.status {

@@ -187,7 +187,7 @@ export function AnimatedConnectionDemo({ progress }: AnimatedConnectionDemoProps
               {g.label}
             </span>
             <span
-              className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[9px] text-[var(--text-muted)]"
+              className="rounded-full bg-[var(--demo-muted-chip-bg)] px-1.5 py-0.5 text-[9px] text-[var(--text-muted)]"
               style={{
                 opacity: computed.labels,
                 transform: `scale(${0.8 + 0.2 * computed.labels})`,

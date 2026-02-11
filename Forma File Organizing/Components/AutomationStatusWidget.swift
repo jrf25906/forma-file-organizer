@@ -15,7 +15,13 @@ struct AutomationStatusWidget: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered: Bool = false
+    @State private var hoveredInlineControl: InlineControl?
     @State private var currentTime: Date = Date()
+
+    private enum InlineControl {
+        case scan
+        case pauseResume
+    }
 
     /// Timer to update countdown display
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -121,19 +127,25 @@ struct AutomationStatusWidget: View {
 
                             // Thin vertical divider
                             Rectangle()
-                                .fill(Color.formaSeparator.opacity(0.5))
-                                .frame(width: 1, height: 20)
+                                .fill(FormaControlChromePalette.separator(colorScheme))
+                                .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
                         }
 
                         // Pause/Resume toggle
                         pauseResumeButtonInline
                     }
                     .background(
-                        Capsule()
+                        RoundedRectangle(
+                            cornerRadius: FormaControlChromeMetrics.containerCornerRadius,
+                            style: .continuous
+                        )
                             .fill(controlStripFill)
                     )
                     .overlay(
-                        Capsule()
+                        RoundedRectangle(
+                            cornerRadius: FormaControlChromeMetrics.containerCornerRadius,
+                            style: .continuous
+                        )
                             .strokeBorder(controlStripBorder, lineWidth: 1)
                     )
                     .fixedSize()
@@ -343,45 +355,67 @@ struct AutomationStatusWidget: View {
     // MARK: - Grouped Control Strip Styling
 
     private var controlStripFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.08)
-            : Color.formaObsidian.opacity(0.06)
+        FormaControlChromePalette.containerFill(colorScheme)
     }
 
     private var controlStripBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaObsidian.opacity(0.12)
+        FormaControlChromePalette.containerBorder(colorScheme)
     }
 
     /// Scan button for inline control strip (no individual background)
     @ViewBuilder
     private var scanNowButtonInline: some View {
+        let isHovered = hoveredInlineControl == .scan
+
         Button {
             Task {
                 await engine.triggerManualScan()
             }
         } label: {
-            HStack(spacing: FormaSpacing.micro) {
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                Text("Scan")
-                    .font(.formaSmallSemibold)
+            ZStack {
+                if isHovered {
+                    RoundedRectangle(
+                        cornerRadius: FormaControlChromeMetrics.selectedCornerRadius,
+                        style: .continuous
+                    )
+                    .fill(FormaControlChromePalette.hoverFill(colorScheme, tint: Color.formaSteelBlue))
+                    .padding(.vertical, FormaControlChromeMetrics.shellInset)
+                    .padding(.horizontal, FormaControlChromeMetrics.shellInset)
+                }
+
+                HStack(spacing: FormaSpacing.micro) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Scan")
+                        .font(.formaSmallSemibold)
+                }
+                .foregroundStyle(Color.formaSteelBlue)
+                .padding(.horizontal, FormaSpacing.standard)
+                .frame(height: FormaControlChromeMetrics.segmentHeight)
+                .fixedSize()
             }
-            .foregroundStyle(Color.formaSteelBlue)
-            .padding(.horizontal, FormaSpacing.standard)
-            .padding(.vertical, 6)
-            .fixedSize()
+            .frame(height: FormaControlChromeMetrics.segmentHeight)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FormaControlPressButtonStyle())
         .disabled(engine.state.isRunning)
         .opacity(engine.state.isRunning ? 0.5 : 1.0)
         .help("Trigger an immediate scan")
+        .onHover { hovering in
+            if hovering {
+                hoveredInlineControl = .scan
+            } else if hoveredInlineControl == .scan {
+                hoveredInlineControl = nil
+            }
+        }
     }
 
     /// Pause/Resume button for inline control strip (no individual background)
     @ViewBuilder
     private var pauseResumeButtonInline: some View {
+        let isSelected = isPaused
+        let isHovered = hoveredInlineControl == .pauseResume
+
         Button(action: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                 if isPaused {
@@ -391,13 +425,59 @@ struct AutomationStatusWidget: View {
                 }
             }
         }) {
-            Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(isPaused ? Color.formaSage : Color.formaSecondaryLabelHigh)
-                .frame(width: 32, height: 32)
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(
+                        cornerRadius: FormaControlChromeMetrics.selectedCornerRadius,
+                        style: .continuous
+                    )
+                    .fill(FormaControlChromePalette.activeFill(colorScheme, tint: Color.formaSage))
+                    .overlay(
+                        RoundedRectangle(
+                            cornerRadius: FormaControlChromeMetrics.selectedCornerRadius,
+                            style: .continuous
+                        )
+                        .stroke(FormaControlChromePalette.activeBorder(colorScheme), lineWidth: 0.5)
+                    )
+                    .shadow(
+                        color: FormaControlChromePalette.activeShadow(colorScheme),
+                        radius: 1.5,
+                        x: 0,
+                        y: 0.5
+                    )
+                    .padding(.vertical, FormaControlChromeMetrics.shellInset)
+                    .padding(.horizontal, FormaControlChromeMetrics.shellInset)
+                } else if isHovered {
+                    RoundedRectangle(
+                        cornerRadius: FormaControlChromeMetrics.selectedCornerRadius,
+                        style: .continuous
+                    )
+                    .fill(FormaControlChromePalette.hoverFill(colorScheme, tint: Color.formaSage))
+                    .padding(.vertical, FormaControlChromeMetrics.shellInset)
+                    .padding(.horizontal, FormaControlChromeMetrics.shellInset)
+                }
+
+                Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(
+                        isSelected
+                            ? Color.formaSage
+                            : FormaControlChromePalette.normalForeground(colorScheme)
+                    )
+                    .frame(width: 32, height: FormaControlChromeMetrics.segmentHeight)
+            }
+            .frame(width: 32, height: FormaControlChromeMetrics.segmentHeight)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FormaControlPressButtonStyle())
         .help(isPaused ? "Resume automation" : "Pause automation")
+        .onHover { hovering in
+            if hovering {
+                hoveredInlineControl = .pauseResume
+            } else if hoveredInlineControl == .pauseResume {
+                hoveredInlineControl = nil
+            }
+        }
     }
 
     // MARK: - Last Run Stats (Always Visible)

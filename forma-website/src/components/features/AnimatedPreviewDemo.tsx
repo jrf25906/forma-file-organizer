@@ -117,7 +117,7 @@ export function AnimatedPreviewDemo({ progress }: AnimatedPreviewDemoProps) {
         return (
           <div
             key={file.name}
-            className={`flex items-start gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 ${
+            className={`flex items-start gap-2 rounded-lg border border-[var(--demo-row-border)] bg-[var(--demo-row-bg)] px-3 py-2 ${
               !checked ? "opacity-60" : ""
             }`}
             style={{
@@ -142,7 +142,7 @@ export function AnimatedPreviewDemo({ progress }: AnimatedPreviewDemoProps) {
                     className={`flex-shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-medium ${
                       isMoved
                         ? "bg-forma-sage/15 text-forma-sage"
-                        : "bg-white/[0.08] text-[var(--text-muted)]"
+                        : "bg-[var(--demo-muted-chip-bg)] text-[var(--text-muted)]"
                     }`}
                     style={{
                       opacity: badge,

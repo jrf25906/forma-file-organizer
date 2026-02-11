@@ -12,7 +12,9 @@ import AppKit
 
 /// Environment key for opening the Settings window programmatically
 struct OpenSettingsKey: EnvironmentKey {
-    static let defaultValue: @MainActor @Sendable () -> Void = {}
+    static let defaultValue: @MainActor @Sendable () -> Void = {
+        SettingsOpener.open()
+    }
 }
 
 /// Extension to EnvironmentValues to expose the openSettings action
@@ -44,11 +46,26 @@ enum SettingsOpener {
         #if os(macOS)
         #if DEBUG
         Log.debug("SettingsOpener.open() called on \(Thread.isMainThread ? "MAIN" : "BACKGROUND") thread", category: .ui)
-        Log.debug("Sending showSettingsWindow: action", category: .ui)
         #endif
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+
+        // Bring Forma to foreground first so Settings is always visible to the user.
+        NSApp.activate(ignoringOtherApps: true)
+
+        let showSettingsSelector = Selector(("showSettingsWindow:"))
+        let showPreferencesSelector = Selector(("showPreferencesWindow:"))
+        let didShowSettings = NSApp.sendAction(showSettingsSelector, to: nil, from: nil)
+        let didShowPreferences = didShowSettings
+            ? false
+            : NSApp.sendAction(showPreferencesSelector, to: nil, from: nil)
+
         #if DEBUG
-        Log.debug("Settings action sent", category: .ui)
+        if didShowSettings {
+            Log.debug("Settings opened via showSettingsWindow:", category: .ui)
+        } else if didShowPreferences {
+            Log.debug("Settings opened via showPreferencesWindow: fallback", category: .ui)
+        } else {
+            Log.warning("No responder handled settings open action", category: .ui)
+        }
         #endif
         #else
         // iOS/iPadOS/tvOS: no-op or navigate to an in-app settings view

@@ -76,17 +76,31 @@ struct SmartInsightCard: View {
 
                 // Action button
                 if let actionLabel = insight.actionLabel {
-                    Button(action: { onAction?() }) {
-                        HStack(spacing: 4) {
-                            Text(actionLabel)
-                            Image(systemName: "arrow.right")
-                                .font(.formaSmall)
+                    if usesSettingsLink {
+                        SettingsLink {
+                            HStack(spacing: 4) {
+                                Text(actionLabel)
+                                Image(systemName: "arrow.right")
+                                    .font(.formaSmall)
+                            }
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(actionButtonTint)
+                        .controlSize(.small)
+                        .padding(.top, FormaSpacing.tight)
+                    } else {
+                        Button(action: { onAction?() }) {
+                            HStack(spacing: 4) {
+                                Text(actionLabel)
+                                Image(systemName: "arrow.right")
+                                    .font(.formaSmall)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(actionButtonTint)
+                        .controlSize(.small)
+                        .padding(.top, FormaSpacing.tight)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(actionButtonTint)
-                    .controlSize(.small)
-                    .padding(.top, FormaSpacing.tight)
                 }
             }
 
@@ -142,6 +156,13 @@ struct SmartInsightCard: View {
         case .celebration:
             return .formaSoftGreen
         }
+    }
+
+    private var usesSettingsLink: Bool {
+        if case .enableAutomation? = insight.actionType {
+            return true
+        }
+        return false
     }
 
 }

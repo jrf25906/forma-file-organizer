@@ -149,6 +149,36 @@
   /* Gradient background accents */
   --gradient-accent-blue: rgba(74, 107, 136, 0.08);
   --gradient-accent-green: rgba(107, 143, 113, 0.05);
+
+  /* Feature demo row tokens */
+  --demo-row-bg: rgba(255, 255, 255, 0.04);
+  --demo-row-bg-strong: rgba(255, 255, 255, 0.06);
+  --demo-row-border: rgba(255, 255, 255, 0.08);
+  --demo-placeholder: rgba(255, 255, 255, 0.20);
+  --demo-muted-chip-bg: rgba(255, 255, 255, 0.08);
+
+  /* macOS frame tokens */
+  --mac-window-shell-bg: #1C1C1E;
+  --mac-window-toolbar-bg: #2A2A2C;
+  --mac-window-toolbar-border: rgba(255, 255, 255, 0.08);
+  --mac-window-control-muted: rgba(255, 255, 255, 0.06);
+  --mac-window-title: rgba(255, 255, 255, 0.70);
+  --mac-window-outline: rgba(255, 255, 255, 0.10);
+  --mac-window-shadow-near: rgba(0, 0, 0, 0.20);
+  --mac-window-shadow-mid: rgba(0, 0, 0, 0.20);
+  --mac-window-shadow-far: rgba(0, 0, 0, 0.50);
+
+  /* Forma file card tokens */
+  --file-card-bg: #22252A;
+  --file-card-border: rgba(255, 255, 255, 0.08);
+  --file-card-label-primary: rgba(255, 255, 255, 0.92);
+  --file-card-label-secondary: rgba(255, 255, 255, 0.55);
+  --file-card-label-tertiary: rgba(255, 255, 255, 0.38);
+  --file-card-pill-bg: rgba(91, 124, 153, 0.12);
+  --file-card-pill-border: rgba(91, 124, 153, 0.20);
+  --file-card-pill-text: #5B7C99;
+  --file-card-status-ready: #7A9D7E;
+  --file-card-status-pending: #FF9F0A;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -202,6 +232,33 @@
 
     --gradient-accent-blue: rgba(74, 107, 136, 0.06);
     --gradient-accent-green: rgba(107, 143, 113, 0.04);
+
+    --demo-row-bg: rgba(0, 0, 0, 0.03);
+    --demo-row-bg-strong: rgba(0, 0, 0, 0.05);
+    --demo-row-border: rgba(0, 0, 0, 0.10);
+    --demo-placeholder: rgba(0, 0, 0, 0.20);
+    --demo-muted-chip-bg: rgba(0, 0, 0, 0.08);
+
+    --mac-window-shell-bg: #F5F5F3;
+    --mac-window-toolbar-bg: #EBEBE7;
+    --mac-window-toolbar-border: rgba(0, 0, 0, 0.08);
+    --mac-window-control-muted: rgba(0, 0, 0, 0.06);
+    --mac-window-title: rgba(26, 26, 26, 0.62);
+    --mac-window-outline: rgba(0, 0, 0, 0.12);
+    --mac-window-shadow-near: rgba(0, 0, 0, 0.10);
+    --mac-window-shadow-mid: rgba(0, 0, 0, 0.12);
+    --mac-window-shadow-far: rgba(0, 0, 0, 0.20);
+
+    --file-card-bg: #F4F4F2;
+    --file-card-border: rgba(0, 0, 0, 0.10);
+    --file-card-label-primary: rgba(26, 26, 26, 0.88);
+    --file-card-label-secondary: rgba(26, 26, 26, 0.60);
+    --file-card-label-tertiary: rgba(26, 26, 26, 0.45);
+    --file-card-pill-bg: rgba(74, 107, 136, 0.12);
+    --file-card-pill-border: rgba(74, 107, 136, 0.20);
+    --file-card-pill-text: #4A6B88;
+    --file-card-status-ready: #6B8F71;
+    --file-card-status-pending: #B86B52;
   }
 }
 
@@ -250,6 +307,33 @@
 
   --gradient-accent-blue: rgba(74, 107, 136, 0.06);
   --gradient-accent-green: rgba(107, 143, 113, 0.04);
+
+  --demo-row-bg: rgba(0, 0, 0, 0.03);
+  --demo-row-bg-strong: rgba(0, 0, 0, 0.05);
+  --demo-row-border: rgba(0, 0, 0, 0.10);
+  --demo-placeholder: rgba(0, 0, 0, 0.20);
+  --demo-muted-chip-bg: rgba(0, 0, 0, 0.08);
+
+  --mac-window-shell-bg: #F5F5F3;
+  --mac-window-toolbar-bg: #EBEBE7;
+  --mac-window-toolbar-border: rgba(0, 0, 0, 0.08);
+  --mac-window-control-muted: rgba(0, 0, 0, 0.06);
+  --mac-window-title: rgba(26, 26, 26, 0.62);
+  --mac-window-outline: rgba(0, 0, 0, 0.12);
+  --mac-window-shadow-near: rgba(0, 0, 0, 0.10);
+  --mac-window-shadow-mid: rgba(0, 0, 0, 0.12);
+  --mac-window-shadow-far: rgba(0, 0, 0, 0.20);
+
+  --file-card-bg: #F4F4F2;
+  --file-card-border: rgba(0, 0, 0, 0.10);
+  --file-card-label-primary: rgba(26, 26, 26, 0.88);
+  --file-card-label-secondary: rgba(26, 26, 26, 0.60);
+  --file-card-label-tertiary: rgba(26, 26, 26, 0.45);
+  --file-card-pill-bg: rgba(74, 107, 136, 0.12);
+  --file-card-pill-border: rgba(74, 107, 136, 0.20);
+  --file-card-pill-text: #4A6B88;
+  --file-card-status-ready: #6B8F71;
+  --file-card-status-pending: #B86B52;
 }
 
 /* Font loading CLS prevention */
