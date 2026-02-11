@@ -22,14 +22,22 @@ function SmoothScrollLink({
   "aria-label": ariaLabel,
 }: SmoothScrollLinkProps) {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!href.startsWith("#")) return;
+    if (!href.startsWith("#")) {
+      onClick?.();
+      return;
+    }
 
     e.preventDefault();
     const target = document.querySelector(href);
-    if (!target) return;
+    if (target) {
+      const y = target.getBoundingClientRect().top + window.scrollY - 100;
+      window.scrollTo({ top: y, behavior: "smooth" });
+      onClick?.();
+      return;
+    }
 
-    const y = target.getBoundingClientRect().top + window.scrollY - 100;
-    window.scrollTo({ top: y, behavior: "smooth" });
+    const destination = href === "#top" ? "/" : `/${href}`;
+    window.location.assign(destination);
     onClick?.();
   };
 
@@ -41,7 +49,11 @@ function SmoothScrollLink({
 }
 
 const NAV_LINKS = [
-  { label: "Features", href: "#features", ariaLabel: "Jump to features section" },
+  {
+    label: "Features",
+    href: "#how-it-works",
+    ariaLabel: "Jump to how it works section",
+  },
   { label: "Pricing", href: "#pricing", ariaLabel: "Jump to pricing section" },
   { label: "FAQ", href: "#faq", ariaLabel: "Jump to frequently asked questions" },
   { label: "Guides", href: "/blog", ariaLabel: "Read organization guides" },
@@ -65,66 +77,80 @@ export function Header() {
       <header
         role="banner"
         className={cn(
-          "sticky inset-x-0 top-0 z-[120] border-b transition-all duration-200",
+          "sticky inset-x-0 top-0 z-[120] transition-all duration-300",
           isScrolled
-            ? "bg-[var(--bg-primary)]/90 backdrop-blur-xl border-[var(--border-medium)]"
-            : "bg-[var(--bg-primary)]/80 backdrop-blur-lg border-[var(--border-subtle)]"
+            ? "bg-transparent pt-2 md:pt-3"
+            : "border-b border-[var(--border-subtle)] bg-[var(--bg-primary)]/80 backdrop-blur-lg"
         )}
       >
-        <div className="site-container flex h-16 items-center justify-between">
-          <SmoothScrollLink
-            href="#top"
-            className="flex items-center gap-2.5 rounded-full px-2.5 py-1.5 text-[var(--text-primary)] hover:bg-[var(--surface-glass)] transition-colors"
-            onClick={closeMobileMenu}
+        <div className="site-container">
+          <div
+            className={cn(
+              "flex items-center justify-between transition-all duration-300",
+              isScrolled
+                ? "h-12 rounded-full border border-[var(--border-medium)] bg-[var(--bg-primary)]/92 px-3 shadow-[0_12px_30px_var(--shadow-color)] backdrop-blur-xl md:px-4"
+                : "h-16"
+            )}
           >
-            <FormaLogoImage size={28} />
-            <span className="font-display text-[17px] leading-none tracking-tight">
-              Forma
-            </span>
-          </SmoothScrollLink>
-
-          <nav
-            className="hidden items-center gap-1 md:flex"
-            aria-label="Main navigation"
-          >
-            {NAV_LINKS.map((link) => (
-              <SmoothScrollLink
-                key={link.href}
-                href={link.href}
-                aria-label={link.ariaLabel}
-                className="rounded-full px-3.5 py-2 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-glass-hover)] transition-colors"
-                onClick={closeMobileMenu}
+            <SmoothScrollLink
+              href="#top"
+              className="flex items-center gap-2.5 rounded-full px-2.5 py-1.5 text-[var(--text-primary)] hover:bg-[var(--surface-glass)] transition-colors"
+              onClick={closeMobileMenu}
+            >
+              <FormaLogoImage size={isScrolled ? 24 : 28} />
+              <span
+                className={cn(
+                  "font-display leading-none tracking-tight transition-all duration-300",
+                  isScrolled ? "text-[16px]" : "text-[17px]"
+                )}
               >
-                {link.label}
-              </SmoothScrollLink>
-            ))}
-          </nav>
+                Forma
+              </span>
+            </SmoothScrollLink>
 
-          <div className="flex items-center gap-2">
-            {/* Mobile compact CTA -- visible only below md */}
-            <TrackedAppStoreLink
-              location="header_mobile"
-              className="inline-flex md:hidden h-8 items-center rounded-xl bg-[var(--cta-bg)] px-3.5 text-[11.5px] font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-bg-hover)] transition-all hover:-translate-y-px hover:shadow-md"
+            <nav
+              className="hidden items-center gap-1 md:flex"
+              aria-label="Main navigation"
             >
-              Download
-            </TrackedAppStoreLink>
+              {NAV_LINKS.map((link) => (
+                <SmoothScrollLink
+                  key={link.href}
+                  href={link.href}
+                  aria-label={link.ariaLabel}
+                  className="rounded-full px-3.5 py-2 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-glass-hover)] transition-colors"
+                  onClick={closeMobileMenu}
+                >
+                  {link.label}
+                </SmoothScrollLink>
+              ))}
+            </nav>
 
-            {/* Desktop CTA */}
-            <TrackedAppStoreLink
-              location="header_desktop"
-              className="hidden md:inline-flex h-9 items-center rounded-xl bg-[var(--cta-bg)] px-4 text-[12.5px] font-semibold text-[var(--cta-text)] transition-all hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px hover:shadow-md"
-            >
-              Download for Mac
-            </TrackedAppStoreLink>
+            <div className="flex items-center gap-2">
+              {/* Mobile compact CTA -- visible only below md */}
+              <TrackedAppStoreLink
+                location="header_mobile"
+                className="inline-flex md:hidden h-8 items-center rounded-xl bg-[var(--cta-bg)] px-3.5 text-[11.5px] font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-bg-hover)] transition-all hover:-translate-y-px hover:shadow-md"
+              >
+                Download
+              </TrackedAppStoreLink>
 
-            <button
-              onClick={() => setIsMobileMenuOpen((open) => !open)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-primary)] hover:bg-[var(--surface-glass)] transition-colors md:hidden"
-              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={isMobileMenuOpen}
-            >
-              {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
+              {/* Desktop CTA */}
+              <TrackedAppStoreLink
+                location="header_desktop"
+                className="hidden md:inline-flex h-9 items-center rounded-xl bg-[var(--cta-bg)] px-4 text-[12.5px] font-semibold text-[var(--cta-text)] transition-all hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px hover:shadow-md"
+              >
+                Download for Mac
+              </TrackedAppStoreLink>
+
+              <button
+                onClick={() => setIsMobileMenuOpen((open) => !open)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-primary)] hover:bg-[var(--surface-glass)] transition-colors md:hidden"
+                aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+                aria-expanded={isMobileMenuOpen}
+              >
+                {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -142,7 +168,8 @@ export function Header() {
 
       <div
         className={cn(
-          "fixed inset-x-0 top-16 z-[121] border-b border-[var(--border-medium)] bg-[var(--bg-primary)]/98 px-4 py-4 shadow-[0_18px_40px_var(--shadow-color)] backdrop-blur-xl md:hidden transition-all duration-200",
+          "fixed inset-x-0 z-[121] border-b border-[var(--border-medium)] bg-[var(--bg-primary)]/98 px-4 py-4 shadow-[0_18px_40px_var(--shadow-color)] backdrop-blur-xl md:hidden transition-all duration-200",
+          isScrolled ? "top-14" : "top-16",
           isMobileMenuOpen
             ? "translate-y-0 opacity-100"
             : "-translate-y-2 opacity-0 pointer-events-none"

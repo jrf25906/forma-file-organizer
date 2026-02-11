@@ -333,7 +333,10 @@ const SectionHeader = forwardRef<HTMLDivElement>(function SectionHeader(_, ref) 
         <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-forma-steel-blue/70">
           Features
         </p>
-        <h2 className="font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
+        <h2
+          id="how-it-works"
+          className="font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]"
+        >
           How it actually works
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">
@@ -401,6 +404,7 @@ function MobileFeatures() {
             Features
           </p>
           <h2
+            id="how-it-works"
             ref={headlineRef}
             className="font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]"
           >
@@ -458,16 +462,22 @@ function MobileFeatures() {
 /* ------------------------------------------------------------------ */
 
 export default function FeaturesSection() {
-  const [isMobile, setIsMobile] = useState(false);
+  // Render mobile by default during SSR, then resolve viewport after mount.
+  const [isMobile, setIsMobile] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    setIsMobile(window.innerWidth < 768);
-    setHasMounted(true);
-
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+    const viewportFrame = window.requestAnimationFrame(handleResize);
+    const mountedFrame = window.requestAnimationFrame(() => setHasMounted(true));
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.cancelAnimationFrame(viewportFrame);
+      window.cancelAnimationFrame(mountedFrame);
+    };
   }, []);
 
   return (

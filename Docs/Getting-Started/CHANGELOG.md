@@ -114,6 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `forma-website` desktop feature handoff was refined by preventing feature-header/showcase overlap and tightening the Features→Before/After transition spacing.
 - `forma-website` now includes a subtle theme-aware WebGL atmosphere shader overlay (grain + soft light drift + vignette) to add depth without heavy motion.
 - `forma-website` header/footer branding now swaps to the inverse logo asset in dark mode for clearer contrast.
+- `forma-website` header navigation now uses a compact pill state on scroll, and hash-based nav/brand links consistently resolve back to home sections from non-home pages.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.
 - Learned patterns persist unified Destinations for bookmark-aware suggestions.
 - ML destination predictions incorporate project clusters, real training counts, and bookmark-backed destinations when possible.

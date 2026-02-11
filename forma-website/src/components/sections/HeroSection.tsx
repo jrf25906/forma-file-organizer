@@ -202,7 +202,7 @@ function HeroContent() {
             </TrackedAppStoreLink>
 
             <a
-              href="#features"
+              href="#how-it-works"
               className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-medium)] px-8 py-3.5 text-[16px] font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] hover:border-[var(--border-strong)]"
             >
               See how it works

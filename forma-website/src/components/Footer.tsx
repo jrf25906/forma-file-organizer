@@ -18,10 +18,14 @@ function SmoothScrollLink({ href, className, children }: SmoothScrollLinkProps) 
 
     e.preventDefault();
     const target = document.querySelector(href);
-    if (!target) return;
+    if (target) {
+      const y = target.getBoundingClientRect().top + window.scrollY - 100;
+      window.scrollTo({ top: y, behavior: "smooth" });
+      return;
+    }
 
-    const y = target.getBoundingClientRect().top + window.scrollY - 100;
-    window.scrollTo({ top: y, behavior: "smooth" });
+    const destination = href === "#top" ? "/" : `/${href}`;
+    window.location.assign(destination);
   };
 
   return (
@@ -32,7 +36,7 @@ function SmoothScrollLink({ href, className, children }: SmoothScrollLinkProps) 
 }
 
 const productLinks = [
-  { label: "Features", href: "#features" },
+  { label: "Features", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
   { label: "Guides", href: "/blog" },
