@@ -494,6 +494,27 @@ xcodebuild test \
   -only-testing:Forma_File_OrganizingUITests
 ```
 
+### Static Analysis (Periphery)
+
+Periphery scan support is wired through `Scripts/periphery.sh`.
+
+**Install (one-time):**
+```bash
+brew install peripheryapp/periphery/periphery
+```
+
+**Run scan:**
+```bash
+Scripts/periphery.sh
+```
+
+As of **February 11, 2026**, the script requires an explicit target (`--targets "Forma File Organizing"`) for Periphery 2.x compatibility.
+
+**Current baseline strategy:**
+- Start with app target only (`Forma File Organizing`) and `--retain-public`.
+- If scans begin returning actionable findings, write a baseline file and gate CI on non-baselined results only.
+- Keep tests/UI-test targets out of the initial scan to avoid false positives from test-only usage paths.
+
 ### Test Coverage
 
 **Enable Coverage:**

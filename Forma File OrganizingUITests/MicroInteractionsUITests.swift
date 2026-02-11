@@ -13,6 +13,17 @@ final class MicroInteractionsUITests: XCTestCase {
     override func tearDownWithError() throws {
         app = nil
     }
+
+    @MainActor
+    @discardableResult
+    private func waitFor(_ element: XCUIElement, exists: Bool, timeout: TimeInterval, message: String) -> Bool {
+        let predicate = NSPredicate(format: "exists == %@", exists as NSNumber)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
+        let completed = result == .completed
+        XCTAssertTrue(completed, message)
+        return completed
+    }
     
     // MARK: - Organize Animation Tests
     
@@ -49,12 +60,14 @@ final class MicroInteractionsUITests: XCTestCase {
         
         // Tap organize
         organizeButton.tap()
-        
-        // Animation takes ~1 second, so wait a bit then verify file is removed
-        sleep(2)
-        
-        // File should no longer exist after animation completes
-        XCTAssertFalse(fileText.exists, "File should be removed after organize animation completes")
+
+        // File should no longer exist after animation completes.
+        _ = waitFor(
+            fileText,
+            exists: false,
+            timeout: 2.5,
+            message: "File should be removed after organize animation completes"
+        )
     }
     
     /// Test that the checkmark overlay appears during organize animation
@@ -83,19 +96,16 @@ final class MicroInteractionsUITests: XCTestCase {
         // Measure time from tap to removal
         let startTime = Date()
         organizeButton.tap()
-        
-        // Wait for animation to complete
-        var animationCompleted = false
-        for _ in 0..<20 { // Max 2 seconds (20 * 0.1s)
-            sleep(UInt32(0.1))
-            if !fileText.exists {
-                animationCompleted = true
-                break
-            }
-        }
-        
+
+        let animationCompleted = waitFor(
+            fileText,
+            exists: false,
+            timeout: 2.0,
+            message: "Animation should complete and remove file"
+        )
+
         let duration = Date().timeIntervalSince(startTime)
-        
+
         XCTAssertTrue(animationCompleted, "Animation should complete and remove file")
         XCTAssertGreaterThan(duration, 0.8, "Animation should take at least 0.8 seconds (with our 1s animation)")
         XCTAssertLessThan(duration, 2.0, "Animation should complete within 2 seconds")
@@ -124,7 +134,12 @@ final class MicroInteractionsUITests: XCTestCase {
             let organizeBtn1 = app.buttons["organizeButton_\(file1)"]
             if organizeBtn1.waitForExistence(timeout: 2) {
                 organizeBtn1.tap()
-                sleep(2) // Wait for animation
+                _ = waitFor(
+                    file1Text,
+                    exists: false,
+                    timeout: 2.5,
+                    message: "First file should be removed after organize animation"
+                )
             }
         }
         
@@ -136,7 +151,12 @@ final class MicroInteractionsUITests: XCTestCase {
             let organizeBtn2 = app.buttons["organizeButton_\(file2)"]
             if organizeBtn2.waitForExistence(timeout: 2) {
                 organizeBtn2.tap()
-                sleep(2) // Wait for animation
+                _ = waitFor(
+                    file2Text,
+                    exists: false,
+                    timeout: 2.5,
+                    message: "Second file should be removed after organize animation"
+                )
             }
         }
         
@@ -197,7 +217,12 @@ extension MicroInteractionsUITests {
         // The fact that this completes the full animation sequence
         // proves the organizeAnimation modifier is integrated
         organizeButton.tap()
-        sleep(2)
+        _ = waitFor(
+            fileText,
+            exists: false,
+            timeout: 2.5,
+            message: "File should be removed after organize animation"
+        )
         
         XCTAssertFalse(fileText.exists, "File removal proves animation integration")
     }

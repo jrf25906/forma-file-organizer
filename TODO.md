@@ -2,6 +2,16 @@
 
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
+## Tomorrow Focus (Thursday, February 12, 2026)
+- [x] Add accessibility identifiers for selection/focus/row status in `Views/FileRow.swift`, `Views/FileListRow.swift`, `Views/FileGridItem.swift`, and `Views/MainContentView.swift`.
+- [x] Replace `sleep()` in UI tests with predicate-based expectations in `Forma File OrganizingUITests/`.
+- [ ] Add injectable clock/calendar/defaults for `Services/AnalyticsService.swift` and update tests for deterministic time behavior.
+- [ ] Convert NL parser dataset tests to fixture files with structured assertions.
+- [ ] Convert remaining constant-only tests to behavioral assertions in `AutomationIntegrationTests.swift`, `OrganizationTemplateTests.swift`, and `RuleServiceTests.swift`.
+- [x] Run full macOS tests (unit/integration, then UI test plan) and triage top regressions.
+- [x] Evaluate Periphery via `Scripts/periphery.sh` and document baseline strategy (`--retain-public` vs baseline file).
+- [x] Timebox `DashboardViewModel` decomposition design (permission state vs undo/redo) and capture a concrete split plan.
+
 ## Codebase Cleanup Checklist (v2)
 **Last Updated:** February 11, 2026
 
@@ -113,7 +123,7 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
   - [x] 27.16 MainContentView.swift — implement bulk operation cancellation.
 - [x] 28. Combine → async/await migration (MenuBarViewModel `.sink`) — replaced with async sequence observation tasks.
 - [ ] 29. DashboardViewModel decomposition (permission state / undo-redo) — optional.
-- [ ] 30. Static analysis tooling — evaluate Periphery (script: `Scripts/periphery.sh`); plan for baselines or `--retain-public` to avoid false positives.
+- [x] 30. Static analysis tooling — evaluated Periphery (`Scripts/periphery.sh`) with explicit target configuration; documented baseline strategy in `Docs/Development/DEVELOPMENT.md`.
 - [ ] 31. SuggestionSource .rule / .mlPrediction — keep as persisted forward-compat; revisit when features ship or are cut.
 
 ### Execution Notes
@@ -154,10 +164,10 @@ Goal: deterministic, behavior-driven tests with clear separation of unit/integra
 - [x] 8. Gate perf/integration tests behind env flags to avoid CI flake.
 
 ### Priority 4 — UI Test Stabilization
-- [ ] 9. Add explicit accessibility identifiers for focus/selection/row status across:
+- [x] 9. Add explicit accessibility identifiers for focus/selection/row status across:
   - `Views/FileRow.swift`, `Views/FileListRow.swift`, `Views/FileGridItem.swift`
   - `Views/MainContentView.swift` / review segments / counters
-- [ ] 10. Update UI tests to use predicate expectations instead of `sleep()`:
+- [x] 10. Update UI tests to use predicate expectations instead of `sleep()`:
   - `Forma_File_OrganizingUITests.swift`, `MicroInteractionsUITests.swift`, `FileRowUITests.swift`.
 
 ### Priority 5 — Data-Driven Fixtures & Structured Assertions

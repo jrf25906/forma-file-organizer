@@ -611,6 +611,35 @@ if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
 #endif
 ```
 
+## DashboardViewModel Decomposition Plan (2026-02-11)
+
+Scope: split high-churn `DashboardViewModel` responsibilities without behavior changes.
+
+### Target extractions
+
+1. `DashboardPermissionState`
+- Owns: `hasDesktopAccess`, `hasDownloadsAccess`, `hasDocumentsAccess`, `hasPicturesAccess`, `hasMusicAccess`, `showOnboarding`, `permissionCancelledFolders`.
+- Owns methods: `checkPermissions()`, `request*Access()`, `updateOnboardingVisibility()`, `completeOnboarding()` glue.
+- Dependencies: `FileSystemServiceProtocol`, `ModelContext?` callback for post-grant refresh.
+
+2. `DashboardUndoRedoController`
+- Owns methods: `canUndo()`, `canRedo()`, `undoLastAction(context:)`, `redoLastAction(context:)`.
+- Keeps `organizationCoordinator` and `modelContext` dependency injection explicit.
+- Emits completion callback to trigger `filterViewModel.applyFilterImmediately()`.
+
+### Integration steps
+
+1. Create both extracted types behind protocols and inject into `DashboardViewModel`.
+2. Keep existing public API surface in `DashboardViewModel`; forward calls to extracted collaborators.
+3. Move state first, then method bodies, then tests, to minimize merge risk.
+4. Keep all `@MainActor` boundaries unchanged during extraction.
+
+### Test guardrails
+
+- Add focused tests for permission cancellation/grant transitions and onboarding visibility.
+- Add focused tests for undo/redo behavior when `modelContext` is nil vs available.
+- Keep current `DashboardViewModelTests` green during each extraction step.
+
 ## Styling & Design
 
 ### Color Palette

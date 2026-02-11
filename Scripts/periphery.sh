@@ -10,4 +10,5 @@ fi
 periphery scan \
   --project "Forma File Organizing.xcodeproj" \
   --schemes "Forma File Organizing" \
+  --targets "Forma File Organizing" \
   --retain-public

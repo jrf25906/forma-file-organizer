@@ -99,6 +99,10 @@ struct FileRow: View {
         (isHovered || isSelectionMode || isSelected) ? 1.0 : 0.72
     }
 
+    private var rowStateAccessibilityValue: String {
+        "view=card;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
+    }
+
     // MARK: - Primary Action Configuration
     // Unified terminology: "Organize" when destination exists, "Set Destination" when it doesn't
     // The status indicator shows file state, so button label stays consistent
@@ -237,6 +241,15 @@ struct FileRow: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fileRow_\(file.name)")
+        .accessibilityValue(rowStateAccessibilityValue)
+        .overlay(alignment: .topLeading) {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+                .accessibilityIdentifier("fileRowState_\(file.name)")
+                .accessibilityLabel("File row state \(rowStateAccessibilityValue)")
+                .accessibilityValue(rowStateAccessibilityValue)
+        }
     }
 
     private var destinationPickerColor: Color {

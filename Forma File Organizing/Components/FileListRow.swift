@@ -69,6 +69,10 @@ struct FileListRow: View {
         (isSelectionMode || isHovered || isSelected) ? 1.0 : 0.72
     }
 
+    private var rowStateAccessibilityValue: String {
+        "view=list;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
+    }
+
     // MARK: - Computed Properties
 
     private var hasDestination: Bool {
@@ -342,6 +346,15 @@ struct FileListRow: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fileRow_\(file.name)")
+        .accessibilityValue(rowStateAccessibilityValue)
+        .overlay(alignment: .topLeading) {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+                .accessibilityIdentifier("fileListRowState_\(file.name)")
+                .accessibilityLabel("File list row state \(rowStateAccessibilityValue)")
+                .accessibilityValue(rowStateAccessibilityValue)
+        }
     }
 
     // MARK: - Component Helpers

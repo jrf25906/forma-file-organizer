@@ -78,6 +78,10 @@ struct FileGridItem: View {
         (isSelected || isSelectionMode || isHovered) ? 1.0 : 0.72
     }
 
+    private var rowStateAccessibilityValue: String {
+        "view=grid;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
+    }
+
     // MARK: - Dynamic Thumbnail Properties
 
     /// Image file extensions that get enhanced visual treatment.
@@ -325,6 +329,15 @@ struct FileGridItem: View {
         .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isSelected)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fileRow_\(file.name)")
+        .accessibilityValue(rowStateAccessibilityValue)
+        .overlay(alignment: .topLeading) {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+                .accessibilityIdentifier("fileGridItemState_\(file.name)")
+                .accessibilityLabel("File grid item state \(rowStateAccessibilityValue)")
+                .accessibilityValue(rowStateAccessibilityValue)
+        }
     }
 
     // MARK: - Helpers

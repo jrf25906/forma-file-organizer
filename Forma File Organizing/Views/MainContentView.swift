@@ -207,6 +207,9 @@ struct MainContentView: View {
             }
             .frame(width: 0, height: 0)
 
+            accessibilityStateProbes
+                .frame(width: 0, height: 0)
+
             #if DEBUG
             if isUITesting {
                 uiTestShortcutHandlers
@@ -497,6 +500,47 @@ struct MainContentView: View {
     private var isUITesting: Bool {
         CommandLine.arguments.contains("--uitesting") ||
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
+    private var accessibilityStateProbes: some View {
+        let reviewModeValue = dashboardViewModel.reviewFilterMode == .needsReview ? "needsReview" : "allFiles"
+        let needsReviewCountValue = "\(dashboardViewModel.needsReviewCount)"
+        let allFilesCountValue = "\(dashboardViewModel.allFilesCount)"
+        let selectedCountValue = "\(dashboardViewModel.selectedFileIDs.count)"
+        let focusedFilePathValue = dashboardViewModel.focusedFilePath ?? "none"
+
+        return Group {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("mainContent_reviewMode")
+                .accessibilityLabel("Review mode \(reviewModeValue)")
+                .accessibilityValue(reviewModeValue)
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("mainContent_needsReviewCount")
+                .accessibilityLabel("Needs review count \(needsReviewCountValue)")
+                .accessibilityValue(needsReviewCountValue)
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("mainContent_allFilesCount")
+                .accessibilityLabel("All files count \(allFilesCountValue)")
+                .accessibilityValue(allFilesCountValue)
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("mainContent_selectedCount")
+                .accessibilityLabel("Selected file count \(selectedCountValue)")
+                .accessibilityValue(selectedCountValue)
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("mainContent_focusedFilePath")
+                .accessibilityLabel("Focused file path \(focusedFilePathValue)")
+                .accessibilityValue(focusedFilePathValue)
+        }
+        .allowsHitTesting(false)
     }
 
     #if DEBUG

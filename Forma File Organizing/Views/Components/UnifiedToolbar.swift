@@ -354,6 +354,9 @@ private struct StocksStyleReviewModeControl: View {
                             .background {
                                 Capsule().fill(badgeFill)
                             }
+                            .accessibilityIdentifier("reviewMode_needsReview_countBadge")
+                            .accessibilityLabel("Pending file count badge")
+                            .accessibilityValue("\(pendingCount)")
                     }
                 }
                 .padding(.horizontal, 10)
