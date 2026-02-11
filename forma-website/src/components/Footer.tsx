@@ -3,6 +3,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { FormaLogoImage } from "@/components/icons";
+import { SUPPORT_EMAIL } from "@/lib/site";
+import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
 
 interface SmoothScrollLinkProps {
   href: string;
@@ -33,12 +35,14 @@ const productLinks = [
   { label: "Features", href: "#features" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
+  { label: "Guides", href: "/blog" },
 ] as const;
 
 const legalLinks = [
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
   { label: "Support", href: "/support" },
+  { label: "For Agents", href: "/for-agents" },
 ] as const;
 
 export default function Footer() {
@@ -101,12 +105,13 @@ export default function Footer() {
 
           {/* Right: Contact + copyright */}
           <div className="flex flex-col gap-3 md:items-end">
-            <a
-              href="mailto:hello@forma.app"
+            <TrackedMailtoLink
+              email={SUPPORT_EMAIL}
+              location="footer"
               className="text-sm text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text-primary)]"
             >
-              hello@forma.app
-            </a>
+              {SUPPORT_EMAIL}
+            </TrackedMailtoLink>
             <p className="text-xs text-[var(--text-muted)]">
               &copy; {currentYear} Forma. macOS app.
             </p>

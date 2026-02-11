@@ -1,43 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useRef, useCallback } from "react";
 import { Plus, Minus } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
-
-const faqs = [
-  {
-    question: "Will it delete my files?",
-    answer:
-      "No. Forma only moves files\u2014it never deletes anything. Every move shows up in a preview first, and you have to approve it. If you change your mind later, you can undo any move from the history.",
-  },
-  {
-    question: "What macOS version do I need?",
-    answer:
-      "macOS 14 (Sonoma) or later. Works on both Intel and Apple Silicon Macs.",
-  },
-  {
-    question: "How do rules work?",
-    answer:
-      "Rules are simple: if a file matches a condition (like \u201Cfilename contains screenshot\u201D), move it somewhere. You write the rules, Forma follows them. Nothing fancy, nothing magical.",
-  },
-  {
-    question: "Can I undo moves?",
-    answer:
-      "Yes. Forma keeps a full history of everything it\u2019s done. You can undo any move, even weeks later.",
-  },
-  {
-    question: "Does it work with iCloud/Dropbox/external drives?",
-    answer:
-      "Yes. Forma can watch and organize files on any mounted volume.",
-  },
-  {
-    question: "Is my data private?",
-    answer:
-      "Completely. Everything runs locally on your Mac. No files, filenames, or folder structures ever leave your computer.",
-  },
-];
+import { faqs } from "@/lib/faq";
+import { SUPPORT_EMAIL } from "@/lib/site";
+import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
 
 function FAQItem({
   faq,
@@ -209,12 +180,23 @@ export default function FAQSection() {
           <div className="mt-6 text-center">
             <p className="text-[14px] text-[var(--text-muted)]">
               Something else?{" "}
-              <a
-                href="mailto:hello@forma.app"
+              <TrackedMailtoLink
+                email={SUPPORT_EMAIL}
+                location="faq_section"
                 className="text-forma-steel-blue font-medium underline underline-offset-4 decoration-forma-steel-blue/30 hover:decoration-forma-steel-blue/60 transition-all"
               >
-                hello@forma.app
-              </a>
+                {SUPPORT_EMAIL}
+              </TrackedMailtoLink>
+            </p>
+            <p className="mt-2 text-[14px] text-[var(--text-muted)]">
+              Need a full walkthrough?{" "}
+              <Link
+                href="/blog"
+                className="text-forma-steel-blue font-medium underline underline-offset-4 decoration-forma-steel-blue/30 hover:decoration-forma-steel-blue/60 transition-all"
+              >
+                Read our organization guides
+              </Link>
+              .
             </p>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 **Embargo Date**: [TBD]
 **Launch Date**: Mid-January 2025
-**Contact**: [Your email]
+**Contact**: hello@formafiles.com
 
 ---
 
@@ -138,8 +138,8 @@ See `/Docs/Marketing/Screenshots/` for current captures
 
 ## Contact
 
-**Press Inquiries**: [email]
-**Support**: [email]
+**Press Inquiries**: hello@formafiles.com
+**Support**: hello@formafiles.com
 **Twitter/X**: [@handle]
 **Website**: [URL]
 

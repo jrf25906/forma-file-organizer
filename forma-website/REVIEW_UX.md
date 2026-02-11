@@ -180,7 +180,7 @@ The three credibility badges (Mac-Native, Privacy-First, Always Reversible) use 
 | Hero | "See how it works" | Light outlined button | #features |
 | Pricing | "Download on the / Mac App Store" | Dark badge-style button | Mac App Store (or /support) |
 | Newsletter | "Subscribe" | Dark button | Newsletter API |
-| Footer | "hello@forma.app" | Text link | Email |
+| Footer | "hello@formafiles.com" | Text link | Email |
 
 ### What Works
 

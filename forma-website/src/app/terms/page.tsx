@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
+import { SUPPORT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Terms of Use",
@@ -61,12 +63,13 @@ export default function TermsPage() {
               </h2>
               <p>
                 Questions? Email{" "}
-                <a
+                <TrackedMailtoLink
+                  email={SUPPORT_EMAIL}
+                  location="terms_page"
                   className="text-forma-sage hover:opacity-80 transition-opacity"
-                  href="mailto:hello@forma.app"
                 >
-                  hello@forma.app
-                </a>
+                  {SUPPORT_EMAIL}
+                </TrackedMailtoLink>
                 .
               </p>
             </section>

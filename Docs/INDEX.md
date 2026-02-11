@@ -3,7 +3,7 @@
 > Master navigation for all Forma project documentation.
 
 **Status:** Current  
-**Last Updated:** 2026-02-06  
+**Last Updated:** 2026-02-11  
 **Audience:** Users | Developers | Designers | Security
 
 ## Start Here
@@ -44,6 +44,7 @@
 | Research | [Docs/Research/README.md](Research/README.md) |
 | Roadmap | [Docs/Roadmap/README.md](Roadmap/README.md) |
 | Legal | [Docs/Legal/README.md](Legal/README.md) |
+| Marketing | [Docs/Marketing/MARKETING-PLAN.md](Marketing/MARKETING-PLAN.md) |
 | API Reference | [Docs/API-Reference/README.md](API-Reference/README.md) |
 | Archive | [Docs/Archive/README.md](Archive/README.md) |
 

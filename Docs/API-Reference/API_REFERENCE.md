@@ -1,7 +1,7 @@
 # Forma - API Reference
 
-**Version:** 2.0
-**Last Updated:** December 2025
+**Version:** 2.1
+**Last Updated:** February 2026
 **Status:** Current Implementation
 
 ---
@@ -37,9 +37,12 @@
 22. [ActivityItem](#activityitem)
 23. [CustomFolder](#customfolder)
 
+### Website Public API
+24. [Website Public API (forma-website)](#website-public-api-forma-website)
+
 ### Reference
-24. [Error Types](#error-types)
-25. [Usage Examples](#usage-examples)
+25. [Error Types](#error-types)
+26. [Usage Examples](#usage-examples)
 
 ---
 
@@ -67,6 +70,81 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 - `FileSystemService.scan(baseFolders:)` now performs standard folder scans in parallel and aggregates per-folder failures via `ScanResult.errors`.
 - `DuplicateDetectionService` now performs streaming SHA-256 hashing and internal hash-cache reuse for repeated scans of unchanged files.
 - `FileFilterManager` now invalidates cached filter results when `contentMatchedPaths` changes and supports caching empty result sets safely.
+
+### Website API Updates (February 2026)
+
+- Added public, read-only website endpoints for machine consumption:
+  - `GET /api/public/product`
+  - `GET /api/public/faq`
+  - `GET /api/public/faq/{id}`
+- Added website integration discovery endpoints:
+  - `GET /llms.txt`
+  - `GET /openapi.json`
+  - `GET /for-agents`
+
+---
+
+## Website Public API (forma-website)
+
+The following endpoints are exposed by `forma-website` for crawlers, integrations, and agent retrieval workflows.
+
+### Versioning
+
+- Envelope version: `v1`
+- Base URL: `https://formafiles.com`
+
+### `GET /api/public/product`
+
+**Returns**
+
+```json
+{
+  "version": "v1",
+  "data": {
+    "name": "Forma",
+    "tagline": "Give your files form",
+    "platform": "macOS 14+",
+    "price_usd": 29,
+    "purchase_url": "https://apps.apple.com/...",
+    "last_updated": "2026-02-11T00:00:00.000Z"
+  }
+}
+```
+
+### `GET /api/public/faq`
+
+**Returns**
+
+```json
+{
+  "version": "v1",
+  "data": {
+    "items": [
+      {
+        "id": "privacy",
+        "question": "Is my data private?",
+        "answer": "...",
+        "category": "privacy",
+        "last_updated": "2026-02-11T00:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+### `GET /api/public/faq/{id}`
+
+Returns a single FAQ item with the same item schema as above.  
+If the ID does not exist, returns status `404` with:
+
+```json
+{
+  "version": "v1",
+  "data": {
+    "error": "FAQ item not found"
+  }
+}
+```
 
 ---
 

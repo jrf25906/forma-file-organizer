@@ -5,6 +5,7 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
+import { trackEvent } from "@/lib/analytics";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -88,6 +89,7 @@ export default function NewsletterSection() {
 
       setFormState("success");
       setEmail("");
+      trackEvent("newsletter_submit_success", { location: "newsletter_section" });
     } catch {
       setFormState("error");
       setErrorMessage("Something went wrong. Try again.");

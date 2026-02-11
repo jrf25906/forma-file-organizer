@@ -3,9 +3,16 @@
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
 ## Codebase Cleanup Checklist (v2)
-**Last Updated:** February 10, 2026
+**Last Updated:** February 11, 2026
 
 This checklist tracks the cleanup execution plan; keep it aligned with the canonical roadmap if it becomes a release goal.
+
+### Website SEO + AI Surface Sprint (February 11, 2026)
+- [x] Ship conversion-safe CTA instrumentation and optional privacy-first analytics hooks in `forma-website`.
+- [x] Expand homepage structured data graph and tighten robots/sitemap crawler directives.
+- [x] Launch in-repo MDX blog with initial keyword-targeted guides (`/blog`, `/blog/[slug]`).
+- [x] Add machine-readable AI routes (`/llms.txt`, `/for-agents`, `/openapi.json`, `/api/public/*`).
+- [x] Document MCP-readiness constraints and planned future tool contracts (`Docs/Marketing/MCP-READINESS.md`).
 
 ### Performance Optimization Sprint (February 5, 2026)
 - [x] Move content search scanning off the main actor and keep UI lookup O(1) by path.

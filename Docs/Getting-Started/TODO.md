@@ -1,6 +1,15 @@
 # Forma - Project TODO
 
-**Last Updated:** February 10, 2026
+**Last Updated:** February 11, 2026
+
+---
+
+## Website SEO + AI Surface Sprint (February 11, 2026)
+- [x] Ship conversion-safe CTA instrumentation and optional privacy-first analytics hooks in `forma-website`.
+- [x] Expand homepage structured data graph and tighten robots/sitemap crawler directives.
+- [x] Launch in-repo MDX blog with initial keyword-targeted guides (`/blog`, `/blog/[slug]`).
+- [x] Add machine-readable AI routes (`/llms.txt`, `/for-agents`, `/openapi.json`, `/api/public/*`).
+- [x] Document MCP-readiness constraints and planned future tool contracts (`Docs/Marketing/MCP-READINESS.md`).
 
 ---
 

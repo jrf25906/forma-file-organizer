@@ -97,10 +97,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Category scope editor now includes a folder picker for scoped categories.
 - Bulk operation progress overlay now supports cancellation.
 - Grid view now shows confidence indicators alongside destination badges, with tooltips that include match reasons when available.
+- `forma-website` now includes a first-party blog system (`/blog`, `/blog/[slug]`) backed by in-repo MDX content.
+- `forma-website` now exposes AI-consumable routes: `/llms.txt`, `/for-agents`, `/openapi.json`, and read-only JSON APIs under `/api/public/*`.
+- Added website-level tracking events (`download_click`, `newsletter_submit_success`, `support_contact_click`, `blog_cta_click`) with optional Plausible integration.
 
 ### Changed
 - Consolidated marketing web code to `forma-website/` and removed legacy `website/` + `forma-marketing-site/` directories.
 - `forma-website` now uses normal in-flow footer layout (no fixed negative-z reveal), and web metadata/sitemap/robots now target `https://formafiles.com`.
+- `forma-website` metadata now includes expanded structured data (`SoftwareApplication`, `Organization`, `WebSite`, `FAQPage`) and keyword coverage for Mac file-organization intent.
+- `forma-website` robots and sitemap generation now include explicit AI/search crawler directives and stable last-modified handling for static/blog routes.
 - `forma-website` hero/header spacing and anchor offsets were refined to prevent top overlap, and light-mode feature demos now use readable high-contrast surfaces.
 - `forma-website` light-mode typography contrast and feature-demo default visibility were corrected, and hero spacing/scale were further tuned for cleaner first paint.
 - `forma-website` theme parity was tightened by adding complementary light/dark component tokens for Mac window chrome, feature demos, file cards, before/after, newsletter, and legal/support content surfaces.

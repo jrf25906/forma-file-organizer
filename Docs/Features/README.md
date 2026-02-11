@@ -3,7 +3,7 @@
 > Feature specifications, implementation plans, and user-facing functionality for Forma.
 
 **Status:** Current  
-**Last Updated:** 2026-01-06  
+**Last Updated:** 2026-02-11  
 **Audience:** Product | Developers | Designers
 
 ---
@@ -15,6 +15,7 @@
 | [PersonalitySystem.md](PersonalitySystem.md) | Organization personality quiz |
 | [OrganizationTemplates.md](OrganizationTemplates.md) | Organization templates |
 | [AIFeatures.md](AIFeatures.md) | AI-powered features |
+| [Website-SEO-AI-Surface.md](Website-SEO-AI-Surface.md) | Website SEO and AI-consumable public surface |
 
 ---
 
@@ -29,6 +30,7 @@
 
 ### AI & Automation
 - **[AIFeatures.md](AIFeatures.md)** - AI-powered suggestions, learning, insights
+- **[Website-SEO-AI-Surface.md](Website-SEO-AI-Surface.md)** - SEO hardening, blog content system, and AI-agent endpoints for `forma-website`
 
 ### Archived Plans
 - **[Automation-v1.4-Plan.md](../Archive/Implementation-Notes/Automation-v1.4-Plan.md)** - Historical automation plan (implemented)

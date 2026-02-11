@@ -3,8 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 import { FormaLogoImage } from "@/components/icons";
+import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 
 interface SmoothScrollLinkProps {
   href: string;
@@ -44,6 +44,7 @@ const NAV_LINKS = [
   { label: "Features", href: "#features", ariaLabel: "Jump to features section" },
   { label: "Pricing", href: "#pricing", ariaLabel: "Jump to pricing section" },
   { label: "FAQ", href: "#faq", ariaLabel: "Jump to frequently asked questions" },
+  { label: "Guides", href: "/blog", ariaLabel: "Read organization guides" },
 ] as const;
 
 export function Header() {
@@ -101,22 +102,20 @@ export function Header() {
 
           <div className="flex items-center gap-2">
             {/* Mobile compact CTA -- visible only below md */}
-            <a
-              href={MAC_APP_STORE_URL}
-              {...MAC_APP_STORE_LINK_PROPS}
+            <TrackedAppStoreLink
+              location="header_mobile"
               className="inline-flex md:hidden h-8 items-center rounded-xl bg-[var(--cta-bg)] px-3.5 text-[11.5px] font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-bg-hover)] transition-all hover:-translate-y-px hover:shadow-md"
             >
               Download
-            </a>
+            </TrackedAppStoreLink>
 
             {/* Desktop CTA */}
-            <a
-              href={MAC_APP_STORE_URL}
-              {...MAC_APP_STORE_LINK_PROPS}
+            <TrackedAppStoreLink
+              location="header_desktop"
               className="hidden md:inline-flex h-9 items-center rounded-xl bg-[var(--cta-bg)] px-4 text-[12.5px] font-semibold text-[var(--cta-text)] transition-all hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px hover:shadow-md"
             >
               Download for Mac
-            </a>
+            </TrackedAppStoreLink>
 
             <button
               onClick={() => setIsMobileMenuOpen((open) => !open)}
@@ -164,14 +163,13 @@ export function Header() {
               {link.label}
             </SmoothScrollLink>
           ))}
-          <a
-            href={MAC_APP_STORE_URL}
-            {...MAC_APP_STORE_LINK_PROPS}
+          <TrackedAppStoreLink
+            location="header_menu"
             onClick={closeMobileMenu}
             className="mt-1 inline-flex h-11 items-center justify-center rounded-xl bg-[var(--cta-bg)] px-4 text-[14px] font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-bg-hover)] transition-colors"
           >
             Download for Mac
-          </a>
+          </TrackedAppStoreLink>
         </nav>
       </div>
     </>

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
+import { SUPPORT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Support",
@@ -33,12 +35,13 @@ export default function SupportPage() {
                 Contact
               </h2>
               <p>
-                <a
+                <TrackedMailtoLink
+                  email={SUPPORT_EMAIL}
+                  location="support_page"
                   className="text-forma-sage hover:opacity-80 transition-opacity"
-                  href="mailto:hello@forma.app"
                 >
-                  hello@forma.app
-                </a>
+                  {SUPPORT_EMAIL}
+                </TrackedMailtoLink>
               </p>
             </section>
 
@@ -58,6 +61,38 @@ export default function SupportPage() {
                 <li>
                   If you want to reset permissions, remove the folder from
                   Forma and re-add it.
+                </li>
+              </ul>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="font-display text-xl text-[var(--text-primary)]">
+                Organization guides
+              </h2>
+              <ul className="list-disc pl-5 space-y-2">
+                <li>
+                  <Link
+                    href="/blog/organize-mac-files"
+                    className="text-forma-sage hover:opacity-80 transition-opacity"
+                  >
+                    How to Organize Mac Files
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/blog/organize-downloads-folder-mac"
+                    className="text-forma-sage hover:opacity-80 transition-opacity"
+                  >
+                    Organize Downloads Folder on Mac
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/blog/organize-desktop-files-mac"
+                    className="text-forma-sage hover:opacity-80 transition-opacity"
+                  >
+                    Organize Desktop Files on Mac
+                  </Link>
                 </li>
               </ul>
             </section>

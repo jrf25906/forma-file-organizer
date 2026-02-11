@@ -4,9 +4,9 @@ import { useRef, useEffect, useState } from "react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
-import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 import { CountUp } from "@/components/animation/CountUp";
 import { AppleLogo } from "@/components/icons";
+import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 
 export default function PricingSection() {
   const [isMac, setIsMac] = useState(true);
@@ -108,9 +108,8 @@ export default function PricingSection() {
           </ul>
 
           <div className="mt-8 flex flex-col items-center gap-4">
-            <a
-              href={MAC_APP_STORE_URL}
-              {...MAC_APP_STORE_LINK_PROPS}
+            <TrackedAppStoreLink
+              location="pricing_primary"
               className="inline-flex items-center gap-3.5 rounded-xl py-4 px-8 bg-[var(--cta-bg)] text-[var(--cta-text)] border border-[var(--border-strong)] shadow-lg shadow-[var(--shadow-color)] transition-all duration-300 hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px hover:shadow-xl active:translate-y-0"
             >
               <AppleLogo className="w-7 h-7 flex-shrink-0" />
@@ -122,7 +121,7 @@ export default function PricingSection() {
                   Mac App Store
                 </span>
               </div>
-            </a>
+            </TrackedAppStoreLink>
 
             <p className="text-[13px] text-[var(--text-muted)] mt-1">
               Requires macOS 14 (Sonoma) or later.

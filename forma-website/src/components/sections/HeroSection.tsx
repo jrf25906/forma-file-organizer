@@ -1,13 +1,13 @@
 "use client";
 
 import { useRef, useMemo } from "react";
-import { MAC_APP_STORE_LINK_PROPS, MAC_APP_STORE_URL } from "@/lib/links";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration, formaStagger } from "@/lib/animation/ease-curves";
 import { ScrollScene, useScrollSceneProgress } from "@/components/animation/ScrollScene";
 import { TextReveal } from "@/components/animation/TextReveal";
 import { AppleLogo } from "@/components/icons";
 import { FormaFileCard } from "@/components/ui/FormaFileCard";
+import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 import { heroFiles, categoryColors } from "@/lib/forma-design-tokens";
 import type { FileCategory } from "@/lib/forma-design-tokens";
 
@@ -193,14 +193,13 @@ function HeroContent() {
             ref={ctaRef}
             className="mt-6 flex flex-col items-center justify-center gap-3 opacity-0 sm:flex-row"
           >
-            <a
-              href={MAC_APP_STORE_URL}
-              {...MAC_APP_STORE_LINK_PROPS}
+            <TrackedAppStoreLink
+              location="hero_primary"
               className="inline-flex items-center gap-2.5 rounded-xl bg-[var(--cta-bg)] px-8 py-3.5 text-[16px] font-semibold text-[var(--cta-text)] shadow-lg shadow-[var(--shadow-color)] transition-all duration-300 hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px hover:shadow-xl active:translate-y-0"
             >
               <AppleLogo className="h-[15px] w-[12px]" />
               <span>Download for Mac</span>
-            </a>
+            </TrackedAppStoreLink>
 
             <a
               href="#features"

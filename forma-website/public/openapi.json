@@ -1,0 +1,211 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Forma Public Website API",
+    "version": "1.0.0",
+    "description": "Public read-only endpoints for machine-readable marketing and support data."
+  },
+  "servers": [
+    {
+      "url": "https://formafiles.com"
+    }
+  ],
+  "paths": {
+    "/api/public/product": {
+      "get": {
+        "summary": "Get public product metadata",
+        "operationId": "getPublicProduct",
+        "responses": {
+          "200": {
+            "description": "Public product summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/faq": {
+      "get": {
+        "summary": "Get FAQ collection",
+        "operationId": "getPublicFaq",
+        "responses": {
+          "200": {
+            "description": "FAQ collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaqListEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/faq/{id}": {
+      "get": {
+        "summary": "Get a single FAQ item by ID",
+        "operationId": "getPublicFaqItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Single FAQ item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaqItemEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "FAQ item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/newsletter": {
+      "post": {
+        "summary": "Submit newsletter signup email",
+        "operationId": "createNewsletterSubscription",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewsletterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successfully subscribed"
+          },
+          "200": {
+            "description": "Already subscribed"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "503": {
+            "description": "Newsletter system unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Product": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "tagline": { "type": "string" },
+          "platform": { "type": "string" },
+          "price_usd": { "type": "number" },
+          "purchase_url": { "type": "string", "format": "uri-reference" },
+          "last_updated": { "type": "string", "format": "date-time" }
+        },
+        "required": [
+          "name",
+          "tagline",
+          "platform",
+          "price_usd",
+          "purchase_url",
+          "last_updated"
+        ]
+      },
+      "FaqItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "question": { "type": "string" },
+          "answer": { "type": "string" },
+          "category": { "type": "string" },
+          "last_updated": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "question", "answer", "category", "last_updated"]
+      },
+      "ProductEnvelope": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "string", "enum": ["v1"] },
+          "data": { "$ref": "#/components/schemas/Product" }
+        },
+        "required": ["version", "data"]
+      },
+      "FaqListEnvelope": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "string", "enum": ["v1"] },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/FaqItem" }
+              }
+            },
+            "required": ["items"]
+          }
+        },
+        "required": ["version", "data"]
+      },
+      "FaqItemEnvelope": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "string", "enum": ["v1"] },
+          "data": { "$ref": "#/components/schemas/FaqItem" }
+        },
+        "required": ["version", "data"]
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "string", "enum": ["v1"] },
+          "data": {
+            "type": "object",
+            "properties": {
+              "error": { "type": "string" }
+            },
+            "required": ["error"]
+          }
+        },
+        "required": ["version", "data"]
+      },
+      "NewsletterRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": ["email"]
+      }
+    }
+  }
+}
+

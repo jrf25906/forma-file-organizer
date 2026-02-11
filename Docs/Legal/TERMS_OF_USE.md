@@ -55,5 +55,4 @@ the effective date above.
 
 ## Contact
 
-Questions? Contact us at **hello@forma.app**.
-
+Questions? Contact us at **hello@formafiles.com**.
