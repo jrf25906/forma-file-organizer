@@ -256,7 +256,7 @@ export default function FileSortAnimation() {
               <span
                 className="text-[11px] font-semibold tracking-wide"
                 style={{
-                  color: "rgba(255,255,255,0.85)",
+                  color: "var(--text-primary)",
                   fontFamily: cardTokens.font,
                 }}
               >
@@ -264,7 +264,7 @@ export default function FileSortAnimation() {
               </span>
               <span
                 className="text-[10px]"
-                style={{ color: "rgba(255,255,255,0.4)" }}
+                style={{ color: "var(--text-muted)" }}
               >
                 {folder.fileCount} {folder.fileCount === 1 ? "file" : "files"}
               </span>

@@ -91,7 +91,7 @@ export default function NewsletterSection() {
         <div className="mx-auto max-w-2xl">
           <div
             ref={cardRef}
-            className="bg-[var(--bg-secondary)] border border-white/[0.06] rounded-2xl p-8 md:px-12 md:py-12 text-center"
+            className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-8 md:px-12 md:py-12 text-center"
             style={{ opacity: 0 }}
           >
             <h2 className="font-display text-2xl md:text-3xl text-forma-bone">
@@ -125,7 +125,7 @@ export default function NewsletterSection() {
                       required
                       disabled={formState === "loading"}
                       aria-label="Email address"
-                      className={`w-full rounded-lg bg-white/10 border px-3.5 py-2.5 text-[14px] text-forma-bone placeholder:text-forma-bone/30 focus:outline-none focus:border-forma-steel-blue/50 focus:ring-1 focus:ring-forma-steel-blue/30 transition-all disabled:opacity-50 ${formState === "error" ? "border-red-400" : "border-white/15"}`}
+                      className={`w-full rounded-lg bg-[var(--input-bg)] border px-3.5 py-2.5 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-forma-steel-blue/50 focus:ring-1 focus:ring-forma-steel-blue/30 transition-all disabled:opacity-50 ${formState === "error" ? "border-red-400" : "border-[var(--border-strong)]"}`}
                     />
                   </div>
                   <button

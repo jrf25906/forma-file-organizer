@@ -66,14 +66,14 @@ export function Header() {
         className={cn(
           "sticky inset-x-0 top-0 z-[120] border-b transition-all duration-200",
           isScrolled
-            ? "bg-[#0A0A0B]/90 backdrop-blur-xl border-white/[0.08]"
-            : "bg-[#0A0A0B]/80 backdrop-blur-lg border-white/[0.05]"
+            ? "bg-[var(--bg-primary)]/90 backdrop-blur-xl border-[var(--border-medium)]"
+            : "bg-[var(--bg-primary)]/80 backdrop-blur-lg border-[var(--border-subtle)]"
         )}
       >
         <div className="site-container flex h-16 items-center justify-between">
           <SmoothScrollLink
             href="#top"
-            className="flex items-center gap-2.5 rounded-full px-2.5 py-1.5 text-[var(--text-primary)] hover:bg-white/[0.04] transition-colors"
+            className="flex items-center gap-2.5 rounded-full px-2.5 py-1.5 text-[var(--text-primary)] hover:bg-[var(--surface-glass)] transition-colors"
             onClick={closeMobileMenu}
           >
             <Image
@@ -97,7 +97,7 @@ export function Header() {
                 key={link.href}
                 href={link.href}
                 aria-label={link.ariaLabel}
-                className="rounded-full px-3.5 py-2 text-[13px] font-medium text-[var(--text-primary)]/70 hover:text-[var(--text-primary)] hover:bg-white/[0.06] transition-colors"
+                className="rounded-full px-3.5 py-2 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-glass-hover)] transition-colors"
                 onClick={closeMobileMenu}
               >
                 {link.label}
@@ -110,7 +110,7 @@ export function Header() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="inline-flex md:hidden h-8 items-center rounded-xl bg-[#F0F0F2] px-3.5 text-[11.5px] font-semibold text-[#0A0A0B] hover:bg-[#E0E0E2] transition-all hover:-translate-y-px hover:shadow-md"
+              className="inline-flex md:hidden h-8 items-center rounded-xl bg-[var(--cta-bg)] px-3.5 text-[11.5px] font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-bg-hover)] transition-all hover:-translate-y-px hover:shadow-md"
             >
               Download
             </a>
@@ -119,14 +119,14 @@ export function Header() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="hidden md:inline-flex h-9 items-center rounded-xl bg-[#F0F0F2] px-4 text-[12.5px] font-semibold text-[#0A0A0B] transition-all hover:bg-[#E0E0E2] hover:-translate-y-px hover:shadow-md"
+              className="hidden md:inline-flex h-9 items-center rounded-xl bg-[var(--cta-bg)] px-4 text-[12.5px] font-semibold text-[var(--cta-text)] transition-all hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px hover:shadow-md"
             >
               Download for Mac
             </a>
 
             <button
               onClick={() => setIsMobileMenuOpen((open) => !open)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-primary)] hover:bg-white/[0.04] transition-colors md:hidden"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-primary)] hover:bg-[var(--surface-glass)] transition-colors md:hidden"
               aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={isMobileMenuOpen}
             >
@@ -149,7 +149,7 @@ export function Header() {
 
       <div
         className={cn(
-          "fixed inset-x-0 top-16 z-[121] border-b border-white/[0.08] bg-[#0A0A0B]/98 px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.4)] backdrop-blur-xl md:hidden transition-all duration-200",
+          "fixed inset-x-0 top-16 z-[121] border-b border-[var(--border-medium)] bg-[var(--bg-primary)]/98 px-4 py-4 shadow-[0_18px_40px_var(--shadow-color)] backdrop-blur-xl md:hidden transition-all duration-200",
           isMobileMenuOpen
             ? "translate-y-0 opacity-100"
             : "-translate-y-2 opacity-0 pointer-events-none"
@@ -165,7 +165,7 @@ export function Header() {
               href={link.href}
               aria-label={link.ariaLabel}
               onClick={closeMobileMenu}
-              className="rounded-xl px-3 py-2.5 text-[15px] font-medium text-[var(--text-primary)]/85 hover:bg-white/[0.04]"
+              className="rounded-xl px-3 py-2.5 text-[15px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-glass)]"
             >
               {link.label}
             </SmoothScrollLink>
@@ -174,7 +174,7 @@ export function Header() {
             href={MAC_APP_STORE_URL}
             {...MAC_APP_STORE_LINK_PROPS}
             onClick={closeMobileMenu}
-            className="mt-1 inline-flex h-11 items-center justify-center rounded-xl bg-[#F0F0F2] px-4 text-[14px] font-semibold text-[#0A0A0B] hover:bg-[#E0E0E2] transition-colors"
+            className="mt-1 inline-flex h-11 items-center justify-center rounded-xl bg-[var(--cta-bg)] px-4 text-[14px] font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-bg-hover)] transition-colors"
           >
             Download for Mac
           </a>

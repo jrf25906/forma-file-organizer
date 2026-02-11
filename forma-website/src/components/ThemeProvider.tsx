@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 type Theme = "dark" | "light" | "system";
 type ResolvedTheme = "dark" | "light";
@@ -22,33 +22,48 @@ interface ThemeProviderProps {
   defaultTheme?: Theme;
 }
 
-/**
- * ThemeProvider - Manages theme state with system preference detection
- *
- * Detects the user's system color scheme via matchMedia and applies
- * the data-theme attribute to documentElement. Listens for system
- * preference changes in real time.
- *
- * @example
- * ```tsx
- * // In layout.tsx
- * <ThemeProvider>
- *   {children}
- * </ThemeProvider>
- *
- * // In any client component
- * const { theme, resolvedTheme, setTheme } = useTheme();
- * ```
- */
+function getSystemTheme(): ResolvedTheme {
+  if (typeof window === "undefined") return "dark";
+  return window.matchMedia("(prefers-color-scheme: light)").matches
+    ? "light"
+    : "dark";
+}
+
+function resolveTheme(theme: Theme): ResolvedTheme {
+  if (theme === "system") return getSystemTheme();
+  return theme;
+}
+
 export function ThemeProvider({
   children,
-  defaultTheme = "light",
+  defaultTheme = "system",
 }: ThemeProviderProps) {
-  const theme: Theme = "dark";
-  const resolvedTheme: ResolvedTheme = "dark";
+  const [theme, setThemeState] = useState<Theme>(defaultTheme);
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+    resolveTheme(defaultTheme)
+  );
 
-  // Marketing site now ships in a dark theme.
-  const setTheme: ThemeContextType["setTheme"] = () => {};
+  // Apply resolved theme to document and listen for system changes
+  useEffect(() => {
+    const resolved = resolveTheme(theme);
+    setResolvedTheme(resolved);
+    document.documentElement.setAttribute("data-theme", resolved);
+
+    if (theme !== "system") return;
+
+    const mql = window.matchMedia("(prefers-color-scheme: light)");
+    const onChange = () => {
+      const next = mql.matches ? "light" : "dark";
+      setResolvedTheme(next);
+      document.documentElement.setAttribute("data-theme", next);
+    };
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [theme]);
+
+  const setTheme = (next: Theme) => {
+    setThemeState(next);
+  };
 
   const value: ThemeContextType = {
     theme,
@@ -67,8 +82,6 @@ export function ThemeProvider({
  * useTheme - Access the current theme context
  *
  * Must be used within a ThemeProvider.
- *
- * @returns {ThemeContextType} The theme context with theme, resolvedTheme, and setTheme
  */
 export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);

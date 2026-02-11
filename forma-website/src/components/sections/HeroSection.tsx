@@ -196,7 +196,7 @@ function HeroContent() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="inline-flex items-center gap-2.5 rounded-xl bg-[#F0F0F2] px-8 py-3.5 text-[16px] font-semibold text-[#0A0A0B] shadow-lg shadow-black/30 transition-all duration-300 hover:bg-[#E0E0E2] hover:-translate-y-px hover:shadow-xl hover:shadow-black/40 active:translate-y-0"
+              className="inline-flex items-center gap-2.5 rounded-xl bg-[var(--cta-bg)] px-8 py-3.5 text-[16px] font-semibold text-[var(--cta-text)] shadow-lg shadow-[var(--shadow-color)] transition-all duration-300 hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px hover:shadow-xl active:translate-y-0"
             >
               <AppleLogo className="h-[15px] w-[12px]" />
               <span>Download for Mac</span>
@@ -204,7 +204,7 @@ function HeroContent() {
 
             <a
               href="#features"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/[0.12] px-8 py-3.5 text-[16px] font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] hover:border-white/[0.22]"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-medium)] px-8 py-3.5 text-[16px] font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] hover:border-[var(--border-strong)]"
             >
               See how it works
             </a>
@@ -212,7 +212,7 @@ function HeroContent() {
 
           <p
             ref={metaRef}
-            className="mt-5 border-t border-white/[0.06] pt-3 text-[13px] text-[var(--text-muted)] inline-block opacity-0"
+            className="mt-5 border-t border-[var(--border-subtle)] pt-3 text-[13px] text-[var(--text-muted)] inline-block opacity-0"
           >
             $29 once. macOS 14+. No subscription.
           </p>
@@ -222,7 +222,7 @@ function HeroContent() {
         <div
           className="relative mx-auto mt-14 max-w-[800px] md:mt-16"
         >
-          <div className="relative w-full overflow-hidden rounded-2xl border border-white/[0.06] bg-[var(--bg-secondary)]">
+          <div className="relative w-full overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
             <FileSortShowcase sorted={sorted} />
           </div>
 

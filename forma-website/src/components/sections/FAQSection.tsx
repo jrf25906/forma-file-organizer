@@ -82,7 +82,7 @@ function FAQItem({
   );
 
   return (
-    <div className="border-b border-white/[0.08] last:border-0">
+    <div className="border-b border-[var(--border-medium)] last:border-0">
       <button
         onClick={onToggle}
         aria-expanded={isOpen}
@@ -180,7 +180,7 @@ export default function FAQSection() {
             Common Questions
           </h2>
 
-          <div className="border border-white/[0.06] rounded-2xl px-6 md:px-8">
+          <div className="border border-[var(--border-subtle)] rounded-2xl px-6 md:px-8">
             {faqs.map((faq, index) => (
               <FAQItem
                 key={index}

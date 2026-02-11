@@ -80,7 +80,7 @@ function MobileFallback() {
                 {chaosFiles.map((file) => (
                   <li
                     key={file}
-                    className="truncate rounded-lg bg-white/10 px-3 py-1.5 font-mono text-[12px] leading-relaxed text-forma-bone/70 border border-white/[0.06]"
+                    className="truncate rounded-lg bg-[var(--surface-glass-hover)] px-3 py-1.5 font-mono text-[12px] leading-relaxed text-forma-bone/70 border border-[var(--border-subtle)]"
                   >
                     {file}
                   </li>
@@ -91,7 +91,7 @@ function MobileFallback() {
 
           {/* Arrow between cards */}
           <div className="flex justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 border border-white/15 shadow-md">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-glass-hover)] border border-[var(--border-strong)] shadow-md">
               <svg
                 className="w-4 h-4 text-forma-bone/60 rotate-90"
                 fill="none"
@@ -120,7 +120,7 @@ function MobileFallback() {
                 {organizedFolders.map((folder) => (
                   <li
                     key={folder.name}
-                    className="flex items-center gap-3 rounded-lg bg-white/10 px-4 py-3 border border-white/[0.06]"
+                    className="flex items-center gap-3 rounded-lg bg-[var(--surface-glass-hover)] px-4 py-3 border border-[var(--border-subtle)]"
                   >
                     <span className="text-lg">{folder.icon}</span>
                     <div className="flex flex-col">

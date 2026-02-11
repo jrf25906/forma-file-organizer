@@ -190,7 +190,7 @@ export function FeatureShowcase({ features }: FeatureShowcaseProps) {
               type="button"
               tabIndex={-1}
               aria-label={f.title}
-              className="h-2 w-2 rounded-full bg-white/50 transition-colors"
+              className="h-2 w-2 rounded-full bg-[var(--text-muted)] transition-colors"
               style={{
                 opacity: i === 0 ? 1 : 0.35,
                 transform: i === 0 ? "scale(1.5)" : "scale(1)",

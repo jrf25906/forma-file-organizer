@@ -64,7 +64,7 @@ export default function PricingSection() {
       <div className="site-container relative">
         <div
           ref={cardRef}
-          className="mx-auto max-w-xl bg-[#161618] border border-white/[0.10] rounded-2xl px-8 py-12 md:px-12 md:py-14 text-center"
+          className="mx-auto max-w-xl bg-[var(--bg-tertiary)] border border-[var(--border-medium)] rounded-2xl px-8 py-12 md:px-12 md:py-14 text-center"
           style={{ opacity: 0 }}
         >
           <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue/70">
@@ -99,7 +99,7 @@ export default function PricingSection() {
             <a
               href={MAC_APP_STORE_URL}
               {...MAC_APP_STORE_LINK_PROPS}
-              className="inline-flex items-center gap-3.5 rounded-xl py-4 px-8 bg-[#F0F0F2] text-[#0A0A0B] border border-white/20 shadow-lg shadow-black/30 transition-all duration-300 hover:bg-[#E0E0E2] hover:-translate-y-px hover:shadow-xl hover:shadow-black/40 active:translate-y-0"
+              className="inline-flex items-center gap-3.5 rounded-xl py-4 px-8 bg-[var(--cta-bg)] text-[var(--cta-text)] border border-[var(--border-strong)] shadow-lg shadow-[var(--shadow-color)] transition-all duration-300 hover:bg-[var(--cta-bg-hover)] hover:-translate-y-px hover:shadow-xl active:translate-y-0"
             >
               <AppleLogo className="w-7 h-7 flex-shrink-0" />
               <div className="flex flex-col items-start leading-tight">

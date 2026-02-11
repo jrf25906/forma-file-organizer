@@ -45,7 +45,7 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-[#050506] border-t border-white/[0.06]" role="contentinfo">
+    <footer className="bg-[var(--footer-bg)] border-t border-[var(--border-subtle)]" role="contentinfo">
       <div className="site-container py-10 md:py-12">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_auto] md:items-start">
           {/* Left: Logo + founder story */}
@@ -57,9 +57,9 @@ export default function Footer() {
               height={32}
               className="rounded-md flex-shrink-0"
             />
-            <p className="max-w-sm text-sm leading-relaxed text-[rgba(250,250,248,0.65)]">
+            <p className="max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
               Built by someone who got tired of seeing{" "}
-              <span className="font-mono text-[rgba(250,250,248,0.6)]">
+              <span className="font-mono text-[var(--text-muted)]">
                 Screenshot 2024-01-15 at 3.42.17 PM.png
               </span>{" "}
               fifty times on their desktop.
@@ -69,7 +69,7 @@ export default function Footer() {
           {/* Center: Link columns */}
           <div className="grid grid-cols-2 gap-10 sm:max-w-sm">
             <nav aria-label="Product">
-              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[rgba(250,250,248,0.55)]">
+              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
                 Product
               </p>
               <ul className="space-y-2.5">
@@ -77,7 +77,7 @@ export default function Footer() {
                   <li key={href}>
                     <SmoothScrollLink
                       href={href}
-                      className="text-sm text-[rgba(250,250,248,0.65)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
+                      className="text-sm text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text-primary)]"
                     >
                       {label}
                     </SmoothScrollLink>
@@ -87,7 +87,7 @@ export default function Footer() {
             </nav>
 
             <nav aria-label="Legal">
-              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[rgba(250,250,248,0.55)]">
+              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
                 Legal
               </p>
               <ul className="space-y-2.5">
@@ -95,7 +95,7 @@ export default function Footer() {
                   <li key={href}>
                     <Link
                       href={href}
-                      className="text-sm text-[rgba(250,250,248,0.65)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
+                      className="text-sm text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text-primary)]"
                     >
                       {label}
                     </Link>
@@ -109,11 +109,11 @@ export default function Footer() {
           <div className="flex flex-col gap-3 md:items-end">
             <a
               href="mailto:hello@forma.app"
-              className="text-sm text-[rgba(250,250,248,0.65)] transition-colors duration-200 hover:text-[rgba(250,250,248,0.82)]"
+              className="text-sm text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text-primary)]"
             >
               hello@forma.app
             </a>
-            <p className="text-xs text-[rgba(250,250,248,0.55)]">
+            <p className="text-xs text-[var(--text-muted)]">
               &copy; {currentYear} Forma. macOS app.
             </p>
           </div>

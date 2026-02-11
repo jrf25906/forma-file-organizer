@@ -85,7 +85,7 @@ function RulePreview() {
       {rules.map((rule) => (
         <div
           key={rule.text}
-          className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-2.5"
+          className="flex items-center justify-between rounded-lg border border-[var(--border-medium)] bg-[var(--surface-glass)] px-3.5 py-2.5"
         >
           <span className="font-mono text-[11px] text-[var(--text-secondary)]">
             {rule.text}{" "}
@@ -127,7 +127,7 @@ function ConnectionPreview() {
       {groups.map((group) => (
         <div
           key={group.name}
-          className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2"
+          className="rounded-lg border border-[var(--border-medium)] bg-[var(--surface-glass)] px-3 py-2"
         >
           <div className="mb-1 flex items-center gap-1.5">
             <span className={`h-1.5 w-1.5 rounded-full ${group.dotClass}`} />
@@ -139,7 +139,7 @@ function ConnectionPreview() {
             {group.files.map((file) => (
               <span
                 key={file}
-                className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]"
+                className="rounded bg-[var(--surface-glass-hover)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]"
               >
                 {file}
               </span>
@@ -178,7 +178,7 @@ function ControlPreview() {
       {files.map((file) => (
         <div
           key={file.name}
-          className={`flex items-start gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2${
+          className={`flex items-start gap-2 rounded-lg border border-[var(--border-medium)] bg-[var(--surface-glass)] px-3 py-2${
             !file.checked ? " opacity-60" : ""
           }`}
         >
@@ -218,7 +218,7 @@ function UndoPreview() {
       {rows.map((row) => (
         <div
           key={row.file}
-          className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2"
+          className="flex items-center justify-between rounded-lg border border-[var(--border-medium)] bg-[var(--surface-glass)] px-3 py-2"
         >
           <div className="min-w-0 pr-3">
             <p
@@ -407,7 +407,7 @@ function MobileFeatures() {
               return (
                 <article
                   key={feature.id}
-                  className="flex flex-col overflow-hidden rounded-2xl bg-[var(--bg-secondary)] border border-white/[0.06]"
+                  className="flex flex-col overflow-hidden rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)]"
                 >
                   <div className={`h-1.5 w-full ${feature.accentBorder}`} />
                   <div className="flex flex-1 flex-col p-6">
@@ -427,7 +427,7 @@ function MobileFeatures() {
                       {feature.description}
                     </p>
 
-                    <div className="demo-area mt-auto rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
+                    <div className="demo-area mt-auto rounded-xl border border-[var(--border-medium)] bg-[var(--surface-glass)] p-4">
                       <PreviewForFeature id={feature.id} />
                     </div>
                   </div>

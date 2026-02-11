@@ -17,14 +17,14 @@ export default function CredibilityStrip() {
               <Monitor size={15} className="text-[var(--accent-steel-blue)]" />
               Native Swift app
             </span>
-            <span className="hidden sm:inline text-white/20" aria-hidden="true">
+            <span className="hidden sm:inline text-[var(--divider-color)]" aria-hidden="true">
               &middot;
             </span>
             <span className="flex items-center gap-2">
               <Shield size={15} className="text-[var(--accent-steel-blue)]" />
               Files never leave your Mac
             </span>
-            <span className="hidden sm:inline text-white/20" aria-hidden="true">
+            <span className="hidden sm:inline text-[var(--divider-color)]" aria-hidden="true">
               &middot;
             </span>
             <span className="flex items-center gap-2">

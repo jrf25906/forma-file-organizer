@@ -109,7 +109,16 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Inline theme detection — runs before first paint to prevent FOUC.
+            Content is a static string literal; no user input involved. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var d=document.documentElement;var m=window.matchMedia('(prefers-color-scheme:light)');d.setAttribute('data-theme',m.matches?'light':'dark')}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body
         className={clsx(
           "min-h-screen antialiased overflow-x-hidden font-body",
@@ -118,7 +127,7 @@ export default function RootLayout({
           jetbrainsMono.variable
         )}
       >
-        <ThemeProvider defaultTheme="dark">
+        <ThemeProvider defaultTheme="system">
             <a
               href="#main-content"
               className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-forma-obsidian focus:text-forma-bone focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-forma-steel-blue"
