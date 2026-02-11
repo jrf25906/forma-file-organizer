@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { gsap, ScrollTrigger, useGSAP } from "@/lib/animation/gsap-config";
+import { ScrollTrigger, useGSAP } from "@/lib/animation/gsap-config";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
 
 const ScrollProgressContext = createContext<number>(0);
@@ -45,11 +45,19 @@ export function ScrollScene({
   const [hasMeasuredViewport, setHasMeasuredViewport] = useState(false);
 
   useEffect(() => {
-    setIsMobile(window.innerWidth < 768);
-    setHasMeasuredViewport(true);
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+    const viewportFrame = window.requestAnimationFrame(handleResize);
+    const measuredFrame = window.requestAnimationFrame(() =>
+      setHasMeasuredViewport(true)
+    );
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.cancelAnimationFrame(viewportFrame);
+      window.cancelAnimationFrame(measuredFrame);
+    };
   }, []);
 
   const reducedMotion = getReducedMotionValue();

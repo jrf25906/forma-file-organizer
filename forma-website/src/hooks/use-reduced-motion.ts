@@ -38,8 +38,9 @@ import { useState, useEffect } from "react";
  * @returns {boolean} Whether the user prefers reduced motion
  */
 export function useReducedMotion(): boolean {
-  // Default to false during SSR to avoid hydration mismatch
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(() =>
+    getReducedMotionValue()
+  );
 
   useEffect(() => {
     // Check if matchMedia is supported
@@ -48,9 +49,6 @@ export function useReducedMotion(): boolean {
     }
 
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-    // Set initial value
-    setReducedMotion(mediaQuery.matches);
 
     // Listen for changes (user can toggle in system settings)
     const handleChange = (event: MediaQueryListEvent) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import FileSortAnimation from "@/components/sections/FileSortAnimation";
 
@@ -177,22 +177,22 @@ export default function BeforeAfterSection() {
   const [isDesktop, setIsDesktop] = useState(false);
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const checkViewport = useCallback(() => {
-    setIsDesktop(window.innerWidth >= 768);
-  }, []);
-
   useEffect(() => {
-    checkViewport();
+    const checkViewport = () => setIsDesktop(window.innerWidth >= 768);
     const handleResize = () => {
       clearTimeout(resizeTimerRef.current);
       resizeTimerRef.current = setTimeout(checkViewport, 150);
     };
     window.addEventListener("resize", handleResize);
+
+    const viewportFrame = window.requestAnimationFrame(checkViewport);
+
     return () => {
       window.removeEventListener("resize", handleResize);
       clearTimeout(resizeTimerRef.current);
+      window.cancelAnimationFrame(viewportFrame);
     };
-  }, [checkViewport]);
+  }, []);
 
   if (!isDesktop) {
     return (

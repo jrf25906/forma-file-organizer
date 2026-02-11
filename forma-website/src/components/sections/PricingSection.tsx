@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
@@ -9,14 +9,12 @@ import { AppleLogo } from "@/components/icons";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 
 export default function PricingSection() {
-  const [isMac, setIsMac] = useState(true);
-
-  useEffect(() => {
+  const [isMac] = useState(() => {
+    if (typeof navigator === "undefined") return true;
     const platform = navigator.platform ?? "";
     const ua = navigator.userAgent ?? "";
-    const mac = /Mac/.test(platform) || /Macintosh/.test(ua);
-    setIsMac(mac);
-  }, []);
+    return /Mac/.test(platform) || /Macintosh/.test(ua);
+  });
 
   const sectionRef = useRef<HTMLElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);

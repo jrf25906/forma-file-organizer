@@ -29,36 +29,38 @@ function getSystemTheme(): ResolvedTheme {
     : "dark";
 }
 
-function resolveTheme(theme: Theme): ResolvedTheme {
-  if (theme === "system") return getSystemTheme();
-  return theme;
-}
-
 export function ThemeProvider({
   children,
   defaultTheme = "system",
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(defaultTheme);
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    resolveTheme(defaultTheme)
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() =>
+    getSystemTheme()
   );
+  const resolvedTheme: ResolvedTheme =
+    theme === "system" ? systemTheme : theme;
 
-  // Apply resolved theme to document and listen for system changes
+  // Apply resolved theme to document.
   useEffect(() => {
-    const resolved = resolveTheme(theme);
-    setResolvedTheme(resolved);
-    document.documentElement.setAttribute("data-theme", resolved);
+    document.documentElement.setAttribute("data-theme", resolvedTheme);
+  }, [resolvedTheme]);
 
+  // Listen for system changes only when theme follows system.
+  useEffect(() => {
     if (theme !== "system") return;
 
     const mql = window.matchMedia("(prefers-color-scheme: light)");
     const onChange = () => {
       const next = mql.matches ? "light" : "dark";
-      setResolvedTheme(next);
-      document.documentElement.setAttribute("data-theme", next);
+      setSystemTheme(next);
     };
+
+    const syncFrame = window.requestAnimationFrame(onChange);
     mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
+    return () => {
+      window.cancelAnimationFrame(syncFrame);
+      mql.removeEventListener("change", onChange);
+    };
   }, [theme]);
 
   const setTheme = (next: Theme) => {
