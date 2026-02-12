@@ -6,6 +6,16 @@ import CryptoKit
 @MainActor
 final class OptimizationBenchmarksTests: XCTestCase {
 
+    /// Performance guardrails captured from the February 5, 2026 benchmark run.
+    /// Budgets are intentionally conservative to avoid CI flakiness while still
+    /// catching meaningful regressions.
+    private static let budgets: [String: BenchmarkBudget] = [
+        "search_lookup_linear_vs_indexed": .init(maxOptimizedMs: 5.0, minSpeedup: 1000.0),
+        "scan_syscalls_baseline_vs_prefetch": .init(maxOptimizedMs: 24.0, minSpeedup: 5.0),
+        "duplicate_detection_legacy_vs_optimized": .init(maxOptimizedMs: 90.0, minSpeedup: 2.0),
+        "context_detection_sync_vs_off_main": .init(maxOptimizedMs: 250.0, minSpeedup: 0.7)
+    ]
+
     private struct BenchmarkResult {
         let name: String
         let baselineMs: Double
@@ -17,12 +27,18 @@ final class OptimizationBenchmarksTests: XCTestCase {
         }
     }
 
-    func testCaptureOptimizationBenchmarks() throws {
+    private struct BenchmarkBudget {
+        let maxOptimizedMs: Double
+        let minSpeedup: Double
+    }
+
+    func testCaptureOptimizationBenchmarks() async throws {
         let searchResult = benchmarkSearchLookupPath()
         let scanResult = try benchmarkDirectoryScanPath()
         let duplicateResult = try benchmarkDuplicateDetectionPath()
+        let contextDetectionResult = await benchmarkContextDetectionPath()
 
-        let results = [searchResult, scanResult, duplicateResult]
+        let results = [searchResult, scanResult, duplicateResult, contextDetectionResult]
         for result in results {
             print(
                 String(
@@ -38,6 +54,22 @@ final class OptimizationBenchmarksTests: XCTestCase {
         for result in results {
             XCTAssertGreaterThan(result.baselineMs, 0)
             XCTAssertGreaterThan(result.optimizedMs, 0)
+
+            guard let budget = Self.budgets[result.name] else {
+                XCTFail("Missing performance budget for benchmark '\(result.name)'")
+                continue
+            }
+
+            XCTAssertLessThanOrEqual(
+                result.optimizedMs,
+                budget.maxOptimizedMs,
+                "Optimized path for '\(result.name)' regressed (\(String(format: "%.2f", result.optimizedMs))ms > \(String(format: "%.2f", budget.maxOptimizedMs))ms)"
+            )
+            XCTAssertGreaterThanOrEqual(
+                result.speedup,
+                budget.minSpeedup,
+                "Speedup for '\(result.name)' regressed (\(String(format: "%.2f", result.speedup))x < \(String(format: "%.2f", budget.minSpeedup))x)"
+            )
         }
     }
 
@@ -357,6 +389,111 @@ final class OptimizationBenchmarksTests: XCTestCase {
         return 1.0 - (Double(distance) / Double(maxLen))
     }
 
+    // MARK: - Context Detection Benchmark
+
+    private func benchmarkContextDetectionPath() async -> BenchmarkResult {
+        let featureFlags = FeatureFlagService.shared
+        featureFlags.masterAIEnabled = true
+        featureFlags.setEnabled(.contextDetection, true)
+        defer { featureFlags.resetToDefaults() }
+
+        let files = makeContextDetectionBenchmarkFiles()
+        XCTAssertGreaterThan(files.count, 1_000)
+
+        let service = ContextDetectionService()
+        _ = service.detectClusters(from: files) // warm-up
+        _ = await service.detectClustersOffMain(from: files) // warm-up
+
+        let baselineMs = measureAverageMs(iterations: 5) {
+            let clusters = service.detectClusters(from: files)
+            XCTAssertFalse(clusters.isEmpty)
+        }
+
+        let optimizedMs = await measureAverageMsAsync(iterations: 5) {
+            let clusters = await service.detectClustersOffMain(from: files)
+            XCTAssertFalse(clusters.isEmpty)
+        }
+
+        return BenchmarkResult(
+            name: "context_detection_sync_vs_off_main",
+            baselineMs: baselineMs,
+            optimizedMs: optimizedMs
+        )
+    }
+
+    private func makeContextDetectionBenchmarkFiles() -> [FileItem] {
+        let baseDate = Date()
+        var files: [FileItem] = []
+        files.reserveCapacity(1_300)
+
+        // Project code groups (regex-heavy).
+        for project in 0..<45 {
+            let projectCode = String(format: "P-%04d", 1200 + project)
+            for index in 0..<8 {
+                let name = "\(projectCode)_artifact_\(index).pdf"
+                let date = baseDate.addingTimeInterval(Double(project * 120 + index * 8))
+                files.append(makeContextBenchmarkFile(name: name, modDate: date, sizeInBytes: 120_000))
+            }
+        }
+
+        // Name similarity groups (Levenshtein-heavy).
+        for group in 0..<45 {
+            let stem = "meeting_notes_\(group)"
+            let variants = [
+                "\(stem)_draft.docx",
+                "\(stem)_v1.docx",
+                "\(stem)_v2.docx",
+                "\(stem)_revA.docx",
+                "\(stem)_final.docx",
+                "\(stem)_copy.docx"
+            ]
+            for (index, name) in variants.enumerated() {
+                let date = baseDate.addingTimeInterval(Double(group * 90 + index * 12))
+                files.append(makeContextBenchmarkFile(name: name, modDate: date, sizeInBytes: 95_000))
+            }
+        }
+
+        // Date-stamped groups.
+        for dayOffset in 0..<35 {
+            let day = 1 + (dayOffset % 28)
+            let dateStamp = String(format: "2026-01-%02d", day)
+            for index in 0..<6 {
+                let name = "\(dateStamp)_report_\(index).txt"
+                let date = baseDate.addingTimeInterval(Double(dayOffset * 180 + index * 6))
+                files.append(makeContextBenchmarkFile(name: name, modDate: date, sizeInBytes: 70_000))
+            }
+        }
+
+        // Temporal session groups.
+        for session in 0..<50 {
+            let sessionStart = baseDate.addingTimeInterval(Double(session) * 900)
+            for index in 0..<5 {
+                let name = "session_\(session)_work_\(index).png"
+                let date = sessionStart.addingTimeInterval(Double(index) * 30)
+                files.append(makeContextBenchmarkFile(name: name, modDate: date, sizeInBytes: 150_000))
+            }
+        }
+
+        // Noise files.
+        for index in 0..<150 {
+            let name = "misc_\(index).bin"
+            let date = baseDate.addingTimeInterval(Double(index) * 37)
+            files.append(makeContextBenchmarkFile(name: name, modDate: date, sizeInBytes: 20_000))
+        }
+
+        return files
+    }
+
+    private func makeContextBenchmarkFile(name: String, modDate: Date, sizeInBytes: Int64) -> FileItem {
+        FileItem(
+            path: "/Users/test/Benchmarks/\(name)",
+            sizeInBytes: sizeInBytes,
+            creationDate: modDate.addingTimeInterval(-600),
+            modificationDate: modDate,
+            lastAccessedDate: modDate
+        )
+    }
+
     // MARK: - Timing Helpers
 
     private func measureAverageMs(iterations: Int, _ block: () throws -> Void) rethrows -> Double {
@@ -367,6 +504,25 @@ final class OptimizationBenchmarksTests: XCTestCase {
         for _ in 0..<iterations {
             let start = DispatchTime.now().uptimeNanoseconds
             try block()
+            let end = DispatchTime.now().uptimeNanoseconds
+            let elapsedMs = Double(end - start) / 1_000_000.0
+            samples.append(elapsedMs)
+        }
+
+        return samples.reduce(0, +) / Double(samples.count)
+    }
+
+    private func measureAverageMsAsync(
+        iterations: Int,
+        _ block: () async throws -> Void
+    ) async rethrows -> Double {
+        precondition(iterations > 0, "iterations must be > 0")
+        var samples: [Double] = []
+        samples.reserveCapacity(iterations)
+
+        for _ in 0..<iterations {
+            let start = DispatchTime.now().uptimeNanoseconds
+            try await block()
             let end = DispatchTime.now().uptimeNanoseconds
             let elapsedMs = Double(end - start) / 1_000_000.0
             samples.append(elapsedMs)

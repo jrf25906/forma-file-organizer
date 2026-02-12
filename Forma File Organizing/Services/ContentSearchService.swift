@@ -14,6 +14,11 @@ private let sourceFolderBookmarks: [String: String] = [
 /// Searches file contents with direct file reading for supported text formats.
 ///
 /// Heavy scanning work runs off the main actor to keep typing and scrolling responsive.
+@MainActor
+protocol ContentSearchServing {
+    func search(query: String, in files: [FileItem]) async -> [ContentSearchService.SearchResult]
+}
+
 final class ContentSearchService {
 
     // MARK: - Types
@@ -403,3 +408,5 @@ final class ContentSearchService {
         return snippet
     }
 }
+
+extension ContentSearchService: ContentSearchServing {}

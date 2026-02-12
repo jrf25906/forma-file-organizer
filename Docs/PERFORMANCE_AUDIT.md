@@ -5,7 +5,7 @@
 This document tracks the performance optimization work for the Forma macOS app following Phase 3 AI/ML integration. The app was experiencing severe UI freezes (30-60 seconds) after the permissions screen and during actions like "Create Rule".
 
 **Audit Date:** December 2025
-**Last Verified:** February 5, 2026
+**Last Verified:** February 12, 2026
 **Status:** Active and benchmarked
 
 ---
@@ -124,6 +124,91 @@ Notes:
 - These are synthetic microbenchmarks intended for relative comparison, not user-facing latency guarantees.
 - The benchmark output is emitted as `BENCHMARK|...` lines in test logs for easy regression tracking.
 
+### Performance Regression Budgets (Added February 12, 2026)
+
+`OptimizationBenchmarksTests` now enforces hard guardrails based on the February 5, 2026 baseline run.
+The test fails when optimized-path timing or speedup regresses beyond these budgets.
+
+| Benchmark | Max Optimized (ms) | Min Speedup |
+|-----------|--------------------|-------------|
+| `search_lookup_linear_vs_indexed` | 5.00 | 1000.00x |
+| `scan_syscalls_baseline_vs_prefetch` | 24.00 | 5.00x |
+| `duplicate_detection_legacy_vs_optimized` | 90.00 | 2.00x |
+
+### Signpost Snapshot & Warm-up Policy (February 12, 2026)
+
+A debug-only harness drives repeated dashboard refresh flows and now tags each interval as warm-up or sample:
+
+- Launch argument: `--perf-signpost-harness`
+- Sample iteration control: `FORMA_PERF_HARNESS_ITERATIONS` (environment variable)
+- Warm-up control: `FORMA_PERF_HARNESS_WARMUP` (environment variable, default `3`)
+- Data mode: `--uitesting` (in-memory deterministic mock files)
+- Harness guard: `runPerformanceSignpostHarness` executes once per app launch to prevent overlapping duplicate runs in a single trace.
+
+**Preferred capture command (scripted)**
+
+```bash
+Scripts/signpost_harness_snapshot.sh --iterations 60 --warmup 3 --time-limit 95 --output-prefix /tmp/forma-signpost-harness-60
+```
+
+**Raw xctrace command (manual fallback)**
+
+```bash
+xcrun xctrace record --template 'Logging' --output /tmp/forma-signpost-harness-warmup-once.trace --time-limit 28s --no-prompt --launch -- /usr/bin/env FORMA_PERF_HARNESS_WARMUP=3 FORMA_PERF_HARNESS_ITERATIONS=30 '/Users/jamesfarmer/Library/Developer/Xcode/DerivedData/Forma_File_Organizing-fnipupejxxbcmfgxesfzcmrikizz/Build/Products/Debug/Forma File Organizing.app/Contents/MacOS/Forma File Organizing' --uitesting --perf-signpost-harness
+```
+
+**Sample selection**
+
+- Source table: `os-signpost-interval` from `xctrace export`
+- Included only complete intervals (`→` present in row metadata)
+- Filtered start metadata:
+  - `[ DashboardScanRefresh ]  harness warmup N`
+  - `[ DashboardScanRefresh ]  harness sample N`
+  - `[ DefaultPanelInsightRefresh ]  harness warmup N`
+  - `[ DefaultPanelInsightRefresh ]  harness sample N`
+
+**Warm-up cutoff policy**
+
+- Performance budget tracking uses **sample-only** intervals (`harness sample N`).
+- We still retain **warmup+sample** p95 as a diagnostic for cold-start behavior.
+
+### Long-Run Snapshot (Captured February 11, 2026)
+
+- Command: `Scripts/signpost_harness_snapshot.sh --iterations 60 --warmup 3 --time-limit 95 --output-prefix /tmp/forma-signpost-harness-60`
+- Captured complete intervals: `3` warmups + `60` dashboard samples and `58` default-panel samples.
+
+| Operation | Sample Count | Min (ms) | P50 (ms) | P95 (ms) | P99 (ms) | Mean (ms) | Max (ms) |
+|-----------|--------------|----------|----------|----------|----------|-----------|----------|
+| `DashboardScanRefresh` (sample-only) | 60 | 354.606 | 410.458 | 430.861 | 460.897 | 409.659 | 460.897 |
+| `DefaultPanelInsightRefresh` (sample-only) | 58 | 0.223 | 0.254 | 0.305 | 0.333 | 0.258 | 0.333 |
+
+| Operation | P95 (warmup+sample) | P95 (sample-only) | Delta (ms) |
+|-----------|----------------------|-------------------|------------|
+| `DashboardScanRefresh` | 453.824 | 430.861 | -22.963 |
+| `DefaultPanelInsightRefresh` | 0.305 | 0.305 | 0.000 |
+
+### Provisional P95 Budgets (February 12, 2026)
+
+| Operation | Latest Sample-Only P95 (ms) | Provisional P95 Budget (ms) | Rationale |
+|-----------|-----------------------------|------------------------------|-----------|
+| `DashboardScanRefresh` | 430.861 | 500.000 | Keeps meaningful headroom while still detecting user-perceptible scan regressions. |
+| `DefaultPanelInsightRefresh` | 0.305 | 0.400 | Keeps insight refresh effectively instant while allowing minor run-to-run variance. |
+
+Sub-phase signposts now emitted within dashboard refresh flows:
+- `DashboardScanDiscovery`
+- `DashboardRuleEvaluation`
+- `DashboardClusterRefresh`
+- `DashboardPublish`
+- Current harness mode (`--perf-signpost-harness` using automation update) emits `DashboardClusterRefresh` and `DashboardPublish`; full scan pipeline runs emit `DashboardScanDiscovery` and `DashboardRuleEvaluation`.
+
+### Regression Gate Command
+
+Run the dedicated performance plan (which now includes `OptimizationBenchmarksTests`) before merge:
+
+```bash
+xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -testPlan "Forma File Organizing - Performance" -destination 'platform=macOS'
+```
+
 ### Validation Snapshot (February 5, 2026)
 
 **Command used**
@@ -138,151 +223,23 @@ xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File O
 
 ---
 
-## Fix Implementation Plan
+## Next Optimization Batch (Starting February 12, 2026)
 
-### Phase 1: Instrumentation (Current)
-- [ ] Add PerformanceMonitor utility class
-- [ ] Instrument DashboardViewModel.scanFiles()
-- [ ] Instrument FileScanPipeline.persist()
-- [ ] Instrument ContextDetectionService.detectClusters()
-- [ ] Instrument InsightsService.generateInsights()
-- [ ] Instrument DuplicateDetectionService hash calculation
-- [ ] Record baseline measurements
+The initial speed sprint goals are complete. This next batch focuses on reducing tail latency and making performance checks repeatable before merge.
 
-### Phase 2: Critical Fixes (P0)
-- [ ] Remove `@MainActor` from FileScanPipelineProtocol
-- [ ] Wrap heavy work in `Task.detached` in DashboardViewModel
-- [ ] Add debouncing to DefaultPanelView onChange handlers
-- [ ] Make InsightsService.generateInsights() async
+### Priority 1: Tail-Latency Containment
+- [x] Split `DashboardScanRefresh` into sub-phase signposts (scan discovery, rule evaluation, cluster refresh, dashboard publish) to isolate the `860ms` outlier path seen in the current snapshot.
+- [x] Add a warm-up cutoff policy for harness analysis (for example, discard first N intervals) and document it with before/after p95 values.
+- [x] Capture a longer run (`60+` complete intervals) and record p50/p95/p99 for `DashboardScanRefresh`.
 
-### Phase 3: High Priority Fixes (P1)
-- [ ] Cap or parallelize name similarity detection
-- [ ] Stream file hashing with chunked reads
-- [ ] Run LearningService algorithms in parallel
+### Priority 2: Regression Automation
+- [x] Add a script in `Scripts/` that runs the signpost harness and exports summary stats (samples, min/p50/p95/p99/mean/max) from `xctrace`.
+- [x] Add a dedicated pre-PR command in `Docs/Development/TESTING.md` for running the signpost snapshot flow.
+- [x] Define provisional p95 budget targets for dashboard and default-panel refresh operations based on the latest trace.
 
-### Phase 4: Medium Priority Fixes (P2)
-- [ ] Batch ML predictions with TaskGroup
-- [ ] Add early-exit conditions to expensive loops
-- [ ] Implement progressive loading for large file counts
-
-### Phase 5: Verification
-- [ ] Re-measure with instrumentation
-- [ ] Compare before/after metrics
-- [ ] Verify UI responsiveness during scan
-- [ ] Test with 500+ files
-- [ ] Test with large files (100MB+)
-
----
-
-## Code Patterns to Apply
-
-### Pattern 1: Moving Work Off Main Thread
-
-```swift
-// BEFORE: @MainActor forces main thread
-@MainActor
-func heavyOperation() async {
-    let result = expensiveComputation()  // Blocks UI
-}
-
-// AFTER: Dispatch to background
-@MainActor
-func heavyOperation() async {
-    let result = await Task.detached(priority: .userInitiated) {
-        expensiveComputation()  // Background thread
-    }.value
-    // Back on MainActor for UI updates
-    self.data = result
-}
-```
-
-### Pattern 2: Debouncing onChange
-
-```swift
-// BEFORE: Fires on every change
-.onChange(of: data) { _, _ in
-    expensiveUpdate()
-}
-
-// AFTER: Debounced
-@State private var updateTask: Task<Void, Never>?
-
-.onChange(of: data) { _, _ in
-    updateTask?.cancel()
-    updateTask = Task {
-        try? await Task.sleep(for: .milliseconds(300))
-        guard !Task.isCancelled else { return }
-        await expensiveUpdateAsync()
-    }
-}
-```
-
-### Pattern 3: Parallel Processing
-
-```swift
-// BEFORE: Sequential
-for item in items {
-    await process(item)
-}
-
-// AFTER: Concurrent with TaskGroup
-await withTaskGroup(of: Result.self) { group in
-    for item in items {
-        group.addTask { await process(item) }
-    }
-    for await result in group {
-        results.append(result)
-    }
-}
-```
-
-### Pattern 4: Streaming File I/O
-
-```swift
-// BEFORE: Load entire file
-let data = FileManager.default.contents(atPath: path)!
-let hash = SHA256.hash(data: data)
-
-// AFTER: Stream in chunks
-var hasher = SHA256()
-let stream = InputStream(fileAtPath: path)!
-stream.open()
-defer { stream.close() }
-
-var buffer = [UInt8](repeating: 0, count: 64 * 1024)
-while stream.hasBytesAvailable {
-    let count = stream.read(&buffer, maxLength: buffer.count)
-    if count > 0 { hasher.update(data: Data(buffer[0..<count])) }
-}
-let hash = hasher.finalize()
-```
-
----
-
-## Testing Checklist
-
-### Functional Tests
-- [ ] App launches without crash
-- [ ] Onboarding flow completes
-- [ ] File scanning discovers files
-- [ ] Rules are evaluated correctly
-- [ ] ML predictions still work
-- [ ] Insights are generated
-
-### Performance Tests
-- [ ] UI remains responsive during scan (target: <100ms frame time)
-- [ ] Scan completes in reasonable time (target: <5s for 500 files)
-- [ ] "Create Rule" responds immediately
-- [ ] Large file handling doesn't freeze UI
-
-### Edge Cases
-- [ ] Empty folders
-- [ ] 1000+ files
-- [ ] Files >100MB
-- [ ] Network drives (if supported)
-- [ ] Simultaneous operations
-
----
+### Priority 3: User-Perceived Responsiveness
+- [x] Ensure default-panel insight refresh uses a strict single in-flight task policy under rapid data updates.
+- [x] Add lightweight scan phase status text in the dashboard so long operations communicate progress instead of appearing stalled.
 
 ## References
 
@@ -318,6 +275,5 @@ let hash = hasher.finalize()
 | 2025-12-02 | Initial audit and documentation | Claude Code |
 | 2025-12-22 | Analytics performance optimization (background threading) | Antigravity |
 | 2026-02-05 | Added measured optimization benchmark results and non-UI suite verification snapshot | Codex |
-| - | Added instrumentation | - |
-| - | Phase 2 fixes | - |
-| - | Verification complete | - |
+| 2026-02-12 | Removed stale checklist content and added next optimization batch priorities | Codex |
+| 2026-02-12 | Completed next optimization batch with scripted signpost harness snapshots, long-run p50/p95/p99 metrics, provisional p95 budgets, and responsiveness UX updates | Codex |

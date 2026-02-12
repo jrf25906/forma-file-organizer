@@ -1,8 +1,9 @@
 import Foundation
+import CryptoKit
 
 /// Represents a contextual insight about file organization patterns and opportunities
 struct FileInsight: Identifiable, Equatable {
-    let id: UUID
+    let id: String
     let message: String
     let detail: String?
     let actionLabel: String?
@@ -15,7 +16,7 @@ struct FileInsight: Identifiable, Equatable {
     let fileTypeCategory: FileTypeCategory?
     let affectedCount: Int?
 
-    init(id: UUID = UUID(),
+    init(id: String? = nil,
          message: String,
          detail: String? = nil,
          actionLabel: String? = nil,
@@ -24,7 +25,15 @@ struct FileInsight: Identifiable, Equatable {
          iconName: String = "lightbulb.fill",
          fileTypeCategory: FileTypeCategory? = nil,
          affectedCount: Int? = nil) {
-        self.id = id
+        self.id = id ?? Self.makeStableID(
+            message: message,
+            detail: detail,
+            actionLabel: actionLabel,
+            priority: priority,
+            iconName: iconName,
+            fileTypeCategory: fileTypeCategory,
+            affectedCount: affectedCount
+        )
         self.message = message
         self.detail = detail
         self.actionLabel = actionLabel
@@ -44,6 +53,29 @@ struct FileInsight: Identifiable, Equatable {
         lhs.iconName == rhs.iconName &&
         lhs.fileTypeCategory == rhs.fileTypeCategory &&
         lhs.affectedCount == rhs.affectedCount
+    }
+
+    private static func makeStableID(
+        message: String,
+        detail: String?,
+        actionLabel: String?,
+        priority: Int,
+        iconName: String,
+        fileTypeCategory: FileTypeCategory?,
+        affectedCount: Int?
+    ) -> String {
+        let key = [
+            "message=\(message)",
+            "detail=\(detail ?? "")",
+            "action=\(actionLabel ?? "")",
+            "priority=\(priority)",
+            "icon=\(iconName)",
+            "category=\(fileTypeCategory?.rawValue ?? "none")",
+            "count=\(affectedCount.map(String.init) ?? "none")"
+        ].joined(separator: "|")
+
+        let digest = SHA256.hash(data: Data(key.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -80,24 +112,37 @@ class InsightsService {
         from files: [FileItem],
         activities: [ActivityItem],
         rules: [Rule],
+        precomputedClusters: [ProjectCluster]? = nil,
         now: Date? = nil
     ) async -> [FileInsight] {
         let effectiveNow = now ?? clock.now
         let insightId = performanceMonitor.begin(.insightGeneration, metadata: "\(files.count) files, \(activities.count) activities")
+        var completionMetadata = "cancelled"
+        defer {
+            performanceMonitor.end(.insightGeneration, id: insightId, metadata: completionMetadata)
+        }
+        guard !Task.isCancelled else { return [] }
 
         var insights: [FileInsight] = []
         insights.append(contentsOf: detectFilePatterns(files))
+        guard !Task.isCancelled else { return [] }
         insights.append(contentsOf: detectStorageIssues(files))
+        guard !Task.isCancelled else { return [] }
         insights.append(contentsOf: detectRuleOpportunities(from: activities, files: files))
-        insights.append(contentsOf: detectProjectClusters(files))
+        guard !Task.isCancelled else { return [] }
+        if let precomputedClusters {
+            insights.append(contentsOf: projectClusterInsights(from: precomputedClusters))
+        } else {
+            insights.append(contentsOf: await detectProjectClusters(files))
+        }
+        guard !Task.isCancelled else { return [] }
         if let summary = generateActivitySummary(from: activities, now: effectiveNow) {
             insights.append(summary)
         }
 
         // Sort by priority (higher = more important)
         let result = insights.sorted { $0.priority > $1.priority }
-
-        performanceMonitor.end(.insightGeneration, id: insightId, metadata: "\(result.count) insights")
+        completionMetadata = "\(result.count) insights"
         return result
     }
 
@@ -235,13 +280,16 @@ class InsightsService {
     // MARK: - Context Detection
 
     /// Detect project clusters using context detection algorithms
-    private func detectProjectClusters(_ files: [FileItem]) -> [FileInsight] {
-        var insights: [FileInsight] = []
-
+    private func detectProjectClusters(_ files: [FileItem]) async -> [FileInsight] {
         // Only detect clusters if we have enough files to analyze
-        guard files.count >= 5 else { return insights }
+        guard files.count >= 5 else { return [] }
 
-        let clusters = contextDetectionService.detectClusters(from: files)
+        let clusters = await contextDetectionService.detectClustersOffMain(from: files)
+        return projectClusterInsights(from: clusters)
+    }
+
+    private func projectClusterInsights(from clusters: [ProjectCluster]) -> [FileInsight] {
+        var insights: [FileInsight] = []
 
         // Convert clusters into insights
         for cluster in clusters where cluster.shouldShow {

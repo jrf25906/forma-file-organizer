@@ -24,6 +24,7 @@ struct DefaultPanelView: View {
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
 
     private let insightsService = InsightsService.shared
+    private let performanceMonitor = PerformanceMonitor.shared
 
     /// Check if any suggestions (Smart Rules or Quick Actions) are available
     private var hasAnySuggestions: Bool {
@@ -53,6 +54,8 @@ struct DefaultPanelView: View {
     // MARK: - Debouncing for Insights Generation
     /// Task handle for debounced insight loading - cancels previous pending loads
     @State private var insightLoadTask: Task<Void, Never>?
+    /// Monotonic sequence to ensure only the latest insight refresh task can apply state.
+    @State private var insightLoadSequence: UInt64 = 0
     /// Debounce interval in seconds (300ms coalesces rapid onChange triggers)
     private let insightDebounceInterval: UInt64 = 300_000_000 // nanoseconds
 
@@ -107,8 +110,12 @@ struct DefaultPanelView: View {
         .onChange(of: dashboardViewModel.recentActivities) { _, _ in
             loadInsightsDebounced()
         }
+        .onChange(of: dashboardViewModel.detectedClusters.count) { _, _ in
+            loadInsightsDebounced()
+        }
         .onDisappear {
             // Cancel any pending insight load when view disappears
+            insightLoadSequence &+= 1
             insightLoadTask?.cancel()
         }
         .overlay(alignment: .topLeading) {
@@ -156,6 +163,8 @@ struct DefaultPanelView: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                scanPhaseStatusSection
 
                 // Progress indicator with percentage
                 progressSection
@@ -221,6 +230,8 @@ struct DefaultPanelView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.top, FormaSpacing.tight)
+
+                scanPhaseStatusSection
 
                 // Progress at 100%
                 progressSection
@@ -514,7 +525,7 @@ struct DefaultPanelView: View {
 
     /// Filtered insights excluding dismissed suggestions
     private var visibleInsights: [FileInsight] {
-        insights.filter { !dismissedInsightIDs.contains($0.id.uuidString) }
+        insights.filter { !dismissedInsightIDs.contains($0.id) }
     }
 
     private func quickActionsSection(insight: FileInsight) -> some View {
@@ -536,7 +547,7 @@ struct DefaultPanelView: View {
                 QuickActionCard(
                     insight: topInsight,
                     action: { dashboardViewModel.showRuleBuilderPanel() },
-                    onDismiss: { dismissedInsightIDs.insert(topInsight.id.uuidString) }
+                    onDismiss: { dismissedInsightIDs.insert(topInsight.id) }
                 )
             }
 
@@ -546,7 +557,7 @@ struct DefaultPanelView: View {
                     QuickActionCard(
                         insight: visibleInsight,
                         action: { dashboardViewModel.showRuleBuilderPanel() },
-                        onDismiss: { dismissedInsightIDs.insert(visibleInsight.id.uuidString) }
+                        onDismiss: { dismissedInsightIDs.insert(visibleInsight.id) }
                     )
                 }
             }
@@ -668,51 +679,86 @@ struct DefaultPanelView: View {
         )
     }
 
+    @ViewBuilder
+    private var scanPhaseStatusSection: some View {
+        if dashboardViewModel.isLoading, let phase = dashboardViewModel.scanPhaseStatusText {
+            HStack(spacing: FormaSpacing.tight) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(phase)
+                    .font(.formaCaption)
+                    .foregroundStyle(progressLabelColor)
+                    .lineLimit(1)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("defaultPanelScanPhaseStatus")
+        }
+    }
+
     // MARK: - Insight Loading
 
     /// Load insights on appear - uses async to avoid blocking main thread
     private func loadInsightsImmediately() {
-        Task {
-            let newInsights = await insightsService.generateInsights(
-                from: dashboardViewModel.allFiles,
-                activities: dashboardViewModel.recentActivities,
-                rules: []
-            )
-            await MainActor.run {
-                insights = newInsights
-            }
-        }
+        scheduleInsightRefresh(metadata: "immediate", debounceNanoseconds: 0)
     }
 
     /// Load insights with debouncing (used on data changes)
     /// Cancels any pending load and waits for debounce interval before executing
     /// Uses async version with parallel execution for better performance
     private func loadInsightsDebounced() {
-        // Cancel any existing pending task
+        scheduleInsightRefresh(metadata: "debounced", debounceNanoseconds: insightDebounceInterval)
+    }
+
+    /// Enforces a strict single in-flight refresh policy:
+    /// each new request cancels and supersedes any previous request.
+    private func scheduleInsightRefresh(metadata: String, debounceNanoseconds: UInt64) {
+        insightLoadSequence &+= 1
+        let requestSequence = insightLoadSequence
         insightLoadTask?.cancel()
-
-        // Create new debounced task
         insightLoadTask = Task {
-            // Wait for debounce interval
-            try? await Task.sleep(nanoseconds: insightDebounceInterval)
+            let refreshId = performanceMonitor.begin(
+                .defaultPanelInsightRefresh,
+                metadata: metadata
+            )
+            var completionMetadata = "cancelled"
+            defer {
+                performanceMonitor.end(
+                    .defaultPanelInsightRefresh,
+                    id: refreshId,
+                    metadata: completionMetadata
+                )
+            }
 
-            // Check if cancelled during sleep
-            guard !Task.isCancelled else { return }
+            if debounceNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: debounceNanoseconds)
+            }
 
-            // Generate insights using async version (runs expensive ops in parallel, off main thread)
+            guard !Task.isCancelled, requestSequence == insightLoadSequence else { return }
+
             let newInsights = await insightsService.generateInsights(
                 from: dashboardViewModel.allFiles,
                 activities: dashboardViewModel.recentActivities,
-                rules: []
+                rules: [],
+                precomputedClusters: dashboardViewModel.detectedClusters
             )
+            guard !Task.isCancelled, requestSequence == insightLoadSequence else { return }
 
-            // Update state on main thread if not cancelled
-            if !Task.isCancelled {
-                await MainActor.run {
-                    insights = newInsights
-                }
+            completionMetadata = "\(newInsights.count) insights"
+            await MainActor.run {
+                guard requestSequence == insightLoadSequence else { return }
+                applyInsights(newInsights)
             }
         }
+    }
+
+    private func applyInsights(_ newInsights: [FileInsight]) {
+        if insights == newInsights {
+            return
+        }
+
+        let liveInsightIDs = Set(newInsights.map(\.id))
+        dismissedInsightIDs.formIntersection(liveInsightIDs)
+        insights = newInsights
     }
 }
 

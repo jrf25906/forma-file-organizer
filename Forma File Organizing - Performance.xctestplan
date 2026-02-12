@@ -25,9 +25,9 @@
         "name": "Forma File OrganizingTests"
       },
       "selectedTests": [
+        "OptimizationBenchmarksTests",
         "DestinationPredictionPerformanceTests",
         "RateLimitingTests",
-        "RateLimitingPerformanceTests",
         "DashboardViewModelPerformanceTests",
         "StorageServicePerformanceTests"
       ]

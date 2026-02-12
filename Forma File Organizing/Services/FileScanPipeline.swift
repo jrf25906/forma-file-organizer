@@ -74,7 +74,16 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         context: ModelContext
     ) async -> ScanResult {
         // 1. Scan using protocol method
+        let discoveryId = PerformanceMonitor.shared.begin(
+            .dashboardScanDiscovery,
+            metadata: "\(baseFolders.count) roots"
+        )
         let result = await fileSystemService.scan(baseFolders: baseFolders, options: scanOptions)
+        PerformanceMonitor.shared.end(
+            .dashboardScanDiscovery,
+            id: discoveryId,
+            metadata: "\(result.files.count) files, \(result.scannedRootPaths.count) roots"
+        )
         let scanMeta = ScanResult(files: [], errorSummary: result.errorSummary, rawErrors: result.errors)
         return await persist(
             files: result.files,
@@ -95,6 +104,10 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         scanMeta: ScanResult
     ) async -> ScanResult {
         let persistId = PerformanceMonitor.shared.begin(.ruleEvaluation, metadata: "\(files.count) files")
+        let dashboardRuleEvaluationId = PerformanceMonitor.shared.begin(
+            .dashboardRuleEvaluation,
+            metadata: "\(files.count) files, \(rules.count) rules"
+        )
 
         // PHASE 1: Fetch data needed for computation (SwiftData requirement)
         let (patterns, negativePatterns, hasTrainedModel) = fetchDataForComputation(context: context)
@@ -123,6 +136,11 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         } else {
             evaluated = patternEvaluated
         }
+        PerformanceMonitor.shared.end(
+            .dashboardRuleEvaluation,
+            id: dashboardRuleEvaluationId,
+            metadata: "\(evaluated.count) evaluated"
+        )
 
         // PHASE 3: Persist results (SwiftData requirement)
         let normalized = normalizeAlreadyOrganizedFiles(evaluated)

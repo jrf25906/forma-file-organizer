@@ -287,6 +287,30 @@ final class ContextDetectionServiceTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(projectClusters.count, 1, "Should detect project code cluster")
         XCTAssertGreaterThanOrEqual(dateStampClusters.count, 1, "Should detect date stamp cluster")
     }
+
+    func testDetectClustersOffMain_MatchesSynchronousDetection() async {
+        // Given
+        let baseDate = Date()
+        let files = [
+            createFile(name: "P-1024_proposal.pdf", modDate: baseDate),
+            createFile(name: "P-1024_budget.xlsx", modDate: baseDate.addingTimeInterval(10)),
+            createFile(name: "P-1024_timeline.png", modDate: baseDate.addingTimeInterval(20)),
+            createFile(name: "Project Alpha - Draft.docx", modDate: baseDate.addingTimeInterval(30)),
+            createFile(name: "Project Alpha - Final.docx", modDate: baseDate.addingTimeInterval(40)),
+            createFile(name: "Project Alpha - Notes.docx", modDate: baseDate.addingTimeInterval(50))
+        ]
+
+        // When
+        let syncClusters = service.detectClusters(from: files)
+        let offMainClusters = await service.detectClustersOffMain(from: files)
+
+        // Then
+        XCTAssertEqual(syncClusters.count, offMainClusters.count)
+        XCTAssertEqual(
+            Set(syncClusters.map(clusterSignature)),
+            Set(offMainClusters.map(clusterSignature))
+        )
+    }
     
     // MARK: - Confidence Scoring Tests
     
@@ -440,5 +464,17 @@ final class ContextDetectionServiceTests: XCTestCase {
             modificationDate: modDate,
             lastAccessedDate: modDate
         )
+    }
+
+    private func clusterSignature(_ cluster: ProjectCluster) -> String {
+        let sortedPaths = cluster.filePaths.sorted().joined(separator: "|")
+        let confidence = String(format: "%.4f", cluster.confidenceScore)
+        return [
+            cluster.clusterType.rawValue,
+            cluster.suggestedFolderName,
+            cluster.detectedPattern ?? "none",
+            confidence,
+            sortedPaths
+        ].joined(separator: "::")
     }
 }

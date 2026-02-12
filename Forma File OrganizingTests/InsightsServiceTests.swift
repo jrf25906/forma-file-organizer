@@ -181,7 +181,36 @@ final class InsightsServiceTests: XCTestCase {
     }
     
     // MARK: - Duplicate Detection Tests
-    
+
+    func testGenerateInsights_UsesPrecomputedClusters() async {
+        // Given: Precomputed clusters from scan pipeline/analytics view model
+        let cluster = ProjectCluster(
+            clusterType: .projectCode,
+            filePaths: [
+                "/Users/test/Downloads/P-1024_proposal.pdf",
+                "/Users/test/Downloads/P-1024_budget.xlsx",
+                "/Users/test/Downloads/P-1024_timeline.png"
+            ],
+            confidenceScore: 0.92,
+            suggestedFolderName: "Project P-1024",
+            detectedPattern: "P-1024"
+        )
+
+        // When
+        let insights = await service.generateInsights(
+            from: [],
+            activities: [],
+            rules: [],
+            precomputedClusters: [cluster],
+            now: now
+        )
+
+        // Then
+        let clusterInsight = insights.first { $0.actionLabel == "Organize Together" }
+        XCTAssertNotNil(clusterInsight)
+        XCTAssertTrue(clusterInsight?.message.contains("P-1024") ?? false)
+    }
+
     func testDetectPossibleDuplicates() async {
         // Given: Multiple files with same names
         let files = [
@@ -201,6 +230,25 @@ final class InsightsServiceTests: XCTestCase {
         XCTAssertNotNil(duplicateInsight)
         XCTAssertEqual(duplicateInsight?.actionLabel, "Review")
         XCTAssertEqual(duplicateInsight?.iconName, "doc.on.doc")
+    }
+
+    func testGenerateInsights_ProducesStableIDsForEquivalentInputs() async {
+        // Given
+        let files = [
+            createMockFile(name: "Screenshot 1.png"),
+            createMockFile(name: "Screenshot 2.png"),
+            createMockFile(name: "Screenshot 3.png"),
+            createMockFile(name: "Screenshot 4.png"),
+            createMockFile(name: "Screenshot 5.png")
+        ]
+
+        // When
+        let firstRun = await service.generateInsights(from: files, activities: [], rules: [], now: now)
+        let secondRun = await service.generateInsights(from: files, activities: [], rules: [], now: now)
+
+        // Then
+        XCTAssertEqual(firstRun.map(\.id), secondRun.map(\.id))
+        XCTAssertEqual(Set(firstRun.map(\.id)).count, firstRun.count)
     }
     
     // MARK: - Priority Sorting Tests

@@ -100,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `forma-website` now includes a first-party blog system (`/blog`, `/blog/[slug]`) backed by in-repo MDX content.
 - `forma-website` now exposes AI-consumable routes: `/llms.txt`, `/for-agents`, `/openapi.json`, and read-only JSON APIs under `/api/public/*`.
 - Added website-level tracking events (`download_click`, `newsletter_submit_success`, `support_contact_click`, `blog_cta_click`) with optional Plausible integration.
+- Added `Scripts/signpost_harness_snapshot.sh` to automate debug harness execution, `xctrace` export, and p50/p95/p99 summary generation for signpost performance snapshots.
 
 ### Changed
 - Consolidated marketing web code to `forma-website/` and removed legacy `website/` + `forma-marketing-site/` directories.
@@ -132,6 +133,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Folder scans now use prefetched URL resource keys and parallelized standard-folder scan tasks to reduce filesystem syscall overhead.
 - Thumbnail loading now checks memory/disk caches before opening security scopes and skips redundant stale-metadata checks on disk-cache hits.
 - Duplicate detection now reuses compiled regexes, streams file hashing in chunks, and uses bucketed near-name matching to reduce memory and comparison cost.
+- The performance test plan now includes `OptimizationBenchmarksTests`, and those benchmarks enforce explicit regression budgets for optimized latency and speedup.
+- Added a debug-only signpost harness launch path (`--perf-signpost-harness`) to capture repeatable `DashboardScanRefresh` and `DefaultPanelInsightRefresh` latency samples.
+- `DashboardScanRefresh` now emits sub-phase signposts (`DashboardScanDiscovery`, `DashboardRuleEvaluation`, `DashboardClusterRefresh`, `DashboardPublish`) to isolate outlier paths.
+- Signpost harness analysis now supports explicit warm-up windows (`FORMA_PERF_HARNESS_WARMUP`), emits separate warm-up/sample interval labels, and enforces one harness run per app launch to prevent overlapping captures.
+- Default panel insights now reuse precomputed dashboard clusters, emit stable insight IDs, and avoid no-op state updates so dismissed quick actions stay dismissed and UI churn is reduced.
+- Default panel insight refresh now enforces a strict single in-flight task policy under rapid updates; stale and cancelled refreshes are prevented from publishing UI state.
+- Dashboard scans now publish lightweight phase text (`Preparing scan`, `Scanning folders`, `Analyzing clusters`, `Updating dashboard`) so long operations do not appear stalled.
+- `InsightsService.generateInsights(...)` now exits early on cancellation and avoids recording successful completion metadata for cancelled runs.
+- Content search now skips redundant reruns when the normalized query and scanned file snapshot are unchanged.
 - Settings "Launch at Login" now syncs with macOS Login Items (`SMAppService`) and reports failures instead of failing silently.
 - Dashboard startup scans now respect the "Auto-scan on Launch" setting, including post-onboarding auto-scan behavior.
 - Menu bar Settings now uses the shared app settings opener instead of synthetic keyboard events.

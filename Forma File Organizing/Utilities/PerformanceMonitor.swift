@@ -51,18 +51,29 @@ final class PerformanceMonitor: @unchecked Sendable {
         case duplicateDetection = "DuplicateDetection"
         case learningService = "LearningService"
         case uiUpdate = "UIUpdate"
+        case dashboardScanRefresh = "DashboardScanRefresh"
+        case dashboardScanDiscovery = "DashboardScanDiscovery"
+        case dashboardRuleEvaluation = "DashboardRuleEvaluation"
+        case dashboardClusterRefresh = "DashboardClusterRefresh"
+        case dashboardPublish = "DashboardPublish"
+        case defaultPanelInsightRefresh = "DefaultPanelInsightRefresh"
 
         var category: String {
             switch self {
-            case .fileScan, .ruleEvaluation, .patternDetection:
+            case .fileScan,
+                 .ruleEvaluation,
+                 .patternDetection,
+                 .dashboardScanRefresh,
+                 .dashboardScanDiscovery,
+                 .dashboardRuleEvaluation:
                 return "pipeline"
-            case .clusterDetection, .insightGeneration, .learningService:
+            case .clusterDetection, .insightGeneration, .learningService, .dashboardClusterRefresh:
                 return "ai-services"
             case .fileHash, .duplicateDetection:
                 return "io"
             case .mlPrediction:
                 return "ml"
-            case .uiUpdate:
+            case .uiUpdate, .dashboardPublish, .defaultPanelInsightRefresh:
                 return "ui"
             }
         }

@@ -124,8 +124,8 @@ class AnalyticsDashboardViewModel: ObservableObject {
         Log.debug("Detecting clusters from \(allFiles.count) files...", category: .analytics)
         #endif
 
-        // Run detection
-        let clusters = contextDetectionService.detectClusters(from: allFiles)
+        // Run detection off-main using file snapshots to keep UI responsive.
+        let clusters = await contextDetectionService.detectClustersOffMain(from: allFiles)
 
         #if DEBUG
         Log.info("Detected \(clusters.count) clusters", category: .analytics)

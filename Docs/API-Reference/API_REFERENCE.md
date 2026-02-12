@@ -67,11 +67,15 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 ### Recent API Updates (February 2026)
 
 - `ContentSearchService` now executes heavy content scanning off-main and returns results directly to callers rather than publishing internal scan state.
+- `DashboardViewModel` content-search orchestration now deduplicates unchanged query/file snapshots before scheduling a new search pass.
+- `DashboardViewModel` now publishes `scanPhaseStatusText` during long-running scan/apply flows so UI surfaces can show lightweight progress messages.
 - `FileSystemService.scan(baseFolders:)` now performs standard folder scans in parallel and aggregates per-folder failures via `ScanResult.errors`.
 - `FileScanOptions` now controls recursive scan depth/caps/skip behavior, and scan entrypoints resolve shared options across dashboard, automation, menu bar, and review flows.
 - `FileMetadata`/`FileItem` now carry `scanRootPath` and `relativeParentPath` for nested-folder context in flat UI lists.
 - `DuplicateDetectionService` now performs streaming SHA-256 hashing and internal hash-cache reuse for repeated scans of unchanged files.
 - `FileFilterManager` now invalidates cached filter results when `contentMatchedPaths` changes and supports caching empty result sets safely.
+- `InsightsService.generateInsights(...)` is async and accepts optional `precomputedClusters` so callers can reuse dashboard-detected clusters instead of repeating context detection.
+- `InsightsService.generateInsights(...)` now checks `Task.isCancelled` between major phases and exits early when a refresh is superseded.
 
 ### Website API Updates (February 2026)
 
@@ -987,7 +991,7 @@ InsightsService generates actionable insights from current file state, user acti
 
 ### Methods
 
-#### generateInsights(from:activities:rules:)
+#### generateInsights(from:activities:rules:precomputedClusters:now:)
 
 Generates insights from current state.
 
@@ -996,16 +1000,20 @@ Generates insights from current state.
 func generateInsights(
     from files: [FileItem],
     activities: [ActivityItem],
-    rules: [Rule]
-) -> [FileInsight]
+    rules: [Rule],
+    precomputedClusters: [ProjectCluster]? = nil,
+    now: Date? = nil
+) async -> [FileInsight]
 ```
 
 **Parameters:**
 - `files`: Current files being organized
 - `activities`: User activity history
 - `rules`: Active organizational rules
+- `precomputedClusters`: Optional clusters from `AnalyticsDashboardViewModel` to avoid duplicate context-detection work
+- `now`: Optional date override for deterministic testing/time-sensitive summaries
 
-**Returns:** Array of FileInsight objects sorted by priority (highest first).
+**Returns:** Array of `FileInsight` objects sorted by priority (highest first). IDs are stable across equivalent inputs so UI dismiss state remains consistent. If the task is cancelled mid-flight, the method returns an empty array and does not publish partial completion metadata.
 
 **Insight Categories:**
 1. **File Patterns** - Screenshot accumulation, downloads buildup, grouped file types
@@ -1017,10 +1025,11 @@ func generateInsights(
 **Example:**
 ```swift
 let insightsService = InsightsService.shared
-let insights = insightsService.generateInsights(
+let insights = await insightsService.generateInsights(
     from: files,
     activities: activities,
-    rules: rules
+    rules: rules,
+    precomputedClusters: dashboardViewModel.detectedClusters
 )
 
 for insight in insights {

@@ -14,6 +14,22 @@ Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 - [x] Evaluate Periphery via `Scripts/periphery.sh` and document baseline strategy (`--retain-public` vs baseline file).
 - [x] Timebox `DashboardViewModel` decomposition design (permission state vs undo/redo) and capture a concrete split plan.
 
+## Speed & Reliability Sprint (February 12, 2026)
+- [x] Add hard performance regression budgets for optimization benchmarks and include `OptimizationBenchmarksTests` in the dedicated performance test plan.
+- [x] Reuse precomputed project clusters in default-panel insight generation to avoid duplicate context-detection work.
+- [x] Stabilize `FileInsight` identifiers so dismissed quick actions stay dismissed across recomputation.
+- [x] Skip redundant content-search runs when query + file snapshot are unchanged and cover with `DashboardViewModelTests`.
+- [x] Capture `DashboardScanRefresh` and `DefaultPanelInsightRefresh` p50/p95 using a repeatable signpost harness run.
+
+## Next Optimization Batch (Starting February 12, 2026)
+- [x] Split `DashboardScanRefresh` into sub-phase signposts to isolate p95/p99 outlier paths.
+- [x] Add and document a warm-up cutoff policy for signpost harness analysis.
+- [x] Capture a 60+ interval signpost run and record p50/p95/p99 in `Docs/PERFORMANCE_AUDIT.md`.
+- [x] Add a reusable `Scripts/` command to run the signpost harness and export summary stats.
+- [x] Add pre-PR signpost snapshot steps to `Docs/Development/TESTING.md`.
+- [x] Enforce a strict single in-flight default-panel insight refresh path under rapid updates.
+- [x] Add scan phase status text in the dashboard for better perceived responsiveness during long operations.
+
 ## Codebase Cleanup Checklist (v2)
 **Last Updated:** February 11, 2026
 

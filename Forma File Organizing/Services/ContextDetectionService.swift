@@ -5,25 +5,61 @@ import Foundation
 /// ContextDetectionService analyzes file metadata (names, timestamps, paths) to identify groups
 /// of files that likely belong together and should be organized as a unit.
 ///
-/// Note: This service is @MainActor-isolated because it works with FileItem @Model objects
-/// which are inherently main-actor-isolated in SwiftData.
+/// Note: This service is @MainActor-isolated for SwiftData model access, but heavy detection
+/// can run off-main using value snapshots via `detectClustersOffMain(from:)`.
 @MainActor
 class ContextDetectionService {
     
     // MARK: - Configuration
     
     /// Temporal threshold: files modified within 5 minutes are considered part of the same work session
-    private static let temporalThresholdSeconds: TimeInterval = 300 // 5 minutes
+    nonisolated private static let temporalThresholdSeconds: TimeInterval = 300 // 5 minutes
     
     /// Minimum number of files required to form a cluster
-    private static let minClusterSize = 3
+    nonisolated private static let minClusterSize = 3
     
     /// Minimum confidence score to return a cluster
-    private static let minConfidenceThreshold = 0.5
+    nonisolated private static let minConfidenceThreshold = 0.5
     
     /// Minimum Levenshtein similarity ratio (0.0-1.0) for name similarity clustering
-    private static let minNameSimilarityRatio = 0.6
-    
+    nonisolated private static let minNameSimilarityRatio = 0.6
+
+    // MARK: - Snapshot Models
+
+    /// Sendable value projection of `FileItem` used for off-main cluster detection.
+    private struct FileSnapshot: Sendable {
+        let path: String
+        let name: String
+        let modificationDate: Date
+
+        init(file: FileItem) {
+            self.path = file.path
+            self.name = file.name
+            self.modificationDate = file.modificationDate
+        }
+    }
+
+    /// Value-based cluster result that can be produced off-main and materialized on main.
+    private struct ProjectClusterDraft: Sendable {
+        let clusterType: ProjectCluster.ClusterType
+        let filePaths: [String]
+        let confidenceScore: Double
+        let suggestedFolderName: String
+        let detectedPattern: String?
+
+        var fileCount: Int { filePaths.count }
+
+        func materialize() -> ProjectCluster {
+            ProjectCluster(
+                clusterType: clusterType,
+                filePaths: filePaths,
+                confidenceScore: confidenceScore,
+                suggestedFolderName: suggestedFolderName,
+                detectedPattern: detectedPattern
+            )
+        }
+    }
+
     // MARK: - Public API
     
     /// Detect all types of clusters from a list of files
@@ -39,7 +75,53 @@ class ContextDetectionService {
 
         let clusterId = PerformanceMonitor.shared.begin(.clusterDetection, metadata: "\(files.count) files")
 
-        var allClusters: [ProjectCluster] = []
+        let snapshots = files.map(FileSnapshot.init(file:))
+        let drafts = Self.detectClusterDrafts(from: snapshots)
+        let result = drafts.map { $0.materialize() }
+
+        PerformanceMonitor.shared.end(.clusterDetection, id: clusterId, metadata: "\(result.count) clusters found")
+        return result
+    }
+
+    /// Detect clusters off-main using sendable snapshots, then materialize as SwiftData models.
+    func detectClustersOffMain(from files: [FileItem]) async -> [ProjectCluster] {
+        guard FeatureFlagService.shared.isEnabled(.contextDetection) else {
+            Log.info("ContextDetectionService: Context detection disabled by feature flag", category: .analytics)
+            return []
+        }
+
+        let snapshots = files.map(FileSnapshot.init(file:))
+        let clusterId = PerformanceMonitor.shared.begin(
+            .clusterDetection,
+            metadata: "\(snapshots.count) files (off-main)"
+        )
+
+        if Task.isCancelled {
+            PerformanceMonitor.shared.end(.clusterDetection, id: clusterId, metadata: "cancelled")
+            return []
+        }
+
+        let drafts = await Task.detached(priority: .userInitiated) {
+            Self.detectClusterDrafts(from: snapshots)
+        }.value
+
+        if Task.isCancelled {
+            PerformanceMonitor.shared.end(.clusterDetection, id: clusterId, metadata: "cancelled")
+            return []
+        }
+
+        let result = drafts.map { $0.materialize() }
+        PerformanceMonitor.shared.end(.clusterDetection, id: clusterId, metadata: "\(result.count) clusters found")
+        return result
+    }
+
+    // MARK: - Detection (Value Engine)
+
+    nonisolated private static func detectClusterDrafts(from files: [FileSnapshot]) -> [ProjectClusterDraft] {
+        // Only detect clusters if we have enough files to form at least one cluster.
+        guard files.count >= Self.minClusterSize else { return [] }
+
+        var allClusters: [ProjectClusterDraft] = []
 
         // Run all detection algorithms
         allClusters.append(contentsOf: detectProjectCodeClusters(from: files))
@@ -48,24 +130,19 @@ class ContextDetectionService {
         allClusters.append(contentsOf: detectDateStampClusters(from: files))
 
         // Filter by confidence and size
-        let result = allClusters.filter { cluster in
+        return allClusters.filter { cluster in
             cluster.confidenceScore >= Self.minConfidenceThreshold &&
             cluster.fileCount >= Self.minClusterSize
         }
-
-        PerformanceMonitor.shared.end(.clusterDetection, id: clusterId, metadata: "\(result.count) clusters found")
-        return result
     }
-    
-    // MARK: - Detection Algorithms
-    
+
     /// Detect clusters based on project codes in file names
     ///
     /// Looks for patterns like: P-1024, JIRA-456, CLIENT_ABC, ABC-123
     ///
-    /// - Parameter files: Array of FileItem to analyze
-    /// - Returns: Array of ProjectCluster objects
-    private func detectProjectCodeClusters(from files: [FileItem]) -> [ProjectCluster] {
+    /// - Parameter files: Array of snapshots to analyze
+    /// - Returns: Array of cluster drafts
+    nonisolated private static func detectProjectCodeClusters(from files: [FileSnapshot]) -> [ProjectClusterDraft] {
         let patterns: [(String, String)] = [
             ("P-\\d{3,4}", "Project"),
             ("[A-Z]{2,5}-\\d{2,4}", "Project"),
@@ -73,11 +150,11 @@ class ContextDetectionService {
             ("^\\d{4}-\\d{2}-\\d{2}", "Date"),
         ]
 
-        return patterns.flatMap { pattern, prefix -> [ProjectCluster] in
+        return patterns.flatMap { pattern, prefix -> [ProjectClusterDraft] in
             guard let groups = groupFilesByRegex(pattern, files: files) else { return [] }
             return groups.compactMap { code, groupFiles in
                 guard groupFiles.count >= Self.minClusterSize else { return nil }
-                return ProjectCluster(
+                return ProjectClusterDraft(
                     clusterType: .projectCode,
                     filePaths: groupFiles.map { $0.path },
                     confidenceScore: calculateProjectCodeConfidence(fileCount: groupFiles.count),
@@ -92,15 +169,15 @@ class ContextDetectionService {
     ///
     /// Files modified within 5 minutes of each other are likely related.
     ///
-    /// - Parameter files: Array of FileItem to analyze
-    /// - Returns: Array of ProjectCluster objects
-    private func detectTemporalClusters(from files: [FileItem]) -> [ProjectCluster] {
-        var clusters: [ProjectCluster] = []
+    /// - Parameter files: Array of snapshots to analyze
+    /// - Returns: Array of cluster drafts
+    nonisolated private static func detectTemporalClusters(from files: [FileSnapshot]) -> [ProjectClusterDraft] {
+        var clusters: [ProjectClusterDraft] = []
         
         // Sort files by modification date
         let sortedFiles = files.sorted { $0.modificationDate < $1.modificationDate }
         
-        var currentCluster: [FileItem] = []
+        var currentCluster: [FileSnapshot] = []
         var lastTimestamp: Date?
         
         for file in sortedFiles {
@@ -140,12 +217,12 @@ class ContextDetectionService {
     /// Uses Levenshtein distance to find files with similar names.
     /// Optimized with pre-computation, length filtering, and prefix bucketing to reduce O(n²) comparisons.
     ///
-    /// - Parameter files: Array of FileItem to analyze
-    /// - Returns: Array of ProjectCluster objects
-    private func detectNameSimilarityClusters(from files: [FileItem]) -> [ProjectCluster] {
+    /// - Parameter files: Array of snapshots to analyze
+    /// - Returns: Array of cluster drafts
+    nonisolated private static func detectNameSimilarityClusters(from files: [FileSnapshot]) -> [ProjectClusterDraft] {
         // OPTIMIZATION 1: Pre-compute basenames once upfront
         struct FileWithBasename {
-            let file: FileItem
+            let file: FileSnapshot
             let basename: String          // lowercased for comparison
             let originalBasename: String  // original casing for display
             let length: Int
@@ -176,7 +253,7 @@ class ContextDetectionService {
         // If similarity must be >= 0.6, then maxDiff/maxLength <= 0.4
         let maxDiffRatio = 1.0 - Self.minNameSimilarityRatio
 
-        var clusters: [ProjectCluster] = []
+        var clusters: [ProjectClusterDraft] = []
         var processedIndices = Set<Int>()
 
         for i in 0..<filesWithBasenames.count {
@@ -201,7 +278,7 @@ class ContextDetectionService {
                 }
 
                 // Also check buckets with similar first character (for typos/variations)
-                let firstChar = fileData.prefixKey.first ?? Character(" ")
+                let firstChar = fileData.prefixKey.first ?? " "
                 for (key, indices) in prefixBuckets {
                     if key.first == firstChar && key != fileData.prefixKey {
                         candidateIndices.formUnion(indices)
@@ -248,11 +325,12 @@ class ContextDetectionService {
 
                 let suggestedName = commonPrefix.isEmpty ? "Related Files" : commonPrefix.trimmingCharacters(in: CharacterSet(charactersIn: "_ -"))
 
-                let cluster = ProjectCluster(
+                let cluster = ProjectClusterDraft(
                     clusterType: .nameSimilarity,
                     filePaths: clusterFiles.map { $0.path },
                     confidenceScore: clampedConfidence,
-                    suggestedFolderName: suggestedName
+                    suggestedFolderName: suggestedName,
+                    detectedPattern: nil
                 )
 
                 clusters.append(cluster)
@@ -266,20 +344,20 @@ class ContextDetectionService {
     ///
     /// Groups files with the same date pattern (2024-11-15, 20241115, etc.)
     ///
-    /// - Parameter files: Array of FileItem to analyze
-    /// - Returns: Array of ProjectCluster objects
-    private func detectDateStampClusters(from files: [FileItem]) -> [ProjectCluster] {
+    /// - Parameter files: Array of snapshots to analyze
+    /// - Returns: Array of cluster drafts
+    nonisolated private static func detectDateStampClusters(from files: [FileSnapshot]) -> [ProjectClusterDraft] {
         let patterns = [
             "\\d{4}-\\d{2}-\\d{2}",  // 2024-11-15
             "\\d{8}",                 // 20241115
             "\\d{2}-\\d{2}-\\d{4}",  // 11-15-2024
         ]
 
-        return patterns.flatMap { pattern -> [ProjectCluster] in
+        return patterns.flatMap { pattern -> [ProjectClusterDraft] in
             guard let groups = groupFilesByRegex(pattern, files: files) else { return [] }
             return groups.compactMap { dateStamp, groupFiles in
                 guard groupFiles.count >= Self.minClusterSize else { return nil }
-                return ProjectCluster(
+                return ProjectClusterDraft(
                     clusterType: .dateStamp,
                     filePaths: groupFiles.map { $0.path },
                     confidenceScore: calculateDateStampConfidence(fileCount: groupFiles.count),
@@ -296,7 +374,7 @@ class ContextDetectionService {
     ///
     /// - Parameter fileName: Filename with extension
     /// - Returns: Filename without extension
-    private func stripExtension(from fileName: String) -> String {
+    nonisolated private static func stripExtension(from fileName: String) -> String {
         if let lastDot = fileName.lastIndex(of: ".") {
             return String(fileName[..<lastDot])
         }
@@ -304,12 +382,12 @@ class ContextDetectionService {
     }
 
     /// Group files by first regex match in their names, returning `nil` for invalid patterns.
-    private func groupFilesByRegex(_ pattern: String, files: [FileItem]) -> [String: [FileItem]]? {
+    nonisolated private static func groupFilesByRegex(_ pattern: String, files: [FileSnapshot]) -> [String: [FileSnapshot]]? {
         guard let regex = try? NSRegularExpression(pattern: pattern) else {
             Log.warning("ContextDetectionService: Invalid regex pattern '\(pattern)'. Skipping.", category: .analytics)
             return nil
         }
-        var groups: [String: [FileItem]] = [:]
+        var groups: [String: [FileSnapshot]] = [:]
         for file in files {
             let name = file.name
             let range = NSRange(name.startIndex..., in: name)
@@ -322,7 +400,7 @@ class ContextDetectionService {
     }
 
     /// Create a temporal cluster from a group of files
-    private func createTemporalCluster(from files: [FileItem]) -> ProjectCluster? {
+    nonisolated private static func createTemporalCluster(from files: [FileSnapshot]) -> ProjectClusterDraft? {
         guard let firstFile = files.first else {
             Log.error("ContextDetectionService: createTemporalCluster called with empty files array", category: .analytics)
             return nil
@@ -343,16 +421,17 @@ class ContextDetectionService {
         formatter.timeStyle = .short
         let suggestedName = "Work Session - \(formatter.string(from: firstFile.modificationDate))"
 
-        return ProjectCluster(
+        return ProjectClusterDraft(
             clusterType: .temporal,
             filePaths: files.map { $0.path },
             confidenceScore: confidence,
-            suggestedFolderName: suggestedName
+            suggestedFolderName: suggestedName,
+            detectedPattern: nil
         )
     }
     
     /// Calculate confidence for project code clusters
-    private func calculateProjectCodeConfidence(fileCount: Int) -> Double {
+    nonisolated private static func calculateProjectCodeConfidence(fileCount: Int) -> Double {
         let base = 0.8
             + (fileCount >= 5 ? 0.1 : 0.0)
             + (fileCount >= 10 ? 0.05 : 0.0)
@@ -360,7 +439,7 @@ class ContextDetectionService {
     }
 
     /// Calculate confidence for date stamp clusters
-    private func calculateDateStampConfidence(fileCount: Int) -> Double {
+    nonisolated private static func calculateDateStampConfidence(fileCount: Int) -> Double {
         let base = 0.6
             + (fileCount >= 5 ? 0.15 : 0.0)
             + (fileCount >= 8 ? 0.1 : 0.0)
@@ -375,7 +454,7 @@ class ContextDetectionService {
     ///   - str1: First string
     ///   - str2: Second string
     /// - Returns: Similarity ratio (0.0-1.0)
-    private func calculateNameSimilarity(_ str1: String, _ str2: String) -> Double {
+    nonisolated private static func calculateNameSimilarity(_ str1: String, _ str2: String) -> Double {
         let maxLength = max(str1.count, str2.count)
         guard maxLength > 0 else { return 0.0 }
 
@@ -397,7 +476,7 @@ class ContextDetectionService {
     ///   - str1: First string
     ///   - str2: Second string
     /// - Returns: Edit distance (number of character changes needed)
-    private func levenshteinDistance(_ str1: String, _ str2: String) -> Int {
+    nonisolated private static func levenshteinDistance(_ str1: String, _ str2: String) -> Int {
         let len1 = str1.count
         let len2 = str2.count
         
@@ -429,7 +508,7 @@ class ContextDetectionService {
     }
     
     /// Find the longest common prefix among a list of strings, trimmed to the last word boundary.
-    private func findCommonPrefix(_ strings: [String]) -> String {
+    nonisolated private static func findCommonPrefix(_ strings: [String]) -> String {
         guard let first = strings.first else { return "" }
 
         var prefix = strings.dropFirst().reduce(first) { $0.commonPrefix(with: $1) }

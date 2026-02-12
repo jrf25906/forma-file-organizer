@@ -22,6 +22,15 @@ xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File O
 xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -testPlan "Forma File Organizing - Performance" -destination 'platform=macOS'
 ```
 
+The performance plan includes `OptimizationBenchmarksTests`, which enforce hard regression budgets for scan/search/duplicate hot paths. Budget values are tracked in `Docs/PERFORMANCE_AUDIT.md`.
+
+**Pre-PR signpost snapshot (latency sanity check):**
+```bash
+Scripts/signpost_harness_snapshot.sh --iterations 60 --warmup 3 --time-limit 95 --output-prefix /tmp/forma-signpost-harness-pr
+```
+
+This command runs the debug harness (`--perf-signpost-harness`), exports `xctrace` interval/signpost data, and writes markdown/json summaries with sample p50/p95/p99 for `DashboardScanRefresh` and `DefaultPanelInsightRefresh`. Compare p95 values against provisional budgets in `Docs/PERFORMANCE_AUDIT.md`.
+
 **UI tests (test plan):**
 ```bash
 xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -testPlan "Forma File Organizing - UI" -destination 'platform=macOS'

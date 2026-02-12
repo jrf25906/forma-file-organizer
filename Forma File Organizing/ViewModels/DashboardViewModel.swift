@@ -32,6 +32,12 @@ class DashboardViewModel: ObservableObject {
     /// Manages bulk operations
     @ObservedObject private(set) var bulkOperationViewModel: BulkOperationViewModel
 
+    /// Manages debounced content search orchestration
+    @ObservedObject private var contentSearchController: DashboardContentSearchController
+
+    /// Manages scan/refresh orchestration and harness timing
+    @ObservedObject private var scanRefreshController: DashboardScanRefreshController
+
     // MARK: - Legacy Coordinators (Still Needed)
 
     @ObservedObject private var organizationCoordinator: FileOrganizationCoordinator
@@ -49,13 +55,6 @@ class DashboardViewModel: ObservableObject {
     /// Baseline count of actionable files captured at the start of the current scan session.
     @Published private(set) var organizationProgressTotalCount: Int = 0
 
-    // MARK: - Content Search State
-    @Published private(set) var contentSearchState: ContentSearchService.SearchState = .idle
-    @Published private(set) var contentSearchResults: [ContentSearchService.SearchResult] = []
-    private var contentSearchResultsByPath: [String: ContentSearchService.SearchResult] = [:]
-    private var contentSearchTask: Task<Void, Never>?
-    private static let contentSearchDebounceDelay: Duration = .milliseconds(300)
-
     // MARK: - Services
     private let fileSystemService: FileSystemServiceProtocol
     private let storageService: StorageService
@@ -64,7 +63,6 @@ class DashboardViewModel: ObservableObject {
     private let notificationService: NotificationService
     private let quickLookService: QuickLookService
     private let insightsService: InsightsService
-    private let contentSearchService = ContentSearchService.shared
 
     // MARK: - Private State
     private var modelContext: ModelContext?
@@ -77,7 +75,8 @@ class DashboardViewModel: ObservableObject {
     init(
         services: AppServices,
         fileSystemService: FileSystemServiceProtocol,
-        fileScanPipeline: FileScanPipelineProtocol
+        fileScanPipeline: FileScanPipelineProtocol,
+        contentSearchService: ContentSearchServing = ContentSearchService.shared
     ) {
         let coordinator = FileOrganizationCoordinator()
         self.organizationCoordinator = coordinator
@@ -87,22 +86,36 @@ class DashboardViewModel: ObservableObject {
         self.notificationService = services.notificationService
         self.quickLookService = services.quickLookService
         self.insightsService = services.insightsService
+        self.contentSearchController = DashboardContentSearchController(
+            contentSearchService: contentSearchService
+        )
 
         // Initialize focused ViewModels
-        self.scanViewModel = FileScanViewModel(
+        let scanViewModel = FileScanViewModel(
             fileSystemService: fileSystemService,
             fileScanPipeline: fileScanPipeline
         )
-        self.filterViewModel = FilterViewModel()
-        self.selectionViewModel = SelectionViewModel()
-        self.analyticsViewModel = AnalyticsDashboardViewModel(
+        let filterViewModel = FilterViewModel()
+        let selectionViewModel = SelectionViewModel()
+        let analyticsViewModel = AnalyticsDashboardViewModel(
             storageService: storageService,
             insightsService: insightsService
         )
-        self.bulkOperationViewModel = BulkOperationViewModel(
+        let bulkOperationViewModel = BulkOperationViewModel(
             organizationCoordinator: coordinator,
             notificationService: notificationService
         )
+        let scanRefreshController = DashboardScanRefreshController(
+            scanViewModel: scanViewModel,
+            analyticsViewModel: analyticsViewModel,
+            insightsService: insightsService
+        )
+        self.scanViewModel = scanViewModel
+        self.filterViewModel = filterViewModel
+        self.selectionViewModel = selectionViewModel
+        self.analyticsViewModel = analyticsViewModel
+        self.bulkOperationViewModel = bulkOperationViewModel
+        self.scanRefreshController = scanRefreshController
 
         // Setup inter-ViewModel communication
         setupViewModelForwarding()
@@ -179,30 +192,12 @@ class DashboardViewModel: ObservableObject {
     // MARK: - File Scanning (Delegated to FileScanViewModel)
 
     func scanFiles(context: ModelContext) async {
-        loadRules(from: context)
-        await scanViewModel.scanFiles(context: context, rules: rules)
-        if let summary = scanViewModel.errorMessage {
-            errorMessage = summary
-            showToast(message: summary, canUndo: false)
-        }
-
-        resetOrganizationProgress(with: scanViewModel.allFiles)
-
-        // Update dependent ViewModels
-        filterViewModel.updateSourceFiles(scanViewModel.allFiles)
-        analyticsViewModel.updateAnalytics(from: scanViewModel.allFiles)
-        await analyticsViewModel.detectClusters(from: scanViewModel.allFiles, context: context)
-
-        // Keep content search in sync with refreshed file lists.
-        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            triggerContentSearch(query: searchText)
-        }
-
-        // Refresh available folders after scan completes.
-        // This fixes a timing issue where Keychain isn't accessible at app launch
-        // for sandboxed apps. The file scan triggers bookmark resolution which
-        // "warms up" Keychain access, so we refresh here to update the sidebar.
-        refreshAvailableFolders()
+        let loadedRules = loadRules(from: context)
+        await scanRefreshController.scanFiles(
+            context: context,
+            rules: loadedRules,
+            actions: makeScanRefreshActions()
+        )
     }
 
     func refresh(context: ModelContext) async {
@@ -215,48 +210,31 @@ class DashboardViewModel: ObservableObject {
         errorSummary: String?,
         context: ModelContext
     ) async {
-        let pathSet = Set(scannedPaths)
-        let descriptor = FetchDescriptor<FileItem>(
-            predicate: #Predicate<FileItem> { file in
-                pathSet.contains(file.path)
-            }
+        await scanRefreshController.applyAutomationScanUpdate(
+            scannedPaths: scannedPaths,
+            errorSummary: errorSummary,
+            context: context,
+            actions: makeScanRefreshActions()
         )
+    }
 
-        let files: [FileItem]
-        do {
-            files = try context.fetch(descriptor)
-        } catch {
-            Log.error(
-                "DashboardViewModel: Failed to fetch automation scan files - \(error.localizedDescription)",
-                category: .pipeline
-            )
-            errorMessage = "Failed to refresh scanned files."
-            showToast(message: errorMessage ?? "Failed to refresh scanned files.", canUndo: false)
-            return
-        }
-
-        scanViewModel.replaceScannedFiles(files)
-
-        if let summary = errorSummary, !summary.isEmpty {
-            errorMessage = summary
-            showToast(message: summary, canUndo: false)
-        } else {
-            errorMessage = nil
-        }
-
-        resetOrganizationProgress(with: scanViewModel.allFiles)
-
-        // Update dependent ViewModels
-        filterViewModel.updateSourceFiles(scanViewModel.allFiles)
-        analyticsViewModel.updateAnalytics(from: scanViewModel.allFiles)
-        await analyticsViewModel.detectClusters(from: scanViewModel.allFiles, context: context)
-
-        // Keep content search in sync with refreshed file lists.
-        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            triggerContentSearch(query: searchText)
-        }
-
-        refreshAvailableFolders()
+    /// Debug-only harness for deterministic signpost capture of dashboard refresh flows.
+    /// Runs multiple automation-style refresh iterations and wraps insight generation
+    /// in the same operation the Default Panel uses for refresh timing.
+    func runPerformanceSignpostHarness(
+        iterations: Int,
+        warmupIterations: Int = 3,
+        context: ModelContext
+    ) async {
+        await scanRefreshController.runPerformanceSignpostHarness(
+            iterations: iterations,
+            warmupIterations: warmupIterations,
+            context: context,
+            recentActivitiesProvider: { [weak self] in
+                self?.recentActivities ?? []
+            },
+            actions: makeScanRefreshActions()
+        )
     }
 
     /// Refreshes the available folders from BookmarkFolderService
@@ -703,7 +681,8 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Rules
 
-    func loadRules(from context: ModelContext) {
+    @discardableResult
+    func loadRules(from context: ModelContext) -> [Rule] {
         let descriptor = FetchDescriptor<Rule>(
             sortBy: [SortDescriptor(\.creationDate, order: .forward)]
         )
@@ -716,6 +695,8 @@ class DashboardViewModel: ObservableObject {
             Log.error("Failed to load rules: \(error.localizedDescription)", category: .pipeline)
             rules = []
         }
+
+        return rules
     }
 
     func reEvaluateFilesAgainstRules(context: ModelContext) {
@@ -849,38 +830,15 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Content Search
 
     private func triggerContentSearch(query: String) {
-        contentSearchTask?.cancel()
-
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            contentSearchState = .idle
-            contentSearchResults = []
-            contentSearchResultsByPath = [:]
-            filterViewModel.setContentMatchedPaths([])
-            return
-        }
-
-        contentSearchState = .searching(progress: 0.0)
-
-        contentSearchTask = Task { [weak self] in
-            do {
-                try await Task.sleep(for: Self.contentSearchDebounceDelay)
-            } catch {
-                return
+        contentSearchController.triggerSearch(
+            query: query,
+            filesProvider: { [weak self] in
+                self?.scanViewModel.allFiles ?? []
+            },
+            onMatchedPathsUpdated: { [weak self] matchedPaths in
+                self?.filterViewModel.setContentMatchedPaths(matchedPaths)
             }
-
-            guard let self, !Task.isCancelled else { return }
-
-            let results = await self.contentSearchService.search(query: query, in: self.scanViewModel.allFiles)
-
-            guard !Task.isCancelled else { return }
-
-            self.contentSearchResults = results
-            self.contentSearchResultsByPath = Dictionary(
-                uniqueKeysWithValues: results.map { ($0.file.path, $0) }
-            )
-            self.contentSearchState = .complete(resultCount: results.count)
-            self.filterViewModel.setContentMatchedPaths(Set(self.contentSearchResultsByPath.keys))
-        }
+        )
     }
 
     // MARK: - Private Setup
@@ -909,6 +867,8 @@ class DashboardViewModel: ObservableObject {
         selectionViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         analyticsViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         bulkOperationViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
+        contentSearchController.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
+        scanRefreshController.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         panelManager.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         permissionState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
     }
@@ -932,6 +892,37 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
+    private func makeScanRefreshActions() -> DashboardScanRefreshController.Actions {
+        DashboardScanRefreshController.Actions(
+            onScanErrorSummary: { [weak self] summary in
+                guard let self else { return }
+                self.errorMessage = summary
+                self.showToast(message: summary, canUndo: false)
+            },
+            onAutomationSummary: { [weak self] summary in
+                guard let self else { return }
+                if let summary, !summary.isEmpty {
+                    self.errorMessage = summary
+                    self.showToast(message: summary, canUndo: false)
+                } else {
+                    self.errorMessage = nil
+                }
+            },
+            resetOrganizationProgress: { [weak self] files in
+                self?.resetOrganizationProgress(with: files)
+            },
+            currentSearchText: { [weak self] in
+                self?.searchText ?? ""
+            },
+            triggerContentSearch: { [weak self] query in
+                self?.triggerContentSearch(query: query)
+            },
+            refreshAvailableFolders: { [weak self] in
+                self?.refreshAvailableFolders()
+            }
+        )
+    }
+
     // MARK: - Mock Data
 
     private func loadMockData() {
@@ -950,6 +941,9 @@ class DashboardViewModel: ObservableObject {
     var recentFiles: [FileItem] { scanViewModel.recentFiles }
     var availableFolders: [BookmarkFolder] { BookmarkFolderService.shared.availableFolders }
     var isLoading: Bool { scanViewModel.isScanning }
+    var scanPhaseStatusText: String? { scanRefreshController.phaseStatusText }
+    var contentSearchState: ContentSearchService.SearchState { contentSearchController.state }
+    var contentSearchResults: [ContentSearchService.SearchResult] { contentSearchController.results }
 
     func getMatchingRules(for file: FileItem) -> [Rule] {
         rules.filter { rule in
@@ -1032,15 +1026,15 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Content Search Delegations
 
     func searchMatchType(for file: FileItem) -> ContentSearchService.MatchType? {
-        contentSearchResultsByPath[file.path]?.matchType
+        contentSearchController.matchType(for: file)
     }
 
     func contentSnippet(for file: FileItem) -> String? {
-        contentSearchResultsByPath[file.path]?.contentSnippet
+        contentSearchController.contentSnippet(for: file)
     }
 
     var contentSearchResultsCount: Int {
-        contentSearchResults.count
+        contentSearchController.resultCount
     }
 
     // MARK: - Panel State Delegations

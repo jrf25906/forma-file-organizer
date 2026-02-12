@@ -21,6 +21,32 @@ struct DashboardView: View {
         #endif
     }
 
+    private var shouldRunPerfSignpostHarness: Bool {
+        #if DEBUG
+        CommandLine.arguments.contains("--perf-signpost-harness")
+        #else
+        false
+        #endif
+    }
+
+    private var perfSignpostHarnessIterations: Int {
+        #if DEBUG
+        let rawValue = ProcessInfo.processInfo.environment["FORMA_PERF_HARNESS_ITERATIONS"] ?? "24"
+        return Int(rawValue) ?? 24
+        #else
+        0
+        #endif
+    }
+
+    private var perfSignpostHarnessWarmupIterations: Int {
+        #if DEBUG
+        let rawValue = ProcessInfo.processInfo.environment["FORMA_PERF_HARNESS_WARMUP"] ?? "3"
+        return Int(rawValue) ?? 3
+        #else
+        0
+        #endif
+    }
+
     // MARK: - Extracted Views (helps compiler type-checking)
 
     @ViewBuilder
@@ -194,6 +220,14 @@ struct DashboardView: View {
         .environmentObject(nav)
         .preferredColorScheme(AppearanceMode(rawValue: appearanceMode)?.colorScheme)
         .task {
+            if shouldRunPerfSignpostHarness {
+                await dashboardViewModel.runPerformanceSignpostHarness(
+                    iterations: perfSignpostHarnessIterations,
+                    warmupIterations: perfSignpostHarnessWarmupIterations,
+                    context: modelContext
+                )
+                return
+            }
             // In UI tests, we rely on DashboardViewModel mock data and skip
             // real file system scanning for determinism.
             if CommandLine.arguments.contains("--uitesting") {

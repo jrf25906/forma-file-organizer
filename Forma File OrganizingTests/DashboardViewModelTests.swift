@@ -2,6 +2,16 @@ import XCTest
 @testable import Forma_File_Organizing
 
 @MainActor
+private final class MockContentSearchService: ContentSearchServing {
+    private(set) var searchCallCount = 0
+
+    func search(query: String, in files: [FileItem]) async -> [ContentSearchService.SearchResult] {
+        searchCallCount += 1
+        return []
+    }
+}
+
+@MainActor
 final class DashboardViewModelTests: XCTestCase {
 
 	    var viewModel: DashboardViewModel!
@@ -232,6 +242,53 @@ final class DashboardViewModelTests: XCTestCase {
         
         // Then
         XCTAssertEqual(visible.map { $0.path }, [newest.path, middle.path, oldest.path])
+    }
+
+    func testContentSearchSkipsRepeatedInputSnapshot() async {
+        // Given
+        let contentSearch = MockContentSearchService()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline(),
+            contentSearchService: contentSearch
+        )
+        let file = FileItem(path: "/f/report.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        localViewModel._testSetFiles([file])
+
+        // When
+        localViewModel.updateSearchText("report")
+        await waitForContentSearchDebounce()
+        localViewModel.updateSearchText("report")
+        await waitForContentSearchDebounce()
+
+        // Then
+        XCTAssertEqual(contentSearch.searchCallCount, 1)
+    }
+
+    func testContentSearchRerunsWhenFileSnapshotChanges() async {
+        // Given
+        let contentSearch = MockContentSearchService()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline(),
+            contentSearchService: contentSearch
+        )
+        let fileOne = FileItem(path: "/f/report.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        localViewModel._testSetFiles([fileOne])
+        localViewModel.updateSearchText("report")
+        await waitForContentSearchDebounce()
+        XCTAssertEqual(contentSearch.searchCallCount, 1)
+
+        // When
+        let fileTwo = FileItem(path: "/f/report-v2.txt", sizeInBytes: 2_000, creationDate: Date(), destination: nil, status: .pending)
+        localViewModel._testSetFiles([fileOne, fileTwo])
+        localViewModel.updateSearchText("report")
+        await waitForContentSearchDebounce()
+
+        // Then
+        XCTAssertEqual(contentSearch.searchCallCount, 2)
     }
     
     func testFocusNextAndPrevious() {
@@ -854,5 +911,9 @@ final class DashboardViewModelTests: XCTestCase {
         } else {
             XCTFail("Celebration mode should persist even when files are selected")
         }
+    }
+
+    private func waitForContentSearchDebounce() async {
+        try? await Task.sleep(nanoseconds: 500_000_000)
     }
 }
