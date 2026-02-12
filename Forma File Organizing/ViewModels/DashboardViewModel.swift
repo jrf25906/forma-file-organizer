@@ -69,6 +69,7 @@ class DashboardViewModel: ObservableObject {
     private var rules: [Rule] = []
     private var cancellables = Set<AnyCancellable>()
     private var bulkOperationTask: Task<Void, Never>?
+    private var permissionRefreshTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -135,7 +136,9 @@ class DashboardViewModel: ObservableObject {
             }
         }
 
-        if !isRunningTests && !isUITesting {
+        let shouldRunBookmarkDiagnostics = env["FORMA_RUN_BOOKMARK_DIAGNOSTICS"] == "1"
+
+        if !isRunningTests && !isUITesting && shouldRunBookmarkDiagnostics {
             Log.debug("Running bookmark diagnostics on startup", category: .bookmark, verboseOnly: true)
             fileOperationsService.diagnoseBookmarks()
         }
@@ -164,6 +167,11 @@ class DashboardViewModel: ObservableObject {
 
     convenience init() {
         self.init(services: AppServices())
+    }
+
+    deinit {
+        bulkOperationTask?.cancel()
+        permissionRefreshTask?.cancel()
     }
 
     func setModelContext(_ context: ModelContext) {
@@ -780,12 +788,7 @@ class DashboardViewModel: ObservableObject {
 
         switch result {
         case .granted:
-            // Auto-rescan to pick up files from newly accessible folder
-            if let context = modelContext {
-                Task { @MainActor in
-                    await refresh(context: context)
-                }
-            }
+            schedulePermissionRefreshIfNeeded()
         case .error(let details):
             errorMessage = "Failed to access \(folderType.displayName) folder: \(details)"
         case .cancelled:
@@ -797,6 +800,32 @@ class DashboardViewModel: ObservableObject {
 
     private func updateOnboardingVisibility() {
         permissionState.updateOnboardingVisibility()
+    }
+
+    private func schedulePermissionRefreshIfNeeded() {
+        // DashboardView handles the first post-onboarding scan when this sheet closes.
+        guard !permissionState.showOnboarding else { return }
+        guard modelContext != nil else { return }
+
+        permissionRefreshTask?.cancel()
+        permissionRefreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            do {
+                // Coalesce rapid permission grants into a single scan/refresh.
+                try await Task.sleep(for: .milliseconds(350))
+            } catch {
+                return
+            }
+
+            guard let context = self.modelContext else {
+                self.permissionRefreshTask = nil
+                return
+            }
+
+            await self.refresh(context: context)
+            self.permissionRefreshTask = nil
+        }
     }
 
     func completeOnboarding() {

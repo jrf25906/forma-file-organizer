@@ -90,6 +90,8 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Content search now skips redundant reruns when the normalized query and scanned file snapshot are unchanged.
 - Settings "Launch at Login" now syncs with macOS Login Items (`SMAppService`) and reports failures instead of failing silently.
 - Dashboard startup scans now respect the "Auto-scan on Launch" setting, including post-onboarding auto-scan behavior.
+- Permission grants now debounce follow-up dashboard refreshes into a single scan, and onboarding-time grants defer refresh until onboarding dismisses.
+- Debug bookmark diagnostics are now opt-in via `FORMA_RUN_BOOKMARK_DIAGNOSTICS=1` instead of running on every debug launch.
 - Menu bar Settings now uses the shared app settings opener instead of synthetic keyboard events.
 - Dashboard window chrome now uses native `NavigationSplitView` columns (sidebar/content/inspector) instead of floating overlay panes.
 - Restored layered vibrancy in the native split-view shell via pane-specific materials and a gradient-backed window surface.

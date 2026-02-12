@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import Forma_File_Organizing
 
 @MainActor
@@ -64,16 +65,69 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.showOnboarding, "Onboarding should not be shown after completion")
     }
     
-	    func testRequestDesktopAccess() async {
-	        // Given
-	        mockService.hasDesktop = false
-	        
-	        // When
-	        _ = await viewModel.requestDesktopAccess()
-	        
-	        // Then
-	        XCTAssertTrue(viewModel.hasDesktopAccess, "Desktop access should be granted")
-	    }
+    func testRequestDesktopAccess() async {
+        // Given
+        mockService.hasDesktop = false
+        
+        // When
+        _ = await viewModel.requestDesktopAccess()
+        
+        // Then
+        XCTAssertTrue(viewModel.hasDesktopAccess, "Desktop access should be granted")
+    }
+
+    func testPermissionGrantDebouncesRefreshToSingleScan() async throws {
+        // Given
+        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+        let localService = MockFileSystemService()
+        let localPipeline = MockFileScanPipeline()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: localPipeline
+        )
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        localViewModel.setModelContext(container.mainContext)
+        localViewModel.showOnboarding = false
+
+        // When
+        _ = await localViewModel.requestDesktopAccess()
+        _ = await localViewModel.requestDownloadsAccess()
+        try? await Task.sleep(for: .milliseconds(700))
+
+        // Then
+        XCTAssertEqual(localPipeline.scanCallCount, 1, "Multiple grants should coalesce into one refresh")
+    }
+
+    func testPermissionGrantSkipsAutoRefreshDuringOnboarding() async throws {
+        // Given
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        let localService = MockFileSystemService()
+        let localPipeline = MockFileScanPipeline()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: localPipeline
+        )
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        localViewModel.setModelContext(container.mainContext)
+        XCTAssertTrue(localViewModel.showOnboarding)
+
+        // When
+        _ = await localViewModel.requestDownloadsAccess()
+        try? await Task.sleep(for: .milliseconds(700))
+
+        // Then
+        XCTAssertEqual(localPipeline.scanCallCount, 0, "Onboarding flow should defer refresh until dismissal")
+    }
     
     func testFilterByLocation() {
         // Given
