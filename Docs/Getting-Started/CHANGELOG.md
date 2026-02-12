@@ -142,6 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Treemap taps now navigate to the corresponding category view.
 - Reduced repeated rule-scan warnings for unresolvable placeholder destinations.
+- Current Task card organization percentage now updates in real time by using scan-session progress counts even when organized files are removed from the active list.
 - `forma-website` pricing count-up now resolves correctly when users deep-link below the pricing section, preventing a stale `$0` label.
 - `forma-website` feature/pricing/FAQ/newsletter reveal animations now force visible state when a section is already past its trigger (deep links and long screenshots), preventing hidden-content gaps.
 - Shift-click range selection now works consistently across card/list/grid file views by using a shared selection anchor.

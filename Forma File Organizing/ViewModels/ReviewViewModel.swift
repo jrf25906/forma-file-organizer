@@ -73,8 +73,10 @@ class ReviewViewModel: ObservableObject {
             let activeRules = try context.fetch(descriptor)
 
             // Use shared pipeline for Desktop-only scan
+            let scanOptions = ScanOptionsResolver.current()
             let result = await fileScanPipeline.scanAndPersist(
                 baseFolders: [.desktop],
+                scanOptions: scanOptions,
                 fileSystemService: fileSystemService,
                 ruleEngine: ruleEngine,
                 rules: activeRules,

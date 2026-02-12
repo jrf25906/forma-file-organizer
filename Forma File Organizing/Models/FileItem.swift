@@ -14,6 +14,14 @@ final class FileItem: Fileable {
     /// Stored as a raw string for migration-friendly persistence.
     /// Use the `location` computed property for type-safe access.
     private var locationRaw: String?
+    
+    /// Absolute path of the scan root that produced this file.
+    /// Optional for backward compatibility with existing persisted rows.
+    var scanRootPath: String?
+
+    /// Parent directory path relative to `scanRootPath`.
+    /// Nil when the file is at the root level or for legacy rows.
+    var relativeParentPath: String?
 
     /// The file name including extension
     /// Stored for SwiftData predicate queries, but derived from path at initialization
@@ -168,6 +176,30 @@ final class FileItem: Fileable {
         }
     }
 
+    /// Flat context label used in file lists for nested files.
+    /// Example: "Desktop/ProjectX/Assets"
+    var relativePathContextLabel: String? {
+        guard let relativeParentPath, !relativeParentPath.isEmpty else { return nil }
+
+        let rootLabel = {
+            if let scanRootPath, !scanRootPath.isEmpty {
+                return URL(fileURLWithPath: scanRootPath).lastPathComponent
+            }
+
+            switch location {
+            case .desktop: return "Desktop"
+            case .downloads: return "Downloads"
+            case .documents: return "Documents"
+            case .pictures: return "Pictures"
+            case .music: return "Music"
+            case .home: return "Home"
+            case .custom, .unknown: return "Folder"
+            }
+        }()
+
+        return "\(rootLabel)/\(relativeParentPath)"
+    }
+
     // MARK: - Destination Convenience Properties
 
     /// The display name for the destination (for UI display).
@@ -215,6 +247,8 @@ final class FileItem: Fileable {
         modificationDate: Date = Date(),
         lastAccessedDate: Date = Date(),
         location: FileLocationKind = .unknown,
+        scanRootPath: String? = nil,
+        relativeParentPath: String? = nil,
         destination: Destination? = nil,
         status: OrganizationStatus = .pending
     ) {
@@ -251,6 +285,8 @@ final class FileItem: Fileable {
         self.creationDate = creationDate
         self.modificationDate = modificationDate
         self.lastAccessedDate = lastAccessedDate
+        self.scanRootPath = scanRootPath
+        self.relativeParentPath = relativeParentPath
         self.statusRaw = status.rawValue
         self.rejectionCount = 0
 
@@ -420,6 +456,8 @@ extension FileItem {
             modificationDate: metadata.modificationDate,
             lastAccessedDate: metadata.lastAccessedDate,
             location: metadata.location,
+            scanRootPath: metadata.scanRootPath,
+            relativeParentPath: metadata.relativeParentPath,
             destination: metadata.destination,
             status: metadata.status
         )

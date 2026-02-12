@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import SwiftData
 import Darwin
+import CryptoKit
 
 /// Service responsible for file operations (move, copy, delete)
 @MainActor
@@ -484,8 +485,43 @@ final class FileOperationsService {
             attributes: nil
         )
 
+        // If the file is already at the intended destination, treat this as a successful no-op.
+        let normalizedSourcePath = sourceURL.standardizedFileURL.resolvingSymlinksInPath().path
+        let normalizedDestinationPath = destinationURL.standardizedFileURL.resolvingSymlinksInPath().path
+        if normalizedSourcePath == normalizedDestinationPath {
+            Log.info("BOOKMARK MOVE NO-OP: File already at destination '\(destinationURL.path)'", category: .fileOperations)
+            return MoveResult(
+                success: true,
+                originalPath: sourceURL.path,
+                destinationPath: sourceURL.path,
+                error: nil
+            )
+        }
+
         // Check if destination already exists
         if fileManager.fileExists(atPath: destinationURL.path) {
+            if isEquivalentFile(at: sourceURL, and: destinationURL) {
+                // Destination already contains identical content; remove duplicate source.
+                try fileManager.removeItem(at: sourceURL)
+
+                if let context = modelContext {
+                    let activityService = ActivityLoggingService(modelContext: context)
+                    activityService.logFileOrganized(
+                        fileName: fileItem.name,
+                        destination: destination.displayName,
+                        fileExtension: fileItem.fileExtension
+                    )
+                }
+
+                Log.info("BOOKMARK MOVE DEDUPED: Removed duplicate source '\(sourceURL.path)' (destination already had identical file)", category: .fileOperations)
+                return MoveResult(
+                    success: true,
+                    originalPath: sourceURL.path,
+                    destinationPath: destinationURL.path,
+                    error: nil
+                )
+            }
+
             throw FormaError.fileSystem(.alreadyExists(destinationURL.path))
         }
 
@@ -522,6 +558,64 @@ final class FileOperationsService {
         }
     }
 
+    /// Returns true when source and destination refer to equivalent regular files.
+    /// Uses resource identifiers first, then falls back to bounded SHA-256 comparison.
+    private func isEquivalentFile(at sourceURL: URL, and destinationURL: URL) -> Bool {
+        let keys: Set<URLResourceKey> = [
+            .isRegularFileKey,
+            .fileSizeKey,
+            .fileResourceIdentifierKey
+        ]
+
+        do {
+            let sourceValues = try sourceURL.resourceValues(forKeys: keys)
+            let destinationValues = try destinationURL.resourceValues(forKeys: keys)
+
+            guard sourceValues.isRegularFile == true, destinationValues.isRegularFile == true else {
+                return false
+            }
+
+            if let sourceID = sourceValues.fileResourceIdentifier as AnyObject?,
+               let destinationID = destinationValues.fileResourceIdentifier as AnyObject?,
+               sourceID.isEqual(destinationID) {
+                return true
+            }
+
+            let sourceSize = Int64(sourceValues.fileSize ?? -1)
+            let destinationSize = Int64(destinationValues.fileSize ?? -2)
+            guard sourceSize >= 0, sourceSize == destinationSize else {
+                return false
+            }
+
+            guard sourceSize <= Self.duplicateHashMaxBytes else {
+                Log.info(
+                    "Duplicate comparison skipped for large file (\(sourceURL.lastPathComponent), \(sourceSize) bytes)",
+                    category: .fileOperations
+                )
+                return false
+            }
+
+            return try hashFileContents(at: sourceURL) == hashFileContents(at: destinationURL)
+        } catch {
+            Log.warning("Duplicate comparison failed for \(sourceURL.lastPathComponent): \(error.localizedDescription)", category: .fileOperations)
+            return false
+        }
+    }
+
+    private func hashFileContents(at url: URL) throws -> String {
+        let fileHandle = try FileHandle(forReadingFrom: url)
+        defer { try? fileHandle.close() }
+
+        var hasher = SHA256()
+        while true {
+            let chunk = try fileHandle.read(upToCount: Self.duplicateHashChunkSize) ?? Data()
+            if chunk.isEmpty { break }
+            hasher.update(data: chunk)
+        }
+
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
     // MARK: - Rate Limiting Configuration
 
     /// Maximum batch size for file operations to prevent resource exhaustion
@@ -539,6 +633,10 @@ final class FileOperationsService {
     /// - System resource exhaustion
     /// - Thermal throttling on sustained operations
     private static let operationDelayNanoseconds: UInt64 = 100_000_000 // 100ms
+    /// Chunk size for SHA-256 duplicate comparisons (1 MB).
+    private static let duplicateHashChunkSize = 1_048_576
+    /// Maximum file size to hash for duplicate-equivalence checks (50 MB).
+    private static let duplicateHashMaxBytes: Int64 = 50 * 1024 * 1024
 
     /// Moves multiple files with rate limiting to prevent resource exhaustion
     ///

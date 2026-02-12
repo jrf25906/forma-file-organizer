@@ -5,6 +5,7 @@ struct GeneralSettingsSection: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("showNotifications") private var showNotifications = true
     @AppStorage("autoScanOnLaunch") private var autoScanOnLaunch = true
+    @AppStorage(ScanOptionsResolver.scanSubfoldersKey) private var scanSubfolders = false
     @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
     @State private var launchAtLoginErrorMessage: String?
     @State private var isApplyingLaunchAtLogin = false
@@ -41,6 +42,15 @@ struct GeneralSettingsSection: View {
                             Toggle("", isOn: $autoScanOnLaunch)
                                 .toggleStyle(.switch)
                                 .tint(.formaSteelBlue)
+                        }
+
+                        Divider().padding(.leading, FormaSpacing.standard)
+
+                        SettingsRow("Scan Subfolders", subtitle: "Include files in nested folders during scans") {
+                                Toggle("", isOn: $scanSubfolders)
+                                    .toggleStyle(.switch)
+                                    .tint(.formaSteelBlue)
+                                    .disabled(!FeatureFlagService.shared.getRawValue(.recursiveScanning))
                         }
                     }
                 }
@@ -139,6 +149,7 @@ struct GeneralSettingsSection: View {
         launchAtLogin = false
         showNotifications = true
         autoScanOnLaunch = true
+        scanSubfolders = false
         appearanceMode = AppearanceMode.system.rawValue
         applyLaunchAtLoginChange(enabled: false)
     }

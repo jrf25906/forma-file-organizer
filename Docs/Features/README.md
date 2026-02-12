@@ -15,6 +15,7 @@
 | [PersonalitySystem.md](PersonalitySystem.md) | Organization personality quiz |
 | [OrganizationTemplates.md](OrganizationTemplates.md) | Organization templates |
 | [AIFeatures.md](AIFeatures.md) | AI-powered features |
+| [RecursiveScanning.md](RecursiveScanning.md) | Nested-folder scan behavior and user-facing settings |
 | [Website-SEO-AI-Surface.md](Website-SEO-AI-Surface.md) | Website SEO and AI-consumable public surface |
 
 ---
@@ -30,6 +31,7 @@
 
 ### AI & Automation
 - **[AIFeatures.md](AIFeatures.md)** - AI-powered suggestions, learning, insights
+- **[RecursiveScanning.md](RecursiveScanning.md)** - Recursive scan behavior, limits, and flat-view path context
 - **[Website-SEO-AI-Surface.md](Website-SEO-AI-Surface.md)** - SEO hardening, blog content system, and AI-agent endpoints for `forma-website`
 
 ### Archived Plans

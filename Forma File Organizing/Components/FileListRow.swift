@@ -189,6 +189,10 @@ struct FileListRow: View {
                             .frame(width: 5, height: 5)
                             .help(statusLabelConfig.label)
 
+                        if let relativePath = file.relativePathContextLabel {
+                            relativePathBadge(relativePath)
+                        }
+
                         if let confidence = file.confidenceScore {
                             ConfidenceDot(score: confidence, matchReason: file.matchReason, size: 5)
                         }
@@ -364,6 +368,22 @@ struct FileListRow: View {
         if components.count <= 2 { return path }
         guard let last = components.last else { return path }
         return "\u{2026}/\(last)"
+    }
+
+    private func relativePathBadge(_ value: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "folder")
+                .font(.system(size: 8, weight: .semibold))
+            Text(value)
+                .font(.formaMicro)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .foregroundStyle(Color.formaSecondaryLabelHigh)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 1)
+        .background(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+        .clipShape(Capsule())
     }
 
     // MARK: - Surface Styling

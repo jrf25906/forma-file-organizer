@@ -65,13 +65,13 @@ struct MainContentView: View {
     /// Request access for the currently selected folder via NSOpenPanel
     private func requestAccessForSelectedFolder() {
         Task {
-            switch nav.selection {
+            guard let folderType = nav.selection.folderType else { return }
+            switch folderType {
             case .desktop: _ = await dashboardViewModel.requestDesktopAccess()
             case .downloads: _ = await dashboardViewModel.requestDownloadsAccess()
             case .documents: _ = await dashboardViewModel.requestDocumentsAccess()
             case .pictures: _ = await dashboardViewModel.requestPicturesAccess()
             case .music: _ = await dashboardViewModel.requestMusicAccess()
-            default: break
             }
         }
     }
@@ -355,6 +355,7 @@ struct MainContentView: View {
     
     private func syncSelectionAndFilters() {
         let folder: FolderLocation
+        var nestedScope: (relativePath: String?, includeSubfolders: Bool)?
         switch nav.selection {
         case .home:
             folder = .home
@@ -368,6 +369,9 @@ struct MainContentView: View {
             folder = .pictures
         case .music:
             folder = .music
+        case .nestedFolder(let base, let relativePath, let includeSubfolders):
+            folder = FolderLocation.from(bookmarkFolderType: base)
+            nestedScope = (relativePath: relativePath, includeSubfolders: includeSubfolders)
         case .rules:
             // Rules view doesn't need folder filtering
             return
@@ -378,7 +382,15 @@ struct MainContentView: View {
             // Category selection is handled via FilterTabBar / selectedCategory
             folder = .home
         }
-        dashboardViewModel.selectFolder(folder)
+        dashboardViewModel.selectFolder(folder, resetNestedScope: nestedScope == nil)
+        if let nestedScope {
+            dashboardViewModel.selectNestedFolder(
+                relativePath: nestedScope.relativePath,
+                includeSubfolders: nestedScope.includeSubfolders
+            )
+        } else {
+            dashboardViewModel.selectNestedFolder(relativePath: nil, includeSubfolders: false)
+        }
         dashboardViewModel.updateSearchText(nav.searchText)
     }
 
@@ -1004,6 +1016,14 @@ struct MainContentView: View {
         case .music:
             return #Predicate<FileItem> { file in
                 file.path.contains("/Music/")
+                && (!hasSearch || file.name.localizedStandardContains(search))
+                && (!hasRecent || file.creationDate > recentDate)
+                && (!hasLarge || file.sizeInBytes > largeSize)
+            }
+        case .nestedFolder(let base, _, _):
+            let folderPath = "/\(base.displayName)/"
+            return #Predicate<FileItem> { file in
+                file.path.contains(folderPath)
                 && (!hasSearch || file.name.localizedStandardContains(search))
                 && (!hasRecent || file.creationDate > recentDate)
                 && (!hasLarge || file.sizeInBytes > largeSize)

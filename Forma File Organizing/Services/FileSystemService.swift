@@ -21,6 +21,7 @@ private func realHomeDirectory() -> URL {
 struct ScanResult {
     var files: [FileMetadata]
     var errors: [String: Error]  // folder name -> error
+    var scannedRootPaths: [String] = []
 
     /// Indicates whether the scan was completely successful
     var hasErrors: Bool {
@@ -42,13 +43,13 @@ struct ScanResult {
 /// Protocol defining file system operations for mocking
 /// Note: Some methods are MainActor-isolated because they work with SwiftUI-bound state
 protocol FileSystemServiceProtocol {
-    func scanDesktop() async throws -> [FileMetadata]
-    func scanDownloads() async throws -> [FileMetadata]
-    func scanDocuments() async throws -> [FileMetadata]
-    func scanPictures() async throws -> [FileMetadata]
-    func scanMusic() async throws -> [FileMetadata]
-    @MainActor func scanAllFolders() async -> ScanResult
-    func scan(baseFolders: [FolderLocation]) async -> ScanResult
+    func scanDesktop(options: FileScanOptions) async throws -> [FileMetadata]
+    func scanDownloads(options: FileScanOptions) async throws -> [FileMetadata]
+    func scanDocuments(options: FileScanOptions) async throws -> [FileMetadata]
+    func scanPictures(options: FileScanOptions) async throws -> [FileMetadata]
+    func scanMusic(options: FileScanOptions) async throws -> [FileMetadata]
+    @MainActor func scanAllFolders(options: FileScanOptions) async -> ScanResult
+    func scan(baseFolders: [FolderLocation], options: FileScanOptions) async -> ScanResult
 
     func hasDesktopAccess() -> Bool
     func hasDownloadsAccess() -> Bool
@@ -65,6 +66,75 @@ protocol FileSystemServiceProtocol {
     func getMigrationState() -> BookmarkMigrationState?
     /// Resets the saved Desktop folder bookmark (used for troubleshooting)
     func resetDesktopAccess()
+}
+
+struct FileScanOptions: Sendable, Equatable {
+    let isRecursive: Bool
+    let maxDepth: Int
+    let maxFilesPerRoot: Int
+    let skipPackages: Bool
+    let skipHidden: Bool
+
+    static let defaults = FileScanOptions(
+        isRecursive: false,
+        maxDepth: 6,
+        maxFilesPerRoot: 5_000,
+        skipPackages: true,
+        skipHidden: true
+    )
+}
+
+enum ScanOptionsResolver {
+    static let scanSubfoldersKey = "scanSubfolders"
+
+    static func current(
+        defaults: UserDefaults = .standard,
+        featureFlags: FeatureFlagService = .shared
+    ) -> FileScanOptions {
+        let userEnabled = defaults.object(forKey: scanSubfoldersKey) == nil
+            ? false
+            : defaults.bool(forKey: scanSubfoldersKey)
+        let recursiveEnabled = featureFlags.getRawValue(.recursiveScanning) && userEnabled
+
+        return FileScanOptions(
+            isRecursive: recursiveEnabled,
+            maxDepth: FileScanOptions.defaults.maxDepth,
+            maxFilesPerRoot: FileScanOptions.defaults.maxFilesPerRoot,
+            skipPackages: FileScanOptions.defaults.skipPackages,
+            skipHidden: FileScanOptions.defaults.skipHidden
+        )
+    }
+}
+
+extension FileSystemServiceProtocol {
+    func scanDesktop() async throws -> [FileMetadata] {
+        try await scanDesktop(options: .defaults)
+    }
+
+    func scanDownloads() async throws -> [FileMetadata] {
+        try await scanDownloads(options: .defaults)
+    }
+
+    func scanDocuments() async throws -> [FileMetadata] {
+        try await scanDocuments(options: .defaults)
+    }
+
+    func scanPictures() async throws -> [FileMetadata] {
+        try await scanPictures(options: .defaults)
+    }
+
+    func scanMusic() async throws -> [FileMetadata] {
+        try await scanMusic(options: .defaults)
+    }
+
+    @MainActor
+    func scanAllFolders() async -> ScanResult {
+        await scanAllFolders(options: .defaults)
+    }
+
+    func scan(baseFolders: [FolderLocation]) async -> ScanResult {
+        await scan(baseFolders: baseFolders, options: .defaults)
+    }
 }
 
 /// Service responsible for scanning directories and reading file metadata
@@ -145,7 +215,12 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
     }
 
     /// Generic method to scan a folder by location kind
-    private func scanFolder(folderName: String, bookmarkKey: String, location: FileLocationKind) async throws -> [FileMetadata] {
+    private func scanFolder(
+        folderName: String,
+        bookmarkKey: String,
+        location: FileLocationKind,
+        options: FileScanOptions
+    ) async throws -> [FileMetadata] {
         let url = try await getFolderURL(folderName: folderName, bookmarkKey: bookmarkKey)
         
         guard url.startAccessingSecurityScopedResource() else {
@@ -156,27 +231,27 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
             url.stopAccessingSecurityScopedResource()
         }
         
-        return try await scanDirectory(at: url, location: location)
+        return try await scanDirectory(at: url, location: location, options: options)
     }
     
-    func scanDesktop() async throws -> [FileMetadata] {
-        try await scanFolder(folderName: "Desktop", bookmarkKey: desktopBookmarkKey, location: .desktop)
+    func scanDesktop(options: FileScanOptions = .defaults) async throws -> [FileMetadata] {
+        try await scanFolder(folderName: "Desktop", bookmarkKey: desktopBookmarkKey, location: .desktop, options: options)
     }
     
-    func scanDownloads() async throws -> [FileMetadata] {
-        try await scanFolder(folderName: "Downloads", bookmarkKey: downloadsBookmarkKey, location: .downloads)
+    func scanDownloads(options: FileScanOptions = .defaults) async throws -> [FileMetadata] {
+        try await scanFolder(folderName: "Downloads", bookmarkKey: downloadsBookmarkKey, location: .downloads, options: options)
     }
     
-    func scanDocuments() async throws -> [FileMetadata] {
-        try await scanFolder(folderName: "Documents", bookmarkKey: documentsBookmarkKey, location: .documents)
+    func scanDocuments(options: FileScanOptions = .defaults) async throws -> [FileMetadata] {
+        try await scanFolder(folderName: "Documents", bookmarkKey: documentsBookmarkKey, location: .documents, options: options)
     }
     
-    func scanPictures() async throws -> [FileMetadata] {
-        try await scanFolder(folderName: "Pictures", bookmarkKey: picturesBookmarkKey, location: .pictures)
+    func scanPictures(options: FileScanOptions = .defaults) async throws -> [FileMetadata] {
+        try await scanFolder(folderName: "Pictures", bookmarkKey: picturesBookmarkKey, location: .pictures, options: options)
     }
     
-    func scanMusic() async throws -> [FileMetadata] {
-        try await scanFolder(folderName: "Music", bookmarkKey: musicBookmarkKey, location: .music)
+    func scanMusic(options: FileScanOptions = .defaults) async throws -> [FileMetadata] {
+        try await scanFolder(folderName: "Music", bookmarkKey: musicBookmarkKey, location: .music, options: options)
     }
 
     // MARK: - Generic Folder URL Helpers
@@ -300,11 +375,17 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
     }
 
 
-    /// Scans a specific directory and returns FileMetadata
+    /// Scans a specific directory and returns FileMetadata.
+    /// Uses a bounded recursive enumerator with safety limits.
     /// - Parameters:
     ///   - url: The folder URL to scan.
     ///   - location: High-level origin classification for files in this directory.
-    private func scanDirectory(at url: URL, location: FileLocationKind) async throws -> [FileMetadata] {
+    ///   - options: Runtime scan constraints for recursion and skip behavior.
+    private func scanDirectory(
+        at url: URL,
+        location: FileLocationKind,
+        options: FileScanOptions
+    ) async throws -> [FileMetadata] {
         let fileManager = FileManager.default
 
         // Check if directory exists
@@ -324,62 +405,108 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
                 .contentModificationDateKey,
                 .contentAccessDateKey,
                 .isDirectoryKey,
-                .isSymbolicLinkKey // SECURITY: Detect symlinks
+                .isPackageKey,
+                .isHiddenKey,
+                .isSymbolicLinkKey
             ]
             let prefetchedKeySet = Set(prefetchedKeys)
+            let enumeratorOptions = makeEnumeratorOptions(for: options)
 
-            let contents = try fileManager.contentsOfDirectory(
+            guard let enumerator = fileManager.enumerator(
                 at: url,
                 includingPropertiesForKeys: prefetchedKeys,
-                options: [.skipsHiddenFiles]
-            )
+                options: enumeratorOptions,
+                errorHandler: { scanURL, error in
+                    Log.warning("Skipping unreadable path during scan: \(scanURL.path) (\(error.localizedDescription))", category: .filesystem)
+                    return true
+                }
+            ) else {
+                throw FormaError.fileSystem(.ioError("Failed to create scanner for \(url.lastPathComponent)", underlying: nil))
+            }
+
+            let rootURL = url.standardizedFileURL
+            let rootPath = rootURL.path
+            let rootPathComponentCount = rootURL.pathComponents.count
+            let effectiveDepthLimit = options.isRecursive ? max(0, options.maxDepth) : 0
+            let maxFiles = max(1, options.maxFilesPerRoot)
 
             var fileItems: [FileMetadata] = []
-            fileItems.reserveCapacity(contents.count)
+            fileItems.reserveCapacity(min(maxFiles, 1_024))
+
             var skippedDirectories = 0
             var skippedSymlinks = 0
+            var skippedHidden = 0
+            var skippedPackages = 0
+            var maxDepthReached = 0
 
-            for fileURL in contents {
-                // SECURITY: Check for symlinks and validate them (CWE-61)
-                let resourceValues = try fileURL.resourceValues(forKeys: prefetchedKeySet)
-
-                // Skip directories
-                if resourceValues.isDirectory ?? false {
-                    skippedDirectories += 1
-                    continue
+            while let fileURL = enumerator.nextObject() as? URL {
+                if fileItems.count >= maxFiles {
+                    break
                 }
 
-                // SECURITY: Detect and skip symlinks to prevent symlink attacks
-                // Defense-in-depth: File organizer should only operate on regular files
+                let standardizedURL = fileURL.standardizedFileURL
+                let depth = standardizedURL.pathComponents.count - rootPathComponentCount
+                maxDepthReached = max(maxDepthReached, depth)
+
+                let resourceValues = try standardizedURL.resourceValues(forKeys: prefetchedKeySet)
+                let isDirectory = resourceValues.isDirectory ?? false
+
+                if options.skipHidden {
+                    let isHidden = resourceValues.isHidden ?? false
+                    if isHidden || pathContainsHiddenComponent(standardizedURL, relativeTo: rootURL) {
+                        if isDirectory {
+                            enumerator.skipDescendants()
+                        }
+                        skippedHidden += 1
+                        continue
+                    }
+                }
+
+                // SECURITY: Detect and skip symlinks to prevent symlink attacks.
                 if resourceValues.isSymbolicLink ?? false {
+                    if isDirectory {
+                        enumerator.skipDescendants()
+                    }
                     skippedSymlinks += 1
                     #if DEBUG
-                    Log.warning("SECURITY: Skipping symlink: \(fileURL.path)", category: .security)
-
-                    // Additional validation: Check where the symlink points
-                    let resolvedURL = fileURL.resolvingSymlinksInPath()
-                    let homeDir = FileManager.default.homeDirectoryForCurrentUser
-
-                    if !resolvedURL.path.hasPrefix(homeDir.path) {
-                        Log.error("SYMLINK ATTACK: Symlink escapes home directory. Link: \(fileURL.path), Target: \(resolvedURL.path)", category: .security)
-                    }
+                    Log.warning("SECURITY: Skipping symlink: \(standardizedURL.path)", category: .security)
                     #endif
                     continue
                 }
 
-                // Use prefetched resource values to avoid extra file-system syscalls.
+                if isDirectory {
+                    if options.skipPackages, resourceValues.isPackage ?? false {
+                        skippedPackages += 1
+                        enumerator.skipDescendants()
+                        continue
+                    }
+
+                    if depth > effectiveDepthLimit {
+                        skippedDirectories += 1
+                        enumerator.skipDescendants()
+                    }
+                    continue
+                }
+
+                // Files below the configured directory depth are skipped.
+                let parentDepth = max(0, depth - 1)
+                guard parentDepth <= effectiveDepthLimit else { continue }
+
                 let fileSize = Int64(resourceValues.fileSize ?? 0)
                 let creationDate = resourceValues.creationDate ?? Date()
                 let modificationDate = resourceValues.contentModificationDate ?? Date()
                 let lastAccessedDate = resourceValues.contentAccessDate ?? Date()
+                let relativeParentPath = makeRelativeParentPath(fileURL: standardizedURL, rootURL: rootURL)
 
                 let fileItem = FileMetadata(
-                    path: fileURL.path,
+                    path: standardizedURL.path,
                     sizeInBytes: fileSize,
                     creationDate: creationDate,
                     modificationDate: modificationDate,
                     lastAccessedDate: lastAccessedDate,
                     location: location,
+                    scanRootPath: rootPath,
+                    relativeParentPath: relativeParentPath,
                     destination: nil,
                     status: .pending
                 )
@@ -387,15 +514,54 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
                 fileItems.append(fileItem)
             }
 
-            #if DEBUG
-            Log.debug("SCAN RESULTS FOR \(url.lastPathComponent): total=\(contents.count), dirsSkipped=\(skippedDirectories), symlinksSkipped=\(skippedSymlinks), files=\(fileItems.count)", category: .filesystem)
-            #endif
-
+            Log.info(
+                "Scan complete root=\(rootURL.lastPathComponent) files=\(fileItems.count) depthReached=\(maxDepthReached) skippedHidden=\(skippedHidden) skippedPackages=\(skippedPackages) skippedSymlinks=\(skippedSymlinks) skippedDepth=\(skippedDirectories)",
+                category: .filesystem
+            )
             return fileItems
 
         } catch {
             throw FormaError.fileSystem(.ioError("Failed to scan \(url.lastPathComponent)", underlying: error))
         }
+    }
+
+    private func makeEnumeratorOptions(for options: FileScanOptions) -> FileManager.DirectoryEnumerationOptions {
+        var enumeratorOptions: FileManager.DirectoryEnumerationOptions = []
+        if options.skipHidden {
+            enumeratorOptions.insert(.skipsHiddenFiles)
+        }
+        if options.skipPackages {
+            enumeratorOptions.insert(.skipsPackageDescendants)
+        }
+        return enumeratorOptions
+    }
+
+    private func pathContainsHiddenComponent(_ url: URL, relativeTo rootURL: URL) -> Bool {
+        let rootPath = rootURL.path
+        guard url.path.hasPrefix(rootPath) else { return false }
+
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        let relativePath: String
+        if url.path.hasPrefix(prefix) {
+            relativePath = String(url.path.dropFirst(prefix.count))
+        } else {
+            relativePath = ""
+        }
+
+        return relativePath.split(separator: "/").contains { component in
+            component.hasPrefix(".")
+        }
+    }
+
+    private func makeRelativeParentPath(fileURL: URL, rootURL: URL) -> String? {
+        let parentPath = fileURL.deletingLastPathComponent().path
+        guard parentPath.hasPrefix(rootURL.path) else { return nil }
+
+        let prefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+        guard parentPath.hasPrefix(prefix) else { return nil }
+
+        let relative = String(parentPath.dropFirst(prefix.count))
+        return relative.isEmpty ? nil : relative
     }
 
     // MARK: - Reset Functions
@@ -446,7 +612,11 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
     }
 
     /// Scans a custom folder using security-scoped bookmark
-    func scanCustomFolder(url: URL, bookmarkData: Data) async throws -> [FileMetadata] {
+    func scanCustomFolder(
+        url: URL,
+        bookmarkData: Data,
+        options: FileScanOptions = .defaults
+    ) async throws -> [FileMetadata] {
         // Resolve bookmark and start accessing security-scoped resource
         var isStale = false
         let resolvedURL: URL
@@ -500,12 +670,12 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
         }
 
         // Treat all custom folders as `.custom` origin
-        return try await scanDirectory(at: resolvedURL, location: .custom)
+        return try await scanDirectory(at: resolvedURL, location: .custom, options: options)
     }
 
     /// Scans all folders that have valid Keychain bookmarks.
     /// Returns ScanResult containing both successful files and any errors that occurred.
-    func scanAllFolders() async -> ScanResult {
+    func scanAllFolders(options: FileScanOptions = .defaults) async -> ScanResult {
         // Scan all standard folders that have valid bookmarks
         var baseFolders: [FolderLocation] = []
         if hasDesktopAccess() { baseFolders.append(.desktop) }
@@ -514,14 +684,15 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
         if hasPicturesAccess() { baseFolders.append(.pictures) }
         if hasMusicAccess() { baseFolders.append(.music) }
 
-        return await scan(baseFolders: baseFolders)
+        return await scan(baseFolders: baseFolders, options: options)
     }
 
     /// Scans the specified base folders.
     /// If baseFolders is empty, defaults to Desktop + Downloads for compatibility.
-    func scan(baseFolders: [FolderLocation]) async -> ScanResult {
+    func scan(baseFolders: [FolderLocation], options: FileScanOptions = .defaults) async -> ScanResult {
         var allFiles: [FileMetadata] = []
         var errors: [String: Error] = [:]
+        var scannedRootPaths: [String] = []
 
         let folders = baseFolders.isEmpty ? [.desktop, .downloads] : baseFolders
 
@@ -532,68 +703,96 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
         let shouldScanPictures = folderSet.contains(.pictures)
         let shouldScanMusic = folderSet.contains(.music)
 
-        async let desktopResult: Result<[FileMetadata], Error>? = shouldScanDesktop ? scanFolderResult(.desktop) : nil
-        async let downloadsResult: Result<[FileMetadata], Error>? = shouldScanDownloads ? scanFolderResult(.downloads) : nil
-        async let documentsResult: Result<[FileMetadata], Error>? = shouldScanDocuments ? scanFolderResult(.documents) : nil
-        async let picturesResult: Result<[FileMetadata], Error>? = shouldScanPictures ? scanFolderResult(.pictures) : nil
-        async let musicResult: Result<[FileMetadata], Error>? = shouldScanMusic ? scanFolderResult(.music) : nil
+        async let desktopResult: Result<[FileMetadata], Error>? = shouldScanDesktop ? scanFolderResult(.desktop, options: options) : nil
+        async let downloadsResult: Result<[FileMetadata], Error>? = shouldScanDownloads ? scanFolderResult(.downloads, options: options) : nil
+        async let documentsResult: Result<[FileMetadata], Error>? = shouldScanDocuments ? scanFolderResult(.documents, options: options) : nil
+        async let picturesResult: Result<[FileMetadata], Error>? = shouldScanPictures ? scanFolderResult(.pictures, options: options) : nil
+        async let musicResult: Result<[FileMetadata], Error>? = shouldScanMusic ? scanFolderResult(.music, options: options) : nil
 
         if shouldScanDesktop, let result = await desktopResult {
             switch result {
-            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .success(let scanned):
+                allFiles.append(contentsOf: scanned)
+                scannedRootPaths.append(rootPath(for: .desktop))
             case .failure(let error): errors[FolderLocation.desktop.displayName] = error
             }
         }
 
         if shouldScanDownloads, let result = await downloadsResult {
             switch result {
-            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .success(let scanned):
+                allFiles.append(contentsOf: scanned)
+                scannedRootPaths.append(rootPath(for: .downloads))
             case .failure(let error): errors[FolderLocation.downloads.displayName] = error
             }
         }
 
         if shouldScanDocuments, let result = await documentsResult {
             switch result {
-            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .success(let scanned):
+                allFiles.append(contentsOf: scanned)
+                scannedRootPaths.append(rootPath(for: .documents))
             case .failure(let error): errors[FolderLocation.documents.displayName] = error
             }
         }
 
         if shouldScanPictures, let result = await picturesResult {
             switch result {
-            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .success(let scanned):
+                allFiles.append(contentsOf: scanned)
+                scannedRootPaths.append(rootPath(for: .pictures))
             case .failure(let error): errors[FolderLocation.pictures.displayName] = error
             }
         }
 
         if shouldScanMusic, let result = await musicResult {
             switch result {
-            case .success(let scanned): allFiles.append(contentsOf: scanned)
+            case .success(let scanned):
+                allFiles.append(contentsOf: scanned)
+                scannedRootPaths.append(rootPath(for: .music))
             case .failure(let error): errors[FolderLocation.music.displayName] = error
             }
         }
 
-        return ScanResult(files: allFiles, errors: errors)
+        return ScanResult(files: allFiles, errors: errors, scannedRootPaths: scannedRootPaths)
     }
 
-    private func scanFolderResult(_ folder: FolderLocation) async -> Result<[FileMetadata], Error> {
+    private func scanFolderResult(_ folder: FolderLocation, options: FileScanOptions) async -> Result<[FileMetadata], Error> {
         do {
             switch folder {
             case .home:
                 return .success([])
             case .desktop:
-                return .success(try await scanDesktop())
+                return .success(try await scanDesktop(options: options))
             case .downloads:
-                return .success(try await scanDownloads())
+                return .success(try await scanDownloads(options: options))
             case .documents:
-                return .success(try await scanDocuments())
+                return .success(try await scanDocuments(options: options))
             case .pictures:
-                return .success(try await scanPictures())
+                return .success(try await scanPictures(options: options))
             case .music:
-                return .success(try await scanMusic())
+                return .success(try await scanMusic(options: options))
             }
         } catch {
             return .failure(error)
+        }
+    }
+
+    private func rootPath(for folder: FolderLocation) -> String {
+        let home = realHomeDirectory()
+        switch folder {
+        case .home:
+            return home.standardizedFileURL.path
+        case .desktop:
+            return home.appendingPathComponent("Desktop").standardizedFileURL.path
+        case .downloads:
+            return home.appendingPathComponent("Downloads").standardizedFileURL.path
+        case .documents:
+            return home.appendingPathComponent("Documents").standardizedFileURL.path
+        case .pictures:
+            return home.appendingPathComponent("Pictures").standardizedFileURL.path
+        case .music:
+            return home.appendingPathComponent("Music").standardizedFileURL.path
         }
     }
     // MARK: - Permission Checks

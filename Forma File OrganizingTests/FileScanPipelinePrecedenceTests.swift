@@ -85,6 +85,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [rule],
@@ -120,6 +121,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [],
@@ -156,6 +158,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [],
@@ -209,6 +212,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [pdfRule],
@@ -259,6 +263,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [rule],
@@ -281,6 +286,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [],
@@ -302,6 +308,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         var result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [],
@@ -325,6 +332,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [rule],
@@ -360,6 +368,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [rule],
@@ -389,6 +398,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [],
@@ -431,6 +441,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop],
+            scanOptions: .defaults,
             fileSystemService: mockFileSystem,
             ruleEngine: ruleEngine,
             rules: [rule2, rule1],

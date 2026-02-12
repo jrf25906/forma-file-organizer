@@ -236,6 +236,19 @@ struct DashboardView: View {
         .onReceive(NotificationCenter.default.publisher(for: .replayGuidedTour)) { _ in
             tourState.replayTour()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .automationScanDidPersist)) { notification in
+            guard let scannedPaths = notification.userInfo?[AutomationScanNotificationUserInfo.scannedPaths] as? [String] else {
+                return
+            }
+            let errorSummary = notification.userInfo?[AutomationScanNotificationUserInfo.errorSummary] as? String
+            Task {
+                await dashboardViewModel.applyAutomationScanUpdate(
+                    scannedPaths: scannedPaths,
+                    errorSummary: errorSummary,
+                    context: modelContext
+                )
+            }
+        }
         .sheet(isPresented: $dashboardViewModel.showQuickLookSheet) {
             if let url = dashboardViewModel.quickLookURL {
                 QuickLookSheet(url: url)

@@ -302,10 +302,10 @@ class BulkOperationViewModel: ObservableObject {
             lastBatchFailedFiles = []
             onShowCelebration?("Organized \(successCount) file\(successCount == 1 ? "" : "s")")
         } else if successCount > 0 && failedCount > 0 {
-            onShowToast?("Organized \(successCount) of \(totalCount). Tap to see \(failedCount) failed.", true)
+            onShowToast?("Organized \(successCount) of \(totalCount). Open failed files for details.", true)
             showFailedFilesSheet = true
         } else if failedCount > 0 {
-            onShowToast?("Failed to organize \(failedCount) file\(failedCount == 1 ? "" : "s"). Tap to retry.", false)
+            onShowToast?("Failed to organize \(failedCount) file\(failedCount == 1 ? "" : "s"). Open failed files to retry.", false)
             showFailedFilesSheet = true
         }
     }

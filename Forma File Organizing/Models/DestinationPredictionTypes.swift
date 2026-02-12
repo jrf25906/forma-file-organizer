@@ -81,6 +81,8 @@ struct DestinationFeatures: Equatable, Sendable {
 
 /// Source of a file organization suggestion
 enum SuggestionSource: String, Codable, Sendable {
+    // Persisted raw values are part of stored-model compatibility.
+    // Do not rename or remove without an explicit data migration.
     case rule           // From RuleEngine match
     case pattern        // From LearnedPattern
     case mlPrediction   // From ML model

@@ -15,6 +15,7 @@ import CreateML
 protocol FileScanPipelineProtocol {
     func scanAndPersist(
         baseFolders: [FolderLocation],
+        scanOptions: FileScanOptions,
         fileSystemService: FileSystemServiceProtocol,
         ruleEngine: RuleEngine,
         rules: [Rule],
@@ -37,11 +38,17 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         }
     }
 
+    private struct PersistenceResult {
+        let files: [FileItem]
+        let saveError: Error?
+    }
+
     // Services for prediction pipeline
     private let learningService = LearningService()
 
     func scanAndPersist(
         baseFolders: [FolderLocation],
+        scanOptions: FileScanOptions = .defaults,
         fileSystemService: FileSystemServiceProtocol,
         ruleEngine: RuleEngine,
         rules: [Rule],
@@ -49,6 +56,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     ) async -> ScanResult {
         await performScan(
             baseFolders: baseFolders,
+            scanOptions: scanOptions,
             fileSystemService: fileSystemService,
             ruleEngine: ruleEngine,
             rules: rules,
@@ -59,19 +67,28 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     /// Performs the actual scan operation (extracted for timeout wrapper)
     private func performScan(
         baseFolders: [FolderLocation],
+        scanOptions: FileScanOptions,
         fileSystemService: FileSystemServiceProtocol,
         ruleEngine: RuleEngine,
         rules: [Rule],
         context: ModelContext
     ) async -> ScanResult {
         // 1. Scan using protocol method
-        let result = await fileSystemService.scan(baseFolders: baseFolders)
+        let result = await fileSystemService.scan(baseFolders: baseFolders, options: scanOptions)
         let scanMeta = ScanResult(files: [], errorSummary: result.errorSummary, rawErrors: result.errors)
-        return await persist(files: result.files, evaluatedBy: ruleEngine, rules: rules, context: context, scanMeta: scanMeta)
+        return await persist(
+            files: result.files,
+            scannedRootPaths: result.scannedRootPaths,
+            evaluatedBy: ruleEngine,
+            rules: rules,
+            context: context,
+            scanMeta: scanMeta
+        )
     }
 
     private func persist(
         files: [FileMetadata],
+        scannedRootPaths: [String],
         evaluatedBy ruleEngine: RuleEngine,
         rules: [Rule],
         context: ModelContext,
@@ -108,10 +125,20 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         }
 
         // PHASE 3: Persist results (SwiftData requirement)
-        let persisted = persistToSwiftData(evaluated: evaluated, context: context)
+        let normalized = normalizeAlreadyOrganizedFiles(evaluated)
+        let persistence = persistToSwiftData(evaluated: normalized, scannedRootPaths: scannedRootPaths, context: context)
 
-        PerformanceMonitor.shared.end(.ruleEvaluation, id: persistId, metadata: "\(persisted.count) persisted")
-        return ScanResult(files: persisted, errorSummary: scanMeta.errorSummary, rawErrors: scanMeta.rawErrors)
+        var rawErrors = scanMeta.rawErrors
+        if let saveError = persistence.saveError {
+            rawErrors["SwiftData Save"] = saveError
+        }
+        let errorSummary = combinedErrorSummary(
+            scanErrorSummary: scanMeta.errorSummary,
+            persistenceError: persistence.saveError
+        )
+
+        PerformanceMonitor.shared.end(.ruleEvaluation, id: persistId, metadata: "\(persistence.files.count) persisted")
+        return ScanResult(files: persistence.files, errorSummary: errorSummary, rawErrors: rawErrors)
     }
 
     // MARK: - MainActor Data Fetching
@@ -153,7 +180,11 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     }
 
     @MainActor
-    private func persistToSwiftData(evaluated: [FileMetadata], context: ModelContext) -> [FileItem] {
+    private func persistToSwiftData(
+        evaluated: [FileMetadata],
+        scannedRootPaths: [String],
+        context: ModelContext
+    ) -> PersistenceResult {
         // Batch fetch existing FileItem by path
         let scannedPaths = Set(evaluated.map { $0.path })
         let descriptor = FetchDescriptor<FileItem>(
@@ -187,12 +218,18 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                     modificationDate: meta.modificationDate,
                     lastAccessedDate: meta.lastAccessedDate
                 )
-                existing.destination = meta.destination
-                existing.matchReason = meta.matchReason
-                existing.confidenceScore = meta.confidenceScore
-                existing.suggestionSourceRaw = meta.suggestionSourceRaw
+                existing.scanRootPath = meta.scanRootPath
+                existing.relativeParentPath = meta.relativeParentPath
+                let shouldOverwriteSuggestionData = existing.status == .pending || meta.destination != nil || meta.status == .completed
+                if shouldOverwriteSuggestionData {
+                    existing.destination = meta.destination
+                    existing.matchReason = meta.matchReason
+                    existing.confidenceScore = meta.confidenceScore
+                    existing.suggestionSourceRaw = meta.suggestionSourceRaw
+                    existing.matchedRuleID = meta.matchedRuleID
+                }
 
-                if existing.status == .pending {
+                if existing.status == .pending || meta.status == .completed {
                     existing.status = meta.status
                 }
 
@@ -205,14 +242,145 @@ struct FileScanPipeline: FileScanPipelineProtocol {
             }
         }
 
+        reconcileMissingFiles(
+            scannedPaths: scannedPaths,
+            scannedRootPaths: scannedRootPaths.isEmpty ? Set(evaluated.compactMap(\.scanRootPath)) : Set(scannedRootPaths),
+            context: context
+        )
+
+        let saveError: Error?
         do {
             try context.save()
+            saveError = nil
         } catch {
+            saveError = error
             Log.error("FileScanPipeline: Failed to save scan results: \(error.localizedDescription)", category: .pipeline)
-            // Saving failures are surfaced by callers via toasts; pipeline still returns best-effort files
         }
 
-        return persisted
+        return PersistenceResult(files: persisted, saveError: saveError)
+    }
+
+    private func combinedErrorSummary(scanErrorSummary: String?, persistenceError: Error?) -> String? {
+        switch (scanErrorSummary, persistenceError) {
+        case (nil, nil):
+            return nil
+        case (let summary?, nil):
+            return summary
+        case (nil, let error?):
+            return "Failed to persist scan results: \(error.localizedDescription)"
+        case (let summary?, let error?):
+            return "\(summary). Failed to persist scan results: \(error.localizedDescription)"
+        }
+    }
+
+    @MainActor
+    private func reconcileMissingFiles(
+        scannedPaths: Set<String>,
+        scannedRootPaths: Set<String>,
+        context: ModelContext
+    ) {
+        guard !scannedRootPaths.isEmpty else { return }
+
+        let descriptor = FetchDescriptor<FileItem>()
+        let existingFiles: [FileItem]
+        do {
+            existingFiles = try context.fetch(descriptor)
+        } catch {
+            Log.error("FileScanPipeline: Failed to fetch files for reconciliation: \(error.localizedDescription)", category: .pipeline)
+            return
+        }
+
+        let removableStatuses: Set<FileItem.OrganizationStatus> = [.pending, .ready, .skipped]
+        var removedCount = 0
+
+        for file in existingFiles {
+            guard removableStatuses.contains(file.status) else { continue }
+            guard !scannedPaths.contains(file.path) else { continue }
+            guard isPathUnderScannedRoots(file.path, scannedRootPaths: scannedRootPaths) else { continue }
+
+            context.delete(file)
+            removedCount += 1
+        }
+
+        if removedCount > 0 {
+            Log.info("FileScanPipeline: Removed \(removedCount) stale file records under scanned roots", category: .pipeline)
+        }
+    }
+
+    private func isPathUnderScannedRoots(_ path: String, scannedRootPaths: Set<String>) -> Bool {
+        let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+        for root in scannedRootPaths {
+            let standardizedRoot = URL(fileURLWithPath: root).standardizedFileURL.path
+            let prefix = standardizedRoot.hasSuffix("/") ? standardizedRoot : standardizedRoot + "/"
+            if standardizedPath == standardizedRoot || standardizedPath.hasPrefix(prefix) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Files discovered by recursive scans may already be inside their resolved
+    /// destination folder. Mark these as completed so they do not inflate
+    /// review/stale counts and re-attempt redundant moves.
+    private func normalizeAlreadyOrganizedFiles(_ files: [FileMetadata]) -> [FileMetadata] {
+        var normalized: [FileMetadata] = []
+        normalized.reserveCapacity(files.count)
+
+        var destinationPathCache: [Destination: String?] = [:]
+
+        for var file in files {
+            guard file.status != .completed else {
+                normalized.append(file)
+                continue
+            }
+
+            guard let destination = file.destination,
+                  let destinationFolderPath = resolvedDestinationPath(for: destination, cache: &destinationPathCache),
+                  isFileAlreadyInDestinationFolder(filePath: file.path, destinationFolderPath: destinationFolderPath) else {
+                normalized.append(file)
+                continue
+            }
+
+            file.status = .completed
+            file.matchReason = nil
+            file.confidenceScore = nil
+            file.suggestionSourceRaw = nil
+            file.matchedRuleID = nil
+            normalized.append(file)
+        }
+
+        return normalized
+    }
+
+    private func resolvedDestinationPath(
+        for destination: Destination,
+        cache: inout [Destination: String?]
+    ) -> String? {
+        if let cached = cache[destination] {
+            return cached
+        }
+
+        let resolvedPath: String?
+        switch destination {
+        case .trash:
+            resolvedPath = nil
+        case .folder:
+            resolvedPath = destination.resolve()?.url.standardizedFileURL.path
+        }
+
+        cache[destination] = resolvedPath
+        return resolvedPath
+    }
+
+    private func isFileAlreadyInDestinationFolder(filePath: String, destinationFolderPath: String) -> Bool {
+        let fileParent = URL(fileURLWithPath: filePath)
+            .deletingLastPathComponent()
+            .standardizedFileURL
+            .path
+        let standardizedDestination = URL(fileURLWithPath: destinationFolderPath)
+            .standardizedFileURL
+            .path
+        return fileParent == standardizedDestination
     }
     
     // MARK: - Computation

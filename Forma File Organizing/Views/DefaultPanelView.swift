@@ -143,7 +143,7 @@ struct DefaultPanelView: View {
                         .foregroundStyle(currentTaskLabelColor)
 
                     // Main headline with contextual count
-                    Text("\(reviewCount) \(taskDescription)")
+                    Text("\(taskHeadlineCount) \(taskDescription)")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(Color.formaLabel)
                         .lineLimit(2)
@@ -238,7 +238,7 @@ struct DefaultPanelView: View {
 
     /// Returns a description of the current task based on file characteristics
     private var taskDescription: String {
-        if urgentFilesCount > 0 && urgentFilesCount >= dashboardViewModel.cachedNeedsReviewCount / 2 {
+        if shouldEmphasizeStaleTask {
             return "Stale Files"
         } else if dominantCategory != .all {
             return "\(dominantCategory.displayName)"
@@ -251,14 +251,43 @@ struct DefaultPanelView: View {
     private var taskExplanation: String {
         let reviewCount = dashboardViewModel.cachedNeedsReviewCount
 
-        if urgentFilesCount > 0 && urgentFilesCount >= reviewCount / 2 {
-            return "These files have been \(locationPreposition) your \(locationDisplayPhrase) for over 30 days."
+        if shouldEmphasizeStaleTask {
+            return "These top-level files have been \(locationPreposition) your \(locationDisplayPhrase) for over 30 days."
         } else if dominantCategory != .all {
             let categoryCount = dashboardViewModel.filteredStorageAnalytics.fileCountForCategory(dominantCategory)
             return "Mostly \(dominantCategory.displayName.lowercased()) (\(categoryCount) of \(reviewCount))."
         } else {
             return "A mix of file types waiting for organization."
         }
+    }
+
+    /// Count shown in the primary task headline.
+    /// When stale framing is active, show only actionable stale files to avoid
+    /// counting nested historical files discovered by recursive scans.
+    private var taskHeadlineCount: Int {
+        shouldEmphasizeStaleTask ? actionableStaleCount : dashboardViewModel.cachedNeedsReviewCount
+    }
+
+    /// Whether the hero should frame the current task around stale files.
+    private var shouldEmphasizeStaleTask: Bool {
+        let reviewCount = dashboardViewModel.cachedNeedsReviewCount
+        guard reviewCount > 0 else { return false }
+        return actionableStaleCount > 0 && actionableStaleCount >= max(1, reviewCount / 2)
+    }
+
+    /// "Stale" files that are still actionable in the primary queue.
+    /// We intentionally scope this to top-level items so nested files inside
+    /// already-organized subfolders do not dominate the task callout.
+    private var actionableStaleCount: Int {
+        dashboardViewModel.cachedReviewableFiles.filter { file in
+
+            // Only treat files at the selected root level as "stale task" items.
+            let isTopLevel = (file.relativeParentPath?.isEmpty ?? true)
+            guard isTopLevel else { return false }
+
+            let daysSince = Calendar.current.dateComponents([.day], from: file.creationDate, to: Date()).day ?? 0
+            return daysSince > 30
+        }.count
     }
 
     /// The dominant category in the current file set
@@ -349,7 +378,7 @@ struct DefaultPanelView: View {
 
                 Spacer()
 
-                Text("\(organizedFilesCount)/\(totalFilesCount + organizedFilesCount) Files")
+                Text("\(organizedFilesCount)/\(totalFilesCount) Files")
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(progressLabelColor)
@@ -399,7 +428,7 @@ struct DefaultPanelView: View {
     // MARK: - Pinned Primary Action
     
     private var pinnedPrimaryAction: some View {
-        let readyFiles = dashboardViewModel.filteredFiles.filter { $0.status == .ready }
+        let readyFiles = dashboardViewModel.cachedReviewableFiles.filter { $0.status == .ready }
         
         return Group {
             if !readyFiles.isEmpty {
@@ -580,24 +609,17 @@ struct DefaultPanelView: View {
     }
 
     private var organizationProgress: Double {
-        let total = totalFilesCount + organizedFilesCount
+        let total = totalFilesCount
         guard total > 0 else { return 1.0 }
         return Double(organizedFilesCount) / Double(total)
     }
 
     private var totalFilesCount: Int {
-        dashboardViewModel.allFilesCount
+        dashboardViewModel.organizationProgressTotalCount
     }
 
     private var organizedFilesCount: Int {
-        dashboardViewModel.allFiles.filter { $0.status == .completed }.count
-    }
-
-    private var urgentFilesCount: Int {
-        dashboardViewModel.allFiles.filter { file in
-            let daysSince = Calendar.current.dateComponents([.day], from: file.creationDate, to: Date()).day ?? 0
-            return daysSince > 30 && file.status != .completed
-        }.count
+        dashboardViewModel.organizationProgressOrganizedCount
     }
 
     private var currentTaskLabelColor: Color {

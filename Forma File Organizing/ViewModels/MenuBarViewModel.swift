@@ -124,6 +124,7 @@ final class MenuBarViewModel: ObservableObject {
     nonisolated(unsafe) private var refreshTimer: Timer?
     private var automationStateObservationTask: Task<Void, Never>?
     private var actionResultObservationTask: Task<Void, Never>?
+    private var automationScanObservationTask: Task<Void, Never>?
 
     // MARK: - Configuration
 
@@ -144,6 +145,7 @@ final class MenuBarViewModel: ObservableObject {
         refreshTimer?.invalidate()
         automationStateObservationTask?.cancel()
         actionResultObservationTask?.cancel()
+        automationScanObservationTask?.cancel()
     }
 
     // MARK: - Lifecycle
@@ -293,6 +295,7 @@ final class MenuBarViewModel: ObservableObject {
     private func setupObservers() {
         automationStateObservationTask?.cancel()
         actionResultObservationTask?.cancel()
+        automationScanObservationTask?.cancel()
 
         automationStateObservationTask = Task { @MainActor [weak self] in
             for await _ in AutomationEngine.shared.$state.values {
@@ -307,6 +310,14 @@ final class MenuBarViewModel: ObservableObject {
                 if result != nil {
                     await self.refresh()
                 }
+            }
+        }
+
+        // Keep menu bar counts in sync with automation-engine scans that bypass FormaActions.
+        automationScanObservationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            for await _ in NotificationCenter.default.notifications(named: .automationScanDidPersist) {
+                await self.refresh()
             }
         }
     }

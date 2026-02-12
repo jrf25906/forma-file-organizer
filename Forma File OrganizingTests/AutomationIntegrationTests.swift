@@ -385,83 +385,117 @@ struct AutomationIntegrationTests {
 
     // MARK: - Feature Flag Tests
 
-    /// Test: Automation feature flags exist in FeatureFlagService
+    /// Test: auto-organize is effectively disabled unless background monitoring is enabled
     @Test
-    func featureFlag_AutomationExists()  throws {
+    func featureFlag_AutoOrganizeDependsOnBackgroundMonitoring()  throws {
         guard requireIntegration() else { return }
-        // Given/When: Feature flag service
         let featureFlags = FeatureFlagService.shared
         featureFlags.resetToDefaults()
         defer { featureFlags.resetToDefaults() }
 
-        // Then: Automation flags should have sensible defaults
-        #expect(featureFlags.getRawValue(.backgroundMonitoring) == true)
-        #expect(featureFlags.getRawValue(.autoOrganize) == false)
-        #expect(featureFlags.getRawValue(.automationReminders) == true)
+        featureFlags.masterAIEnabled = true
+        featureFlags.setEnabled(.autoOrganize, true)
+        featureFlags.setEnabled(.backgroundMonitoring, false)
 
-        // Master toggle should disable effective access
-        featureFlags.masterAIEnabled = false
-        #expect(featureFlags.isEnabled(.backgroundMonitoring) == false)
+        #expect(featureFlags.getRawValue(.autoOrganize) == true)
         #expect(featureFlags.isEnabled(.autoOrganize) == false)
-        #expect(featureFlags.isEnabled(.automationReminders) == false)
+
+        featureFlags.setEnabled(.backgroundMonitoring, true)
+        #expect(featureFlags.isEnabled(.autoOrganize) == true)
     }
 
-    // MARK: - Config Constants Tests
-
-    /// Test: All automation thresholds are properly configured
+    /// Test: resolved policy applies mode downgrade and interval clamping behavior
     @Test
-    func automationConfig_ThresholdsConfigured()  throws {
+    func automationPolicy_AppliesDowngradeAndClamping()  throws {
         guard requireIntegration() else { return }
-        // Verify all required thresholds exist and have sensible values
-        #expect(FormaConfig.Automation.backlogThreshold > 0)
-        #expect(FormaConfig.Automation.ageThresholdDays > 0)
-        #expect(FormaConfig.Automation.minScanIntervalMinutes > 0)
-        #expect(FormaConfig.Automation.maxScanIntervalMinutes > FormaConfig.Automation.minScanIntervalMinutes)
-        #expect(FormaConfig.Automation.mlAutoOrganizeConfidenceMinimum >= FormaConfig.Automation.mlRuleConfidenceMinimum)
+        let featureFlags = FeatureFlagService.shared
+        featureFlags.resetToDefaults()
+        defer { featureFlags.resetToDefaults() }
+
+        let userSettings = AutomationUserSettings(
+            mode: .scanAndOrganize,
+            scanIntervalMinutes: 99_999,
+            scanOnLaunch: true,
+            notificationsEnabled: true
+        )
+
+        featureFlags.setEnabled(.autoOrganize, false)
+        let downgraded = AutomationPolicy.resolve(flags: featureFlags, userSettings: userSettings)
+        #expect(downgraded.effectiveMode == .scanOnly)
+        #expect(downgraded.scanIntervalMinutes == FormaConfig.Automation.maxScanIntervalMinutes)
+
+        featureFlags.masterAIEnabled = false
+        let disabled = AutomationPolicy.resolve(flags: featureFlags, userSettings: userSettings)
+        #expect(disabled.effectiveMode == .off)
+        #expect(disabled.scanIntervalMinutes == 0)
     }
 
-    /// Test: Notification cooldowns are configured
+    /// Test: notification policy requires both user opt-in and reminders flag
     @Test
-    func automationConfig_NotificationCooldownsConfigured()  throws {
+    func automationPolicy_NotificationEnablementRequiresUserAndFlag()  throws {
         guard requireIntegration() else { return }
-        #expect(FormaConfig.Automation.backlogReminderCooldownHours > 0)
-        #expect(FormaConfig.Automation.errorNotificationCooldownMinutes > 0)
-        #expect(FormaConfig.Automation.maxNotificationsPerHour > 0)
+        let featureFlags = FeatureFlagService.shared
+        featureFlags.resetToDefaults()
+        defer { featureFlags.resetToDefaults() }
+
+        let userOn = AutomationUserSettings(
+            mode: .scanOnly,
+            scanIntervalMinutes: 30,
+            scanOnLaunch: true,
+            notificationsEnabled: true
+        )
+        let userOff = AutomationUserSettings(
+            mode: .scanOnly,
+            scanIntervalMinutes: 30,
+            scanOnLaunch: true,
+            notificationsEnabled: false
+        )
+
+        featureFlags.setEnabled(.automationReminders, false)
+        #expect(AutomationPolicy.resolve(flags: featureFlags, userSettings: userOn).notificationsEnabled == false)
+
+        featureFlags.setEnabled(.automationReminders, true)
+        #expect(AutomationPolicy.resolve(flags: featureFlags, userSettings: userOff).notificationsEnabled == false)
+        #expect(AutomationPolicy.resolve(flags: featureFlags, userSettings: userOn).notificationsEnabled == true)
     }
 
-    // MARK: - Activity Type Tests
+    // MARK: - Activity Type Renderability Tests
 
-    /// Test: All automation activity types have icons
-    @Test
-    func activityType_AutomationTypes_HaveIcons()  throws {
+    /// Test: persisted automation activities remain renderable for timeline UI
+    @Test @MainActor
+    func activityType_AutomationActivities_RoundTripAndRenderable() async throws {
         guard requireIntegration() else { return }
-        let automationTypes: [ActivityItem.ActivityType] = [
-            .automationScanCompleted,
-            .automationAutoOrganized,
-            .automationError,
-            .automationPaused,
-            .automationResumed
-        ]
 
-        for type in automationTypes {
-            #expect(!type.iconName.isEmpty, "\(type) should have an icon")
+        let container = try ModelContainer(
+            for: ActivityItem.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        let loggingService = ActivityLoggingService(modelContext: context)
+
+        loggingService.logAutomationScanCompleted(filesScanned: 10, newPending: 2)
+        loggingService.logAutoOrganizeBatch(successCount: 3, failedCount: 1, skippedCount: 0)
+        loggingService.logAutomationError(type: .scanFailed, message: "simulated")
+        loggingService.logAutomationPaused(reason: "test")
+        loggingService.logAutomationResumed()
+        try context.save()
+
+        let descriptor = FetchDescriptor<ActivityItem>()
+        let activities = try context.fetch(descriptor)
+        let automationActivities = activities.filter {
+            [
+                ActivityItem.ActivityType.automationScanCompleted,
+                .automationAutoOrganized,
+                .automationError,
+                .automationPaused,
+                .automationResumed
+            ].contains($0.activityType)
         }
-    }
 
-    /// Test: All automation activity types have display names
-    @Test
-    func activityType_AutomationTypes_HaveDisplayNames()  throws {
-        guard requireIntegration() else { return }
-        let automationTypes: [ActivityItem.ActivityType] = [
-            .automationScanCompleted,
-            .automationAutoOrganized,
-            .automationError,
-            .automationPaused,
-            .automationResumed
-        ]
-
-        for type in automationTypes {
-            #expect(!type.displayName.isEmpty, "\(type) should have a display name")
+        #expect(automationActivities.count == 5)
+        for activity in automationActivities {
+            #expect(!activity.activityType.iconName.isEmpty)
+            #expect(!activity.activityType.displayName.isEmpty)
         }
     }
 }

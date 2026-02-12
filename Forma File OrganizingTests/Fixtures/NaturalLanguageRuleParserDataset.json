@@ -1,0 +1,510 @@
+{
+  "minimumAccuracy": 0.9,
+  "cases": [
+    {
+      "id": "move_pdf_older_than_30_days",
+      "text": "Move pdf files older than 30 days to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "isAmbiguous": false,
+        "hasBlockingError": false,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileExtension", "dateOlderThan"]
+      }
+    },
+    {
+      "id": "delete_screenshots_last_week",
+      "text": "Delete screenshots from last week",
+      "expect": {
+        "action": "delete",
+        "isComplete": true,
+        "isAmbiguous": true,
+        "hasBlockingError": false,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["nameContains", "dateOlderThan"],
+        "requiredAmbiguityTags": ["ambiguousTimePhrase"],
+        "requiredIssueSeverities": ["warning"],
+        "requiredIssueKinds": ["timeConstraint"]
+      }
+    },
+    {
+      "id": "move_images_larger_than_500mb",
+      "text": "Move images larger than 500MB to Archives",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archives",
+        "isComplete": true,
+        "hasBlockingError": false,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileKind", "sizeLargerThan"]
+      }
+    },
+    {
+      "id": "organize_documents_by_month",
+      "text": "Organize work documents by month",
+      "expect": {
+        "action": "move",
+        "isComplete": false,
+        "isAmbiguous": true,
+        "hasBlockingError": false,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["fileKind"],
+        "requiredAmbiguityTags": ["ambiguousGrouping"],
+        "requiredIssueSeverities": ["warning"],
+        "requiredIssueKinds": ["timeConstraint"]
+      }
+    },
+    {
+      "id": "organize_stuff_incomplete",
+      "text": "Organize stuff",
+      "expect": {
+        "action": "move",
+        "isComplete": false,
+        "isAmbiguous": false,
+        "hasBlockingError": false,
+        "minimumConditionCount": 0
+      }
+    },
+    {
+      "id": "copy_invoices_to_folder",
+      "text": "Copy invoices to Documents/Invoices",
+      "expect": {
+        "action": "copy",
+        "destinationContains": "Documents/Invoices",
+        "isComplete": true,
+        "hasBlockingError": false,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameContains"]
+      }
+    },
+    {
+      "id": "move_zip_archives_from_downloads",
+      "text": "Move downloaded zip archives to Downloads/Archives",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Downloads/Archives",
+        "isComplete": true,
+        "hasBlockingError": false,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileExtension", "fileKind"]
+      }
+    },
+    {
+      "id": "delete_dmg_older_than_14_days",
+      "text": "Delete dmg installers older than 14 days",
+      "expect": {
+        "action": "delete",
+        "isComplete": true,
+        "hasBlockingError": false,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileExtension", "dateOlderThan"]
+      }
+    },
+    {
+      "id": "move_named_final",
+      "text": "Move project files named \"final\" to Projects/Final",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Projects/Final",
+        "isComplete": true,
+        "hasBlockingError": false,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameContains"]
+      }
+    },
+    {
+      "id": "delete_temp_prefix",
+      "text": "Delete temporary files starting with temp_",
+      "expect": {
+        "action": "delete",
+        "isComplete": true,
+        "hasBlockingError": false,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameStartsWith"]
+      }
+    },
+    {
+      "id": "move_markdown_alias",
+      "text": "Move markdown files to Documents/Notes",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents/Notes",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["fileExtension"]
+      }
+    },
+    {
+      "id": "move_javascript_alias",
+      "text": "Move javascript files to Projects/Scripts",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Projects/Scripts",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["fileExtension"]
+      }
+    },
+    {
+      "id": "move_typescript_alias",
+      "text": "Move typescript files to Projects/TS",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Projects/TS",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["fileExtension"]
+      }
+    },
+    {
+      "id": "move_files_with_invoice_in_name",
+      "text": "Move files with invoice in the name to Documents/Finance",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents/Finance",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameContains"]
+      }
+    },
+    {
+      "id": "move_files_containing_receipt",
+      "text": "Move files containing receipt to Documents/Finance",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents/Finance",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameContains"]
+      }
+    },
+    {
+      "id": "move_files_starting_with_client_a",
+      "text": "Move files starting with ClientA to Documents/ClientA",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents/ClientA",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameStartsWith"]
+      }
+    },
+    {
+      "id": "move_files_ending_with_backup",
+      "text": "Move files ending with backup to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameEndsWith"]
+      }
+    },
+    {
+      "id": "move_files_prefixed_with_temp",
+      "text": "Move files prefixed with temp to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameStartsWith"]
+      }
+    },
+    {
+      "id": "move_files_suffixed_with_final",
+      "text": "Move files suffixed with final to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameEndsWith"]
+      }
+    },
+    {
+      "id": "move_project_prefix_wildcard",
+      "text": "Move project-* files to Projects/Active",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Projects/Active",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameStartsWith"]
+      }
+    },
+    {
+      "id": "move_suffix_wildcard_backup",
+      "text": "Move *-backup files to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameEndsWith"]
+      }
+    },
+    {
+      "id": "move_from_desktop_to_archive",
+      "text": "Move pdf files from Desktop to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileExtension", "sourceLocation"]
+      }
+    },
+    {
+      "id": "move_from_downloads_to_archive",
+      "text": "Move zip files in Downloads to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileExtension", "sourceLocation"]
+      }
+    },
+    {
+      "id": "delete_images_last_month",
+      "text": "Delete images from last month",
+      "expect": {
+        "action": "delete",
+        "isComplete": true,
+        "isAmbiguous": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileKind", "dateOlderThan"],
+        "requiredAmbiguityTags": ["ambiguousTimePhrase"],
+        "requiredIssueSeverities": ["warning"],
+        "requiredIssueKinds": ["timeConstraint"]
+      }
+    },
+    {
+      "id": "move_photos_last_month_to_archive",
+      "text": "Move photos from last month to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "isAmbiguous": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileKind", "dateOlderThan"],
+        "requiredAmbiguityTags": ["ambiguousTimePhrase"]
+      }
+    },
+    {
+      "id": "move_pdf_or_images",
+      "text": "Move PDFs or images to Documents",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents",
+        "logicalOperator": "or",
+        "isComplete": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileExtension", "fileKind"]
+      }
+    },
+    {
+      "id": "move_pdf_and_images",
+      "text": "Move PDFs and images to Documents",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents",
+        "logicalOperator": "and",
+        "isComplete": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileExtension", "fileKind"]
+      }
+    },
+    {
+      "id": "no_action_error",
+      "text": "PDFs to Archive",
+      "expect": {
+        "isComplete": false,
+        "hasBlockingError": true,
+        "requiredIssueSeverities": ["error"],
+        "requiredIssueKinds": ["action"]
+      }
+    },
+    {
+      "id": "move_to_archive_without_target",
+      "text": "Move to Archive",
+      "expect": {
+        "action": "move",
+        "isComplete": false,
+        "hasBlockingError": false,
+        "minimumConditionCount": 0,
+        "requiredIssueSeverities": ["warning"],
+        "requiredIssueKinds": ["destination"]
+      }
+    },
+    {
+      "id": "delete_verb_only",
+      "text": "Delete",
+      "expect": {
+        "action": "delete",
+        "isComplete": false,
+        "hasBlockingError": false,
+        "minimumConditionCount": 0
+      }
+    },
+    {
+      "id": "move_everything_incomplete",
+      "text": "Move everything",
+      "expect": {
+        "action": "move",
+        "isComplete": false,
+        "minimumConditionCount": 0
+      }
+    },
+    {
+      "id": "trash_dmg_older_than_30",
+      "text": "trash any dmg older than 30 days",
+      "expect": {
+        "action": "delete",
+        "isComplete": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileExtension", "dateOlderThan"]
+      }
+    },
+    {
+      "id": "file_work_invoices",
+      "text": "file work invoices in Documents/Work/Invoices",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents/Work/Invoices",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameContains"]
+      }
+    },
+    {
+      "id": "sort_photos_into_archive",
+      "text": "sort photos into Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["fileKind"]
+      }
+    },
+    {
+      "id": "move_text_over_1gb",
+      "text": "Move txt files larger than 1GB to Large Files",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Large Files",
+        "isComplete": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileExtension", "sizeLargerThan"]
+      }
+    },
+    {
+      "id": "move_files_named_quoted_receipt",
+      "text": "Move files named 'receipt_q1' to Documents/Finance",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents/Finance",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameContains"]
+      }
+    },
+    {
+      "id": "move_files_called_report",
+      "text": "Move files called report to Documents/Reports",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents/Reports",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameContains"]
+      }
+    },
+    {
+      "id": "move_from_downloads_older_than_7_days",
+      "text": "Move files out of Downloads older than 7 days to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["sourceLocation", "dateOlderThan"]
+      }
+    },
+    {
+      "id": "move_by_month_to_archive",
+      "text": "Move files by month to Archive",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Archive",
+        "isComplete": false,
+        "isAmbiguous": true,
+        "minimumConditionCount": 0,
+        "requiredAmbiguityTags": ["ambiguousGrouping"],
+        "requiredIssueSeverities": ["warning"],
+        "requiredIssueKinds": ["timeConstraint"]
+      }
+    },
+    {
+      "id": "move_images_to_absolute_path",
+      "text": "Move images to /Users/test/Documents",
+      "expect": {
+        "action": "move",
+        "destinationContains": "/Users/test/Documents",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["fileKind"]
+      }
+    },
+    {
+      "id": "move_to_path_with_spaces",
+      "text": "Move files to Documents/My Projects 2024",
+      "expect": {
+        "action": "move",
+        "destinationContains": "My Projects",
+        "isComplete": false,
+        "hasBlockingError": false,
+        "minimumConditionCount": 0,
+        "requiredIssueSeverities": ["warning"],
+        "requiredIssueKinds": ["destination"]
+      }
+    },
+    {
+      "id": "conflicting_actions",
+      "text": "Move and delete PDFs to Archive",
+      "expect": {
+        "action": "delete",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["fileExtension"],
+        "requiredAmbiguityTags": ["conflictingConditions"]
+      }
+    },
+    {
+      "id": "move_files_that_contain_word",
+      "text": "Move files that contain 'tax' to Documents/Taxes",
+      "expect": {
+        "action": "move",
+        "destinationContains": "Documents/Taxes",
+        "isComplete": true,
+        "minimumConditionCount": 1,
+        "requiredConditionTypes": ["nameContains"]
+      }
+    },
+    {
+      "id": "delete_archives_older_than_365",
+      "text": "Delete old archive files older than 365 days",
+      "expect": {
+        "action": "delete",
+        "isComplete": true,
+        "minimumConditionCount": 2,
+        "requiredConditionTypes": ["fileKind", "dateOlderThan"]
+      }
+    }
+  ]
+}

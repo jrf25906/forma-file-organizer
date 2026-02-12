@@ -26,6 +26,9 @@ final class MockFileScanProvider: FileScanProvider, @unchecked Sendable {
     /// Files to return from getAutoOrganizeEligibleFiles()
     var autoOrganizeEligibleFiles: [FileItem] = []
 
+    /// Error to throw from getAutoOrganizeEligibleFiles() (if set)
+    var autoOrganizeEligibleFilesError: Error?
+
     /// Error to throw from scanFiles() (if set)
     var scanError: Error?
 
@@ -59,9 +62,13 @@ final class MockFileScanProvider: FileScanProvider, @unchecked Sendable {
     func getAutoOrganizeEligibleFiles(
         context: ModelContext,
         confidenceThreshold: Double
-    ) async -> [FileItem] {
+    ) async throws -> [FileItem] {
         getEligibleFilesCallCount += 1
         requestedConfidenceThresholds.append(confidenceThreshold)
+
+        if let error = autoOrganizeEligibleFilesError {
+            throw error
+        }
 
         return autoOrganizeEligibleFiles
     }
@@ -75,6 +82,7 @@ final class MockFileScanProvider: FileScanProvider, @unchecked Sendable {
         scanCallTimestamps = []
         requestedConfidenceThresholds = []
         scanError = nil
+        autoOrganizeEligibleFilesError = nil
     }
 
     /// Configures a successful scan result with specified counts

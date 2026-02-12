@@ -15,6 +15,7 @@
 | [ARCHITECTURE.md](ARCHITECTURE.md) | **Start here** - Overall system architecture | Core |
 | [DASHBOARD.md](DASHBOARD.md) | Main dashboard component architecture | Core |
 | [RIGHT_PANEL.md](RIGHT_PANEL.md) | Contextual copilot panel architecture | Core |
+| [Recursive-Scan-Pipeline.md](Recursive-Scan-Pipeline.md) | Recursive scan data flow and reconciliation | Current |
 
 ---
 
@@ -24,6 +25,7 @@
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System-level architecture, service patterns, data flow
 - **[DASHBOARD.md](DASHBOARD.md)** - Main interface layout, component composition, state management
 - **[RIGHT_PANEL.md](RIGHT_PANEL.md)** - Contextual modes, inspector, AI insights panel
+- **[Recursive-Scan-Pipeline.md](Recursive-Scan-Pipeline.md)** - Recursive scanner options, metadata propagation, and stale-row reconciliation
 
 ### Component Design
 - **[ComponentArchitecture.md](ComponentArchitecture.md)** - Reusable UI component catalog

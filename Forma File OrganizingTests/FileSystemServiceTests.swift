@@ -79,7 +79,7 @@ final class FileSystemServiceTests: XCTestCase {
         XCTAssertFalse(fileNames.contains(".DS_Store"), "Should skip .DS_Store")
     }
 
-    func testScanDirectory_SkipsDirectories() async throws {
+    func testScanDirectory_DefaultModeOnlyIncludesRootLevel() async throws {
         // Given: A directory with files and subdirectories
         try tempDir.createFile(name: "file.txt")
         try tempDir.createDirectory(name: "subfolder")
@@ -95,12 +95,118 @@ final class FileSystemServiceTests: XCTestCase {
         )
         let files = try await service.scanCustomFolder(url: tempDir.url, bookmarkData: bookmarkData)
 
-        // Then: Should only return files in root, not subdirectories or files within them
-        XCTAssertEqual(files.count, 1, "Should only find files in root directory")
-        XCTAssertEqual(files.first?.name, "file.txt", "Should return the root-level file")
+        // Then: Default scanning should include only root-level files
+        XCTAssertEqual(files.count, 1, "Default scan should only include root-level files")
 
         let fileNames = files.map { $0.name }
-        XCTAssertFalse(fileNames.contains("nested.txt"), "Should not include files in subdirectories")
+        XCTAssertTrue(fileNames.contains("file.txt"), "Should include root-level file")
+        XCTAssertFalse(fileNames.contains("nested.txt"), "Should exclude nested file unless recursive mode is enabled")
+    }
+
+    func testScanDirectory_NonRecursiveModeOnlyIncludesRootLevel() async throws {
+        try tempDir.createFile(name: "root.txt")
+        try tempDir.createFile(name: "nested/child.txt")
+
+        let service = FileSystemService()
+        let bookmarkData = try tempDir.url.bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        let files = try await service.scanCustomFolder(
+            url: tempDir.url,
+            bookmarkData: bookmarkData,
+            options: FileScanOptions(
+                isRecursive: false,
+                maxDepth: 6,
+                maxFilesPerRoot: 100,
+                skipPackages: true,
+                skipHidden: true
+            )
+        )
+
+        XCTAssertEqual(files.count, 1, "Non-recursive scan should only include root-level files")
+        XCTAssertEqual(files.first?.name, "root.txt")
+        XCTAssertNil(files.first?.relativeParentPath, "Root-level file should have nil relative parent path")
+    }
+
+    func testScanDirectory_SkipsSymlinks() async throws {
+        try tempDir.createFile(name: "regular.txt")
+        let symlinkURL = tempDir.url.appendingPathComponent("link.txt")
+        try FileManager.default.createSymbolicLink(at: symlinkURL, withDestinationURL: tempDir.url.appendingPathComponent("regular.txt"))
+
+        let service = FileSystemService()
+        let bookmarkData = try tempDir.url.bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        let files = try await service.scanCustomFolder(url: tempDir.url, bookmarkData: bookmarkData)
+
+        let names = files.map(\.name)
+        XCTAssertTrue(names.contains("regular.txt"))
+        XCTAssertFalse(names.contains("link.txt"), "Symlink entries must be excluded")
+    }
+
+    func testScanDirectory_SkipsPackageContents() async throws {
+        try tempDir.createDirectory(name: "Sample.app")
+        try tempDir.createFile(name: "Sample.app/Info.plist")
+        try tempDir.createFile(name: "outside.txt")
+
+        let service = FileSystemService()
+        let bookmarkData = try tempDir.url.bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        let files = try await service.scanCustomFolder(url: tempDir.url, bookmarkData: bookmarkData)
+
+        let names = files.map(\.name)
+        XCTAssertTrue(names.contains("outside.txt"))
+        XCTAssertFalse(names.contains("Info.plist"), "Package descendants should be excluded by default")
+    }
+
+    func testScanDirectory_RespectsDepthAndFileCountCaps() async throws {
+        try tempDir.createFile(name: "root-1.txt")
+        try tempDir.createFile(name: "root-2.txt")
+        try tempDir.createFile(name: "nested/depth-1.txt")
+        try tempDir.createFile(name: "nested/deeper/depth-2.txt")
+
+        let service = FileSystemService()
+        let bookmarkData = try tempDir.url.bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+
+        let depthLimited = try await service.scanCustomFolder(
+            url: tempDir.url,
+            bookmarkData: bookmarkData,
+            options: FileScanOptions(
+                isRecursive: true,
+                maxDepth: 1,
+                maxFilesPerRoot: 100,
+                skipPackages: true,
+                skipHidden: true
+            )
+        )
+
+        let depthLimitedNames = Set(depthLimited.map(\.name))
+        XCTAssertTrue(depthLimitedNames.contains("depth-1.txt"), "Depth-1 file should be included")
+        XCTAssertFalse(depthLimitedNames.contains("depth-2.txt"), "Files deeper than maxDepth should be excluded")
+
+        let fileCapped = try await service.scanCustomFolder(
+            url: tempDir.url,
+            bookmarkData: bookmarkData,
+            options: FileScanOptions(
+                isRecursive: true,
+                maxDepth: 6,
+                maxFilesPerRoot: 2,
+                skipPackages: true,
+                skipHidden: true
+            )
+        )
+        XCTAssertLessThanOrEqual(fileCapped.count, 2, "Scan should enforce maxFilesPerRoot cap")
     }
 
     func testScanDirectory_ExtractsFileMetadata() async throws {

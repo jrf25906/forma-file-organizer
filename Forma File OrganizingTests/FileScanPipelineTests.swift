@@ -28,23 +28,25 @@ final class FileScanPipelineTests: XCTestCase {
     /// Simple FileSystemServiceProtocol stub that returns predetermined metadata
     private final class StubFileSystemService: FileSystemServiceProtocol {
         let metadata: [FileMetadata]
+        let scannedRootPaths: [String]
 
-        init(metadata: [FileMetadata]) {
+        init(metadata: [FileMetadata], scannedRootPaths: [String] = []) {
             self.metadata = metadata
+            self.scannedRootPaths = scannedRootPaths
         }
 
-        func scanDesktop() async throws -> [FileMetadata] { metadata }
-        func scanDownloads() async throws -> [FileMetadata] { metadata }
-        func scanDocuments() async throws -> [FileMetadata] { metadata }
-        func scanPictures() async throws -> [FileMetadata] { metadata }
-        func scanMusic() async throws -> [FileMetadata] { metadata }
+        func scanDesktop(options: FileScanOptions) async throws -> [FileMetadata] { metadata }
+        func scanDownloads(options: FileScanOptions) async throws -> [FileMetadata] { metadata }
+        func scanDocuments(options: FileScanOptions) async throws -> [FileMetadata] { metadata }
+        func scanPictures(options: FileScanOptions) async throws -> [FileMetadata] { metadata }
+        func scanMusic(options: FileScanOptions) async throws -> [FileMetadata] { metadata }
 
-        func scanAllFolders() async -> ScanResult {
-            ScanResult(files: metadata, errors: [:])
+        func scanAllFolders(options: FileScanOptions) async -> ScanResult {
+            ScanResult(files: metadata, errors: [:], scannedRootPaths: scannedRootPaths)
         }
 
-        func scan(baseFolders: [FolderLocation]) async -> ScanResult {
-            ScanResult(files: metadata, errors: [:])
+        func scan(baseFolders: [FolderLocation], options: FileScanOptions) async -> ScanResult {
+            ScanResult(files: metadata, errors: [:], scannedRootPaths: scannedRootPaths)
         }
 
         func hasDesktopAccess() -> Bool { true }
@@ -91,6 +93,7 @@ final class FileScanPipelineTests: XCTestCase {
         // When: running the scan pipeline
         let result = await pipeline.scanAndPersist(
             baseFolders: [.desktop, .downloads],
+            scanOptions: .defaults,
             fileSystemService: stubFS,
             ruleEngine: ruleEngine,
             rules: rules,
@@ -103,5 +106,182 @@ final class FileScanPipelineTests: XCTestCase {
         let byPath = Dictionary(uniqueKeysWithValues: result.files.map { ($0.path, $0) })
         XCTAssertEqual(byPath[desktopMeta.path]?.location, .desktop)
         XCTAssertEqual(byPath[downloadsMeta.path]?.location, .downloads)
+    }
+
+    func testScanAndPersist_StoresScanRootAndRelativeParentPath() async throws {
+        let now = Date()
+        let rootPath = "/Users/test/Desktop"
+        let nestedMeta = FileMetadata(
+            path: "\(rootPath)/Projects/Forma/spec.md",
+            sizeInBytes: 128,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: rootPath,
+            relativeParentPath: "Projects/Forma"
+        )
+
+        let stubFS = StubFileSystemService(metadata: [nestedMeta], scannedRootPaths: [rootPath])
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: stubFS,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        XCTAssertEqual(result.files.count, 1)
+        let file = try XCTUnwrap(result.files.first)
+        XCTAssertEqual(file.scanRootPath, rootPath)
+        XCTAssertEqual(file.relativeParentPath, "Projects/Forma")
+        XCTAssertEqual(file.relativePathContextLabel, "Desktop/Projects/Forma")
+    }
+
+    func testScanAndPersist_ReconcilesMissingPendingFilesUnderScannedRoot() async throws {
+        let rootPath = "/Users/test/Desktop"
+
+        let stalePending = FileItem(
+            path: "\(rootPath)/Old/old.txt",
+            sizeInBytes: 50,
+            creationDate: Date(),
+            location: .desktop,
+            scanRootPath: rootPath,
+            relativeParentPath: "Old",
+            destination: nil,
+            status: .pending
+        )
+        context.insert(stalePending)
+
+        let completedFile = FileItem(
+            path: "\(rootPath)/Completed/keep.txt",
+            sizeInBytes: 50,
+            creationDate: Date(),
+            location: .desktop,
+            scanRootPath: rootPath,
+            relativeParentPath: "Completed",
+            destination: nil,
+            status: .completed
+        )
+        context.insert(completedFile)
+        try context.save()
+
+        let activeMeta = FileMetadata(
+            path: "\(rootPath)/New/new.txt",
+            sizeInBytes: 75,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .desktop,
+            scanRootPath: rootPath,
+            relativeParentPath: "New"
+        )
+
+        let stubFS = StubFileSystemService(metadata: [activeMeta], scannedRootPaths: [rootPath])
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: stubFS,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let files = try context.fetch(FetchDescriptor<FileItem>())
+        XCTAssertFalse(files.contains { $0.path == stalePending.path }, "Stale pending file should be deleted during reconciliation")
+        XCTAssertTrue(files.contains { $0.path == completedFile.path }, "Completed files should be preserved")
+        XCTAssertTrue(files.contains { $0.path == activeMeta.path }, "Current scan files should remain")
+    }
+
+    func testScanAndPersist_PreservesExistingDestinationForNonPendingFileWhenRescanHasNoSuggestion() async throws {
+        let path = "/Users/test/Desktop/already-ready.pdf"
+        let existing = FileItem(
+            path: path,
+            sizeInBytes: 100,
+            creationDate: Date(),
+            location: .desktop,
+            destination: .mockFolder("Documents"),
+            status: .ready
+        )
+        context.insert(existing)
+        try context.save()
+
+        let rescannedMeta = FileMetadata(
+            path: path,
+            sizeInBytes: 200,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .desktop,
+            destination: nil,
+            status: .pending
+        )
+
+        let stubFS = StubFileSystemService(metadata: [rescannedMeta], scannedRootPaths: ["/Users/test/Desktop"])
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: stubFS,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let refreshed = try XCTUnwrap(context.fetch(FetchDescriptor<FileItem>(predicate: #Predicate { $0.path == path })).first)
+        XCTAssertEqual(refreshed.status, .ready)
+        XCTAssertEqual(refreshed.destination?.displayName, "Documents")
+        XCTAssertEqual(refreshed.sizeInBytes, 200, "Metadata fields should still refresh during rescan")
+    }
+
+    func testScanAndPersist_MarksFileCompletedWhenAlreadyInDestinationFolder() async throws {
+        let temp = try TemporaryDirectory()
+        defer { temp.cleanup() }
+
+        let destinationFolder = try temp.createDirectory(name: "Desktop/Screenshots")
+        let fileURL = try temp.createFile(name: "Desktop/Screenshots/screen.png", contents: "pixels")
+        let destination = try Destination.folder(from: destinationFolder)
+        let desktopRoot = temp.url.appendingPathComponent("Desktop").path
+
+        let metadata = FileMetadata(
+            path: fileURL.path,
+            sizeInBytes: 6,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .desktop,
+            scanRootPath: desktopRoot,
+            relativeParentPath: "Screenshots"
+        )
+
+        let stubFS = StubFileSystemService(metadata: [metadata], scannedRootPaths: [desktopRoot])
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+        let rule = Rule(
+            name: "Screenshots Rule",
+            conditions: [.fileExtension("png")],
+            logicalOperator: .single,
+            actionType: .move,
+            destination: destination,
+            isEnabled: true
+        )
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: stubFS,
+            ruleEngine: RuleEngine(),
+            rules: [rule],
+            context: context
+        )
+
+        let file = try XCTUnwrap(result.files.first)
+        XCTAssertEqual(file.status, .completed)
+        XCTAssertNil(file.matchReason, "Completed in-place files should not remain in review suggestion state")
     }
 }

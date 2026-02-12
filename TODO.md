@@ -3,11 +3,13 @@
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
 ## Tomorrow Focus (Thursday, February 12, 2026)
+- [x] Implement recursive scanning across dashboard/manual, automation, menu bar, and review flows with bounded depth/file caps and root-relative path context in card/list/grid UI.
 - [x] Add accessibility identifiers for selection/focus/row status in `Views/FileRow.swift`, `Views/FileListRow.swift`, `Views/FileGridItem.swift`, and `Views/MainContentView.swift`.
 - [x] Replace `sleep()` in UI tests with predicate-based expectations in `Forma File OrganizingUITests/`.
-- [ ] Add injectable clock/calendar/defaults for `Services/AnalyticsService.swift` and update tests for deterministic time behavior.
-- [ ] Convert NL parser dataset tests to fixture files with structured assertions.
-- [ ] Convert remaining constant-only tests to behavioral assertions in `AutomationIntegrationTests.swift`, `OrganizationTemplateTests.swift`, and `RuleServiceTests.swift`.
+- [x] Add injectable clock/calendar/defaults for `Services/AnalyticsService.swift` and update tests for deterministic time behavior.
+- [x] Investigate current task card organized percentage not updating in real time.
+- [x] Convert NL parser dataset tests to fixture files with structured assertions.
+- [x] Convert remaining constant-only tests to behavioral assertions in `AutomationIntegrationTests.swift`, `OrganizationTemplateTests.swift`, and `RuleServiceTests.swift`.
 - [x] Run full macOS tests (unit/integration, then UI test plan) and triage top regressions.
 - [x] Evaluate Periphery via `Scripts/periphery.sh` and document baseline strategy (`--retain-public` vs baseline file).
 - [x] Timebox `DashboardViewModel` decomposition design (permission state vs undo/redo) and capture a concrete split plan.
@@ -122,9 +124,9 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
   - [x] 27.15 ManageCategoriesSheet.swift — show folder picker.
   - [x] 27.16 MainContentView.swift — implement bulk operation cancellation.
 - [x] 28. Combine → async/await migration (MenuBarViewModel `.sink`) — replaced with async sequence observation tasks.
-- [ ] 29. DashboardViewModel decomposition (permission state / undo-redo) — optional.
+- [x] 29. DashboardViewModel decomposition (permission state / undo-redo) — optional.
 - [x] 30. Static analysis tooling — evaluated Periphery (`Scripts/periphery.sh`) with explicit target configuration; documented baseline strategy in `Docs/Development/DEVELOPMENT.md`.
-- [ ] 31. SuggestionSource .rule / .mlPrediction — keep as persisted forward-compat; revisit when features ship or are cut.
+- [x] 31. SuggestionSource .rule / .mlPrediction — kept for persisted forward-compat with dedicated persistence tests.
 
 ### Execution Notes
 - [x] Run unit/integration tests before and after each phase (CLI: `xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS'`).
@@ -138,15 +140,15 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 Goal: deterministic, behavior-driven tests with clear separation of unit/integration/performance/UI suites.
 
 ### Priority 1 — Testable Infrastructure + Determinism
-- [ ] 1. Add injectable clock/calendar + defaults suites for time/UserDefaults usage in services:
+- [x] 1. Add injectable clock/calendar + defaults suites for time/UserDefaults usage in services:
   - [x] `Services/ReportService.swift` (UserDefaults + Calendar + now)
   - [x] `Services/InsightsService.swift` (Calendar + now + greeting)
   - [x] `Services/AutomationEngine.swift` (clock + scheduler/backoff time)
-  - [ ] `Services/AnalyticsService.swift` (time-based summaries if needed)
+  - [x] `Services/AnalyticsService.swift` (time-based summaries if needed)
 - [x] 2. Introduce wrappers for external side effects:
   - [x] `SecureBookmarkStore` (Keychain) wrapper for tests
   - [x] `FileManager` wrapper for filesystem behavior
-  - [ ] Optional: `NotificationService` wrapper for AutomationEngine tests
+  - [x] Optional: `NotificationService` wrapper for AutomationEngine tests
 - [x] 3. Update tests to use isolated dependencies:
   - `ReportServiceTests.swift`, `InsightsServiceTests.swift`, `AutomationEngineTests.swift`,
     `AutomationPolicyTests.swift`, `OrganizationPersonalityTests.swift`, `FolderTemplateSelectionTests.swift`.
@@ -171,11 +173,11 @@ Goal: deterministic, behavior-driven tests with clear separation of unit/integra
   - `Forma_File_OrganizingUITests.swift`, `MicroInteractionsUITests.swift`, `FileRowUITests.swift`.
 
 ### Priority 5 — Data-Driven Fixtures & Structured Assertions
-- [ ] 11. Convert NL parser datasets to fixture files and structured assertions:
+- [x] 11. Convert NL parser datasets to fixture files and structured assertions:
   - `NaturalLanguageRuleParserDatasetTests.swift`
   - `NaturalLanguageRuleParserEdgeCaseTests.swift` (avoid message text coupling)
-- [ ] 12. Convert “constant-only” tests to behavioral assertions:
+- [x] 12. Convert “constant-only” tests to behavioral assertions:
   - [x] `AutomationEngineTests.swift`
-  - [ ] `AutomationIntegrationTests.swift`
-  - [ ] `OrganizationTemplateTests.swift`
-  - [ ] `RuleServiceTests.swift`.
+  - [x] `AutomationIntegrationTests.swift`
+  - [x] `OrganizationTemplateTests.swift`
+  - [x] `RuleServiceTests.swift`.

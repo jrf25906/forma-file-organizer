@@ -20,31 +20,31 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
         // No-op for tests
     }
 
-    func scanDesktop() async throws -> [FileMetadata] {
+    func scanDesktop(options: FileScanOptions) async throws -> [FileMetadata] {
         if shouldSucceed { return mockFiles } else { throw FormaError.fileSystem(.ioError("Mock error", underlying: nil)) }
     }
 
-    func scanDownloads() async throws -> [FileMetadata] {
+    func scanDownloads(options: FileScanOptions) async throws -> [FileMetadata] {
         if shouldSucceed { return mockFiles } else { throw FormaError.fileSystem(.ioError("Mock error", underlying: nil)) }
     }
 
-    func scanDocuments() async throws -> [FileMetadata] {
+    func scanDocuments(options: FileScanOptions) async throws -> [FileMetadata] {
         if shouldSucceed { return mockFiles } else { throw FormaError.fileSystem(.ioError("Mock error", underlying: nil)) }
     }
 
-    func scanPictures() async throws -> [FileMetadata] {
+    func scanPictures(options: FileScanOptions) async throws -> [FileMetadata] {
         if shouldSucceed { return mockFiles } else { throw FormaError.fileSystem(.ioError("Mock error", underlying: nil)) }
     }
 
-    func scanMusic() async throws -> [FileMetadata] {
+    func scanMusic(options: FileScanOptions) async throws -> [FileMetadata] {
         if shouldSucceed { return mockFiles } else { throw FormaError.fileSystem(.ioError("Mock error", underlying: nil)) }
     }
 
-    func scanAllFolders() async -> ScanResult {
+    func scanAllFolders(options: FileScanOptions) async -> ScanResult {
         return ScanResult(files: mockFiles, errors: mockErrors)
     }
 
-    func scan(baseFolders: [FolderLocation]) async -> ScanResult {
+    func scan(baseFolders: [FolderLocation], options: FileScanOptions) async -> ScanResult {
         return ScanResult(files: mockFiles, errors: mockErrors)
     }
 

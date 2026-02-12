@@ -6,6 +6,8 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Recursive scan controls: `FileScanOptions` now support bounded depth, per-root file caps, and hidden/package skip behavior.
+- `FileMetadata` and `FileItem` now persist `scanRootPath` + `relativeParentPath`, and dashboard card/list/grid rows show nested-folder context badges for files discovered in subfolders.
 - Added launch/legal documentation and marketing-site pages for Privacy Policy and Terms.
 - Added a formal `LICENSE` file for the repository.
 - Smart Insight actions now deep-link into relevant views (large files, downloads, screenshots) and can prefill the rule editor.
@@ -17,6 +19,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Added website-level tracking events (`download_click`, `newsletter_submit_success`, `support_contact_click`, `blog_cta_click`) with optional Plausible integration.
 
 ### Changed
+- Manual/dashboard, automation, menu bar, and review scans now resolve a shared runtime scan policy and scan subfolders by default (`Settings → General → Scan Subfolders`).
 - Consolidated marketing web code to `forma-website/` and removed legacy `website/` + `forma-marketing-site/` directories.
 - `forma-website` now uses normal in-flow footer layout (no fixed negative-z reveal), and web metadata/sitemap/robots now target `https://formafiles.com`.
 - `forma-website` metadata now includes expanded structured data (`SoftwareApplication`, `Organization`, `WebSite`, `FAQPage`) and keyword coverage for Mac file-organization intent.
@@ -83,8 +86,11 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
 
 ### Fixed
+- Scan persistence now reconciles stale `pending`/`ready`/`skipped` rows under scanned roots when files disappear between scans.
 - Treemap taps now navigate to the corresponding category view.
+- Automation-engine scans now push immediate UI refreshes to both the dashboard file list and menu bar review/count surfaces after scan persistence.
 - Reduced repeated rule-scan warnings for unresolvable placeholder destinations.
+- Current Task card organization percentage now updates in real time by using scan-session progress counts even when organized files are removed from the active list.
 - `forma-website` pricing count-up now resolves correctly when users deep-link below the pricing section, preventing a stale `$0` label.
 - `forma-website` feature/pricing/FAQ/newsletter reveal animations now force visible state when a section is already past its trigger (deep links and long screenshots), preventing hidden-content gaps.
 - File selection checkboxes now keep a stable position and larger click target across card/list/grid views for more reliable selection.

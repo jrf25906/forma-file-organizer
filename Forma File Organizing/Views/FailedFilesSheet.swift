@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 /// Sheet showing files that failed to organize, with error details.
 ///
@@ -40,8 +41,10 @@ struct FailedFilesSheet: View {
             // Footer with actions
             sheetFooter
         }
-        .frame(width: 480, height: min(400, CGFloat(100 + failedFiles.count * 72)))
+        .frame(width: 560, height: min(560, CGFloat(180 + failedFiles.count * 96)))
         .background(Color.formaBackground)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("failedFilesSheet")
     }
 
     // MARK: - Header
@@ -51,11 +54,11 @@ struct FailedFilesSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(.formaWarning)
 
                     Text("Organization Failed")
                         .font(.formaH2)
-                        .foregroundColor(.formaObsidian)
+                        .foregroundColor(.formaLabel)
                 }
 
                 Text("\(failedFiles.count) file\(failedFiles.count == 1 ? "" : "s") couldn't be organized")
@@ -72,8 +75,13 @@ struct FailedFilesSheet: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.formaSecondaryLabel)
+                    .padding(6)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .help("Close")
+            .accessibilityLabel("Close failed files")
+            .accessibilityHint("Dismiss this dialog.")
         }
         .padding(.horizontal, FormaSpacing.generous)
         .padding(.vertical, FormaSpacing.standard)
@@ -116,7 +124,7 @@ struct FailedFilesSheet: View {
             Text("Fix the issues above and retry, or dismiss to skip these files.")
                 .font(.formaCaption)
                 .foregroundColor(.formaSecondaryLabel)
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
 
             Spacer()
 
@@ -127,6 +135,7 @@ struct FailedFilesSheet: View {
                     onDismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .accessibilityHint("Close this dialog and keep these files unchanged.")
 
                 Button("Retry All") {
                     dismiss()
@@ -134,6 +143,8 @@ struct FailedFilesSheet: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(failedFiles.isEmpty)
+                .help("Retry organizing all listed files")
+                .accessibilityHint("Try organizing these files again.")
             }
         }
         .padding(.horizontal, FormaSpacing.generous)
@@ -148,7 +159,7 @@ private struct FailedFileRow: View {
     let file: FileItem
 
     var body: some View {
-        HStack(spacing: FormaSpacing.standard) {
+        HStack(alignment: .top, spacing: FormaSpacing.standard) {
             // File icon
             Image(systemName: file.iconName)
                 .font(.system(size: 24))
@@ -156,18 +167,20 @@ private struct FailedFileRow: View {
                 .frame(width: 32)
 
             // File info
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(file.name)
                     .font(.formaBodyMedium)
-                    .foregroundColor(.formaObsidian)
-                    .lineLimit(1)
+                    .foregroundColor(.formaLabel)
+                    .lineLimit(2)
 
                 // Error reason
-                if let error = file.lastOrganizeError {
+                if let error = file.lastOrganizeError, !error.isEmpty {
                     Text(formatError(error))
                         .font(.formaCaption)
-                        .foregroundColor(.orange)
-                        .lineLimit(2)
+                        .foregroundColor(.formaError)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 } else {
                     Text("Unknown error")
                         .font(.formaCaption)
@@ -185,40 +198,89 @@ private struct FailedFileRow: View {
                     .font(.formaCaption)
                     .foregroundColor(.formaSecondaryLabel)
                 }
+
+                Text(file.path)
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundColor(.formaSecondaryLabel)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
             }
 
-            Spacer()
+            Spacer(minLength: FormaSpacing.tight)
+
+            Button {
+                copyDetailsToPasteboard()
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.formaSecondaryLabelHigh)
+            }
+            .buttonStyle(.plain)
+            .help("Copy failure details")
+            .accessibilityLabel("Copy failure details for \(file.name)")
         }
         .padding(FormaSpacing.standard)
         .background(Color.formaCardBackground)
         .cornerRadius(FormaRadius.small)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilitySummary)
     }
 
     /// Formats the error message for display.
     /// Extracts the key information without verbose technical details.
     private func formatError(_ error: String) -> String {
+        let lowercasedError = error.lowercased()
+
         // Common patterns to make more user-friendly
-        if error.contains("requires folder access") {
+        if lowercasedError.contains("requires folder access") {
             return "Destination folder not accessible - grant access in Settings"
         }
-        if error.contains("No such file or directory") {
+        if lowercasedError.contains("no such file or directory") {
             return "File no longer exists at original location"
         }
-        if error.contains("Permission denied") {
+        if lowercasedError.contains("permission denied") {
             return "Permission denied - check folder permissions"
         }
-        if error.contains("not enough space") || error.contains("disk is full") {
+        if lowercasedError.contains("not enough space") || lowercasedError.contains("disk is full") {
             return "Not enough disk space"
         }
-        if error.contains("file exists") {
-            return "A file with this name already exists at destination"
+        if lowercasedError.contains("already exists") || lowercasedError.contains("file exists") {
+            return "A matching file already exists at the destination. This file may already be organized."
         }
 
         // Return original if no pattern matched, but truncate if too long
-        if error.count > 80 {
-            return String(error.prefix(77)) + "..."
+        if error.count > 140 {
+            return String(error.prefix(137)) + "..."
         }
         return error
+    }
+
+    private var accessibilitySummary: String {
+        var parts = ["\(file.name)."]
+        if let error = file.lastOrganizeError, !error.isEmpty {
+            parts.append("\(formatError(error)).")
+        } else {
+            parts.append("Unknown error.")
+        }
+        if let destination = file.destination?.displayName {
+            parts.append("Destination \(destination).")
+        }
+        return parts.joined(separator: " ")
+    }
+
+    private func copyDetailsToPasteboard() {
+        let errorText = file.lastOrganizeError.map(formatError) ?? "Unknown error"
+        let destination = file.destination?.displayName ?? "Not set"
+        let details = """
+        File: \(file.name)
+        Source: \(file.path)
+        Destination: \(destination)
+        Error: \(errorText)
+        """
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(details, forType: .string)
     }
 }
 

@@ -1,103 +1,210 @@
-//
-//  RuleServiceTests.swift
-//  Forma File OrganizingTests
-//
-//  Created by James Farmer on 11/19/25.
-//
-
 import XCTest
 import SwiftData
+import Combine
 @testable import Forma_File_Organizing
 
 @MainActor
 final class RuleServiceTests: XCTestCase {
 
-    var ruleService: RuleService!
-    var modelContainer: ModelContainer!
-    var modelContext: ModelContext!
+    private var ruleService: RuleService!
+    private var modelContainer: ModelContainer!
+    private var modelContext: ModelContext!
+    private var cancellables: Set<AnyCancellable> = []
 
     override func setUp() async throws {
         try await super.setUp()
-        
-        // Create in-memory model container with required models
+
         let schema = Schema([Rule.self, FileItem.self, ActivityItem.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [config])
         modelContext = modelContainer.mainContext
         ruleService = RuleService(modelContext: modelContext)
+        cancellables = []
     }
 
     override func tearDown() {
+        cancellables.removeAll()
         ruleService = nil
         modelContext = nil
         modelContainer = nil
         super.tearDown()
     }
 
-    func testAddRule() throws {
-        let rule = Rule(name: "Test Rule", conditionType: .nameStartsWith, conditionValue: "Test", actionType: .move, destination: .folder(bookmark: Data(), displayName: "TestFolder"))
+    func testCreateRulePersistsAndPublishesCreatedEvent() throws {
+        let createdExpectation = expectation(description: "created event")
+        var createdRuleName: String?
 
+        ruleService.ruleChanges
+            .sink { event in
+                if case .created(let rule) = event {
+                    createdRuleName = rule.name
+                    createdExpectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        let rule = makeRule(name: "Test Rule", conditionValue: "invoice")
         try ruleService.createRule(rule, source: .ruleEditor)
 
-        let fetchedRules = try ruleService.fetchRules()
-        XCTAssertEqual(fetchedRules.count, 1)
-        XCTAssertEqual(fetchedRules.first?.name, "Test Rule")
+        wait(for: [createdExpectation], timeout: 1.0)
+
+        let fetched = try ruleService.fetchRules()
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.name, "Test Rule")
+        XCTAssertEqual(createdRuleName, "Test Rule")
+        XCTAssertEqual(ruleService.ruleCount, 1)
     }
 
-    func testDeleteRule() throws {
-        let rule = Rule(name: "Test Rule", conditionType: .nameStartsWith, conditionValue: "Test", actionType: .move, destination: .folder(bookmark: Data(), displayName: "TestFolder"))
+    func testFetchRulesReturnsAlphabeticallySortedRules() throws {
+        try ruleService.createRule(makeRule(name: "Z Rule", conditionValue: "z"), source: .ruleEditor)
+        try ruleService.createRule(makeRule(name: "A Rule", conditionValue: "a"), source: .ruleEditor)
+        try ruleService.createRule(makeRule(name: "M Rule", conditionValue: "m"), source: .ruleEditor)
+
+        let fetched = try ruleService.fetchRules()
+        XCTAssertEqual(fetched.map(\.name), ["A Rule", "M Rule", "Z Rule"])
+    }
+
+    func testUpdateRulePersistsAndPublishesUpdatedEvent() throws {
+        let rule = makeRule(name: "Original", conditionValue: "invoice")
         try ruleService.createRule(rule, source: .ruleEditor)
+
+        let updatedExpectation = expectation(description: "updated event")
+        var updatedRuleName: String?
+
+        ruleService.ruleChanges
+            .sink { event in
+                if case .updated(let updatedRule) = event {
+                    updatedRuleName = updatedRule.name
+                    updatedExpectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        rule.name = "Updated"
+        rule.destination = .folder(bookmark: Data(), displayName: "UpdatedDestination")
+        try ruleService.updateRule(rule)
+
+        wait(for: [updatedExpectation], timeout: 1.0)
+
+        let fetched = try ruleService.fetchRules()
+        XCTAssertEqual(fetched.first?.name, "Updated")
+        XCTAssertEqual(fetched.first?.destination?.displayName, "UpdatedDestination")
+        XCTAssertEqual(updatedRuleName, "Updated")
+    }
+
+    func testDeleteRuleRemovesAndPublishesDeletedEvent() throws {
+        let rule = makeRule(name: "To Delete", conditionValue: "temp")
+        try ruleService.createRule(rule, source: .ruleEditor)
+
+        let deletedExpectation = expectation(description: "deleted event")
+        var deletedRuleName: String?
+
+        ruleService.ruleChanges
+            .sink { event in
+                if case .deleted(let ruleName) = event {
+                    deletedRuleName = ruleName
+                    deletedExpectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
 
         try ruleService.deleteRule(rule)
 
-        let fetchedRules = try ruleService.fetchRules()
-        XCTAssertTrue(fetchedRules.isEmpty)
+        wait(for: [deletedExpectation], timeout: 1.0)
+
+        let fetched = try ruleService.fetchRules()
+        XCTAssertTrue(fetched.isEmpty)
+        XCTAssertEqual(deletedRuleName, "To Delete")
+        XCTAssertEqual(ruleService.ruleCount, 0)
     }
 
-    func testFetchRules() throws {
-        let rule1 = Rule(name: "Rule 1", conditionType: .nameStartsWith, conditionValue: "A", actionType: .move, destination: .folder(bookmark: Data(), displayName: "A"))
-        let rule2 = Rule(name: "Rule 2", conditionType: .nameStartsWith, conditionValue: "B", actionType: .move, destination: .folder(bookmark: Data(), displayName: "B"))
+    func testCreateRulesBatchPersistsAndPublishesBulkCreatedEvent() throws {
+        let bulkExpectation = expectation(description: "bulk created event")
+        var bulkCount: Int?
 
-        try ruleService.createRule(rule1, source: .ruleEditor)
-        try ruleService.createRule(rule2, source: .ruleEditor)
+        ruleService.ruleChanges
+            .sink { event in
+                if case .bulkCreated(let count) = event {
+                    bulkCount = count
+                    bulkExpectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
 
-        let fetchedRules = try ruleService.fetchRules()
-        XCTAssertEqual(fetchedRules.count, 2)
+        let rules = [
+            makeRule(name: "Batch A", conditionValue: "invoice"),
+            makeRule(name: "Batch B", conditionValue: "report"),
+            makeRule(name: "Batch C", conditionValue: "contract")
+        ]
+
+        try ruleService.createRules(rules, source: .template(name: "Test Template"))
+
+        wait(for: [bulkExpectation], timeout: 1.0)
+
+        let fetched = try ruleService.fetchRules()
+        XCTAssertEqual(fetched.count, 3)
+        XCTAssertEqual(bulkCount, 3)
     }
-    
-    func testSeedDefaultRules() throws {
+
+    func testDeleteRulesBatchRemovesAndPublishesBulkDeletedEvent() throws {
+        let rules = [
+            makeRule(name: "Delete A", conditionValue: "invoice"),
+            makeRule(name: "Delete B", conditionValue: "report")
+        ]
+        try ruleService.createRules(rules, source: .template(name: "Test Template"))
+
+        let bulkExpectation = expectation(description: "bulk deleted event")
+        var bulkCount: Int?
+
+        ruleService.ruleChanges
+            .sink { event in
+                if case .bulkDeleted(let count) = event {
+                    bulkCount = count
+                    bulkExpectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        try ruleService.deleteRules(rules)
+
+        wait(for: [bulkExpectation], timeout: 1.0)
+
+        let fetched = try ruleService.fetchRules()
+        XCTAssertTrue(fetched.isEmpty)
+        XCTAssertEqual(bulkCount, 2)
+    }
+
+    func testSeedDefaultRulesIsIdempotentAndCreatesMixedActions() throws {
         try ruleService.seedDefaultRules()
-        
-        let fetchedRules = try ruleService.fetchRules()
-        XCTAssertFalse(fetchedRules.isEmpty)
-        XCTAssertTrue(fetchedRules.count > 10) // Assuming there are more than 10 default rules
-    }
-    
-    func testSeedDefaultRulesOnlyOnce() throws {
+        let firstSeed = try ruleService.fetchRules()
+
+        XCTAssertFalse(firstSeed.isEmpty)
+        XCTAssertTrue(firstSeed.contains { $0.actionType == .move })
+        XCTAssertTrue(firstSeed.contains { $0.actionType == .delete })
+
+        for rule in firstSeed where rule.actionType == .move {
+            XCTAssertNotNil(rule.destination, "Move rule '\(rule.name)' should have destination")
+        }
+
+        let firstNames = Set(firstSeed.map(\.name))
+
         try ruleService.seedDefaultRules()
-        let countAfterFirstSeed = try ruleService.fetchRules().count
-        
-        try ruleService.seedDefaultRules()
-        let countAfterSecondSeed = try ruleService.fetchRules().count
-        
-        XCTAssertEqual(countAfterFirstSeed, countAfterSecondSeed)
+        let secondSeed = try ruleService.fetchRules()
+        let secondNames = Set(secondSeed.map(\.name))
+
+        XCTAssertEqual(secondSeed.count, firstSeed.count)
+        XCTAssertEqual(secondNames, firstNames)
     }
-    func testUpdateRule() throws {
-        let rule = Rule(name: "Original Name", conditionType: .nameStartsWith, conditionValue: "A", actionType: .move, destination: .folder(bookmark: Data(), displayName: "A"))
-        try ruleService.createRule(rule, source: .ruleEditor)
 
-        // Modify the rule
-        rule.name = "Updated Name"
-        rule.destination = .folder(bookmark: Data(), displayName: "B")
+    // MARK: - Helpers
 
-        // Save context (although in-memory context might auto-save or not need explicit save for fetch to see changes in same context,
-        // but good to verify persistence logic if we were using a real stack. Here we just check if the object updates are reflected).
-        try modelContext.save()
-
-        let fetchedRules = try ruleService.fetchRules()
-        let updatedRule = fetchedRules.first
-
-        XCTAssertEqual(updatedRule?.name, "Updated Name")
-        XCTAssertEqual(updatedRule?.destination?.displayName, "B")
+    private func makeRule(name: String, conditionValue: String) -> Rule {
+        Rule(
+            name: name,
+            conditionType: .nameContains,
+            conditionValue: conditionValue,
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "Documents/Test")
+        )
     }
 }

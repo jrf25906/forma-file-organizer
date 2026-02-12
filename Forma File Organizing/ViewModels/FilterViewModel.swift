@@ -32,6 +32,20 @@ class FilterViewModel: ObservableObject {
         }
     }
 
+    /// Optional nested folder scope (path relative to selected root)
+    @Published var selectedRelativeFolderPath: String? = nil {
+        didSet {
+            applyFilterDebounced()
+        }
+    }
+
+    /// Whether nested-folder selection should include descendants
+    @Published var includeNestedSubfolders: Bool = false {
+        didSet {
+            applyFilterDebounced()
+        }
+    }
+
     /// Search query
     @Published var searchText: String = "" {
         didSet {
@@ -252,6 +266,8 @@ class FilterViewModel: ObservableObject {
         filterManager.searchText = searchText
         filterManager.selectedCategory = selectedCategory
         filterManager.selectedFolder = selectedFolder
+        filterManager.selectedRelativeFolderPath = selectedRelativeFolderPath
+        filterManager.includeNestedSubfolders = includeNestedSubfolders
         filterManager.selectedSecondaryFilter = selectedSecondaryFilter
         filterManager.reviewFilterMode = reviewFilterMode
         filterManager.groupingMode = groupingMode

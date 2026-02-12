@@ -74,10 +74,12 @@ class FileScanViewModel: ObservableObject {
 
         // Build list of accessible folders from BookmarkFolderService
         let accessibleFolders = BookmarkFolderService.shared.enabledFolderLocations
+        let scanOptions = ScanOptionsResolver.current()
 
         // Use shared pipeline to scan all accessible folders
         let result = await fileScanPipeline.scanAndPersist(
             baseFolders: accessibleFolders,
+            scanOptions: scanOptions,
             fileSystemService: fileSystemService,
             ruleEngine: ruleEngine,
             rules: self.rules,
@@ -101,6 +103,12 @@ class FileScanViewModel: ObservableObject {
     /// Refresh file scan
     func refresh(context: ModelContext, rules: [Rule]) async {
         await scanFiles(context: context, rules: rules)
+    }
+
+    /// Replace files from an external scan result (for automation-initiated scans).
+    func replaceScannedFiles(_ files: [FileItem]) {
+        allFiles = files
+        updateRecentFiles()
     }
 
     /// Update a file's metadata (called after organization)

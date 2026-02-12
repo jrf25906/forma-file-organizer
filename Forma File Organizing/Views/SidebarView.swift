@@ -14,6 +14,8 @@ struct SidebarView: View {
     @State private var isAddingFolder = false
     @State private var isSettingsHovered = false
     @State private var isHelpHovered = false
+    @State private var expandedNestedFolders: Set<BookmarkFolder.FolderType> = []
+    @AppStorage(ScanOptionsResolver.scanSubfoldersKey) private var scanSubfolders = false
 
     var body: some View {
         // Sidebar content
@@ -37,7 +39,7 @@ struct SidebarView: View {
                             let hasAccess = folderService.hasAccess(to: folderType)
                             let folder = BookmarkFolder(folderType: folderType)
                             if hasAccess {
-                                bookmarkFolderItem(folder)
+                                bookmarkFolderSection(folder)
                             } else {
                                 lockedFolderItem(folder)
                             }
@@ -142,6 +144,30 @@ struct SidebarView: View {
         .onAppear {
             // Refresh folder service when sidebar appears to ensure locations are current
             folderService.refresh()
+            if case .nestedFolder(let base, let relativePath, let includeSubfolders) = nav.selection {
+                expandedNestedFolders.insert(base)
+                if includeSubfolders != scanSubfolders {
+                    nav.selection =
+                        .nestedFolder(
+                            base: base,
+                            relativePath: relativePath,
+                            includeSubfolders: scanSubfolders
+                        )
+                }
+            }
+        }
+        .onChange(of: nav.selection) { _, newSelection in
+            guard case .nestedFolder(let base, _, _) = newSelection else { return }
+            expandedNestedFolders.insert(base)
+        }
+        .onChange(of: scanSubfolders) { _, includeSubfolders in
+            guard case .nestedFolder(let base, let relativePath, _) = nav.selection else { return }
+            nav.selection =
+                .nestedFolder(
+                    base: base,
+                    relativePath: relativePath,
+                    includeSubfolders: includeSubfolders
+                )
         }
     }
     
@@ -185,6 +211,72 @@ struct SidebarView: View {
     // MARK: - Bookmark Folder Item
 
     @ViewBuilder
+    private func bookmarkFolderSection(_ folder: BookmarkFolder) -> some View {
+        let nestedEntries = nestedFolderEntries(for: folder.folderType)
+        let isExpanded = expandedNestedFolders.contains(folder.folderType)
+        let showNestedControls = isFolderSelected(folder) && !nestedEntries.isEmpty
+
+        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+            bookmarkFolderItem(folder)
+
+            if showNestedControls {
+                Button {
+                    if isExpanded {
+                        expandedNestedFolders.remove(folder.folderType)
+                    } else {
+                        expandedNestedFolders.insert(folder.folderType)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.formaTertiaryLabel)
+                        Text("Subfolders")
+                            .font(.formaCaption)
+                            .foregroundStyle(Color.formaSecondaryLabel)
+                        Text("\(nestedEntries.count)")
+                            .font(.formaCaption)
+                            .foregroundStyle(Color.formaTertiaryLabel)
+                    }
+                    .padding(.leading, 26)
+                    .padding(.vertical, 2)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Subfolders for \(folder.displayName)")
+                .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+                .accessibilityHint("Show nested folders discovered in this location.")
+                .accessibilityIdentifier("sidebarSubfoldersDisclosure_\(folder.folderType.rawValue)")
+
+                if isExpanded {
+                    ForEach(nestedEntries) { entry in
+                        let nestedSelection = NavigationSelection.nestedFolder(
+                            base: folder.folderType,
+                            relativePath: entry.relativePath,
+                            includeSubfolders: scanSubfolders
+                        )
+                        SidebarNativeRow(
+                            title: entry.displayName,
+                            icon: "folder",
+                            isSelected: nav.selection == nestedSelection,
+                            badgeCount: entry.actionableCount > 0 ? entry.actionableCount : nil
+                        ) {
+                            nav.select(nestedSelection)
+                        }
+                        .padding(.leading, CGFloat(entry.depth + 1) * 14 + 10)
+                        .help(entry.relativePath)
+                        .accessibilityLabel("\(entry.displayName) folder")
+                        .accessibilityValue(entry.actionableCount > 0 ? "\(entry.actionableCount) pending files" : "No pending files")
+                        .accessibilityHint(scanSubfolders
+                            ? "Filter files in this folder and subfolders."
+                            : "Filter files only in this folder.")
+                        .accessibilityIdentifier("sidebarNestedFolder_\(folder.folderType.rawValue)_\(entry.relativePath.replacingOccurrences(of: "/", with: "_"))")
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
     private func bookmarkFolderItem(_ folder: BookmarkFolder) -> some View {
         let selection = NavigationSelection.from(folderType: folder.folderType)
         let isSelected = isFolderSelected(folder)
@@ -195,6 +287,7 @@ struct SidebarView: View {
             isSelected: isSelected,
             badgeCount: fileCount(for: folder)
         ) {
+            expandedNestedFolders.insert(folder.folderType)
             nav.select(selection)
         }
         .contextMenu {
@@ -213,10 +306,94 @@ struct SidebarView: View {
 
     /// Count of files in the given bookmark folder that need review
     private func fileCount(for folder: BookmarkFolder) -> Int {
-        let folderPath = "/\(folder.folderType.displayName)/"
         return dashboardViewModel.allFiles.filter { file in
-            file.path.contains(folderPath) && file.status != .completed
+            fileBelongs(to: folder.folderType, file: file)
+                && (file.status == .pending || file.status == .ready)
+                && normalizedRelativePath(file.relativeParentPath) == nil
         }.count
+    }
+
+    private struct NestedFolderEntry: Identifiable {
+        let relativePath: String
+        let displayName: String
+        let depth: Int
+        let actionableCount: Int
+
+        var id: String { relativePath }
+    }
+
+    private func nestedFolderEntries(for folderType: BookmarkFolder.FolderType) -> [NestedFolderEntry] {
+        let filesInFolder = dashboardViewModel.allFiles.filter { fileBelongs(to: folderType, file: $0) }
+        guard !filesInFolder.isEmpty else { return [] }
+
+        var allPrefixPaths: Set<String> = []
+        var actionableByExactPath: [String: Int] = [:]
+
+        for file in filesInFolder {
+            guard let relativeParent = normalizedRelativePath(file.relativeParentPath),
+                  !relativeParent.isEmpty else {
+                continue
+            }
+
+            let components = relativeParent.split(separator: "/").map(String.init)
+            var runningPath = ""
+            for component in components {
+                runningPath = runningPath.isEmpty ? component : "\(runningPath)/\(component)"
+                allPrefixPaths.insert(runningPath)
+            }
+
+            if file.status == .pending || file.status == .ready {
+                actionableByExactPath[relativeParent, default: 0] += 1
+            }
+        }
+
+        let sortedPaths = allPrefixPaths.sorted { lhs, rhs in
+            lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }
+
+        return sortedPaths.map { path in
+            let depth = max(0, path.split(separator: "/").count - 1)
+            let displayName = path.split(separator: "/").last.map(String.init) ?? path
+            let actionableCount = actionableByExactPath[path, default: 0]
+
+            return NestedFolderEntry(
+                relativePath: path,
+                displayName: displayName,
+                depth: depth,
+                actionableCount: actionableCount
+            )
+        }
+    }
+
+    private func normalizedRelativePath(_ value: String?) -> String? {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return value
+            .split(separator: "/")
+            .map(String.init)
+            .filter { !$0.isEmpty }
+            .joined(separator: "/")
+    }
+
+    private func fileBelongs(to folderType: BookmarkFolder.FolderType, file: FileItem) -> Bool {
+        if file.location == fileLocationKind(for: folderType) {
+            return true
+        }
+        return file.path.contains("/\(folderType.displayName)/")
+    }
+
+    private func fileLocationKind(for folderType: BookmarkFolder.FolderType) -> FileLocationKind {
+        switch folderType {
+        case .desktop:
+            return .desktop
+        case .downloads:
+            return .downloads
+        case .documents:
+            return .documents
+        case .pictures:
+            return .pictures
+        case .music:
+            return .music
+        }
     }
 
     // MARK: - Folder Management Actions
@@ -292,6 +469,7 @@ struct SidebarView: View {
 
         // Remove the bookmark from Keychain
         folderService.removeBookmark(for: folder.folderType)
+        expandedNestedFolders.remove(folder.folderType)
 
         // If we were viewing this folder, navigate away
         if isFolderSelected(folder) {
@@ -368,6 +546,8 @@ private struct SidebarNativeRow: View {
             isHovered = hovering
         }
         .animation(.easeOut(duration: 0.15), value: isHovered)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var iconColor: Color {

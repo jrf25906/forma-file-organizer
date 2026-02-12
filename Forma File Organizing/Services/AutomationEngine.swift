@@ -109,8 +109,9 @@ final class AutomationEngine: ObservableObject {
     // MARK: - Dependencies
 
     private let featureFlags: FeatureFlagService
-    private let notificationService: NotificationService
+    private let notificationService: AutomationNotificationServing
     private let clock: Clock
+    private let policyResolver: () -> AutomationPolicy
     private weak var modelContext: ModelContext?
 
     // Lazy initialization to avoid circular dependencies
@@ -128,14 +129,19 @@ final class AutomationEngine: ObservableObject {
 
     // MARK: - Initialization
 
-    private init(
+    init(
         featureFlags: FeatureFlagService = .shared,
-        notificationService: NotificationService = .shared,
-        clock: Clock = SystemClock()
+        notificationService: AutomationNotificationServing = NotificationService.shared,
+        clock: Clock = SystemClock(),
+        policyResolver: (() -> AutomationPolicy)? = nil
     ) {
         self.featureFlags = featureFlags
         self.notificationService = notificationService
         self.clock = clock
+        self.policyResolver = policyResolver ?? {
+            AutomationPolicy.resolve(flags: featureFlags, userSettings: .current)
+        }
+        self.policy = self.policyResolver()
         self.state = AutomationState(clock: clock)
         self.hourStartDate = clock.now
 
@@ -206,10 +212,7 @@ final class AutomationEngine: ObservableObject {
     ///
     /// Call this when user changes settings or feature flags change.
     func refreshPolicy() {
-        let newPolicy = AutomationPolicy.resolve(
-            flags: featureFlags,
-            userSettings: .current
-        )
+        let newPolicy = policyResolver()
 
         let modeChanged = policy.effectiveMode != newPolicy.effectiveMode
         policy = newPolicy
@@ -325,10 +328,19 @@ final class AutomationEngine: ObservableObject {
         }
 
         // Get eligible files
-        let eligibleFiles = await provider.getAutoOrganizeEligibleFiles(
-            context: context,
-            confidenceThreshold: policy.mlConfidenceThreshold
-        )
+        let eligibleFiles: [FileItem]
+        do {
+            eligibleFiles = try await provider.getAutoOrganizeEligibleFiles(
+                context: context,
+                confidenceThreshold: policy.mlConfidenceThreshold
+            )
+        } catch {
+            let message = "Auto-organize preflight failed: \(error.localizedDescription)"
+            Log.error("AutomationEngine: \(message)", category: .automation)
+            ActivityLoggingService.create(from: context)?.logAutomationError(type: .scanFailed, message: message)
+            sendErrorNotification(type: .scanFailed, message: message)
+            return
+        }
 
         guard !eligibleFiles.isEmpty else {
             Log.info("AutomationEngine: No eligible files for auto-organize", category: .automation)
@@ -570,7 +582,7 @@ protocol FileScanProvider: AnyObject {
     func getAutoOrganizeEligibleFiles(
         context: ModelContext,
         confidenceThreshold: Double
-    ) async -> [FileItem]
+    ) async throws -> [FileItem]
 }
 
 /// Result of a file scan operation.
@@ -581,7 +593,25 @@ struct FileScanResult: Sendable {
     let organizedCount: Int
     let skippedCount: Int
     let oldestPendingAgeDays: Int?
-    let errorSummary: String? = nil
+    let errorSummary: String?
+
+    init(
+        totalScanned: Int,
+        pendingCount: Int,
+        readyCount: Int,
+        organizedCount: Int,
+        skippedCount: Int,
+        oldestPendingAgeDays: Int?,
+        errorSummary: String? = nil
+    ) {
+        self.totalScanned = totalScanned
+        self.pendingCount = pendingCount
+        self.readyCount = readyCount
+        self.organizedCount = organizedCount
+        self.skippedCount = skippedCount
+        self.oldestPendingAgeDays = oldestPendingAgeDays
+        self.errorSummary = errorSummary
+    }
 }
 
 // Note: Feature flags (.backgroundMonitoring, .autoOrganize, .automationReminders)

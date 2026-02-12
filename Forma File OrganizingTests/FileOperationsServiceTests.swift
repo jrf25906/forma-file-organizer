@@ -168,6 +168,55 @@ final class FileOperationsServiceTests: XCTestCase {
             }
         }
     }
+
+    @MainActor
+    func testMoveFile_WhenSourceAlreadyAtDestination_ReturnsSuccessfulNoOp() async throws {
+        // Given: Source file already lives in the destination folder
+        let sourceURL = try tempSourceDir.createFile(name: "already-there.txt", contents: "content")
+        let destination = try Destination.folder(from: tempSourceDir.url)
+        let fileItem = createFileItem(
+            name: "already-there.txt",
+            path: sourceURL.path,
+            destination: destination
+        )
+
+        // When: Moving the file
+        let (service, _) = try makeServiceAndContext()
+        let result = try await service.moveFile(fileItem)
+
+        // Then: Operation should be treated as successful no-op
+        XCTAssertTrue(result.success)
+        XCTAssertNil(result.error)
+        XCTAssertEqual(result.destinationPath, sourceURL.path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path), "No-op should not remove the existing file")
+    }
+
+    @MainActor
+    func testMoveFile_DestinationContainsIdenticalFile_DeduplicatesSource() async throws {
+        // Given: Source and destination contain identical files with the same name
+        let sourceURL = try tempSourceDir.createFile(name: "dedupe.txt", contents: "identical")
+        let destDir = try tempDestDir.createDirectory(name: "Documents")
+        let destinationURL = destDir.appendingPathComponent("dedupe.txt")
+        try "identical".write(to: destinationURL, atomically: true, encoding: .utf8)
+
+        let destination = try Destination.folder(from: destDir)
+        let fileItem = createFileItem(
+            name: "dedupe.txt",
+            path: sourceURL.path,
+            destination: destination
+        )
+
+        // When: Organizing the file
+        let (service, _) = try makeServiceAndContext()
+        let result = try await service.moveFile(fileItem)
+
+        // Then: Source duplicate should be removed and operation should succeed
+        XCTAssertTrue(result.success)
+        XCTAssertNil(result.error)
+        XCTAssertEqual(result.destinationPath, destinationURL.path)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sourceURL.path), "Source duplicate should be removed")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destinationURL.path), "Destination file should remain")
+    }
     
     @MainActor
     func testMoveFile_NoDestinationSpecified() async throws {

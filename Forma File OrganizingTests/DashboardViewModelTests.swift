@@ -146,6 +146,57 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.needsReviewCount, 2)
         XCTAssertEqual(viewModel.allFilesCount, 2)
     }
+
+    func testNeedsReviewExcludesSkippedFilesWithoutDestination() {
+        // Given
+        let pending = FileItem(path: "/f/a.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
+        let skipped = FileItem(path: "/f/b.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .skipped)
+        viewModel._testSetFiles([pending, skipped])
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        // When
+        viewModel.selectCategory(.all)
+
+        // Then
+        XCTAssertEqual(viewModel.needsReviewCount, 1)
+        XCTAssertEqual(viewModel.visibleFiles.count, 1)
+        XCTAssertEqual(viewModel.visibleFiles.first?.path, pending.path)
+    }
+
+    func testOrganizationProgressTracksSingleFileOrganizationInTests() {
+        // Given
+        let file1 = FileItem(path: "/f/one.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        let file2 = FileItem(path: "/f/two.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        viewModel._testSetFiles([file1, file2])
+
+        XCTAssertEqual(viewModel.organizationProgressTotalCount, 2)
+        XCTAssertEqual(viewModel.organizationProgressOrganizedCount, 0)
+
+        // When
+        viewModel.organizeFile(file1)
+
+        // Then
+        XCTAssertEqual(viewModel.organizationProgressTotalCount, 2)
+        XCTAssertEqual(viewModel.organizationProgressOrganizedCount, 1)
+    }
+
+    func testOrganizationProgressResetsWhenFileSetIsReplaced() {
+        // Given
+        let first = FileItem(path: "/f/first.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        let second = FileItem(path: "/f/second.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: .mockFolder("Documents"), status: .pending)
+        viewModel._testSetFiles([first, second])
+        viewModel.organizeFile(first)
+        XCTAssertEqual(viewModel.organizationProgressOrganizedCount, 1)
+
+        // When
+        let replacement = FileItem(path: "/f/replacement.pdf", sizeInBytes: 1_000_000, creationDate: Date(), destination: nil, status: .pending)
+        viewModel._testSetFiles([replacement])
+
+        // Then
+        XCTAssertEqual(viewModel.organizationProgressTotalCount, 1)
+        XCTAssertEqual(viewModel.organizationProgressOrganizedCount, 0)
+    }
     
     func testVisibleFilesLargeFilesFilter() {
         // Given

@@ -120,10 +120,21 @@ final class FormaActions: ObservableObject {
         }
 
         // Get eligible files
-        let eligibleFiles = await provider.getAutoOrganizeEligibleFiles(
-            context: context,
-            confidenceThreshold: confidenceThreshold
-        )
+        let eligibleFiles: [FileItem]
+        do {
+            eligibleFiles = try await provider.getAutoOrganizeEligibleFiles(
+                context: context,
+                confidenceThreshold: confidenceThreshold
+            )
+        } catch {
+            Log.error("FormaActions: Failed to fetch auto-organize candidates - \(error.localizedDescription)", category: .automation)
+            let result = OrganizeResult(
+                success: false,
+                error: "Unable to load files eligible for organization: \(error.localizedDescription)"
+            )
+            lastActionResult = .organize(result)
+            return result
+        }
 
         guard !eligibleFiles.isEmpty else {
             let result = OrganizeResult(success: true, organizedCount: 0, message: "No files ready for organization")

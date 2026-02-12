@@ -7,9 +7,10 @@
 ## Tomorrow Focus (Thursday, February 12, 2026)
 - [x] Add accessibility identifiers for selection/focus/row status in `Views/FileRow.swift`, `Views/FileListRow.swift`, `Views/FileGridItem.swift`, and `Views/MainContentView.swift`.
 - [x] Replace `sleep()` in UI tests with predicate-based expectations in `Forma File OrganizingUITests/`.
-- [ ] Add injectable clock/calendar/defaults for `Services/AnalyticsService.swift` and update tests for deterministic time behavior.
-- [ ] Convert NL parser dataset tests to fixture files with structured assertions.
-- [ ] Convert remaining constant-only tests to behavioral assertions in `AutomationIntegrationTests.swift`, `OrganizationTemplateTests.swift`, and `RuleServiceTests.swift`.
+- [x] Add injectable clock/calendar/defaults for `Services/AnalyticsService.swift` and update tests for deterministic time behavior.
+- [x] Investigate current task card organized percentage not updating in real time.
+- [x] Convert NL parser dataset tests to fixture files with structured assertions.
+- [x] Convert remaining constant-only tests to behavioral assertions in `AutomationIntegrationTests.swift`, `OrganizationTemplateTests.swift`, and `RuleServiceTests.swift`.
 - [x] Run full macOS tests (unit/integration, then UI test plan) and triage top regressions.
 - [x] Evaluate Periphery via `Scripts/periphery.sh` and document baseline strategy (`--retain-public` vs baseline file).
 - [x] Timebox `DashboardViewModel` decomposition design (permission state vs undo/redo) and capture a concrete split plan.
@@ -127,9 +128,9 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
   - [x] 27.15 ManageCategoriesSheet.swift — show folder picker.
   - [x] 27.16 MainContentView.swift — implement bulk operation cancellation.
 - [x] 28. Combine → async/await migration (MenuBarViewModel `.sink`) — replaced with async sequence observation tasks.
-- [ ] 29. DashboardViewModel decomposition (permission state / undo-redo) — optional.
+- [x] 29. DashboardViewModel decomposition (permission state / undo-redo) — optional.
 - [x] 30. Static analysis tooling — evaluated Periphery (`Scripts/periphery.sh`) with explicit target configuration; documented baseline strategy in `Docs/Development/DEVELOPMENT.md`.
-- [ ] 31. SuggestionSource .rule / .mlPrediction — keep as persisted forward-compat; revisit when features ship or are cut.
+- [x] 31. SuggestionSource .rule / .mlPrediction — kept for persisted forward-compat with dedicated persistence tests.
 
 ### Execution Notes
 - [x] Run unit/integration tests before and after each phase (CLI: `xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -destination 'platform=macOS'`).

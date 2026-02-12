@@ -22,6 +22,7 @@ enum NavigationSelection: Hashable {
     case documents
     case pictures
     case music
+    case nestedFolder(base: BookmarkFolder.FolderType, relativePath: String, includeSubfolders: Bool)
     case rules  // View and manage all saved rules
     case analytics
     case category(FileTypeCategory)
@@ -45,7 +46,17 @@ enum NavigationSelection: Hashable {
         case .documents: return .documents
         case .pictures: return .pictures
         case .music: return .music
+        case .nestedFolder(let base, _, _): return base
         default: return nil
+        }
+    }
+
+    var nestedFolderScope: (relativePath: String, includeSubfolders: Bool)? {
+        switch self {
+        case .nestedFolder(_, let relativePath, let includeSubfolders):
+            return (relativePath, includeSubfolders)
+        default:
+            return nil
         }
     }
 }

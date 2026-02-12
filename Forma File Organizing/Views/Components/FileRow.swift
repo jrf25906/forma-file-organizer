@@ -205,6 +205,10 @@ struct FileRow: View {
                             .frame(width: 6, height: 6)
                             .help(statusIndicatorConfig.label)
 
+                        if let relativePath = file.relativePathContextLabel {
+                            relativePathBadge(relativePath)
+                                .help("Current folder: \(relativePath)")
+                        }
                     }
 
                     if let snippet = contentSnippet {
@@ -250,6 +254,22 @@ struct FileRow: View {
                 .accessibilityLabel("File row state \(rowStateAccessibilityValue)")
                 .accessibilityValue(rowStateAccessibilityValue)
         }
+    }
+
+    private func relativePathBadge(_ value: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "folder")
+                .font(.system(size: 8, weight: .semibold))
+            Text(value)
+                .font(.formaCaption)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .foregroundStyle(Color.formaSecondaryLabelHigh)
+        .padding(.horizontal, FormaSpacing.tight - 2)
+        .padding(.vertical, 1)
+        .background(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+        .clipShape(Capsule())
     }
 
     private var destinationPickerColor: Color {

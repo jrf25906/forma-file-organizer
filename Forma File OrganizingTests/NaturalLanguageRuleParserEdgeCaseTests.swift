@@ -36,8 +36,8 @@ final class NaturalLanguageRuleParserEdgeCaseTests: XCTestCase {
         let warnings = result.issues.filter { $0.severity == .warning }
         XCTAssertFalse(warnings.isEmpty, "Should have at least one warning")
         XCTAssertTrue(
-            warnings.contains { $0.message.contains("Last week") },
-            "Warning should explain the ambiguity"
+            warnings.contains { $0.relatedKinds.contains(.timeConstraint) },
+            "Warning should point to the ambiguous time constraint"
         )
     }
     
@@ -97,8 +97,8 @@ final class NaturalLanguageRuleParserEdgeCaseTests: XCTestCase {
         // Verify warning issue
         let warnings = result.issues.filter { $0.severity == .warning }
         XCTAssertTrue(
-            warnings.contains { $0.message.contains("By month") || $0.message.contains("creation month") },
-            "Warning should explain grouping ambiguity"
+            warnings.contains { $0.relatedKinds.contains(.timeConstraint) },
+            "Warning should point to the grouping/time ambiguity"
         )
     }
     
@@ -124,8 +124,8 @@ final class NaturalLanguageRuleParserEdgeCaseTests: XCTestCase {
         let errors = result.issues.filter { $0.severity == .error }
         XCTAssertFalse(errors.isEmpty, "Should have at least one error")
         XCTAssertTrue(
-            errors.contains { $0.message.contains("action") || $0.message.contains("move") },
-            "Error should mention missing action"
+            errors.contains { $0.relatedKinds.contains(.action) },
+            "Error should identify missing action semantics"
         )
     }
     
@@ -177,8 +177,8 @@ final class NaturalLanguageRuleParserEdgeCaseTests: XCTestCase {
         
         let warnings = result.issues.filter { $0.severity == .warning }
         XCTAssertTrue(
-            warnings.contains { $0.message.contains("destination") || $0.message.contains("folder") },
-            "Warning should mention missing destination"
+            warnings.contains { $0.relatedKinds.contains(.destination) },
+            "Warning should identify missing destination semantics"
         )
     }
     
@@ -246,10 +246,8 @@ final class NaturalLanguageRuleParserEdgeCaseTests: XCTestCase {
         let errorMessage = errors.first?.message ?? ""
         XCTAssertFalse(errorMessage.isEmpty, "Error message should not be empty")
         XCTAssertTrue(
-            errorMessage.lowercased().contains("move") ||
-            errorMessage.lowercased().contains("copy") ||
-            errorMessage.lowercased().contains("delete"),
-            "Error should suggest valid actions"
+            errors.contains { $0.relatedKinds.contains(.action) },
+            "Error should identify action as the missing semantic component"
         )
     }
     
@@ -260,11 +258,9 @@ final class NaturalLanguageRuleParserEdgeCaseTests: XCTestCase {
         
         let warnings = result.issues.filter { $0.severity == .warning }
         XCTAssertFalse(warnings.isEmpty, "Should have warnings for ambiguous time")
-        
-        let warningMessage = warnings.first?.message ?? ""
         XCTAssertTrue(
-            warningMessage.contains("7 days") || warningMessage.contains("interpreted"),
-            "Warning should explain how the ambiguity was resolved"
+            warnings.contains { $0.relatedKinds.contains(.timeConstraint) },
+            "Warning should identify the ambiguous time constraint"
         )
     }
     

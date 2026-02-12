@@ -12,6 +12,10 @@ struct FileMetadata: Fileable, Sendable, Identifiable {
     let lastAccessedDate: Date
     /// High-level origin of the file (Desktop, Downloads, etc.)
     let location: FileLocationKind
+    /// Absolute path of the scan root that produced this file.
+    let scanRootPath: String?
+    /// Parent directory path relative to the scan root (nil for root-level files).
+    let relativeParentPath: String?
     /// The unified destination for this file
     var destination: Destination?
     var status: FileItem.OrganizationStatus
@@ -47,6 +51,8 @@ struct FileMetadata: Fileable, Sendable, Identifiable {
         modificationDate: Date = Date(),
         lastAccessedDate: Date = Date(),
         location: FileLocationKind = .unknown,
+        scanRootPath: String? = nil,
+        relativeParentPath: String? = nil,
         destination: Destination? = nil,
         status: FileItem.OrganizationStatus = .pending,
         matchReason: String? = nil,
@@ -82,6 +88,8 @@ struct FileMetadata: Fileable, Sendable, Identifiable {
         self.modificationDate = modificationDate
         self.lastAccessedDate = lastAccessedDate
         self.location = location
+        self.scanRootPath = scanRootPath
+        self.relativeParentPath = relativeParentPath
         self.destination = destination
         self.status = status
         self.matchReason = matchReason

@@ -9,10 +9,23 @@ import SwiftData
 ///
 /// Uses `ModelContainer` to create isolated `ModelContext`s for background processing
 /// to avoid blocking the main thread.
-final class AnalyticsService: Sendable {
+final class AnalyticsService: @unchecked Sendable {
     static let shared = AnalyticsService()
+    private static let lastSnapshotDateKey = "forma.analytics.lastSnapshotDate"
 
-    private init() {}
+    private let clock: Clock
+    private let calendar: Calendar
+    private let defaults: UserDefaults
+
+    init(
+        defaults: UserDefaults = .standard,
+        calendar: Calendar = .current,
+        clock: Clock = SystemClock()
+    ) {
+        self.defaults = defaults
+        self.calendar = calendar
+        self.clock = clock
+    }
 }
 
 // MARK: - Public API
@@ -23,8 +36,10 @@ extension AnalyticsService {
     func recordDailySnapshotIfNeeded(
         container: ModelContainer,
         storageService: StorageService = .shared,
-        now: Date = Date()
+        now: Date? = nil
     ) async throws {
+        let effectiveNow = now ?? clock.now
+
         // Run on detached task to avoid main actor
         try await Task.detached {
             let modelContext = ModelContext(container)
@@ -33,50 +48,52 @@ extension AnalyticsService {
                 return
             }
 
-            let today = now.startOfDayLocal
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today
+            let today = self.startOfDay(for: effectiveNow)
+            let tomorrow = self.calendar.date(byAdding: .day, value: 1, to: today) ?? today
 
-        var existingDescriptor = FetchDescriptor<StorageSnapshot>(
-            predicate: #Predicate { $0.date >= today && $0.date < tomorrow },
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        existingDescriptor.fetchLimit = 1
+            var existingDescriptor = FetchDescriptor<StorageSnapshot>(
+                predicate: #Predicate { $0.date >= today && $0.date < tomorrow },
+                sortBy: [SortDescriptor(\.date, order: .reverse)]
+            )
+            existingDescriptor.fetchLimit = 1
 
-        let existing: [StorageSnapshot]
-        do {
-            existing = try modelContext.fetch(existingDescriptor)
-        } catch {
-            Log.error("AnalyticsService: Failed to fetch existing snapshots: \(error.localizedDescription)", category: .analytics)
-            return
-        }
+            let existing: [StorageSnapshot]
+            do {
+                existing = try modelContext.fetch(existingDescriptor)
+            } catch {
+                Log.error("AnalyticsService: Failed to fetch existing snapshots: \(error.localizedDescription)", category: .analytics)
+                return
+            }
 
-        if !existing.isEmpty {
-            return
-        }
+            if !existing.isEmpty {
+                self.defaults.set(today, forKey: Self.lastSnapshotDateKey)
+                return
+            }
 
-        // Fetch latest analytics from files
-        let files = try modelContext.fetch(FetchDescriptor<FileItem>())
-        let analytics = storageService.calculateAnalytics(from: files)
-        let breakdownData = try analytics.encodedCategoryBreakdown()
+            // Fetch latest analytics from files
+            let files = try modelContext.fetch(FetchDescriptor<FileItem>())
+            let analytics = storageService.calculateAnalytics(from: files)
+            let breakdownData = try analytics.encodedCategoryBreakdown()
 
-        // Compute delta vs last snapshot
-        var lastSnapshotDescriptor = FetchDescriptor<StorageSnapshot>(
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        lastSnapshotDescriptor.fetchLimit = 1
-        let lastSnapshot = try modelContext.fetch(lastSnapshotDescriptor).first
-        let delta = lastSnapshot.map { analytics.totalBytes - $0.totalBytes }
+            // Compute delta vs last snapshot
+            var lastSnapshotDescriptor = FetchDescriptor<StorageSnapshot>(
+                sortBy: [SortDescriptor(\.date, order: .reverse)]
+            )
+            lastSnapshotDescriptor.fetchLimit = 1
+            let lastSnapshot = try modelContext.fetch(lastSnapshotDescriptor).first
+            let delta = lastSnapshot.map { analytics.totalBytes - $0.totalBytes }
 
-        let snapshot = StorageSnapshot(
-            date: today,
-            totalBytes: analytics.totalBytes,
-            fileCount: analytics.fileCount,
-            categoryBreakdownData: breakdownData,
-            deltaBytesSincePrevious: delta
-        )
+            let snapshot = StorageSnapshot(
+                date: today,
+                totalBytes: analytics.totalBytes,
+                fileCount: analytics.fileCount,
+                categoryBreakdownData: breakdownData,
+                deltaBytesSincePrevious: delta
+            )
 
-        modelContext.insert(snapshot)
-        try modelContext.save()
+            modelContext.insert(snapshot)
+            try modelContext.save()
+            self.defaults.set(today, forKey: Self.lastSnapshotDateKey)
 
             try self.pruneOldSnapshots(modelContext: modelContext, now: today)
         }.value
@@ -146,7 +163,7 @@ extension AnalyticsService {
         for period: UsagePeriod,
         modelContext: ModelContext
     ) async throws -> UsageStatistics {
-        let interval = period.asDateInterval(reference: Date())
+        let interval = dateInterval(for: period, reference: clock.now)
         let descriptor = FetchDescriptor<ActivityItem>(
             predicate: #Predicate { $0.timestamp >= interval.start && $0.timestamp <= interval.end }
         )
@@ -179,7 +196,7 @@ extension AnalyticsService {
             + (bulkFilesProcessed * config.secondsPerFileInBulkOrganize)
             + (ruleFilesMatched * config.secondsPerFileWithRuleApplied)
 
-        let daysBetween = Calendar.current.dateComponents([.day], from: interval.start, to: interval.end).day ?? 0
+        let daysBetween = calendar.dateComponents([.day], from: interval.start, to: interval.end).day ?? 0
         let dayCount = max(1, daysBetween + 1)
 
         return UsageStatistics(
@@ -311,7 +328,7 @@ extension AnalyticsService {
                 throw AnalyticsError.reportGenerationFailed(reason: "Analytics disabled by feature flag.")
             }
 
-            let interval = period.asDateInterval(reference: Date())
+            let interval = self.dateInterval(for: period, reference: self.clock.now)
             let trendPoints = try await self.computeStorageTrend(in: interval, modelContext: modelContext)
             let usageStats = try await self.fetchUsageStatistics(for: period, modelContext: modelContext)
 
@@ -350,7 +367,7 @@ extension AnalyticsService {
     ) async throws -> ProductivityMetrics {
         try await Task.detached {
             let modelContext = ModelContext(container)
-            let interval = period.asDateInterval(reference: Date())
+            let interval = self.dateInterval(for: period, reference: self.clock.now)
 
             // Space reclaimed: sum of negative deltas (cleanup)
             let snapshots = try await self.fetchSnapshots(in: interval, modelContext: modelContext)
@@ -394,7 +411,7 @@ extension AnalyticsService {
     ) async throws -> [AutomationEfficiencyPoint] {
         try await Task.detached {
             let modelContext = ModelContext(container)
-            let interval = period.asDateInterval(reference: Date())
+            let interval = self.dateInterval(for: period, reference: self.clock.now)
             let descriptor = FetchDescriptor<ActivityItem>(
                 predicate: #Predicate { $0.timestamp >= interval.start && $0.timestamp <= interval.end },
                 sortBy: [SortDescriptor(\.timestamp, order: .forward)]
@@ -402,11 +419,10 @@ extension AnalyticsService {
             let activities = try modelContext.fetch(descriptor)
 
             // Group activities by day
-            let calendar = Calendar.current
             var dayBuckets: [Date: (manual: Int, automated: Int)] = [:]
 
             for activity in activities {
-                let dayStart = calendar.startOfDay(for: activity.timestamp)
+                let dayStart = self.startOfDay(for: activity.timestamp)
 
                 let isAutomated = self.isAutomatedAction(activity.activityType)
                 let isManual = self.isManualAction(activity.activityType)
@@ -508,16 +524,16 @@ extension AnalyticsService {
     /// Compute staleness calendar for the last 365 days.
     func computeStalenessCalendar(
         files: [FileItem],
-        referenceDate: Date = Date()
+        referenceDate: Date? = nil
     ) -> [DayStaleness] {
-        let calendar = Calendar.current
+        let effectiveReferenceDate = referenceDate ?? clock.now
 
         // Build staleness data for each day going back 365 days
         var dayData: [Date: DayStaleness] = [:]
 
         // Initialize all 365 days
         for dayOffset in 0..<365 {
-            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: referenceDate.startOfDayLocal) else { continue }
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: startOfDay(for: effectiveReferenceDate)) else { continue }
             dayData[date] = DayStaleness(date: date)
         }
 
@@ -525,12 +541,12 @@ extension AnalyticsService {
         for file in files {
             // Use last accessed date (non-optional in FileItem model)
             let accessDate = file.lastAccessedDate
-            let dayStart = calendar.startOfDay(for: accessDate)
+            let dayStart = startOfDay(for: accessDate)
 
             // Only include files accessed within the last 365 days
             guard let existing = dayData[dayStart] else { continue }
 
-            let level = StalenessLevel.from(lastAccessed: accessDate, referenceDate: referenceDate)
+            let level = StalenessLevel.from(lastAccessed: accessDate, referenceDate: effectiveReferenceDate)
 
             var fileCounts = existing.fileCounts
             var byteCounts = existing.byteCounts
@@ -556,31 +572,31 @@ extension AnalyticsService {
     ) async throws -> ProductivityHealthReport {
         try await Task.detached {
             let modelContext = ModelContext(container)
-        guard FeatureFlagService.shared.isEnabled(.analyticsAndInsights) else {
-            throw AnalyticsError.reportGenerationFailed(reason: "Analytics disabled by feature flag.")
-        }
+            guard FeatureFlagService.shared.isEnabled(.analyticsAndInsights) else {
+                throw AnalyticsError.reportGenerationFailed(reason: "Analytics disabled by feature flag.")
+            }
 
-        // Fetch all required data
-        let files = try modelContext.fetch(FetchDescriptor<FileItem>())
-        let analytics = StorageService.shared.calculateAnalytics(from: files)
+            // Fetch all required data
+            let files = try modelContext.fetch(FetchDescriptor<FileItem>())
+            let analytics = StorageService.shared.calculateAnalytics(from: files)
 
-        let metrics = try await self.computeProductivityMetrics(for: period, container: container)
-        let automationTimeline = try await self.computeAutomationEfficiencyTimeline(for: period, container: container)
-        let storageTreemap = self.buildStorageTreemap(from: analytics, files: files)
-        let stalenessCalendar = self.computeStalenessCalendar(files: files)
+            let metrics = try await self.computeProductivityMetrics(for: period, container: container)
+            let automationTimeline = try await self.computeAutomationEfficiencyTimeline(for: period, container: container)
+            let storageTreemap = self.buildStorageTreemap(from: analytics, files: files)
+            let stalenessCalendar = self.computeStalenessCalendar(files: files)
 
-        // Generate smart insights
-        let insights = try await self.generateSmartInsights(
-            files: files,
-            analytics: analytics,
-            automationTimeline: automationTimeline,
-            stalenessCalendar: stalenessCalendar,
-            modelContext: modelContext
-        )
+            // Generate smart insights
+            let insights = try await self.generateSmartInsights(
+                files: files,
+                analytics: analytics,
+                automationTimeline: automationTimeline,
+                stalenessCalendar: stalenessCalendar,
+                modelContext: modelContext
+            )
 
             return ProductivityHealthReport(
                 period: period,
-                generatedAt: Date(),
+                generatedAt: self.clock.now,
                 metrics: metrics,
                 automationTimeline: automationTimeline,
                 storageTreemap: storageTreemap,
@@ -599,11 +615,12 @@ extension AnalyticsService {
         modelContext: ModelContext
     ) async throws -> [SmartInsight] {
         var insights: [SmartInsight] = []
+        let referenceDate = clock.now
 
         // 1. Screenshot accumulation insight
         let screenshotFiles = files.filter { $0.name.lowercased().contains("screenshot") }
         let staleScreenshots = screenshotFiles.filter { file in
-            let level = StalenessLevel.from(lastAccessed: file.lastAccessedDate)
+            let level = StalenessLevel.from(lastAccessed: file.lastAccessedDate, referenceDate: referenceDate)
             return level.rawValue >= StalenessLevel.recent.rawValue
         }
 
@@ -690,22 +707,22 @@ private extension AnalyticsService {
         for period: UsagePeriod,
         modelContext: ModelContext
     ) async throws -> PreviousPeriodMetrics {
-        let calendar = Calendar.current
-        let now = Date()
+        let now = clock.now
+        let today = startOfDay(for: now)
 
         // Calculate the previous period's interval
         let previousInterval: DateInterval
         switch period {
         case .day:
-            let yesterday = calendar.date(byAdding: .day, value: -1, to: now.startOfDayLocal)!
-            previousInterval = DateInterval(start: yesterday, end: now.startOfDayLocal.addingTimeInterval(-1))
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+            previousInterval = DateInterval(start: yesterday, end: today.addingTimeInterval(-1))
         case .week:
-            let twoWeeksAgo = calendar.date(byAdding: .day, value: -13, to: now.startOfDayLocal)!
-            let oneWeekAgo = calendar.date(byAdding: .day, value: -7, to: now.startOfDayLocal)!
+            let twoWeeksAgo = calendar.date(byAdding: .day, value: -13, to: today)!
+            let oneWeekAgo = calendar.date(byAdding: .day, value: -7, to: today)!
             previousInterval = DateInterval(start: twoWeeksAgo, end: oneWeekAgo)
         case .month:
-            let twoMonthsAgo = calendar.date(byAdding: .day, value: -59, to: now.startOfDayLocal)!
-            let oneMonthAgo = calendar.date(byAdding: .day, value: -30, to: now.startOfDayLocal)!
+            let twoMonthsAgo = calendar.date(byAdding: .day, value: -59, to: today)!
+            let oneMonthAgo = calendar.date(byAdding: .day, value: -30, to: today)!
             previousInterval = DateInterval(start: twoMonthsAgo, end: oneMonthAgo)
         case .custom(let interval):
             let duration = interval.duration
@@ -757,7 +774,7 @@ private extension AnalyticsService {
     }
 
     func pruneOldSnapshots(modelContext: ModelContext, now: Date) throws {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -FormaConfig.analytics.retentionDays, to: now.startOfDayLocal) ?? now
+        let cutoff = calendar.date(byAdding: .day, value: -FormaConfig.analytics.retentionDays, to: startOfDay(for: now)) ?? now
         let oldDescriptor = FetchDescriptor<StorageSnapshot>(
             predicate: #Predicate { $0.date < cutoff }
         )
@@ -791,6 +808,27 @@ private extension AnalyticsService {
         let unorganized = files.filter { $0.status != .completed }.count
         return (unorganized, files.count)
     }
+
+    func startOfDay(for date: Date) -> Date {
+        calendar.startOfDay(for: date)
+    }
+
+    func dateInterval(for period: UsagePeriod, reference: Date) -> DateInterval {
+        switch period {
+        case .day:
+            let start = startOfDay(for: reference)
+            let end = calendar.date(byAdding: .day, value: 1, to: start)?.addingTimeInterval(-1) ?? reference
+            return DateInterval(start: start, end: end)
+        case .week:
+            let start = calendar.date(byAdding: .day, value: -6, to: startOfDay(for: reference)) ?? startOfDay(for: reference)
+            return DateInterval(start: start, end: reference)
+        case .month:
+            let start = calendar.date(byAdding: .day, value: -29, to: startOfDay(for: reference)) ?? startOfDay(for: reference)
+            return DateInterval(start: start, end: reference)
+        case .custom(let interval):
+            return interval
+        }
+    }
 }
 
 // MARK: - Date Helpers
@@ -802,25 +840,5 @@ extension Date {
 
     func isSameDay(as other: Date) -> Bool {
         Calendar.current.isDate(self, inSameDayAs: other)
-    }
-}
-
-private extension UsagePeriod {
-    func asDateInterval(reference: Date) -> DateInterval {
-        let calendar = Calendar.current
-        switch self {
-        case .day:
-            let start = reference.startOfDayLocal
-            let end = calendar.date(byAdding: .day, value: 1, to: start)?.addingTimeInterval(-1) ?? reference
-            return DateInterval(start: start, end: end)
-        case .week:
-            let start = calendar.date(byAdding: .day, value: -6, to: reference.startOfDayLocal) ?? reference.startOfDayLocal
-            return DateInterval(start: start, end: reference)
-        case .month:
-            let start = calendar.date(byAdding: .day, value: -29, to: reference.startOfDayLocal) ?? reference.startOfDayLocal
-            return DateInterval(start: start, end: reference)
-        case .custom(let interval):
-            return interval
-        }
     }
 }

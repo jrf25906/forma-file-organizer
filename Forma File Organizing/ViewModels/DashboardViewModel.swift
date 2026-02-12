@@ -35,20 +35,19 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Legacy Coordinators (Still Needed)
 
     @ObservedObject private var organizationCoordinator: FileOrganizationCoordinator
+    private let undoRedoController: DashboardUndoRedoController
     @ObservedObject private var panelManager = PanelStateManager()
 
     // MARK: - Permissions State
-    @Published var hasDesktopAccess: Bool = false
-    @Published var hasDownloadsAccess: Bool = false
-    @Published var hasDocumentsAccess: Bool = false
-    @Published var hasPicturesAccess: Bool = false
-    @Published var hasMusicAccess: Bool = false
-    @Published var showOnboarding: Bool = false
-    @Published var permissionCancelledFolders: Set<FolderType> = []
+    @ObservedObject private(set) var permissionState = DashboardPermissionState()
 
     // MARK: - UI State
     @Published var isRightPanelVisible: Bool = true
     @Published var errorMessage: String?
+
+    // MARK: - Organization Progress State
+    /// Baseline count of actionable files captured at the start of the current scan session.
+    @Published private(set) var organizationProgressTotalCount: Int = 0
 
     // MARK: - Content Search State
     @Published private(set) var contentSearchState: ContentSearchService.SearchState = .idle
@@ -82,6 +81,7 @@ class DashboardViewModel: ObservableObject {
     ) {
         let coordinator = FileOrganizationCoordinator()
         self.organizationCoordinator = coordinator
+        self.undoRedoController = DashboardUndoRedoController(coordinator: coordinator)
         self.fileSystemService = fileSystemService
         self.storageService = services.storageService
         self.notificationService = services.notificationService
@@ -186,6 +186,8 @@ class DashboardViewModel: ObservableObject {
             showToast(message: summary, canUndo: false)
         }
 
+        resetOrganizationProgress(with: scanViewModel.allFiles)
+
         // Update dependent ViewModels
         filterViewModel.updateSourceFiles(scanViewModel.allFiles)
         analyticsViewModel.updateAnalytics(from: scanViewModel.allFiles)
@@ -207,6 +209,56 @@ class DashboardViewModel: ObservableObject {
         await scanFiles(context: context)
     }
 
+    /// Applies an automation-triggered scan result to the dashboard state without re-scanning.
+    func applyAutomationScanUpdate(
+        scannedPaths: [String],
+        errorSummary: String?,
+        context: ModelContext
+    ) async {
+        let pathSet = Set(scannedPaths)
+        let descriptor = FetchDescriptor<FileItem>(
+            predicate: #Predicate<FileItem> { file in
+                pathSet.contains(file.path)
+            }
+        )
+
+        let files: [FileItem]
+        do {
+            files = try context.fetch(descriptor)
+        } catch {
+            Log.error(
+                "DashboardViewModel: Failed to fetch automation scan files - \(error.localizedDescription)",
+                category: .pipeline
+            )
+            errorMessage = "Failed to refresh scanned files."
+            showToast(message: errorMessage ?? "Failed to refresh scanned files.", canUndo: false)
+            return
+        }
+
+        scanViewModel.replaceScannedFiles(files)
+
+        if let summary = errorSummary, !summary.isEmpty {
+            errorMessage = summary
+            showToast(message: summary, canUndo: false)
+        } else {
+            errorMessage = nil
+        }
+
+        resetOrganizationProgress(with: scanViewModel.allFiles)
+
+        // Update dependent ViewModels
+        filterViewModel.updateSourceFiles(scanViewModel.allFiles)
+        analyticsViewModel.updateAnalytics(from: scanViewModel.allFiles)
+        await analyticsViewModel.detectClusters(from: scanViewModel.allFiles, context: context)
+
+        // Keep content search in sync with refreshed file lists.
+        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            triggerContentSearch(query: searchText)
+        }
+
+        refreshAvailableFolders()
+    }
+
     /// Refreshes the available folders from BookmarkFolderService
     func refreshAvailableFolders() {
         BookmarkFolderService.shared.refresh()
@@ -222,6 +274,14 @@ class DashboardViewModel: ObservableObject {
     var selectedFolder: FolderLocation {
         get { filterViewModel.selectedFolder }
         set { filterViewModel.selectedFolder = newValue }
+    }
+    var selectedRelativeFolderPath: String? {
+        get { filterViewModel.selectedRelativeFolderPath }
+        set { filterViewModel.selectedRelativeFolderPath = newValue }
+    }
+    var includeNestedSubfolders: Bool {
+        get { filterViewModel.includeNestedSubfolders }
+        set { filterViewModel.includeNestedSubfolders = newValue }
     }
     var searchText: String {
         get { filterViewModel.searchText }
@@ -255,8 +315,17 @@ class DashboardViewModel: ObservableObject {
         filterViewModel.selectedCategory = category
     }
 
-    func selectFolder(_ folder: FolderLocation) {
+    func selectFolder(_ folder: FolderLocation, resetNestedScope: Bool = true) {
         filterViewModel.selectedFolder = folder
+        if resetNestedScope {
+            filterViewModel.selectedRelativeFolderPath = nil
+            filterViewModel.includeNestedSubfolders = false
+        }
+    }
+
+    func selectNestedFolder(relativePath: String?, includeSubfolders: Bool) {
+        filterViewModel.selectedRelativeFolderPath = relativePath
+        filterViewModel.includeNestedSubfolders = includeSubfolders
     }
 
     func setSecondaryFilter(_ filter: SecondaryFilter) {
@@ -405,13 +474,13 @@ class DashboardViewModel: ObservableObject {
     func organizeAllReadyFiles(context: ModelContext? = nil) {
         startBulkOperation { [weak self] in
             guard let self else { return }
-            await self.bulkOperationViewModel.organizeAllReadyFiles(self.filteredFiles, context: context)
+            await self.bulkOperationViewModel.organizeAllReadyFiles(self.reviewableFiles, context: context)
             self.filterViewModel.applyFilterImmediately()
         }
     }
 
     func skipAllPendingFiles() {
-        bulkOperationViewModel.skipAllPendingFiles(filteredFiles)
+        bulkOperationViewModel.skipAllPendingFiles(reviewableFiles)
         filterViewModel.applyFilterImmediately()
     }
 
@@ -594,39 +663,37 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Undo/Redo
 
     func canUndo() -> Bool {
-        organizationCoordinator.canUndo()
+        undoRedoController.canUndo()
     }
 
     func canRedo() -> Bool {
-        organizationCoordinator.canRedo()
+        undoRedoController.canRedo()
     }
 
     func undoLastAction(context: ModelContext? = nil) {
         let resolvedContext = context ?? modelContext
-        if resolvedContext == nil,
-           let lastCommand = organizationCoordinator.undoStack.last,
-           !(lastCommand is SkipFileCommand) {
-            showToast(message: "Undo unavailable. Please try again after reopening Forma.", canUndo: false)
-            return
-        }
-        organizationCoordinator.undoLastAction(allFiles: scanViewModel.allFiles, context: resolvedContext) { [weak self] in
-            self?.filterViewModel.applyFilterImmediately()
-        }
+        undoRedoController.undoLastAction(
+            allFiles: scanViewModel.allFiles,
+            context: resolvedContext,
+            onUnavailable: { [weak self] in
+                self?.showToast(message: "Undo unavailable. Please try again after reopening Forma.", canUndo: false)
+            },
+            onComplete: { [weak self] in
+                self?.filterViewModel.applyFilterImmediately()
+            }
+        )
     }
 
     func redoLastAction(context: ModelContext? = nil) {
         let resolvedContext = context ?? modelContext
-        if resolvedContext == nil,
-           let lastCommand = organizationCoordinator.redoStack.last,
-           !(lastCommand is SkipFileCommand) {
-            showToast(message: "Redo unavailable. Please try again after reopening Forma.", canUndo: false)
-            return
-        }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.organizationCoordinator.redoLastAction(
+            await self.undoRedoController.redoLastAction(
                 allFiles: self.scanViewModel.allFiles,
                 context: resolvedContext,
+                onUnavailable: { [weak self] in
+                    self?.showToast(message: "Redo unavailable. Please try again after reopening Forma.", canUndo: false)
+                },
                 onComplete: { [weak self] in
                     self?.filterViewModel.applyFilterImmediately()
                 }
@@ -703,45 +770,22 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Permissions
 
+    typealias FolderType = DashboardPermissionState.FolderType
+    typealias PermissionResult = DashboardPermissionState.PermissionResult
+
+    var hasDesktopAccess: Bool { permissionState.hasDesktopAccess }
+    var hasDownloadsAccess: Bool { permissionState.hasDownloadsAccess }
+    var hasDocumentsAccess: Bool { permissionState.hasDocumentsAccess }
+    var hasPicturesAccess: Bool { permissionState.hasPicturesAccess }
+    var hasMusicAccess: Bool { permissionState.hasMusicAccess }
+    var showOnboarding: Bool {
+        get { permissionState.showOnboarding }
+        set { permissionState.showOnboarding = newValue }
+    }
+    var permissionCancelledFolders: Set<FolderType> { permissionState.permissionCancelledFolders }
+
     func checkPermissions() {
-        #if DEBUG
-        if CommandLine.arguments.contains("--uitesting") {
-            hasDesktopAccess = true
-            hasDownloadsAccess = true
-            hasDocumentsAccess = true
-            hasPicturesAccess = true
-            hasMusicAccess = true
-            showOnboarding = false
-            return
-        }
-        #endif
-
-        hasDesktopAccess = fileSystemService.hasDesktopAccess()
-        hasDownloadsAccess = fileSystemService.hasDownloadsAccess()
-        hasDocumentsAccess = fileSystemService.hasDocumentsAccess()
-        hasPicturesAccess = fileSystemService.hasPicturesAccess()
-        hasMusicAccess = fileSystemService.hasMusicAccess()
-
-        // Onboarding is shown once; after completion it never reappears
-        showOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
-    }
-
-    enum FolderType: Hashable {
-        case desktop, downloads, documents, pictures, music
-
-        var displayName: String {
-            switch self {
-            case .desktop: return "Desktop"
-            case .downloads: return "Downloads"
-            case .documents: return "Documents"
-            case .pictures: return "Pictures"
-            case .music: return "Music"
-            }
-        }
-    }
-
-    enum PermissionResult {
-        case granted, cancelled, error(String)
+        permissionState.checkPermissions(using: fileSystemService)
     }
 
     func requestDesktopAccess() async -> PermissionResult { await requestAccess(for: .desktop) }
@@ -751,55 +795,31 @@ class DashboardViewModel: ObservableObject {
     func requestMusicAccess() async -> PermissionResult { await requestAccess(for: .music) }
 
     private func requestAccess(for folderType: FolderType) async -> PermissionResult {
-        permissionCancelledFolders.remove(folderType)
+        let result = await permissionState.requestAccess(for: folderType, using: fileSystemService)
 
-        do {
-            let granted = try await {
-                switch folderType {
-                case .desktop: return try await fileSystemService.requestDesktopAccess()
-                case .downloads: return try await fileSystemService.requestDownloadsAccess()
-                case .documents: return try await fileSystemService.requestDocumentsAccess()
-                case .pictures: return try await fileSystemService.requestPicturesAccess()
-                case .music: return try await fileSystemService.requestMusicAccess()
+        switch result {
+        case .granted:
+            // Auto-rescan to pick up files from newly accessible folder
+            if let context = modelContext {
+                Task { @MainActor in
+                    await refresh(context: context)
                 }
-            }()
-
-            if granted {
-                switch folderType {
-                case .desktop: hasDesktopAccess = true
-                case .downloads: hasDownloadsAccess = true
-                case .documents: hasDocumentsAccess = true
-                case .pictures: hasPicturesAccess = true
-                case .music: hasMusicAccess = true
-                }
-                updateOnboardingVisibility()
-
-                // Auto-rescan to pick up files from newly accessible folder
-                if let context = modelContext {
-                    Task { @MainActor in
-                        await refresh(context: context)
-                    }
-                }
-
-                return .granted
-            } else {
-                permissionCancelledFolders.insert(folderType)
-                return .cancelled
             }
-        } catch {
-            errorMessage = "Failed to access \(folderType.displayName) folder: \(error.localizedDescription)"
-            return .error(error.localizedDescription)
+        case .error(let details):
+            errorMessage = "Failed to access \(folderType.displayName) folder: \(details)"
+        case .cancelled:
+            break
         }
+
+        return result
     }
 
     private func updateOnboardingVisibility() {
-        // After completion, onboarding stays dismissed regardless of permission state
-        showOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+        permissionState.updateOnboardingVisibility()
     }
 
     func completeOnboarding() {
-        // Mark complete so onboarding never reappears
-        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+        permissionState.completeOnboarding()
 
         // Apply PARA template as default for all 5 folders
         let defaultSelection = OnboardingFolderSelection() // all true
@@ -823,7 +843,7 @@ class DashboardViewModel: ObservableObject {
         // Refresh folder service so sidebar updates
         BookmarkFolderService.shared.refresh()
 
-        showOnboarding = false
+        permissionState.showOnboarding = false
     }
 
     // MARK: - Content Search
@@ -870,6 +890,7 @@ class DashboardViewModel: ObservableObject {
         scanViewModel.$allFiles
             .sink { [weak self] files in
                 guard let self else { return }
+                self.synchronizeOrganizationProgressTotal(with: files)
                 self.filterViewModel.updateSourceFiles(files)
                 self.analyticsViewModel.updateAnalytics(from: files)
             }
@@ -889,6 +910,7 @@ class DashboardViewModel: ObservableObject {
         analyticsViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         bulkOperationViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         panelManager.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
+        permissionState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
     }
 
     private func setupBulkOperationCallbacks() {
@@ -951,6 +973,9 @@ class DashboardViewModel: ObservableObject {
     var cachedGroupedFiles: [FileGroup] { filterViewModel.cachedGroupedFiles }
     var cachedNeedsReviewCount: Int { filterViewModel.cachedNeedsReviewCount }
     var cachedReviewableFiles: [FileItem] { filterViewModel.cachedReviewableFiles }
+    var organizationProgressOrganizedCount: Int {
+        max(0, organizationProgressTotalCount - organizationProgressRemainingCount)
+    }
 
     func isOrganizing(_ file: FileItem) -> Bool {
         organizationCoordinator.isOrganizing(file)
@@ -968,6 +993,10 @@ class DashboardViewModel: ObservableObject {
         selectionViewModel.canOrganizeAllSelected(from: scanViewModel.allFiles)
     }
 
+    private var organizationProgressRemainingCount: Int {
+        scanViewModel.allFiles.filter { $0.status != .completed }.count
+    }
+
     // MARK: - Keyboard Navigation Delegation
 
     var isKeyboardNavigating: Bool {
@@ -978,10 +1007,10 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Undo/Redo Stacks (Delegated from Coordinator)
 
     /// Undo stack for testing and UI status
-    var undoStack: [any UndoableCommand] { organizationCoordinator.undoStack }
+    var undoStack: [any UndoableCommand] { undoRedoController.undoStack }
 
     /// Redo stack for testing and UI status
-    var redoStack: [any UndoableCommand] { organizationCoordinator.redoStack }
+    var redoStack: [any UndoableCommand] { undoRedoController.redoStack }
 
     /// Type alias for backwards compatibility with tests
     typealias OrganizationAction = FileOrganizationCoordinator.OrganizationAction
@@ -991,6 +1020,7 @@ class DashboardViewModel: ObservableObject {
     func _testSetFiles(_ files: [FileItem]) {
         scanViewModel._testSetFiles(files)
         filterViewModel.updateSourceFiles(files)
+        resetOrganizationProgress(with: files)
     }
 
     /// Test helper to push an undo action without file operations
@@ -1035,5 +1065,16 @@ class DashboardViewModel: ObservableObject {
 
     func completePersonalityQuiz(_ personality: OrganizationPersonality) {
         filterViewModel.applyPersonalityPreferences()
+    }
+
+    private func resetOrganizationProgress(with files: [FileItem]) {
+        organizationProgressTotalCount = files.filter { $0.status != .completed }.count
+    }
+
+    private func synchronizeOrganizationProgressTotal(with files: [FileItem]) {
+        let currentRemaining = files.filter { $0.status != .completed }.count
+        if currentRemaining > organizationProgressTotalCount {
+            organizationProgressTotalCount = currentRemaining
+        }
     }
 }

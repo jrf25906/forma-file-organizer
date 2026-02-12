@@ -14,6 +14,7 @@ struct SmartFeaturesSection: View {
     @AppStorage(FeatureFlagService.Feature.storageHealthScore.rawValue) private var storageHealthScore = FeatureFlagService.Feature.storageHealthScore.defaultValue
     @AppStorage(FeatureFlagService.Feature.optimizationRecommendations.rawValue) private var optimizationRecommendations = FeatureFlagService.Feature.optimizationRecommendations.defaultValue
     @AppStorage(FeatureFlagService.Feature.analyticsReports.rawValue) private var analyticsReports = FeatureFlagService.Feature.analyticsReports.defaultValue
+    @AppStorage(FeatureFlagService.Feature.recursiveScanning.rawValue) private var recursiveScanning = FeatureFlagService.Feature.recursiveScanning.defaultValue
     @AppStorage(FeatureFlagService.Feature.backgroundMonitoring.rawValue) private var backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
     @AppStorage(FeatureFlagService.Feature.autoOrganize.rawValue) private var autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
     @AppStorage(FeatureFlagService.Feature.automationReminders.rawValue) private var automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue
@@ -329,6 +330,7 @@ struct SmartFeaturesSection: View {
         storageHealthScore = FeatureFlagService.Feature.storageHealthScore.defaultValue
         optimizationRecommendations = FeatureFlagService.Feature.optimizationRecommendations.defaultValue
         analyticsReports = FeatureFlagService.Feature.analyticsReports.defaultValue
+        recursiveScanning = FeatureFlagService.Feature.recursiveScanning.defaultValue
         backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
         autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
         automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue

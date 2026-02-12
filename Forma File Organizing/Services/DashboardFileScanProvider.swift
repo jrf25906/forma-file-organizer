@@ -47,10 +47,12 @@ final class DashboardFileScanProvider: FileScanProvider {
 
         // Determine which base folders to scan based on BookmarkFolderService
         let baseFolders = BookmarkFolderService.shared.enabledFolderLocations
+        let scanOptions = ScanOptionsResolver.current()
 
         // Perform the scan
         let result = await pipeline.scanAndPersist(
             baseFolders: baseFolders,
+            scanOptions: scanOptions,
             fileSystemService: fileSystemService,
             ruleEngine: ruleEngine,
             rules: rules,
@@ -70,6 +72,16 @@ final class DashboardFileScanProvider: FileScanProvider {
         // Compute metrics from the scan result
         let metrics = computeMetrics(from: result.files, context: context, errorSummary: result.errorSummary)
 
+        // Notify dashboard surfaces that rely on in-memory file lists.
+        NotificationCenter.default.post(
+            name: .automationScanDidPersist,
+            object: nil,
+            userInfo: [
+                AutomationScanNotificationUserInfo.scannedPaths: result.files.map(\.path),
+                AutomationScanNotificationUserInfo.errorSummary: result.errorSummary as Any
+            ]
+        )
+
         Log.info("DashboardFileScanProvider: Scan complete - \(result.files.count) files, \(metrics.pendingCount) pending", category: .automation)
 
         return metrics
@@ -78,7 +90,7 @@ final class DashboardFileScanProvider: FileScanProvider {
     func getAutoOrganizeEligibleFiles(
         context: ModelContext,
         confidenceThreshold: Double
-    ) async -> [FileItem] {
+    ) async throws -> [FileItem] {
         Log.info("DashboardFileScanProvider: Finding eligible files (threshold: \(confidenceThreshold))", category: .automation)
 
         // Fetch all pending/ready files
@@ -92,9 +104,12 @@ final class DashboardFileScanProvider: FileScanProvider {
             }
         )
 
-        guard let candidates = try? context.fetch(descriptor) else {
-            Log.warning("DashboardFileScanProvider: Failed to fetch candidates", category: .automation)
-            return []
+        let candidates: [FileItem]
+        do {
+            candidates = try context.fetch(descriptor)
+        } catch {
+            Log.error("DashboardFileScanProvider: Failed to fetch auto-organize candidates - \(error.localizedDescription)", category: .automation)
+            throw ScanError.candidateFetchFailed(error.localizedDescription)
         }
 
         // Cache destination validation results to avoid repeated bookmark resolution
@@ -158,7 +173,8 @@ final class DashboardFileScanProvider: FileScanProvider {
             readyCount: readyCount,
             organizedCount: organizedCount,
             skippedCount: skippedCount,
-            oldestPendingAgeDays: oldestAgeDays
+            oldestPendingAgeDays: oldestAgeDays,
+            errorSummary: errorSummary
         )
     }
 
@@ -246,6 +262,7 @@ final class DashboardFileScanProvider: FileScanProvider {
         case timeout
         case noFoldersConfigured
         case bookmarkFailure(String)
+        case candidateFetchFailed(String)
 
         var errorDescription: String? {
             switch self {
@@ -255,6 +272,8 @@ final class DashboardFileScanProvider: FileScanProvider {
                 return "No folders are configured for scanning."
             case .bookmarkFailure(let folder):
                 return "Cannot access \(folder). Please re-grant permission in Settings."
+            case .candidateFetchFailed(let details):
+                return "Unable to load files eligible for auto-organize. \(details)"
             }
         }
     }

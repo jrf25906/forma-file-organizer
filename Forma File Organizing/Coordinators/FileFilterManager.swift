@@ -9,6 +9,8 @@ class FileFilterManager: ObservableObject {
     @Published var filteredFiles: [FileItem] = []
     @Published var selectedCategory: FileTypeCategory = .all
     @Published var selectedFolder: FolderLocation = .home
+    @Published var selectedRelativeFolderPath: String? = nil
+    @Published var includeNestedSubfolders: Bool = false
     @Published var searchText: String = ""
     @Published var selectedSecondaryFilter: SecondaryFilter = .none
 
@@ -75,7 +77,7 @@ class FileFilterManager: ObservableObject {
     
     /// Count of all actionable files (excluding completed)
     var allFilesCount: Int {
-        filteredFiles.filter { $0.status != .completed }.count
+        actionableFiles(from: filteredFiles).count
     }
     
     /// Files that can be reviewed (pending or ready)
@@ -104,6 +106,8 @@ class FileFilterManager: ObservableObject {
         hasher.combine(searchText)
         hasher.combine(selectedCategory)
         hasher.combine(selectedFolder)
+        hasher.combine(selectedRelativeFolderPath)
+        hasher.combine(includeNestedSubfolders)
         hasher.combine(reviewFilterMode)
         hasher.combine(selectedSecondaryFilter)
         hasher.combine(groupingMode)
@@ -158,6 +162,18 @@ class FileFilterManager: ObservableObject {
                 }
             }
         }
+
+        // 4. Optional nested-folder scope within the selected location
+        if let relativePath = normalizedRelativeFolderPath(selectedRelativeFolderPath),
+           selectedFolder != .home {
+            files = files.filter { file in
+                fileMatchesRelativeFolderScope(
+                    file,
+                    relativePath: relativePath,
+                    includeSubfolders: includeNestedSubfolders
+                )
+            }
+        }
         
         // Cache the result
         filteredFiles = files
@@ -185,23 +201,123 @@ class FileFilterManager: ObservableObject {
         return false
     }
 
+    private func normalizedRelativeFolderPath(_ path: String?) -> String? {
+        guard let trimmed = path?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+
+        return trimmed
+            .split(separator: "/")
+            .map(String.init)
+            .filter { !$0.isEmpty }
+            .joined(separator: "/")
+    }
+
+    private func fileMatchesRelativeFolderScope(
+        _ file: FileItem,
+        relativePath: String,
+        includeSubfolders: Bool
+    ) -> Bool {
+        guard let fileRelativeParent = relativeParentPath(for: file) else {
+            return false
+        }
+
+        if fileRelativeParent == relativePath {
+            return true
+        }
+
+        guard includeSubfolders else {
+            return false
+        }
+
+        return fileRelativeParent.hasPrefix(relativePath + "/")
+    }
+
+    private func relativeParentPath(for file: FileItem) -> String? {
+        if let relativeParentPath = normalizedRelativeFolderPath(file.relativeParentPath) {
+            return relativeParentPath
+        }
+
+        guard let rootPath = file.scanRootPath else { return nil }
+        let standardizedRootPath = URL(fileURLWithPath: rootPath).standardizedFileURL.path
+        let parentPath = URL(fileURLWithPath: file.path)
+            .deletingLastPathComponent()
+            .standardizedFileURL
+            .path
+
+        let rootPrefix = standardizedRootPath.hasSuffix("/") ? standardizedRootPath : standardizedRootPath + "/"
+        guard parentPath.hasPrefix(rootPrefix) else { return nil }
+
+        let relativeParent = String(parentPath.dropFirst(rootPrefix.count))
+        return normalizedRelativeFolderPath(relativeParent)
+    }
+
+    private func currentNestedScopePath() -> String? {
+        guard selectedFolder != .home else { return nil }
+        return normalizedRelativeFolderPath(selectedRelativeFolderPath)
+    }
+
+    private func normalizedPathComponents(_ path: String) -> [String] {
+        path
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: "/")
+            .map(String.init)
+            .filter { !$0.isEmpty }
+    }
+
+    private func destinationMatchesNestedScope(_ destination: Destination, relativePath: String) -> Bool {
+        let destinationComponents = normalizedPathComponents(destination.displayName)
+        let scopeComponents = normalizedPathComponents(relativePath)
+        guard !destinationComponents.isEmpty, !scopeComponents.isEmpty else {
+            return false
+        }
+
+        guard destinationComponents.count >= scopeComponents.count else {
+            return false
+        }
+
+        return Array(destinationComponents.suffix(scopeComponents.count)) == scopeComponents
+    }
+
+    private func isContextuallyOrganized(
+        _ file: FileItem,
+        nestedScopePath: String?,
+        includeSubfolders: Bool
+    ) -> Bool {
+        guard let nestedScopePath,
+              file.status == .pending || file.status == .ready,
+              fileMatchesRelativeFolderScope(file, relativePath: nestedScopePath, includeSubfolders: includeSubfolders),
+              let destination = file.destination else {
+            return false
+        }
+
+        return destinationMatchesNestedScope(destination, relativePath: nestedScopePath)
+    }
+
+    private func actionableFiles(from files: [FileItem]) -> [FileItem] {
+        let nestedScopePath = currentNestedScopePath()
+        return files.filter { file in
+            guard file.status != .completed else { return false }
+            return !isContextuallyOrganized(
+                file,
+                nestedScopePath: nestedScopePath,
+                includeSubfolders: includeNestedSubfolders
+            )
+        }
+    }
+
     /// Updates all cached computed values. Call when filteredFiles, reviewFilterMode,
     /// selectedSecondaryFilter, or groupingMode changes.
     private func updateCachedValues() {
         // Update visible files
-        var files = filteredFiles
-        
-        // Exclude completed files by default
-        files = files.filter { $0.status != .completed }
+        var files = actionableFiles(from: filteredFiles)
         
         // Needs Review vs All Files
         switch reviewFilterMode {
         case .needsReview:
             files = files.filter { file in
-                let isPending = file.status == .pending
-                let isReady = file.status == .ready
-                let noDestination = file.destination == nil
-                return isPending || isReady || noDestination
+                file.status == .pending || file.status == .ready
             }
         case .all:
             break
@@ -261,13 +377,8 @@ class FileFilterManager: ObservableObject {
         cachedGroupedFiles = groupingService.groupFiles(files, mode: groupingMode)
         
         // Update needs review count - must match the Review mode filter criteria
-        let nonCompletedFiles = filteredFiles.filter { $0.status != .completed }
-        cachedNeedsReviewCount = nonCompletedFiles.filter { file in
-            let isPending = file.status == .pending
-            let isReady = file.status == .ready
-            let noDestination = file.destination == nil
-            return isPending || isReady || noDestination
-        }.count
+        let actionable = actionableFiles(from: filteredFiles)
+        cachedNeedsReviewCount = actionable.filter { $0.status == .pending || $0.status == .ready }.count
         
         #if DEBUG
         Log.debug("FILTERING BREAKDOWN — after category/location filter: \(filteredFiles.count)", category: .pipeline)
@@ -276,14 +387,14 @@ class FileFilterManager: ObservableObject {
         Log.debug("Visible after status filter: \(cachedVisibleFiles.count)", category: .pipeline)
         Log.debug("Review mode: \(reviewFilterMode)", category: .pipeline)
         if reviewFilterMode == .needsReview {
-            let pendingCount = filteredFiles.filter { $0.status == .pending || $0.destination == nil }.count
+            let pendingCount = actionable.filter { $0.status == .pending || $0.status == .ready }.count
             Log.debug("Files needing review: \(pendingCount)", category: .pipeline)
         }
-        let readyCount = filteredFiles.filter { $0.status == .ready }.count
+        let readyCount = actionable.filter { $0.status == .ready }.count
         Log.debug("Ready to organize: \(readyCount)", category: .pipeline)
         #endif
         
         // Update reviewable files (for floating action bar)
-        cachedReviewableFiles = filteredFiles.filter { $0.status == .pending || $0.status == .ready }
+        cachedReviewableFiles = actionable.filter { $0.status == .pending || $0.status == .ready }
     }
 }
