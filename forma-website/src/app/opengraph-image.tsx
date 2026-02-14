@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 export const runtime = "nodejs";
 
-export const alt = "Forma - Intelligent file organizer for macOS";
+export const alt = "Forma — A file organizer for people who gave up on file organizers";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

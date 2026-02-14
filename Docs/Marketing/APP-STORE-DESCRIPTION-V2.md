@@ -11,7 +11,7 @@
 
 ## Subtitle
 **Give your files form.**
-*(21 characters — under 30 limit)*
+*(21 characters — under 30 limit; brand tagline retained here due to 30-char limit. Website uses "A file organizer that actually sticks." instead.)*
 
 ---
 
@@ -46,7 +46,7 @@ Built exclusively for macOS with native file APIs. All processing happens on you
 - Action History: Full log with instant rollback
 - 30+ Templates: Ready-made rules for common files
 - Background Monitor: (Coming Soon) Keep folders tidy automatically
-- Natural Language Rules: Describe intent, not syntax
+- Rules That Read Like Sentences: Describe intent, not syntax
 
 ---
 
@@ -77,7 +77,7 @@ Welcome to Forma! Organize your files with confidence.
 - Preview every move before it happens
 - Full undo history
 - 30+ ready-made templates
-- Natural language rules
+- Human-readable rules
 
 ---
 

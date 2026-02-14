@@ -11,7 +11,6 @@ struct DashboardView: View {
     @State private var shouldFocusSearch = false
     @State private var showKeyboardHelp = false
     @State private var tourState = GuidedTourState()
-    @State private var splitViewVisibility: NavigationSplitViewVisibility = .all
 
     private enum DebugFlags {
         #if DEBUG
@@ -112,6 +111,52 @@ struct DashboardView: View {
         dashboardViewModel.isRightPanelVisible && nav.selection != .analytics
     }
 
+    private var splitLayoutMode: String {
+        showsInspectorColumn ? "threeColumn" : "twoColumn"
+    }
+
+    @ViewBuilder
+    private var sidebarColumn: some View {
+        SidebarView(
+            shouldFocusSearch: $shouldFocusSearch,
+            showKeyboardHelp: $showKeyboardHelp
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+    }
+
+    @ViewBuilder
+    private var centerColumn: some View {
+        GeometryReader { proxy in
+            centerContent(availableWidth: proxy.size.width)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .navigationSplitViewColumnWidth(min: 680, ideal: 960)
+    }
+
+    @ViewBuilder
+    private var splitViewLayout: some View {
+        if showsInspectorColumn {
+            NavigationSplitView {
+                sidebarColumn
+            } content: {
+                centerColumn
+            } detail: {
+                RightPanelView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 420)
+            }
+            .navigationSplitViewStyle(.balanced)
+        } else {
+            NavigationSplitView {
+                sidebarColumn
+            } detail: {
+                centerColumn
+            }
+            .navigationSplitViewStyle(.balanced)
+        }
+    }
+
     @ViewBuilder
     private func centerContent(availableWidth: CGFloat) -> some View {
         if nav.selection == .rules {
@@ -136,12 +181,6 @@ struct DashboardView: View {
         }
     }
 
-    private func updateSplitViewVisibility() {
-        // `.doubleColumn` in a three-column split can drop the sidebar.
-        // Keep sidebar+content visible when inspector is hidden.
-        splitViewVisibility = showsInspectorColumn ? .all : .automatic
-    }
-
     // MARK: - Body
 
     var body: some View {
@@ -150,41 +189,15 @@ struct DashboardView: View {
                 ZStack {
                     PrimaryBackgroundView()
 
-                    NavigationSplitView(columnVisibility: $splitViewVisibility) {
-                        SidebarView(
-                            shouldFocusSearch: $shouldFocusSearch,
-                            showKeyboardHelp: $showKeyboardHelp
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
-                    } content: {
-                        GeometryReader { proxy in
-                            centerContent(availableWidth: proxy.size.width)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        }
-                        .navigationSplitViewColumnWidth(min: 680, ideal: 960)
-                    } detail: {
-                        Group {
-                            if showsInspectorColumn {
-                                RightPanelView()
-                            } else {
-                                EmptyView()
-                            }
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 420)
-                    }
-                    .navigationSplitViewStyle(.balanced)
-                    .onAppear {
-                        updateSplitViewVisibility()
-                    }
-                    .onChange(of: dashboardViewModel.isRightPanelVisible) { _, _ in
-                        updateSplitViewVisibility()
-                    }
-                    .onChange(of: nav.selection) { _, _ in
-                        updateSplitViewVisibility()
-                    }
+                    splitViewLayout
                     .disabled(nav.isShowingRuleEditor || (tourState.isActive && !DebugFlags.disableGuidedTourOverlay))
+
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .accessibilityIdentifier("dashboardSplitLayoutProbe")
+                        .accessibilityLabel(splitLayoutMode)
+                        .accessibilityValue(splitLayoutMode)
+                        .allowsHitTesting(false)
 
                     // Rule Editor Overlay - Centered Modal
                     ruleEditorOverlay
@@ -294,7 +307,6 @@ struct DashboardView: View {
             } else if case .analytics = dashboardViewModel.rightPanelMode {
                 dashboardViewModel.rightPanelMode = .default
             }
-            updateSplitViewVisibility()
         }
     }
 }

@@ -85,7 +85,10 @@ struct ProductivityReportView: View {
                 }
                 Spacer()
 
-                periodSelector
+                HStack(spacing: FormaSpacing.tight) {
+                    periodSelector
+                    analyticsInspectorToggle
+                }
             }
 
             if viewModel.isLoading {
@@ -104,6 +107,37 @@ struct ProductivityReportView: View {
                 viewModel.selectedPeriod = period
             }
         )
+    }
+
+    private var analyticsInspectorToggle: some View {
+        Button(action: {}) {
+            Image(systemName: "sidebar.right")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.formaSecondaryLabelHigh)
+                .frame(width: 30, height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(
+                            colorScheme == .dark
+                                ? Color.formaBoneWhite.opacity(0.08)
+                                : Color.formaObsidian.opacity(0.06)
+                        )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(
+                            colorScheme == .dark
+                                ? Color.formaBoneWhite.opacity(0.14)
+                                : Color.formaObsidian.opacity(0.12),
+                            lineWidth: 0.5
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(true)
+        .opacity(0.4)
+        .help("Inspector unavailable in Analytics")
+        .accessibilityIdentifier("toolbarInspectorToggle")
     }
 
     private func errorBanner(_ message: String) -> some View {

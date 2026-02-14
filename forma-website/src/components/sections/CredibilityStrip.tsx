@@ -15,7 +15,7 @@ export default function CredibilityStrip() {
           <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2.5 text-[13px] text-[var(--text-secondary)] md:text-sm">
             <span className="flex items-center gap-2">
               <Monitor size={15} className="text-[var(--accent-steel-blue)]" />
-              Native Swift app
+              Built natively for macOS
             </span>
             <span className="hidden sm:inline text-[var(--divider-color)]" aria-hidden="true">
               &middot;

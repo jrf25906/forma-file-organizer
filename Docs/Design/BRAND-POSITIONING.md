@@ -1,7 +1,7 @@
 # Forma — Brand Positioning
 
-**Version:** 1.0
-**Last Updated:** January 2025
+**Version:** 1.1
+**Last Updated:** February 2026
 **Status:** Strategic Foundation
 
 This document defines Forma's core positioning and messaging strategy. All brand documents, marketing copy, and product communication should align with these principles.
@@ -159,7 +159,7 @@ Be concrete, not sloganeering:
 
 | Pillar | Proof |
 |--------|-------|
-| **Mac-native** | Uses native file APIs. No Electron. |
+| **Mac-native** | Fast and lightweight — built natively for macOS. *(Use "No Electron" only for technical audiences.)* |
 | **Private** | On-device processing. Files never leave your Mac. |
 | **Fast** | Launches and previews in milliseconds on Apple Silicon. |
 | **Reversible** | Full action history with one-click rollback. |
@@ -209,6 +209,26 @@ Forma explicitly embraces limits. These principles should be visible in product 
 3. **Files remain yours** — Local processing, no cloud, no telemetry on file contents
 
 Boundaries increase trust.
+
+---
+
+## Website Messaging Decisions (February 2026)
+
+These decisions apply to `forma-website` marketing copy. They represent deliberate departures from generic brand language for conversion purposes.
+
+### Tagline Split
+- **Brand tagline** ("Give your files form") remains for in-app, packaging, and existing-user contexts.
+- **Website tagline** ("A file organizer that actually sticks") targets cold traffic who need the value proposition upfront.
+- **OG/social headline** ("A file organizer for people who gave up on file organizers") targets the highest-intent audience segment.
+
+### "Rules That Read Like Sentences" (not "Natural Language Rules")
+The website feature was renamed from "Natural Language Rules" to "Rules That Read Like Sentences." Rationale: Forma uses condition-based rules (if filename contains X, move to Y), not natural language processing or AI. "Natural Language Rules" overpromises and triggers the same AI skepticism the brand positioning explicitly avoids. The new name is honest — the rules *read* like sentences, but they're structured conditions.
+
+### Competitive Positioning Angle
+Features intro now leads with: "Most organizers move first and explain later. Forma shows you everything upfront — then lets you decide." This positions Forma's preview-first workflow as the key differentiator against the competitive field, rather than listing features in isolation.
+
+### "Built natively for macOS" (not "No Electron")
+"Not another Electron wrapper" and "Native Swift app" were replaced with user-facing benefit language. "No Electron" is meaningless to most users and reads as developer in-group signaling. Reserve "No Electron" for technical audiences (Hacker News, developer press). General audiences get: "Fast and lightweight — built natively for macOS 15+."
 
 ---
 

@@ -8,7 +8,9 @@
 ## Core Messages (Use Everywhere)
 
 ### Primary Tagline
-**Give your files form.**
+**A file organizer that actually sticks.**
+
+> *Previous tagline "Give your files form" remains suitable for in-app, packaging, and existing-user contexts. See [BRAND-POSITIONING.md](../Design/BRAND-POSITIONING.md#website-messaging-decisions-february-2026) for the rationale behind the website tagline split.*
 
 ### Positioning Statement
 Forma is the file organizer that proposes changes, waits for your approval, and lets you undo everything.
@@ -103,7 +105,7 @@ Forma is available with a one-time $29 purchase.
 >
 > One-time $29 purchase. No subscription.
 >
-> Give your files form.
+> A file organizer that actually sticks.
 > https://formafiles.com
 
 ---
@@ -124,7 +126,7 @@ Key features:
 - Preview Queue: See all proposed moves before execution
 - Full Undo History: Rollback any action, anytime
 - 100% Local: Files never leave your Mac
-- Native macOS: Built with Swift, not Electron
+- Native macOS: Fast and lightweight — built natively for macOS
 
 If you've ever wished file organization was less risky to experiment with, I'd love for you to try Forma.
 
@@ -233,9 +235,9 @@ Questions? Reply to this email.
 
 ### Hero Section
 
-**Headline**: Give your files form.
+**Headline**: A file organizer for people who gave up on file organizers.
 
-**Subhead**: The file organizer that proposes changes, waits for your approval, and lets you undo everything.
+**Subhead**: Make rules. Preview moves. Approve changes. Undo anything. $29 once, forever. macOS native.
 
 **CTA**: Download for Mac
 

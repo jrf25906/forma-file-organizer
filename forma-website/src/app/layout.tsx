@@ -60,9 +60,9 @@ export const metadata: Metadata = {
     canonical: SITE_URL,
   },
   openGraph: {
-    title: `${SITE_NAME} | ${SITE_TAGLINE}`,
+    title: `${SITE_NAME} — A file organizer for people who gave up on file organizers`,
     description:
-      "A file organizer for people who gave up on file organizers. $29 once, forever.",
+      "Make rules. Preview moves. Approve changes. Undo anything. $29 once, forever. macOS native.",
     url: SITE_URL,
     siteName: SITE_NAME,
     locale: "en_US",

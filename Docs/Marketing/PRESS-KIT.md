@@ -11,7 +11,7 @@
 | | |
 |---|---|
 | **App Name** | Forma: File Organizer |
-| **Tagline** | Give your files form. |
+| **Tagline** | A file organizer that actually sticks. |
 | **Platform** | macOS (Apple Silicon and Intel) |
 | **Price** | $29 one-time purchase |
 | **Category** | Productivity, Utilities |
@@ -42,9 +42,9 @@ While automation tools like Hazel require scripting expertise and AI organizers 
 **Key Features:**
 - **Preview Queue**: See every proposed change before execution
 - **Full Undo History**: Complete action log with one-click rollback
-- **Declarative Rules**: Natural-language rule creation without scripting
+- **Rules That Read Like Sentences**: Readable condition-based rules without scripting
 - **100% Local**: On-device processing; files never leave your Mac
-- **Native macOS**: Built with native APIs, not Electron
+- **Native macOS**: Fast and lightweight — built natively for macOS
 
 Forma is available with a one-time $29 purchase. For current download options and support links, visit https://formafiles.com/get-forma.
 

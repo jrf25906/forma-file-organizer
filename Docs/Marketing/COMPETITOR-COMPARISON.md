@@ -117,7 +117,7 @@
 1. **Preview-First Execution**: See every proposed change before it happens
 2. **Full Reversibility**: Complete action history with one-click undo
 3. **100% Local Processing**: Files and filenames never leave your Mac
-4. **Native macOS Design**: Built with native APIs, not Electron
+4. **Native macOS Design**: Fast and lightweight — built natively for macOS
 5. **Low Learning Curve**: Visual interface, not rule scripting
 
 ---

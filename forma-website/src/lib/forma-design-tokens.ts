@@ -18,7 +18,7 @@ export interface FormaFile {
 export const categoryColors: Record<FileCategory, string> = {
   documents: "#6B8CA8",
   images:    "#C97E66",
-  videos:    "#5B7C99",
+  videos:    "#6B7FA8",
   audio:     "#7A9D7E",
   archives:  "#8BA688",
 };

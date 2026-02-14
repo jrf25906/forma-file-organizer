@@ -18,8 +18,15 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` now exposes AI-consumable routes: `/llms.txt`, `/for-agents`, `/openapi.json`, and read-only JSON APIs under `/api/public/*`.
 - Added website-level tracking events (`download_click`, `newsletter_submit_success`, `support_contact_click`, `blog_cta_click`) with optional Plausible integration.
 - Added `Scripts/signpost_harness_snapshot.sh` to automate debug harness execution, `xctrace` export, and p50/p95/p99 summary generation for signpost performance snapshots.
+- `forma-website` now includes a social proof section with early beta tester testimonials between the before/after demo and pricing sections.
+- `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- `forma-website` primary tagline changed from "Give your files form" to "A file organizer that actually sticks"; OG title and metadata now use "A file organizer for people who gave up on file organizers" positioning.
+- `forma-website` "Natural Language Rules" feature renamed to "Rules That Read Like Sentences" with description reframed around conditions and destinations instead of implying NLP/AI.
+- `forma-website` replaced developer-facing "Not another Electron wrapper" and "Native Swift app" copy with user-facing "Fast and lightweight — built natively for macOS 15+" and "Built natively for macOS".
+- `forma-website` features intro now uses competitive positioning ("Most organizers move first and explain later. Forma shows you everything upfront — then lets you decide.").
+- `forma-website` Muted Blue accent shifted from `#5A7B97` to `#6B7FA8` (more indigo/slate) for stronger differentiation from Steel Blue.
 - Manual/dashboard, automation, menu bar, and review scans now resolve a shared runtime scan policy and scan subfolders by default (`Settings → General → Scan Subfolders`).
 - Consolidated marketing web code to `forma-website/` and removed legacy `website/` + `forma-marketing-site/` directories.
 - `forma-website` now uses normal in-flow footer layout (no fixed negative-z reveal), and web metadata/sitemap/robots now target `https://formafiles.com`.
@@ -111,7 +118,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Shift-click range selection now works consistently across card/list/grid file views by using a shared selection anchor.
 - Removed oversized translucent "lens" artifacts from split-view panes by avoiding full-bleed `glassEffect` and using pane-safe native material fallback while retaining layered vibrancy.
 - Full-bleed pane surfaces now always prefer native fallback material, even when debug glass-force flags are enabled, preventing circular contour artifacts from returning.
-- Analytics now keeps the left sidebar visible when the inspector column is hidden, preventing unintended sidebar collapse when switching views.
+- Split-view layout now switches to a true two-column mode whenever the inspector is hidden (including Analytics), keeping the sidebar visible, removing the blank right rail, and showing the Analytics inspector toggle as disabled/off.
 - Productivity period and category segmented controls now use corrected active tints and shared control-shell fills so selected states remain readable and visually consistent.
 - Analytics refresh work is now cancellable and period-cached to avoid redundant recomputation and reduce energy/memory churn during rapid navigation.
 - Main-screen Settings entry points now use native `SettingsLink` (sidebar, review toolbar, menu bar, and productivity insight actions) for consistent Settings-scene opening.

@@ -1,6 +1,6 @@
 export const SITE_NAME = "Forma";
 export const SITE_URL = "https://formafiles.com";
-export const SITE_TAGLINE = "Give your files form";
+export const SITE_TAGLINE = "A file organizer that actually sticks";
 export const SUPPORT_EMAIL = "hello@formafiles.com";
 
 export const WEBSITE_LAST_UPDATED_ISO = "2026-02-11T00:00:00.000Z";

@@ -37,12 +37,12 @@ Forma is a premium macOS application for intelligent file organization. It helps
 
 1. **Preview-first workflow** — nothing moves without explicit approval
 2. **Full undo history** — every action is reversible
-3. **Natural language rules** — describe rules in plain English, no scripting
+3. **Rules that read like sentences** — describe rules as readable conditions, no scripting
 4. **AI pattern learning** — learns from user behavior, suggests destinations
 5. **Personality-based onboarding** — adapts to how users naturally think about organization
 6. **7 organization templates** — PARA, Johnny Decimal, Creative Professional, Minimal, Academic, Chronological, Student
 7. **100% local processing** — no cloud, no data leaves the Mac
-8. **Native macOS** — SwiftUI, not Electron
+8. **Native macOS** — fast and lightweight, built natively for macOS
 
 ### Target Audience
 
@@ -115,14 +115,14 @@ This directly addresses:
 | Headline | Angle |
 |----------|-------|
 | "A file organizer for people who gave up on file organizers." | Empathy / retry |
-| "Give your files form." | Brand tagline |
+| "A file organizer that actually sticks." | Website tagline *(brand tagline "Give your files form" used in-app)* |
 | "$29. Once. Forever." | Anti-subscription |
 | "See before you move. Undo anything. Stay in control." | Safety / trust |
 
 ### Key Copy Moments
 
 - "No subscription. No account. No 'premium tiers.'" (anti-SaaS positioning)
-- "Mac-native Swift — not another Electron wrapper" (credibility)
+- "Fast and lightweight — built natively for macOS" (credibility; use "No Electron" for technical audiences only)
 - "Everything runs locally on your Mac" (privacy)
 - "Built by someone who got tired of seeing `Screenshot 2024-01-15 at 3.42.17 PM.png` fifty times on their desktop" (founder voice)
 

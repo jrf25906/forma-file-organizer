@@ -4,6 +4,7 @@ import {
   CredibilityStrip,
   FeaturesSection,
   BeforeAfterSection,
+  SocialProofSection,
   PricingSection,
   FAQSection,
   NewsletterSection,
@@ -30,7 +31,7 @@ export default function Home() {
     description:
       "A file organizer for people who gave up on file organizers. Make rules, preview, approve, undo.",
     featureList: [
-      "Natural language rules",
+      "Human-readable rules",
       "Preview before moving",
       "Full undo history",
       "Local-only privacy",
@@ -100,6 +101,7 @@ export default function Home() {
           height="clamp(4px, 1vw, 12px)"
         />
         <BeforeAfterSection />
+        <SocialProofSection />
         <SectionTransition
           fromColor="var(--bg-primary)"
           toColor="var(--bg-secondary)"

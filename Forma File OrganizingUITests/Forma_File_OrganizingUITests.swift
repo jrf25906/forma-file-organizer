@@ -207,6 +207,53 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     }
 
     @MainActor
+    func testAnalyticsSelectionKeepsSidebarVisibleAndUsesTwoColumnLayout() throws {
+        harness.waitForMainContent()
+        app.activate()
+
+        let analyticsButton = app.buttons["Analytics"]
+        guard analyticsButton.exists else {
+            throw XCTSkip("Analytics feature is disabled for this UI test runtime.")
+        }
+
+        analyticsButton.click()
+
+        let productivityHeader = app.staticTexts["Productivity Health"]
+        XCTAssertTrue(productivityHeader.waitForExistence(timeout: 4), "Analytics content should be visible")
+
+        let smartRulesButton = app.buttons["Smart Rules"]
+        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Sidebar should remain visible on Analytics")
+
+        let splitProbe = harness.element(withIdentifier: "dashboardSplitLayoutProbe")
+        harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
+        harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
+
+        let inspectorToggle = app.buttons["toolbarInspectorToggle"]
+        XCTAssertTrue(inspectorToggle.waitForExistence(timeout: 4), "Inspector toggle should remain visible in toolbar")
+        XCTAssertFalse(inspectorToggle.isEnabled, "Inspector toggle should be disabled while viewing Analytics")
+    }
+
+    @MainActor
+    func testInspectorHiddenStateUsesTwoColumnWithoutCollapsingSidebar() throws {
+        harness.waitForMainContent()
+        app.activate()
+
+        let splitProbe = harness.element(withIdentifier: "dashboardSplitLayoutProbe")
+        harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
+        harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
+
+        let inspectorToggle = app.buttons["toolbarInspectorToggle"]
+        XCTAssertTrue(inspectorToggle.waitForExistence(timeout: 4), "Inspector toggle should exist")
+        XCTAssertTrue(inspectorToggle.isEnabled, "Inspector toggle should be enabled on non-Analytics views")
+
+        inspectorToggle.click()
+        harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
+
+        let smartRulesButton = app.buttons["Smart Rules"]
+        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Sidebar should remain visible when inspector is hidden")
+    }
+
+    @MainActor
     func testAccessibilityStateIdentifiersAcrossViewModes() throws {
         harness.waitForMainContent()
         app.activate()

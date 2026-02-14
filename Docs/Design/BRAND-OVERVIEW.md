@@ -1,6 +1,6 @@
 # Forma - Brand Overview
 
-**Last Updated:** January 2025
+**Last Updated:** February 2026
 **Status:** Design System Implemented, Visual Identity Finalized
 **Strategic Foundation:** See [BRAND-POSITIONING.md](BRAND-POSITIONING.md) for messaging source of truth
 
@@ -9,9 +9,13 @@
 ## Quick Reference
 
 **Brand Name:** Forma
-**Tagline:** "Give your files form"
+**Brand Tagline:** "Give your files form" *(brand-level; used in app, packaging, brand contexts)*
+**Website Tagline:** "A file organizer that actually sticks" *(website `SITE_TAGLINE`; see rationale below)*
+**Website OG Headline:** "A file organizer for people who gave up on file organizers" *(OG title, metadata, social cards)*
 **Positioning:** A structural system layer for macOS files — not a replacement for Finder, but an executor of your intent
 **Target Behavior:** People whose files outgrow folders — where screenshots, documents, assets, and ideas pile up faster than folders can handle
+
+> **Note (Feb 2026):** The website now uses a distinct tagline from the brand-level tagline. "Give your files form" is elegant but doesn't communicate the product's value proposition to cold traffic. The website headline targets people who've already tried and failed with other organizers — a higher-intent audience. The brand tagline remains appropriate for in-app, packaging, and contexts where the user already knows Forma.
 
 ---
 
@@ -166,11 +170,13 @@ Forma uses a **layered material design** approach:
 
 | Pillar | Proof |
 |--------|-------|
-| **Mac-native** | Uses native file APIs. No Electron. |
+| **Mac-native** | Fast and lightweight — built natively for macOS. |
 | **Private** | On-device processing. Files never leave your Mac. |
 | **Fast** | Launches and previews in milliseconds on Apple Silicon. |
 | **Reversible** | Full action history with one-click rollback. |
 | **Transparent** | Preview every change before it happens. |
+
+> **Note (Feb 2026):** "No Electron" was replaced with user-facing benefit language on the website. The technical distinction still matters for developer audiences (HN, technical press) but isn't meaningful to most users. Use "Fast and lightweight — built natively for macOS" for general audiences; reserve "No Electron" for technical contexts only.
 
 ---
 

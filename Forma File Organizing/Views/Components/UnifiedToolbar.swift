@@ -93,6 +93,10 @@ struct UnifiedToolbar: View {
         viewModel.rightPanelMode == .analytics
     }
 
+    private var isInspectorEffectivelyVisible: Bool {
+        viewModel.isRightPanelVisible && !isInspectorDisabled
+    }
+
     private var trailingControls: some View {
         HStack(spacing: 12) {
             if viewModel.isLoading {
@@ -115,6 +119,7 @@ struct UnifiedToolbar: View {
 
             // Inspector toggle (sidebar.right) - toggles right panel visibility
             Button(action: {
+                guard !isInspectorDisabled else { return }
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     viewModel.isRightPanelVisible.toggle()
                 }
@@ -127,10 +132,11 @@ struct UnifiedToolbar: View {
             .opacity(0.001)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+            .disabled(isInspectorDisabled)
 
             StocksStyleToolbarIconButton(
                 icon: "sidebar.right",
-                isSelected: viewModel.isRightPanelVisible,
+                isSelected: isInspectorEffectivelyVisible,
                 help: "Toggle Inspector (\u{2318}I)"
             ) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {

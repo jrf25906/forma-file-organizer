@@ -42,8 +42,20 @@ function DesktopContent() {
         {/* File sort animation triggers itself via intersection observer */}
         <FileSortAnimation />
 
+        {/* Rule callout — shows the mechanism that produced the result */}
+        <ScrollReveal direction="up" distance={16}>
+          <div className="mx-auto mt-8 flex max-w-md items-center justify-center gap-3 rounded-xl border border-[var(--border-medium)] bg-[var(--bg-secondary)] px-5 py-3 md:mt-10">
+            <span className="text-[12px] font-medium uppercase tracking-wider text-forma-steel-blue">
+              Rule
+            </span>
+            <span className="font-mono text-[13px] text-[var(--text-secondary)]">
+              &ldquo;Screenshots &rarr; ~/Screenshots&rdquo;
+            </span>
+          </div>
+        </ScrollReveal>
+
         <ScrollReveal direction="up" distance={20}>
-          <h2 className="mt-10 md:mt-14 text-center font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
+          <h2 className="mt-8 md:mt-10 text-center font-display text-3xl tracking-tight text-[var(--text-primary)] md:text-4xl lg:text-[2.75rem]">
             Problem solved.
           </h2>
         </ScrollReveal>
@@ -157,8 +169,20 @@ function MobileFallback() {
           </ScrollReveal>
         </div>
 
+        {/* Rule callout — shows the mechanism that produced the result */}
+        <ScrollReveal direction="up" distance={16} delay={300}>
+          <div className="mx-auto mt-4 flex max-w-xs items-center justify-center gap-3 rounded-xl border border-[var(--border-medium)] bg-[var(--bg-secondary)] px-4 py-2.5">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-forma-steel-blue">
+              Rule
+            </span>
+            <span className="font-mono text-[12px] text-[var(--text-secondary)]">
+              &ldquo;Screenshots &rarr; ~/Screenshots&rdquo;
+            </span>
+          </div>
+        </ScrollReveal>
+
         <ScrollReveal direction="up" distance={20} delay={400}>
-          <h2 className="mt-6 text-center font-display text-3xl tracking-tight text-[var(--text-primary)]">
+          <h2 className="mt-5 text-center font-display text-3xl tracking-tight text-[var(--text-primary)]">
             Problem solved.
           </h2>
         </ScrollReveal>

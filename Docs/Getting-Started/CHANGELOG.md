@@ -158,7 +158,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shift-click range selection now works consistently across card/list/grid file views by using a shared selection anchor.
 - Removed oversized translucent "lens" artifacts from split-view panes by avoiding full-bleed `glassEffect` and using pane-safe native material fallback while retaining layered vibrancy.
 - Full-bleed pane surfaces now always prefer native fallback material, even when debug glass-force flags are enabled, preventing circular contour artifacts from returning.
-- Analytics now keeps the left sidebar visible when the inspector column is hidden, preventing unintended sidebar collapse when switching views.
+- Split-view layout now switches to a true two-column mode whenever the inspector is hidden (including Analytics), keeping the sidebar visible, removing the blank right rail, and showing the Analytics inspector toggle as disabled/off.
 - Productivity period and category segmented controls now use corrected active tints and shared control-shell fills so selected states remain readable and visually consistent.
 - Analytics refresh work is now cancellable and period-cached to avoid redundant recomputation and reduce energy/memory churn during rapid navigation.
 - Main-screen Settings entry points now use native `SettingsLink` (sidebar, review toolbar, menu bar, and productivity insight actions) for consistent Settings-scene opening.

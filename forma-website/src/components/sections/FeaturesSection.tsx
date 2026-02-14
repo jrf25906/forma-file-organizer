@@ -30,9 +30,9 @@ const features: FeatureMeta[] = [
   {
     id: "natural-language",
     icon: Type,
-    title: "Natural Language Rules",
+    title: "Rules That Read Like Sentences",
     description:
-      "Tell it what to do in plain English. No syntax to learn, no config files to edit. Just say where things should go.",
+      "\"If the filename contains screenshot, move it to Screenshots.\" Rules are that readable. No syntax, no config files — just conditions and destinations.",
     accentText: "text-forma-steel-blue",
     accentBg: "bg-forma-steel-blue/12",
     accentBorder: "bg-forma-steel-blue/50",
@@ -340,8 +340,8 @@ const SectionHeader = forwardRef<HTMLDivElement>(function SectionHeader(_, ref) 
           How it actually works
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">
-          You&apos;ve probably tried other organizers. Here&apos;s why this one
-          might actually stick.
+          Most organizers move first and explain later. Forma shows you
+          everything upfront — then lets you decide.
         </p>
       </div>
     </div>
@@ -411,8 +411,8 @@ function MobileFeatures() {
             How it actually works
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">
-            You&apos;ve probably tried other organizers. Here&apos;s why this
-            one might actually stick.
+            Most organizers move first and explain later. Forma shows you
+            everything upfront — then lets you decide.
           </p>
         </div>
 

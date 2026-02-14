@@ -1,7 +1,7 @@
 # Forma - Brand Guidelines
 
-**Version:** 2.1
-**Last Updated:** January 2025
+**Version:** 2.2
+**Last Updated:** February 2026
 **Status:** Implementation Guide
 **Strategic Foundation:** See [BRAND-POSITIONING.md](BRAND-POSITIONING.md) for messaging source of truth
 
@@ -25,7 +25,11 @@
 
 ### Brand Positioning
 
-**"Give your files form."**
+**Brand tagline:** "Give your files form." *(in-app, packaging, existing-user contexts)*
+**Website tagline:** "A file organizer that actually sticks." *(cold traffic, website SITE_TAGLINE)*
+**Website headline:** "A file organizer for people who gave up on file organizers." *(OG title, social cards)*
+
+> See [BRAND-POSITIONING.md](BRAND-POSITIONING.md#website-messaging-decisions-february-2026) for the rationale behind the tagline split.
 
 Forma isn't just another file organizer. It's a system layer for macOS files — beautifully designed, but fundamentally structural. Nothing moves without your approval. Everything can be undone.
 

@@ -108,7 +108,7 @@ The following endpoints are exposed by `forma-website` for crawlers, integration
   "version": "v1",
   "data": {
     "name": "Forma",
-    "tagline": "Give your files form",
+    "tagline": "A file organizer that actually sticks",
     "platform": "macOS 14+",
     "price_usd": 29,
     "purchase_url": "https://apps.apple.com/...",
