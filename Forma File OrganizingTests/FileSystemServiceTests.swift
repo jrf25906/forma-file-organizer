@@ -531,18 +531,6 @@ final class FileSystemServiceTests: XCTestCase {
         // with the real app and cannot be isolated in unit tests. The test would
         // interfere with actual user permissions if run on a developer machine.
         throw XCTSkip("Integration test requires isolated Keychain - cannot run in unit test suite")
-        
-        // Given: A fresh service with bookmarks cleared
-        let service = FileSystemService()
-        service.resetAllAccess() // Ensure any existing bookmarks are cleared
-
-        // When/Then: Should return false for all folders without bookmarks
-        // Note: This test verifies state after resetAllAccess()
-        XCTAssertFalse(service.hasDesktopAccess(), "Should not have Desktop access after reset")
-        XCTAssertFalse(service.hasDownloadsAccess(), "Should not have Downloads access after reset")
-        XCTAssertFalse(service.hasDocumentsAccess(), "Should not have Documents access after reset")
-        XCTAssertFalse(service.hasPicturesAccess(), "Should not have Pictures access after reset")
-        XCTAssertFalse(service.hasMusicAccess(), "Should not have Music access after reset")
     }
 
     // MARK: - FileMetadata Structure Tests

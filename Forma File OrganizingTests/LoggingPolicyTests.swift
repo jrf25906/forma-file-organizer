@@ -161,7 +161,7 @@ final class LoggingPolicyTests: XCTestCase {
         }
 
         for fileURL in filesToCheck {
-            let contents = try String(contentsOf: fileURL)
+            let contents = try String(contentsOf: fileURL, encoding: .utf8)
             let sanitized = stripCommentsAndStrings(from: contents)
             if sanitized.contains("print(") {
                 let relativePath = fileURL.path.replacingOccurrences(of: projectRoot.path + "/", with: "")

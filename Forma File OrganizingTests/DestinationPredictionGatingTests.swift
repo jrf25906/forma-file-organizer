@@ -271,7 +271,7 @@ final class DestinationPredictionGatingTests: XCTestCase {
     
     /// Test: Predictions disabled when ML is off in service
     func testMLDisabled_InService() async throws {
-        await service.setMLEnabled(false)
+        service.setMLEnabled(false)
         
         let file = createTestFile(name: "test.pdf", ext: "pdf")
         let context = PredictionContext(mlEnabled: true) // Enabled in context but not service
@@ -285,7 +285,7 @@ final class DestinationPredictionGatingTests: XCTestCase {
     /// Test: Predictions re-enabled when ML toggle is turned back on
     func testMLEnabled_Toggle() async throws {
         // Disable ML
-        await service.setMLEnabled(false)
+        service.setMLEnabled(false)
         
         let file = createTestFile(name: "test.pdf", ext: "pdf")
         let context = PredictionContext()
@@ -296,7 +296,7 @@ final class DestinationPredictionGatingTests: XCTestCase {
         XCTAssertNil(result, "Predictions should be nil when disabled")
         
         // Re-enable ML
-        await service.setMLEnabled(true)
+        service.setMLEnabled(true)
         
         result = await service.predictDestination(for: file, context: context)
         XCTAssertNotNil(result, "Predictions should resume after re-enabling ML")

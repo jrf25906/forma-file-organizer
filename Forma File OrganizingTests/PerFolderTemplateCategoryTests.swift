@@ -24,10 +24,12 @@ final class PerFolderTemplateCategoryTests: XCTestCase {
         modelContext = modelContainer.mainContext
     }
 
-    override func tearDown() {
-        modelContext = nil
-        modelContainer = nil
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            modelContext = nil
+            modelContainer = nil
+        }
+        try await super.tearDown()
     }
 
     // MARK: - RuleCategory Creation Tests

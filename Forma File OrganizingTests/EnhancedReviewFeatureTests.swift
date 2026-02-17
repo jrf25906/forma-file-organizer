@@ -9,14 +9,18 @@ final class EnhancedReviewFeatureTests: XCTestCase {
 
     var ruleEngine: RuleEngine!
 
-    override func setUp() {
-        super.setUp()
-        ruleEngine = RuleEngine()
+    override func setUp() async throws {
+        try await super.setUp()
+        await MainActor.run {
+            ruleEngine = RuleEngine()
+        }
     }
 
-    override func tearDown() {
-        ruleEngine = nil
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            ruleEngine = nil
+        }
+        try await super.tearDown()
     }
 
     // MARK: - Confidence Scoring Tests
@@ -230,7 +234,7 @@ final class EnhancedReviewFeatureTests: XCTestCase {
 
         // When: Simulating skip action (tracking rejection)
         let originalDestination = file.destination?.displayName
-        var mutableFile = file
+        let mutableFile = file
         mutableFile.rejectedDestination = originalDestination
         mutableFile.rejectionCount += 1
 
@@ -241,7 +245,7 @@ final class EnhancedReviewFeatureTests: XCTestCase {
 
     func testRejectionTracking_MultipleRejections_IncrementsCount() {
         // Given: A file that's been rejected before
-        var file = TestFileItem(
+        let file = TestFileItem(
             name: "document.pdf",
             fileExtension: "pdf",
             path: "/test/document.pdf",

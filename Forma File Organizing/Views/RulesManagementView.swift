@@ -687,16 +687,17 @@ private struct RuleDropDelegate: DropDelegate {
         guard let provider = info.itemProviders(for: [.text]).first else {
             return false
         }
+        let targetRuleID = targetRule.id
 
         // Load the dragged rule ID asynchronously
         _ = provider.loadObject(ofClass: NSString.self) { nsString, _ in
             guard let idString = nsString as? String,
                   let draggedUUID = UUID(uuidString: idString),
-                  draggedUUID != targetRule.id else {
+                  draggedUUID != targetRuleID else {
                 return
             }
             DispatchQueue.main.async {
-                onReorder(draggedUUID, targetRule.id)
+                onReorder(draggedUUID, targetRuleID)
             }
         }
         return true

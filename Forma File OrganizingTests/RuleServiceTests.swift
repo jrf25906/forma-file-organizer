@@ -22,12 +22,14 @@ final class RuleServiceTests: XCTestCase {
         cancellables = []
     }
 
-    override func tearDown() {
-        cancellables.removeAll()
-        ruleService = nil
-        modelContext = nil
-        modelContainer = nil
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            cancellables.removeAll()
+            ruleService = nil
+            modelContext = nil
+            modelContainer = nil
+        }
+        try await super.tearDown()
     }
 
     func testCreateRulePersistsAndPublishesCreatedEvent() throws {

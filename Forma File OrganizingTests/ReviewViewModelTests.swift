@@ -22,25 +22,30 @@ final class ReviewViewModelTests: XCTestCase {
         // Create in-memory model container with required models
         let schema = Schema([FileItem.self, Rule.self, ActivityItem.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        modelContainer = try ModelContainer(for: schema, configurations: [config])
-        modelContext = modelContainer.mainContext
+        let container = try ModelContainer(for: schema, configurations: [config])
 
         // Create viewModel with mocks to avoid real filesystem access
-        mockService = MockFileSystemService()
-        mockPipeline = MockFileScanPipeline()
-        viewModel = ReviewViewModel(
-            fileSystemService: mockService,
-            fileScanPipeline: mockPipeline
-        )
+        await MainActor.run {
+            modelContainer = container
+            modelContext = container.mainContext
+            mockService = MockFileSystemService()
+            mockPipeline = MockFileScanPipeline()
+            viewModel = ReviewViewModel(
+                fileSystemService: mockService,
+                fileScanPipeline: mockPipeline
+            )
+        }
     }
 
-    override func tearDown() {
-        viewModel = nil
-        mockService = nil
-        mockPipeline = nil
-        modelContext = nil
-        modelContainer = nil
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            viewModel = nil
+            mockService = nil
+            mockPipeline = nil
+            modelContext = nil
+            modelContainer = nil
+        }
+        try await super.tearDown()
     }
 
     // MARK: - Initialization Tests

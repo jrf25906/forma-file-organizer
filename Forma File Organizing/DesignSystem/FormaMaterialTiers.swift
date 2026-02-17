@@ -108,12 +108,13 @@ struct FormaMaterialSurface: View {
         if reduceTransparency || specularOpacity <= 0.0 || cornerRadius <= 0 {
             EmptyView()
         } else {
+            let intensity = specularShaderIntensity
             Color.formaBoneWhite
                 .visualEffect { view, proxy in
                     view.colorEffect(
                         ShaderLibrary.specularRim(
                             .float2(Float(proxy.size.width), Float(proxy.size.height)),
-                            .float(specularShaderIntensity)
+                            .float(intensity)
                         )
                     )
                 }

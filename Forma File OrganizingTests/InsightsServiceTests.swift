@@ -7,23 +7,33 @@ final class InsightsServiceTests: XCTestCase {
     private var now: Date!
     private var calendar: Calendar!
     
-    override func setUp() {
-        super.setUp()
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
-        self.calendar = calendar
-        now = calendar.date(from: DateComponents(year: 2023, month: 11, day: 14, hour: 10, minute: 0)) ?? Date()
-        service = InsightsService(
-            clock: FixedClock(now: now, calendar: calendar),
-            calendar: calendar
-        )
+    override func setUp() async throws {
+        try await super.setUp()
+
+        let fixedCalendar: Calendar = {
+            var value = Calendar(identifier: .gregorian)
+            value.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+            return value
+        }()
+        let fixedNow = fixedCalendar.date(from: DateComponents(year: 2023, month: 11, day: 14, hour: 10, minute: 0)) ?? Date()
+
+        await MainActor.run {
+            calendar = fixedCalendar
+            now = fixedNow
+            service = InsightsService(
+                clock: FixedClock(now: fixedNow, calendar: fixedCalendar),
+                calendar: fixedCalendar
+            )
+        }
     }
     
-    override func tearDown() {
-        service = nil
-        now = nil
-        calendar = nil
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            service = nil
+            now = nil
+            calendar = nil
+        }
+        try await super.tearDown()
     }
     
     // MARK: - Screenshot Detection Tests

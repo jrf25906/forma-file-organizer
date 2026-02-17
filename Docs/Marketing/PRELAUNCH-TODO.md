@@ -1,7 +1,32 @@
 # Forma Pre-Launch Checklist
-**Last Updated:** February 4, 2026
+**Last Updated:** February 14, 2026
 
 Use this file as the canonical “pre-launch” TODO since the Codex plan panel isn’t available in this app build.
+
+---
+
+## Today Focus (Saturday, February 14, 2026)
+- [ ] **Step 1: App Store submission path + production App Store URL**
+  - [x] Confirm local app metadata in Xcode project: bundle ID `jamesfarmer.Forma-File-Organizing`, version/build `1.0 (1)`.
+  - [ ] Create/verify App Store Connect app record for bundle ID `jamesfarmer.Forma-File-Organizing` (macOS).
+  - [ ] Upload build `1.0 (1)` from Xcode Archive/Organizer.
+  - [ ] Complete required metadata and submit version for App Review.
+  - [ ] Capture the live App Store listing URL/ID and set production `NEXT_PUBLIC_MAC_APP_STORE_URL`.
+- [ ] **Step 2: Finalize App Store metadata**
+  - [ ] Finalize app name/subtitle/description/keywords/promo text/what’s new in App Store Connect.
+  - [ ] Confirm all public URLs used in metadata are final (`/`, `/support`, `/privacy`, `/terms`).
+- [ ] **Step 3: Final App Store screenshot set**
+  - [ ] Choose final screenshot order/count (target 8).
+  - [ ] Upload final set from `Docs/Marketing/Screenshots/AppStore/Upload/`.
+- [ ] **Step 4: Preview video decision**
+  - [ ] Decide ship/no-ship for preview video this launch.
+  - [ ] If shipping, export final `.mov` into `Docs/Marketing/PreviewVideo/`.
+- [ ] **Step 5: Final accessibility smoke**
+  - [ ] Run VoiceOver + keyboard navigation pass on main workflows and settings.
+  - [ ] Verify focus order and accessibility labels on key controls.
+- [ ] **Step 6: 1000+ file performance validation**
+  - [ ] Run deterministic large fixture pass and validate scan/render/search/organize responsiveness.
+  - [ ] Run `Forma File Organizing - Performance.xctestplan` and record baseline notes.
 
 ---
 
@@ -60,7 +85,7 @@ Use this file as the canonical “pre-launch” TODO since the Codex plan panel 
 
 **Tasks**
 - [ ] Finalize keywords/copy and confirm URLs (marketing/support/privacy).
-- [ ] Capture screenshots (or generate via UI tests) into `Docs/Marketing/Screenshots/`.
+- [x] Capture screenshots (or generate via UI tests) into `Docs/Marketing/Screenshots/`. *(Refreshed via `Scripts/capture_app_store_screenshots.sh` on February 16, 2026.)*
 - [ ] Optional: record + edit preview video.
 
 **App Store screenshot tooling**

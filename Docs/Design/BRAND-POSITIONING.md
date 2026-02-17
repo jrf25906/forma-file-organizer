@@ -253,9 +253,9 @@ Use consistent CTAs throughout all materials:
 
 | Context | Primary CTA | Secondary CTA |
 |---------|-------------|---------------|
-| Hero | Join the beta | Watch a 30-second demo |
-| Mid-page | Join the beta | See how it works |
-| Footer | Join the beta | — |
+| Hero | Download for Mac | Watch a 30-second demo |
+| Mid-page | Download for Mac | See how it works |
+| Footer | Download for Mac | — |
 | In-app | Organize now | Review first |
 
 ---

@@ -250,7 +250,7 @@ final class RuleEngineTests: XCTestCase {
 
     func testMatchReasonClearedWhenNoMatch() {
         let rule = TestRule(conditionType: .fileExtension, conditionValue: "pdf", destination: .mockFolder("PDFs"))
-        var file = TestFileItem(name: "image.png", fileExtension: "png", path: "/path/image.png")
+        let file = TestFileItem(name: "image.png", fileExtension: "png", path: "/path/image.png")
         file.matchReason = "Previous reason" // Set a previous reason
 
         let result = ruleEngine.evaluateFile(file, rules: [rule])

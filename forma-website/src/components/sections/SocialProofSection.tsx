@@ -3,65 +3,55 @@
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
 
 // ---------------------------------------------------------------------------
-// Social Proof Section
-// Replace placeholder quotes with real testimonials as they come in.
-// To hide this section entirely, remove it from page.tsx.
+// Design Principles Section
+// Replaces placeholder testimonials with honest trust-building content.
+// TODO: Swap back to real testimonials once genuine user quotes are collected.
+// When ready, restore the testimonial format and update aria-label.
 // ---------------------------------------------------------------------------
 
-const testimonials = [
+const principles = [
   {
-    quote:
-      "I've tried Hazel, automator scripts, even wrote my own — Forma is the first one that stuck because I can actually see what it's going to do before it does it.",
-    author: "Beta tester",
-    role: "Software engineer",
+    heading: "Preview first",
+    body: "Every proposed move appears in a queue before anything happens. See source, destination, and the rule behind it.",
   },
   {
-    quote:
-      "My Downloads folder had 2,000+ files. Forma grouped them, I approved the moves, and it was done in under a minute. Should've done this years ago.",
-    author: "Beta tester",
-    role: "Designer",
+    heading: "Undo always",
+    body: "Full action history with one-click rollback. Experiment freely — every change is reversible.",
   },
   {
-    quote:
-      "The undo history is what sold me. I'm not precious about organizing anymore because I know I can always roll it back.",
-    author: "Beta tester",
-    role: "Freelancer",
+    heading: "Private by design",
+    body: "100% on-device processing. Your files and their names never leave your Mac.",
   },
 ];
 
 export default function SocialProofSection() {
   return (
     <section
-      id="social-proof"
+      id="principles"
       className="relative overflow-hidden py-10 md:py-16"
-      aria-label="What people are saying"
+      aria-label="Design principles"
     >
       <div className="site-container">
         <ScrollReveal direction="up" distance={20}>
           <p className="mb-8 text-center text-[11px] font-medium uppercase tracking-[0.15em] text-forma-steel-blue md:mb-10">
-            Early feedback
+            How Forma works
           </p>
         </ScrollReveal>
 
         <ScrollReveal stagger={0.1} threshold={85}>
           <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-3">
-            {testimonials.map((t) => (
-              <blockquote
-                key={t.quote}
+            {principles.map((p) => (
+              <div
+                key={p.heading}
                 className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-5 md:p-6"
               >
-                <p className="flex-1 text-[14px] leading-relaxed text-[var(--text-secondary)]">
-                  &ldquo;{t.quote}&rdquo;
+                <p className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {p.heading}
                 </p>
-                <footer className="mt-4 border-t border-[var(--border-subtle)] pt-3">
-                  <p className="text-[13px] font-medium text-[var(--text-primary)]">
-                    {t.author}
-                  </p>
-                  <p className="text-[12px] text-[var(--text-muted)]">
-                    {t.role}
-                  </p>
-                </footer>
-              </blockquote>
+                <p className="mt-2 flex-1 text-[14px] leading-relaxed text-[var(--text-secondary)]">
+                  {p.body}
+                </p>
+              </div>
             ))}
           </div>
         </ScrollReveal>

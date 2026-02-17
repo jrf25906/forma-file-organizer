@@ -6,14 +6,18 @@ final class ContextDetectionServiceTests: XCTestCase {
     
     var service: ContextDetectionService!
     
-    override func setUp() {
-        super.setUp()
-        service = ContextDetectionService()
+    override func setUp() async throws {
+        try await super.setUp()
+        await MainActor.run {
+            service = ContextDetectionService()
+        }
     }
     
-    override func tearDown() {
-        service = nil
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            service = nil
+        }
+        try await super.tearDown()
     }
     
     // MARK: - Project Code Detection Tests

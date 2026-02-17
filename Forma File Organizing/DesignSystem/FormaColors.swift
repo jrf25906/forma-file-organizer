@@ -306,10 +306,10 @@ enum FormaContrastMetrics {
     }
 
     private static func rgba(for color: Color, appearance: NSAppearance) -> (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat) {
-        let previousAppearance = NSAppearance.current
-        NSAppearance.current = appearance
-        let resolvedColor = NSColor(color)
-        NSAppearance.current = previousAppearance
+        var resolvedColor = NSColor(color)
+        appearance.performAsCurrentDrawingAppearance {
+            resolvedColor = NSColor(color)
+        }
 
         let resolved = resolvedColor.usingColorSpace(NSColorSpace.sRGB)
             ?? resolvedColor.usingColorSpace(.deviceRGB)

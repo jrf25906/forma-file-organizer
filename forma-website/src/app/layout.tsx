@@ -123,12 +123,20 @@ export default function RootLayout({
         )}
       >
         {plausibleDomain ? (
-          <Script
-            defer
-            data-domain={plausibleDomain}
-            src={plausibleScriptSrc}
-            strategy="afterInteractive"
-          />
+          <>
+            <Script
+              async
+              src={plausibleScriptSrc}
+              strategy="afterInteractive"
+            />
+            <Script
+              id="plausible-init"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)};plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init();`,
+              }}
+            />
+          </>
         ) : null}
 
         <ThemeProvider defaultTheme="system">

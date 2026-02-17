@@ -89,7 +89,7 @@ Built exclusively for macOS using native file APIs. All processing happens on-de
 
 | Requirement | Specification |
 |-------------|---------------|
-| **macOS** | 13.0 Ventura or later |
+| **macOS** | 15.0 Sequoia or later |
 | **Architecture** | Universal (Apple Silicon + Intel) |
 | **Disk Space** | ~50 MB |
 | **Memory** | 256 MB typical |

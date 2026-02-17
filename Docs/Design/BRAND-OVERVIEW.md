@@ -230,5 +230,5 @@ When conflicts arise, defer to BRAND-POSITIONING.md.
 
 ---
 
-**Next Review:** Q2 2025
+**Next Review:** Q2 2026
 **Strategic Foundation:** See BRAND-POSITIONING.md

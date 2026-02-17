@@ -8,22 +8,27 @@ final class DashboardViewModelPerformanceTests: XCTestCase {
     private var mockService: MockFileSystemService!
     private var mockPipeline: MockFileScanPipeline!
 
-    override func setUp() {
-        super.setUp()
-        mockService = MockFileSystemService()
-        mockPipeline = MockFileScanPipeline()
-        viewModel = DashboardViewModel(
-            services: AppServices(),
-            fileSystemService: mockService,
-            fileScanPipeline: mockPipeline
-        )
+    override func setUp() async throws {
+        try await super.setUp()
+
+        await MainActor.run {
+            mockService = MockFileSystemService()
+            mockPipeline = MockFileScanPipeline()
+            viewModel = DashboardViewModel(
+                services: AppServices(),
+                fileSystemService: mockService,
+                fileScanPipeline: mockPipeline
+            )
+        }
     }
 
-    override func tearDown() {
-        viewModel = nil
-        mockService = nil
-        mockPipeline = nil
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            viewModel = nil
+            mockService = nil
+            mockPipeline = nil
+        }
+        try await super.tearDown()
     }
 
     func testLargeSelectionPerformance() {
@@ -81,4 +86,3 @@ final class DashboardViewModelPerformanceTests: XCTestCase {
         XCTAssertEqual(viewModel.undoStack.count, FormaConfig.Limits.maxUndoActions)
     }
 }
-

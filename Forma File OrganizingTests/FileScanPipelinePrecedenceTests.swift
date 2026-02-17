@@ -21,8 +21,8 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
     
     // MARK: - Setup & Teardown
     
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         
         // Create in-memory model container
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -31,11 +31,12 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
                  LearnedPattern.self, MLTrainingHistory.self,
             configurations: config
         )
-        modelContext = ModelContext(container)
-        
-        pipeline = FileScanPipeline()
-        ruleEngine = RuleEngine()
-        mockFileSystem = MockFileSystemService()
+        await MainActor.run {
+            modelContext = ModelContext(container)
+            pipeline = FileScanPipeline()
+            ruleEngine = RuleEngine()
+            mockFileSystem = MockFileSystemService()
+        }
     }
     
     override func tearDown() async throws {
@@ -45,10 +46,13 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(50))
 
         // Clear references in reverse dependency order
-        pipeline = nil
-        ruleEngine = nil
-        mockFileSystem = nil
-        modelContext = nil
+        await MainActor.run {
+            pipeline = nil
+            ruleEngine = nil
+            mockFileSystem = nil
+            modelContext = nil
+        }
+        try await super.tearDown()
     }
     
     // MARK: - Pipeline Precedence Tests

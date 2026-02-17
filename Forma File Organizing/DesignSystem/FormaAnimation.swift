@@ -503,11 +503,11 @@ private struct AnimatedProgressPreviewView: View {
         .padding()
     }
 }
-#endif
 
 #Preview("Animated Progress") {
     AnimatedProgressPreviewView()
 }
+#endif
 
 #Preview("Loading Spinner") {
     AccessibleLoadingSpinner(message: "Scanning your files...")
