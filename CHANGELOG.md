@@ -110,6 +110,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Automation-engine scans now push immediate UI refreshes to both the dashboard file list and menu bar review/count surfaces after scan persistence.
 - Reduced repeated rule-scan warnings for unresolvable placeholder destinations.
 - Current Task card organization percentage now updates in real time by using scan-session progress counts even when organized files are removed from the active list.
+- `forma-website` deployment pipeline now passes Vercel security checks by upgrading `next-mdx-remote` from `5.0.0` to `6.0.0`.
 - `forma-website` pricing count-up now resolves correctly when users deep-link below the pricing section, preventing a stale `$0` label.
 - `forma-website` feature/pricing/FAQ/newsletter reveal animations now force visible state when a section is already past its trigger (deep links and long screenshots), preventing hidden-content gaps.
 - File selection checkboxes now keep a stable position and larger click target across card/list/grid views for more reliable selection.
