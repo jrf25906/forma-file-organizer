@@ -30,7 +30,7 @@ struct Forma_File_OrganizingApp: App {
     }
     
     // MARK: - Schema Definition (DRY Principle)
-    private static let appSchema = Schema([
+    static let appSchema = Schema([
         Rule.self,
         RuleCategory.self,
         FileItem.self,
@@ -136,83 +136,16 @@ struct Forma_File_OrganizingApp: App {
             scheduleAnalyticsMaintenance(using: appServices)
 
         } catch {
-            // IMPROVED: Try to backup before deleting
-            Log.error("ModelContainer creation failed with error: \(error)", category: .general)
-            Log.info("Attempting to backup and reset store...", category: .general)
+            // FATAL: If the store cannot be opened or migrated, we MUST NOT delete it to try again.
+            // Deleting the store causes data loss. Instead, we log the exact error and crash,
+            // which preserves the user's data on disk so it can be recovered or migrated manually.
+            let errorMessage = "CRITICAL: ModelContainer creation failed. The database could not be opened or migrated. Error: \(error.localizedDescription)"
+            Log.error(errorMessage, category: .general)
             
-            // Get the default store URL
-            let storeURL = URL.applicationSupportDirectory.appending(path: "default.store")
-            let backupURL = URL.applicationSupportDirectory.appending(path: "default.store.backup")
-            
-            // Backup the old store if it exists
-            if FileManager.default.fileExists(atPath: storeURL.path) {
-                do {
-                    // Remove old backup if exists
-                    if FileManager.default.fileExists(atPath: backupURL.path) {
-                        do {
-                            try FileManager.default.removeItem(at: backupURL)
-                        } catch {
-                            Log.warning("Failed to remove existing backup: \(error.localizedDescription)", category: .general)
-                        }
-                    }
-                    // Create new backup
-                    try FileManager.default.copyItem(at: storeURL, to: backupURL)
-                    Log.info("Created backup at: \(backupURL.path)", category: .general)
-                } catch {
-                    Log.error("Failed to create backup: \(error)", category: .general)
-                }
-            }
-            
-            // Try to delete the old store
-            do {
-                try FileManager.default.removeItem(at: storeURL)
-            } catch {
-                Log.warning("Failed to remove old store: \(error.localizedDescription)", category: .general)
-            }
-            
-            // Try again with a fresh store
-            do {
-                let modelConfiguration = ModelConfiguration(
-                    schema: Self.appSchema,
-                    isStoredInMemoryOnly: false,
-                    allowsSave: true,
-                    cloudKitDatabase: .none
-                )
-                container = try ModelContainer(for: Self.appSchema, configurations: [modelConfiguration])
-                
-                // Seed default rules for fresh store
-                let context = ModelContext(container)
-                let ruleService = RuleService(modelContext: context)
-                do {
-                    try ruleService.seedDefaultRules()
-                } catch {
-                    Log.error("Failed to seed default rules after store reset: \(error.localizedDescription)", category: .general)
-                    // Non-critical - app can still function without default rules
-                }
-
-                // Initialize categories for fresh store
-                let categoryService = CategoryService(modelContext: context)
-                do {
-                    try categoryService.createDefaultCategoryIfNeeded()
-                    _ = try categoryService.migrateExistingRulesToDefaultCategory()
-                } catch {
-                    Log.error("Failed to initialize categories after store reset: \(error.localizedDescription)", category: .general)
-                }
-
-                _ = appServices.notificationService
-
-                #if DEBUG
-                PerformanceMonitor.shared.consoleLoggingEnabled = true
-                #endif
-
-                // Configure FormaActions for fresh store
-                configureFormaActions()
-
-                Log.info("Successfully created fresh store. Backup available at: \(backupURL.path)", category: .general)
-                scheduleAnalyticsMaintenance(using: appServices)
-            } catch {
-                fatalError("Could not create ModelContainer even after reset: \(error)")
-            }
+            // In a full production macOS app, we would ideally show an NSAlert here before terminating,
+            // but since SwiftUI App init is synchronous and before the runloop, fatalError is the safest
+            // way to halt execution without data loss.
+            fatalError(errorMessage)
         }
     }
     

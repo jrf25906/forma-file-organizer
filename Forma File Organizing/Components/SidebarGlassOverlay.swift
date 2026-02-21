@@ -7,12 +7,15 @@ struct SidebarGlassOverlay: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var sheenGradient: LinearGradient {
+        // macOS standard liquid glass window reflection approach: Let the top material have a very light
+        // solid edge, fading transparent immediately to let the popover material do the heavy lifting.
         let topOpacity: Double = colorScheme == .dark
-            ? (isKeyWindow ? 0.08 : 0.05)
-            : (isKeyWindow ? 0.12 : 0.08)
+            ? Color.FormaOpacity.light
+            : Color.FormaOpacity.medium
+        
         let bottomOpacity: Double = colorScheme == .dark
-            ? (isKeyWindow ? 0.025 : 0.015)
-            : (isKeyWindow ? 0.04 : 0.025)
+            ? Color.FormaOpacity.ultraSubtle
+            : Color.FormaOpacity.subtle
 
         return LinearGradient(
             colors: [

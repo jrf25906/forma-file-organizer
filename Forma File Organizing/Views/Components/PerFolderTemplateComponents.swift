@@ -37,6 +37,16 @@ struct FolderTemplateSelection: Codable, Equatable {
         }
     }
 
+    func template(for folder: OnboardingFolder) -> OrganizationTemplate? {
+        switch folder {
+        case .desktop: return desktop
+        case .downloads: return downloads
+        case .documents: return documents
+        case .pictures: return pictures
+        case .music: return music
+        }
+    }
+
     /// Storage key for persisting selections
     static let storageKey = "onboardingFolderTemplateSelection"
 

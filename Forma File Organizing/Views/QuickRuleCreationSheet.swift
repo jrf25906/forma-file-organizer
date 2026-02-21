@@ -56,67 +56,25 @@ struct QuickRuleCreationSheet: View {
                     FileMatchPreview(file: file)
                     
                     // Rule Name
-                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                        Text("Rule Name")
-                            .font(.formaBodySemibold)
-                            .foregroundStyle(Color.formaSecondaryLabel)
-                        
-                        TextField("e.g., Invoice Organizer", text: $ruleName)
-                            .textFieldStyle(.plain)
-                            .padding(FormaSpacing.standard - FormaSpacing.micro)
-                            .background(Color.formaCardBackground)
-                            .formaCornerRadius(FormaRadius.control)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                                    .strokeBorder(
-                                        validationError != nil ? Color.formaWarmOrange : Color.formaSeparator.opacity(Color.FormaOpacity.strong),
-                                        lineWidth: 1
-                                    )
-                            )
-                    }
+                    FormaTextField(
+                        title: "Rule Name",
+                        placeholder: "e.g., Invoice Organizer",
+                        text: $ruleName,
+                        hasError: validationError != nil
+                    )
                     
                     // Destination Folder
-                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                        Text("Destination Folder")
-                            .font(.formaBodySemibold)
-                            .foregroundStyle(Color.formaSecondaryLabel)
-
-                        Button(action: { showFolderPicker = true }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: destinationBookmarkData != nil ? "folder.fill" : "folder.badge.plus")
-                                    .font(.formaBodyLarge)
-                                    .foregroundStyle(destinationBookmarkData != nil ? Color.formaSteelBlue : Color.formaSecondaryLabel)
-
-                                Text(destinationDisplayPath.isEmpty ? "Select a folder…" : destinationDisplayPath)
-                                    .font(.formaBodySemibold)
-                                    .foregroundStyle(destinationBookmarkData != nil ? Color.formaLabel : Color.formaSecondaryLabel)
-
-                                Spacer()
-
-                                if destinationBookmarkData != nil {
-                                    Button(action: {
-                                        destinationBookmarkData = nil
-                                        destinationDisplayPath = ""
-                                    }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundStyle(Color.formaSecondaryLabel)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(FormaSpacing.standard - FormaSpacing.micro)
-                            .background(Color.formaCardBackground)
-                            .formaCornerRadius(FormaRadius.control)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                                    .strokeBorder(
-                                        destinationBookmarkData != nil ? Color.formaSteelBlue.opacity(Color.FormaOpacity.strong) : Color.formaSeparator.opacity(Color.FormaOpacity.strong),
-                                        lineWidth: 1
-                                    )
-                            )
+                    FormaFolderPicker(
+                        title: "Destination Folder",
+                        displayPath: destinationDisplayPath,
+                        hasSelection: destinationBookmarkData != nil,
+                        hasError: validationError != nil,
+                        onSelect: { showFolderPicker = true },
+                        onClear: {
+                            destinationBookmarkData = nil
+                            destinationDisplayPath = ""
                         }
-                        .buttonStyle(.plain)
-                    }
+                    )
                     
                     // Conditions Preview (read-only)
                     if let reasoning = file.matchReason {
@@ -155,19 +113,17 @@ struct QuickRuleCreationSheet: View {
             
             // Footer Actions
             HStack(spacing: 12) {
-                Button("Cancel") {
+                FormaSecondaryButton(title: "Cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
-                .buttonStyle(QuickRuleSecondaryButtonStyle())
                 
                 Spacer()
                 
-                Button("Create Rule") {
+                FormaPrimaryButton(title: "Create Rule") {
                     createRule()
                 }
                 .keyboardShortcut(.defaultAction)
-                .buttonStyle(QuickRulePrimaryButtonStyle())
                 .disabled(!isValid)
             }
             .padding(.horizontal, FormaSpacing.generous)
@@ -321,37 +277,7 @@ struct QuickRuleCreationSheet: View {
     }
 }
 
-// MARK: - Button Styles
 
-private struct QuickRulePrimaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.formaBodySemibold)
-            .foregroundStyle(Color.formaBoneWhite)
-            .padding(.horizontal, FormaSpacing.generous - FormaSpacing.micro)
-            .padding(.vertical, FormaSpacing.tight)
-            .background(
-                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                    .fill(configuration.isPressed ? Color.formaSteelBlue.opacity(Color.FormaOpacity.prominent) : Color.formaSteelBlue)
-            )
-    }
-}
-
-private struct QuickRuleSecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.formaBodyMedium)
-            .foregroundStyle(Color.formaLabel)
-            .padding(.horizontal, FormaSpacing.generous - FormaSpacing.micro)
-            .padding(.vertical, FormaSpacing.tight)
-            .background(
-                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                    .fill(configuration.isPressed ? Color.formaObsidian.opacity(Color.FormaOpacity.light) : Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
-            )
-    }
-}
-
-// MARK: - Preview
 
 #Preview {
     QuickRuleCreationSheet(file: FileItem.mocks[0])

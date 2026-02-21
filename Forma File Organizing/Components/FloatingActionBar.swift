@@ -107,11 +107,11 @@ struct FloatingActionBar: View {
                             .padding(.horizontal, 12)
                             .frame(height: 32)
                             .foregroundColor(.formaLabel)
-                            .background(Color.formaControlBackground.opacity(0.5))
+                            .background(Color.formaControlBackground.opacity(Color.FormaOpacity.strong))
                             .clipShape(Capsule())
                             .overlay(
                                 Capsule()
-                                    .strokeBorder(Color.formaSeparator, lineWidth: 0.5)
+                                    .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 0.5)
                             )
                         }
                         .buttonStyle(.plain)
@@ -125,45 +125,23 @@ struct FloatingActionBar: View {
                 }
 
                 // Skip button (Ghost outline style)
-                Button(action: onSkip) {
-                    Text(mode == .selection ? "Skip Selection" : "Skip")
-                        .font(.formaBodyMedium)
-                        .foregroundColor(Color.formaSecondaryLabel)
-                        .padding(.horizontal, 12)
-                        .frame(height: 32)
-                        .background(
-                            Capsule()
-                                .strokeBorder(Color.formaSeparator, lineWidth: 0.5)
-                        )
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .onHover { inside in
-                    if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                }
+                FormaSecondaryButton(
+                    title: mode == .selection ? "Skip Selection" : "Skip",
+                    action: onSkip,
+                    cornerRadius: FormaRadius.pill
+                )
+                .frame(width: mode == .selection ? 140 : 80, height: 32)
 
                 // Primary action (Organize)
                 if canOrganizeAll || mode == .selection {
-                    Button(action: onOrganize) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.down.doc.fill")
-                                .font(.formaBodyMedium)
-                            Text(primaryButtonLabel)
-                                .font(.formaBodySemibold)
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(height: 36)
-                        .foregroundColor(.formaBoneWhite)
-                        .background(
-                            GlassButtonBackground(
-                                tint: mode == .selection ? Color.formaSteelBlue : Color.formaSage,
-                                cornerRadius: FormaRadius.pill
-                            )
-                        )
-                        .shadow(color: (mode == .selection ? Color.formaSteelBlue : Color.formaSage).opacity(0.25), radius: 8, x: 0, y: 4)
-                    }
-                    .buttonStyle(.plain)
-                    .pressAnimation()
+                    FormaPrimaryButton(
+                        title: primaryButtonLabel,
+                        icon: "arrow.down.doc.fill",
+                        action: onOrganize,
+                        tint: mode == .selection ? Color.formaSteelBlue : Color.formaSage,
+                        cornerRadius: FormaRadius.pill
+                    )
+                    .frame(width: 140, height: 36)
                 }
             }
 
@@ -177,7 +155,7 @@ struct FloatingActionBar: View {
                             .font(.formaBodyBold)
                             .foregroundColor(Color.formaSecondaryLabel)
                             .padding(8)
-                            .background(Color.formaControlBackground.opacity(0.5))
+                            .background(Color.formaControlBackground.opacity(Color.FormaOpacity.strong))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -194,7 +172,7 @@ struct FloatingActionBar: View {
         .frame(maxWidth: .infinity)
         .background {
             FormaMaterialSurface(tier: .overlay, cornerRadius: FormaRadius.pill)
-                .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
+                .formaShadow(.floating)
         }
         .padding(.horizontal, FormaSpacing.large)
         .transition(.move(edge: .bottom).combined(with: .opacity))

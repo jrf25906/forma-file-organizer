@@ -72,6 +72,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - File status language is now more consistent across card/list/grid, with compact status indicators and simplified rule-state labeling.
 - List/grid interaction targets were increased and secondary text/chip contrast was raised for better accessibility in light and dark themes.
 - Dashboard list rows now use a cleaner two-line hierarchy with consolidated metadata for faster scanning.
+- Dark-mode surface hierarchy now uses clearer elevation semantics (`background -> panel -> row`) across list/card/grid file rows, selection is rendered as a low-alpha accent overlay plus border (instead of a full material swap), and toolbar/review/rules/analytics toggles now use native macOS segmented/menu/button controls for consistent platform behavior.
 - Card/list/grid now share the same premium checkbox treatment for consistent selection affordance.
 - Improved dark-mode contrast across analytics, insights, and right-panel labels.
 - Right-panel hero/inspector secondary text and quick-action surfaces now use stronger dark-mode contrast.

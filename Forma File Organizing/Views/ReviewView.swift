@@ -50,7 +50,7 @@ struct ReviewView: View {
         viewModel.files.filter { $0.destination == nil }
     }
 
-    enum ViewMode {
+    enum ViewMode: Hashable {
         case list
         case grouped
         case card
@@ -161,7 +161,7 @@ struct ReviewView: View {
                         .tag(ViewMode.card)
                 }
                 .pickerStyle(.segmented)
-                .labelsHidden()
+                .accessibilityLabel("View mode")
             }
             .padding(FormaSpacing.generous)
             .background(Color.formaBoneWhite)
@@ -413,6 +413,7 @@ struct ReviewView: View {
             }
         }
     }
+
 }
 
 // MARK: - Loading State View

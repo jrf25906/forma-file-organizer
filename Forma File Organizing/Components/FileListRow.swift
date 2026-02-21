@@ -27,6 +27,7 @@ struct FileListRow: View {
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     // MARK: - Constants
 
@@ -390,39 +391,44 @@ struct FileListRow: View {
 
     @ViewBuilder
     private var rowBackground: some View {
-        if isSelected || isFocused {
-            Color.formaSteelBlue.opacity(0.12)
-        } else if isHovered {
-            Color.formaCardBackground
-        } else if rowIndex % 2 == 1 {
-            Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle)
-        } else {
-            Color.clear
+        ZStack {
+            Color.formaListRowBackground
+
+            if isHovered && !isSelected && !isFocused {
+                Color.formaListRowHoverOverlay
+            }
+
+            if isSelected || isFocused {
+                Color.formaListRowSelectionOverlay
+            }
         }
     }
 
-    @ViewBuilder
     private var rowBorder: some View {
+        RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+            .strokeBorder(rowBorderColor, lineWidth: rowBorderWidth)
+    }
+
+    private var rowBorderColor: Color {
         if isFocused {
-            RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                .strokeBorder(
-                    Color.formaSteelBlue.opacity(0.80),
-                    lineWidth: 1.5
-                )
-        } else if isSelected {
-            RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                .strokeBorder(
-                    Color.formaSteelBlue.opacity(0.50),
-                    lineWidth: 1
-                )
-        } else if isHovered {
-            RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                .strokeBorder(
-                    Color.formaSeparator.opacity(0.5),
-                    lineWidth: 0.5
-                )
-        } else {
-            EmptyView()
+            return .formaListRowFocusedBorder
         }
+        if isSelected {
+            return .formaListRowSelectedBorder
+        }
+        if isHovered {
+            return .formaListRowHoverBorder
+        }
+        return .formaListRowBorder
+    }
+
+    private var rowBorderWidth: CGFloat {
+        if isFocused {
+            return 1.5
+        }
+        if isSelected {
+            return 1.0
+        }
+        return colorScheme == .dark ? 0.75 : 0.6
     }
 }

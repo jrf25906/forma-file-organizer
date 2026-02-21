@@ -15,6 +15,8 @@ struct FormaPrimaryButton: View {
     var icon: String? = nil
     let action: () -> Void
     var isEnabled: Bool = true
+    var tint: Color = .formaSteelBlue
+    var cornerRadius: CGFloat = FormaRadius.control
 
     var body: some View {
         Button(action: action) {
@@ -30,8 +32,8 @@ struct FormaPrimaryButton: View {
             .formaButtonPadding()
             .frame(maxWidth: .infinity)
         }
-        .background(isEnabled ? Color.formaSteelBlue : Color.formaSteelBlue.opacity(Color.FormaOpacity.light * 4))
-        .formaCornerRadius(FormaRadius.control)
+        .background(isEnabled ? tint : tint.opacity(Color.FormaOpacity.light * 4))
+        .formaCornerRadius(cornerRadius)
         .formaShadow(.button)
         .disabled(!isEnabled)
         .buttonStyle(PlainButtonStyle())
@@ -45,6 +47,7 @@ struct FormaSecondaryButton: View {
     var icon: String? = nil
     let action: () -> Void
     var isEnabled: Bool = true
+    var cornerRadius: CGFloat = FormaRadius.control
 
     var body: some View {
         Button(action: action) {
@@ -62,7 +65,7 @@ struct FormaSecondaryButton: View {
         }
         .background(Color.clear)
         .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(Color.formaObsidian.opacity(Color.FormaOpacity.medium), lineWidth: 1)
         )
         .disabled(!isEnabled)
@@ -397,6 +400,93 @@ struct FormaEmptyState: View {
     }
 }
 
+// MARK: - Actionable Empty State View
+
+/// An empty state variant that presents a curated list of next actions
+/// rather than a single primary button.
+struct FormaActionableEmptyState<ActionContent: View>: View {
+    let title: String
+    let message: String
+    let iconName: String
+    let iconColor: Color
+    @ViewBuilder let actions: () -> ActionContent
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var showCelebration = false
+    @State private var checkmarkScale: CGFloat = 0.5
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
+    var body: some View {
+        VStack(spacing: FormaSpacing.generous) {
+            Spacer()
+
+            // Success checkmark with spring animation
+            ZStack {
+                Circle()
+                    .fill(iconColor.opacity(Color.FormaOpacity.light + Color.FormaOpacity.subtle))
+                    .frame(width: 100, height: 100)
+                
+                Image(systemName: iconName)
+                    .font(.formaIconLarge)
+                    .foregroundColor(iconColor)
+                    .scaleEffect(checkmarkScale)
+            }
+            .scaleEffect(showCelebration ? 1.0 : 0.5)
+            .opacity(showCelebration ? 1.0 : 0.0)
+            
+            VStack(spacing: FormaSpacing.tight) {
+                Text(title)
+                    .formaH2Style()
+                
+                Text(message)
+                    .font(.formaBody)
+                    .foregroundColor(messageColor)
+                    .multilineTextAlignment(.center)
+            }
+
+            Spacer()
+
+            // Next actions section
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                Text("What's next?")
+                    .font(.formaBodyBold)
+                    .foregroundColor(.formaLabel)
+                
+                VStack(spacing: FormaSpacing.tight) {
+                    actions()
+                }
+            }
+            .padding(FormaSpacing.generous)
+            .background(Color.formaControlBackground.opacity(Color.FormaOpacity.overlay))
+            .formaCornerRadius(FormaRadius.card)
+            
+            Spacer()
+        }
+        .padding(.horizontal, FormaSpacing.extraLarge + (FormaSpacing.standard - FormaSpacing.micro))
+        .padding(.vertical, FormaSpacing.large + FormaSpacing.tight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            if !reduceMotion {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.6).delay(0.1)) {
+                    showCelebration = true
+                }
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.2)) {
+                    checkmarkScale = 1.0
+                }
+            } else {
+                showCelebration = true
+                checkmarkScale = 1.0
+            }
+        }
+    }
+
+    private var messageColor: Color {
+        colorScheme == .dark
+            ? .formaSecondaryLabelHigh
+            : Color.formaLabel.opacity(0.7)
+    }
+}
+
 // MARK: - Loading Spinner
 
 // MARK: - Preview Helpers
@@ -472,6 +562,88 @@ struct FormaEmptyState: View {
         FormaLogo(style: .mark, height: 24)
     }
     .padding()
+}
+
+// MARK: - Form Controls
+
+/// A standard text field matching the Forma design system
+struct FormaTextField: View {
+    let title: String
+    let placeholder: String
+    @Binding var text: String
+    var hasError: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Text(title)
+                .font(.formaBodySemibold)
+                .foregroundStyle(Color.formaSecondaryLabel)
+            
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+                .padding(FormaSpacing.standard - FormaSpacing.micro)
+                .background(Color.formaCardBackground)
+                .formaCornerRadius(FormaRadius.control)
+                .overlay(
+                    RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                        .strokeBorder(
+                            hasError ? Color.formaWarmOrange : Color.formaSeparator.opacity(Color.FormaOpacity.strong),
+                            lineWidth: 1
+                        )
+                )
+        }
+    }
+}
+
+/// A standard folder picker control matching the Forma design system
+struct FormaFolderPicker: View {
+    let title: String
+    let displayPath: String
+    let hasSelection: Bool
+    var hasError: Bool = false
+    let onSelect: () -> Void
+    let onClear: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Text(title)
+                .font(.formaBodySemibold)
+                .foregroundStyle(Color.formaSecondaryLabel)
+
+            Button(action: onSelect) {
+                HStack(spacing: 10) {
+                    Image(systemName: hasSelection ? "folder.fill" : "folder.badge.plus")
+                        .font(.formaBodyLarge)
+                        .foregroundStyle(hasSelection ? Color.formaSteelBlue : Color.formaSecondaryLabel)
+
+                    Text(displayPath.isEmpty ? "Select a folder…" : displayPath)
+                        .font(.formaBodySemibold)
+                        .foregroundStyle(hasSelection ? Color.formaLabel : Color.formaSecondaryLabel)
+
+                    Spacer()
+
+                    if hasSelection {
+                        Button(action: onClear) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(Color.formaSecondaryLabel)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(FormaSpacing.standard - FormaSpacing.micro)
+                .background(Color.formaCardBackground)
+                .formaCornerRadius(FormaRadius.control)
+                .overlay(
+                    RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                        .strokeBorder(
+                            hasError ? Color.formaWarmOrange : (hasSelection ? Color.formaSteelBlue.opacity(Color.FormaOpacity.strong) : Color.formaSeparator.opacity(Color.FormaOpacity.strong)),
+                            lineWidth: 1
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
 }
 
 // MARK: - Generic Badge Component
@@ -893,5 +1065,233 @@ extension View {
     /// - 6px: Nested elements (icon backgrounds, badges)
     func formaCornerRadius(_ radius: CGFloat) -> some View {
         self.clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+}
+
+// MARK: - Segmented Control
+
+/// A premium, segmented control with a sliding highlight, often used for tab bars or mode switches.
+struct FormaSegmentedControl<SelectionValue: Hashable, Content: View>: View {
+    @Binding var selection: SelectionValue
+    let options: [SelectionValue]
+    @ViewBuilder let content: (SelectionValue) -> Content
+
+    @Namespace private var namespace
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
+    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
+    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(options.enumerated()), id: \.element) { index, option in
+                FormaSegmentButton(
+                    isSelected: selection == option,
+                    namespace: namespace,
+                    tint: .formaSteelBlue,
+                    selectedCornerRadius: selectedCornerRadius,
+                    segmentHeight: segmentHeight,
+                    action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selection = option
+                        }
+                    },
+                    content: { content(option) }
+                )
+
+                if index < options.count - 1 {
+                    Rectangle()
+                        .fill(FormaControlChromePalette.separator(colorScheme))
+                        .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+        .padding(2)
+        .background {
+            FormaSegmentedBackground(
+                cornerRadius: containerCornerRadius,
+                tint: containerTint
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                    .stroke(FormaControlChromePalette.containerBorder(colorScheme), lineWidth: 0.5)
+            )
+        }
+        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selection)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var containerTint: Color {
+        colorScheme == .dark
+            ? Color.formaMutedBlue.opacity(0.16)
+            : Color.formaSteelBlue.opacity(0.10)
+    }
+}
+
+struct FormaSegmentButton<Content: View>: View {
+    let isSelected: Bool
+    let namespace: Namespace.ID
+    let tint: Color
+    let selectedCornerRadius: CGFloat
+    let segmentHeight: CGFloat
+    let action: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(FormaControlChromePalette.activeFill(colorScheme, tint: tint))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .stroke(FormaControlChromePalette.activeBorder(colorScheme), lineWidth: 0.5)
+                        )
+                        .shadow(color: FormaControlChromePalette.activeShadow(colorScheme), radius: 1.5, x: 0, y: 0.5)
+                        .matchedGeometryEffect(id: "segmentIndicator", in: namespace)
+                        .padding(.vertical, FormaControlChromeMetrics.shellInset)
+                        .padding(.horizontal, FormaControlChromeMetrics.shellInset)
+                } else if isHovered {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(FormaControlChromePalette.hoverFill(colorScheme, tint: tint))
+                        .padding(.vertical, FormaControlChromeMetrics.shellInset)
+                        .padding(.horizontal, FormaControlChromeMetrics.shellInset)
+                }
+
+                content()
+                    .padding(.horizontal, 10)
+                    .frame(height: segmentHeight)
+                    .foregroundColor(
+                        isSelected
+                            ? FormaControlChromePalette.selectedForeground(colorScheme)
+                            : (
+                                isHovered
+                                    ? FormaControlChromePalette.highlightedForeground(colorScheme)
+                                    : FormaControlChromePalette.normalForeground(colorScheme)
+                            )
+                    )
+            }
+            .frame(height: segmentHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(FormaControlPressButtonStyle())
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: isSelected)
+        .animation(.easeOut(duration: 0.16), value: isHovered)
+    }
+}
+
+/// Standalone icon button that perfectly matches the segmented control styling.
+struct FormaSegmentedIconButton: View {
+    let icon: String
+    let isSelected: Bool
+    let help: String?
+    let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovered = false
+
+    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
+    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
+    private let segmentWidth: CGFloat = FormaControlChromeMetrics.iconSegmentWidth
+    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
+
+    init(icon: String, isSelected: Bool = false, help: String? = nil, action: @escaping () -> Void) {
+        self.icon = icon
+        self.isSelected = isSelected
+        self.help = help
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(FormaControlChromePalette.activeFill(colorScheme, tint: .formaSteelBlue))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                                .stroke(FormaControlChromePalette.activeBorder(colorScheme), lineWidth: 0.5)
+                        )
+                        .shadow(color: FormaControlChromePalette.activeShadow(colorScheme), radius: 1.5, x: 0, y: 0.5)
+                        .padding(.vertical, FormaControlChromeMetrics.shellInset)
+                        .padding(.horizontal, FormaControlChromeMetrics.shellInset)
+                } else if isHovered {
+                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
+                        .fill(FormaControlChromePalette.hoverFill(colorScheme, tint: .formaSteelBlue))
+                        .padding(.vertical, FormaControlChromeMetrics.shellInset)
+                        .padding(.horizontal, FormaControlChromeMetrics.shellInset)
+                }
+
+                Image(systemName: icon)
+                    .font(.system(size: FormaControlChromeMetrics.segmentIconFontSize, weight: .medium))
+                    .foregroundColor(
+                        isSelected
+                            ? FormaControlChromePalette.selectedForeground(colorScheme)
+                            : (
+                                isHovered
+                                    ? FormaControlChromePalette.highlightedForeground(colorScheme)
+                                    : FormaControlChromePalette.normalForeground(colorScheme)
+                            )
+                    )
+                    .frame(width: segmentWidth, height: segmentHeight)
+            }
+            .frame(width: segmentWidth, height: segmentHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(FormaControlPressButtonStyle())
+        .padding(2)
+        .background {
+            FormaSegmentedBackground(
+                cornerRadius: containerCornerRadius,
+                tint: containerTint
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
+                    .stroke(FormaControlChromePalette.containerBorder(colorScheme), lineWidth: 0.5)
+            )
+        }
+        .help(help ?? "")
+        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: isSelected)
+        .animation(.easeOut(duration: 0.16), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+
+    private var containerTint: Color {
+        colorScheme == .dark
+            ? Color.formaMutedBlue.opacity(0.16)
+            : Color.formaSteelBlue.opacity(0.10)
+    }
+}
+
+/// Shared capsule background used for FormaSegmentedControl and standalone FormaSegmentedIconButton
+struct FormaSegmentedBackground: View {
+    let cornerRadius: CGFloat
+    var tint: Color? = nil
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        ZStack {
+            FormaMaterialSurface(tier: .raised, cornerRadius: cornerRadius, tint: tint)
+
+            LinearGradient(
+                colors: [
+                    Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.10 : 0.16),
+                    Color.clear
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .clipShape(shape)
+        }
     }
 }

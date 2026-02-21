@@ -5,7 +5,6 @@ import SwiftData
 /// into a compelling productivity dashboard that proves the app is saving time.
 struct ProductivityReportView: View {
     @StateObject private var viewModel: ProductivityReportViewModel
-    @Namespace private var periodAnimation
     @Environment(\.colorScheme) private var colorScheme
 
     init(modelContext: ModelContext, navigation: NavigationViewModel, dashboardViewModel: DashboardViewModel) {
@@ -100,40 +99,23 @@ struct ProductivityReportView: View {
     }
 
     private var periodSelector: some View {
-        StocksStylePeriodControl(
-            selectedPeriod: viewModel.selectedPeriod,
-            namespace: periodAnimation,
-            onSelect: { period in
-                viewModel.selectedPeriod = period
-            }
-        )
+        Picker("Period", selection: $viewModel.selectedPeriod) {
+            Text("Day").tag(UsagePeriod.day)
+            Text("Week").tag(UsagePeriod.week)
+            Text("Month").tag(UsagePeriod.month)
+        }
+        .labelsHidden()
+        .pickerStyle(.segmented)
+        .controlSize(.small)
+        .frame(width: 170)
     }
 
     private var analyticsInspectorToggle: some View {
-        Button(action: {}) {
+        Toggle(isOn: .constant(false)) {
             Image(systemName: "sidebar.right")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.formaSecondaryLabelHigh)
-                .frame(width: 30, height: 24)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(
-                            colorScheme == .dark
-                                ? Color.formaBoneWhite.opacity(0.08)
-                                : Color.formaObsidian.opacity(0.06)
-                        )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(
-                            colorScheme == .dark
-                                ? Color.formaBoneWhite.opacity(0.14)
-                                : Color.formaObsidian.opacity(0.12),
-                            lineWidth: 0.5
-                        )
-                )
         }
-        .buttonStyle(.plain)
+        .toggleStyle(.button)
+        .controlSize(.small)
         .disabled(true)
         .opacity(0.4)
         .help("Inspector unavailable in Analytics")
@@ -398,157 +380,7 @@ private struct ProductivityEmptyState: View {
     }
 }
 
-// MARK: - Period Control (Stocks Style)
 
-private struct StocksStylePeriodControl: View {
-    let selectedPeriod: UsagePeriod
-    let namespace: Namespace.ID
-    let onSelect: (UsagePeriod) -> Void
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var hoveredPeriod: UsagePeriod?
-
-    private let periods: [(UsagePeriod, String)] = [
-        (.day, "Day"),
-        (.week, "Week"),
-        (.month, "Month"),
-    ]
-
-    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
-    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
-    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(periods.enumerated()), id: \.element.0) { index, item in
-                let (period, title) = item
-                segmentButton(period: period, title: title)
-
-                if index < periods.count - 1 {
-                    Rectangle()
-                        .fill(separatorColor)
-                        .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
-                        .allowsHitTesting(false)
-                }
-            }
-        }
-        .padding(2)
-        .background {
-            ZStack {
-                FormaMaterialSurface(
-                    tier: .raised,
-                    cornerRadius: containerCornerRadius,
-                    tint: containerTint
-                )
-
-                RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                    .stroke(containerBorder, lineWidth: 0.5)
-
-                LinearGradient(
-                    colors: [
-                        Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.10 : 0.16),
-                        Color.clear
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .clipShape(RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous))
-            }
-        }
-        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedPeriod)
-        .animation(.easeOut(duration: 0.16), value: hoveredPeriod)
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private func segmentButton(period: UsagePeriod, title: String) -> some View {
-        let isSelected = selectedPeriod == period
-        let isHovered = hoveredPeriod == period
-
-        return Button(action: { onSelect(period) }) {
-            ZStack {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(activeFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.5)
-                        )
-                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
-                        .matchedGeometryEffect(id: "activePeriod", in: namespace)
-                        .padding(.vertical, FormaControlChromeMetrics.shellInset)
-                        .padding(.horizontal, FormaControlChromeMetrics.shellInset)
-                } else if isHovered {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(hoverFill)
-                        .padding(.vertical, FormaControlChromeMetrics.shellInset)
-                        .padding(.horizontal, FormaControlChromeMetrics.shellInset)
-                }
-
-                Text(title)
-                    .font(.system(size: 12, weight: isSelected ? .medium : .regular))
-                    .lineLimit(1)
-                    .padding(.horizontal, 10)
-                    .frame(height: segmentHeight)
-                    .foregroundColor(
-                        isSelected
-                            ? FormaControlChromePalette.selectedForeground(colorScheme)
-                            : (
-                                isHovered
-                                    ? FormaControlChromePalette.highlightedForeground(colorScheme)
-                                    : FormaControlChromePalette.normalForeground(colorScheme)
-                            )
-                    )
-            }
-            .frame(height: segmentHeight)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(FormaControlPressButtonStyle())
-        .onHover { hovering in
-            if hovering {
-                hoveredPeriod = period
-            } else if hoveredPeriod == period {
-                hoveredPeriod = nil
-            }
-        }
-    }
-
-    // MARK: - Colors
-
-    private var separatorColor: Color {
-        FormaControlChromePalette.separator(colorScheme)
-    }
-
-    private var containerTint: Color {
-        colorScheme == .dark
-            ? Color.formaSage.opacity(0.18)
-            : Color.formaMutedBlue.opacity(0.10)
-    }
-
-    private var containerBorder: Color {
-        FormaControlChromePalette.containerBorder(colorScheme)
-    }
-
-    private var activeBorder: Color {
-        FormaControlChromePalette.activeBorder(colorScheme)
-    }
-
-    private var activeFill: Color {
-        FormaControlChromePalette.activeFill(colorScheme, tint: selectedTint)
-    }
-
-    private var selectedTint: Color {
-        colorScheme == .dark
-            ? Color.formaSage
-            : Color.formaSteelBlue
-    }
-
-    private var selectedDropShadowColor: Color {
-        FormaControlChromePalette.activeShadow(colorScheme)
-    }
-
-    private var hoverFill: Color {
-        FormaControlChromePalette.hoverFill(colorScheme, tint: selectedTint)
-    }
-}
 
 // MARK: - Preview
 

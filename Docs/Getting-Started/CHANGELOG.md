@@ -92,7 +92,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Changed - Architecture & Components
+- **DashboardViewModel Refactoring**: Significantly reduced the complexity of `DashboardViewModel` by breaking it down into smaller, single-responsibility controllers:
+  - `DashboardPermissionState`: Isolates onboarding and permission states.
+  - `DashboardTemplateController`: Handles template application and personality quiz logic.
+  - `DashboardOrganizationController`: Manages individual file organization, tracking, and animation states.
+  - `DashboardContentSearchController`: Encapsulates search and filtering logic.
+  - `DashboardUndoRedoController`: Handles undo and redo operations.
+- **Component Standardization**: Replaced custom UI implementations in `QuickRuleCreationSheet` with standardized `FormaTextField`, `FormaFolderPicker`, `FormaPrimaryButton`, and `FormaSecondaryButton`.
+- **Error Handling**: Replaced destructive SwiftData fallback logic on initialization failure with a safe, non-destructive user alert to prevent accidental data loss.
+- **Visual Polish**: Updated `SidebarGlassOverlay` to use semantic `Color.FormaOpacity` tokens instead of hardcoded opacity literals for better design system adherence.
 - Smart Insight actions now deep-link into relevant views (large files, downloads, screenshots) and can prefill the rule editor.
 - Category scope editor now includes a folder picker for scoped categories.
 - Bulk operation progress overlay now supports cancellation.
@@ -130,6 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings tabs now render inside a shared shell with unified spacing, surfaces, and background chrome to match the main app.
 - File status language is now more consistent across card/list/grid, with compact status indicators and simplified rule-state labeling.
 - List/grid interaction targets were increased and secondary text/chip contrast was raised for better accessibility in light and dark themes.
+- Dark-mode surface hierarchy now uses clearer elevation semantics (`background -> panel -> row`) across list/card/grid file rows, selection is rendered as a low-alpha accent overlay plus border (instead of a full material swap), and toolbar/review/rules/analytics toggles now use native macOS segmented/menu/button controls for consistent platform behavior.
 - Content search now runs its heavy scan work off the main actor and uses indexed path lookups in `DashboardViewModel` to avoid per-row linear searches.
 - Folder scans now use prefetched URL resource keys and parallelized standard-folder scan tasks to reduce filesystem syscall overhead.
 - Thumbnail loading now checks memory/disk caches before opening security scopes and skips redundant stale-metadata checks on disk-cache hits.

@@ -60,7 +60,7 @@ extension Color {
         NSColor(name: NSColor.Name("formaControlBackground")) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             if isDark {
-                return NSColor(red: 29/255, green: 33/255, blue: 38/255, alpha: 1.0) // #1D2126
+                return NSColor(red: 32/255, green: 37/255, blue: 44/255, alpha: 1.0) // #20252C
             }
             return NSColor.controlBackgroundColor
         }
@@ -72,7 +72,7 @@ extension Color {
         NSColor(name: NSColor.Name("formaTextBackground")) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             if isDark {
-                return NSColor(red: 24/255, green: 28/255, blue: 33/255, alpha: 1.0) // #181C21
+                return NSColor(red: 27/255, green: 32/255, blue: 38/255, alpha: 1.0) // #1B2026
             }
             return NSColor.textBackgroundColor
         }
@@ -84,9 +84,81 @@ extension Color {
         NSColor(name: NSColor.Name("formaCardBackground")) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             if isDark {
-                return NSColor(red: 34/255, green: 37/255, blue: 42/255, alpha: 1.0)
+                return NSColor(red: 39/255, green: 44/255, blue: 52/255, alpha: 1.0) // #272C34
             }
             return NSColor(red: 249/255, green: 249/255, blue: 249/255, alpha: 1.0)
+        }
+    )
+
+    /// List-row base surface. In dark mode this sits slightly above panel surfaces,
+    /// preserving the elevation ladder: background -> panel -> row.
+    static let formaListRowBackground = Color(
+        NSColor(name: NSColor.Name("formaListRowBackground")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor(red: 44/255, green: 50/255, blue: 59/255, alpha: 0.78) // #2C323B @ 78%
+            }
+            return NSColor(calibratedWhite: 1.0, alpha: 0.86)
+        }
+    )
+
+    /// Subtle hover overlay for list rows. Hover should feel like proximity, not selection.
+    static let formaListRowHoverOverlay = Color(
+        NSColor(name: NSColor.Name("formaListRowHoverOverlay")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor.formaBoneWhite.withAlphaComponent(0.05)
+            }
+            return NSColor.formaObsidian.withAlphaComponent(0.03)
+        }
+    )
+
+    /// Accent-tinted selection overlay for list rows. Kept low alpha so base material remains stable.
+    static let formaListRowSelectionOverlay = Color(
+        NSColor(name: NSColor.Name("formaListRowSelectionOverlay")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let alpha: CGFloat = isDark ? 0.20 : 0.12
+            return NSColor.formaSteelBlue.withAlphaComponent(alpha)
+        }
+    )
+
+    /// Rest-state border for list rows.
+    static let formaListRowBorder = Color(
+        NSColor(name: NSColor.Name("formaListRowBorder")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor.formaBoneWhite.withAlphaComponent(0.14)
+            }
+            return NSColor.formaObsidian.withAlphaComponent(0.10)
+        }
+    )
+
+    /// Hover border for list rows.
+    static let formaListRowHoverBorder = Color(
+        NSColor(name: NSColor.Name("formaListRowHoverBorder")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor.formaBoneWhite.withAlphaComponent(0.22)
+            }
+            return NSColor.formaObsidian.withAlphaComponent(0.16)
+        }
+    )
+
+    /// Selected border for list rows.
+    static let formaListRowSelectedBorder = Color(
+        NSColor(name: NSColor.Name("formaListRowSelectedBorder")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let alpha: CGFloat = isDark ? 0.58 : 0.42
+            return NSColor.formaSteelBlue.withAlphaComponent(alpha)
+        }
+    )
+
+    /// Focus border for keyboard focus state in list rows.
+    static let formaListRowFocusedBorder = Color(
+        NSColor(name: NSColor.Name("formaListRowFocusedBorder")) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let alpha: CGFloat = isDark ? 0.86 : 0.70
+            return NSColor.formaSteelBlue.withAlphaComponent(alpha)
         }
     )
     

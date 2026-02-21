@@ -33,9 +33,6 @@ enum CompressionLevel {
 struct UnifiedToolbar: View {
     let availableWidth: CGFloat
     @EnvironmentObject var viewModel: DashboardViewModel
-    @Namespace private var animation
-
-    @Environment(\.colorScheme) private var colorScheme
 
     // Local state for dropdown visibility
     @State private var showGrouping: Bool = false
@@ -65,9 +62,7 @@ struct UnifiedToolbar: View {
 
                 Spacer(minLength: 0)
 
-                sortDropdown
-
-                rightPill
+                modeControls
 
                 trailingControls
             }
@@ -134,15 +129,22 @@ struct UnifiedToolbar: View {
             .accessibilityHidden(true)
             .disabled(isInspectorDisabled)
 
-            StocksStyleToolbarIconButton(
-                icon: "sidebar.right",
-                isSelected: isInspectorEffectivelyVisible,
-                help: "Toggle Inspector (\u{2318}I)"
+            Toggle(
+                isOn: Binding(
+                    get: { isInspectorEffectivelyVisible },
+                    set: { newValue in
+                        guard !isInspectorDisabled else { return }
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            viewModel.isRightPanelVisible = newValue
+                        }
+                    }
+                )
             ) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    viewModel.isRightPanelVisible.toggle()
-                }
+                Image(systemName: "sidebar.right")
             }
+            .toggleStyle(.button)
+            .controlSize(.small)
+            .help("Toggle Inspector (\u{2318}I)")
             .disabled(isInspectorDisabled)
             .opacity(isInspectorDisabled ? 0.4 : 1.0)
             .accessibilityIdentifier("toolbarInspectorToggle")
@@ -152,83 +154,64 @@ struct UnifiedToolbar: View {
     
     private var leftPill: some View {
         HStack(spacing: compressionLevel.spacing) {
-            StocksStyleReviewModeControl(
-                selectedMode: viewModel.reviewFilterMode,
-                pendingCount: viewModel.needsReviewCount,
-                namespace: animation
-            ) { mode in
-                viewModel.reviewFilterMode = mode
+            Picker("Review Filter", selection: $viewModel.reviewFilterMode) {
+                Text(pendingSegmentTitle)
+                    .tag(ReviewFilterMode.needsReview)
+                Text("All Files")
+                    .tag(ReviewFilterMode.all)
             }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(width: compressionLevel == .compact ? 190 : 230)
+        }
+    }
+
+    private var modeControls: some View {
+        HStack(spacing: compressionLevel.spacing) {
+            sortDropdown
+            rightPill
         }
     }
 
     private var sortDropdown: some View {
-        Menu {
+        Picker("Sort", selection: $viewModel.sortMode) {
             ForEach(SortMode.allCases) { mode in
-                Button(action: { viewModel.sortMode = mode }) {
-                    Label(mode.rawValue, systemImage: mode.icon)
-                }
-                .disabled(viewModel.sortMode == mode)
+                Label(mode.rawValue, systemImage: mode.icon)
+                    .tag(mode)
             }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.up.arrow.down")
-                    .font(.system(size: 10.5, weight: .medium))
-                if compressionLevel != .compact {
-                    Text(viewModel.sortMode.rawValue)
-                        .font(.system(size: 12, weight: .regular))
-                        .lineLimit(1)
-                }
-            }
-            .foregroundColor(.formaSecondaryLabelHigh)
-            .padding(.horizontal, 10)
-            .frame(height: 24)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(sortDropdownFill)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(sortDropdownBorder, lineWidth: 0.5)
-                    )
-            )
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-    }
-
-    private var sortDropdownFill: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.08)
-            : Color.formaObsidian.opacity(0.06)
-    }
-
-    private var sortDropdownBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaObsidian.opacity(0.12)
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .controlSize(.small)
+        .frame(minWidth: compressionLevel == .compact ? 42 : 130, alignment: .leading)
+        .help("Sort files")
+        .accessibilityIdentifier("toolbarSortMenu")
+        .accessibilityLabel("Sort files by \(viewModel.sortMode.rawValue)")
     }
 
     private var rightPill: some View {
         HStack(spacing: compressionLevel.spacing) {
-            StocksStyleViewModeControl(
-                selectedMode: viewModel.currentViewMode,
-                namespace: animation
-            ) { mode in
-                viewModel.currentViewMode = mode
+            Picker("View Mode", selection: $viewModel.currentViewMode) {
+                Image(systemName: "square.grid.2x2")
+                    .tag(ViewMode.grid)
+                Image(systemName: "list.bullet")
+                    .tag(ViewMode.list)
+                Image(systemName: "rectangle.grid.1x2")
+                    .tag(ViewMode.card)
             }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(width: 110)
 
             // Grouping section - only show in All Files mode
             if viewModel.reviewFilterMode == .all {
                 // Grouping Toggle - icon-only, opens options row below
-                StocksStyleToolbarIconButton(
-                    icon: "square.stack.3d.up",
-                    isSelected: showGrouping,
-                    help: "Group files",
-                    activeTint: Color.formaSteelBlue
-                ) {
-                    showGrouping.toggle()
+                Toggle(isOn: $showGrouping) {
+                    Image(systemName: "square.stack.3d.up")
                 }
+                .toggleStyle(.button)
+                .controlSize(.small)
+                .help("Group files")
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
@@ -237,591 +220,38 @@ struct UnifiedToolbar: View {
 
     // MARK: - Grouping Options Row (Right-aligned second row)
     private var groupingOptionsRow: some View {
-        StocksStyleGroupingControl(
-            selectedMode: viewModel.groupingMode,
-            namespace: animation,
-            compact: shouldCompressGrouping
-        ) { mode in
-            viewModel.groupingMode = mode
+        Picker("Grouping", selection: $viewModel.groupingMode) {
+            groupingOptionLabel("None", icon: "square.grid.2x2", compressed: shouldCompressGrouping)
+                .tag(FileGroupingService.GroupingMode.none)
+            groupingOptionLabel("Date", icon: "clock", compressed: shouldCompressGrouping)
+                .tag(FileGroupingService.GroupingMode.date)
+            groupingOptionLabel("Patterns", icon: "flag", compressed: shouldCompressGrouping)
+                .tag(FileGroupingService.GroupingMode.patterns)
+            groupingOptionLabel("Smart", icon: "sparkles", compressed: shouldCompressGrouping)
+                .tag(FileGroupingService.GroupingMode.combined)
         }
+        .labelsHidden()
+        .pickerStyle(.segmented)
+        .controlSize(.small)
+        .frame(width: shouldCompressGrouping ? 200 : 290)
+    }
+
+    @ViewBuilder
+    private func groupingOptionLabel(_ title: String, icon: String, compressed: Bool) -> some View {
+        if compressed {
+            Image(systemName: icon)
+        } else {
+            Label(title, systemImage: icon)
+        }
+    }
+
+    private var pendingSegmentTitle: String {
+        guard viewModel.needsReviewCount > 0 else { return "Pending" }
+        return "Pending \(viewModel.needsReviewCount > 99 ? "99+" : "\(viewModel.needsReviewCount)")"
     }
 }
 
-// MARK: - Subcomponents
 
-private struct StocksStyleReviewModeControl: View {
-    let selectedMode: ReviewFilterMode
-    let pendingCount: Int
-    let namespace: Namespace.ID
-    let onSelect: (ReviewFilterMode) -> Void
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var hoveredMode: ReviewFilterMode?
-
-    private struct Segment: Identifiable {
-        let mode: ReviewFilterMode
-        let icon: String
-        let label: String
-        let help: String
-        let accessibilityID: String
-
-        var id: ReviewFilterMode { mode }
-    }
-
-    private let segments: [Segment] = [
-        Segment(
-            mode: .needsReview,
-            icon: "tray",
-            label: "Pending",
-            help: "Show pending files",
-            accessibilityID: "reviewMode_needsReview"
-        ),
-        Segment(
-            mode: .all,
-            icon: "folder",
-            label: "All Files",
-            help: "Show all files",
-            accessibilityID: "reviewMode_allFiles"
-        ),
-    ]
-
-    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
-    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
-    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
-    private let segmentPlateHorizontalInset: CGFloat = FormaControlChromeMetrics.shellInset
-    private let segmentPlateVerticalInset: CGFloat = FormaControlChromeMetrics.shellInset
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
-                segmentButton(segment)
-
-                if index < segments.count - 1 {
-                    Rectangle()
-                        .fill(separatorColor)
-                        .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
-                        .allowsHitTesting(false)
-                }
-            }
-        }
-        .padding(2)
-        .background {
-            RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                .fill(containerFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                        .stroke(containerBorder, lineWidth: 0.5)
-                )
-        }
-        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedMode)
-        .animation(.easeOut(duration: 0.16), value: hoveredMode)
-        .accessibilityElement(children: .contain)
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private func segmentButton(_ segment: Segment) -> some View {
-        let isSelected = selectedMode == segment.mode
-        let isHovered = hoveredMode == segment.mode
-
-        return Button(action: { onSelect(segment.mode) }) {
-            ZStack {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(activeFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.5)
-                        )
-                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
-                        .matchedGeometryEffect(id: "activeReviewSegment", in: namespace)
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                } else if isHovered {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(hoverFill)
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                }
-
-                HStack(spacing: 5) {
-                    Image(systemName: segment.icon)
-                        .font(.system(size: 10.5, weight: isSelected ? .medium : .regular))
-
-                    Text(segment.label)
-                        .font(.system(size: 12, weight: isSelected ? .medium : .regular))
-                        .lineLimit(1)
-
-                    // Inline badge count
-                    if segment.mode == .needsReview && pendingCount > 0 {
-                        Text(pendingBadgeText)
-                            .font(.system(size: 8.5, weight: .bold))
-                            .foregroundColor(.formaBoneWhite)
-                            .frame(minWidth: 14, minHeight: 14)
-                            .padding(.horizontal, 1.5)
-                            .background {
-                                Capsule().fill(badgeFill)
-                            }
-                            .accessibilityIdentifier("reviewMode_needsReview_countBadge")
-                            .accessibilityLabel("Pending file count badge")
-                            .accessibilityValue("\(pendingCount)")
-                    }
-                }
-                .padding(.horizontal, 10)
-                .frame(height: segmentHeight)
-                .foregroundColor(
-                    isSelected
-                        ? FormaControlChromePalette.selectedForeground(colorScheme)
-                        : (
-                            isHovered
-                                ? FormaControlChromePalette.highlightedForeground(colorScheme)
-                                : FormaControlChromePalette.normalForeground(colorScheme)
-                        )
-                )
-            }
-            .frame(height: segmentHeight)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(FormaControlPressButtonStyle())
-        .help(segment.help)
-        .accessibilityIdentifier(segment.accessibilityID)
-        .accessibilityLabel(segment.label)
-        .accessibilityValue(segment.mode == .needsReview && pendingCount > 0 ? "\(pendingCount)" : "")
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .onHover { hovering in
-            if hovering {
-                hoveredMode = segment.mode
-            } else if hoveredMode == segment.mode {
-                hoveredMode = nil
-            }
-        }
-    }
-
-    private var separatorColor: Color {
-        FormaControlChromePalette.separator(colorScheme)
-    }
-
-    private var containerFill: Color {
-        FormaControlChromePalette.containerFill(colorScheme)
-    }
-
-    private var containerBorder: Color {
-        FormaControlChromePalette.containerBorder(colorScheme)
-    }
-
-    private var activeBorder: Color {
-        FormaControlChromePalette.activeBorder(colorScheme)
-    }
-
-    private var activeFill: Color {
-        FormaControlChromePalette.activeFill(colorScheme)
-    }
-
-    private var selectedDropShadowColor: Color {
-        FormaControlChromePalette.activeShadow(colorScheme)
-    }
-
-    private var hoverFill: Color {
-        FormaControlChromePalette.hoverFill(colorScheme)
-    }
-
-    private var pendingBadgeText: String {
-        pendingCount > 99 ? "99+" : "\(pendingCount)"
-    }
-
-    private var badgeFill: some ShapeStyle {
-        LinearGradient(
-            colors: [
-                Color.formaWarmOrange.blend(with: .red, ratio: 0.22),
-                Color.formaWarmOrange.opacity(0.95),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-}
-
-private struct StocksStyleViewModeControl: View {
-    let selectedMode: ViewMode
-    let namespace: Namespace.ID
-    let onSelect: (ViewMode) -> Void
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var hoveredMode: ViewMode?
-
-    private struct Segment: Identifiable {
-        let mode: ViewMode
-        let icon: String
-        let help: String
-
-        var id: ViewMode { mode }
-    }
-
-    private let segments: [Segment] = [
-        Segment(mode: .grid, icon: "square.grid.2x2", help: "Grid view (⌘1)"),
-        Segment(mode: .list, icon: "list.bullet", help: "List view (⌘2)"),
-        Segment(mode: .card, icon: "rectangle.grid.1x2", help: "Tile view (⌘3)"),
-    ]
-
-    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
-    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
-    private let segmentWidth: CGFloat = 32
-    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
-    private let segmentPlateHorizontalInset: CGFloat = FormaControlChromeMetrics.shellInset
-    private let segmentPlateVerticalInset: CGFloat = FormaControlChromeMetrics.shellInset
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
-                segmentButton(segment)
-
-                if index < segments.count - 1 {
-                    Rectangle()
-                        .fill(separatorColor)
-                        .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
-                        .allowsHitTesting(false)
-                }
-            }
-        }
-        .padding(2)
-        .background {
-            RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                .fill(containerFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                        .stroke(containerBorder, lineWidth: 0.5)
-                )
-        }
-        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedMode)
-        .animation(.easeOut(duration: 0.16), value: hoveredMode)
-        .accessibilityElement(children: .contain)
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private func segmentButton(_ segment: Segment) -> some View {
-        let isSelected = selectedMode == segment.mode
-        let isHovered = hoveredMode == segment.mode
-
-        return Button(action: { onSelect(segment.mode) }) {
-            ZStack {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(activeFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.5)
-                        )
-                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
-                        .matchedGeometryEffect(id: "activeViewSegment", in: namespace)
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                } else if isHovered {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(hoverFill)
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                }
-
-                Image(systemName: segment.icon)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(
-                        isSelected
-                            ? FormaControlChromePalette.selectedForeground(colorScheme)
-                            : (
-                                isHovered
-                                    ? FormaControlChromePalette.highlightedForeground(colorScheme)
-                                    : FormaControlChromePalette.normalForeground(colorScheme)
-                            )
-                    )
-                    .frame(width: segmentWidth, height: segmentHeight)
-            }
-            .frame(width: segmentWidth, height: segmentHeight)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(FormaControlPressButtonStyle())
-        .help(segment.help)
-        .accessibilityLabel(segment.mode.displayName)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .onHover { hovering in
-            if hovering {
-                hoveredMode = segment.mode
-            } else if hoveredMode == segment.mode {
-                hoveredMode = nil
-            }
-        }
-    }
-
-    private var separatorColor: Color {
-        FormaControlChromePalette.separator(colorScheme)
-    }
-
-    private var containerFill: Color {
-        FormaControlChromePalette.containerFill(colorScheme)
-    }
-
-    private var containerBorder: Color {
-        FormaControlChromePalette.containerBorder(colorScheme)
-    }
-
-    private var activeBorder: Color {
-        FormaControlChromePalette.activeBorder(colorScheme)
-    }
-
-    private var activeFill: Color {
-        FormaControlChromePalette.activeFill(colorScheme)
-    }
-
-    private var selectedDropShadowColor: Color {
-        FormaControlChromePalette.activeShadow(colorScheme)
-    }
-
-    private var hoverFill: Color {
-        FormaControlChromePalette.hoverFill(colorScheme)
-    }
-}
-
-private struct StocksStyleGroupingControl: View {
-    let selectedMode: FileGroupingService.GroupingMode
-    let namespace: Namespace.ID
-    let compact: Bool
-    let onSelect: (FileGroupingService.GroupingMode) -> Void
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var hoveredMode: FileGroupingService.GroupingMode?
-
-    private struct Segment: Identifiable {
-        let mode: FileGroupingService.GroupingMode
-        let icon: String
-        let label: String
-        let help: String
-
-        var id: FileGroupingService.GroupingMode { mode }
-    }
-
-    private let segments: [Segment] = [
-        Segment(mode: .none, icon: "square.grid.2x2", label: "None", help: "Disable grouping"),
-        Segment(mode: .date, icon: "clock", label: "Date", help: "Group by date"),
-        Segment(mode: .patterns, icon: "flag", label: "Patterns", help: "Group by patterns"),
-        Segment(mode: .combined, icon: "sparkles", label: "Smart", help: "Use smart grouping"),
-    ]
-
-    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
-    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
-    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
-    private let compactMinWidth: CGFloat = 30
-    private let segmentPlateHorizontalInset: CGFloat = FormaControlChromeMetrics.shellInset
-    private let segmentPlateVerticalInset: CGFloat = FormaControlChromeMetrics.shellInset
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
-                segmentButton(segment)
-
-                if index < segments.count - 1 {
-                    Rectangle()
-                        .fill(separatorColor)
-                        .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
-                        .allowsHitTesting(false)
-                }
-            }
-        }
-        .padding(2)
-        .background {
-            RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                .fill(containerFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                        .stroke(containerBorder, lineWidth: 0.5)
-                )
-        }
-        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: selectedMode)
-        .animation(.easeOut(duration: 0.16), value: hoveredMode)
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private func segmentButton(_ segment: Segment) -> some View {
-        let isSelected = selectedMode == segment.mode
-        let isHovered = hoveredMode == segment.mode
-
-        return Button(action: { onSelect(segment.mode) }) {
-            ZStack {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(activeFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.5)
-                        )
-                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
-                        .matchedGeometryEffect(id: "activeGroupingSegment", in: namespace)
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                } else if isHovered {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(hoverFill)
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                }
-
-                HStack(spacing: compact ? 0 : 4) {
-                    Image(systemName: segment.icon)
-                        .font(.system(size: 10.5, weight: isSelected ? .medium : .regular))
-
-                    if !compact {
-                        Text(segment.label)
-                            .font(.system(size: 12, weight: isSelected ? .medium : .regular))
-                            .lineLimit(1)
-                    }
-                }
-                .padding(.horizontal, compact ? 8 : 9)
-                .frame(minWidth: compact ? compactMinWidth : nil)
-                .frame(height: segmentHeight)
-                .foregroundColor(
-                    isSelected
-                        ? FormaControlChromePalette.selectedForeground(colorScheme)
-                        : (
-                            isHovered
-                                ? FormaControlChromePalette.highlightedForeground(colorScheme)
-                                : FormaControlChromePalette.normalForeground(colorScheme)
-                        )
-                )
-            }
-            .frame(height: segmentHeight)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(FormaControlPressButtonStyle())
-        .help(segment.help)
-        .onHover { hovering in
-            if hovering {
-                hoveredMode = segment.mode
-            } else if hoveredMode == segment.mode {
-                hoveredMode = nil
-            }
-        }
-    }
-
-    private var separatorColor: Color {
-        FormaControlChromePalette.separator(colorScheme)
-    }
-
-    private var containerFill: Color {
-        FormaControlChromePalette.containerFill(colorScheme)
-    }
-
-    private var containerBorder: Color {
-        FormaControlChromePalette.containerBorder(colorScheme)
-    }
-
-    private var activeBorder: Color {
-        FormaControlChromePalette.activeBorder(colorScheme)
-    }
-
-    private var activeFill: Color {
-        FormaControlChromePalette.activeFill(colorScheme)
-    }
-
-    private var selectedDropShadowColor: Color {
-        FormaControlChromePalette.activeShadow(colorScheme)
-    }
-
-    private var hoverFill: Color {
-        FormaControlChromePalette.hoverFill(colorScheme)
-    }
-}
-
-private struct StocksStyleToolbarIconButton: View {
-    let icon: String
-    let isSelected: Bool
-    let help: String
-    var showOuterShell: Bool = true
-    var activeTint: Color? = nil
-    let action: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var isHovered = false
-
-    private let containerCornerRadius: CGFloat = FormaControlChromeMetrics.containerCornerRadius
-    private let selectedCornerRadius: CGFloat = FormaControlChromeMetrics.selectedCornerRadius
-    private let segmentWidth: CGFloat = 32
-    private let segmentHeight: CGFloat = FormaControlChromeMetrics.segmentHeight
-    private let segmentPlateHorizontalInset: CGFloat = FormaControlChromeMetrics.shellInset
-    private let segmentPlateVerticalInset: CGFloat = FormaControlChromeMetrics.shellInset
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(activeFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.5)
-                        )
-                        .shadow(color: selectedDropShadowColor, radius: 1.5, x: 0, y: 0.5)
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                } else if isHovered {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(hoverFill)
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                }
-
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(
-                        isSelected
-                            ? (activeTint ?? FormaControlChromePalette.selectedForeground(colorScheme))
-                            : (
-                                isHovered
-                                    ? FormaControlChromePalette.highlightedForeground(colorScheme)
-                                    : FormaControlChromePalette.normalForeground(colorScheme)
-                            )
-                    )
-                    .frame(width: segmentWidth, height: segmentHeight)
-            }
-            .frame(width: segmentWidth, height: segmentHeight)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(FormaControlPressButtonStyle())
-        .padding(showOuterShell ? 2 : 0)
-        .background {
-            if showOuterShell {
-                RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                    .fill(containerFill)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                            .stroke(containerBorder, lineWidth: 0.5)
-                    )
-            }
-        }
-        .help(help)
-        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: isSelected)
-        .animation(.easeOut(duration: 0.16), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
-        }
-    }
-
-    private var containerFill: Color {
-        FormaControlChromePalette.containerFill(colorScheme)
-    }
-
-    private var containerBorder: Color {
-        FormaControlChromePalette.containerBorder(colorScheme)
-    }
-
-    private var activeBorder: Color {
-        FormaControlChromePalette.activeBorder(colorScheme)
-    }
-
-    private var activeFill: Color {
-        FormaControlChromePalette.activeFill(colorScheme, tint: activeTint)
-    }
-
-    private var selectedDropShadowColor: Color {
-        FormaControlChromePalette.activeShadow(colorScheme)
-    }
-
-    private var hoverFill: Color {
-        FormaControlChromePalette.hoverFill(colorScheme, tint: activeTint)
-    }
-}
 
 private struct ToolbarGlassyCapsuleBackground: View {
     let tint: Color?

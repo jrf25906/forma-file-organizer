@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import SwiftUI
 import PDFKit
 import AppKit
 
@@ -77,76 +78,32 @@ extension ReportService {
         _ report: AnalyticsReport,
         to url: URL
     ) throws {
+        let pdfView = ReportPDFView(report: report)
+        
         let pageSize = CGSize(width: 612, height: 792) // US Letter @ 72 DPI
-        let image = NSImage(size: pageSize)
+        
+        let hostingView = NSHostingView(rootView: pdfView)
+        hostingView.frame = CGRect(origin: .zero, size: pageSize)
+        
+        // Force a layout pass
+        hostingView.layout()
 
-        image.lockFocus()
-        guard let context = NSGraphicsContext.current?.cgContext else {
-            image.unlockFocus()
-            throw AnalyticsError.pdfExportFailed(underlyingError: NSError(domain: "ReportService", code: -1))
-        }
-
-        context.setFillColor(NSColor.formaBoneWhite.cgColor)
-        context.fill(CGRect(origin: .zero, size: pageSize))
-
-        let titleAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 20, weight: .semibold),
-            .foregroundColor: NSColor.formaSteelBlue
-        ]
-
-        let bodyAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 12, weight: .regular),
-            .foregroundColor: NSColor.labelColor
-        ]
-
-        let title = "Forma Analytics Report"
-        title.draw(in: CGRect(x: 40, y: pageSize.height - 80, width: pageSize.width - 80, height: 30), withAttributes: titleAttributes)
-
-        let subtitle = "\(report.period.description) • Generated \(DateFormatter.short.string(from: report.generatedAt))"
-        subtitle.draw(in: CGRect(x: 40, y: pageSize.height - 110, width: pageSize.width - 80, height: 20), withAttributes: bodyAttributes)
-
-        var cursorY = pageSize.height - 140
-        for section in report.sections {
-            let sectionTitleAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
-                .foregroundColor: NSColor.formaObsidian
-            ]
-            section.title.draw(in: CGRect(x: 40, y: cursorY, width: pageSize.width - 80, height: 20), withAttributes: sectionTitleAttrs)
-            cursorY -= 22
-
-            section.body.draw(in: CGRect(x: 40, y: cursorY, width: pageSize.width - 80, height: 18), withAttributes: bodyAttributes)
-            cursorY -= 20
-
-            for (key, value) in section.metrics {
-                "\(key): \(value)".draw(in: CGRect(x: 50, y: cursorY, width: pageSize.width - 100, height: 16), withAttributes: bodyAttributes)
-                cursorY -= 18
-            }
-
-            cursorY -= 12
-        }
-
-        if !report.recommendations.isEmpty {
-            "Recommendations".draw(in: CGRect(x: 40, y: cursorY, width: pageSize.width - 80, height: 18), withAttributes: titleAttributes)
-            cursorY -= 20
-
-            for recommendation in report.recommendations.sorted(by: { $0.priority < $1.priority }) {
-                "• \(recommendation.title) — \(recommendation.detail)".draw(in: CGRect(x: 50, y: cursorY, width: pageSize.width - 100, height: 16), withAttributes: bodyAttributes)
-                cursorY -= 18
-            }
-        }
-
-        image.unlockFocus()
-
-        guard let page = PDFPage(image: image) else {
+        // Create PDF context
+        var box = CGRect(origin: .zero, size: pageSize)
+        guard let pdfContext = CGContext(url as CFURL, mediaBox: &box, nil) else {
             throw AnalyticsError.pdfExportFailed(underlyingError: NSError(domain: "ReportService", code: -2))
         }
 
-        let document = PDFDocument()
-        document.insert(page, at: 0)
+        // Render to PDF
+        pdfContext.beginPDFPage(nil)
+        
+        let nsContext = NSGraphicsContext(cgContext: pdfContext, flipped: hostingView.isFlipped)
+        NSGraphicsContext.current = nsContext
+        hostingView.displayIgnoringOpacity(hostingView.bounds, in: nsContext)
 
-        if !document.write(to: url) {
-            throw AnalyticsError.pdfExportFailed(underlyingError: NSError(domain: "ReportService", code: -3))
-        }
+        NSGraphicsContext.current = nil
+        pdfContext.endPDFPage()
+        pdfContext.closePDF()
     }
 
     func generateWeeklyReportIfNeeded(

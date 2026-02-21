@@ -59,6 +59,16 @@ struct OnboardingFolderSelection: Codable, Equatable {
         [desktop, downloads, documents, pictures, music].filter { $0 }.count
     }
 
+    func isSelected(_ folder: OnboardingFolder) -> Bool {
+        switch folder {
+        case .desktop: return desktop
+        case .downloads: return downloads
+        case .documents: return documents
+        case .pictures: return pictures
+        case .music: return music
+        }
+    }
+
     var hasAnySelected: Bool {
         selectedCount > 0
     }

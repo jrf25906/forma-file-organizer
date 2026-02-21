@@ -373,10 +373,16 @@ struct FileGridItem: View {
 
     @ViewBuilder
     private var tileBackground: some View {
-        if isSelected || isFocused {
-            Color.formaSteelBlue.opacity(0.12)
-        } else {
+        ZStack {
             Color.formaCardBackground
+
+            if isHovered && !isSelected && !isFocused {
+                Color.formaListRowHoverOverlay
+            }
+
+            if isSelected || isFocused {
+                Color.formaListRowSelectionOverlay
+            }
         }
     }
 
@@ -384,11 +390,11 @@ struct FileGridItem: View {
     private var tileBorder: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .strokeBorder(
-                isFocused ? Color.formaSteelBlue.opacity(0.80) :
-                isSelected ? Color.formaSteelBlue.opacity(0.50) :
-                isHovered ? Color.formaSeparator.opacity(0.8) :
-                Color.formaSeparator.opacity(0.5),
-                lineWidth: isFocused ? 1.5 : (isSelected ? 1 : 0.5)
+                isFocused ? Color.formaListRowFocusedBorder :
+                isSelected ? Color.formaListRowSelectedBorder :
+                isHovered ? Color.formaListRowHoverBorder :
+                Color.formaListRowBorder,
+                lineWidth: isFocused ? 1.5 : (isSelected ? 1.0 : 0.75)
             )
     }
 

@@ -514,58 +514,36 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Organization Controller
+    private lazy var organizationController: DashboardOrganizationController = {
+        let controller = DashboardOrganizationController(
+            coordinator: organizationCoordinator,
+            scanViewModel: scanViewModel,
+            filterViewModel: filterViewModel,
+            selectionViewModel: selectionViewModel,
+            panelManager: panelManager
+        )
+        controller.onShowToast = { [weak self] message, canUndo in
+            self?.showToast(message: message, canUndo: canUndo)
+        }
+        controller.onShowError = { [weak self] error in
+            self?.errorMessage = error
+        }
+        return controller
+    }()
+
     // MARK: - File Operations
 
     func organizeFile(_ file: FileItem, context: ModelContext? = nil) {
-        guard file.destination != nil else { return }
-        deselectAll()
-
-        #if DEBUG
-        let isTesting = CommandLine.arguments.contains("--uitesting") ||
-            ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        if isTesting {
-            file.status = .completed
-            scanViewModel.removeFile(at: file.path)
-            filterViewModel.updateSourceFiles(scanViewModel.allFiles)
-            return
-        }
-        #endif
-
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-
-            await self.organizationCoordinator.organizeFile(
-                file,
-                context: context,
-                onSuccess: { [weak self] _ in
-                    guard let self else { return }
-                    if let displayName = file.destination?.displayName {
-                        self.panelManager.showCelebrationPanel(message: "Organized to \(displayName)")
-                    }
-                },
-                onError: { [weak self] error in
-                    guard let self else { return }
-                    self.errorMessage = error.localizedDescription
-                    self.showToast(message: self.errorMessage ?? "Operation failed", canUndo: false)
-                }
-            )
-
-            // Update scan ViewModel
-            self.scanViewModel.removeFile(at: file.path)
-            self.filterViewModel.updateSourceFiles(self.scanViewModel.allFiles)
-        }
+        organizationController.organizeFile(file, context: context)
     }
 
     func skipFile(_ file: FileItem) {
-        file.status = .skipped
-        filterViewModel.applyFilterImmediately()
+        organizationController.skipFile(file)
     }
 
     func handleOrganizeAnimationComplete(for filePath: String) {
-        organizationCoordinator.handleOrganizeAnimationComplete(for: filePath)
-        withAnimation(.easeInOut(duration: 0.3)) {
-            filterViewModel.applyFilterImmediately()
-        }
+        organizationController.handleOrganizeAnimationComplete(for: filePath)
     }
 
     // MARK: - Panel Management
@@ -828,33 +806,7 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
-    func completeOnboarding() {
-        permissionState.completeOnboarding()
 
-        // Apply PARA template as default for all 5 folders
-        let defaultSelection = OnboardingFolderSelection() // all true
-        var templateSelection = FolderTemplateSelection()
-        for folder in OnboardingFolder.allCases {
-            templateSelection.setTemplate(.para, for: folder)
-        }
-        defaultSelection.save()
-        templateSelection.save()
-
-        // Apply per-folder template rules with PARA for all folders
-        if let context = modelContext {
-            applyPerFolderTemplates(
-                folderSelection: defaultSelection,
-                templateSelection: templateSelection,
-                personality: nil,
-                context: context
-            )
-        }
-
-        // Refresh folder service so sidebar updates
-        BookmarkFolderService.shared.refresh()
-
-        permissionState.showOnboarding = false
-    }
 
     // MARK: - Content Search
 
@@ -900,6 +852,10 @@ class DashboardViewModel: ObservableObject {
         scanRefreshController.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         panelManager.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         permissionState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
+    }
+
+    func showCelebrationPanel(message: String) {
+        panelManager.showCelebrationPanel(message: message)
     }
 
     private func setupBulkOperationCallbacks() {
@@ -1068,26 +1024,19 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Panel State Delegations
 
-    func showCelebrationPanel(message: String) {
-        panelManager.showCelebrationPanel(message: message)
-    }
+    // MARK: - Template Controller
+    private lazy var templateController: DashboardTemplateController = {
+        DashboardTemplateController(
+            modelContext: modelContext ?? (try! ModelContainer(for: Forma_File_OrganizingApp.appSchema)).mainContext,
+            filterViewModel: filterViewModel
+        )
+    }()
 
-    // Template & Personality (kept for backwards compatibility)
-    func applyTemplate(_ template: OrganizationTemplate, context: ModelContext) {
-        // Implementation kept in DashboardViewModel for now
-    }
-
-    func applyPerFolderTemplates(
-        folderSelection: OnboardingFolderSelection,
-        templateSelection: FolderTemplateSelection,
-        personality: OrganizationPersonality?,
-        context: ModelContext
-    ) {
-        // Implementation kept in DashboardViewModel for now
-    }
-
-    func completePersonalityQuiz(_ personality: OrganizationPersonality) {
-        filterViewModel.applyPersonalityPreferences()
+    func completeOnboarding() {
+        templateController.completeOnboarding(
+            permissionState: permissionState,
+            modelContext: modelContext
+        )
     }
 
     private func resetOrganizationProgress(with files: [FileItem]) {

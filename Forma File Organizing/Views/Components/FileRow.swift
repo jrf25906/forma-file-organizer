@@ -417,11 +417,15 @@ struct FileRow: View {
     }
 
     private var cardBackground: some View {
-        Group {
+        ZStack {
+            Color.formaCardBackground
+
+            if isHovered && !isSelected && !isFocused {
+                Color.formaListRowHoverOverlay
+            }
+
             if isSelected || isFocused {
-                Color.formaSteelBlue.opacity(0.12)
-            } else {
-                Color.formaCardBackground
+                Color.formaListRowSelectionOverlay
             }
         }
     }
@@ -429,11 +433,11 @@ struct FileRow: View {
     private var cardBorder: some View {
         RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
             .strokeBorder(
-                isFocused ? Color.formaSteelBlue.opacity(0.80) :
-                isSelected ? Color.formaSteelBlue.opacity(0.50) :
-                isHovered ? Color.formaSeparator.opacity(0.8) :
-                Color.formaSeparator.opacity(0.5),
-                lineWidth: isFocused ? 1.5 : (isSelected ? 1 : 0.5)
+                isFocused ? Color.formaListRowFocusedBorder :
+                isSelected ? Color.formaListRowSelectedBorder :
+                isHovered ? Color.formaListRowHoverBorder :
+                Color.formaListRowBorder,
+                lineWidth: isFocused ? 1.5 : (isSelected ? 1.0 : 0.75)
             )
     }
 

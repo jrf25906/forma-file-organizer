@@ -52,7 +52,6 @@ struct RulesManagementView: View {
     @State private var showManageCategories = false
     @State private var filterNeedsAccessOnly = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    @Namespace private var categoryTabNamespace
     private let destinationResolver = DestinationResolver()
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
     private let listRowSpacing: CGFloat = FormaSpacing.tight
@@ -316,84 +315,42 @@ struct RulesManagementView: View {
 
     private var categoryTabBar: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 0) {
-                // "All" tab
-                CategoryTab(
-                    title: "All",
-                    count: allRules.count,
-                    color: .formaSecondaryLabel,
-                    iconName: nil,
-                    isSelected: selectedCategoryID == nil,
-                    namespace: categoryTabNamespace,
-                    tabID: "all"
-                ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        selectedCategoryID = nil
-                    }
-                }
-
-                if !meaningfulCategories.isEmpty {
-                    categoryTabDivider
-                }
-
-                // Category tabs
-                ForEach(Array(meaningfulCategories.enumerated()), id: \.element.id) { index, category in
-                    CategoryTab(
-                        title: category.name,
-                        count: rulesInCategory(category),
-                        color: category.color,
-                        iconName: nil,
-                        isSelected: selectedCategoryID == category.id,
-                        namespace: categoryTabNamespace,
-                        tabID: category.id.uuidString
-                    ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedCategoryID = category.id
-                        }
-                    }
-
-                    if index < meaningfulCategories.count - 1 {
-                        categoryTabDivider
-                    }
+            let options: [UUID?] = [nil] + meaningfulCategories.map { $0.id }
+            Picker("Rule Category", selection: $selectedCategoryID) {
+                ForEach(options, id: \.self) { option in
+                    Text(categoryTabTitle(for: option))
+                        .tag(option as UUID?)
                 }
             }
-            .padding(3)
-            .background {
-                StocksStyleRulesCapsuleBackground(cornerRadius: 17)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 17, style: .continuous)
-                            .stroke(categoryTopRimColor, lineWidth: 0.6)
-                    )
-            }
-            .fixedSize(horizontal: true, vertical: false)
+            .labelsHidden()
+            .pickerStyle(.segmented)
 
             // Manage categories button
-            StocksStyleRulesIconButton(
-                icon: "slider.horizontal.3",
-                help: "Manage categories"
-            ) {
+            Button {
                 showManageCategories = true
+            } label: {
+                Image(systemName: "slider.horizontal.3")
             }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Manage categories")
         }
     }
 
-    private var categoryTabDivider: some View {
-        Rectangle()
-            .fill(categorySeparatorColor)
-            .frame(width: 1, height: 22)
-            .allowsHitTesting(false)
-    }
+    private func categoryTabTitle(for option: UUID?) -> String {
+        if option == nil {
+            return allRules.isEmpty ? "All" : "All \(allRules.count)"
+        }
 
-    private var categorySeparatorColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.20)
-    }
+        guard
+            let option,
+            let category = meaningfulCategories.first(where: { $0.id == option })
+        else {
+            return "Category"
+        }
 
-    private var categoryTopRimColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaBoneWhite.opacity(0.45)
+        let count = rulesInCategory(category)
+        return count > 0 ? "\(category.name) \(count)" : category.name
     }
 
     // MARK: - Access Warnings
@@ -712,343 +669,3 @@ private struct RuleDropDelegate: DropDelegate {
     }
 }
 
-// MARK: - Window-Drag Prevention
-
-/// An NSView subclass that returns `false` for `mouseDownCanMoveWindow`,
-/// preventing `isMovableByWindowBackground` from intercepting drag gestures
-/// on child SwiftUI views (e.g., rule cards that support onDrag reordering).
-private class NonDraggableNSView: NSView {
-    override var mouseDownCanMoveWindow: Bool { false }
-}
-
-/// Wraps a SwiftUI view in a layer that blocks window-background dragging,
-/// allowing system drag-and-drop (onDrag/onDrop) to work correctly.
-private struct WindowDragBlocker: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let view = NonDraggableNSView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }
-    func updateNSView(_ nsView: NSView, context: Context) {}
-}
-
-extension View {
-    /// Prevents `isMovableByWindowBackground` from capturing mouse events on this view.
-    fileprivate func blockWindowDrag() -> some View {
-        self.background(WindowDragBlocker())
-    }
-}
-
-// MARK: - Category Tab Component
-
-private struct CategoryTab: View {
-    let title: String
-    let count: Int
-    let color: Color
-    let iconName: String?
-    let isSelected: Bool
-    let namespace: Namespace.ID
-    let tabID: String
-    let action: () -> Void
-
-    @State private var isHovered = false
-    @Environment(\.colorScheme) private var colorScheme
-
-    private let selectedCornerRadius: CGFloat = 13
-    private let segmentHeight: CGFloat = 30
-    private let segmentPlateHorizontalInset: CGFloat = 4
-    private let segmentPlateVerticalInset: CGFloat = 1.5
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(activeFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(activeBorder, lineWidth: 0.9)
-                        )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(selectedHighlight)
-                                .frame(height: 8)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
-                        .shadow(color: selectedGlowColor, radius: 7, x: 0, y: 0)
-                        .shadow(color: selectedDropShadowColor, radius: 2.5, x: 0, y: 1)
-                        .matchedGeometryEffect(id: "categoryIndicator", in: namespace)
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                } else if isHovered {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(hoverFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(hoverBorder, lineWidth: 0.7)
-                        )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(hoverHighlight)
-                                .frame(height: 6)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                }
-
-                HStack(spacing: 6) {
-                    if let icon = iconName {
-                        Image(systemName: icon)
-                            .font(.system(size: 11, weight: isSelected ? .medium : .regular))
-                    }
-
-                    Text(title)
-                        .font(.system(size: 13, weight: isSelected ? .medium : .regular))
-                        .lineLimit(1)
-
-                    if count > 0 {
-                        Text("\(count)")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(isSelected ? color.opacity(0.9) : color.opacity(0.72))
-                    }
-                }
-                .padding(.horizontal, 12)
-                .frame(height: segmentHeight)
-                .foregroundColor(
-                    isSelected
-                        ? .formaLabel
-                        : (isHovered ? .formaLabel : unselectedTextColor)
-                )
-            }
-            .frame(height: segmentHeight)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("rulesCategoryTab_\(tabID)")
-        .onHover { hovering in
-            isHovered = hovering
-        }
-        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: isSelected)
-        .animation(.easeOut(duration: 0.16), value: isHovered)
-    }
-
-    private var unselectedTextColor: Color {
-        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
-    }
-
-    private var activeBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.13)
-    }
-
-    private var activeFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        Color.formaBoneWhite.opacity(0.18),
-                        Color.formaBoneWhite.opacity(0.06),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-        }
-
-        return AnyShapeStyle(
-            LinearGradient(
-                colors: [
-                    Color.formaBoneWhite.opacity(0.90),
-                    Color.formaBoneWhite.opacity(0.70),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-    }
-
-    private var selectedHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var selectedGlowColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.06)
-            : Color.formaSteelBlue.opacity(0.05)
-    }
-
-    private var selectedDropShadowColor: Color {
-        colorScheme == .dark
-            ? Color.black.opacity(0.24)
-            : Color.formaObsidian.opacity(0.08)
-    }
-
-    private var hoverFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.12))
-        }
-        return AnyShapeStyle(Color.formaObsidian.opacity(0.08))
-    }
-
-    private var hoverBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.18)
-            : Color.formaObsidian.opacity(0.10)
-    }
-
-    private var hoverHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-}
-
-private struct StocksStyleRulesIconButton: View {
-    let icon: String
-    let help: String
-    let action: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var isHovered = false
-
-    private let containerCornerRadius: CGFloat = 17
-    private let selectedCornerRadius: CGFloat = 13
-    private let segmentWidth: CGFloat = 40
-    private let segmentHeight: CGFloat = 30
-    private let segmentPlateHorizontalInset: CGFloat = 4
-    private let segmentPlateVerticalInset: CGFloat = 1.5
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                if isHovered {
-                    RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                        .fill(hoverFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .stroke(hoverBorder, lineWidth: 0.7)
-                        )
-                        .overlay(alignment: .top) {
-                            RoundedRectangle(cornerRadius: selectedCornerRadius, style: .continuous)
-                                .fill(hoverHighlight)
-                                .frame(height: 6)
-                                .padding(.horizontal, 4)
-                                .padding(.top, 2)
-                        }
-                        .padding(.vertical, segmentPlateVerticalInset)
-                        .padding(.horizontal, segmentPlateHorizontalInset)
-                }
-
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(isHovered ? .formaLabel : idleForeground)
-                    .frame(width: segmentWidth, height: segmentHeight)
-            }
-            .frame(width: segmentWidth, height: segmentHeight)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .padding(3)
-        .background {
-            StocksStyleRulesCapsuleBackground(cornerRadius: containerCornerRadius)
-                .overlay(
-                    RoundedRectangle(cornerRadius: containerCornerRadius, style: .continuous)
-                        .stroke(topRimColor, lineWidth: 0.6)
-                )
-        }
-        .help(help)
-        .animation(.easeOut(duration: 0.16), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
-        }
-    }
-
-    private var idleForeground: Color {
-        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
-    }
-
-    private var topRimColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.22)
-            : Color.formaBoneWhite.opacity(0.45)
-    }
-
-    private var hoverFill: AnyShapeStyle {
-        if colorScheme == .dark {
-            return AnyShapeStyle(Color.formaBoneWhite.opacity(0.12))
-        }
-        return AnyShapeStyle(Color.formaObsidian.opacity(0.08))
-    }
-
-    private var hoverBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.18)
-            : Color.formaObsidian.opacity(0.10)
-    }
-
-    private var hoverHighlight: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                Color.formaBoneWhite.opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-}
-
-private struct StocksStyleRulesCapsuleBackground: View {
-    let cornerRadius: CGFloat
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        ZStack {
-            VisualEffectView(material: .popover, blendingMode: .withinWindow)
-                .clipShape(shape)
-
-            shape.fill(baseFillColor)
-
-            LinearGradient(
-                colors: [
-                    Color.formaBoneWhite.opacity(colorScheme == .dark ? Color.FormaOpacity.medium : 0.55),
-                    Color.formaBoneWhite.opacity(colorScheme == .dark ? Color.FormaOpacity.subtle : 0.25),
-                    Color.formaBoneWhite.opacity(0),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .clipShape(shape)
-
-            shape.stroke(borderColor, lineWidth: 1)
-        }
-    }
-
-    private var borderColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(Color.FormaOpacity.medium)
-            : Color.formaObsidian.opacity(0.18)
-    }
-
-    private var baseFillColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(Color.FormaOpacity.subtle)
-            : Color.formaBoneWhite.opacity(0.72)
-    }
-}
