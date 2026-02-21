@@ -22,6 +22,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Clarified local-only AI messaging in-app and on the privacy page: smart features now explicitly state on-device processing with no third-party AI data sharing.
 - `forma-website` primary tagline changed from "Give your files form" to "A file organizer that actually sticks"; OG title and metadata now use "A file organizer for people who gave up on file organizers" positioning.
 - `forma-website` "Natural Language Rules" feature renamed to "Rules That Read Like Sentences" with description reframed around conditions and destinations instead of implying NLP/AI.
 - `forma-website` replaced developer-facing "Not another Electron wrapper" and "Native Swift app" copy with user-facing "Fast and lightweight — built natively for macOS 15+" and "Built natively for macOS".
@@ -105,6 +106,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
 
 ### Fixed
+- App Store review compliance: removed `ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER` from Xcode target build settings so release binaries no longer include `com.apple.security.files.downloads.read-write`; Downloads access continues through user-selected security-scoped bookmarks.
 - Scan persistence now reconciles stale `pending`/`ready`/`skipped` rows under scanned roots when files disappear between scans.
 - Treemap taps now navigate to the corresponding category view.
 - Automation-engine scans now push immediate UI refreshes to both the dashboard file list and menu bar review/count surfaces after scan persistence.

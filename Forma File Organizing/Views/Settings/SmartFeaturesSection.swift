@@ -37,7 +37,7 @@ struct SmartFeaturesSection: View {
                         .font(.formaH2)
                         .foregroundColor(.formaLabel)
 
-                    Text("Control how Forma learns from your organization habits and makes suggestions.")
+                    Text("Control how Forma learns from your organization habits and makes suggestions. All smart processing runs on-device.")
                         .font(.formaBody)
                         .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
                 }
@@ -48,7 +48,7 @@ struct SmartFeaturesSection: View {
                 SettingsSection("AI Features") {
                     SettingsRow(
                         "Enable AI Features",
-                        subtitle: "Master toggle for all smart features. Turn off to disable all AI-powered functionality."
+                        subtitle: "Master toggle for all smart features. All AI processing is on-device and no file data is sent to third-party AI services."
                     ) {
                         Toggle("", isOn: $masterAIEnabled)
                             .toggleStyle(.switch)

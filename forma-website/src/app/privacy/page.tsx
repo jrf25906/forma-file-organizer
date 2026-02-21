@@ -50,6 +50,16 @@ export default function PrivacyPolicyPage() {
 
             <section className="space-y-3">
               <h2 className="font-display text-xl text-[var(--text-primary)]">
+                Third-party AI services
+              </h2>
+              <p>
+                Forma does not send your file data to third-party AI services
+                for processing. Smart features run locally on your Mac.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="font-display text-xl text-[var(--text-primary)]">
                 Folder permissions and bookmarks
               </h2>
               <p>

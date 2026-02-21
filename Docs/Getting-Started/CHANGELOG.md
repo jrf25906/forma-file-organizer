@@ -103,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `Scripts/signpost_harness_snapshot.sh` to automate debug harness execution, `xctrace` export, and p50/p95/p99 summary generation for signpost performance snapshots.
 
 ### Changed
+- Clarified local-only AI messaging in-app and on the privacy page: smart features now explicitly state on-device processing with no third-party AI data sharing.
 - Consolidated marketing web code to `forma-website/` and removed legacy `website/` + `forma-marketing-site/` directories.
 - `forma-website` now uses normal in-flow footer layout (no fixed negative-z reveal), and web metadata/sitemap/robots now target `https://formafiles.com`.
 - `forma-website` metadata now includes expanded structured data (`SoftwareApplication`, `Organization`, `WebSite`, `FAQPage`) and keyword coverage for Mac file-organization intent.
@@ -150,6 +151,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
 
 ### Fixed
+- App Store review compliance: removed `ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER` from Xcode target build settings so release binaries no longer include `com.apple.security.files.downloads.read-write`; Downloads access continues through user-selected security-scoped bookmarks.
 - Treemap taps now navigate to the corresponding category view.
 - Reduced repeated rule-scan warnings for unresolvable placeholder destinations.
 - Current Task card organization percentage now updates in real time by using scan-session progress counts even when organized files are removed from the active list.
