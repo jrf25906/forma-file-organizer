@@ -33,9 +33,6 @@ enum CompressionLevel {
 struct UnifiedToolbar: View {
     let availableWidth: CGFloat
     @EnvironmentObject var viewModel: DashboardViewModel
-
-    // Local state for dropdown visibility
-    @State private var showGrouping: Bool = false
     
     // Calculate compression level based on available width
     private var compressionLevel: CompressionLevel {
@@ -44,44 +41,22 @@ struct UnifiedToolbar: View {
         else { return .compact }
     }
     
-    // Compression logic for grouping row buttons
-    private var shouldCompressGrouping: Bool {
-        // Compress when space is tight and grouping row is visible
-        return viewModel.reviewFilterMode == .all && availableWidth < 650
-    }
-
     private var primaryRowHeight: CGFloat { 30 }
 
     var body: some View {
-        // Use a fixed-height container that NEVER changes size between modes
-        // This ensures content below starts at the exact same Y position
-        VStack(spacing: 0) {
-            // Main toolbar row - fixed height
-            HStack(spacing: 12) {
-                leftPill
+        HStack(spacing: 12) {
+            leftPill
 
-                Spacer(minLength: 0)
+            Spacer(minLength: compressionLevel.spacing)
 
-                modeControls
+            modeControls
 
-                trailingControls
-            }
-            .frame(height: primaryRowHeight)
-            .frame(maxWidth: .infinity)
-            .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
-
-            // Secondary row - only shows grouping options when expanded
-            if showGrouping {
-                HStack {
-                    Spacer()
-                    groupingOptionsRow
-                }
-                .frame(height: FormaLayout.Toolbar.secondaryRowHeight)
-                .frame(maxWidth: .infinity)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
+            trailingControls
         }
+        .frame(height: primaryRowHeight)
         .frame(maxWidth: .infinity)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.reviewFilterMode)
     }
 
     private var isInspectorDisabled: Bool {
@@ -156,21 +131,30 @@ struct UnifiedToolbar: View {
         HStack(spacing: compressionLevel.spacing) {
             Picker("Review Filter", selection: $viewModel.reviewFilterMode) {
                 Text(pendingSegmentTitle)
+                    .accessibilityIdentifier("reviewMode_needsReview")
                     .tag(ReviewFilterMode.needsReview)
                 Text("All Files")
+                    .accessibilityIdentifier("reviewMode_allFiles")
                     .tag(ReviewFilterMode.all)
             }
             .labelsHidden()
             .pickerStyle(.segmented)
             .frame(width: compressionLevel == .compact ? 190 : 230)
+            .accessibilityIdentifier("toolbarReviewModePicker")
         }
     }
 
     private var modeControls: some View {
         HStack(spacing: compressionLevel.spacing) {
             sortDropdown
+
+            if viewModel.reviewFilterMode == .all {
+                groupingDropdown
+            }
+
             rightPill
         }
+        .animation(.easeInOut(duration: 0.2), value: viewModel.reviewFilterMode)
     }
 
     private var sortDropdown: some View {
@@ -189,123 +173,65 @@ struct UnifiedToolbar: View {
         .accessibilityLabel("Sort files by \(viewModel.sortMode.rawValue)")
     }
 
+    private var groupingDropdown: some View {
+        Picker("Grouping", selection: $viewModel.groupingMode) {
+            Label("None", systemImage: "square.grid.2x2")
+                .tag(FileGroupingService.GroupingMode.none)
+            Label("Date", systemImage: "clock")
+                .tag(FileGroupingService.GroupingMode.date)
+            Label("Patterns", systemImage: "flag")
+                .tag(FileGroupingService.GroupingMode.patterns)
+            Label("Smart", systemImage: "sparkles")
+                .tag(FileGroupingService.GroupingMode.combined)
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .controlSize(.small)
+        .frame(minWidth: compressionLevel == .compact ? 42 : 130, alignment: .leading)
+        .help("Group files")
+        .accessibilityIdentifier("toolbarGroupingMenu")
+        .accessibilityLabel("Group files by \(groupingModeTitle(viewModel.groupingMode))")
+    }
+
     private var rightPill: some View {
         HStack(spacing: compressionLevel.spacing) {
             Picker("View Mode", selection: $viewModel.currentViewMode) {
                 Image(systemName: "square.grid.2x2")
+                    .accessibilityLabel("Grid view")
+                    .accessibilityIdentifier("viewMode_grid")
                     .tag(ViewMode.grid)
                 Image(systemName: "list.bullet")
+                    .accessibilityLabel("List view")
+                    .accessibilityIdentifier("viewMode_list")
                     .tag(ViewMode.list)
                 Image(systemName: "rectangle.grid.1x2")
+                    .accessibilityLabel("Card view")
+                    .accessibilityIdentifier("viewMode_card")
                     .tag(ViewMode.card)
             }
             .labelsHidden()
             .pickerStyle(.segmented)
             .frame(width: 110)
-
-            // Grouping section - only show in All Files mode
-            if viewModel.reviewFilterMode == .all {
-                // Grouping Toggle - icon-only, opens options row below
-                Toggle(isOn: $showGrouping) {
-                    Image(systemName: "square.stack.3d.up")
-                }
-                .toggleStyle(.button)
-                .controlSize(.small)
-                .help("Group files")
-                .transition(.opacity.combined(with: .scale(scale: 0.9)))
-            }
         }
-        .animation(.easeInOut(duration: 0.2), value: viewModel.reviewFilterMode)
-    }
-
-    // MARK: - Grouping Options Row (Right-aligned second row)
-    private var groupingOptionsRow: some View {
-        Picker("Grouping", selection: $viewModel.groupingMode) {
-            groupingOptionLabel("None", icon: "square.grid.2x2", compressed: shouldCompressGrouping)
-                .tag(FileGroupingService.GroupingMode.none)
-            groupingOptionLabel("Date", icon: "clock", compressed: shouldCompressGrouping)
-                .tag(FileGroupingService.GroupingMode.date)
-            groupingOptionLabel("Patterns", icon: "flag", compressed: shouldCompressGrouping)
-                .tag(FileGroupingService.GroupingMode.patterns)
-            groupingOptionLabel("Smart", icon: "sparkles", compressed: shouldCompressGrouping)
-                .tag(FileGroupingService.GroupingMode.combined)
-        }
-        .labelsHidden()
-        .pickerStyle(.segmented)
-        .controlSize(.small)
-        .frame(width: shouldCompressGrouping ? 200 : 290)
-    }
-
-    @ViewBuilder
-    private func groupingOptionLabel(_ title: String, icon: String, compressed: Bool) -> some View {
-        if compressed {
-            Image(systemName: icon)
-        } else {
-            Label(title, systemImage: icon)
-        }
+        .accessibilityIdentifier("toolbarViewModePicker")
     }
 
     private var pendingSegmentTitle: String {
         guard viewModel.needsReviewCount > 0 else { return "Pending" }
         return "Pending \(viewModel.needsReviewCount > 99 ? "99+" : "\(viewModel.needsReviewCount)")"
     }
-}
 
-
-
-private struct ToolbarGlassyCapsuleBackground: View {
-    let tint: Color?
-    let cornerRadius: CGFloat
-    @Environment(\.colorScheme) private var colorScheme
-
-    init(tint: Color?, cornerRadius: CGFloat) {
-        self.tint = tint
-        self.cornerRadius = cornerRadius
-    }
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        if #available(macOS 26.0, *) {
-            shape
-                .glassEffect(tint == nil ? .regular : .regular.tint(tint!.opacity(Color.FormaOpacity.overlay)))
-                .overlay(shape.stroke(borderColor, lineWidth: 1))
-        } else {
-            ZStack {
-                VisualEffectView(material: .popover, blendingMode: .withinWindow)
-                    .clipShape(shape)
-
-                if let tint {
-                    shape.fill(tint.opacity(colorScheme == .dark ? 0.26 : 0.32))
-                } else {
-                    shape.fill(baseFillColor)
-                }
-
-                LinearGradient(
-                    colors: [
-                        Color.formaBoneWhite.opacity(colorScheme == .dark ? Color.FormaOpacity.medium : 0.55),
-                        Color.formaBoneWhite.opacity(colorScheme == .dark ? Color.FormaOpacity.subtle : 0.25),
-                        Color.formaBoneWhite.opacity(0),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .clipShape(shape)
-
-                shape.stroke(borderColor, lineWidth: 1)
-            }
+    private func groupingModeTitle(_ mode: FileGroupingService.GroupingMode) -> String {
+        switch mode {
+        case .none:
+            return "None"
+        case .date:
+            return "Date"
+        case .patterns:
+            return "Patterns"
+        case .combined:
+            return "Smart"
         }
-    }
-
-    private var borderColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(Color.FormaOpacity.medium)
-            : Color.formaObsidian.opacity(0.18)
-    }
-
-    private var baseFillColor: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(Color.FormaOpacity.subtle)
-            : Color.formaBoneWhite.opacity(0.72)
     }
 }
 

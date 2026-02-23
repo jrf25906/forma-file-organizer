@@ -83,6 +83,9 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] Align category tabs and productivity period controls to the same control-shell state model for center/inspector cohesion.
 - [x] Harden full-bleed pane material fallback so debug glass flags cannot reintroduce oversized contour artifacts.
 
+### Toolbar HIG Polish (February 21, 2026)
+- [x] Simplify the center-pane toolbar to a single-row command strip by moving grouping controls into a menu and removing the expanding secondary row.
+
 ### Phase 1: Safety Fixes (zero behavioral change, prevents crashes)
 - [x] 1. MenuBarViewModel.swift:185 — replace `self!` in [weak self] closure with `guard let self else { return }` (fallback: early return).
 - [x] 2. ContextDetectionService.swift:336 — guard `dates.max()`/`dates.min()`; if empty, skip cluster.

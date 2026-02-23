@@ -159,6 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dashboard window chrome now uses native `NavigationSplitView` columns (sidebar/content/inspector) instead of floating overlay panes.
 - Restored layered vibrancy in the native split-view shell via pane-specific materials and a gradient-backed window surface.
 - Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
+- Center-pane toolbar now stays single-row: grouping moved into a menu in the primary strip, the expanding second row was removed, and review/view controls now expose stable accessibility identifiers.
 
 ### Fixed
 - App Store review compliance: removed `ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER` from Xcode target build settings so release binaries no longer include `com.apple.security.files.downloads.read-write`; Downloads access continues through user-selected security-scoped bookmarks.

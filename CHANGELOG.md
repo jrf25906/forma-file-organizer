@@ -118,6 +118,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` feature/pricing/FAQ/newsletter reveal animations now force visible state when a section is already past its trigger (deep links and long screenshots), preventing hidden-content gaps.
 - File selection checkboxes now keep a stable position and larger click target across card/list/grid views for more reliable selection.
 - Toolbar controls now use explicit sizing to avoid ambiguous AppKit toolbar layout warnings.
+- Center-pane toolbar now stays single-row: grouping moved into a menu in the primary strip, the expanding second row was removed, and review/view controls now expose stable accessibility identifiers.
 - Scroll views now reserve deterministic bottom space for the floating action bar to prevent content overlap in all view modes.
 - Shift-click range selection now works consistently across card/list/grid file views by using a shared selection anchor.
 - Removed oversized translucent "lens" artifacts from split-view panes by avoiding full-bleed `glassEffect` and using pane-safe native material fallback while retaining layered vibrancy.
