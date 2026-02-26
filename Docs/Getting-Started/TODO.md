@@ -43,6 +43,7 @@
 - [x] Launch in-repo MDX blog with initial keyword-targeted guides (`/blog`, `/blog/[slug]`).
 - [x] Add machine-readable AI routes (`/llms.txt`, `/for-agents`, `/openapi.json`, `/api/public/*`).
 - [x] Document MCP-readiness constraints and planned future tool contracts (`Docs/Marketing/MCP-READINESS.md`).
+- [x] Wire the live Mac App Store listing (`id6759181510`) as the default website CTA target so "Download for Mac" no longer depends on placeholder env values.
 
 ---
 

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-
-const PLACEHOLDER_MAC_APP_STORE_URL = "https://apps.apple.com/app/forma/id0000000000";
+import { MAC_APP_STORE_URL } from "@/lib/links";
 
 export const metadata: Metadata = {
   title: "Get Forma",
@@ -13,12 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default function GetFormaPage() {
-  const configuredMacAppStoreUrl = process.env.NEXT_PUBLIC_MAC_APP_STORE_URL?.trim();
-  const liveMacAppStoreUrl =
-    configuredMacAppStoreUrl &&
-    configuredMacAppStoreUrl !== PLACEHOLDER_MAC_APP_STORE_URL
-      ? configuredMacAppStoreUrl
-      : null;
+  const liveMacAppStoreUrl = MAC_APP_STORE_URL;
 
   return (
     <main id="main-content" className="relative overflow-hidden py-24">
@@ -37,23 +31,14 @@ export default function GetFormaPage() {
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            {liveMacAppStoreUrl ? (
-              <a
-                href={liveMacAppStoreUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center rounded-xl bg-[var(--cta-bg)] px-6 py-3 text-sm font-semibold text-[var(--cta-text)] transition-all hover:bg-[var(--cta-bg-hover)]"
-              >
-                Open in Mac App Store
-              </a>
-            ) : (
-              <Link
-                href="/#newsletter"
-                className="inline-flex items-center justify-center rounded-xl bg-[var(--cta-bg)] px-6 py-3 text-sm font-semibold text-[var(--cta-text)] transition-all hover:bg-[var(--cta-bg-hover)]"
-              >
-                Join Launch Updates
-              </Link>
-            )}
+            <a
+              href={liveMacAppStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center rounded-xl bg-[var(--cta-bg)] px-6 py-3 text-sm font-semibold text-[var(--cta-text)] transition-all hover:bg-[var(--cta-bg-hover)]"
+            >
+              Open in Mac App Store
+            </a>
 
             <Link
               href="/support"

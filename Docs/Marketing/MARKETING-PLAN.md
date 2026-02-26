@@ -202,6 +202,7 @@ This is identified as the **single highest-impact gap** across the entire market
 
 ### Pre-Launch (Now → Feb 16)
 
+- [x] Capture live App Store listing URL (`id6759181510`) and wire website default CTA target.
 - [ ] Set production `NEXT_PUBLIC_MAC_APP_STORE_URL`
 - [ ] Collect 3-5 beta tester testimonials
 - [ ] Add testimonials to website and App Store description

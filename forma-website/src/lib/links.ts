@@ -1,5 +1,6 @@
 const PLACEHOLDER_MAC_APP_STORE_URL = "https://apps.apple.com/app/forma/id0000000000";
-const DOWNLOAD_FALLBACK_PATH = "/get-forma";
+export const DEFAULT_MAC_APP_STORE_URL =
+  "https://apps.apple.com/app/forma-file-organizer/id6759181510";
 
 export type AppStoreLinkLocation =
   | "header_mobile"
@@ -10,16 +11,18 @@ export type AppStoreLinkLocation =
   | "blog_inline";
 
 const configuredMacAppStoreUrl = process.env.NEXT_PUBLIC_MAC_APP_STORE_URL?.trim();
+const hasConfiguredMacAppStoreUrl =
+  Boolean(configuredMacAppStoreUrl) &&
+  configuredMacAppStoreUrl !== PLACEHOLDER_MAC_APP_STORE_URL;
 
 const resolvedMacAppStoreUrl =
-  configuredMacAppStoreUrl &&
-  configuredMacAppStoreUrl !== PLACEHOLDER_MAC_APP_STORE_URL
+  hasConfiguredMacAppStoreUrl && configuredMacAppStoreUrl
     ? configuredMacAppStoreUrl
-    : DOWNLOAD_FALLBACK_PATH;
+    : DEFAULT_MAC_APP_STORE_URL;
 
-if (resolvedMacAppStoreUrl === DOWNLOAD_FALLBACK_PATH) {
-  console.warn(
-    "[Forma] NEXT_PUBLIC_MAC_APP_STORE_URL is not configured. CTA buttons will link to /get-forma."
+if (!hasConfiguredMacAppStoreUrl) {
+  console.info(
+    `[Forma] NEXT_PUBLIC_MAC_APP_STORE_URL is not configured. Using default listing URL: ${DEFAULT_MAC_APP_STORE_URL}`
   );
 }
 

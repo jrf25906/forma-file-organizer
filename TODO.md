@@ -42,6 +42,7 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 - [x] Add machine-readable AI routes (`/llms.txt`, `/for-agents`, `/openapi.json`, `/api/public/*`).
 - [x] Document MCP-readiness constraints and planned future tool contracts (`Docs/Marketing/MCP-READINESS.md`).
 - [x] Complete marketing-site accessibility hardening pass: raise low-contrast text tokens, improve floating header pill visibility on scroll, and ensure Forma favicon branding replaces default tab icon.
+- [x] Wire the live Mac App Store listing (`id6759181510`) as the default website CTA target so "Download for Mac" no longer depends on placeholder env values.
 
 ### Performance Optimization Sprint (February 5, 2026)
 - [x] Move content search scanning off the main actor and keep UI lookup O(1) by path.
