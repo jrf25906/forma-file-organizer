@@ -7,7 +7,7 @@ Use this file as the canonical “pre-launch” TODO since the Codex plan panel 
 
 ## Launch Day Follow-Up (Thursday, February 26, 2026)
 - [x] Replace placeholder App Store URL in website code (default CTA now uses `https://apps.apple.com/app/forma-file-organizer/id6759181510`).
-- [ ] Set production `NEXT_PUBLIC_MAC_APP_STORE_URL` in Vercel project environment.
+- [x] Set production `NEXT_PUBLIC_MAC_APP_STORE_URL` in Vercel project environment.
 - [x] Deploy updated website to production (`formafiles.com`).
 - [ ] Click **Release** in App Store Connect for the approved version.
 - [ ] Confirm Plausible is receiving events in real time for `formafiles.com`.
@@ -15,13 +15,13 @@ Use this file as the canonical “pre-launch” TODO since the Codex plan panel 
 ---
 
 ## Today Focus (Saturday, February 14, 2026)
-- [ ] **Step 1: App Store submission path + production App Store URL**
+- [x] **Step 1: App Store submission path + production App Store URL**
   - [x] Confirm local app metadata in Xcode project: bundle ID `jamesfarmer.Forma-File-Organizing`, version/build `1.0 (1)`.
   - [x] Create/verify App Store Connect app record for bundle ID `jamesfarmer.Forma-File-Organizing` (macOS).
   - [x] Upload build `1.0 (1)` from Xcode Archive/Organizer.
   - [x] Complete required metadata and submit version for App Review.
   - [x] Capture the live App Store listing URL/ID (`id6759181510`).
-  - [ ] Set production `NEXT_PUBLIC_MAC_APP_STORE_URL`.
+  - [x] Set production `NEXT_PUBLIC_MAC_APP_STORE_URL`.
 - [ ] **Step 2: Finalize App Store metadata**
   - [ ] Finalize app name/subtitle/description/keywords/promo text/what’s new in App Store Connect.
   - [ ] Confirm all public URLs used in metadata are final (`/`, `/support`, `/privacy`, `/terms`).

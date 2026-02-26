@@ -203,7 +203,7 @@ This is identified as the **single highest-impact gap** across the entire market
 ### Pre-Launch (Now → Feb 16)
 
 - [x] Capture live App Store listing URL (`id6759181510`) and wire website default CTA target.
-- [ ] Set production `NEXT_PUBLIC_MAC_APP_STORE_URL`
+- [x] Set production `NEXT_PUBLIC_MAC_APP_STORE_URL`
 - [ ] Collect 3-5 beta tester testimonials
 - [ ] Add testimonials to website and App Store description
 - [ ] Enable website scroll animations
@@ -581,7 +581,7 @@ Current website and marketing positioning uses a one-time $29 purchase model. Ke
 ### Immediate Actions (This Week)
 
 - [ ] Collect beta tester testimonials (3-5 quotes)
-- [ ] Verify production `NEXT_PUBLIC_MAC_APP_STORE_URL` is configured
+- [x] Verify production `NEXT_PUBLIC_MAC_APP_STORE_URL` is configured
 - [ ] Define pricing experiment hypotheses (if any)
 - [ ] Start Twitter/X "build in public" posts
 - [ ] Set up Product Hunt page
