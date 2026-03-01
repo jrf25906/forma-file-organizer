@@ -1,0 +1,10 @@
+# fastlane reports and temp files
+report.xml
+Preview.html
+screenshots/en-US/*.png
+test_output/
+readme.md
+
+# Sensitive credentials — never commit
+AuthKey_*.p8
+api_key.json

@@ -1,0 +1,24 @@
+# Deliver configuration for Forma
+# https://docs.fastlane.tools/actions/deliver/
+
+# Skip binary upload — we only use deliver for screenshots and metadata
+skip_binary_upload true
+
+# Skip metadata for now (can enable later when metadata/ is populated)
+skip_metadata true
+
+# Overwrite existing screenshots on App Store Connect
+overwrite_screenshots true
+
+# Screenshot path
+screenshots_path "./fastlane/screenshots"
+
+# Precheck — skip for screenshot-only uploads
+precheck_include_in_app_purchases false
+
+# Platform: macOS
+platform "osx"
+
+# Don't submit for review automatically
+submit_for_review false
+

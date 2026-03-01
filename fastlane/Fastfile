@@ -1,0 +1,57 @@
+# Fastfile for Forma
+# https://docs.fastlane.tools
+
+default_platform :mac
+
+platform :mac do
+
+  desc "Upload App Store screenshots to App Store Connect"
+  lane :screenshots do
+    api_key = app_store_connect_api_key(
+      key_id: "4J8Z9P5MXR",
+      issuer_id: "390e7f40-5c69-49f0-a630-b7f38128cd05",
+      key_filepath: "./fastlane/AuthKey_4J8Z9P5MXR.p8"
+    )
+
+    # Prepare screenshots from source directory
+    sh("bash", "../Scripts/prepare_fastlane_screenshots.sh")
+
+    # Upload to App Store Connect
+    deliver(
+      api_key: api_key,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      overwrite_screenshots: true,
+      screenshots_path: "./fastlane/screenshots",
+      platform: "osx",
+      submit_for_review: false,
+      force: true,
+      edit_live: true
+    )
+  end
+
+  desc "Validate screenshot configuration without uploading"
+  lane :validate_screenshots do
+    api_key = app_store_connect_api_key(
+      key_id: "4J8Z9P5MXR",
+      issuer_id: "390e7f40-5c69-49f0-a630-b7f38128cd05",
+      key_filepath: "./fastlane/AuthKey_4J8Z9P5MXR.p8"
+    )
+
+    # Prepare screenshots from source directory
+    sh("bash", "../Scripts/prepare_fastlane_screenshots.sh")
+
+    # Validate only — does not upload
+    deliver(
+      api_key: api_key,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      overwrite_screenshots: true,
+      screenshots_path: "./fastlane/screenshots",
+      platform: "osx",
+      submit_for_review: false,
+      validate_only: true
+    )
+  end
+
+end

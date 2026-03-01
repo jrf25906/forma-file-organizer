@@ -15,10 +15,11 @@
   display: flex;
   flex-direction: row;
   width: 100%;
-  height: 764px;
+  height: auto;
+  min-height: 640px;
   max-width: 100%;
-  padding: 80px 80px 40px;
-  align-items: center;
+  padding: 44px 80px 32px;
+  align-items: flex-start;
   justify-content: flex-start;
   overflow: clip;
 }
@@ -29,7 +30,7 @@
   justify-content: center;
   width: 520px;
   flex-shrink: 0;
-  padding: 120px 60px 120px 80px;
+  padding: 44px 60px 64px 80px;
   gap: 0;
 }
 
@@ -445,12 +446,14 @@
   display: flex;
   width: 100%;
   gap: 24px;
+  align-items: stretch;
 }
 
 .miniCard {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-width: 0;
   border-radius: 14px;
   padding: 32px;
   overflow: clip;
@@ -480,18 +483,10 @@
 .previewFiles {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
   margin-top: 20px;
   gap: 6px;
-}
-
-.groupFiles {
-  width: 564px;
-  max-width: 100%;
-}
-
-.previewFiles {
-  width: 564px;
-  max-width: 100%;
 }
 
 .groupChip {
@@ -512,6 +507,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
   border-radius: 6px;
   padding: 10px 12px;
   background: #fff;
@@ -520,6 +517,11 @@
 
 .previewName {
   display: inline-block;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: #1c1c1e;
   font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
@@ -529,6 +531,12 @@
 
 .previewDest {
   display: inline-block;
+  flex-shrink: 0;
+  max-width: 46%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
   color: #5f7362;
   font-family: Inter, system-ui, sans-serif;
   font-size: 11px;

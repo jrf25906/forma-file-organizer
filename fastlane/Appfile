@@ -1,0 +1,9 @@
+# App identifier (Bundle ID)
+app_identifier "jamesfarmer.Forma-File-Organizing"
+
+# Your Apple Developer account email
+apple_id "james.farmer276@gmail.com"
+
+# App Store Connect Team (if you belong to multiple teams)
+# team_name "Your Team Name"
+# itc_team_id "123456"
