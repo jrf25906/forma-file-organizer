@@ -141,7 +141,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               {formatDate(post.publishedAt)} · Updated {formatDate(post.updatedAt)}{" "}
               · {post.readingTimeMinutes} min read
             </p>
-            <h1 className="mt-3 font-display text-4xl leading-tight text-[var(--text-primary)] md:text-5xl">
+            <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-[-0.02em] text-[var(--text-primary)] md:text-5xl">
               {post.title}
             </h1>
             <p className="mt-4 text-base leading-relaxed text-[var(--text-secondary)]">
@@ -156,11 +156,11 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         </article>
 
         <section className="mt-12 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
-          <h2 className="font-display text-2xl text-[var(--text-primary)]">
-            Want to automate this workflow?
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+            Apply this workflow with Forma
           </h2>
           <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-            Apply rules with preview-first control and keep full undo history.
+            Set rules in plain language, preview every change, and undo anytime.
           </p>
           <div className="mt-5">
             <TrackedAppStoreLink
@@ -180,7 +180,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
         {relatedPosts.length > 0 ? (
           <section className="mt-10">
-            <h2 className="font-display text-2xl text-[var(--text-primary)]">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
               Related guides
             </h2>
             <ul className="mt-4 space-y-3">
@@ -201,4 +201,3 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     </main>
   );
 }
-

@@ -1,24 +1,15 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { DM_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import clsx from "clsx";
 import { Header } from "@/components/Header";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import AtmosphereShader from "@/components/effects/AtmosphereShader";
 import { SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
-const instrumentSerif = Instrument_Serif({
+const inter = Inter({
   subsets: ["latin"],
-  weight: "400",
-  variable: "--font-instrument-serif",
-  display: "swap",
-  adjustFontFallback: true,
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-dm-sans",
+  variable: "--font-inter",
   display: "swap",
   adjustFontFallback: true,
 });
@@ -46,7 +37,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    "A file organizer for people who gave up on file organizers. Make rules, preview moves, approve changes, undo anything. $29 once, forever. macOS native.",
+    "A file organizer for people who gave up on file organizers. Create rules in plain language, preview every move, and undo anytime. $29 once. Native macOS app.",
   keywords: [
     "organize mac files",
     "organize downloads folder mac",
@@ -62,7 +53,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: `${SITE_NAME} — A file organizer for people who gave up on file organizers`,
     description:
-      "Make rules. Preview moves. Approve changes. Undo anything. $29 once, forever. macOS native.",
+      "Create rules in plain language, preview every move, and undo anytime. $29 once. Native macOS app.",
     url: SITE_URL,
     siteName: SITE_NAME,
     locale: "en_US",
@@ -79,7 +70,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: SITE_NAME,
-    description: "A file organizer for people who gave up on file organizers.",
+    description:
+      "Create rules in plain language, preview every move, and undo anytime.",
   },
   robots: {
     index: true,
@@ -110,15 +102,14 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var m=window.matchMedia('(prefers-color-scheme:light)');d.setAttribute('data-theme',m.matches?'light':'dark')}catch(e){}})()`,
+            __html: `(function(){try{document.documentElement.setAttribute('data-theme','light')}catch(e){}})()`,
           }}
         />
       </head>
       <body
         className={clsx(
           "min-h-screen antialiased overflow-x-hidden font-body",
-          instrumentSerif.variable,
-          dmSans.variable,
+          inter.variable,
           jetbrainsMono.variable
         )}
       >
@@ -139,8 +130,7 @@ export default function RootLayout({
           </>
         ) : null}
 
-        <ThemeProvider defaultTheme="system">
-          <AtmosphereShader />
+        <ThemeProvider defaultTheme="light">
           <a
             href="#main-content"
             className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-forma-obsidian focus:text-forma-bone focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-forma-steel-blue"

@@ -2,6 +2,12 @@
 
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
+## Website Direction Pass (March 1, 2026)
+- [x] Ship the approved `C — Honest Utility` design to `forma-website` homepage, including high-fidelity Mac hero shell, simplified section flow, and standardized 3x3 Forma lockups in nav/footer.
+- [x] Align remaining website routes (`/blog`, `/blog/[slug]`, `/support`, `/privacy`, `/terms`, `/get-forma`, `/for-agents`) to the same typography and surface system used by the updated homepage.
+- [x] Complete a final copy polish pass so headings and body text share one cohesive Forma voice across all marketing routes.
+- [x] Run final multi-breakpoint QA (accessibility + layout/spacing), then fix remaining homepage contrast and `/for-agents` small-screen keyboard/scroll usability issues.
+
 ## Tomorrow Focus (Thursday, February 12, 2026)
 - [x] Implement recursive scanning across dashboard/manual, automation, menu bar, and review flows with bounded depth/file caps and root-relative path context in card/list/grid UI.
 - [x] Add accessibility identifiers for selection/focus/row status in `Views/FileRow.swift`, `Views/FileListRow.swift`, `Views/FileGridItem.swift`, and `Views/MainContentView.swift`.

@@ -43,6 +43,11 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` now includes a subtle theme-aware WebGL atmosphere shader overlay (grain + soft light drift + vignette) to add depth without heavy motion.
 - `forma-website` header/footer branding now swaps to the inverse logo asset in dark mode for clearer contrast.
 - `forma-website` header navigation now uses a compact pill state on scroll, and hash-based nav/brand links consistently resolve back to home sections from non-home pages.
+- `forma-website` homepage now ships the approved "C — Honest Utility" direction end-to-end, including the high-fidelity Mac hero shell, simplified feature narrative, before/after transformation block, one-time pricing strip, and standardized 3x3 Forma lockup usage in nav/footer.
+- `forma-website` route-level pages now share the same typography/surface language as the updated homepage, including Inter-led heading hierarchy, consistent neutral card treatments, and aligned spacing on blog/support/legal/get-forma/agent docs pages.
+- `forma-website` marketing-route copy was polished for a single plainspoken brand voice, aligning headlines/body language across homepage, blog templates, support, legal, get-forma, and agent docs pages.
+- `forma-website` final QA pass improved accessibility and usability by fixing homepage micro-label contrast, making the `/for-agents` endpoint table keyboard-focusable on small screens, and adding explicit horizontal-scroll guidance for narrow viewports.
+- `forma-website` legal pages received a stricter wording polish with clearer data-sharing boundaries in Privacy and added acceptable-use/liability/terms-update clauses in Terms.
 - `forma-website` accessibility polish pass strengthened light/dark contrast tokens, increased small-label readability, and boosted scrolled-header pill separation so the floating state remains visible while scrolling.
 - `forma-website` favicon metadata now prefers explicit Forma icon assets with cache-busted URLs to prevent stale default tab icons.
 - Documentation navigation was cleaned up by archiving superseded audits/plans/refactor summaries under `Docs/Archive` and updating internal cross-links.

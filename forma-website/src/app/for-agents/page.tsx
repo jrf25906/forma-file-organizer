@@ -3,9 +3,9 @@ import Link from "next/link";
 import { PUBLIC_API_VERSION, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "For Agents",
+  title: "For Agents & Integrations",
   description:
-    "Machine-readable endpoints and usage guidance for AI agents and integrations.",
+    "Public machine-readable endpoints and usage guidance for AI agents and integrations.",
   alternates: {
     canonical: `${SITE_URL}/for-agents`,
   },
@@ -19,32 +19,32 @@ const endpoints = [
   {
     path: "/llms.txt",
     method: "GET",
-    description: "High-level index of canonical resources for language agents.",
+    description: "Index of canonical resources for language models and agents.",
   },
   {
     path: "/api/public/product",
     method: "GET",
-    description: "Current product summary and purchase URL.",
+    description: "Current product summary, pricing, and download link.",
   },
   {
     path: "/api/public/faq",
     method: "GET",
-    description: "FAQ collection with stable IDs and timestamps.",
+    description: "FAQ collection with stable IDs and update timestamps.",
   },
   {
     path: "/api/public/faq/{id}",
     method: "GET",
-    description: "Single FAQ item lookup by ID.",
+    description: "Fetch one FAQ item by ID.",
   },
   {
     path: "/openapi.json",
     method: "GET",
-    description: "OpenAPI schema for public machine-readable endpoints.",
+    description: "OpenAPI schema for public endpoints.",
   },
   {
     path: "/api/newsletter",
     method: "POST",
-    description: "Newsletter signup contract documented in OpenAPI.",
+    description: "Newsletter signup endpoint documented in OpenAPI.",
   },
 ];
 
@@ -54,22 +54,30 @@ export default function ForAgentsPage() {
       <div className="site-container mx-auto max-w-4xl">
         <header className="mb-10 border-b border-[var(--border-subtle)] pb-8">
           <p className="mb-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            AI + Integration Docs
+            For agents and integrations
           </p>
-          <h1 className="font-display text-4xl text-[var(--text-primary)] md:text-5xl">
-            Forma Machine-Readable Surface
+          <h1 className="text-4xl font-semibold tracking-[-0.02em] text-[var(--text-primary)] md:text-5xl">
+            Public machine-readable endpoints
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-relaxed text-[var(--text-secondary)]">
-            This page documents stable public endpoints for crawlers, agents,
-            and automation systems. Current API version: {PUBLIC_API_VERSION}.
+            Stable public endpoints for crawlers, agents, and automation
+            systems. Current API version: {PUBLIC_API_VERSION}.
           </p>
         </header>
 
         <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6">
-          <h2 className="font-display text-2xl text-[var(--text-primary)]">
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
             Endpoint catalog
           </h2>
-          <div className="mt-4 overflow-x-auto">
+          <p className="mt-3 text-xs text-[var(--text-muted)] md:hidden">
+            Scroll horizontally to view all columns.
+          </p>
+          <div
+            className="mt-4 overflow-x-auto rounded-lg"
+            role="region"
+            aria-label="Endpoint catalog table"
+            tabIndex={0}
+          >
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)]">
@@ -100,23 +108,23 @@ export default function ForAgentsPage() {
         </section>
 
         <section className="mt-8 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6">
-          <h2 className="font-display text-2xl text-[var(--text-primary)]">
-            Usage and safety
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+            How to use these endpoints
           </h2>
           <ul className="mt-4 list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-[var(--text-secondary)]">
             <li>Respect robots directives and page metadata.</li>
-            <li>Use legal pages as canonical policy sources.</li>
-            <li>Do not assume access beyond public marketing endpoints.</li>
+            <li>Use legal pages as the canonical policy source.</li>
+            <li>Assume access to public marketing endpoints only.</li>
             <li>
-              Avoid sending sensitive user data through third-party systems
+              Do not send sensitive user data through third-party systems
               without explicit user consent.
             </li>
           </ul>
         </section>
 
         <section className="mt-8 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6">
-          <h2 className="font-display text-2xl text-[var(--text-primary)]">
-            Canonical links
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+            Canonical resources
           </h2>
           <ul className="mt-4 space-y-2 text-sm">
             <li>

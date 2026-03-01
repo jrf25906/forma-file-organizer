@@ -7,14 +7,14 @@ import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 export const metadata: Metadata = {
   title: "Blog",
   description:
-    "Guides for organizing Mac files, cleaning up desktop clutter, and building practical file workflows.",
+    "Practical guides for organizing Mac files with clear, repeatable workflows.",
   alternates: {
     canonical: `${SITE_URL}/blog`,
   },
   openGraph: {
     title: "Forma Blog",
     description:
-      "Practical guides for Mac file organization and desktop cleanup workflows.",
+      "Practical guides for organizing Mac files with clear, repeatable workflows.",
     url: `${SITE_URL}/blog`,
     type: "website",
   },
@@ -28,13 +28,13 @@ export default async function BlogIndexPage() {
       <div className="site-container mx-auto max-w-4xl">
         <header className="mb-10 border-b border-[var(--border-subtle)] pb-8">
           <p className="mb-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            Forma Guides
+            Guides
           </p>
-          <h1 className="font-display text-4xl text-[var(--text-primary)] md:text-5xl">
-            File Organization Blog
+          <h1 className="text-4xl font-semibold tracking-[-0.02em] text-[var(--text-primary)] md:text-5xl">
+            Practical guides for organizing Mac files
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--text-secondary)]">
-            Practical, no-fluff workflows for organizing files on macOS.
+            Step-by-step workflows you can apply right away, without adding more complexity.
           </p>
         </header>
 
@@ -47,7 +47,7 @@ export default async function BlogIndexPage() {
               <p className="text-xs text-[var(--text-muted)]">
                 {post.publishedAt} · {post.readingTimeMinutes} min read
               </p>
-              <h2 className="mt-2 font-display text-2xl text-[var(--text-primary)]">
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
                 <Link href={`/blog/${post.slug}`} className="hover:underline">
                   {post.title}
                 </Link>
@@ -70,12 +70,11 @@ export default async function BlogIndexPage() {
         </section>
 
         <section className="mt-12 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
-          <h2 className="font-display text-2xl text-[var(--text-primary)]">
-            Ready to apply this on your Mac?
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+            Put this into practice on your Mac
           </h2>
           <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
-            Use previews before applying moves, then keep full undo history for
-            safe cleanup.
+            Build preview-first rules, review every move, and undo when needed.
           </p>
           <div className="mt-5">
             <TrackedAppStoreLink
@@ -96,4 +95,3 @@ export default async function BlogIndexPage() {
     </main>
   );
 }
-

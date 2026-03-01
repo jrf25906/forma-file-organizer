@@ -5,7 +5,7 @@ import { SUPPORT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Terms of Use",
-  description: "Terms of use for the Forma macOS app and related services.",
+  description: "Terms for using the Forma macOS app and related services.",
   alternates: {
     canonical: "https://formafiles.com/terms",
   },
@@ -13,43 +13,50 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <main id="main-content" className="relative py-24 overflow-hidden">
-      <div className="orb orb-blue w-96 h-96 top-0 right-1/4 animate-float-slower opacity-20" />
-      <div className="orb orb-sage w-72 h-72 bottom-1/4 left-0 animate-float opacity-20" />
-
-      <div className="relative z-10 max-w-3xl mx-auto px-6">
-        <div className="glass-card rounded-2xl p-8 md:p-12">
-          <h1 className="mb-2 font-display text-3xl text-[var(--text-primary)] md:text-4xl">
-            Terms of Use (EULA)
+    <main id="main-content" className="bg-[#FAFAF8] py-14 md:py-20">
+      <div className="site-container mx-auto max-w-4xl">
+        <div className="rounded-2xl border border-[#E5E7EB] bg-[#F2F2F0] p-7 md:p-10">
+          <h1 className="mb-2 text-4xl font-semibold tracking-[-0.02em] text-[#1C1C1E] md:text-5xl">
+            Terms of Use
           </h1>
-          <p className="mb-8 text-sm text-[var(--text-muted)]">
-            Effective date: 2026-02-04
+          <p className="mb-8 text-sm text-[#646A75]">
+            Last updated: February 4, 2026
           </p>
 
-          <div className="space-y-8 leading-relaxed text-[var(--text-secondary)]">
+          <div className="space-y-8 text-[16px] leading-relaxed text-[#555555]">
             <section className="space-y-3">
               <p>
-                These Terms govern your use of the Forma macOS application
-                (the &quot;App&quot;). If you download the App from the Mac App
-                Store, your use may also be subject to Apple&apos;s terms and
-                policies.
+                These terms govern your use of the Forma macOS app
+                (&quot;App&quot;). If you download Forma from the Mac App Store,
+                Apple&apos;s terms and policies also apply.
               </p>
             </section>
 
             <section className="space-y-3">
-              <h2 className="font-display text-xl text-[var(--text-primary)]">
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#1C1C1E]">
                 License
               </h2>
               <p>
-                Forma grants you a limited, non-exclusive, non-transferable,
-                revocable license to install and use the App for your own
-                personal or internal business use, subject to these Terms.
+                We grant you a limited, non-exclusive, non-transferable,
+                revocable license to install and use the App for your personal
+                use or internal business use, subject to these terms.
               </p>
             </section>
 
             <section className="space-y-3">
-              <h2 className="font-display text-xl text-[var(--text-primary)]">
-                No warranty
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#1C1C1E]">
+                Acceptable use
+              </h2>
+              <p>
+                You agree not to misuse the App, attempt to reverse engineer
+                it beyond what is allowed by applicable law, or use it in ways
+                that violate the rights of others.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#1C1C1E]">
+                Warranty disclaimer
               </h2>
               <p>
                 The App is provided &quot;AS IS&quot; and &quot;AS
@@ -58,7 +65,28 @@ export default function TermsPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="font-display text-xl text-[var(--text-primary)]">
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#1C1C1E]">
+                Limitation of liability
+              </h2>
+              <p>
+                To the fullest extent permitted by law, Forma is not liable for
+                indirect, incidental, special, or consequential damages arising
+                from use of the App.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#1C1C1E]">
+                Changes to these terms
+              </h2>
+              <p>
+                We may update these terms from time to time. If we do, we will
+                update the &quot;Last updated&quot; date on this page.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#1C1C1E]">
                 Contact
               </h2>
               <p>
@@ -66,7 +94,7 @@ export default function TermsPage() {
                 <TrackedMailtoLink
                   email={SUPPORT_EMAIL}
                   location="terms_page"
-                  className="text-forma-sage hover:opacity-80 transition-opacity"
+                  className="text-[#4A6B88] transition-opacity hover:opacity-80"
                 >
                   {SUPPORT_EMAIL}
                 </TrackedMailtoLink>
@@ -75,10 +103,10 @@ export default function TermsPage() {
             </section>
           </div>
 
-          <div className="mt-12 border-t border-[var(--border-subtle)] pt-8">
+          <div className="mt-12 border-t border-[#D9DDE2] pt-8">
             <Link
               href="/"
-              className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+              className="text-sm text-[#646A75] transition-colors hover:text-[#4C5463]"
             >
               &larr; Back to home
             </Link>

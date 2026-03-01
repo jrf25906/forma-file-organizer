@@ -30,9 +30,9 @@ const features: FeatureMeta[] = [
   {
     id: "natural-language",
     icon: Type,
-    title: "Rules That Read Like Sentences",
+    title: "If you can say it, you can automate it.",
     description:
-      "\"If the filename contains screenshot, move it to Screenshots.\" Rules are that readable. No syntax, no config files — just conditions and destinations.",
+      "Rules that read like sentences. No regex. No scripts. No config files — just conditions and destinations.",
     accentText: "text-forma-steel-blue",
     accentBg: "bg-forma-steel-blue/12",
     accentBorder: "bg-forma-steel-blue/50",
@@ -40,9 +40,9 @@ const features: FeatureMeta[] = [
   {
     id: "auto-grouping",
     icon: GitBranch,
-    title: "Auto-Grouping",
+    title: "200 screenshots. One rule.",
     description:
-      "You have 200 screenshots named IMG_xxxx.HEIC. Forma groups them by type so one rule handles all of them \u2014 instead of writing 200 rules.",
+      "Forma groups similar files so one rule handles all of them — instead of writing 200 rules.",
     accentText: "text-forma-sage",
     accentBg: "bg-forma-sage/12",
     accentBorder: "bg-forma-sage/50",
@@ -50,9 +50,9 @@ const features: FeatureMeta[] = [
   {
     id: "total-control",
     icon: Eye,
-    title: "Total Control",
+    title: "Nothing moves until you say so.",
     description:
-      "Preview everything before it happens. See exactly which files move where, toggle individual items, then approve the batch.",
+      "See exactly what will happen before it happens. Toggle individual files on or off, then approve the batch.",
     accentText: "text-forma-muted-blue",
     accentBg: "bg-forma-muted-blue/12",
     accentBorder: "bg-forma-muted-blue/50",
@@ -60,7 +60,7 @@ const features: FeatureMeta[] = [
   {
     id: "full-undo",
     icon: Undo2,
-    title: "Full Undo",
+    title: "Undo everything. Always.",
     description:
       "Reverse any move, any time. Every action is tracked in a timeline you can step through and roll back.",
     accentText: "text-forma-warm-orange",
