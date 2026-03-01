@@ -5,7 +5,7 @@ import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 const NAV_LINKS = [
   { label: "Features", href: "/#features" },
   { label: "Pricing", href: "/#pricing" },
-  { label: "Guides", href: "/blog" },
+  { label: "Blog", href: "/blog" },
 ] as const;
 
 export function Header() {

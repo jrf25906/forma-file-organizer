@@ -489,10 +489,49 @@
   gap: 6px;
 }
 
+.groupCategory {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.groupCategory + .groupCategory {
+  margin-top: 4px;
+}
+
+.groupCategoryHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.groupDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.groupLabel {
+  display: inline-block;
+  color: #4a6b88;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.groupChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 12px;
+}
+
 .groupChip {
   width: fit-content;
   border-radius: 6px;
-  padding: 8px 12px;
+  padding: 4px 10px;
   background: #fff;
   border: 1px solid #e5e5ea;
   display: inline-block;
@@ -500,19 +539,43 @@
   font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   font-weight: 400;
-  line-height: 16px;
+  line-height: 14px;
 }
 
 .previewChip {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 10px 12px;
   background: #fff;
   border: 1px solid #8b9a8230;
+}
+
+.previewCheck {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.previewCheckmark {
+  color: #fff;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.previewCheckEmpty {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
 }
 
 .previewName {
@@ -526,7 +589,21 @@
   font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
   font-weight: 500;
-  line-height: 16px;
+  line-height: 14px;
+}
+
+.previewNameSkipped {
+  display: inline-block;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #a3a9b4;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 14px;
 }
 
 .previewDest {
@@ -544,19 +621,23 @@
   line-height: 14px;
 }
 
-.previewSummary {
+.previewSkipped {
   display: flex;
   align-items: center;
-  margin-top: 4px;
-  border-radius: 6px;
-  padding: 12px;
   gap: 8px;
-  background: #8b9a8210;
-  color: #4b6350;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.previewSkippedLabel {
+  display: inline-block;
+  flex-shrink: 0;
+  text-align: right;
+  color: #a3a9b4;
   font-family: Inter, system-ui, sans-serif;
   font-size: 12px;
-  font-weight: 500;
-  line-height: 16px;
+  font-weight: 400;
+  line-height: 14px;
 }
 
 .undoStrip {

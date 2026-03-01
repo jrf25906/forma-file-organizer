@@ -21,7 +21,20 @@ const ruleRows = [
   { left: "Sort code files into", right: "~/Projects" },
 ] as const;
 
-const groupingSamples = ["hero.png", "banner.jpg", "icon.svg"] as const;
+const groupingSamples = [
+  {
+    label: "Images",
+    count: 3,
+    color: "#4A6B88",
+    files: ["hero.png", "banner.jpg", "icon.svg"],
+  },
+  {
+    label: "Documents",
+    count: 2,
+    color: "#5E7A63",
+    files: ["report.pdf", "notes.md"],
+  },
+] as const;
 
 const beforeRows = [
   "Screenshot 2024-01-15 at 3.42.17 PM.png",
@@ -34,7 +47,7 @@ const beforeRows = [
 const productLinks = [
   { label: "Features", href: "/#features" },
   { label: "Pricing", href: "/#pricing" },
-  { label: "FAQ", href: "/#faq" },
+  { label: "FAQ", href: "/support" },
 ] as const;
 
 const guideLinks = [
@@ -124,7 +137,7 @@ export default function Home() {
       <main id="top" className={styles.page}>
         <section className={styles.hero} aria-label="Hero">
           <div className={styles.heroTextCol}>
-            <span className={styles.heroEyebrow}>File organization for Mac</span>
+            <span className={styles.heroEyebrow}>File organization for macOS</span>
             <h1 className={styles.heroTitle}>
               A file organizer for people who gave up on file organizers.
             </h1>
@@ -186,10 +199,10 @@ export default function Home() {
           <article className={styles.featureHero}>
             <div className={styles.featureCopyCol}>
               <span className={styles.featureTag}>01 Rules</span>
-              <h2 className={styles.featureTitleLg}>If you can describe it, you can automate it.</h2>
+              <h2 className={styles.featureTitleLg}>If you can say it, you can automate it.</h2>
               <span className={styles.featureBodyLg}>
-                No regex, scripts, or config files. Just set conditions and destinations in plain
-                language.
+                No regex. No scripts. No config files. Conditions and destinations in plain
+                language — like telling a friend where to put things.
               </span>
             </div>
 
@@ -212,10 +225,25 @@ export default function Home() {
               </span>
 
               <div className={styles.groupFiles} role="group" aria-label="Grouped examples">
-                {groupingSamples.map((file) => (
-                  <span key={file} className={styles.groupChip}>
-                    {file}
-                  </span>
+                {groupingSamples.map((group) => (
+                  <div key={group.label} className={styles.groupCategory}>
+                    <div className={styles.groupCategoryHead}>
+                      <span
+                        className={styles.groupDot}
+                        style={{ backgroundColor: group.color }}
+                      />
+                      <span className={styles.groupLabel}>
+                        {group.label} ({group.count})
+                      </span>
+                    </div>
+                    <div className={styles.groupChipRow}>
+                      {group.files.map((file) => (
+                        <span key={file} className={styles.groupChip}>
+                          {file}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </article>
@@ -229,14 +257,24 @@ export default function Home() {
 
               <div className={styles.previewFiles} role="group" aria-label="Preview examples">
                 <div className={styles.previewChip}>
+                  <span className={styles.previewCheck} style={{ backgroundColor: "#4A6B88" }}>
+                    <span className={styles.previewCheckmark}>✓</span>
+                  </span>
                   <span className={styles.previewName}>Screenshot.png</span>
                   <span className={styles.previewDest}>→ ~/Screenshots</span>
                 </div>
                 <div className={styles.previewChip}>
+                  <span className={styles.previewCheck} style={{ backgroundColor: "#B86B52" }}>
+                    <span className={styles.previewCheckmark}>✓</span>
+                  </span>
                   <span className={styles.previewName}>Invoice.pdf</span>
                   <span className={styles.previewDest}>→ ~/Documents</span>
                 </div>
-                <div className={styles.previewSummary}>notes.txt skipped</div>
+                <div className={styles.previewSkipped}>
+                  <span className={styles.previewCheckEmpty} />
+                  <span className={styles.previewNameSkipped}>notes.txt</span>
+                  <span className={styles.previewSkippedLabel}>skipped</span>
+                </div>
               </div>
             </article>
           </div>
@@ -288,7 +326,7 @@ export default function Home() {
           </div>
 
           <div className={styles.midCta}>
-            <h3 className={styles.midCtaTitle}>Ready to clean up your files?</h3>
+            <h3 className={styles.midCtaTitle}>Ready to clean up?</h3>
             <TrackedAppStoreLink location="hero_primary" className={styles.midCtaBtn}>
               Download for Mac
             </TrackedAppStoreLink>
