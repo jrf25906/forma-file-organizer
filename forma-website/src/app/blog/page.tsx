@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllBlogPosts } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
+import GuideProductBridge from "@/components/blog/GuideProductBridge";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 
 export const metadata: Metadata = {
@@ -37,6 +38,14 @@ export default async function BlogIndexPage() {
             Step-by-step workflows you can apply right away, without adding more complexity.
           </p>
         </header>
+
+        <GuideProductBridge
+          eyebrow="Guides that map to the product"
+          title="Read the workflow. Then run it in Forma."
+          body="These guides are built around the same preview-first system Forma uses in the app: write the rule, review the batch, and approve only what belongs."
+          eventLocation="blog_index_top"
+          className="mb-10"
+        />
 
         <section className="space-y-4" aria-label="Blog posts">
           {posts.map((post) => (

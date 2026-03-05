@@ -554,7 +554,7 @@ footer[role="contentinfo"] .forma-logo-dot {
 }
 
 .blog-content > * + * {
-  margin-top: 1rem;
+  margin-top: 1.15rem;
 }
 
 .blog-content h2 {
@@ -564,6 +564,11 @@ footer[role="contentinfo"] .forma-logo-dot {
   font-family: var(--font-display);
   font-size: 1.75rem;
   line-height: 1.3;
+}
+
+.blog-content h2:first-child,
+.blog-content h3:first-child {
+  margin-top: 0;
 }
 
 .blog-content h3 {
@@ -579,10 +584,18 @@ footer[role="contentinfo"] .forma-logo-dot {
   color: var(--text-secondary);
 }
 
+.blog-content strong {
+  color: var(--text-primary);
+}
+
 .blog-content ul,
 .blog-content ol {
   margin-left: 1.2rem;
   padding-left: 0.6rem;
+}
+
+.blog-content li::marker {
+  color: var(--forma-sage);
 }
 
 .blog-content li + li {
@@ -609,4 +622,10 @@ footer[role="contentinfo"] .forma-logo-dot {
   border-radius: 12px;
   background: var(--bg-secondary);
   padding: 1rem;
+}
+
+.blog-content blockquote {
+  border-left: 3px solid var(--forma-steel-blue);
+  padding-left: 1rem;
+  color: var(--text-primary);
 }

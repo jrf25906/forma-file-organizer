@@ -1,6 +1,16 @@
 # Forma - Project TODO
 
-**Last Updated:** February 12, 2026
+**Last Updated:** March 5, 2026
+
+---
+
+## Product Redesign Program (March 5, 2026)
+- [x] Document master brief (`Docs/plans/2026-03-05-forma-product-redesign-master-brief.md`)
+- [ ] Execute website redesign
+- [x] Document website validation plan (`Docs/Testing/2026-03-05-website-redesign-validation-plan.md`)
+- [ ] Run website validation pass
+- [ ] Execute app polish pass
+- [ ] Document app validation pass
 
 ---
 

@@ -48,32 +48,127 @@ const endpoints = [
   },
 ];
 
+const routeSignals = [
+  "Public only",
+  `Version ${PUBLIC_API_VERSION}`,
+  "Canonical resources",
+  "Stable endpoint surface",
+] as const;
+
+const usageGuardrails = [
+  "Respect robots directives and page metadata.",
+  "Use legal pages as the canonical policy source.",
+  "Assume access to public marketing endpoints only.",
+  "Do not send sensitive user data through third-party systems without explicit user consent.",
+] as const;
+
 export default function ForAgentsPage() {
   return (
     <main id="main-content" className="relative py-20 md:py-24">
-      <div className="site-container mx-auto max-w-4xl">
-        <header className="mb-10 border-b border-[var(--border-subtle)] pb-8">
-          <p className="mb-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            For agents and integrations
-          </p>
-          <h1 className="text-4xl font-semibold tracking-[-0.02em] text-[var(--text-primary)] md:text-5xl">
-            Public machine-readable endpoints
-          </h1>
-          <p className="mt-4 max-w-3xl text-base leading-relaxed text-[var(--text-secondary)]">
-            Stable public endpoints for crawlers, agents, and automation
-            systems. Current API version: {PUBLIC_API_VERSION}.
-          </p>
+      <div className="site-container mx-auto max-w-5xl">
+        <header className="overflow-hidden rounded-[2rem] border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(255,255,255,0.46)_100%)] p-7 shadow-[0_18px_40px_rgba(15,18,24,0.05)] md:p-10">
+          <div className="grid gap-8 lg:grid-cols-[1.05fr,0.95fr]">
+            <div>
+              <p className="mb-3 text-xs uppercase tracking-[0.14em] text-forma-steel-blue">
+                For agents and integrations
+              </p>
+              <h1 className="text-4xl font-semibold tracking-[-0.03em] text-[var(--text-primary)] md:text-5xl">
+                Stable public endpoints for agents that need the product truth
+              </h1>
+              <p className="mt-4 max-w-3xl text-base leading-relaxed text-[var(--text-secondary)]">
+                Machine-readable resources for crawlers, agents, and automation systems. This
+                route exists so integrations can use current product and policy data without
+                scraping guesswork.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                {routeSignals.map((signal) => (
+                  <span
+                    key={signal}
+                    className="rounded-full border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]"
+                  >
+                    {signal}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <a
+                  className="inline-flex items-center justify-center rounded-xl bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-bg-hover)]"
+                  href={`${SITE_URL}/openapi.json`}
+                >
+                  Open schema
+                </a>
+                <Link
+                  href="/"
+                  className="inline-flex items-center justify-center rounded-xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.66)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[rgba(255,255,255,0.82)]"
+                >
+                  See the product
+                </Link>
+              </div>
+            </div>
+
+            <section className="rounded-[1.5rem] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.58)] p-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-forma-steel-blue">
+                Route intent
+              </p>
+              <ul className="mt-4 space-y-3">
+                <li className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                  Pull stable product, FAQ, and schema data without parsing marketing layouts.
+                </li>
+                <li className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                  Use current version metadata before caching public endpoint responses.
+                </li>
+                <li className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                  Treat this surface as public-only documentation, not a private integration API.
+                </li>
+              </ul>
+            </section>
+          </div>
         </header>
 
-        <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
-            Endpoint catalog
-          </h2>
-          <p className="mt-3 text-xs text-[var(--text-muted)] md:hidden">
-            Scroll horizontally to view all columns.
-          </p>
+        <section className="mt-8 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6 md:p-7">
+          <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] pb-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+                Endpoint catalog
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--text-secondary)]">
+                Mobile gets scanable endpoint cards. Desktop keeps the full table for quick
+                comparison.
+              </p>
+            </div>
+            <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              Current API version: {PUBLIC_API_VERSION}
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:hidden">
+            {endpoints.map((endpoint) => (
+              <article
+                key={endpoint.path}
+                className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-glass)] p-5"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="rounded-full border border-[var(--border-medium)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-forma-steel-blue">
+                    {endpoint.method}
+                  </span>
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    Public
+                  </span>
+                </div>
+                <code className="mt-4 block rounded-xl bg-[rgba(255,255,255,0.72)] px-3 py-3 text-[13px] leading-relaxed text-[var(--text-primary)]">
+                  {endpoint.path}
+                </code>
+                <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">
+                  {endpoint.description}
+                </p>
+              </article>
+            ))}
+          </div>
+
           <div
-            className="mt-4 overflow-x-auto rounded-lg"
+            className="mt-5 hidden overflow-x-auto rounded-lg md:block"
             role="region"
             aria-label="Endpoint catalog table"
             tabIndex={0}
@@ -107,43 +202,62 @@ export default function ForAgentsPage() {
           </div>
         </section>
 
-        <section className="mt-8 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
-            How to use these endpoints
-          </h2>
-          <ul className="mt-4 list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-            <li>Respect robots directives and page metadata.</li>
-            <li>Use legal pages as the canonical policy source.</li>
-            <li>Assume access to public marketing endpoints only.</li>
-            <li>
-              Do not send sensitive user data through third-party systems
-              without explicit user consent.
-            </li>
-          </ul>
-        </section>
+        <div className="mt-8 grid gap-6 lg:grid-cols-[0.92fr,1.08fr]">
+          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6 md:p-7">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+              Usage guardrails
+            </h2>
+            <ul className="mt-4 space-y-3">
+              {usageGuardrails.map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="mt-[6px] h-2 w-2 rounded-full bg-forma-sage" />
+                  <span className="text-sm leading-relaxed text-[var(--text-secondary)]">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-        <section className="mt-8 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
-            Canonical resources
-          </h2>
-          <ul className="mt-4 space-y-2 text-sm">
-            <li>
-              <a className="text-forma-steel-blue hover:underline" href={`${SITE_URL}/llms.txt`}>
-                {SITE_URL}/llms.txt
-              </a>
-            </li>
-            <li>
-              <a className="text-forma-steel-blue hover:underline" href={`${SITE_URL}/openapi.json`}>
-                {SITE_URL}/openapi.json
-              </a>
-            </li>
-            <li>
-              <Link className="text-forma-steel-blue hover:underline" href="/blog">
-                /blog
-              </Link>
-            </li>
-          </ul>
-        </section>
+          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6 md:p-7">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+              Canonical resources
+            </h2>
+            <ul className="mt-4 space-y-4 text-sm">
+              <li>
+                <a className="text-forma-steel-blue hover:underline" href={`${SITE_URL}/llms.txt`}>
+                  {SITE_URL}/llms.txt
+                </a>
+                <p className="mt-1 leading-relaxed text-[var(--text-secondary)]">
+                  Index of machine-readable site resources for language models and agents.
+                </p>
+              </li>
+              <li>
+                <a className="text-forma-steel-blue hover:underline" href={`${SITE_URL}/openapi.json`}>
+                  {SITE_URL}/openapi.json
+                </a>
+                <p className="mt-1 leading-relaxed text-[var(--text-secondary)]">
+                  OpenAPI schema for the public endpoint surface documented on this page.
+                </p>
+              </li>
+              <li>
+                <Link className="text-forma-steel-blue hover:underline" href="/blog">
+                  /blog
+                </Link>
+                <p className="mt-1 leading-relaxed text-[var(--text-secondary)]">
+                  Canonical guides for human-readable workflows and supporting product context.
+                </p>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <div className="mt-10">
+          <Link
+            href="/"
+            className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+          >
+            &larr; Back to home
+          </Link>
+        </div>
       </div>
     </main>
   );

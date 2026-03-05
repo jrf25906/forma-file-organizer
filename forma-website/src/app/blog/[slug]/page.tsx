@@ -6,6 +6,7 @@ import {
   getBlogPostBySlug,
   getRelatedBlogPosts,
 } from "@/lib/content";
+import GuideProductBridge from "@/components/blog/GuideProductBridge";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 
@@ -152,7 +153,18 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </p>
           </header>
 
-          <div className="blog-content mt-8">{post.content}</div>
+          <GuideProductBridge
+            eyebrow="Run this guide inside Forma"
+            title="This cleanup has a preview-first path."
+            body="Keep the article open while you build one plain-language rule, review the proposed file moves, and run only the batch you trust."
+            eventLocation="blog_post_top"
+            slug={post.slug}
+            className="mt-8"
+          />
+
+          <div className="mt-8 rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 shadow-[0_18px_40px_rgba(15,18,24,0.05)] md:p-8">
+            <div className="blog-content">{post.content}</div>
+          </div>
         </article>
 
         <section className="mt-12 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
@@ -179,7 +191,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         </section>
 
         {relatedPosts.length > 0 ? (
-          <section className="mt-10">
+          <section className="mt-10 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
               Related guides
             </h2>

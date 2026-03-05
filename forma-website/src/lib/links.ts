@@ -7,8 +7,13 @@ export type AppStoreLinkLocation =
   | "header_desktop"
   | "header_menu"
   | "hero_primary"
+  | "post_proof_primary"
   | "pricing_primary"
-  | "blog_inline";
+  | "blog_inline"
+  | "faq_section"
+  | "footer"
+  | "privacy_page"
+  | "terms_page";
 
 const configuredMacAppStoreUrl = process.env.NEXT_PUBLIC_MAC_APP_STORE_URL?.trim();
 const hasConfiguredMacAppStoreUrl =

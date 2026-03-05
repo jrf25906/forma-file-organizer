@@ -22,6 +22,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- `forma-website` homepage now leads with a proof-first redesign: sharper hero positioning, real workflow storytelling, transformation proof, a stronger pricing close, and FAQ integration before the shared footer.
+- `forma-website` route shell consistency improved by moving the shared footer into the global layout, retuning the header to the shared token system, and redesigning `/support` and `/get-forma` to match the homepage’s marketing surface language.
+- `forma-website` blog routes now introduce Forma before the footer CTA with a shared preview-first guide bridge, and `/for-agents` now uses a mobile-first endpoint catalog instead of relying on horizontal table scrolling.
+- `forma-website` legal routes now use the same branded marketing shell as the rest of the site, guide article bodies now stay inside shared content cards, and blog publish dates were normalized so live guides no longer show future dates after March 5, 2026.
 - Clarified local-only AI messaging in-app and on the privacy page: smart features now explicitly state on-device processing with no third-party AI data sharing.
 - `forma-website` primary tagline changed from "Give your files form" to "A file organizer that actually sticks"; OG title and metadata now use "A file organizer for people who gave up on file organizers" positioning.
 - `forma-website` "Natural Language Rules" feature renamed to "Rules That Read Like Sentences" with description reframed around conditions and destinations instead of implying NLP/AI.

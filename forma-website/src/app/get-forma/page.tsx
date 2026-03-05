@@ -15,44 +15,77 @@ export default function GetFormaPage() {
   const liveMacAppStoreUrl = MAC_APP_STORE_URL;
 
   return (
-    <main id="main-content" className="bg-[#FAFAF8] py-14 md:py-20">
+    <main id="main-content" className="relative py-20 md:py-24">
       <div className="site-container mx-auto max-w-4xl">
-        <div className="rounded-2xl border border-[#E5E7EB] bg-[#F2F2F0] p-7 md:p-10">
-          <h1 className="text-4xl font-semibold tracking-[-0.02em] text-[#1C1C1E] md:text-5xl">
-            Download Forma for Mac
-          </h1>
-          <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-[#555555]">
-            Forma is a native macOS file organizer for macOS 15 or later.
-            Download it from the Mac App Store. Need help before or after installing?
-            Contact support.
+        <header className="mb-10 border-b border-[var(--border-subtle)] pb-8">
+          <p className="mb-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            Get Forma
           </p>
+          <h1 className="text-4xl font-semibold tracking-[-0.02em] text-[var(--text-primary)] md:text-5xl">
+            $29 once. Download Forma for Mac.
+          </h1>
+          <p className="mt-4 max-w-3xl text-base leading-relaxed text-[var(--text-secondary)]">
+            Forma is a native macOS file organizer for macOS 15 or later. Download it from the
+            Mac App Store, then start with one rule and one folder.
+          </p>
+        </header>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a
-              href={liveMacAppStoreUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-[10px] bg-[#1C1C1E] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2A2A2D]"
-            >
-              Open Mac App Store
-            </a>
+        <div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
+          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 md:p-8">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+              Download and start clean
+            </h2>
+            <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
+              The shortest path is still the right one: install, create one plain-language rule,
+              preview the batch, then organize.
+            </p>
 
-            <Link
-              href="/support"
-              className="inline-flex items-center justify-center rounded-[10px] border border-[#D2D6DC] bg-[#F9F9F8] px-6 py-3 text-sm font-medium text-[#555555] transition-colors hover:border-[#BCC2CC] hover:text-[#1A1A1A]"
-            >
-              Contact Support
-            </Link>
-          </div>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a
+                href={liveMacAppStoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-xl bg-[var(--cta-bg)] px-6 py-3.5 text-sm font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-bg-hover)]"
+              >
+                Open Mac App Store
+              </a>
 
-          <div className="mt-10 border-t border-[#D9DDE2] pt-6">
-            <Link
-              href="/"
-              className="text-sm text-[#646A75] transition-colors hover:text-[#4C5463]"
-            >
-              &larr; Back to home
-            </Link>
-          </div>
+              <Link
+                href="/support"
+                className="inline-flex items-center justify-center rounded-xl border border-[var(--border-medium)] px-6 py-3.5 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-glass)]"
+              >
+                Contact Support
+              </Link>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.32)_100%)] p-7 md:p-8">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+              What you get
+            </h2>
+            <ul className="mt-4 space-y-3">
+              {[
+                "Plain-language rules instead of brittle file scripts",
+                "Preview-first review before files move",
+                "Undo built into the workflow, not hidden after the fact",
+                "Local-only operation with no account wall",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="mt-[6px] h-2 w-2 rounded-full bg-forma-sage" />
+                  <span className="text-sm leading-relaxed text-[var(--text-secondary)]">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+
+        <div className="mt-10">
+          <Link
+            href="/"
+            className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+          >
+            &larr; Back to home
+          </Link>
         </div>
       </div>
     </main>

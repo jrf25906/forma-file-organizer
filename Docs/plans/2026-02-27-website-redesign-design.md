@@ -1,7 +1,13 @@
-# Forma Website Redesign — Design Document
+# Forma Website Redesign - Design Document
 
-**Date:** 2026-02-27
-**Status:** Draft (pending approval)
+**Status:** Archived (historical)
+**Archived:** 2026-03
+**Superseded By:** [2026-03-05-forma-product-redesign-master-brief.md](2026-03-05-forma-product-redesign-master-brief.md)
+
+This February 27, 2026 website-only draft is retained for history. The March 5, 2026 master brief is now the canonical redesign source of truth for both the website and the app polish work.
+
+**Original Date:** 2026-02-27
+**Original Status:** Draft (pending approval)
 **Direction:** C+ ("Honest Utility" with B-style feature presentation)
 
 ---

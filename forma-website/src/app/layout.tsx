@@ -4,6 +4,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import clsx from "clsx";
 import { Header } from "@/components/Header";
+import Footer from "@/components/Footer";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
@@ -138,9 +139,10 @@ export default function RootLayout({
             Skip to main content
           </a>
           <Header />
-          <div id="main-content" tabIndex={-1} className="outline-none">
+          <div tabIndex={-1} className="outline-none">
             {children}
           </div>
+          <Footer />
         </ThemeProvider>
       </body>
     </html>

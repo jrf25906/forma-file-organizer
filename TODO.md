@@ -2,6 +2,14 @@
 
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
+## Product Redesign Program (March 5, 2026)
+- [x] Document master brief (`Docs/plans/2026-03-05-forma-product-redesign-master-brief.md`)
+- [ ] Execute website redesign
+- [x] Document website validation plan (`Docs/Testing/2026-03-05-website-redesign-validation-plan.md`)
+- [ ] Run website validation pass
+- [ ] Execute app polish pass
+- [ ] Document app validation pass
+
 ## Website Direction Pass (March 1, 2026)
 - [x] Ship the approved `C — Honest Utility` design to `forma-website` homepage, including high-fidelity Mac hero shell, simplified section flow, and standardized 3x3 Forma lockups in nav/footer.
 - [x] Align remaining website routes (`/blog`, `/blog/[slug]`, `/support`, `/privacy`, `/terms`, `/get-forma`, `/for-agents`) to the same typography and surface system used by the updated homepage.

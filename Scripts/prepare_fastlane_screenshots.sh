@@ -15,7 +15,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-SOURCE_DIR="$PROJECT_ROOT/Docs/Marketing/Screenshots/AppStore/Upload/Dark"
+# Usage: prepare_fastlane_screenshots.sh [dark|light]
+# Defaults to "dark" if no argument given.
+MODE="${1:-dark}"
+
+if [ "$MODE" = "light" ]; then
+    SOURCE_DIR="$PROJECT_ROOT/Docs/Marketing/Screenshots/AppStore/Upload/Light"
+else
+    SOURCE_DIR="$PROJECT_ROOT/Docs/Marketing/Screenshots/AppStore/Upload/Dark"
+fi
+
 DEST_DIR="$PROJECT_ROOT/fastlane/screenshots/en-US"
 
 # Verify source directory exists
@@ -28,7 +37,7 @@ fi
 rm -f "$DEST_DIR"/*.png
 mkdir -p "$DEST_DIR"
 
-echo "Preparing screenshots for fastlane deliver..."
+echo "Preparing $MODE mode screenshots for fastlane deliver..."
 echo "Source: $SOURCE_DIR"
 echo "Destination: $DEST_DIR"
 echo ""
