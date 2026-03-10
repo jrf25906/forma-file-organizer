@@ -1,11 +1,3 @@
-//
-//  MenuBarFileReviewCard.swift
-//  Forma - Menu Bar File Review Card
-//
-//  A self-contained file review card for the Forma menu bar mini app.
-//  Shows one file at a time with organize/skip actions and pagination.
-//
-
 import SwiftUI
 
 struct MenuBarFileReviewCard: View {
@@ -22,53 +14,20 @@ struct MenuBarFileReviewCard: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    // MARK: - Adaptive Colors
-
-    private var cardBackground: Color {
-        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.06) : .formaBoneWhite
-    }
-
-    private var cardBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaSeparator.opacity(0.5)
-    }
-
-    private var cardShadow: Color {
-        colorScheme == .dark
-            ? Color.black.opacity(0.12)
-            : Color.black.opacity(0.04)
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-            // Row 1: File icon + file name
-            fileHeaderRow
-
-            // Row 2: Destination display name
-            destinationRow
-
-            // Row 3: Rule badge (optional)
-            if let matchReason = file.matchReason {
-                ruleBadge(matchReason)
+        MenuBarSurface(
+            tier: .base,
+            tint: cardTint,
+            cornerRadius: FormaRadius.card,
+            padding: FormaSpacing.standard
+        ) {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                fileHeaderRow
+                destinationSummary
+                actionButtonsRow
+                paginationRow
             }
-
-            // Row 4: Action buttons
-            actionButtonsRow
-
-            // Row 5: Pagination
-            paginationRow
         }
-        .padding(FormaSpacing.standard)
-        .background(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(cardBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(cardBorder, lineWidth: 1)
-        )
-        .shadow(color: cardShadow, radius: 3, x: 0, y: 1)
         .id(file.path)
         .transition(
             .asymmetric(
@@ -78,150 +37,155 @@ struct MenuBarFileReviewCard: View {
         )
     }
 
-    private var iconCircleBackground: Color {
-        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.08) : .formaControlBackground
+    private var cardTint: Color {
+        if file.hasDestination {
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.18 : 0.12)
+        }
+
+        return Color.formaWarning.opacity(colorScheme == .dark ? 0.18 : 0.10)
     }
 
-    private var iconCircleBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.16)
-            : Color.formaSeparator.opacity(0.5)
+    private var accentTint: Color {
+        file.hasDestination ? .formaSteelBlue : .formaWarning
     }
-
-    // MARK: - Row 1: File Header
 
     private var fileHeaderRow: some View {
-        HStack(spacing: FormaSpacing.tight) {
-            ZStack {
-                Circle()
-                    .fill(iconCircleBackground)
-                    .frame(width: 32, height: 32)
-
-                Image(systemName: file.iconName)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.formaSteelBlue)
-            }
-            .overlay(
-                Circle()
-                    .strokeBorder(iconCircleBorder, lineWidth: 1)
+        HStack(alignment: .top, spacing: FormaSpacing.tight) {
+            FormaChromeSurface(
+                cornerRadius: FormaRadius.control,
+                fill: colorScheme == .dark
+                    ? Color.formaControlBackground.opacity(0.82)
+                    : Color.formaBoneWhite.opacity(0.94),
+                tint: accentTint,
+                elevation: .raised
             )
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Image(systemName: file.iconName)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(accentTint)
+                )
 
-            Text(file.name)
-                .font(.formaMenuTitle)
-                .foregroundColor(.formaLabel)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(file.name)
+                    .font(.formaBodySemibold)
+                    .foregroundColor(.formaLabel)
+                    .lineLimit(2)
+
+                Text(file.size)
+                    .font(.formaMenuMetadata)
+                    .foregroundColor(.formaSecondaryLabel)
+            }
+
+            Spacer(minLength: 0)
+
+            FormaStatusPill(status: file.status)
         }
     }
 
-    // MARK: - Row 2: Destination
+    private var destinationSummary: some View {
+        MenuBarSurface(
+            tier: .base,
+            tint: accentTint.opacity(colorScheme == .dark ? 0.18 : 0.10),
+            cornerRadius: FormaRadius.control,
+            padding: FormaSpacing.tight
+        ) {
+            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                    Image(systemName: "arrow.turn.down.right")
+                        .font(.formaCaptionSemibold)
+                        .foregroundColor(.formaSecondaryLabel)
+                        .padding(.top, 2)
 
-    private var destinationRow: some View {
-        HStack(spacing: FormaSpacing.micro) {
-            Image(systemName: "arrow.right")
-                .font(.formaMenuMetadata)
-                .foregroundColor(.formaTertiaryLabel)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(file.destinationDisplayName ?? "No destination assigned")
+                            .font(.formaBody)
+                            .foregroundColor(file.hasDestination ? .formaLabel : .formaSecondaryLabel)
+                            .lineLimit(2)
 
-            Text(file.destinationDisplayName ?? "No destination")
-                .font(.formaMenuMetadata)
-                .foregroundColor(.formaSecondaryLabel)
-                .lineLimit(1)
+                        Text(file.hasDestination ? "Destination" : "Needs a destination before organizing")
+                            .font(.formaMenuMetadata)
+                            .foregroundColor(.formaSecondaryLabel)
+                    }
+                }
+
+                if let matchReason = file.matchReason, !matchReason.isEmpty {
+                    HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                        Image(systemName: "sparkles")
+                            .font(.formaCaptionSemibold)
+                            .foregroundColor(.formaSteelBlue)
+                            .padding(.top, 2)
+
+                        Text(matchReason)
+                            .font(.formaMenuMetadata)
+                            .foregroundColor(.formaSecondaryLabel)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
         }
-    }
-
-    // MARK: - Row 3: Rule Badge
-
-    private func ruleBadge(_ reason: String) -> some View {
-        Text(reason)
-            .font(.formaMenuMetadata)
-            .foregroundColor(.formaSecondaryLabel)
-            .padding(.horizontal, FormaSpacing.tight)
-            .padding(.vertical, FormaSpacing.micro)
-            .background(Color.formaLabel.opacity(0.06))
-            .formaCornerRadius(FormaRadius.pill)
-    }
-
-    // MARK: - Row 4: Action Buttons
-
-    private var skipButtonBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.18)
-            : Color.formaObsidian.opacity(0.15)
     }
 
     private var actionButtonsRow: some View {
         HStack(spacing: FormaSpacing.tight) {
-            // Skip button (secondary style with border)
             Button(action: onSkip) {
                 Text("Skip")
-                    .font(.formaMenuItem)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .font(.formaBody)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, FormaSpacing.tight)
-                    .background(
-                        RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                            .strokeBorder(skipButtonBorder, lineWidth: 1)
-                    )
             }
-            .buttonStyle(.plain)
-            .contentShape(Rectangle())
+            .buttonStyle(MenuBarButtonStyle(kind: .secondary(nil)))
 
-            // Organize button (primary style)
             Button(action: onOrganize) {
                 Group {
                     if isOrganizing {
                         ProgressView()
                             .controlSize(.small)
                             .tint(.formaBoneWhite)
+                            .frame(maxWidth: .infinity)
                     } else {
                         Text("Organize")
-                            .font(.formaMenuTitle)
-                            .foregroundColor(.formaBoneWhite)
+                            .font(.formaBodySemibold)
+                            .frame(maxWidth: .infinity)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, FormaSpacing.tight)
             }
-            .buttonStyle(.plain)
-            .background(Color.formaSage)
-            .formaCornerRadius(FormaRadius.control)
-            .contentShape(Rectangle())
-            .disabled(isOrganizing)
+            .buttonStyle(MenuBarButtonStyle(kind: .primary(.formaSage)))
+            .disabled(isOrganizing || !file.hasDestination)
+            .help(file.hasDestination ? "Move this file to its destination" : "Set a destination before organizing")
         }
     }
 
-    // MARK: - Row 5: Pagination
-
     private var paginationRow: some View {
-        HStack {
+        HStack(spacing: FormaSpacing.tight) {
             Button(action: onPrevious) {
                 Image(systemName: "chevron.left")
-                    .font(.formaMenuMetadata)
-                    .foregroundColor(canGoBack ? .formaSecondaryLabel : .formaTertiaryLabel)
+                    .font(.formaCaptionSemibold)
+                    .frame(width: 16, height: 16)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MenuBarButtonStyle(kind: .utility))
             .disabled(!canGoBack)
+            .accessibilityLabel("Previous file")
 
-            Spacer()
+            Spacer(minLength: 0)
 
             Text(paginationText)
                 .font(.formaMenuMetadata)
                 .foregroundColor(.formaTertiaryLabel)
+                .monospacedDigit()
 
-            Spacer()
+            Spacer(minLength: 0)
 
             Button(action: onNext) {
                 Image(systemName: "chevron.right")
-                    .font(.formaMenuMetadata)
-                    .foregroundColor(canGoForward ? .formaSecondaryLabel : .formaTertiaryLabel)
+                    .font(.formaCaptionSemibold)
+                    .frame(width: 16, height: 16)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MenuBarButtonStyle(kind: .utility))
             .disabled(!canGoForward)
+            .accessibilityLabel("Next file")
         }
     }
 }
-
-// MARK: - Preview
 
 #Preview("MenuBarFileReviewCard") {
     let mockFile: FileItem = {
@@ -236,8 +200,7 @@ struct MenuBarFileReviewCard: View {
         return item
     }()
 
-    VStack(spacing: 16) {
-        // Standard state
+    VStack(spacing: FormaSpacing.standard) {
         MenuBarFileReviewCard(
             file: mockFile,
             paginationText: "1 of 5",
@@ -250,20 +213,6 @@ struct MenuBarFileReviewCard: View {
             onNext: {}
         )
 
-        // Organizing state
-        MenuBarFileReviewCard(
-            file: mockFile,
-            paginationText: "1 of 5",
-            isOrganizing: true,
-            canGoBack: false,
-            canGoForward: true,
-            onOrganize: {},
-            onSkip: {},
-            onPrevious: {},
-            onNext: {}
-        )
-
-        // No destination, no rule
         MenuBarFileReviewCard(
             file: FileItem(
                 path: "/Users/test/Downloads/random_file.zip",

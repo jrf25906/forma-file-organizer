@@ -155,9 +155,9 @@ enum OrganizationTemplate: String, Codable, CaseIterable {
     // MARK: - Rule Generation
     
     /// Generates the default rules for this template.
-    /// - Parameter baseDocumentsPath: The base Documents folder path for destination folders
+    /// - Parameter baseDocumentsPath: The canonical root-relative folder path for destinations.
     /// - Returns: Array of Rule objects configured for this template
-    func generateRules(baseDocumentsPath: String = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first ?? "") -> [Rule] {
+    func generateRules(baseDocumentsPath: String = FolderLocation.documents.displayName) -> [Rule] {
         switch self {
         case .para:
             return generatePARARules(basePath: baseDocumentsPath)

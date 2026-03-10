@@ -28,6 +28,8 @@ struct FileRow: View {
     var onEditDestination: ((FileItem) -> Void)? = nil
     var onCreateRule: ((FileItem) -> Void)? = nil
     var onViewRule: ((FileItem) -> Void)? = nil
+    var matchingRules: [Rule] = []
+    var onApplyRule: ((Rule) -> Void)? = nil
     var onQuickLook: ((FileItem) -> Void)? = nil
     var onToggleSelection: ((FileItem) -> Void)? = nil
     var onThumbnailHover: ((FileItem?, NSEvent?) -> Void)? = nil
@@ -35,9 +37,6 @@ struct FileRow: View {
     @State private var isHovered = false
     @State private var showQuickLookHint = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-
-    // MARK: - Constants
-    private let categoryRailWidth: CGFloat = 2
 
     private var thumbnailSize: CGFloat {
         switch density {
@@ -99,6 +98,23 @@ struct FileRow: View {
         (isHovered || isSelectionMode || isSelected) ? 1.0 : 0.72
     }
 
+    private var primaryActionKind: FilePrimaryActionKind {
+        FilePrimaryActionKind.resolve(for: file)
+    }
+
+    private var shouldRevealPrimaryAction: Bool {
+        guard showsPrimaryActionButton, !isSelectionMode else { return false }
+        if primaryActionKind == .setDestination {
+            return true
+        }
+        return isHovered || isFocused || isSelected
+    }
+
+    private var shouldRevealOverflowMenu: Bool {
+        guard !isSelectionMode else { return false }
+        return isHovered || isFocused || isSelected
+    }
+
     private var rowStateAccessibilityValue: String {
         "view=card;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
     }
@@ -115,123 +131,75 @@ struct FileRow: View {
         )
     }
 
-    // Helper function for intelligent path truncation
-    private func truncatePath(_ path: String) -> String {
-        let components = path.split(separator: "/")
-        if components.count <= 2 { return path }
-        guard let last = components.last else { return path }
-        return "\u{2026}/\(last)"
-    }
-
     var body: some View {
-        HStack(spacing: 0) {
-            // Single accent rail communicates priority/category without adding noise
-            RoundedRectangle(cornerRadius: categoryRailWidth / 2)
-                .fill(file.category.color.opacity(Color.FormaOpacity.prominent))
-                .frame(width: categoryRailWidth)
-                .padding(.vertical, rowVerticalPadding)
-                .help("Category: \(file.category.displayName)")
-
-            HStack(alignment: .center, spacing: contentSpacing) {
-                // Selection checkbox appears only when relevant.
-                if let onToggleSelection = onToggleSelection {
-                    FormaCheckbox.premium(
-                        isSelected: isSelected,
-                        isVisible: true,
-                        action: { onToggleSelection(file) }
-                    )
-                    .opacity(selectionControlEmphasisOpacity)
-                    .frame(width: 32, height: 32, alignment: .center)
-                    .contentShape(Rectangle())
-                    .help(isSelected ? "Deselect file" : "Select file")
-                }
-
-                // Keep thumbnail compact so text hierarchy stays dominant.
-                FormaThumbnail.premium(
-                    file: file,
-                    size: thumbnailSize,
+        HStack(alignment: .center, spacing: contentSpacing) {
+            if let onToggleSelection = onToggleSelection {
+                FormaCheckbox.premium(
                     isSelected: isSelected,
-                    showQuickLook: showQuickLookHint,
-                    onQuickLook: { onQuickLook?(file) },
-                    onHoverChange: { hovering in
-                        showQuickLookHint = hovering
-                        if hovering {
-                            onThumbnailHover?(file, NSApp.currentEvent)
-                        } else {
-                            onThumbnailHover?(nil, nil)
-                        }
-                    }
+                    isVisible: true,
+                    action: { onToggleSelection(file) }
                 )
+                .opacity(selectionControlEmphasisOpacity)
+                .frame(width: 32, height: 32, alignment: .center)
+                .contentShape(Rectangle())
+                .help(isSelected ? "Deselect file" : "Select file")
+            }
 
-                // 2-line layout: (1) filename, (2) metadata — destination lives in action zone
-                VStack(alignment: .leading, spacing: infoStackSpacing) {
-                    // Line 1 — Filename [search badge]
-                    HStack(spacing: FormaSpacing.tight - 2) {
-                        Text(file.name)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Color.formaLabel)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-
-                        if let matchType = searchMatchType {
-                            SearchMatchBadge(matchType: matchType)
-                        }
-                    }
-
-                    // Line 2 — Static metadata + Active status
-                    HStack(spacing: FormaSpacing.tight) {
-                        // Static metadata: type + age with icons
-                        HStack(spacing: FormaSpacing.tight - 2) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "doc")
-                                    .font(.system(size: 9))
-                                Text(file.fileExtension.uppercased())
-                                    .font(.formaSmall)
-                            }
-                            .foregroundStyle(Color.formaTertiaryLabel)
-
-                            HStack(spacing: 3) {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 9))
-                                Text(compactAgeText)
-                                    .font(.formaSmall)
-                            }
-                            .foregroundStyle(Color.formaTertiaryLabel)
-                        }
-
-                        // Active metadata: status dot
-                        Circle()
-                            .fill(statusIndicatorConfig.color)
-                            .frame(width: 6, height: 6)
-                            .help(statusIndicatorConfig.label)
-
-                        if let relativePath = file.relativePathContextLabel {
-                            relativePathBadge(relativePath)
-                                .help("Current folder: \(relativePath)")
-                        }
-                    }
-
-                    if let snippet = contentSnippet {
-                        ContentSnippetView(snippet: snippet)
+            FormaThumbnail.premium(
+                file: file,
+                size: thumbnailSize,
+                isSelected: isSelected,
+                showQuickLook: showQuickLookHint,
+                onQuickLook: { onQuickLook?(file) },
+                onHoverChange: { hovering in
+                    showQuickLookHint = hovering
+                    if hovering {
+                        onThumbnailHover?(file, NSApp.currentEvent)
+                    } else {
+                        onThumbnailHover?(nil, nil)
                     }
                 }
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isHovered)
+            )
 
-                Spacer(minLength: contentSpacing)
+            FileIdentityBlock(
+                file: file,
+                layout: .card,
+                searchMatchType: searchMatchType,
+                contentSnippet: contentSnippet
+            )
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isHovered)
 
-                actionZone
-            }
-            .padding(.leading, contentLeadingPadding)
-            .padding(.trailing, contentTrailingPadding)
-            .padding(.vertical, rowVerticalPadding)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: contentSpacing)
+
+            FileAccessoryActions(
+                file: file,
+                layout: .card,
+                primaryActionKind: primaryActionKind,
+                showsPrimaryAction: shouldRevealPrimaryAction,
+                showsOverflowMenu: shouldRevealOverflowMenu,
+                matchingRules: matchingRules,
+                availableDestinations: availableDestinations,
+                onPrimaryAction: primaryActionConfig.action,
+                onEditDestination: { onEditDestination?(file) },
+                onSkip: { onSkip?(file) },
+                onQuickLook: { onQuickLook?(file) },
+                onCreateRule: onCreateRule.map { action in { action(file) } },
+                onApplyRule: onApplyRule,
+                onChangeDestination: onChangeDestination.map { action in { destination in action(file, destination) } },
+                disablesSkip: onSkip == nil
+            )
         }
-        .padding(.leading, FormaSpacing.tight)
+        .padding(.leading, contentLeadingPadding)
+        .padding(.trailing, contentTrailingPadding)
+        .padding(.vertical, rowVerticalPadding)
         .frame(minHeight: rowMinHeight)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+        .overlay(cardSheen)
         .overlay(cardBorder)
-        .shadow(color: cardShadowColor, radius: cardShadowRadius, x: 0, y: cardShadowY)
+        .shadow(color: cardAmbientShadowColor, radius: cardAmbientShadowRadius, x: 0, y: cardAmbientShadowY)
+        .shadow(color: cardContactShadowColor, radius: cardContactShadowRadius, x: 0, y: cardContactShadowY)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isSelected)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isFocused)
@@ -256,164 +224,21 @@ struct FileRow: View {
         }
     }
 
-    private func relativePathBadge(_ value: String) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: "folder")
-                .font(.system(size: 8, weight: .semibold))
-            Text(value)
-                .font(.formaCaption)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .foregroundStyle(Color.formaSecondaryLabelHigh)
-        .padding(.horizontal, FormaSpacing.tight - 2)
-        .padding(.vertical, 1)
-        .background(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
-        .clipShape(Capsule())
-    }
-
-    private var destinationPickerColor: Color {
-        file.destination != nil ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh
-    }
-
-    // MARK: - Action Zone
-
-    /// Unified right-side column: destination context above primary action button.
-    private var actionZone: some View {
-        VStack(alignment: .trailing, spacing: FormaSpacing.micro) {
-            destinationContextLabel
-
-            if showsPrimaryActionButton {
-                PrimaryActionButton(
-                    label: primaryActionConfig.label,
-                    icon: primaryActionConfig.icon,
-                    color: primaryActionConfig.color,
-                    action: primaryActionConfig.action
+    private var cardSheen: some View {
+        RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.formaBoneWhite.opacity(isFocused || isSelected ? 0.28 : 0.18),
+                        Color.formaBoneWhite.opacity(isHovered ? 0.10 : 0.06),
+                        Color.formaBoneWhite.opacity(0)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
                 )
-            }
-        }
-        .animation(reduceMotion ? nil : .easeOut(duration: FormaAnimation.disclosureDuration), value: isHovered)
-        .animation(reduceMotion ? nil : .easeOut(duration: FormaAnimation.disclosureDuration), value: isFocused)
-    }
-
-    /// State-dependent destination label for the action zone.
-    /// - Has destination + picker available → compact picker menu
-    /// - Has destination, no picker → static muted label
-    /// - No destination → nothing (the action button already says "Set Destination")
-    @ViewBuilder
-    private var destinationContextLabel: some View {
-        if let onChangeDestination, !availableDestinations.isEmpty {
-            destinationPickerCompact(onChangeDestination: onChangeDestination)
-        } else if let destination = file.destination {
-            destinationLabelCompact(destination: destination)
-                .help("Destination: \(destination.displayName)")
-        }
-        // No destination → emit nothing; button already reads "Set Destination"
-    }
-
-    /// Plain-text destination label — no capsule chrome, intentionally recessive.
-    private func destinationLabelCompact(destination: Destination) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: destination.isTrash ? "trash" : "folder")
-                .font(.system(size: 9))
-            Text(truncatePath(destination.displayName))
-                .font(.formaSmall)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .foregroundStyle(Color.formaSecondaryLabelHigh)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Destination: \(destination.displayName)")
-    }
-
-    /// Compact picker menu restyled without capsule background for the action zone.
-    private func destinationPickerCompact(onChangeDestination: @escaping (FileItem, Destination) -> Void) -> some View {
-        Menu {
-            // Current destination (checked)
-            if let current = file.destination {
-                Label(current.displayName, systemImage: current.isTrash ? "trash" : "folder")
-                    .foregroundStyle(Color.formaSecondaryLabelHigh)
-
-                Divider()
-            }
-
-            // Available destinations (excluding current)
-            let otherDestinations = availableDestinations.filter { $0 != file.destination }
-            ForEach(Array(otherDestinations.prefix(8)), id: \.self) { dest in
-                Button(action: { onChangeDestination(file, dest) }) {
-                    Label(dest.displayName, systemImage: dest.isTrash ? "trash" : "folder")
-                }
-            }
-
-            if !otherDestinations.isEmpty {
-                Divider()
-            }
-
-            // Trash option (if not already trash)
-            if file.destination?.isTrash != true {
-                Button(action: { onChangeDestination(file, .trash) }) {
-                    Label("Trash", systemImage: "trash")
-                }
-            }
-
-            Divider()
-
-            // Browse for folder
-            Button(action: { onEditDestination?(file) }) {
-                Label("Browse\u{2026}", systemImage: "folder.badge.plus")
-            }
-        } label: {
-            HStack(spacing: 3) {
-                Image(systemName: file.destination != nil ? "folder" : "questionmark.folder")
-                    .font(.system(size: 9))
-
-                if let destination = file.destination {
-                    Text(truncatePath(destination.displayName))
-                        .font(.formaSmall)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                } else {
-                    Text("Set destination")
-                        .font(.formaSmall)
-                        .lineLimit(1)
-                }
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .medium))
-            }
-            .foregroundStyle(destinationPickerColor)
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize(horizontal: false, vertical: true)
-        .accessibilityLabel(file.destination != nil ? "Destination: \(file.destination!.displayName). Change destination" : "Set destination")
-        .help(file.destination != nil ? "Change destination" : "Set destination")
-    }
-
-    // MARK: - Computed Styles
-
-    private var statusIndicatorConfig: (label: String, color: Color) {
-        switch file.status {
-        case .pending:
-            if file.destination == nil {
-                return ("Needs Dest", .formaWarning)
-            }
-            return ("Review", .formaWarning)
-        case .ready:
-            return ("Ready", .formaSage)
-        case .completed:
-            return ("Organized", .formaSage)
-        case .skipped:
-            return ("Skipped", .formaSecondaryLabelHigh)
-        }
-    }
-
-    /// Compact age display: "32d", "7d", "1d", "today"
-    private var compactAgeText: String {
-        let days = Calendar.current.dateComponents([.day], from: file.creationDate, to: Date()).day ?? 0
-        if days > 1 { return "\(days)d" }
-        if days == 1 { return "1d" }
-        return "today"
+            )
+            .blendMode(.screen)
+            .allowsHitTesting(false)
     }
 
     private var cardBackground: some View {
@@ -432,190 +257,77 @@ struct FileRow: View {
 
     private var cardBorder: some View {
         RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-            .strokeBorder(
-                isFocused ? Color.formaListRowFocusedBorder :
-                isSelected ? Color.formaListRowSelectedBorder :
-                isHovered ? Color.formaListRowHoverBorder :
-                Color.formaListRowBorder,
-                lineWidth: isFocused ? 1.5 : (isSelected ? 1.0 : 0.75)
-            )
-    }
-
-    private var cardShadowColor: Color {
-        if isFocused {
-            return Color.formaSteelBlue.opacity(0.10)
-        } else if isSelected {
-            return Color.clear
-        } else if isHovered {
-            return Color.formaObsidian.opacity(0.05)
-        } else {
-            return Color.clear
-        }
-    }
-
-    private var cardShadowRadius: CGFloat {
-        if isFocused { return 4 }
-        if isHovered { return 2 }
-        return 0
-    }
-
-    private var cardShadowY: CGFloat {
-        if isFocused { return 0 }
-        if isHovered { return 1 }
-        return 0
-    }
-}
-
-// MARK: - Primary Action Resolver (Testable)
-
-struct FileRowActionConfig {
-    let label: String
-    let icon: String
-    let color: Color
-    let action: () -> Void
-
-    static func resolve(
-        file: FileItem,
-        onOrganize: @escaping (FileItem) -> Void,
-        onEditDestination: ((FileItem) -> Void)?,
-        onCreateRule: ((FileItem) -> Void)?
-    ) -> FileRowActionConfig {
-        if file.destination != nil {
-            return FileRowActionConfig(
-                label: "Organize",
-                icon: "checkmark.circle.fill",
-                color: file.status == .ready ? .formaSage : .formaSteelBlue,
-                action: {
-                    if file.status == .ready {
-                        onOrganize(file)
-                    } else {
-                        onEditDestination?(file)
-                    }
-                }
-            )
-        }
-
-        return FileRowActionConfig(
-            label: "Set Destination",
-            icon: "folder.badge.plus",
-            color: .formaSteelBlue,
-            action: { onCreateRule?(file) }
-        )
-    }
-}
-
-
-// MARK: - Primary Action Button (Pill Style)
-
-struct PrimaryActionButton: View {
-    let label: String
-    let icon: String
-    let color: Color
-    let action: () -> Void
-
-    @State private var isHovered = false
-    @State private var isPressed = false
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.formaSmallSemibold)
-                Text(label)
-                    .font(.formaSmallSemibold)
-            }
-            .foregroundStyle(color)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(color.opacity(isPressed ? 0.20 : (isHovered ? 0.18 : 0.12)))
-            )
+            .strokeBorder(cardOuterBorderColor, lineWidth: cardOuterBorderWidth)
             .overlay(
-                Capsule()
-                    .strokeBorder(color.opacity(isHovered ? 0.35 : 0.20), lineWidth: 1)
+                RoundedRectangle(cornerRadius: FormaNestedRadius.inset(FormaRadius.control), style: .continuous)
+                    .stroke(cardInnerBorderColor, lineWidth: 0.75)
             )
-            .shadow(color: Color.clear, radius: 0, x: 0, y: 0)
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(isPressed ? 0.96 : 1.0)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: isPressed)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
-            if hovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
-            }
-        }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
-    }
-}
-
-// MARK: - Search Match Badge
-
-/// Displays a small badge indicating how a file matched the search query
-struct SearchMatchBadge: View {
-    let matchType: ContentSearchService.MatchType
-
-    private var config: (icon: String, label: String, color: Color) {
-        switch matchType {
-        case .filename:
-            return ("textformat", "Name", .formaSteelBlue)
-        case .content:
-            return ("doc.text.magnifyingglass", "Content", .formaWarmOrange)
-        case .both:
-            return ("checkmark.circle.fill", "Name + Content", .formaSage)
-        }
     }
 
-    var body: some View {
-        HStack(spacing: 3) {
-            Image(systemName: config.icon)
-                .font(.formaMicro)
-            Text(config.label)
-                .font(.formaCaptionSemibold)
-        }
-        .foregroundStyle(config.color)
-        .padding(.horizontal, FormaSpacing.tight - (FormaSpacing.micro / 2))
-        .padding(.vertical, FormaSpacing.micro / 2)
-        .background(config.color.opacity(Color.FormaOpacity.medium))
-        .overlay(
-            Capsule()
-                .strokeBorder(config.color.opacity(Color.FormaOpacity.strong), lineWidth: 1)
-        )
-        .clipShape(Capsule())
+    private var cardOuterBorderColor: Color {
+        isFocused ? Color.formaListRowFocusedBorder :
+        isSelected ? Color.formaListRowSelectedBorder :
+        isHovered ? Color.formaListRowHoverBorder :
+        Color.formaListRowBorder
     }
-}
 
-// MARK: - Content Snippet View
-
-/// Displays a snippet of file content showing where the search term was found
-struct ContentSnippetView: View {
-    let snippet: String
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "text.quote")
-                .font(.formaCaptionSemibold)
-                .foregroundStyle(Color.formaSecondaryLabelHigh)
-
-            Text(snippet)
-                .font(.formaSmall)
-                .foregroundStyle(Color.formaSecondaryLabelHigh)
-                .lineLimit(1)
-                .truncationMode(.middle)
+    private var cardInnerBorderColor: Color {
+        if isFocused || isSelected {
+            return Color.formaBoneWhite.opacity(0.34)
         }
-        .padding(.horizontal, FormaSpacing.tight)
-        .padding(.vertical, FormaSpacing.micro)
-        .background(Color.formaObsidian.opacity(Color.FormaOpacity.light))
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous))
+        if isHovered {
+            return Color.formaBoneWhite.opacity(0.22)
+        }
+        return Color.formaBoneWhite.opacity(0.14)
+    }
+
+    private var cardOuterBorderWidth: CGFloat {
+        isFocused ? 1.5 : (isSelected ? 1.0 : 0.75)
+    }
+
+    private var cardAmbientShadowColor: Color {
+        if isFocused {
+            return Color.formaSteelBlue.opacity(0.12)
+        }
+        if isSelected {
+            return Color.formaObsidian.opacity(0.05)
+        }
+        if isHovered {
+            return Color.formaObsidian.opacity(0.08)
+        }
+        return Color.formaObsidian.opacity(0.03)
+    }
+
+    private var cardAmbientShadowRadius: CGFloat {
+        if isFocused { return 10 }
+        if isSelected { return 6 }
+        if isHovered { return 5 }
+        return 3
+    }
+
+    private var cardAmbientShadowY: CGFloat {
+        if isFocused { return 4 }
+        if isSelected { return 2 }
+        if isHovered { return 2 }
+        return 1
+    }
+
+    private var cardContactShadowColor: Color {
+        if isFocused || isHovered {
+            return Color.formaObsidian.opacity(0.10)
+        }
+        return Color.formaObsidian.opacity(0.05)
+    }
+
+    private var cardContactShadowRadius: CGFloat {
+        if isFocused { return 2 }
+        if isHovered || isSelected { return 1.5 }
+        return 1
+    }
+
+    private var cardContactShadowY: CGFloat {
+        if isFocused { return 2 }
+        return 1
     }
 }
 

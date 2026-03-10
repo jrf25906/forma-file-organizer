@@ -15,23 +15,23 @@ struct RuleButtonWithMenu: View {
     private var pillBackground: Color {
         if hasRule {
             return colorScheme == .dark
-                ? Color.formaSoftGreen.opacity(0.28)
-                : Color.formaSoftGreen.opacity(0.16)
+                ? Color.formaBoneWhite.opacity(0.06)
+                : Color.formaObsidian.opacity(0.04)
         }
         return colorScheme == .dark
-            ? Color.formaWarning.opacity(0.30)
-            : Color.formaWarning.opacity(0.16)
+            ? Color.formaSteelBlue.opacity(0.18)
+            : Color.formaSteelBlue.opacity(0.10)
     }
 
     private var pillBorder: Color {
         if hasRule {
             return colorScheme == .dark
-                ? Color.formaSoftGreen.opacity(0.70)
-                : Color.formaSoftGreen.opacity(0.58)
+                ? Color.formaBoneWhite.opacity(0.16)
+                : Color.formaObsidian.opacity(0.10)
         }
         return colorScheme == .dark
-            ? Color.formaWarning.opacity(0.70)
-            : Color.formaWarning.opacity(0.62)
+            ? Color.formaSteelBlue.opacity(0.48)
+            : Color.formaSteelBlue.opacity(0.32)
     }
     
     var body: some View {
@@ -68,7 +68,7 @@ struct RuleButtonWithMenu: View {
             HStack(spacing: FormaSpacing.tight - (FormaSpacing.micro / 2)) {
                 Image(systemName: hasRule ? "checkmark.circle.fill" : "plus.circle.fill")
                     .font(.formaCompactMedium)
-                    .foregroundColor(hasRule ? Color.formaSuccess : Color.formaWarning)
+                    .foregroundColor(hasRule ? Color.formaSecondaryLabelHigh : Color.formaSteelBlue)
                 Text("Rule")
                     .font(.formaCompactMedium)
                     .foregroundColor(.formaLabel)

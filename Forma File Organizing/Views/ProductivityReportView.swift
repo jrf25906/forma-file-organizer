@@ -37,19 +37,20 @@ struct ProductivityReportView: View {
 
                     if viewModel.showsNoDataGuidance {
                         noDataGuidanceSection
+                        gettingStartedChecklistSection
+                    } else {
+                        // 1. The "Big Three" Impact Metrics
+                        impactMetricsSection
+
+                        // 2. Charts Grid: Storage Treemap + Automation Efficiency
+                        chartsGridSection
+
+                        // 3. Stale Content Heatmap (365-day calendar)
+                        stalenessHeatmapSection
+
+                        // 4. Smart Insights
+                        smartInsightsSection
                     }
-
-                    // 1. The "Big Three" Impact Metrics
-                    impactMetricsSection
-
-                    // 2. Charts Grid: Storage Treemap + Automation Efficiency
-                    chartsGridSection
-
-                    // 3. Stale Content Heatmap (365-day calendar)
-                    stalenessHeatmapSection
-
-                    // 4. Smart Insights
-                    smartInsightsSection
                 }
                 .padding(FormaSpacing.generous)
                 .padding(.bottom, FormaSpacing.extraLarge) // Ensure last section is fully visible
@@ -185,6 +186,56 @@ struct ProductivityReportView: View {
                     lineWidth: 1
                 )
         )
+    }
+
+    private var gettingStartedChecklistSection: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            Text("Make this dashboard useful")
+                .font(.formaBodyBold)
+                .foregroundColor(.formaLabel)
+
+            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                onboardingStep(
+                    title: "Scan a working folder",
+                    detail: "Forma needs one real pass through Desktop, Downloads, or another working folder."
+                )
+                onboardingStep(
+                    title: "Review and organize a few files",
+                    detail: "Approving even a small batch gives the dashboard credible time-saved and storage data."
+                )
+                onboardingStep(
+                    title: "Create one recurring rule",
+                    detail: "Analytics becomes more useful once a rule or automation starts doing repeat work."
+                )
+            }
+        }
+        .padding(FormaSpacing.generous)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+        )
+    }
+
+    private func onboardingStep(title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: FormaSpacing.tight) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.formaSmallSemibold)
+                .foregroundColor(.formaSteelBlue)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.formaSmallSemibold)
+                    .foregroundColor(.formaLabel)
+                Text(detail)
+                    .font(.formaCaption)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+            }
+        }
     }
 
     private var impactMetricsSection: some View {

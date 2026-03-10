@@ -48,4 +48,59 @@ final class DestinationTests: XCTestCase {
         XCTAssertEqual(decodedFolder, folderDestination)
         XCTAssertEqual(decodedTrash, trashDestination)
     }
+
+    func testResolverMaterializesPlaceholderWithinBookmarkedRoot() throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let documentsRoot = try Destination.folder(from: tempDir.url, displayName: "Documents")
+        let store = InMemoryBookmarkStore()
+        try store.saveBookmark(
+            try XCTUnwrap(documentsRoot.bookmarkData),
+            forKey: FormaConfig.Security.documentsBookmarkKey
+        )
+
+        try BookmarkStoreProvider.$override.withValue(store) {
+            let placeholder = Destination.folder(bookmark: Data(), displayName: "Documents/Areas/Health")
+            let resolved = try XCTUnwrap(DestinationResolver().materializeForExplicitSave(placeholder))
+            let resolvedURL = try XCTUnwrap(resolved.resolve()?.url)
+
+            XCTAssertEqual(resolved.displayName, "Documents/Areas/Health")
+            XCTAssertEqual(
+                resolvedURL.standardizedFileURL.path,
+                tempDir.url.appendingPathComponent("Areas/Health").standardizedFileURL.path
+            )
+            XCTAssertTrue(FileManager.default.fileExists(atPath: resolvedURL.path))
+        }
+    }
+
+    func testResolverNormalizesLegacyAbsoluteHomePathToCanonicalDisplayName() throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let documentsRoot = try Destination.folder(from: tempDir.url, displayName: "Documents")
+        let store = InMemoryBookmarkStore()
+        try store.saveBookmark(
+            try XCTUnwrap(documentsRoot.bookmarkData),
+            forKey: FormaConfig.Security.documentsBookmarkKey
+        )
+
+        let realHomePath = getpwuid(getuid()).map { String(cString: $0.pointee.pw_dir) }
+            ?? NSHomeDirectory()
+        let legacyPath = URL(fileURLWithPath: realHomePath)
+            .appendingPathComponent("Documents/Areas/Health")
+            .path
+
+        try BookmarkStoreProvider.$override.withValue(store) {
+            let placeholder = Destination.folder(bookmark: Data(), displayName: legacyPath)
+            let resolved = try XCTUnwrap(DestinationResolver().materializeForExplicitSave(placeholder))
+            let resolvedURL = try XCTUnwrap(resolved.resolve()?.url)
+
+            XCTAssertEqual(resolved.displayName, "Documents/Areas/Health")
+            XCTAssertEqual(
+                resolvedURL.standardizedFileURL.path,
+                tempDir.url.appendingPathComponent("Areas/Health").standardizedFileURL.path
+            )
+        }
+    }
 }

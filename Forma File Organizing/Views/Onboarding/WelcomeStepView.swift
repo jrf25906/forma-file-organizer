@@ -27,7 +27,12 @@ struct WelcomeStepView: View {
                     .font(.system(size: 56))
 
                 VStack(spacing: FormaSpacing.tight) {
-                    Text("Your files, finally organized.")
+                    Text("Preview-first organization")
+                        .font(.formaCaptionSemibold)
+                        .tracking(0.6)
+                        .foregroundColor(.formaSteelBlue)
+
+                    Text("Set up a cleanup system you can trust.")
                         .font(.formaDisplayHero)
                         .foregroundColor(.formaLabel)
                         .multilineTextAlignment(.center)
@@ -53,7 +58,7 @@ struct WelcomeStepView: View {
                 )
                 trustSignalRow(
                     icon: "arrow.uturn.backward",
-                    text: "Every move can be undone instantly."
+                    text: "Review first, then undo any batch if it was wrong."
                 )
                 trustSignalRow(
                     icon: "eye.slash.fill",
@@ -76,7 +81,7 @@ struct WelcomeStepView: View {
                 // Primary CTA
                 Button(action: onContinue) {
                     HStack(spacing: 10) {
-                        Text("Continue")
+                        Text("Review Your Folders")
                             .font(.formaBodyLarge)
                             .fontWeight(.semibold)
                         Image(systemName: "arrow.right")
@@ -100,7 +105,7 @@ struct WelcomeStepView: View {
 
                 // Secondary skip
                 Button(action: onSkip) {
-                    Text("Skip for now")
+                    Text("Explore First")
                         .font(.formaBody)
                         .foregroundColor(.formaSecondaryLabel)
                 }
@@ -123,9 +128,9 @@ struct WelcomeStepView: View {
 
     private var subtitleText: String {
         if let count = fileCount, count > 0 {
-            return "\(count) files on your Desktop and Downloads waiting to be sorted."
+            return "\(count) files on your Desktop and Downloads are ready for review. Forma suggests destinations and lets you approve each move."
         }
-        return "Hundreds of files on your Mac, waiting to be sorted."
+        return "Forma helps you review clutter, apply rules, and organize files without blind automation."
     }
 
     // MARK: - Trust Signal Row

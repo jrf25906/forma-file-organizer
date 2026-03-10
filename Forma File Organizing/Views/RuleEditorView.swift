@@ -10,8 +10,19 @@ struct RuleEditorView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
 
+    @Query private var existingRules: [Rule]
+
     // Categories for picker
     @Query private var categories: [RuleCategory]
+
+    private var sortedExistingRules: [Rule] {
+        existingRules.sorted { lhs, rhs in
+            if lhs.sortOrder != rhs.sortOrder {
+                return lhs.sortOrder < rhs.sortOrder
+            }
+            return lhs.creationDate < rhs.creationDate
+        }
+    }
 
     private var sortedCategories: [RuleCategory] {
         categories.sortedByOrder
@@ -37,6 +48,9 @@ struct RuleEditorView: View {
     // Delete rule safety preview
     @State private var deletePreviewFiles: [FileItem] = []
     @State private var showDeletePreviewSheet: Bool = false
+    @State private var detectedOverlaps: [RuleOverlapDetector.RuleOverlap] = []
+    @State private var showOverlapWarning: Bool = false
+    @State private var pendingRuleForSave: Rule?
 
     // Create category popover state
     @State private var showCreateCategoryPopover: Bool = false
@@ -95,6 +109,21 @@ struct RuleEditorView: View {
             displayName: formState.destinationDisplayPath
         )
         return destinationResolver.checkResolvability(placeholderDestination)
+    }
+
+    private var selectedCategory: RuleCategory? {
+        if let categoryID = formState.categoryID {
+            return sortedCategories.first { $0.id == categoryID }
+        }
+        return sortedCategories.first { $0.isDefault }
+    }
+
+    private var ruleSourceForSave: RuleService.RuleSource {
+        let nlText = naturalLanguageViewModel.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if editingRule == nil, !nlText.isEmpty, naturalLanguageViewModel.parsedRule != nil {
+            return .naturalLanguage(text: nlText)
+        }
+        return .ruleEditor
     }
 
     var body: some View {
@@ -209,38 +238,7 @@ struct RuleEditorView: View {
                     .cornerRadius(12)
                     .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
 
-                    // Destination warning for unresolvable placeholders
-                    if let resolvability = destinationResolvability,
-                       case .unresolvable(let reason) = resolvability {
-                        HStack(alignment: .top, spacing: FormaSpacing.tight) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                                .font(.system(size: 14))
-
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Destination may not work")
-                                    .font(.formaCaption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.formaObsidian)
-
-                                Text(reason)
-                                    .font(.formaCaption)
-                                    .foregroundColor(.formaSecondaryLabel)
-                                    .fixedSize(horizontal: false, vertical: true)
-
-                                Button(action: { showFolderPicker = true }) {
-                                    Text("Select Folder")
-                                        .font(.formaCaptionSemibold)
-                                        .foregroundColor(.formaSteelBlue)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(FormaSpacing.standard)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(FormaRadius.control)
-                    }
+                    destinationStatusBanner
 
                     // Category picker
                     if !sortedCategories.isEmpty {
@@ -350,6 +348,29 @@ struct RuleEditorView: View {
         .sheet(isPresented: $showDeletePreviewSheet) {
             DeleteRulePreviewSheet(files: deletePreviewFiles)
         }
+        .sheet(isPresented: $showOverlapWarning) {
+            if let rule = pendingRuleForSave {
+                RuleOverlapWarningView(
+                    overlaps: detectedOverlaps,
+                    ruleName: rule.name,
+                    rulePriority: (sortedExistingRules.firstIndex(where: { $0.id == editingRule?.id }) ?? sortedExistingRules.count) + 1,
+                    onSaveAnyway: {
+                        showOverlapWarning = false
+                        commitSave(rule: rule)
+                    },
+                    onEditRule: {
+                        showOverlapWarning = false
+                        pendingRuleForSave = nil
+                        detectedOverlaps = []
+                    },
+                    onCancel: {
+                        showOverlapWarning = false
+                        pendingRuleForSave = nil
+                        detectedOverlaps = []
+                    }
+                )
+            }
+        }
     }
 
     // MARK: - View Components
@@ -408,6 +429,69 @@ struct RuleEditorView: View {
 	            }
 	        }
 	    }
+
+    @ViewBuilder
+    private var destinationStatusBanner: some View {
+        if let resolvability = destinationResolvability {
+            switch resolvability {
+            case .valid:
+                EmptyView()
+
+            case .resolvable(let parentFolder):
+                HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                    Image(systemName: "folder.badge.plus")
+                        .foregroundColor(.formaSteelBlue)
+                        .font(.system(size: 14))
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Folder will be created on save")
+                            .font(.formaCaption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.formaObsidian)
+
+                        Text("Forma can create this destination inside \(parentFolder) as soon as you save the rule.")
+                            .font(.formaCaption)
+                            .foregroundColor(.formaSecondaryLabel)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(FormaSpacing.standard)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.formaSteelBlue.opacity(0.08))
+                .cornerRadius(FormaRadius.control)
+
+            case .unresolvable(let reason):
+                HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 14))
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Destination may not work")
+                            .font(.formaCaption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.formaObsidian)
+
+                        Text(reason)
+                            .font(.formaCaption)
+                            .foregroundColor(.formaSecondaryLabel)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Button(action: { showFolderPicker = true }) {
+                            Text("Select Folder")
+                                .font(.formaCaptionSemibold)
+                                .foregroundColor(.formaSteelBlue)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(FormaSpacing.standard)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(FormaRadius.control)
+            }
+        }
+    }
 
     /// Subtle circular button to create a new category
     private var createCategoryButton: some View {
@@ -536,108 +620,109 @@ struct RuleEditorView: View {
         return true
     }
 
+    private func showSaveError(_ message: String) {
+        validationError = message
+        saveButtonState = .error
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            saveButtonState = .normal
+        }
+    }
+
+    private func buildRuleCandidate(destination: Destination?) throws -> Rule {
+        let trimmedName = formState.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let exclusions = formState.showExclusionConditions ? formState.exclusionConditions : []
+        let enableFlag = editingRule == nil && formState.actionType == .delete ? false : formState.isEnabled
+
+        if formState.useCompoundConditions {
+            let rule = Rule(
+                name: trimmedName,
+                conditions: formState.conditions,
+                logicalOperator: formState.logicalOperator,
+                actionType: formState.actionType,
+                destination: destination,
+                isEnabled: enableFlag,
+                exclusionConditions: exclusions,
+                category: selectedCategory
+            )
+            return rule
+        }
+
+        let conditionValue = formState.conditionValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        _ = try RuleCondition(type: formState.conditionType, value: conditionValue)
+
+        return Rule(
+            name: trimmedName,
+            conditionType: formState.conditionType,
+            conditionValue: conditionValue,
+            actionType: formState.actionType,
+            destination: destination,
+            isEnabled: enableFlag,
+            exclusionConditions: exclusions,
+            category: selectedCategory
+        )
+    }
+
     private func saveRule() {
         guard validateRule() else {
-            saveButtonState = .error
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-                saveButtonState = .normal
-            }
+            showSaveError(validationError ?? "Please review the highlighted fields.")
             return
         }
-        
-        // Show loading state
-        saveButtonState = .loading
 
-        // Build destination from form state
-        let destination = formState.buildDestination()
+        do {
+            let candidateRule = try buildRuleCandidate(destination: formState.buildDestination())
+            let overlaps = RuleOverlapDetector().detectOverlaps(
+                for: candidateRule,
+                against: sortedExistingRules,
+                excludeRuleID: editingRule?.id
+            )
+
+            if !overlaps.isEmpty {
+                pendingRuleForSave = candidateRule
+                detectedOverlaps = overlaps
+                showOverlapWarning = true
+                saveButtonState = .normal
+                return
+            }
+
+            commitSave(rule: candidateRule)
+        } catch {
+            showSaveError("Failed to prepare rule: \(error.localizedDescription)")
+        }
+    }
+
+    private func commitSave(rule: Rule) {
+        saveButtonState = .loading
 
         let ruleService = RuleService(modelContext: modelContext)
 
         do {
-            // Resolve category from selected ID
-            let selectedCategory: RuleCategory?
-            if let categoryID = formState.categoryID {
-                selectedCategory = sortedCategories.first { $0.id == categoryID }
-            } else {
-                // Default to General category if no selection
-                selectedCategory = sortedCategories.first { $0.isDefault }
-            }
+            let materializedDestination = try destinationResolver.materializeForExplicitSave(rule.destination)
 
             if let existingRule = editingRule {
-                // Update existing rule
-                existingRule.name = formState.name
-                existingRule.actionType = formState.actionType
-                existingRule.destination = destination
-                existingRule.isEnabled = formState.isEnabled
-                existingRule.category = selectedCategory
-
-                if formState.useCompoundConditions {
-                    existingRule.conditions = formState.conditions
-                    existingRule.logicalOperator = formState.logicalOperator
-                } else {
-                    existingRule.conditionType = formState.conditionType
-                    existingRule.conditionValue = formState.conditionValue
-                    existingRule.conditions = []
-                    existingRule.logicalOperator = .single
-                }
-
-                // Update exclusion conditions
-                existingRule.exclusionConditions = formState.showExclusionConditions ? formState.exclusionConditions : []
+                existingRule.name = rule.name
+                existingRule.actionType = rule.actionType
+                existingRule.destination = materializedDestination
+                existingRule.isEnabled = rule.isEnabled
+                existingRule.category = rule.category
+                existingRule.exclusionConditions = rule.exclusionConditions
+                existingRule.conditionType = rule.conditionType
+                existingRule.conditionValue = rule.conditionValue
+                existingRule.conditions = rule.conditions
+                existingRule.logicalOperator = rule.logicalOperator
 
                 try ruleService.updateRule(existingRule)
             } else {
-                // Create new rule
-                let enableFlag: Bool = (formState.actionType == .delete) ? false : formState.isEnabled
-
-                // Get exclusion conditions if enabled
-                let exclusions = formState.showExclusionConditions ? formState.exclusionConditions : []
-
-                let newRule: Rule
-                if formState.useCompoundConditions {
-                    newRule = Rule(
-                        name: formState.name,
-                        conditions: formState.conditions,
-                        logicalOperator: formState.logicalOperator,
-                        actionType: formState.actionType,
-                        destination: destination,
-                        isEnabled: enableFlag,
-                        exclusionConditions: exclusions
-                    )
-                } else {
-                    newRule = Rule(
-                        name: formState.name,
-                        conditionType: formState.conditionType,
-                        conditionValue: formState.conditionValue,
-                        actionType: formState.actionType,
-                        destination: destination,
-                        isEnabled: enableFlag,
-                        exclusionConditions: exclusions
-                    )
-                }
-
-                // Assign category to new rule
-                newRule.category = selectedCategory
-
-                // Determine source for activity logging
-                let nlText = naturalLanguageViewModel.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                let source: RuleService.RuleSource
-                if !nlText.isEmpty, naturalLanguageViewModel.parsedRule != nil {
-                    source = .naturalLanguage(text: nlText)
-                } else {
-                    source = .ruleEditor
-                }
-
-                try ruleService.createRule(newRule, source: source)
+                rule.destination = materializedDestination
+                try ruleService.createRule(rule, source: ruleSourceForSave)
             }
 
-            // Re-evaluate all files against updated rules
             dashboardViewModel.loadRules(from: modelContext)
             dashboardViewModel.reEvaluateFilesAgainstRules(context: modelContext)
-
-            // Show success state briefly
+            pendingRuleForSave = nil
+            detectedOverlaps = []
             saveButtonState = .success
 
-            // Dismiss after showing success
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                 if let onDismiss = onDismiss {
                     onDismiss()
@@ -646,13 +731,7 @@ struct RuleEditorView: View {
                 }
             }
         } catch {
-            validationError = "Failed to save rule: \(error.localizedDescription)"
-            saveButtonState = .error
-
-            // Reset to normal after showing error
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-                saveButtonState = .normal
-            }
+            showSaveError("Failed to save rule: \(error.localizedDescription)")
         }
     }
 

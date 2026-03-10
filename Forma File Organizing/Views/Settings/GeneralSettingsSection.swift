@@ -13,6 +13,18 @@ struct GeneralSettingsSection: View {
     var body: some View {
         ScrollView {
             VStack(spacing: FormaSpacing.generous) {
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    Text("General")
+                        .font(.formaH2)
+                        .foregroundColor(.formaLabel)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Text("Choose how Forma behaves on your Mac, from launch behavior to theme and notifications.")
+                        .font(.formaSmall)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 // Appearance Section
                 SettingsSection("Appearance") {
                     SettingsRow("Theme", subtitle: "Choose how Forma looks") {

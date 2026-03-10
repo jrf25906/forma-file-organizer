@@ -186,11 +186,11 @@ struct PaneMaterialBackground: View {
         let base: Double
         switch role {
         case .sidebar:
-            base = colorScheme == .dark ? 0.92 : 0.78
+            base = colorScheme == .dark ? 0.86 : 0.72
         case .content:
-            base = colorScheme == .dark ? 0.65 : 0.52
+            base = colorScheme == .dark ? 0.50 : 0.38
         case .inspector:
-            base = colorScheme == .dark ? 0.88 : 0.74
+            base = colorScheme == .dark ? 0.68 : 0.56
         }
 
         return base * activeMultiplier
@@ -202,11 +202,11 @@ struct PaneMaterialBackground: View {
         let base: Double
         switch role {
         case .sidebar:
-            base = colorScheme == .dark ? 0.10 : 0.16
+            base = colorScheme == .dark ? 0.08 : 0.13
         case .content:
-            base = colorScheme == .dark ? 0.08 : 0.12
+            base = colorScheme == .dark ? 0.04 : 0.08
         case .inspector:
-            base = colorScheme == .dark ? 0.10 : 0.15
+            base = colorScheme == .dark ? 0.06 : 0.10
         }
 
         return base * activeMultiplier
@@ -218,11 +218,11 @@ struct PaneMaterialBackground: View {
         let base: Double
         switch role {
         case .sidebar:
-            base = colorScheme == .dark ? 0.03 : 0.06
+            base = colorScheme == .dark ? 0.02 : 0.04
         case .content:
-            base = colorScheme == .dark ? 0.02 : 0.05
+            base = colorScheme == .dark ? 0.01 : 0.03
         case .inspector:
-            base = colorScheme == .dark ? 0.03 : 0.06
+            base = colorScheme == .dark ? 0.02 : 0.04
         }
 
         return base * activeMultiplier
@@ -233,33 +233,33 @@ struct PaneMaterialBackground: View {
 
         switch role {
         case .sidebar:
-            return (colorScheme == .dark ? 0.46 : 0.36) * activeMultiplier
+            return (colorScheme == .dark ? 0.40 : 0.30) * activeMultiplier
         case .content:
-            return (colorScheme == .dark ? 0.30 : 0.24) * activeMultiplier
+            return (colorScheme == .dark ? 0.18 : 0.12) * activeMultiplier
         case .inspector:
-            return (colorScheme == .dark ? 0.42 : 0.34) * activeMultiplier
+            return (colorScheme == .dark ? 0.24 : 0.18) * activeMultiplier
         }
     }
 
     private var grainIntensity: Float {
         switch role {
         case .sidebar:
-            return 1.05
+            return 0.95
         case .content:
-            return 0.85
+            return 0.65
         case .inspector:
-            return 1.0
+            return 0.72
         }
     }
 
     private var grainOpacity: Double {
         switch role {
         case .sidebar:
-            return colorScheme == .dark ? 0.20 : 0.16
+            return colorScheme == .dark ? 0.16 : 0.12
         case .content:
-            return colorScheme == .dark ? 0.15 : 0.12
+            return colorScheme == .dark ? 0.08 : 0.06
         case .inspector:
-            return colorScheme == .dark ? 0.18 : 0.15
+            return colorScheme == .dark ? 0.10 : 0.08
         }
     }
 
@@ -269,14 +269,14 @@ struct PaneMaterialBackground: View {
 
         switch role {
         case .sidebar:
-            top = Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.70 : 0.56)
-            middle = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.52 : 0.40)
+            top = Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.62 : 0.48)
+            middle = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.44 : 0.32)
         case .content:
-            top = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.46 : 0.34)
-            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.30 : 0.20)
+            top = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.28 : 0.18)
+            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.16 : 0.10)
         case .inspector:
-            top = Color.formaSage.opacity(colorScheme == .dark ? 0.66 : 0.50)
-            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.34 : 0.24)
+            top = Color.formaSage.opacity(colorScheme == .dark ? 0.42 : 0.28)
+            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.18 : 0.12)
         }
 
         return LinearGradient(
@@ -291,11 +291,11 @@ struct PaneMaterialBackground: View {
 
         switch role {
         case .sidebar:
-            return (colorScheme == .dark ? 0.34 : 0.26) * activeMultiplier
+            return (colorScheme == .dark ? 0.28 : 0.20) * activeMultiplier
         case .content:
-            return (colorScheme == .dark ? 0.22 : 0.16) * activeMultiplier
+            return (colorScheme == .dark ? 0.10 : 0.08) * activeMultiplier
         case .inspector:
-            return (colorScheme == .dark ? 0.32 : 0.24) * activeMultiplier
+            return (colorScheme == .dark ? 0.14 : 0.10) * activeMultiplier
         }
     }
 

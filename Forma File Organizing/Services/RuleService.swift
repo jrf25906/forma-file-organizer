@@ -327,16 +327,16 @@ class RuleService: ObservableObject {
 
             // Creative Assets
             Rule(name: "Raw Photo Vault", conditionType: .fileExtension, conditionValue: "CR2", actionType: .move, destination: dest("Pictures/Raw Imports")),
-            Rule(name: "PSD Parker", conditionType: .fileExtension, conditionValue: "psd", actionType: .move, destination: dest("Creative Cloud Files/Archived/PSDs")),
-            Rule(name: "SVG Stash", conditionType: .fileExtension, conditionValue: "svg", actionType: .move, destination: dest("Assets/Icons")),
-            Rule(name: "Font Finder", conditionType: .fileExtension, conditionValue: "otf", actionType: .move, destination: dest("Library/Fonts/To Install")),
-            Rule(name: "Video Rush Reel", conditionType: .fileExtension, conditionValue: "mov", actionType: .move, destination: dest("Movies/Rushes")),
+            Rule(name: "PSD Parker", conditionType: .fileExtension, conditionValue: "psd", actionType: .move, destination: dest("Documents/Creative/PSDs")),
+            Rule(name: "SVG Stash", conditionType: .fileExtension, conditionValue: "svg", actionType: .move, destination: dest("Documents/Assets/Icons")),
+            Rule(name: "Font Finder", conditionType: .fileExtension, conditionValue: "otf", actionType: .move, destination: dest("Documents/Fonts/To Install")),
+            Rule(name: "Video Rush Reel", conditionType: .fileExtension, conditionValue: "mov", actionType: .move, destination: dest("Documents/Video/Rushes")),
 
             // Developer Tools
             Rule(name: "SQL Dump Diver", conditionType: .fileExtension, conditionValue: "sql", actionType: .move, destination: dest("Documents/Database Backups")),
             Rule(name: "Log File Limbo", conditionType: .fileExtension, conditionValue: "log", actionType: .delete),
             Rule(name: "CSV Silo", conditionType: .fileExtension, conditionValue: "csv", actionType: .move, destination: dest("Documents/Data Exports")),
-            Rule(name: "Env Var Guard", conditionType: .nameStartsWith, conditionValue: ".env", actionType: .move, destination: dest("Development/Secrets")),
+            Rule(name: "Env Var Guard", conditionType: .nameStartsWith, conditionValue: ".env", actionType: .move, destination: dest("Documents/Development/Secrets")),
 
             // Documents
             Rule(name: "Invoice Ingest", conditionType: .nameContains, conditionValue: "Invoice", actionType: .move, destination: dest("Documents/Financial/Invoices")),

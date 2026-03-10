@@ -13,14 +13,14 @@ struct SettingsTabShell<Content: View>: View {
 
     private var shellFill: Color {
         colorScheme == .dark
-            ? Color.formaObsidian.opacity(0.46)
-            : Color.formaBoneWhite.opacity(0.72)
+            ? Color.formaObsidian.opacity(0.38)
+            : Color.formaBoneWhite.opacity(0.84)
     }
 
     private var shellStroke: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.16)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle)
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
     }
 
     var body: some View {
@@ -41,11 +41,11 @@ struct SettingsTabShell<Content: View>: View {
                         )
                         .shadow(
                             color: colorScheme == .dark
-                                ? Color.black.opacity(0.26)
-                                : Color.formaObsidian.opacity(Color.FormaOpacity.medium),
-                            radius: 14,
+                                ? Color.black.opacity(0.22)
+                                : Color.formaObsidian.opacity(Color.FormaOpacity.light),
+                            radius: 10,
                             x: 0,
-                            y: 6
+                            y: 4
                         )
                 )
                 .padding(FormaSpacing.standard)
@@ -68,7 +68,7 @@ struct SettingsSection<Content: View>: View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             // Section header - matches FormaSection styling
             Text(title)
-                .font(.formaBodySemibold)
+                .font(.formaCaptionSemibold)
                 .tracking(0.5)
                 .foregroundColor(colorScheme == .dark ? Color.formaSecondaryLabelHigh : Color.formaSecondaryLabel)
                 .padding(.leading, FormaSpacing.micro)

@@ -485,6 +485,39 @@ FormaSecondaryButton(
 - 1px stroke border (20% opacity)
 - Same padding and radius as primary
 
+### Chrome Surfaces
+
+**File:** `DesignSystem/FormaControlChrome.swift`
+
+#### FormaChromeSurface
+
+Shared optical chrome primitive for compact shells, toolbar clusters, menu-bar cards, and high-frequency controls:
+
+```swift
+FormaChromeSurface(
+    cornerRadius: FormaRadius.control,
+    fill: Color.formaBoneWhite.opacity(0.92),
+    tint: .formaSteelBlue,
+    elevation: .raised
+)
+```
+
+**Features:**
+- Concentric outer + inner rim lines for tighter nested-surface geometry
+- Top-edge specular sheen to keep light-mode surfaces crisp without heavy borders
+- Elevation presets (`.inset`, `.resting`, `.raised`, `.floating`, `.emphasized`) so state changes alter depth as well as tint
+- Reusable for toolbar chrome, file-surface actions, inspector/menu-bar shells, and compact badges
+
+#### FormaNestedRadius
+
+Helper for concentric corner math:
+
+```swift
+let innerRadius = FormaNestedRadius.inset(FormaRadius.card)
+```
+
+Use it whenever one surface sits directly inside another and should feel mechanically related rather than independently rounded.
+
 ### Cards
 
 #### FormaCard

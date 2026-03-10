@@ -105,12 +105,14 @@ enum PatternAnalysisService {
         let folderName = URL(fileURLWithPath: pattern.destinationPath).lastPathComponent
         let ruleName = "\(conditionSummary) → \(folderName)"
 
+        let destination = pattern.destination ?? .folder(bookmark: Data(), displayName: pattern.destinationPath)
+
         return Rule(
             name: ruleName,
             conditions: ruleConditions,
             logicalOperator: pattern.logicalOperator,
             actionType: .move,
-            destination: .folder(bookmark: Data(), displayName: pattern.destinationPath)
+            destination: destination
         )
     }
 
@@ -119,12 +121,14 @@ enum PatternAnalysisService {
         let folderName = URL(fileURLWithPath: pattern.destinationPath).lastPathComponent
         let ruleName = "\(pattern.fileExtension.uppercased()) → \(folderName)"
 
+        let destination = pattern.destination ?? .folder(bookmark: Data(), displayName: pattern.destinationPath)
+
         return Rule(
             name: ruleName,
             conditionType: .fileExtension,
             conditionValue: pattern.fileExtension,
             actionType: .move,
-            destination: .folder(bookmark: Data(), displayName: pattern.destinationPath)
+            destination: destination
         )
     }
 

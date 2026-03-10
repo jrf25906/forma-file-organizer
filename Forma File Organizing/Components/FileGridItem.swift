@@ -18,6 +18,11 @@ struct FileGridItem: View {
     let onEdit: () -> Void
     let onSkip: () -> Void
     let onQuickLook: () -> Void
+    var availableDestinations: [Destination] = []
+    var onChangeDestination: ((Destination) -> Void)? = nil
+    var matchingRules: [Rule] = []
+    var onCreateRule: (() -> Void)? = nil
+    var onApplyRule: ((Rule) -> Void)? = nil
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -26,37 +31,12 @@ struct FileGridItem: View {
 
     private var cardHeight: CGFloat {
         switch density {
-        case .tight: return 190
-        case .balanced: return 220
-        case .spacious: return 240
+        case .tight: return 204
+        case .balanced: return 236
+        case .spacious: return 256
         }
     }
     private let cornerRadius: CGFloat = FormaRadius.card
-    private let categoryRailWidth: CGFloat = 2
-
-    private var tileVerticalPadding: CGFloat {
-        switch density {
-        case .tight: return 8
-        case .balanced: return 10
-        case .spacious: return 12
-        }
-    }
-
-    private var contentSpacing: CGFloat {
-        switch density {
-        case .tight: return FormaSpacing.tight - 2
-        case .balanced: return FormaSpacing.tight
-        case .spacious: return FormaSpacing.tight + 2
-        }
-    }
-
-    private var textStackSpacing: CGFloat {
-        switch density {
-        case .tight: return 3
-        case .balanced: return 4
-        case .spacious: return 5
-        }
-    }
 
     private var contentHorizontalPadding: CGFloat {
         switch density {
@@ -66,20 +46,16 @@ struct FileGridItem: View {
         }
     }
 
-    private var nameBlockHeight: CGFloat {
-        switch density {
-        case .tight: return 26
-        case .balanced: return 30
-        case .spacious: return 34
-        }
-    }
-
     private var selectionControlEmphasisOpacity: Double {
         (isSelected || isSelectionMode || isHovered) ? 1.0 : 0.72
     }
 
     private var rowStateAccessibilityValue: String {
         "view=grid;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
+    }
+
+    private var primaryActionKind: FilePrimaryActionKind {
+        FilePrimaryActionKind.resolve(for: file)
     }
 
     // MARK: - Dynamic Thumbnail Properties
@@ -98,51 +74,12 @@ struct FileGridItem: View {
     private var thumbnailSize: CGFloat {
         switch density {
         case .tight:
-            return isImageFile ? 88 : 72
+            return isImageFile ? 78 : 64
         case .balanced:
-            return isImageFile ? 100 : 84
+            return isImageFile ? 90 : 74
         case .spacious:
-            return isImageFile ? 112 : 96
+            return isImageFile ? 102 : 86
         }
-    }
-
-    // MARK: - Computed Properties
-
-    private var hasDestination: Bool {
-        file.destination != nil
-    }
-
-    private var compactAgeText: String {
-        let days = Calendar.current.dateComponents([.day], from: file.creationDate, to: Date()).day ?? 0
-        if days > 1 { return "\(days)d" }
-        if days == 1 { return "1d" }
-        return "today"
-    }
-
-    private var statusChipConfig: (label: String, color: Color) {
-        switch file.status {
-        case .pending:
-            if file.destination == nil {
-                return ("Needs Dest", .formaWarning)
-            }
-            return ("Review", .formaWarning)
-        case .ready:
-            return ("Ready", .formaSage)
-        case .completed:
-            return ("Organized", .formaSage)
-        case .skipped:
-            return ("Skipped", .formaSecondaryLabelHigh)
-        }
-    }
-
-    /// Single-line metadata string: "PDF · 32d · Review"
-    private var metadataString: String {
-        let segments: [String] = [
-            file.fileExtension.uppercased(),
-            compactAgeText,
-            statusChipConfig.label
-        ]
-        return segments.joined(separator: " \u{00B7} ")
     }
 
     private var categoryColors: (primary: Color, secondary: Color) {
@@ -154,22 +91,19 @@ struct FileGridItem: View {
     /// Footer height for the 3-line text area below the thumbnail.
     private var footerHeight: CGFloat {
         switch density {
-        case .tight: return 58
-        case .balanced: return 64
-        case .spacious: return 68
+        case .tight: return 86
+        case .balanced: return 106
+        case .spacious: return 116
         }
+    }
+
+    private var mediaSectionHeight: CGFloat {
+        cardHeight - footerHeight
     }
 
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                // Category top-edge bar
-                file.category.color
-                    .opacity(Color.FormaOpacity.prominent)
-                    .frame(height: categoryRailWidth)
-                    .help("Category: \(file.category.displayName)")
-
-                // Full-bleed thumbnail area (fills available space)
                 ZStack {
                     FormaThumbnail.grid(
                         file: file,
@@ -180,114 +114,83 @@ struct FileGridItem: View {
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(height: mediaSectionHeight)
+                .frame(maxWidth: .infinity)
                 .clipped()
 
-                // Compact 3-line footer
-                VStack(alignment: .leading, spacing: 2) {
-                    // Line 1: Filename
-                    Text(file.name)
-                        .font(.formaSmallSemibold)
-                        .foregroundStyle(Color.formaLabel)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    // Line 2: Static metadata + Active status
-                    HStack(spacing: 4) {
-                        // Static: type + age
-                        HStack(spacing: 3) {
-                            Image(systemName: "doc")
-                                .font(.system(size: 8))
-                            Text(file.fileExtension.uppercased())
-                                .font(.formaCaption)
-                        }
-                        .foregroundStyle(Color.formaTertiaryLabel)
-
-                        HStack(spacing: 3) {
-                            Image(systemName: "clock")
-                                .font(.system(size: 8))
-                            Text(compactAgeText)
-                                .font(.formaCaption)
-                        }
-                        .foregroundStyle(Color.formaTertiaryLabel)
-
-                        // Active: status dot
-                        Circle()
-                            .fill(statusChipConfig.color)
-                            .frame(width: 5, height: 5)
-                            .help(statusChipConfig.label)
-
-                        if let confidence = file.confidenceScore {
-                            ConfidenceDot(score: confidence, matchReason: file.matchReason, size: 5)
-                        }
-
-                        if let relativePath = file.relativePathContextLabel {
-                            relativePathBadge(relativePath)
-                        }
-
-                        Spacer(minLength: 0)
-                    }
-
-                    // Line 3: Destination
-                    if let destination = file.destination {
-                        Text("→ \(truncatePath(destination.displayName))")
-                            .font(.formaCaption)
-                            .foregroundStyle(Color.formaSteelBlue)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .help("Destination: \(destination.displayName)")
-                    } else {
-                        Button(action: onEdit) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "folder.badge.plus")
-                                    .font(.system(size: 9, weight: .semibold))
-                                Text("Set destination")
-                                    .font(.formaCaption)
-                            }
-                            .foregroundStyle(Color.formaSteelBlue)
-                            .padding(.horizontal, FormaSpacing.tight - 2)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .help("Set file destination")
-                    }
+                VStack(alignment: .leading, spacing: FormaSpacing.micro + 1) {
+                    FileIdentityBlock(
+                        file: file,
+                        layout: .grid,
+                        searchMatchType: searchMatchType
+                    )
                 }
                 .padding(.horizontal, contentHorizontalPadding)
-                .padding(.vertical, FormaSpacing.tight)
+                .padding(.top, FormaSpacing.tight + 1)
+                .padding(.bottom, FormaSpacing.tight - 1)
                 .frame(height: footerHeight, alignment: .topLeading)
-                .background(
-                    // Subtle separator between thumbnail and footer
-                    VStack {
-                        Color.formaSeparator.opacity(0.3)
-                            .frame(height: 0.5)
-                        Spacer()
-                    }
-                )
+                .background(footerBackground)
             }
             .background(tileBackground)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(tileSheen)
             .overlay(tileBorder)
-            .shadow(color: tileShadowColor, radius: tileShadowRadius, x: 0, y: tileShadowY)
+            .shadow(color: tileAmbientShadowColor, radius: tileAmbientShadowRadius, x: 0, y: tileAmbientShadowY)
+            .shadow(color: tileContactShadowColor, radius: tileContactShadowRadius, x: 0, y: tileContactShadowY)
 
-            // Hover action overlay
-            if isHovered && !isSelectionMode {
-                HoverActionOverlay(
-                    hasDestination: hasDestination,
-                    showsPrimaryActionButton: showsPrimaryActionButton,
-                    cornerRadius: cornerRadius,
-                    onOrganize: onOrganize,
-                    onEdit: onEdit,
-                    onSkip: onSkip,
-                    onQuickLook: onQuickLook
-                )
+            if (isHovered || isFocused) && !isSelectionMode {
+                VStack {
+                    Spacer()
+
+                    ZStack(alignment: .bottom) {
+                        LinearGradient(
+                            colors: [
+                                Color.clear,
+                                Color.formaObsidian.opacity(0.6)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(maxWidth: .infinity)
+                        .clipShape(
+                            UnevenRoundedRectangle(
+                                topLeadingRadius: 0,
+                                bottomLeadingRadius: cornerRadius,
+                                bottomTrailingRadius: cornerRadius,
+                                topTrailingRadius: 0,
+                                style: .continuous
+                            )
+                        )
+
+                        HStack {
+                            Spacer()
+
+                            FileAccessoryActions(
+                                file: file,
+                                layout: .overlay,
+                                primaryActionKind: primaryActionKind,
+                                showsPrimaryAction: showsPrimaryActionButton,
+                                showsOverflowMenu: true,
+                                matchingRules: matchingRules,
+                                availableDestinations: availableDestinations,
+                                onPrimaryAction: primaryActionHandler,
+                                onEditDestination: onEdit,
+                                onSkip: onSkip,
+                                onQuickLook: onQuickLook,
+                                onCreateRule: onCreateRule,
+                                onApplyRule: onApplyRule,
+                                onChangeDestination: onChangeDestination
+                            )
+                        }
+                        .padding(.horizontal, FormaSpacing.standard - FormaSpacing.micro)
+                        .padding(.bottom, FormaSpacing.tight)
+                    }
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .frame(maxWidth: .infinity)
+                }
+                .transition(.opacity)
             }
 
-            // Checkbox overlay (top-left)
             VStack {
                 HStack {
                     FormaCheckbox.premium(
@@ -300,23 +203,10 @@ struct FileGridItem: View {
                     .contentShape(Rectangle())
                     .help(isSelected ? "Deselect file" : "Select file")
                     .padding(.leading, FormaSpacing.tight)
-                    .padding(.top, FormaSpacing.tight + categoryRailWidth)
+                    .padding(.top, FormaSpacing.tight)
                     Spacer()
                 }
                 Spacer()
-            }
-
-            // Search match badge (top-right)
-            if let matchType = searchMatchType {
-                VStack {
-                    HStack {
-                        Spacer()
-                        SearchMatchBadge(matchType: matchType)
-                            .padding(.trailing, FormaSpacing.tight)
-                            .padding(.top, FormaSpacing.tight + categoryRailWidth)
-                    }
-                    Spacer()
-                }
             }
         }
         .frame(maxWidth: .infinity)
@@ -346,30 +236,24 @@ struct FileGridItem: View {
 
     // MARK: - Helpers
 
-    private func truncatePath(_ path: String) -> String {
-        let components = path.split(separator: "/")
-        if components.count <= 2 { return path }
-        guard let last = components.last else { return path }
-        return "\u{2026}/\(last)"
-    }
-
-    private func relativePathBadge(_ value: String) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: "folder")
-                .font(.system(size: 8, weight: .semibold))
-            Text(value)
-                .font(.formaMicro)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .foregroundStyle(Color.formaSecondaryLabelHigh)
-        .padding(.horizontal, 5)
-        .padding(.vertical, 1)
-        .background(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
-        .clipShape(Capsule())
-    }
-
     // MARK: - Surface Styling
+
+    private var tileSheen: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.formaBoneWhite.opacity(isFocused || isSelected ? 0.24 : 0.16),
+                        Color.formaBoneWhite.opacity(isHovered ? 0.08 : 0.05),
+                        Color.formaBoneWhite.opacity(0)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .blendMode(.screen)
+            .allowsHitTesting(false)
+    }
 
     @ViewBuilder
     private var tileBackground: some View {
@@ -389,115 +273,95 @@ struct FileGridItem: View {
     @ViewBuilder
     private var tileBorder: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .strokeBorder(
-                isFocused ? Color.formaListRowFocusedBorder :
-                isSelected ? Color.formaListRowSelectedBorder :
-                isHovered ? Color.formaListRowHoverBorder :
-                Color.formaListRowBorder,
-                lineWidth: isFocused ? 1.5 : (isSelected ? 1.0 : 0.75)
+            .strokeBorder(tileOuterBorderColor, lineWidth: tileOuterBorderWidth)
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaNestedRadius.inset(cornerRadius), style: .continuous)
+                    .stroke(tileInnerBorderColor, lineWidth: 0.75)
             )
     }
 
-    private var tileShadowColor: Color {
-        if isHovered && !isSelected && !isFocused {
-            return Color.formaObsidian.opacity(0.05)
+    private var footerBackground: some View {
+        ZStack(alignment: .top) {
+            Color.formaCardBackground.opacity(Color.FormaOpacity.strong)
+
+            Color.formaSeparator.opacity(0.3)
+                .frame(height: 0.5)
         }
-        return Color.clear
     }
 
-    private var tileShadowRadius: CGFloat {
-        if isHovered && !isSelected && !isFocused { return 2 }
-        return 0
+    private var tileOuterBorderColor: Color {
+        isFocused ? Color.formaListRowFocusedBorder :
+        isSelected ? Color.formaListRowSelectedBorder :
+        isHovered ? Color.formaListRowHoverBorder :
+        Color.formaListRowBorder
     }
 
-    private var tileShadowY: CGFloat {
-        if isHovered && !isSelected && !isFocused { return 1 }
-        return 0
+    private var tileInnerBorderColor: Color {
+        if isFocused || isSelected {
+            return Color.formaBoneWhite.opacity(0.32)
+        }
+        if isHovered {
+            return Color.formaBoneWhite.opacity(0.18)
+        }
+        return Color.formaBoneWhite.opacity(0.12)
+    }
+
+    private var tileOuterBorderWidth: CGFloat {
+        isFocused ? 1.5 : (isSelected ? 1.0 : 0.75)
+    }
+
+    private var tileAmbientShadowColor: Color {
+        if isFocused {
+            return Color.formaSteelBlue.opacity(0.12)
+        }
+        if isSelected {
+            return Color.formaObsidian.opacity(0.06)
+        }
+        if isHovered {
+            return Color.formaObsidian.opacity(0.08)
+        }
+        return Color.formaObsidian.opacity(0.03)
+    }
+
+    private var tileAmbientShadowRadius: CGFloat {
+        if isFocused { return 12 }
+        if isSelected { return 8 }
+        if isHovered { return 6 }
+        return 4
+    }
+
+    private var tileAmbientShadowY: CGFloat {
+        if isFocused { return 4 }
+        if isSelected || isHovered { return 3 }
+        return 1
+    }
+
+    private var tileContactShadowColor: Color {
+        if isFocused || isHovered {
+            return Color.formaObsidian.opacity(0.10)
+        }
+        return Color.formaObsidian.opacity(0.05)
+    }
+
+    private var tileContactShadowRadius: CGFloat {
+        if isFocused { return 2 }
+        if isHovered || isSelected { return 1.5 }
+        return 1
+    }
+
+    private var tileContactShadowY: CGFloat {
+        if isFocused { return 2 }
+        return 1
     }
 }
 
-// MARK: - Hover Action Overlay
-
-private struct HoverActionOverlay: View {
-    let hasDestination: Bool
-    let showsPrimaryActionButton: Bool
-    let cornerRadius: CGFloat
-    let onOrganize: () -> Void
-    let onEdit: () -> Void
-    let onSkip: () -> Void
-    let onQuickLook: () -> Void
-
-    var body: some View {
-        VStack {
-            Spacer()
-
-            ZStack(alignment: .bottom) {
-                // Gradient overlay covering bottom ~45% of tile
-                LinearGradient(
-                    colors: [
-                        Color.clear,
-                        Color.formaObsidian.opacity(0.6)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(maxWidth: .infinity)
-                .clipShape(
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: 0,
-                        bottomLeadingRadius: cornerRadius,
-                        bottomTrailingRadius: cornerRadius,
-                        topTrailingRadius: 0,
-                        style: .continuous
-                    )
-                )
-
-                HStack(spacing: FormaSpacing.tight) {
-                    if showsPrimaryActionButton {
-                        if hasDestination {
-                            overlayButton(icon: "checkmark", tooltip: "Organize", action: onOrganize)
-                        } else {
-                            overlayButton(icon: "folder.badge.plus", tooltip: "Set Destination", action: onEdit)
-                        }
-                    }
-
-                    Menu {
-                        Button(action: onOrganize) {
-                            Label("Organize", systemImage: "checkmark.circle")
-                        }
-                        .disabled(!hasDestination)
-
-                        Button(action: onEdit) {
-                            Label("Edit Destination", systemImage: "pencil")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.formaCompactSemibold)
-                            .foregroundStyle(Color.white)
-                            .frame(width: 28, height: 28)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, FormaSpacing.standard - FormaSpacing.micro)
-                .padding(.bottom, FormaSpacing.tight)
-            }
-            .frame(height: nil)
-            .frame(maxHeight: .infinity, alignment: .bottom)
-            .frame(maxWidth: .infinity)
-            // Limit the gradient overlay to roughly the bottom 45%
-            .frame(maxHeight: .infinity)
+extension FileGridItem {
+    private func primaryActionHandler() {
+        switch primaryActionKind {
+        case .organize:
+            onOrganize()
+        case .review, .setDestination:
+            onEdit()
         }
-        .transition(.opacity)
-    }
-
-    private func overlayButton(icon: String, tooltip: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.formaCompactSemibold)
-                .foregroundStyle(Color.white)
-                .frame(width: 28, height: 28)
-        }
-        .buttonStyle(.plain)
-        .help(tooltip)
     }
 }

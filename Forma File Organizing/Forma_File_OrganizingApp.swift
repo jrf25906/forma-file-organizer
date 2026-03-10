@@ -175,8 +175,12 @@ struct Forma_File_OrganizingApp: App {
     }
 
     private var dashboardRootView: some View {
-        DashboardView()
-            .frame(minWidth: 1200, minHeight: 800)
+        let windowSize = Self.uiTestWindowSize()
+        return DashboardView()
+            .frame(
+                minWidth: windowSize?.width ?? 1200,
+                minHeight: windowSize?.height ?? 800
+            )
             .environmentObject(services)
             .environmentObject(dashboardViewModel)
             .background(WindowChromeConfiguratorView())

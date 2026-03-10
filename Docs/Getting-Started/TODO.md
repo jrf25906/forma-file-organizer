@@ -1,16 +1,42 @@
 # Forma - Project TODO
 
-**Last Updated:** March 5, 2026
+**Last Updated:** March 10, 2026
 
 ---
 
 ## Product Redesign Program (March 5, 2026)
 - [x] Document master brief (`Docs/plans/2026-03-05-forma-product-redesign-master-brief.md`)
-- [ ] Execute website redesign
+- [x] Execute website redesign
 - [x] Document website validation plan (`Docs/Testing/2026-03-05-website-redesign-validation-plan.md`)
-- [ ] Run website validation pass
-- [ ] Execute app polish pass
-- [ ] Document app validation pass
+- [x] Run website validation pass
+- [x] Execute app polish pass
+- [x] Document app validation pass (`Docs/Testing/2026-03-05-app-polish-validation-plan.md`)
+- [x] Capture post-polish app runtime evidence (`Docs/Testing/2026-03-05-app-polish-second-pass-findings.md`, `APP-007`)
+
+## Rule Health & Template Destinations (March 10, 2026)
+- [x] Split Smart Rules health into duplicate/overlap, needs permission, will create, stable, and disabled states.
+- [x] Materialize resolvable placeholder destinations on explicit save in Rule Editor and Inline Rule Builder.
+- [x] Add a bulk `Create Folders Now` action for resolvable generated-rule destinations.
+- [x] Normalize template/default destinations to canonical root-relative paths and prevent duplicate onboarding template seeding.
+- [x] Add regression coverage for destination materialization, legacy path normalization, template generation, onboarding scope, and rule health classification.
+
+## Optical Chrome Pass (March 10, 2026)
+- [x] Add a shared optical chrome primitive for concentric rims, specular sheen, and stateful elevation in `DesignSystem/FormaControlChrome.swift`.
+- [x] Apply the chrome pass to the dashboard toolbar and file-surface actions/states across card/list/grid.
+- [x] Apply the same chrome and numeric emphasis rules to the menu bar summary, review card, and button surfaces.
+- [x] Rebuild the macOS app after the chrome pass to verify the SwiftUI refactor compiles cleanly.
+
+## File Surface + Toolbar Refactor (March 5, 2026)
+- [x] Document focused refactor plan (`Docs/plans/2026-03-05-file-surface-and-toolbar-refactor-plan.md`)
+- [x] Implement file surface pass 1: calmer status/destination/action semantics across card/list/grid
+- [x] Recompose card/list/grid around shared identity/state/destination/action primitives
+- [x] Refactor toolbar into grouped scope/context/arrange/display command families
+- [x] Run targeted card/toolbar validation capture pass (`Docs/Testing/2026-03-05-file-surface-toolbar-validation-findings.md`)
+- [x] Tighten grid tile density and footer hierarchy after validation (`FST-001`)
+- [x] Raise passive destination readability without reintroducing link-like styling (`FST-002`)
+- [x] Add a real compact-width validation harness or lower the debug/test window minimum for toolbar compression checks (`FST-003`)
+- [x] Align the menu bar extra shell, review card, and footer controls with the main app’s surface and button system.
+- [x] Run focused file-surface / toolbar rerun and capture sign-off evidence (`Docs/Testing/2026-03-05-file-surface-toolbar-second-pass-findings.md`)
 
 ---
 

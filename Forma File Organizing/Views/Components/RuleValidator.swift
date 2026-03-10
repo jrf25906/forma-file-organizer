@@ -36,6 +36,8 @@ enum RuleValidator {
         editingRule: Rule?,
         naturalLanguageViewModel: NaturalLanguageRuleViewModel?
     ) -> RuleValidationResult? {
+        let destinationResolver = DestinationResolver()
+
         if editingRule == nil,
            formState.actionType == .delete,
            let naturalLanguageViewModel,
@@ -83,11 +85,20 @@ enum RuleValidator {
         }
 
         if formState.actionType == .move || formState.actionType == .copy {
-            if formState.destinationBookmarkData == nil {
+            let trimmedDestination = formState.destinationDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if trimmedDestination.isEmpty {
                 return RuleValidationResult(
-                    message: "Please select a destination folder using the folder picker",
+                    message: "Please select a destination folder or use a path like Documents/Finance",
                     shouldShake: false
                 )
+            }
+
+            if formState.destinationBookmarkData == nil {
+                let placeholder = Destination.folder(bookmark: Data(), displayName: trimmedDestination)
+                if case .unresolvable(let reason) = destinationResolver.checkResolvability(placeholder) {
+                    return RuleValidationResult(message: reason, shouldShake: false)
+                }
             }
         }
 
@@ -95,6 +106,8 @@ enum RuleValidator {
     }
 
     private static func validateInline(formState: RuleFormState) -> RuleValidationResult? {
+        let destinationResolver = DestinationResolver()
+
         if formState.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return RuleValidationResult(message: "Rule name is required", shouldShake: false)
         }
@@ -106,8 +119,17 @@ enum RuleValidator {
         }
 
         if formState.actionType == .move || formState.actionType == .copy {
-            if !formState.hasBookmark {
+            let trimmedDestination = formState.destinationDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if trimmedDestination.isEmpty {
                 return RuleValidationResult(message: "Please select a destination folder", shouldShake: false)
+            }
+
+            if !formState.hasBookmark {
+                let placeholder = Destination.folder(bookmark: Data(), displayName: trimmedDestination)
+                if case .unresolvable(let reason) = destinationResolver.checkResolvability(placeholder) {
+                    return RuleValidationResult(message: reason, shouldShake: false)
+                }
             }
         }
 

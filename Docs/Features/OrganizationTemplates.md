@@ -1,7 +1,7 @@
 # Organization Templates Feature
 
-**Version:** 1.0
-**Last Updated:** December 2025
+**Version:** 1.1
+**Last Updated:** March 2026
 **Status:** Production-Ready
 
 Organization Templates provide proven, pre-configured organization methodologies that users can apply instantly. Each template comes with a complete folder structure and intelligent rules tailored to specific workflows and user personas.
@@ -30,6 +30,8 @@ Organization Templates are expert-designed filing systems that users can apply w
 - **Smart Rules**: Automated file organization rules
 - **Target Persona**: Recommended user type
 - **Description**: Clear explanation of the methodology
+
+Template-generated move destinations are stored as canonical root-relative paths such as `Documents/Areas/Health`. Forma resolves those placeholders into real bookmark-backed folders only when the user explicitly materializes them.
 
 ### Why Templates Matter
 
@@ -462,7 +464,7 @@ enum OrganizationTemplate: String, Codable, CaseIterable {
     var folderStructure: [String] { /* ... */ }
 
     // Rule Generation
-    func generateRules(baseDocumentsPath: String) -> [Rule]
+    func generateRules(baseDocumentsPath: String = FolderLocation.documents.displayName) -> [Rule]
 }
 ```
 
@@ -487,9 +489,10 @@ Contains private rule generation methods:
 
 1. User selects template during onboarding or in settings
 2. `RuleService.seedTemplateRules()` is called
-3. Template's `generateRules()` creates rule objects
+3. Template's `generateRules(baseDocumentsPath:)` creates rule objects with canonical destinations
 4. Rules are inserted into SwiftData database
-5. RuleEngine begins evaluating files against rules
+5. Smart Rules can classify unresolved destinations as `Will Create`
+6. RuleEngine begins evaluating files against rules
 
 **Rule Properties:**
 
@@ -498,7 +501,7 @@ Each rule specifies:
 - **Condition Type**: Extension, name pattern, date, etc.
 - **Condition Value**: Matching criteria
 - **Action Type**: Move or Delete
-- **Destination Folder**: Where to move files
+- **Destination**: Bookmark-backed folder or canonical root-relative placeholder
 
 **Example Rule:**
 ```swift
@@ -507,9 +510,15 @@ Rule(
     conditionType: .nameContains,
     conditionValue: "invoice",
     actionType: .move,
-    destinationFolder: "\(basePath)/Areas/Finance"
+    destination: .folder(bookmark: Data(), displayName: "\(basePath)/Areas/Finance")
 )
 ```
+
+### Destination Semantics (March 2026)
+
+- Template destinations are canonical root-relative paths such as `Documents/...`, `Desktop/...`, or `Downloads/...`, not absolute `/Users/...` paths.
+- Bulk-generated template rules do not create folders immediately. In Smart Rules, those resolvable placeholders appear as `Will Create` until the user chooses `Create Folders Now` or explicitly edits and saves the rule.
+- Per-folder onboarding applies template rules against the selected root and scopes them to the folder-specific category, which prevents the old duplicate-global-rule behavior.
 
 ### RuleService Integration
 
@@ -532,8 +541,8 @@ func seedTemplateRules(
         }
     }
 
-    // 2. Generate template rules
-    let templateRules = template.generateRules()
+    // 2. Generate template rules in a canonical root
+    let templateRules = template.generateRules(baseDocumentsPath: "Documents")
 
     // 3. Insert into database
     for rule in templateRules {
@@ -572,7 +581,7 @@ func addTemplateRules(template: OrganizationTemplate) throws {
 let template = OrganizationTemplate.para
 
 // Seed rules
-let ruleService = RuleService(context: modelContext)
+let ruleService = RuleService(modelContext: modelContext)
 try ruleService.seedTemplateRules(template: template)
 
 // Store selection
@@ -618,9 +627,9 @@ let customRule = Rule(
     conditionType: .nameContains,
     conditionValue: "myproject",
     actionType: .move,
-    destinationFolder: "/Users/me/Documents/My Projects"
+    destination: .folder(bookmark: Data(), displayName: "Documents/My Projects")
 )
-ruleService.createRule(customRule)
+try ruleService.createRule(customRule, source: .ruleEditor)
 ```
 
 ### Manual Rule Addition
@@ -636,9 +645,9 @@ let rule1 = Rule(/* ... */)
 let rule2 = Rule(/* ... */)
 let rule3 = Rule(/* ... */)
 
-try ruleService.createRule(rule1)
-try ruleService.createRule(rule2)
-try ruleService.createRule(rule3)
+try ruleService.createRule(rule1, source: .ruleEditor)
+try ruleService.createRule(rule2, source: .ruleEditor)
+try ruleService.createRule(rule3, source: .ruleEditor)
 ```
 
 ---
@@ -676,7 +685,7 @@ try ruleService.createRule(rule3)
 │  • Resources                        │
 │  • Archive                          │
 │                                     │
-│  This template will create:         │
+│  This template can create:          │
 │  • 10 smart rules                   │
 │  • 4 main folders                   │
 │  • Auto-archival after 6 months     │
@@ -690,11 +699,14 @@ try ruleService.createRule(rule3)
 ┌─────────────────────────────────────┐
 │  ✓ Template Applied                 │
 │                                     │
-│  Your PARA system is ready!         │
+│  Your PARA rules are ready.         │
 │                                     │
 │  Created:                           │
 │  • 10 smart rules                   │
-│  • 4 folder categories              │
+│  • 4 destination groups             │
+│                                     │
+│  • Folders can be created now or on │
+│    first explicit save              │
 │                                     │
 │  [Start Organizing]                 │
 └─────────────────────────────────────┘
@@ -734,6 +746,7 @@ try ruleService.createRule(rule3)
    - Edit destination folders
    - Adjust condition values
    - Change rule priority
+   - Explicit saves create the destination immediately when the parent root is already permitted
 
 3. **Disable Rules**
    - Turn off specific template rules
@@ -757,9 +770,9 @@ let projectRule = Rule(
     conditionType: .nameContains,
     conditionValue: "myproject",
     actionType: .move,
-    destinationFolder: "/Users/me/Documents/Projects/MyProject"
+    destination: .folder(bookmark: Data(), displayName: "Documents/Projects/MyProject")
 )
-try ruleService.createRule(projectRule)
+try ruleService.createRule(projectRule, source: .ruleEditor)
 
 // 3. User now has:
 // - 10 PARA template rules
@@ -829,17 +842,18 @@ try ruleService.createRule(projectRule)
 2. Folder structures are valid
 3. Rule count matches expectations
 4. No duplicate rules
-5. Destinations exist
+5. Destinations use canonical root-relative paths
+6. Per-folder onboarding does not multiply template rules across the same global scope
 
 **Example Test:**
 ```swift
 func testPARATemplateGeneratesRules() {
     let template = OrganizationTemplate.para
-    let rules = template.generateRules()
+    let rules = template.generateRules(baseDocumentsPath: "Documents")
 
     XCTAssertEqual(rules.count, 10, "PARA should generate 10 rules")
     XCTAssert(rules.contains { $0.name == "Active Projects" })
-    XCTAssert(rules.contains { $0.destinationFolder.contains("Projects") })
+    XCTAssert(rules.contains { $0.destination?.displayName == "Documents/Projects" })
 }
 ```
 

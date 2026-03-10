@@ -46,17 +46,19 @@ enum Destination: Codable, Equatable, Hashable {
 
     /// Creates a folder destination from a URL by generating a security-scoped bookmark.
     ///
-    /// - Parameter url: The folder URL (must be a directory)
+    /// - Parameters:
+    ///   - url: The folder URL (must be a directory)
+    ///   - displayName: Optional display path to persist instead of `lastPathComponent`
     /// - Throws: If bookmark creation fails
     /// - Returns: A folder destination with the bookmark and display name
-    static func folder(from url: URL) throws -> Destination {
+    static func folder(from url: URL, displayName: String? = nil) throws -> Destination {
         let bookmarkData = try url.bookmarkData(
             options: .withSecurityScope,
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         )
-        let displayName = url.lastPathComponent
-        return .folder(bookmark: bookmarkData, displayName: displayName)
+        let resolvedDisplayName = displayName ?? url.lastPathComponent
+        return .folder(bookmark: bookmarkData, displayName: resolvedDisplayName)
     }
 
     // MARK: - Properties
@@ -261,4 +263,3 @@ extension Destination: CustomStringConvertible {
         displayName
     }
 }
-

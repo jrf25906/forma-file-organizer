@@ -48,9 +48,9 @@ final class FileRowTests: XCTestCase {
             onCreateRule: nil
         )
         
-        // Then: Should return Organize label but route action to edit destination
-        XCTAssertEqual(config.label, "Organize")
-        XCTAssertEqual(config.icon, "checkmark.circle.fill")
+        // Then: Should return Review action and route to destination editing
+        XCTAssertEqual(config.label, "Review")
+        XCTAssertEqual(config.icon, "slider.horizontal.3")
     }
     
     func testPrimaryActionConfig_FileWithoutDestination_ReturnsCreateRule() {
@@ -94,9 +94,9 @@ final class FileRowTests: XCTestCase {
             onCreateRule: nil
         )
         
-        // Then: Should return Organize label but route action to edit destination
-        XCTAssertEqual(config.label, "Organize")
-        XCTAssertEqual(config.icon, "checkmark.circle.fill")
+        // Then: Should return Review action and route to destination editing
+        XCTAssertEqual(config.label, "Review")
+        XCTAssertEqual(config.icon, "slider.horizontal.3")
     }
     
     // MARK: - Callback Tests

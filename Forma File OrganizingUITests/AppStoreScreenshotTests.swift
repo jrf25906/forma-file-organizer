@@ -67,8 +67,8 @@ private extension AppStoreScreenshotTests {
         app.launchEnvironment["FORMA_WINDOW_SIZE"] = "1440x900"
         app.launch()
 
-        let needsReviewButton = app.buttons["reviewMode_needsReview"]
-        XCTAssertTrue(needsReviewButton.waitForExistence(timeout: 8), "Main content should appear")
+        let reviewModePicker = app.descendants(matching: .any).matching(identifier: "toolbarReviewModePicker").firstMatch
+        XCTAssertTrue(reviewModePicker.waitForExistence(timeout: 8), "Main content should appear")
         return app
     }
 
@@ -83,7 +83,7 @@ private extension AppStoreScreenshotTests {
             outputDir: outputDir
         )
 
-        app.buttons["reviewMode_allFiles"].click()
+        UITestHarness(app: app).tapAllFilesSegment()
         app.typeKey("2", modifierFlags: [.command]) // List view
         try captureWindowShot(
             app: app,

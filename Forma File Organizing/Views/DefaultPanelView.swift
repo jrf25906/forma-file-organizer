@@ -59,42 +59,74 @@ struct DefaultPanelView: View {
     /// Debounce interval in seconds (300ms coalesces rapid onChange triggers)
     private let insightDebounceInterval: UInt64 = 300_000_000 // nanoseconds
 
+    private var showsAutomationStatusSection: Bool {
+        FeatureFlagService.shared.isEnabled(.backgroundMonitoring) ||
+            FeatureFlagService.shared.isEnabled(.autoOrganize)
+    }
+
+    private var inspectorPrimaryCardFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.09)
+            : Color.formaBoneWhite.opacity(0.92)
+    }
+
+    private var inspectorSecondaryCardFill: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.05)
+            : Color.formaBoneWhite.opacity(0.78)
+    }
+
+    private var inspectorPrimaryCardBorder: Color {
+        colorScheme == .dark
+            ? Color.formaSage.opacity(0.30)
+            : Color.formaSteelBlue.opacity(0.16)
+    }
+
+    private var inspectorSecondaryCardBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle)
+    }
+
+    private var inspectorCardShadow: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.22)
+            : Color.formaObsidian.opacity(0.07)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // PINNED HEADER: Greeting + Progress + Primary Action
-            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                // Hero Section: Greeting + Progress Bar
-                heroSection
+            inspectorSectionCard(emphasized: true) {
+                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                    heroSection
 
-                // Primary Action (pinned)
-                if shouldShowPinnedPrimaryAction {
-                    pinnedPrimaryAction
-                        .guidedTourRegion(.organizeButton)
+                    if shouldShowPinnedPrimaryAction {
+                        pinnedPrimaryAction
+                            .guidedTourRegion(.organizeButton)
+                    }
                 }
             }
             .padding(.horizontal, FormaSpacing.standard)
-            .padding(.vertical, FormaSpacing.standard)
-            
-            // Subtle separator
-            Rectangle()
-                .fill(Color.formaSeparator.opacity(Color.FormaOpacity.strong))
-                .frame(height: 1)
-            
-            // SCROLLING CONTENT: Automation status bar (top) + Suggestions (primary)
+            .padding(.top, FormaSpacing.standard)
+            .padding(.bottom, FormaSpacing.tight)
+
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                    // Automation Status Bar (slim, at top for visibility)
-                    automationStatusSection
-                        .padding(.top, FormaSpacing.standard)
-                        .accessibilityElement(children: .contain)
-                        .accessibilityIdentifier("defaultPanelAutomationSection")
+                    if showsAutomationStatusSection {
+                        inspectorSectionCard {
+                            automationStatusSection
+                                .accessibilityElement(children: .contain)
+                                .accessibilityIdentifier("defaultPanelAutomationSection")
+                        }
+                    }
 
-                    // Unified Suggestions Section (Smart Rules + Quick Actions)
-                    // This is now the PRIMARY focus of the panel
-                    suggestionsSection
-                        .padding(.top, FormaSpacing.tight)
-                        .accessibilityElement(children: .contain)
-                        .accessibilityIdentifier("defaultPanelSuggestionsSection")
+                    if hasAnySuggestions {
+                        inspectorSectionCard {
+                            suggestionsSection
+                                .accessibilityElement(children: .contain)
+                                .accessibilityIdentifier("defaultPanelSuggestionsSection")
+                        }
+                    }
                 }
                 .padding(.horizontal, FormaSpacing.standard)
                 .padding(.bottom, FormaSpacing.generous)
@@ -132,6 +164,31 @@ struct DefaultPanelView: View {
                     )
             }
         }
+    }
+
+    private func inspectorSectionCard<Content: View>(
+        emphasized: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .padding(emphasized ? FormaSpacing.large : FormaSpacing.standard)
+            .background(
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .fill(emphasized ? inspectorPrimaryCardFill : inspectorSecondaryCardFill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .strokeBorder(
+                        emphasized ? inspectorPrimaryCardBorder : inspectorSecondaryCardBorder,
+                        lineWidth: emphasized ? 1.1 : 1
+                    )
+            )
+            .shadow(
+                color: inspectorCardShadow,
+                radius: emphasized ? 10 : 6,
+                x: 0,
+                y: emphasized ? 3 : 2
+            )
     }
 
     // MARK: - Hero Section
@@ -484,11 +541,10 @@ struct DefaultPanelView: View {
         if hasAnySuggestions {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 // Unified section header
-                Text("SUGGESTIONS")
+                Text("NEXT MOVES")
                     .font(.formaBodySemibold)
                     .tracking(0.5)
                     .foregroundStyle(Color.formaSecondaryLabelHigh)
-                    .padding(.top, FormaSpacing.tight)
 
                 // Smart Rules (learned patterns) - self-hides when empty
                 smartRulesSection
@@ -635,20 +691,20 @@ struct DefaultPanelView: View {
 
     private var currentTaskLabelColor: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.78)
-            : Color.formaLabel.opacity(0.7)
+            ? Color.formaBoneWhite.opacity(0.90)
+            : Color.formaLabel.opacity(0.82)
     }
 
     private var currentTaskSubtextColor: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.82)
-            : Color.formaLabel.opacity(0.65)
+            ? Color.formaBoneWhite.opacity(0.86)
+            : Color.formaLabel.opacity(0.74)
     }
 
     private var progressLabelColor: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.76)
-            : Color.formaLabel.opacity(0.6)
+            ? Color.formaBoneWhite.opacity(0.80)
+            : Color.formaLabel.opacity(0.68)
     }
 
     private var defaultPanelPrimaryActionContrastRatio: Double {

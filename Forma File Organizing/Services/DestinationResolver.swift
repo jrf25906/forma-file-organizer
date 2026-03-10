@@ -37,6 +37,20 @@ final class DestinationResolver {
 
     // MARK: - Resolution
 
+    enum MaterializationError: LocalizedError {
+        case unresolvable(reason: String)
+        case creationFailed(displayName: String)
+
+        var errorDescription: String? {
+            switch self {
+            case .unresolvable(let reason):
+                return reason
+            case .creationFailed(let displayName):
+                return "Could not create '\(displayName)'. Check folder permissions and try again."
+            }
+        }
+    }
+
     /// Attempts to resolve a placeholder destination to a real destination with a valid bookmark.
     ///
     /// - Parameter destination: A destination that may have a placeholder (empty) bookmark
@@ -54,18 +68,19 @@ final class DestinationResolver {
             return nil
         }
 
-        Log.info("DestinationResolver: Attempting to resolve placeholder '\(displayName)'", category: .bookmark)
-
-        // Parse the display name into components
-        let components = displayName.components(separatedBy: "/").filter { !$0.isEmpty }
-        guard !components.isEmpty else {
+        guard let normalizedDisplayName = normalizedDisplayName(for: displayName),
+              !normalizedDisplayName.isEmpty else {
             Log.warning("DestinationResolver: Empty path components for '\(displayName)'", category: .bookmark)
             return nil
         }
 
+        Log.info("DestinationResolver: Attempting to resolve placeholder '\(normalizedDisplayName)'", category: .bookmark)
+
+        let components = pathComponents(for: normalizedDisplayName)
+
         // Find a parent folder we have access to
         guard let (parentURL, remainingComponents) = findAccessibleParent(components: components) else {
-            Log.warning("DestinationResolver: No accessible parent found for '\(displayName)'", category: .bookmark)
+            Log.warning("DestinationResolver: No accessible parent found for '\(normalizedDisplayName)'", category: .bookmark)
             return nil
         }
 
@@ -85,8 +100,8 @@ final class DestinationResolver {
 
         // Generate a security-scoped bookmark for the target
         do {
-            let newDestination = try Destination.folder(from: targetURL)
-            Log.info("DestinationResolver: Successfully resolved '\(displayName)' to '\(targetURL.path)'", category: .bookmark)
+            let newDestination = try Destination.folder(from: targetURL, displayName: normalizedDisplayName)
+            Log.info("DestinationResolver: Successfully resolved '\(normalizedDisplayName)' to '\(targetURL.path)'", category: .bookmark)
             return newDestination
         } catch {
             Log.error("DestinationResolver: Failed to create bookmark for '\(targetURL.path)': \(error)", category: .bookmark)
@@ -104,6 +119,31 @@ final class DestinationResolver {
         resolve(destination) ?? destination
     }
 
+    /// Resolves placeholder destinations during explicit rule-save flows.
+    /// Unlike `resolveOrKeep`, this surfaces actionable errors when a destination
+    /// cannot be materialized, so editors can block save with precise feedback.
+    func materializeForExplicitSave(_ destination: Destination?) throws -> Destination? {
+        guard let destination else { return nil }
+        guard !destination.isTrash else { return destination }
+
+        if destination.bookmarkData != nil {
+            return destination
+        }
+
+        if let resolved = resolve(destination) {
+            return resolved
+        }
+
+        switch checkResolvability(destination) {
+        case .valid:
+            return destination
+        case .resolvable:
+            throw MaterializationError.creationFailed(displayName: destination.displayName)
+        case .unresolvable(let reason):
+            throw MaterializationError.unresolvable(reason: reason)
+        }
+    }
+
     /// Attempts to resolve a placeholder destination only if the directory already exists.
     /// This avoids creating new folders during prediction or preview flows.
     func resolveIfExists(_ destination: Destination) -> Destination? {
@@ -112,8 +152,10 @@ final class DestinationResolver {
             return nil
         }
 
-        let components = displayName.components(separatedBy: "/").filter { !$0.isEmpty }
-        guard !components.isEmpty else { return nil }
+        guard let normalizedDisplayName = normalizedDisplayName(for: displayName),
+              !normalizedDisplayName.isEmpty else { return nil }
+
+        let components = pathComponents(for: normalizedDisplayName)
 
         guard let (parentURL, remainingComponents) = findAccessibleParent(components: components) else {
             return nil
@@ -131,7 +173,7 @@ final class DestinationResolver {
         }
 
         do {
-            return try Destination.folder(from: targetURL)
+            return try Destination.folder(from: targetURL, displayName: normalizedDisplayName)
         } catch {
             Log.error("DestinationResolver: Failed to create bookmark for existing '\(targetURL.path)': \(error)", category: .bookmark)
             return nil
@@ -191,8 +233,12 @@ final class DestinationResolver {
             return .valid
         }
 
-        // It's a placeholder - check if we can resolve it
-        let components = displayName.components(separatedBy: "/").filter { !$0.isEmpty }
+        guard let normalizedDisplayName = normalizedDisplayName(for: displayName),
+              !normalizedDisplayName.isEmpty else {
+            return .unresolvable(reason: "Empty destination path")
+        }
+
+        let components = pathComponents(for: normalizedDisplayName)
         guard let firstComponent = components.first else {
             return .unresolvable(reason: "Empty destination path")
         }
@@ -205,20 +251,45 @@ final class DestinationResolver {
 
         // Check known folders that might have permission
         let knownFolders = Array(Self.folderBookmarkKeys.keys)
-        let suggestion = knownFolders.first { displayName.lowercased().contains($0.lowercased()) }
+        let suggestion = knownFolders.first { normalizedDisplayName.lowercased().contains($0.lowercased()) }
 
         if let suggestedFolder = suggestion {
             return .unresolvable(
-                reason: "Destination '\(displayName)' requires '\(suggestedFolder)' folder access. Grant permission in Settings, or use '\(suggestedFolder)/\(displayName)' as the path."
+                reason: "Destination '\(normalizedDisplayName)' requires '\(suggestedFolder)' folder access. Grant permission in Settings, or use '\(suggestedFolder)/\(normalizedDisplayName)' as the path."
             )
         }
 
         return .unresolvable(
-            reason: "Destination '\(displayName)' is not within a permitted folder. Use a path like 'Pictures/\(displayName)' or 'Documents/\(displayName)'."
+            reason: "Destination '\(normalizedDisplayName)' is not within a permitted folder. Use a path like 'Pictures/\(normalizedDisplayName)' or 'Documents/\(normalizedDisplayName)'."
         )
     }
 
     // MARK: - Private Helpers
+
+    private func normalizedDisplayName(for displayName: String) -> String? {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let expanded = NSString(string: trimmed).expandingTildeInPath
+        if expanded.hasPrefix("/") {
+            let absoluteURL = URL(fileURLWithPath: expanded).standardizedFileURL
+            let homePath = realHomeDirectory().standardizedFileURL.path
+
+            if absoluteURL.path == homePath {
+                return nil
+            }
+
+            if absoluteURL.path.hasPrefix(homePath + "/") {
+                return String(absoluteURL.path.dropFirst(homePath.count + 1))
+            }
+        }
+
+        return trimmed
+    }
+
+    private func pathComponents(for displayName: String) -> [String] {
+        displayName.components(separatedBy: "/").filter { !$0.isEmpty }
+    }
 
     /// Finds an accessible parent folder from the path components.
     ///

@@ -213,7 +213,13 @@ struct QuickRuleCreationSheet: View {
                 relativeTo: nil
             )
             destinationBookmarkData = bookmarkData
-            destinationDisplayPath = url.lastPathComponent
+
+            let homeURL = FileManager.default.homeDirectoryForCurrentUser
+            if url.path.hasPrefix(homeURL.path + "/") {
+                destinationDisplayPath = String(url.path.dropFirst(homeURL.path.count + 1))
+            } else {
+                destinationDisplayPath = url.lastPathComponent
+            }
         } catch {
             validationError = "Could not save folder access: \(error.localizedDescription)"
         }

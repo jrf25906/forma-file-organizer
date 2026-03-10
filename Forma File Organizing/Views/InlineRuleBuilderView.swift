@@ -49,6 +49,7 @@ struct InlineRuleBuilderView: View {
 
     // Natural language rule creation
     @StateObject private var naturalLanguageViewModel = NaturalLanguageRuleViewModel()
+    private let destinationResolver = DestinationResolver()
     
     // MARK: - Header Configuration
 
@@ -75,6 +76,18 @@ struct InlineRuleBuilderView: View {
             : Color.black.opacity(0.08)
     }
 
+    private var chromeSurfaceBackground: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.06)
+            : Color.formaBoneWhite.opacity(0.88)
+    }
+
+    private var chromeSurfaceBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.14)
+            : Color.formaObsidian.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle)
+    }
+
     private var trimmedRuleName: String {
         formState.name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -91,6 +104,32 @@ struct InlineRuleBuilderView: View {
         formState.actionType != .delete
     }
 
+    private var destinationResolvability: DestinationResolver.ResolvabilityStatus? {
+        guard destinationIsRequired else {
+            return nil
+        }
+
+        if formState.destinationBookmarkData != nil {
+            return .valid
+        }
+
+        let trimmedPath = formState.destinationDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else {
+            return nil
+        }
+
+        return destinationResolver.checkResolvability(
+            .folder(bookmark: Data(), displayName: trimmedPath)
+        )
+    }
+
+    private var selectedCategory: RuleCategory? {
+        if let categoryID = formState.categoryID {
+            return sortedCategories.first { $0.id == categoryID }
+        }
+        return sortedCategories.first { $0.isDefault }
+    }
+
     private var hasValidDestinationInput: Bool {
         !formState.destinationDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -103,6 +142,9 @@ struct InlineRuleBuilderView: View {
         if destinationIsRequired && !hasValidDestinationInput {
             return "Select a destination folder for move/copy actions."
         }
+        if case .unresolvable(let reason) = destinationResolvability {
+            return reason
+        }
         return nil
     }
 
@@ -110,6 +152,62 @@ struct InlineRuleBuilderView: View {
         !trimmedRuleName.isEmpty &&
         whenValidationMessage == nil &&
         thenValidationMessage == nil
+    }
+
+    private var impactTone: (title: String, message: String, color: Color, icon: String) {
+        if let validationMessage = whenValidationMessage ?? thenValidationMessage {
+            return (
+                title: "Needs attention",
+                message: validationMessage,
+                color: .formaWarmOrange,
+                icon: "exclamationmark.triangle.fill"
+            )
+        }
+
+        if formState.actionType == .delete && matchedFilesCount > 0 {
+            return (
+                title: "High impact",
+                message: "This rule will automatically send matching files to Trash.",
+                color: .formaWarmOrange,
+                icon: "trash.fill"
+            )
+        }
+
+        if case .resolvable(let parentFolder) = destinationResolvability {
+            return (
+                title: "Will create folder",
+                message: "Forma can create this destination inside \(parentFolder) as soon as you save.",
+                color: .formaSteelBlue,
+                icon: "folder.badge.plus"
+            )
+        }
+
+        if matchedFilesCount == 0 {
+            return (
+                title: "Ready, no matches yet",
+                message: "The rule is valid, but nothing in the current file set matches it right now.",
+                color: .formaSteelBlue,
+                icon: "sparkles"
+            )
+        }
+
+        return (
+            title: "Ready to save",
+            message: "Previewed files below show what this rule will affect first.",
+            color: .formaSage,
+            icon: "checkmark.circle.fill"
+        )
+    }
+
+    private var actionTypeBadgeColor: Color {
+        switch formState.actionType {
+        case .move:
+            return .formaSteelBlue
+        case .copy:
+            return .formaSage
+        case .delete:
+            return .formaWarmOrange
+        }
     }
 
     var body: some View {
@@ -161,7 +259,7 @@ struct InlineRuleBuilderView: View {
             }
             .padding(.horizontal, FormaSpacing.generous)
             .padding(.vertical, FormaSpacing.standard)
-            .background(.regularMaterial)
+            .background(chromeSurfaceBackground)
             .overlay(
                 Rectangle()
                     .frame(height: 1)
@@ -174,7 +272,7 @@ struct InlineRuleBuilderView: View {
             // Scrollable content
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 16) {
                         // 1. Rule Name (Cleaner)
                         TextField("Name your rule...", text: $formState.name)
                             .font(.formaH3)
@@ -192,235 +290,9 @@ struct InlineRuleBuilderView: View {
                             .padding(.bottom, 8)
                         }
 
-                        // 3. Rule Builder Sections (When / Then)
-                        VStack(alignment: .leading, spacing: 18) {
-                            ruleSectionHeader(
-                                title: "When",
-                                subtitle: "Choose which files this rule should target."
-                            )
-
-                            HStack {
-                                Text("Matches")
-                                    .font(.formaBodyLarge)
-                                    .foregroundColor(.formaSecondaryLabelHigh)
-
-                                Spacer()
-
-                                Toggle("Multiple", isOn: $formState.useCompoundConditions)
-                                    .toggleStyle(.switch)
-                                    .labelsHidden()
-                                    .controlSize(.mini)
-                                    .onChange(of: formState.useCompoundConditions) { _, newValue in
-                                        if newValue && formState.conditions.isEmpty {
-                                            do {
-                                                let condition = try RuleCondition(type: formState.conditionType, value: formState.conditionValue)
-                                                formState.conditions = [condition]
-                                            } catch {
-                                                // Ignore invalid initial condition
-                                            }
-                                        }
-                                        updatePreview()
-                                    }
-                            }
-                            .padding(.bottom, 4)
-
-                            if formState.useCompoundConditions {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    HStack {
-                                        Text("If")
-                                            .font(.formaBodyLarge)
-                                            .foregroundColor(.formaSecondaryLabelHigh)
-
-                                        Menu {
-                                            Button("ALL conditions (AND)") { formState.logicalOperator = .and }
-                                            Button("ANY condition (OR)") { formState.logicalOperator = .or }
-                                        } label: {
-                                            Text(formState.logicalOperator == .and ? "ALL conditions met" : "ANY condition met")
-                                                .font(.formaBodyLarge)
-                                                .fontWeight(.semibold)
-                                                .foregroundColor(.formaSteelBlue)
-                                                .underline(true, color: .formaSteelBlue.opacity(0.3))
-                                        }
-                                        .menuStyle(.borderlessButton)
-                                    }
-
-                                    VStack(spacing: 8) {
-                                        ForEach(Array(formState.conditions.enumerated()), id: \.offset) { index, _ in
-                                            editableConditionRow(at: index)
-                                        }
-                                    }
-
-                                    Button(action: {
-                                        addCondition()
-                                    }) {
-                                        HStack {
-                                            Image(systemName: "plus.circle.fill")
-                                            Text("Add Condition")
-                                        }
-                                        .font(.formaSmall)
-                                        .foregroundColor(.formaSteelBlue)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .padding(.top, 4)
-                                }
-                            } else {
-                                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                    Text("If file")
-                                        .font(.formaBodyLarge)
-                                        .foregroundColor(.formaSecondaryLabelHigh)
-
-                                    Menu {
-                                        ForEach(Rule.ConditionType.allCases, id: \.self) { type in
-                                            Button(type.compactDisplayName) {
-                                                formState.conditionType = type
-                                                updatePreview()
-                                            }
-                                        }
-                                    } label: {
-                                        Text(formState.conditionType.compactDisplayName.lowercased())
-                                            .font(.formaBodyLarge)
-                                            .fontWeight(.semibold)
-                                            .foregroundColor(.formaSteelBlue)
-                                            .underline(true, color: .formaSteelBlue.opacity(0.3))
-                                    }
-                                    .menuStyle(.borderlessButton)
-
-                                    Text("is")
-                                        .font(.formaBodyLarge)
-                                        .foregroundColor(.formaSecondaryLabelHigh)
-                                }
-
-                                TextField(conditionPlaceholder, text: $formState.conditionValue)
-                                    .font(.formaBodyLarge)
-                                    .textFieldStyle(.plain)
-                                    .padding(8)
-                                    .background(Color.formaControlBackground)
-                                    .cornerRadius(8)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(whenValidationMessage == nil ? Color.formaSeparator : Color.formaWarmOrange, lineWidth: 1)
-                                    )
-                                    .onChange(of: formState.conditionValue) { _, _ in
-                                        updatePreview()
-                                    }
-                            }
-
-                            sectionValidationMessage(whenValidationMessage)
-
-                            Divider().padding(.vertical, 2)
-
-                            ruleSectionHeader(
-                                title: "Then",
-                                subtitle: "Define what happens to matched files."
-                            )
-
-                            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Text("Then")
-                                    .font(.formaBodyLarge)
-                                    .foregroundColor(.formaSecondaryLabelHigh)
-
-                                Menu {
-                                    Button("move") { formState.actionType = .move }
-                                    Button("copy") { formState.actionType = .copy }
-                                    Button("delete") { formState.actionType = .delete }
-                                } label: {
-                                    Text(formState.actionType.rawValue)
-                                        .font(.formaBodyLarge)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.formaSteelBlue)
-                                        .underline(true, color: .formaSteelBlue.opacity(0.3))
-                                }
-                                .menuStyle(.borderlessButton)
-
-                                Text("to")
-                                    .font(.formaBodyLarge)
-                                    .foregroundColor(.formaSecondaryLabelHigh)
-                                    .opacity(formState.actionType == .delete ? 0.3 : 1.0)
-                            }
-
-                            if formState.actionType == .delete {
-                                Text("Trash")
-                                    .font(.formaBodyLarge)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.formaError)
-                                    .padding(.vertical, 4)
-                            } else {
-                                Button(action: { showFolderPicker = true }) {
-                                    HStack {
-                                        Image(systemName: "folder.fill")
-                                            .foregroundColor(.formaSteelBlue)
-                                        Text(formState.destinationDisplayPath.isEmpty ? "Select folder..." : formState.destinationDisplayPath)
-                                            .fontWeight(.medium)
-                                            .foregroundColor(formState.destinationDisplayPath.isEmpty ? .formaSecondaryLabelHigh : .formaLabel)
-
-                                        if formState.hasBookmark {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .font(.caption)
-                                                .foregroundColor(.formaSoftGreen)
-                                        }
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 10)
-                                    .background(Color.formaControlBackground)
-                                    .cornerRadius(8)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(
-                                                thenValidationMessage == nil ? Color.formaSeparator : Color.formaWarmOrange,
-                                                lineWidth: 1
-                                            )
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-
-                            sectionValidationMessage(thenValidationMessage)
-                        }
-                        .padding(20)
-                        .background(ruleCardBackground)
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(ruleCardBorder, lineWidth: 1)
-                        )
-                        .shadow(color: ruleCardShadow, radius: 6, x: 0, y: 2)
-
-                        // 3. Category Chip (Subtle)
-                        HStack {
-                            Text("Category:")
-                                .font(.formaSmall)
-                                .foregroundColor(.formaSecondaryLabelHigh)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(sortedCategories) { category in
-                                        Button(action: { formState.categoryID = category.id }) {
-                                            HStack(spacing: 4) {
-                                                if formState.categoryID == category.id {
-                                                    Image(systemName: "checkmark")
-                                                        .font(.caption2)
-                                                }
-                                                Text(category.name)
-                                            }
-                                            .font(.formaSmall)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 4)
-                                            .background(
-                                                formState.categoryID == category.id
-                                                    ? category.color.opacity(0.2)
-                                                    : Color.formaControlBackground
-                                            )
-                                            .foregroundColor(formState.categoryID == category.id ? category.color : .formaSecondaryLabelHigh)
-                                            .cornerRadius(12)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.top, 4)
-
-                        // Impact Preview (always visible)
+                        whenSectionCard
+                        thenSectionCard
+                        categorySelectionCard
                         impactPreviewCard
 
                     }
@@ -479,12 +351,31 @@ struct InlineRuleBuilderView: View {
 
     private var persistentActionBar: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !canSubmitRule, let message = whenValidationMessage ?? thenValidationMessage {
-                Text(message)
-                    .font(.formaCaption)
-                    .foregroundColor(.formaWarmOrange)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                Image(systemName: impactTone.icon)
+                    .font(.formaCompactSemibold)
+                    .foregroundColor(impactTone.color)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(impactTone.title)
+                        .font(.formaSmallSemibold)
+                        .foregroundColor(.formaLabel)
+                    Text(impactTone.message)
+                        .font(.formaCaption)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                if matchedFilesCount > 0 {
+                    FormaBadge(
+                        text: "\(matchedFilesCount) match\(matchedFilesCount == 1 ? "" : "es")",
+                        color: impactTone.color,
+                        size: .small,
+                        style: .subtle
+                    )
+                }
             }
 
             Button(action: {
@@ -509,7 +400,7 @@ struct InlineRuleBuilderView: View {
         .padding(.horizontal, FormaSpacing.generous)
         .padding(.top, 10)
         .padding(.bottom, 14)
-        .background(.regularMaterial)
+        .background(chromeSurfaceBackground)
         .overlay(
             Rectangle()
                 .frame(height: 1)
@@ -573,6 +464,262 @@ struct InlineRuleBuilderView: View {
             .padding(.vertical, FormaSpacing.micro + 2)
             .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light))
             .cornerRadius(FormaRadius.control)
+        }
+    }
+
+    private func builderSectionCard<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .padding(20)
+            .background(ruleCardBackground)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(ruleCardBorder, lineWidth: 1)
+            )
+            .shadow(color: ruleCardShadow, radius: 6, x: 0, y: 2)
+    }
+
+    private var whenSectionCard: some View {
+        builderSectionCard {
+            VStack(alignment: .leading, spacing: 18) {
+                ruleSectionHeader(
+                    title: "When",
+                    subtitle: "Choose which files this rule should target."
+                )
+
+                HStack {
+                    Text("Matches")
+                        .font(.formaBodyLarge)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+
+                    Spacer()
+
+                    Toggle("Multiple", isOn: $formState.useCompoundConditions)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .controlSize(.mini)
+                        .onChange(of: formState.useCompoundConditions) { _, newValue in
+                            if newValue && formState.conditions.isEmpty {
+                                do {
+                                    let condition = try RuleCondition(type: formState.conditionType, value: formState.conditionValue)
+                                    formState.conditions = [condition]
+                                } catch {
+                                    // Ignore invalid initial condition
+                                }
+                            }
+                            updatePreview()
+                        }
+                }
+                .padding(.bottom, 4)
+
+                if formState.useCompoundConditions {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("If")
+                                .font(.formaBodyLarge)
+                                .foregroundColor(.formaSecondaryLabelHigh)
+
+                            Menu {
+                                Button("ALL conditions (AND)") { formState.logicalOperator = .and }
+                                Button("ANY condition (OR)") { formState.logicalOperator = .or }
+                            } label: {
+                                Text(formState.logicalOperator == .and ? "ALL conditions met" : "ANY condition met")
+                                    .font(.formaBodyLarge)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.formaSteelBlue)
+                                    .underline(true, color: .formaSteelBlue.opacity(0.3))
+                            }
+                            .menuStyle(.borderlessButton)
+                        }
+
+                        VStack(spacing: 8) {
+                            ForEach(Array(formState.conditions.enumerated()), id: \.offset) { index, _ in
+                                editableConditionRow(at: index)
+                            }
+                        }
+
+                        Button(action: addCondition) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add Condition")
+                            }
+                            .font(.formaSmall)
+                            .foregroundColor(.formaSteelBlue)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
+                    }
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("If file")
+                            .font(.formaBodyLarge)
+                            .foregroundColor(.formaSecondaryLabelHigh)
+
+                        Menu {
+                            ForEach(Rule.ConditionType.allCases, id: \.self) { type in
+                                Button(type.compactDisplayName) {
+                                    formState.conditionType = type
+                                    updatePreview()
+                                }
+                            }
+                        } label: {
+                            Text(formState.conditionType.compactDisplayName.lowercased())
+                                .font(.formaBodyLarge)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.formaSteelBlue)
+                                .underline(true, color: .formaSteelBlue.opacity(0.3))
+                        }
+                        .menuStyle(.borderlessButton)
+
+                        Text("is")
+                            .font(.formaBodyLarge)
+                            .foregroundColor(.formaSecondaryLabelHigh)
+                    }
+
+                    TextField(conditionPlaceholder, text: $formState.conditionValue)
+                        .font(.formaBodyLarge)
+                        .textFieldStyle(.plain)
+                        .padding(8)
+                        .background(Color.formaControlBackground)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(whenValidationMessage == nil ? Color.formaSeparator : Color.formaWarmOrange, lineWidth: 1)
+                        )
+                        .onChange(of: formState.conditionValue) { _, _ in
+                            updatePreview()
+                        }
+                }
+
+                sectionValidationMessage(whenValidationMessage)
+            }
+        }
+    }
+
+    private var thenSectionCard: some View {
+        builderSectionCard {
+            VStack(alignment: .leading, spacing: 18) {
+                ruleSectionHeader(
+                    title: "Then",
+                    subtitle: "Define what happens to matched files."
+                )
+
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("Then")
+                        .font(.formaBodyLarge)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+
+                    Menu {
+                        Button("move") { formState.actionType = .move }
+                        Button("copy") { formState.actionType = .copy }
+                        Button("delete") { formState.actionType = .delete }
+                    } label: {
+                        Text(formState.actionType.rawValue)
+                            .font(.formaBodyLarge)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.formaSteelBlue)
+                            .underline(true, color: .formaSteelBlue.opacity(0.3))
+                    }
+                    .menuStyle(.borderlessButton)
+
+                    Text("to")
+                        .font(.formaBodyLarge)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                        .opacity(formState.actionType == .delete ? 0.3 : 1.0)
+                }
+
+                if formState.actionType == .delete {
+                    HStack(spacing: FormaSpacing.tight) {
+                        Image(systemName: "trash.fill")
+                            .foregroundColor(.formaWarmOrange)
+                        Text("Trash")
+                            .font(.formaBodyLarge)
+                            .fontWeight(.medium)
+                            .foregroundColor(.formaError)
+                    }
+                    .padding(.vertical, 4)
+                } else {
+                    Button(action: { showFolderPicker = true }) {
+                        HStack {
+                            Image(systemName: "folder.fill")
+                                .foregroundColor(.formaSteelBlue)
+                            Text(formState.destinationDisplayPath.isEmpty ? "Select folder..." : formState.destinationDisplayPath)
+                                .fontWeight(.medium)
+                                .foregroundColor(formState.destinationDisplayPath.isEmpty ? .formaSecondaryLabelHigh : .formaLabel)
+
+                            if formState.hasBookmark {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.formaSoftGreen)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color.formaControlBackground)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(
+                                    thenValidationMessage == nil ? Color.formaSeparator : Color.formaWarmOrange,
+                                    lineWidth: 1
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if case .resolvable(let parentFolder) = destinationResolvability {
+                    HStack(spacing: FormaSpacing.tight) {
+                        Image(systemName: "folder.badge.plus")
+                            .foregroundColor(.formaSteelBlue)
+                        Text("Will create this folder inside \(parentFolder) when you save.")
+                            .font(.formaSmall)
+                            .foregroundColor(.formaSecondaryLabelHigh)
+                    }
+                }
+
+                sectionValidationMessage(thenValidationMessage)
+            }
+        }
+    }
+
+    private var categorySelectionCard: some View {
+        builderSectionCard {
+            VStack(alignment: .leading, spacing: 12) {
+                ruleSectionHeader(
+                    title: "Category",
+                    subtitle: "Group this rule with related organization behavior."
+                )
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(sortedCategories) { category in
+                            Button(action: { formState.categoryID = category.id }) {
+                                HStack(spacing: 4) {
+                                    if formState.categoryID == category.id {
+                                        Image(systemName: "checkmark")
+                                            .font(.caption2)
+                                    }
+                                    Text(category.name)
+                                }
+                                .font(.formaSmall)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(
+                                    formState.categoryID == category.id
+                                        ? category.color.opacity(0.2)
+                                        : Color.formaControlBackground
+                                )
+                                .foregroundColor(formState.categoryID == category.id ? category.color : .formaSecondaryLabelHigh)
+                                .cornerRadius(12)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -671,67 +818,95 @@ struct InlineRuleBuilderView: View {
     }
 
     private var impactPreviewCard: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            HStack {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.formaSteelBlue)
-                Text("Impact Preview")
-                    .font(.formaBodySemibold)
-                    .tracking(0.5)
-                    .foregroundColor(.formaSecondaryLabelHigh)
-            }
-
-            if !hasValidConditionInput {
-                Text("Complete the \"When\" section to preview impact.")
-                    .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabelHigh)
-            } else if isLoadingPreview {
-                HStack(spacing: FormaSpacing.tight) {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Matching files...")
-                        .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabelHigh)
-                }
-            } else {
-                Text(impactSummaryText)
-                    .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabelHigh)
-
-                // Show up to 3 matched files (from cached previewFiles)
-                if !previewFiles.isEmpty {
-                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                        ForEach(previewFiles) { file in
-                            HStack(spacing: FormaSpacing.tight) {
-                                Image(systemName: file.category.iconName)
-                                    .foregroundColor(file.category.color)
-                                    .font(.formaCompact)
-
-                                Text(file.name)
-                                    .font(.formaCaption)
-                                    .foregroundColor(.formaLabel)
-                                    .lineLimit(1)
-
-                                Spacer()
-                            }
+        builderSectionCard {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Image(systemName: impactTone.icon)
+                                .foregroundColor(impactTone.color)
+                            Text("Impact")
+                                .font(.formaBodySemibold)
+                                .tracking(0.5)
+                                .foregroundColor(.formaLabel)
                         }
 
-                        if matchedFilesCount > 3 {
-                            Text("+\(matchedFilesCount - 3) more")
-                                .font(.formaCaption)
-                                .foregroundColor(.formaSecondaryLabelHigh)
+                        Text(impactTone.title)
+                            .font(.formaBodyBold)
+                            .foregroundColor(.formaLabel)
+
+                        Text(impactTone.message)
+                            .font(.formaSmall)
+                            .foregroundColor(.formaSecondaryLabelHigh)
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 6) {
+                        FormaBadge(
+                            text: "\(matchedFilesCount) match\(matchedFilesCount == 1 ? "" : "es")",
+                            color: impactTone.color,
+                            size: .small,
+                            style: .subtle
+                        )
+
+                        FormaBadge(
+                            text: formState.actionType == .delete ? "Trash" : formState.actionType.rawValue.capitalized,
+                            color: actionTypeBadgeColor,
+                            size: .small,
+                            style: .subtle
+                        )
+                    }
+                }
+
+                if !hasValidConditionInput {
+                    Text("Complete the \"When\" section to preview impact.")
+                        .font(.formaSmall)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                } else if isLoadingPreview {
+                    HStack(spacing: FormaSpacing.tight) {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Matching files...")
+                            .font(.formaSmall)
+                            .foregroundColor(.formaSecondaryLabelHigh)
+                    }
+                } else {
+                    Text(impactSummaryText)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+
+                    if !previewFiles.isEmpty {
+                        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                            ForEach(previewFiles) { file in
+                                HStack(spacing: FormaSpacing.tight) {
+                                    Image(systemName: file.category.iconName)
+                                        .foregroundColor(file.category.color)
+                                        .font(.formaCompact)
+
+                                    Text(file.name)
+                                        .font(.formaCaption)
+                                        .foregroundColor(.formaLabel)
+                                        .lineLimit(1)
+
+                                    Spacer()
+                                }
+                                .padding(.horizontal, FormaSpacing.tight)
+                                .padding(.vertical, FormaSpacing.tight - 2)
+                                .background(Color.formaControlBackground.opacity(Color.FormaOpacity.light))
+                                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+                            }
+
+                            if matchedFilesCount > 3 {
+                                Text("+\(matchedFilesCount - 3) more")
+                                    .font(.formaCaption)
+                                    .foregroundColor(.formaSecondaryLabelHigh)
+                            }
                         }
                     }
                 }
             }
         }
-        .padding(FormaSpacing.large)
-        .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
-        .formaCornerRadius(FormaRadius.card)
-        .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: 1)
-        )
     }
     
     // MARK: - Helpers
@@ -946,52 +1121,11 @@ struct InlineRuleBuilderView: View {
 
         validationError = nil
 
-        // Build final conditions array
-        var finalConditions: [RuleCondition] = []
-
-        if formState.useCompoundConditions {
-            finalConditions = formState.conditions
-        } else {
-            if !formState.conditionValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                do {
-                    let condition = try RuleCondition(
-                        type: formState.conditionType,
-                        value: formState.conditionValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                    )
-                    finalConditions.append(condition)
-                } catch {
-                    validationError = error.localizedDescription
-                    return
-                }
-            }
-        }
-
-        // Build unified Destination from form state
-        let destination = formState.buildDestination()
-
-        // Build the rule object for overlap detection
         let ruleToCheck: Rule
-        if finalConditions.count > 1 {
-            ruleToCheck = Rule(
-                name: formState.name.trimmingCharacters(in: .whitespacesAndNewlines),
-                conditions: finalConditions,
-                logicalOperator: formState.logicalOperator,
-                actionType: formState.actionType,
-                destination: destination,
-                isEnabled: formState.isEnabled
-            )
-        } else if let condition = finalConditions.first {
-            ruleToCheck = Rule(
-                name: formState.name.trimmingCharacters(in: .whitespacesAndNewlines),
-                conditionType: condition.type,
-                conditionValue: condition.value,
-                actionType: formState.actionType,
-                destination: destination,
-                isEnabled: formState.isEnabled
-            )
-        } else {
-            Log.error("InlineRuleBuilderView: saveRule called with no conditions", category: .analytics)
-            validationError = "At least one condition is required"
+        do {
+            ruleToCheck = try buildRuleCandidate(destination: formState.buildDestination())
+        } catch {
+            validationError = error.localizedDescription
             return
         }
 
@@ -1020,38 +1154,25 @@ struct InlineRuleBuilderView: View {
     private func commitSave(rule: Rule) {
         let ruleService = RuleService(modelContext: modelContext)
 
-        // Resolve category from selected ID
-        let selectedCategory: RuleCategory?
-        if let categoryID = formState.categoryID {
-            selectedCategory = sortedCategories.first { $0.id == categoryID }
-        } else {
-            // Default to General category if no selection
-            selectedCategory = sortedCategories.first { $0.isDefault }
-        }
-
         do {
+            let materializedDestination = try destinationResolver.materializeForExplicitSave(rule.destination)
+
             if let existingRule = editingRule {
                 // Update existing rule's properties from the checked rule
                 existingRule.name = rule.name
                 existingRule.actionType = rule.actionType
                 existingRule.isEnabled = rule.isEnabled
-                existingRule.destination = rule.destination
-                existingRule.category = selectedCategory
-
-                if !rule.conditions.isEmpty {
-                    existingRule.conditions = rule.conditions
-                    existingRule.logicalOperator = rule.logicalOperator
-                } else {
-                    existingRule.conditionType = rule.conditionType
-                    existingRule.conditionValue = rule.conditionValue
-                    existingRule.conditions = []
-                    existingRule.logicalOperator = .single
-                }
+                existingRule.destination = materializedDestination
+                existingRule.category = rule.category
+                existingRule.conditionType = rule.conditionType
+                existingRule.conditionValue = rule.conditionValue
+                existingRule.conditions = rule.conditions
+                existingRule.logicalOperator = rule.logicalOperator
 
                 try ruleService.updateRule(existingRule)
             } else {
                 // Assign category to new rule
-                rule.category = selectedCategory
+                rule.destination = materializedDestination
                 try ruleService.createRule(rule, source: .inlineBuilder)
             }
 
@@ -1092,7 +1213,12 @@ struct InlineRuleBuilderView: View {
 
                 // Store bookmark and display name in unified form state
                 formState.destinationBookmarkData = bookmarkData
-                formState.destinationDisplayPath = url.lastPathComponent
+                let homeURL = FileManager.default.homeDirectoryForCurrentUser
+                if url.path.hasPrefix(homeURL.path + "/") {
+                    formState.destinationDisplayPath = String(url.path.dropFirst(homeURL.path.count + 1))
+                } else {
+                    formState.destinationDisplayPath = url.lastPathComponent
+                }
 
                 validationError = nil
 
@@ -1116,6 +1242,36 @@ struct InlineRuleBuilderView: View {
     
     private var conditionPlaceholder: String {
         conditionPlaceholder(for: formState.conditionType)
+    }
+
+    private func buildRuleCandidate(destination: Destination?) throws -> Rule {
+        let trimmedName = formState.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let enableFlag = editingRule == nil && formState.actionType == .delete ? false : formState.isEnabled
+
+        if formState.useCompoundConditions {
+            return Rule(
+                name: trimmedName,
+                conditions: formState.conditions,
+                logicalOperator: formState.logicalOperator,
+                actionType: formState.actionType,
+                destination: destination,
+                isEnabled: enableFlag,
+                category: selectedCategory
+            )
+        }
+
+        let trimmedValue = formState.conditionValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        _ = try RuleCondition(type: formState.conditionType, value: trimmedValue)
+
+        return Rule(
+            name: trimmedName,
+            conditionType: formState.conditionType,
+            conditionValue: trimmedValue,
+            actionType: formState.actionType,
+            destination: destination,
+            isEnabled: enableFlag,
+            category: selectedCategory
+        )
     }
 
     private func conditionPlaceholder(for type: Rule.ConditionType) -> String {

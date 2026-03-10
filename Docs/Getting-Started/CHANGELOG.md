@@ -93,6 +93,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed - Architecture & Components
+- Smart Rules now classify rule health via `RuleHealthService`, separating duplicate/overlap issues, missing permissions, resolvable `Will Create` destinations, and disabled rules instead of collapsing everything into one attention state.
+- Rule Editor and Inline Rule Builder now create resolvable destination folders immediately when the user explicitly saves a rule and Forma already has the necessary root permission.
+- Template/default rule destinations now use canonical root-relative paths such as `Documents/...`, and onboarding applies per-folder template rules with scoped categories to avoid duplicate global rules.
 - **DashboardViewModel Refactoring**: Significantly reduced the complexity of `DashboardViewModel` by breaking it down into smaller, single-responsibility controllers:
   - `DashboardPermissionState`: Isolates onboarding and permission states.
   - `DashboardTemplateController`: Handles template application and personality quiz logic.
@@ -112,11 +115,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `Scripts/signpost_harness_snapshot.sh` to automate debug harness execution, `xctrace` export, and p50/p95/p99 summary generation for signpost performance snapshots.
 
 ### Changed
+- Dashboard card/list/grid now use calmer file-state semantics: assigned destinations render as passive context instead of link-like accents, provenance is shown as a quieter source token, and row-level `Review` / `Organize` / `Set Destination` actions are progressively disclosed instead of competing at rest.
+- Card, list, and grid file surfaces now share a common identity/action composition model: category rails were removed, filenames + metadata now flow through a shared `FileIdentityBlock`, and secondary actions now live in one consistent overflow system with matching-rule and quick-destination shortcuts across all three views.
+- Grid tiles now devote more space to footer hierarchy, passive destination labels are more readable in card/list without looking interactive, and the UI validation harness now supports real narrow-width toolbar capture via test-controlled window sizing and explicit view-mode probes.
+- App polish first wave now reduces chrome intensity across the dashboard shell, strengthens the default inspector hierarchy, restructures the inline rule builder around `When` / `Then` / `Impact`, groups Smart Rules by operational status, and suppresses low-data analytics with guided setup states.
+- Menu bar extra now uses the same layered material surfaces, compact button chrome, and calmer file-status hierarchy as the main app, with a clearer summary, review queue, and footer structure.
+- Card, list, and grid file surfaces now share a common metadata strip for status, confidence, and destination context, and onboarding/settings copy now aligns more closely with the app’s preview-first product voice.
 - `forma-website` homepage now leads with a proof-first redesign: sharper hero positioning, real workflow storytelling, transformation proof, a stronger pricing close, and FAQ integration before the shared footer.
 - `forma-website` route shell consistency improved by moving the shared footer into the global layout, retuning the header to the shared token system, and redesigning `/support` and `/get-forma` to match the homepage’s marketing surface language.
 - `forma-website` blog routes now introduce Forma before the footer CTA with a shared preview-first guide bridge, and `/for-agents` now uses a mobile-first endpoint catalog instead of relying on horizontal table scrolling.
 - `forma-website` legal routes now use the same branded marketing shell as the rest of the site, guide article bodies now stay inside shared content cards, and blog publish dates were normalized so live guides no longer show future dates after March 5, 2026.
 - Clarified local-only AI messaging in-app and on the privacy page: smart features now explicitly state on-device processing with no third-party AI data sharing.
+- Dashboard toolbar now uses grouped `Scope` / `Context` / `Arrange` / `Display` command families, merges sort and grouping into one arrange menu, folds scan state into the context summary, and aligns the inspector toggle with the display cluster.
+- Dashboard toolbar clusters, card/list/grid file surfaces, and menu bar shells/buttons now use a shared optical chrome recipe with concentric inner rims, restrained specular sheen, monospaced count emphasis, and state-specific elevation so hover/selection/primary actions feel more deliberate.
 - Consolidated marketing web code to `forma-website/` and removed legacy `website/` + `forma-marketing-site/` directories.
 - `forma-website` now uses normal in-flow footer layout (no fixed negative-z reveal), and web metadata/sitemap/robots now target `https://formafiles.com`.
 - `forma-website` metadata now includes expanded structured data (`SoftwareApplication`, `Organization`, `WebSite`, `FAQPage`) and keyword coverage for Mac file-organization intent.
@@ -172,6 +183,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Center-pane toolbar now stays single-row: grouping moved into a menu in the primary strip, the expanding second row was removed, and review/view controls now expose stable accessibility identifiers.
 
 ### Fixed
+- Legacy absolute rule destinations inside the user's home directory now normalize back to canonical bookmark roots instead of reading as unsupported locations.
+- Per-folder onboarding no longer duplicates template rules against the same default Documents destination set.
 - App Store review compliance: removed `ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER` from Xcode target build settings so release binaries no longer include `com.apple.security.files.downloads.read-write`; Downloads access continues through user-selected security-scoped bookmarks.
 - Treemap taps now navigate to the corresponding category view.
 - Reduced repeated rule-scan warnings for unresolvable placeholder destinations.

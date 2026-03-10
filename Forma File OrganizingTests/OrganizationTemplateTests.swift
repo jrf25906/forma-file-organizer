@@ -4,7 +4,7 @@ import XCTest
 /// Behavior-focused tests for organization templates and generated rule semantics.
 final class OrganizationTemplateTests: XCTestCase {
 
-    private let basePath = "/Users/test/Documents"
+    private let basePath = FolderLocation.documents.displayName
 
     // MARK: - Shared Behavior
 
@@ -52,6 +52,15 @@ final class OrganizationTemplateTests: XCTestCase {
             let names = template.generateRules(baseDocumentsPath: basePath).map(\.name)
             XCTAssertEqual(Set(names).count, names.count, "\(template) should not generate duplicate rule names")
         }
+    }
+
+    func testDefaultTemplateGenerationUsesCanonicalDocumentsRoot() {
+        let rules = OrganizationTemplate.para.generateRules()
+        XCTAssertFalse(rules.isEmpty)
+        XCTAssertTrue(rules.allSatisfy { rule in
+            guard rule.actionType == .move else { return true }
+            return rule.destination?.displayName.hasPrefix("Documents/") == true
+        })
     }
 
     // MARK: - Template-Specific Behavior

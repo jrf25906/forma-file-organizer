@@ -58,7 +58,7 @@ struct RuleFormState {
 
     /// Whether we have a valid destination (either bookmark or trash for delete action)
     var hasValidDestination: Bool {
-        actionType == .delete || destinationBookmarkData != nil
+        actionType == .delete || !destinationDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     // MARK: - Initializers
@@ -127,11 +127,12 @@ struct RuleFormState {
             return .trash
         }
 
-        guard let bookmarkData = destinationBookmarkData else {
+        let trimmedPath = destinationDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else {
             return nil
         }
 
-        return .folder(bookmark: bookmarkData, displayName: destinationDisplayPath)
+        return .folder(bookmark: destinationBookmarkData ?? Data(), displayName: trimmedPath)
     }
 
     /// Clears bookmark data (for when user wants to select a different folder)

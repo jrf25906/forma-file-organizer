@@ -9,11 +9,85 @@ final class UITestHarness {
 
     @MainActor
     func waitForMainContent(timeout: TimeInterval = 8) {
-        let needsReviewButton = app.buttons["reviewMode_needsReview"]
-        XCTAssertTrue(needsReviewButton.waitForExistence(timeout: timeout), "Main content should appear")
+        let reviewModePicker = element(withIdentifier: "toolbarReviewModePicker")
+        XCTAssertTrue(reviewModePicker.waitForExistence(timeout: timeout), "Main content should appear")
 
         let firstVisibleRow = firstFileRow()
         XCTAssertTrue(firstVisibleRow.waitForExistence(timeout: timeout), "UI test files should be visible")
+    }
+
+    @MainActor
+    func reviewModePicker() -> XCUIElement {
+        element(withIdentifier: "toolbarReviewModePicker")
+    }
+
+    @MainActor
+    func needsReviewSegment() -> XCUIElement {
+        reviewModePicker().buttons.element(boundBy: 0)
+    }
+
+    @MainActor
+    func allFilesSegment() -> XCUIElement {
+        reviewModePicker().buttons.element(boundBy: 1)
+    }
+
+    @MainActor
+    func viewModePicker() -> XCUIElement {
+        element(withIdentifier: "toolbarViewModePicker")
+    }
+
+    @MainActor
+    func tapNeedsReviewSegment(timeout: TimeInterval = 4) {
+        let picker = reviewModePicker()
+        XCTAssertTrue(picker.waitForExistence(timeout: timeout), "Review mode picker should exist")
+        picker.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.5)).click()
+    }
+
+    @MainActor
+    func tapAllFilesSegment(timeout: TimeInterval = 4) {
+        let picker = reviewModePicker()
+        XCTAssertTrue(picker.waitForExistence(timeout: timeout), "Review mode picker should exist")
+        picker.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5)).click()
+    }
+
+    @MainActor
+    func tapGridViewSegment(timeout: TimeInterval = 4) {
+        tapViewModeSegment(
+            identifier: "viewMode_grid",
+            fallbackOffset: CGVector(dx: 0.12, dy: 0.5),
+            timeout: timeout
+        )
+    }
+
+    @MainActor
+    func tapListViewSegment(timeout: TimeInterval = 4) {
+        tapViewModeSegment(
+            identifier: "viewMode_list",
+            fallbackOffset: CGVector(dx: 0.30, dy: 0.5),
+            timeout: timeout
+        )
+    }
+
+    @MainActor
+    func tapCardViewSegment(timeout: TimeInterval = 4) {
+        tapViewModeSegment(
+            identifier: "viewMode_card",
+            fallbackOffset: CGVector(dx: 0.50, dy: 0.5),
+            timeout: timeout
+        )
+    }
+
+    @MainActor
+    func tapViewModeSegment(identifier: String, fallbackOffset: CGVector, timeout: TimeInterval) {
+        let picker = viewModePicker()
+        XCTAssertTrue(picker.waitForExistence(timeout: timeout), "View mode picker should exist")
+
+        let button = element(withIdentifier: identifier)
+        if button.waitForExistence(timeout: 1) {
+            button.click()
+        } else {
+            picker.coordinate(withNormalizedOffset: fallbackOffset).click()
+        }
     }
 
     @MainActor
@@ -90,5 +164,10 @@ final class UITestHarness {
     @MainActor
     func badgeValue(_ element: XCUIElement) -> String {
         element.value as? String ?? ""
+    }
+
+    @MainActor
+    func waitForViewMode(_ mode: String, timeout: TimeInterval = 4) {
+        waitForValue(element(withIdentifier: "mainContent_viewMode"), contains: mode, timeout: timeout)
     }
 }

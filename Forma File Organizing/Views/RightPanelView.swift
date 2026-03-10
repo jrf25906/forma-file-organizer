@@ -104,8 +104,6 @@ struct RightPanelView: View {
     @ViewBuilder
     private var panelModeHeader: some View {
         HStack(spacing: 12) {
-
-
             // Back to dashboard button
             Button(action: {
                 dashboardViewModel.returnToDefaultPanel()
@@ -117,6 +115,12 @@ struct RightPanelView: View {
                         .font(.formaCompactMedium)
                 }
                 .foregroundColor(.formaSteelBlue)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+                )
             }
             .buttonStyle(.plain)
             .help("Return to Dashboard")
@@ -128,13 +132,23 @@ struct RightPanelView: View {
                 Image(systemName: modeIcon)
                     .font(.formaSmall)
                 Text(modeTitle)
-                    .font(.formaCompactMedium)
+                    .font(.formaSmallSemibold)
             }
-            .foregroundColor(.formaSecondaryLabelHigh)
+            .foregroundColor(.formaLabel)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(Color.formaControlBackground.opacity(Color.FormaOpacity.overlay))
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+            )
         }
         .padding(.horizontal, FormaLayout.Gutters.rightPanel)
         .padding(.vertical, FormaSpacing.tight + (FormaSpacing.micro / 2))
-        .background(Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle))
+        .background(Color.formaControlBackground.opacity(Color.FormaOpacity.light))
     }
 }
 

@@ -229,10 +229,10 @@ class AnalyticsDashboardViewModel: ObservableObject {
     func createRuleFromPattern(_ pattern: LearnedPattern, context: ModelContext) -> Bool {
         let rule = learningService.convertPatternToRule(pattern)
 
-        context.insert(rule)
-        pattern.markAsConverted(ruleId: rule.id)
-
         do {
+            let ruleService = RuleService(modelContext: context)
+            try ruleService.createRule(rule, source: .learnedPattern)
+            pattern.markAsConverted(ruleId: rule.id)
             try context.save()
             Log.info("Created rule from pattern: \(pattern.patternDescription)", category: .pipeline)
             return true

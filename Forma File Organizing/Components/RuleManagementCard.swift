@@ -7,6 +7,7 @@ struct RuleManagementCard: View {
     static let verticalPadding: CGFloat = FormaSpacing.tight
 
     let rule: Rule
+    var health: RuleHealthService.RuleHealth? = nil
     let onEdit: () -> Void
     let onDelete: () -> Void
     let onToggle: () -> Void
@@ -75,31 +76,134 @@ struct RuleManagementCard: View {
         }
     }
 
-    private var destinationWarning: DestinationResolver.ResolvabilityStatus? {
-        guard rule.actionType != .delete,
-              let destination = rule.destination else {
-            return nil
-        }
-
-        let status = destinationResolver.checkResolvability(destination)
-        if case .unresolvable = status {
-            return status
-        }
-        return nil
+    private var resolvedHealth: RuleHealthService.RuleHealth {
+        health ?? fallbackHealth
     }
 
-    private var destinationWarningMessage: String? {
-        guard let destinationWarning else { return nil }
-        switch destinationWarning {
+    private var fallbackHealth: RuleHealthService.RuleHealth {
+        if !rule.isEnabled {
+            return RuleHealthService.RuleHealth(kind: .disabled, badgeLabel: "Disabled", message: "This rule is turned off.")
+        }
+
+        if let category = rule.category, !category.isEnabled {
+            return RuleHealthService.RuleHealth(
+                kind: .disabled,
+                badgeLabel: "Category Off",
+                message: "The '\(category.name)' category is disabled."
+            )
+        }
+
+        guard rule.actionType != .delete,
+              let destination = rule.destination else {
+            return RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
+        }
+
+        if destination.bookmarkData != nil {
+            switch destination.validate() {
+            case .valid, .stale:
+                return RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
+            case .invalid(let reason):
+                return RuleHealthService.RuleHealth(kind: .needsPermission, badgeLabel: "Needs Permission", message: reason)
+            }
+        }
+
+        switch destinationResolver.checkResolvability(destination) {
+        case .valid:
+            return RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
+        case .resolvable(let parentFolder):
+            return RuleHealthService.RuleHealth(
+                kind: .willCreate,
+                badgeLabel: "Will Create",
+                message: "Forma can create this folder inside \(parentFolder) when you save."
+            )
         case .unresolvable(let reason):
-            return reason
+            return RuleHealthService.RuleHealth(kind: .needsPermission, badgeLabel: "Needs Permission", message: reason)
+        }
+    }
+
+    private var healthAccentColor: Color {
+        switch resolvedHealth.kind {
+        case .duplicateOrOverlap, .needsPermission:
+            return .formaWarmOrange
+        case .willCreate:
+            return .formaSteelBlue
+        case .ready:
+            return .formaSage
+        case .disabled:
+            return secondaryTextColor
+        }
+    }
+
+    private var healthBadgeBackground: Color {
+        switch resolvedHealth.kind {
+        case .duplicateOrOverlap, .needsPermission:
+            return Color.formaWarmOrange.opacity(0.15)
+        case .willCreate:
+            return Color.formaSteelBlue.opacity(0.14)
+        case .ready:
+            return Color.formaSage.opacity(0.14)
+        case .disabled:
+            return disabledBadgeBackground
+        }
+    }
+
+    private var destinationStatusIconName: String? {
+        switch resolvedHealth.kind {
+        case .needsPermission:
+            return "exclamationmark.triangle.fill"
+        case .willCreate:
+            return "folder.badge.plus"
         default:
             return nil
         }
     }
 
+    private var healthDetailIconName: String {
+        switch resolvedHealth.kind {
+        case .duplicateOrOverlap:
+            return "arrow.triangle.branch"
+        case .needsPermission:
+            return "exclamationmark.triangle.fill"
+        case .willCreate:
+            return "folder.badge.plus"
+        case .ready:
+            return "checkmark.circle.fill"
+        case .disabled:
+            return "pause.circle.fill"
+        }
+    }
+
+    private var healthDetailMessage: String? {
+        switch resolvedHealth.kind {
+        case .ready:
+            return nil
+        case .duplicateOrOverlap, .needsPermission, .willCreate, .disabled:
+            return resolvedHealth.message
+        }
+    }
+
+    private var scopeDetailMessage: String? {
+        guard let category = rule.category, !category.scope.isGlobal else {
+            return nil
+        }
+
+        return "Applies to \(category.scope.displayDescription)"
+    }
+
+    private var showsCategoryBadge: Bool {
+        guard let category = rule.category else { return false }
+        return !category.isDefault || !category.scope.isGlobal
+    }
+
     private var destinationTextColor: Color {
-        destinationWarning == nil ? secondaryTextColor : .formaWarmOrange
+        switch resolvedHealth.kind {
+        case .needsPermission:
+            return .formaWarmOrange
+        case .willCreate:
+            return .formaSteelBlue
+        default:
+            return secondaryTextColor
+        }
     }
 
     private var secondaryTextColor: Color {
@@ -195,27 +299,27 @@ struct RuleManagementCard: View {
                         .font(.formaBodyBold)
                         .foregroundColor(rule.isEnabled ? .formaLabel : secondaryTextColor)
 
-                    if !rule.isEnabled {
-                        Text("Disabled")
+                    if let badgeLabel = resolvedHealth.badgeLabel {
+                        Text(badgeLabel)
                             .font(.system(size: 9, weight: .bold))
                             .textCase(.uppercase)
-                            .foregroundColor(secondaryTextColor)
+                            .foregroundColor(healthAccentColor)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(disabledBadgeBackground)
+                            .background(healthBadgeBackground)
                             .cornerRadius(4)
+                            .help(resolvedHealth.message ?? badgeLabel)
                     }
 
-                    if let warningMessage = destinationWarningMessage {
-                        Text("Needs Access")
+                    if showsCategoryBadge, let category = rule.category {
+                        Text(category.name)
                             .font(.system(size: 9, weight: .bold))
                             .textCase(.uppercase)
-                            .foregroundColor(.formaWarmOrange)
+                            .foregroundColor(category.color)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.formaWarmOrange.opacity(0.15))
+                            .background(category.color.opacity(0.15))
                             .cornerRadius(4)
-                            .help(warningMessage)
                     }
                 }
                 
@@ -232,10 +336,10 @@ struct RuleManagementCard: View {
                         .font(.formaCompact)
                         .foregroundColor(secondaryTextColor)
 
-                    if destinationWarningMessage != nil {
-                        Image(systemName: "exclamationmark.triangle.fill")
+                    if let destinationStatusIconName {
+                        Image(systemName: destinationStatusIconName)
                             .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(.formaWarmOrange)
+                            .foregroundColor(healthAccentColor)
                     }
 
                     Text(rule.actionType == .delete ? "Delete" : rule.destinationDisplayText)
@@ -255,6 +359,28 @@ struct RuleManagementCard: View {
                             .foregroundColor(tertiaryTextColor)
                             .lineLimit(1)
                     }
+                }
+
+                if let scopeDetailMessage {
+                    HStack(spacing: 5) {
+                        Image(systemName: "folder.badge.gearshape")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(scopeDetailMessage)
+                            .font(.formaCaption)
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(tertiaryTextColor)
+                }
+
+                if let healthDetailMessage {
+                    HStack(alignment: .top, spacing: 5) {
+                        Image(systemName: healthDetailIconName)
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(healthDetailMessage)
+                            .font(.formaCaption)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .foregroundColor(healthAccentColor)
                 }
             }
             
@@ -312,8 +438,6 @@ struct RuleManagementCard: View {
             x: 0,
             y: isHovered ? 2 : 1
         )
-        .opacity(destinationWarning != nil ? 0.65 : 1.0)
-        .saturation(destinationWarning != nil ? 0.4 : 1.0)
         .scaleEffect(isHovered ? 1.005 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .onHover { hovering in

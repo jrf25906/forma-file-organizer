@@ -1,7 +1,7 @@
 # Forma - API Reference
 
-**Version:** 2.1
-**Last Updated:** February 2026
+**Version:** 2.2
+**Last Updated:** March 2026
 **Status:** Current Implementation
 
 ---
@@ -64,7 +64,12 @@ import SwiftData
 
 All service methods are thread-safe and use `async/await` for concurrency. ViewModel methods must be called on `@MainActor`.
 
-### Recent API Updates (February 2026)
+### Recent API Updates (March 2026)
+
+- `DestinationResolver.materializeForExplicitSave(_:)` now resolves placeholder destinations during explicit rule-save flows, creates folders inside already-permitted roots, and throws actionable errors for unresolvable destinations.
+- `RuleHealthService` centralizes Smart Rules health classification with `duplicateOrOverlap`, `needsPermission`, `willCreate`, `ready`, and `disabled` states.
+- `RuleService.createRule(_:source:save:)` and `createRules(_:source:)` now require `RuleSource` metadata so activity logging can distinguish editor, inline, template, default, and learned-pattern creation flows.
+- `OrganizationTemplate.generateRules(baseDocumentsPath:)` now expects canonical root-relative bases such as `Documents`, `Desktop`, or `Downloads` rather than absolute `/Users/...` paths.
 
 - `ContentSearchService` now executes heavy content scanning off-main and returns results directly to callers rather than publishing internal scan state.
 - `DashboardViewModel` content-search orchestration now deduplicates unchanged query/file snapshots before scheduling a new search pass.
@@ -343,7 +348,7 @@ let rules = [
         conditionType: .nameStartsWith,
         conditionValue: "Screenshot",
         actionType: .move,
-        destinationFolder: "Pictures/Screenshots"
+        destination: .folder(bookmark: Data(), displayName: "Pictures/Screenshots")
     )
 ]
 
@@ -2090,7 +2095,7 @@ func fetchRules() throws -> [Rule]
 
 **Example:**
 ```swift
-let service = RuleService(context: modelContext)
+let service = RuleService(modelContext: modelContext)
 
 do {
     let rules = try service.fetchRules()
@@ -2105,17 +2110,19 @@ do {
 
 ---
 
-#### createRule(_:)
+#### createRule(_:source:save:)
 
 Creates and saves a new rule to the database.
 
 **Signature:**
 ```swift
-func createRule(_ rule: Rule) throws
+func createRule(_ rule: Rule, source: RuleSource, save: Bool = true) throws
 ```
 
 **Parameters:**
 - `rule`: Rule instance to persist
+- `source`: Creation context used for activity logging and analytics
+- `save`: Whether to save the context immediately (default: `true`)
 
 **Returns:** Void
 
@@ -2123,21 +2130,22 @@ func createRule(_ rule: Rule) throws
 
 **Side Effects:**
 - Inserts rule into ModelContext
-- Saves context immediately
+- Logs the creation source to the activity timeline
+- Saves context immediately when `save` is `true`
 
 **Example:**
 ```swift
-let service = RuleService(context: modelContext)
+let service = RuleService(modelContext: modelContext)
 
 let newRule = Rule(
     name: "PDFs to Documents",
-    conditions: [.extensionIs("pdf")],
-    destination: "/Users/user/Documents/PDFs",
-    isEnabled: true,
-    priority: 5
+    conditionType: .fileExtension,
+    conditionValue: "pdf",
+    actionType: .move,
+    destination: .folder(bookmark: Data(), displayName: "Documents/PDFs")
 )
 
-try service.createRule(newRule)
+try service.createRule(newRule, source: .ruleEditor)
 ```
 
 ---
@@ -2162,7 +2170,7 @@ func updateRule(_ rule: Rule) throws
 
 **Example:**
 ```swift
-let service = RuleService(context: modelContext)
+let service = RuleService(modelContext: modelContext)
 var rule: Rule = // ... fetched from database
 
 rule.isEnabled = false
@@ -2195,7 +2203,7 @@ func deleteRule(_ rule: Rule) throws
 
 **Example:**
 ```swift
-let service = RuleService(context: modelContext)
+let service = RuleService(modelContext: modelContext)
 let rule: Rule = // ... fetched from database
 
 try service.deleteRule(rule)
@@ -2221,7 +2229,7 @@ func seedDefaultRules() throws
 **Behavior:**
 - Only runs if database is empty (no existing rules)
 - Creates rules for common extensions: .pdf, .jpg, .png, .mp4, .zip, .doc, .xls
-- Sets reasonable default destinations and priorities
+- Sets supported default destinations within bookmark-backed roots such as `Documents`, `Pictures`, and `Music`
 
 **Use Cases:**
 - First app launch
@@ -2230,7 +2238,7 @@ func seedDefaultRules() throws
 
 **Example:**
 ```swift
-let service = RuleService(context: modelContext)
+let service = RuleService(modelContext: modelContext)
 
 try service.seedDefaultRules()
 print("Default rules seeded")
@@ -2260,9 +2268,13 @@ func seedTemplateRules(
 
 **Behavior:**
 1. If `clearExisting`, deletes all current rules
-2. Calls `template.generateRules()` to create rule set
+2. Calls `template.generateRules(baseDocumentsPath:)` to create canonical root-relative placeholder destinations (for example `Documents/Areas/Health`)
 3. Inserts generated rules into database
 4. Saves context
+
+**Notes:**
+- Template-generated rules stay non-destructive until their destinations are materialized by an explicit save flow or a bulk create action.
+- Per-folder onboarding may call `generateRules(baseDocumentsPath:)` with roots like `Desktop`, `Downloads`, or `Documents` and then scope the rules to the selected category.
 
 **Templates:**
 - `.para`: PARA method (Projects, Areas, Resources, Archives)
@@ -2274,7 +2286,7 @@ func seedTemplateRules(
 
 **Example:**
 ```swift
-let service = RuleService(context: modelContext)
+let service = RuleService(modelContext: modelContext)
 
 // Replace all rules with PARA template
 try service.seedTemplateRules(
@@ -3654,7 +3666,7 @@ func createScreenshotRule(context: ModelContext) {
         conditionType: .nameStartsWith,
         conditionValue: "Screenshot",
         actionType: .move,
-        destinationFolder: "Pictures/Screenshots"
+        destination: .folder(bookmark: Data(), displayName: "Pictures/Screenshots")
     )
 
     context.insert(rule)
@@ -3909,18 +3921,18 @@ Generates Rule objects based on the template's organization strategy.
 
 **Signature:**
 ```swift
-func generateRules(baseDocumentsPath: String) -> [Rule]
+func generateRules(baseDocumentsPath: String = FolderLocation.documents.displayName) -> [Rule]
 ```
 
 **Parameters:**
-- `baseDocumentsPath`: Base path for Documents folder (e.g., "/Users/user/Documents")
+- `baseDocumentsPath`: Canonical root-relative base path such as `Documents`, `Desktop`, or `Downloads`
 
 **Returns:** Array of Rule objects configured for this template
 
 **Example:**
 ```swift
 let template = OrganizationTemplate.para
-let rules = template.generateRules(baseDocumentsPath: "/Users/user/Documents")
+let rules = template.generateRules(baseDocumentsPath: "Documents")
 
 print("Generated \(rules.count) rules:")
 for rule in rules {
@@ -3931,10 +3943,10 @@ for rule in rules {
 **Output (PARA):**
 ```
 Generated 12 rules:
-  Project Files → /Users/user/Documents/Projects
-  Work Documents → /Users/user/Documents/Areas/Work
-  Personal Resources → /Users/user/Documents/Resources
-  Old Files → /Users/user/Documents/Archives
+  Project Files → Documents/Projects
+  Work Documents → Documents/Areas/Work
+  Personal Resources → Documents/Resources
+  Old Files → Documents/Archives
 ```
 
 ### Properties

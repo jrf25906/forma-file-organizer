@@ -25,8 +25,8 @@ final class Forma_File_OrganizingUITestsLaunchTests: XCTestCase {
         app.launch()
 
         // Wait for the UI-testing seed data to render before taking a screenshot.
-        let needsReviewButton = app.buttons["reviewMode_needsReview"]
-        XCTAssertTrue(needsReviewButton.waitForExistence(timeout: 8), "Main content should appear")
+        let reviewModePicker = app.descendants(matching: .any).matching(identifier: "toolbarReviewModePicker").firstMatch
+        XCTAssertTrue(reviewModePicker.waitForExistence(timeout: 8), "Main content should appear")
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Launch Screen"

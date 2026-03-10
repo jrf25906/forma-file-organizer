@@ -1,8 +1,10 @@
 # DestinationResolver Architecture
 
+**Last Updated:** March 2026
+
 ## Overview
 
-The `DestinationResolver` service handles automatic resolution of placeholder destinations in Forma. It enables the app to create subfolders within user-permitted parent folders, solving the sandboxing limitation where rules with path-based destinations couldn't access folders without explicit user selection.
+The `DestinationResolver` service handles automatic resolution of placeholder destinations in Forma. It enables the app to create subfolders within user-permitted parent folders, normalizes legacy absolute home-relative paths back to canonical bookmark roots, and supports both explicit-save materialization and runtime fallback flows.
 
 ## Problem Statement
 
@@ -73,7 +75,7 @@ If the user has granted access to a parent folder (e.g., `~/Pictures`), the app 
 │  └─────────────┘    └──────────────────┘    └───────────────┘ │
 │                                                                 │
 │  Input: Destination.folder(bookmark: Data(), "Pictures/Screenshots")│
-│  Output: Destination.folder(bookmark: <valid>, "Screenshots")  │
+│  Output: Destination.folder(bookmark: <valid>, "Pictures/Screenshots") │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -85,31 +87,79 @@ func resolve(_ destination: Destination) -> Destination? {
     guard case .folder(let bookmark, let displayName) = destination,
           bookmark.isEmpty else { return nil }
 
-    // 2. Parse "Pictures/Screenshots" → ["Pictures", "Screenshots"]
-    let components = displayName.components(separatedBy: "/")
+    // 2. Normalize legacy absolute paths back to canonical roots
+    let normalizedDisplayName = normalizedDisplayName(for: displayName)
 
-    // 3. Find accessible parent (e.g., "Pictures" has a stored bookmark)
+    // 3. Parse "Pictures/Screenshots" → ["Pictures", "Screenshots"]
+    let components = normalizedDisplayName.components(separatedBy: "/")
+
+    // 4. Find accessible parent (e.g., "Pictures" has a stored bookmark)
     guard let (parentURL, remaining) = findAccessibleParent(components) else {
         return nil
     }
 
-    // 4. Build target path: parentURL + "Screenshots"
+    // 5. Build target path: parentURL + "Screenshots"
     var targetURL = parentURL
     for component in remaining {
         targetURL = targetURL.appendingPathComponent(component)
     }
 
-    // 5. Create directory using parent's security scope
+    // 6. Create directory using parent's security scope
     try createDirectoryIfNeeded(at: targetURL, accessingParent: parentURL)
 
-    // 6. Generate new bookmark for the created folder
-    return try Destination.folder(from: targetURL)
+    // 7. Generate new bookmark while preserving the canonical display path
+    return try Destination.folder(from: targetURL, displayName: normalizedDisplayName)
 }
 ```
 
+### Resolution Modes
+
+Forma uses the resolver in three different modes:
+
+1. **Explicit save materialization**
+   - `materializeForExplicitSave(_:)` is used by `RuleEditorView` and `InlineRuleBuilderView`
+   - Resolvable placeholder destinations are created immediately when the user explicitly saves a rule
+   - Unresolvable destinations throw actionable errors so the editor can block save
+
+2. **Smart Rules health / preview**
+   - `checkResolvability(_:)` classifies placeholder destinations without creating folders
+   - `RuleHealthService` uses this to show `Needs Permission` vs. `Will Create`
+
+3. **Runtime fallback**
+   - `RuleEngine` and `FileOperationsService` still attempt lazy resolution if a placeholder destination survives into execution time
+
 ### Integration Points
 
-#### 1. RuleEngine (Primary Integration)
+#### 1. Rule Editors (Primary Explicit Integration)
+
+When a user explicitly saves a rule, editors materialize resolvable destinations immediately:
+
+```swift
+let resolvedDestination = try destinationResolver.materializeForExplicitSave(formState.buildDestination())
+rule.destination = resolvedDestination
+try ruleService.createRule(rule, source: .ruleEditor)
+```
+
+This path is intentionally eager for explicit user-authored rules so the folder exists as soon as the rule is saved.
+
+#### 2. RuleHealthService (Preview / UX Integration)
+
+Smart Rules classifies placeholder destinations without mutating the file system:
+
+```swift
+switch destinationResolver.checkResolvability(destination) {
+case .resolvable(let parentFolder):
+    return .willCreate(parentFolder: parentFolder)
+case .unresolvable(let reason):
+    return .needsPermission(reason: reason)
+case .valid:
+    return .ready
+}
+```
+
+This lets bulk-generated template/default rules stay non-destructive until the user explicitly chooses to materialize them.
+
+#### 3. RuleEngine (Runtime Fallback)
 
 When evaluating rules, RuleEngine attempts resolution before skipping rules with placeholder destinations:
 
@@ -136,7 +186,7 @@ if !ruleDestination.isTrash && ruleDestination.bookmarkData == nil {
 }
 ```
 
-#### 2. FileOperationsService (Fallback Integration)
+#### 4. FileOperationsService (Fallback Integration)
 
 As a safety net, FileOperationsService also attempts resolution before failing:
 
@@ -174,6 +224,7 @@ private static let folderBookmarkKeys: [String: String] = [
 |-------------|-----------------|------------|
 | `Pictures/Screenshots` | `~/Pictures` | Creates `~/Pictures/Screenshots`, returns valid bookmark |
 | `Documents/Work/2024` | `~/Documents` | Creates nested structure, returns valid bookmark |
+| `/Users/me/Documents/Areas/Health` | `~/Documents` | Normalizes to `Documents/Areas/Health`, then resolves |
 | `Archive/Old` | None found | Returns `nil` (unresolvable) |
 | `Projects` (no parent) | None found | Returns `nil` (unresolvable) |
 
@@ -243,6 +294,8 @@ Resolution can fail for several reasons:
 ### Graceful Degradation
 
 When resolution fails:
+- **Rule Editor / Inline Builder**: Blocks save with a descriptive error
+- **RuleHealthService**: Reports `Needs Permission` without creating folders
 - **RuleEngine**: Skips the rule and logs a warning
 - **FileOperationsService**: Throws descriptive error for UI handling
 

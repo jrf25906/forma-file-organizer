@@ -516,6 +516,11 @@ struct MainContentView: View {
 
     private var accessibilityStateProbes: some View {
         let reviewModeValue = dashboardViewModel.reviewFilterMode == .needsReview ? "needsReview" : "allFiles"
+        let viewModeValue = switch dashboardViewModel.currentViewMode {
+        case .grid: "grid"
+        case .list: "list"
+        case .card: "card"
+        }
         let needsReviewCountValue = "\(dashboardViewModel.needsReviewCount)"
         let allFilesCountValue = "\(dashboardViewModel.allFilesCount)"
         let selectedCountValue = "\(dashboardViewModel.selectedFileIDs.count)"
@@ -527,6 +532,12 @@ struct MainContentView: View {
                 .accessibilityIdentifier("mainContent_reviewMode")
                 .accessibilityLabel("Review mode \(reviewModeValue)")
                 .accessibilityValue(reviewModeValue)
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("mainContent_viewMode")
+                .accessibilityLabel("View mode \(viewModeValue)")
+                .accessibilityValue(viewModeValue)
 
             Color.clear
                 .frame(width: 1, height: 1)
@@ -792,6 +803,15 @@ struct MainContentView: View {
                                     }
                                 },
                                 onViewRule: nil,
+                                matchingRules: dashboardViewModel.getMatchingRules(for: file),
+                                onApplyRule: { rule in
+                                    dashboardViewModel.applyRule(rule, to: file)
+                                    ruleAppliedFilePaths.insert(file.path)
+                                    Task { @MainActor in
+                                        try? await Task.sleep(nanoseconds: 500_000_000)
+                                        ruleAppliedFilePaths.remove(file.path)
+                                    }
+                                },
                                 onQuickLook: { item in
                                     dashboardViewModel.showQuickLook(for: item)
                                 },
@@ -877,6 +897,12 @@ struct MainContentView: View {
             onEdit: { dashboardViewModel.beginEditingDestination(for: file) },
             onSkip: { dashboardViewModel.skipFile(file) },
             onQuickLook: { dashboardViewModel.showQuickLook(for: file) },
+            availableDestinations: availableDestinations,
+            onChangeDestination: { destination in
+                file.destination = destination
+                file.status = .ready
+                dashboardViewModel.filterViewModel.applyFilterImmediately()
+            },
             matchingRules: dashboardViewModel.getMatchingRules(for: file),
             onCreateRule: {
                 nav.ruleEditorFileContext = file
@@ -941,6 +967,27 @@ struct MainContentView: View {
                             },
                             onQuickLook: {
                                 dashboardViewModel.showQuickLook(for: file)
+                            },
+                            availableDestinations: availableDestinations,
+                            onChangeDestination: { destination in
+                                file.destination = destination
+                                file.status = .ready
+                                dashboardViewModel.filterViewModel.applyFilterImmediately()
+                            },
+                            matchingRules: dashboardViewModel.getMatchingRules(for: file),
+                            onCreateRule: {
+                                nav.ruleEditorFileContext = file
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    nav.isShowingRuleEditor = true
+                                }
+                            },
+                            onApplyRule: { rule in
+                                dashboardViewModel.applyRule(rule, to: file)
+                                ruleAppliedFilePaths.insert(file.path)
+                                Task { @MainActor in
+                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    ruleAppliedFilePaths.remove(file.path)
+                                }
                             }
                         )
                         .frame(maxWidth: .infinity)
