@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 // MARK: - RuleEditorView
 
@@ -38,9 +37,9 @@ struct RuleEditorView: View {
     @State private var formState = RuleFormState()
 
     // UI state
-    @State private var showFolderPicker: Bool = false
     @State private var validationError: String?
     @State private var triggerValidationShake: Bool = false
+    @State private var isChoosingDestination = false
     
     // Natural language rule creation
     @StateObject private var naturalLanguageViewModel = NaturalLanguageRuleViewModel()
@@ -229,7 +228,7 @@ struct RuleEditorView: View {
 
                         RuleDestinationPicker(
                             formState: $formState,
-                            showFolderPicker: $showFolderPicker,
+                            onChooseFolder: requestDestinationAccess,
                             onPreviewDeleteMatches: previewDeleteRuleMatches
                         )
                     }
@@ -337,13 +336,6 @@ struct RuleEditorView: View {
             if formState.categoryID == nil, let defaultCategory = sortedCategories.first(where: { $0.isDefault }) {
                 formState.categoryID = defaultCategory.id
             }
-        }
-        .fileImporter(
-            isPresented: $showFolderPicker,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            handleFolderSelection(result)
         }
         .sheet(isPresented: $showDeletePreviewSheet) {
             DeleteRulePreviewSheet(files: deletePreviewFiles)
@@ -477,12 +469,18 @@ struct RuleEditorView: View {
                             .foregroundColor(.formaSecondaryLabel)
                             .fixedSize(horizontal: false, vertical: true)
 
-                        Button(action: { showFolderPicker = true }) {
-                            Text("Select Folder")
+                        Text("Grant access to the suggested parent folder and Forma will finish the destination path for you.")
+                            .font(.formaCaption)
+                            .foregroundColor(.formaSecondaryLabel)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Button(action: requestDestinationAccess) {
+                            Text(isChoosingDestination ? "Granting Access..." : "Grant Access")
                                 .font(.formaCaptionSemibold)
                                 .foregroundColor(.formaSteelBlue)
                         }
                         .buttonStyle(.plain)
+                        .disabled(isChoosingDestination)
                     }
                 }
                 .padding(FormaSpacing.standard)
@@ -767,43 +765,26 @@ struct RuleEditorView: View {
         showDeletePreviewSheet = true
     }
 
-    private func handleFolderSelection(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let url = urls.first else { return }
+    private func requestDestinationAccess() {
+        guard !isChoosingDestination else { return }
 
-            // Start accessing security-scoped resource
-            guard url.startAccessingSecurityScopedResource() else {
-                validationError = "Failed to access selected folder. Please try again."
-                return
-            }
-            defer { url.stopAccessingSecurityScopedResource() }
+        isChoosingDestination = true
+        validationError = nil
 
-            // Create security-scoped bookmark
+        Task { @MainActor in
+            defer { isChoosingDestination = false }
+
             do {
-                let bookmarkData = try url.bookmarkData(
-                    options: .withSecurityScope,
-                    includingResourceValuesForKeys: nil,
-                    relativeTo: nil
+                let destination = try await destinationResolver.requestDestinationAccess(
+                    forSuggestedPath: formState.destinationDisplayPath
                 )
-                formState.destinationBookmarkData = bookmarkData
-
-                // Set display name (relative path from home if possible)
-                let homeURL = FileManager.default.homeDirectoryForCurrentUser
-                if url.path.hasPrefix(homeURL.path) {
-                    let relativePath = String(url.path.dropFirst(homeURL.path.count + 1))
-                    formState.destinationDisplayPath = relativePath
-                } else {
-                    formState.destinationDisplayPath = url.lastPathComponent
-                }
-
-                validationError = nil
+                formState.destinationDisplayPath = destination.displayName
+                formState.destinationBookmarkData = destination.bookmarkData
+            } catch DestinationResolver.AccessGrantError.cancelled {
+                return
             } catch {
-                validationError = "Failed to create bookmark for folder: \(error.localizedDescription)"
+                validationError = "Failed to grant access for destination: \(error.localizedDescription)"
             }
-
-        case .failure(let error):
-            validationError = "Failed to select folder: \(error.localizedDescription)"
         }
     }
 }

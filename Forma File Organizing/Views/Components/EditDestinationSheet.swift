@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Sheet for editing a file's destination using secure folder picker.
 /// Replaces legacy string-based destination entry with bookmark-backed system.
@@ -10,8 +9,9 @@ struct EditDestinationSheet: View {
 
     @State private var destinationDisplayPath: String
     @State private var destinationBookmarkData: Data?
-    @State private var showFolderPicker: Bool = false
+    @State private var isChoosingDestination = false
     @State private var errorMessage: String?
+    private let destinationResolver = DestinationResolver()
 
     init(file: FileItem, onSave: @escaping (Destination) -> Void) {
         self.file = file
@@ -29,6 +29,10 @@ struct EditDestinationSheet: View {
 
     private var hasValidDestination: Bool {
         destinationBookmarkData != nil
+    }
+
+    private var hasSuggestedDestination: Bool {
+        !destinationDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -64,6 +68,13 @@ struct EditDestinationSheet: View {
                             Text(destinationDisplayPath)
                                 .font(.formaBody)
                                 .foregroundColor(.formaLabel)
+                        } else if hasSuggestedDestination {
+                            Image(systemName: "folder.badge.questionmark")
+                                .foregroundColor(.formaWarmOrange)
+                                .font(.formaBody)
+                            Text(destinationDisplayPath)
+                                .font(.formaBody)
+                                .foregroundColor(.formaLabel)
                         } else {
                             Image(systemName: "folder.badge.plus")
                                 .foregroundColor(.formaSecondaryLabel)
@@ -86,10 +97,10 @@ struct EditDestinationSheet: View {
                             .stroke(hasValidDestination ? Color.formaSteelBlue.opacity(Color.FormaOpacity.overlay) : Color.formaSeparator, lineWidth: 1)
                     )
                     .onTapGesture {
-                        showFolderPicker = true
+                        requestDestinationAccess()
                     }
 
-                    Button(action: { showFolderPicker = true }) {
+                    Button(action: requestDestinationAccess) {
                         Image(systemName: "folder")
                             .font(.formaBodyMedium)
                             .foregroundColor(.formaSteelBlue)
@@ -99,9 +110,10 @@ struct EditDestinationSheet: View {
                     }
                     .buttonStyle(.plain)
                     .help("Choose folder")
+                    .disabled(isChoosingDestination)
                 }
 
-                Text(hasValidDestination ? "Folder access saved securely" : "Select a folder to set the destination")
+                Text(destinationHelperText)
                     .formaMetadataStyle()
                     .foregroundColor(hasValidDestination ? .formaSage : .formaSecondaryLabel)
 
@@ -142,44 +154,40 @@ struct EditDestinationSheet: View {
         .frame(width: 420)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("editDestinationSheet")
-        .fileImporter(
-            isPresented: $showFolderPicker,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            handleFolderSelection(result)
-        }
     }
 
-    private func handleFolderSelection(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let url = urls.first else { return }
+    private var destinationHelperText: String {
+        if hasValidDestination {
+            return "Folder access saved securely"
+        }
 
-            let didStartAccessing = url.startAccessingSecurityScopedResource()
-            defer {
-                if didStartAccessing {
-                    url.stopAccessingSecurityScopedResource()
-                }
-            }
+        if hasSuggestedDestination {
+            return "Suggested destination: \(destinationDisplayPath). Click the folder button to grant access and Forma will finish the path for you."
+        }
+
+        return "Select a folder to set the destination"
+    }
+
+    private func requestDestinationAccess() {
+        guard !isChoosingDestination else { return }
+
+        isChoosingDestination = true
+        errorMessage = nil
+
+        Task { @MainActor in
+            defer { isChoosingDestination = false }
 
             do {
-                let bookmarkData = try url.bookmarkData(
-                    options: .withSecurityScope,
-                    includingResourceValuesForKeys: nil,
-                    relativeTo: nil
+                let destination = try await destinationResolver.requestDestinationAccess(
+                    forSuggestedPath: destinationDisplayPath
                 )
-
-                destinationBookmarkData = bookmarkData
-                destinationDisplayPath = url.lastPathComponent
-                errorMessage = nil
-
+                destinationBookmarkData = destination.bookmarkData
+                destinationDisplayPath = destination.displayName
+            } catch DestinationResolver.AccessGrantError.cancelled {
+                return
             } catch {
-                errorMessage = "Failed to save folder access: \(error.localizedDescription)"
+                errorMessage = "Failed to grant destination access: \(error.localizedDescription)"
             }
-
-        case .failure(let error):
-            errorMessage = "Failed to select folder: \(error.localizedDescription)"
         }
     }
 }

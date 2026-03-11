@@ -355,6 +355,45 @@ class RuleService: ObservableObject {
         
         try modelContext.save()
     }
+
+    /// Restores the default screenshot rule when it appears to have been deleted accidentally.
+    ///
+    /// This is intentionally narrow: it only restores the rule when there is no current
+    /// screenshot-routing rule and the activity timeline shows a recent deletion of the
+    /// default screenshot rule after it had been used.
+    ///
+    /// - Returns: `true` when the rule was restored.
+    /// - Throws: An error if fetching or saving fails.
+    @discardableResult
+    func restoreDeletedScreenshotRuleIfNeeded() throws -> Bool {
+        let existingRules = try fetchRules()
+        guard !existingRules.contains(where: Self.isScreenshotRoutingRule) else {
+            return false
+        }
+
+        let activities = try modelContext.fetch(
+            FetchDescriptor<ActivityItem>(
+                sortBy: [SortDescriptor(\ActivityItem.timestamp, order: .reverse)]
+            )
+        )
+
+        guard shouldRestoreDeletedScreenshotRule(from: activities) else {
+            return false
+        }
+
+        let nextSortOrder = (existingRules.map(\.sortOrder).max() ?? -1) + 1
+        let restoredRule = Rule(
+            name: "Screenshot Sweeper",
+            conditionType: .nameStartsWith,
+            conditionValue: "Screenshot",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "Pictures/Screenshots"),
+            sortOrder: nextSortOrder
+        )
+
+        try createRule(restoredRule, source: .defaultSeeding)
+        return true
+    }
     
     /// Seeds the database with rules from a specific organization template.
     ///
@@ -390,5 +429,48 @@ class RuleService: ObservableObject {
     /// - Throws: An error if saving the context fails.
     func addTemplateRules(template: OrganizationTemplate) throws {
         try seedTemplateRules(template: template, clearExisting: false)
+    }
+
+    private func shouldRestoreDeletedScreenshotRule(from activities: [ActivityItem]) -> Bool {
+        guard let deletedAt = activities.first(where: {
+            $0.activityType == .ruleDeleted && $0.fileName == "Screenshot Sweeper"
+        })?.timestamp else {
+            return false
+        }
+
+        guard let deletionCutoff = Calendar.current.date(byAdding: .day, value: -2, to: Date()),
+              deletedAt >= deletionCutoff else {
+            return false
+        }
+
+        let wasRecentlyUsed = activities.contains { activity in
+            guard activity.timestamp <= deletedAt else { return false }
+
+            switch activity.activityType {
+            case .ruleApplied:
+                return activity.fileName == "Screenshot Sweeper"
+            case .fileOrganized:
+                return activity.details.localizedCaseInsensitiveContains("Screenshots")
+            default:
+                return false
+            }
+        }
+
+        return wasRecentlyUsed
+    }
+
+    private static func isScreenshotRoutingRule(_ rule: Rule) -> Bool {
+        guard rule.actionType != .delete else { return false }
+
+        return rule.conditions.contains { condition in
+            switch condition {
+            case .nameStartsWith(let value),
+                 .nameContains(let value):
+                return value.localizedCaseInsensitiveContains("screenshot") ||
+                    value.localizedCaseInsensitiveContains("screen shot")
+            default:
+                return false
+            }
+        }
     }
 }

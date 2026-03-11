@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// Resolves placeholder destinations to real destinations with valid bookmarks.
@@ -47,6 +48,42 @@ final class DestinationResolver {
                 return reason
             case .creationFailed(let displayName):
                 return "Could not create '\(displayName)'. Check folder permissions and try again."
+            }
+        }
+    }
+
+    struct SuggestedAccessPlan: Equatable {
+        let requestedDisplayPath: String
+        let requestedURL: URL
+        let initialDirectoryURL: URL
+        let initialDirectoryLabel: String
+        let missingPathComponents: [String]
+
+        var missingPath: String? {
+            guard !missingPathComponents.isEmpty else { return nil }
+            return missingPathComponents.joined(separator: "/")
+        }
+
+        var suggestedFolderName: String? {
+            missingPathComponents.first
+        }
+
+        var panelMessage: String {
+            if let missingPath {
+                return "Grant access to \(initialDirectoryLabel) so Forma can create \"\(missingPath)\" for the suggested destination \"\(requestedDisplayPath)\"."
+            }
+
+            return "Grant access to \"\(requestedDisplayPath)\" so Forma can use it as the destination."
+        }
+    }
+
+    enum AccessGrantError: LocalizedError {
+        case cancelled
+
+        var errorDescription: String? {
+            switch self {
+            case .cancelled:
+                return "Folder selection was cancelled."
             }
         }
     }
@@ -142,6 +179,97 @@ final class DestinationResolver {
         case .unresolvable(let reason):
             throw MaterializationError.unresolvable(reason: reason)
         }
+    }
+
+    @MainActor
+    func requestDestinationAccess(forSuggestedPath suggestedPath: String?) async throws -> Destination {
+        let panel = NSOpenPanel()
+        let accessPlan = suggestedAccessPlan(for: suggestedPath)
+
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.level = .modalPanel
+
+        if let accessPlan {
+            panel.directoryURL = accessPlan.initialDirectoryURL
+            panel.message = accessPlan.panelMessage
+            panel.prompt = "Grant Access"
+            if let suggestedFolderName = accessPlan.suggestedFolderName {
+                panel.nameFieldStringValue = suggestedFolderName
+            }
+        } else {
+            panel.directoryURL = realHomeDirectory()
+            panel.message = "Choose a destination folder."
+            panel.prompt = "Choose Folder"
+        }
+
+        let response = await panel.begin()
+        guard response == .OK, let selectedURL = panel.url else {
+            throw AccessGrantError.cancelled
+        }
+
+        return try materializeGrantedDestination(from: selectedURL, suggestedPath: suggestedPath)
+    }
+
+    func suggestedAccessPlan(for suggestedPath: String?) -> SuggestedAccessPlan? {
+        guard let rawSuggestedPath = suggestedPath,
+              let normalizedDisplayPath = normalizedDisplayName(for: rawSuggestedPath),
+              !normalizedDisplayPath.isEmpty else {
+            return nil
+        }
+
+        let requestedURL = requestedURL(
+            forSuggestedPath: rawSuggestedPath,
+            normalizedDisplayPath: normalizedDisplayPath
+        )
+        let initialDirectoryURL = nearestExistingDirectory(for: requestedURL)
+        let missingPathComponents = missingPathComponents(
+            from: initialDirectoryURL,
+            to: requestedURL
+        )
+
+        return SuggestedAccessPlan(
+            requestedDisplayPath: normalizedDisplayPath,
+            requestedURL: requestedURL,
+            initialDirectoryURL: initialDirectoryURL,
+            initialDirectoryLabel: accessLabel(for: initialDirectoryURL),
+            missingPathComponents: missingPathComponents
+        )
+    }
+
+    func materializeGrantedDestination(from selectedURL: URL, suggestedPath: String?) throws -> Destination {
+        let standardizedSelectedURL = selectedURL.standardizedFileURL
+
+        if let accessPlan = suggestedAccessPlan(for: suggestedPath) {
+            let requestedURL = accessPlan.requestedURL.standardizedFileURL
+            let targetURL = preferredGrantedTargetURL(
+                selectedURL: standardizedSelectedURL,
+                requestedURL: requestedURL
+            )
+
+            if targetURL != standardizedSelectedURL {
+                try createDirectoryIfNeededAfterGrant(
+                    at: targetURL,
+                    grantedFolderURL: standardizedSelectedURL
+                )
+                return try Destination.folder(
+                    from: targetURL,
+                    displayName: accessPlan.requestedDisplayPath
+                )
+            }
+
+            return try Destination.folder(
+                from: standardizedSelectedURL,
+                displayName: destinationDisplayName(for: standardizedSelectedURL)
+            )
+        }
+
+        return try Destination.folder(
+            from: standardizedSelectedURL,
+            displayName: destinationDisplayName(for: standardizedSelectedURL)
+        )
     }
 
     /// Attempts to resolve a placeholder destination only if the directory already exists.
@@ -273,14 +401,19 @@ final class DestinationResolver {
         let expanded = NSString(string: trimmed).expandingTildeInPath
         if expanded.hasPrefix("/") {
             let absoluteURL = URL(fileURLWithPath: expanded).standardizedFileURL
-            let homePath = realHomeDirectory().standardizedFileURL.path
+            let candidateHomePaths = Set([
+                realHomeDirectory().standardizedFileURL.path,
+                FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+            ]).sorted { $0.count > $1.count }
 
-            if absoluteURL.path == homePath {
-                return nil
-            }
+            for homePath in candidateHomePaths {
+                if absoluteURL.path == homePath {
+                    return nil
+                }
 
-            if absoluteURL.path.hasPrefix(homePath + "/") {
-                return String(absoluteURL.path.dropFirst(homePath.count + 1))
+                if absoluteURL.path.hasPrefix(homePath + "/") {
+                    return String(absoluteURL.path.dropFirst(homePath.count + 1))
+                }
             }
         }
 
@@ -289,6 +422,122 @@ final class DestinationResolver {
 
     private func pathComponents(for displayName: String) -> [String] {
         displayName.components(separatedBy: "/").filter { !$0.isEmpty }
+    }
+
+    private func requestedURL(forSuggestedPath suggestedPath: String, normalizedDisplayPath: String) -> URL {
+        let trimmedSuggestedPath = suggestedPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let expandedSuggestedPath = NSString(string: trimmedSuggestedPath).expandingTildeInPath
+
+        if expandedSuggestedPath.hasPrefix("/") {
+            let absoluteURL = URL(fileURLWithPath: expandedSuggestedPath).standardizedFileURL
+
+            if let knownRootRelativePath = canonicalHomeRelativePathIfKnownRoot(for: absoluteURL) {
+                return realHomeDirectory()
+                    .appendingPathComponent(knownRootRelativePath)
+                    .standardizedFileURL
+            }
+
+            return absoluteURL
+        }
+
+        let expanded = NSString(string: normalizedDisplayPath).expandingTildeInPath
+        if expanded.hasPrefix("/") {
+            return URL(fileURLWithPath: expanded).standardizedFileURL
+        }
+
+        return realHomeDirectory()
+            .appendingPathComponent(normalizedDisplayPath)
+            .standardizedFileURL
+    }
+
+    private func canonicalHomeRelativePathIfKnownRoot(for absoluteURL: URL) -> String? {
+        let candidateHomePaths = Set([
+            realHomeDirectory().standardizedFileURL.path,
+            FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        ]).sorted { $0.count > $1.count }
+
+        for homePath in candidateHomePaths {
+            guard absoluteURL.path.hasPrefix(homePath + "/") else { continue }
+
+            let relativePath = String(absoluteURL.path.dropFirst(homePath.count + 1))
+            guard let firstComponent = pathComponents(for: relativePath).first,
+                  Self.folderBookmarkKeys[firstComponent] != nil else {
+                return nil
+            }
+
+            return relativePath
+        }
+
+        return nil
+    }
+
+    private func nearestExistingDirectory(for requestedURL: URL) -> URL {
+        let fileManager = FileManager.default
+        var candidate = requestedURL.standardizedFileURL
+
+        while true {
+            var isDirectory: ObjCBool = false
+            if fileManager.fileExists(atPath: candidate.path, isDirectory: &isDirectory),
+               isDirectory.boolValue {
+                return candidate
+            }
+
+            let parent = candidate.deletingLastPathComponent().standardizedFileURL
+            if parent.path == candidate.path {
+                return candidate
+            }
+            candidate = parent
+        }
+    }
+
+    private func missingPathComponents(from initialDirectoryURL: URL, to requestedURL: URL) -> [String] {
+        let initialComponents = initialDirectoryURL.standardizedFileURL.pathComponents
+        let requestedComponents = requestedURL.standardizedFileURL.pathComponents
+
+        guard requestedComponents.starts(with: initialComponents) else {
+            return []
+        }
+
+        return Array(requestedComponents.dropFirst(initialComponents.count))
+    }
+
+    private func accessLabel(for url: URL) -> String {
+        let home = realHomeDirectory().standardizedFileURL
+        if url.standardizedFileURL.path == home.path {
+            return "your home folder"
+        }
+
+        return "\"\(destinationDisplayName(for: url))\""
+    }
+
+    private func destinationDisplayName(for url: URL) -> String {
+        let homeURL = realHomeDirectory().standardizedFileURL
+        let standardizedURL = url.standardizedFileURL
+
+        if standardizedURL.path.hasPrefix(homeURL.path + "/") {
+            return String(standardizedURL.path.dropFirst(homeURL.path.count + 1))
+        }
+
+        return standardizedURL.lastPathComponent
+    }
+
+    private func preferredGrantedTargetURL(selectedURL: URL, requestedURL: URL) -> URL {
+        let standardizedSelectedURL = selectedURL.standardizedFileURL
+        let standardizedRequestedURL = requestedURL.standardizedFileURL
+
+        if standardizedSelectedURL.path == standardizedRequestedURL.path {
+            return standardizedRequestedURL
+        }
+
+        if standardizedRequestedURL.path.hasPrefix(standardizedSelectedURL.path + "/") {
+            return standardizedRequestedURL
+        }
+
+        if standardizedSelectedURL.path.hasPrefix(standardizedRequestedURL.path + "/") {
+            return standardizedSelectedURL
+        }
+
+        return standardizedSelectedURL
     }
 
     /// Finds an accessible parent folder from the path components.
@@ -409,6 +658,32 @@ final class DestinationResolver {
         // Create the directory with intermediate directories
         try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
         Log.info("DestinationResolver: Created directory at '\(url.path)'", category: .bookmark)
+    }
+
+    private func createDirectoryIfNeededAfterGrant(at url: URL, grantedFolderURL: URL) throws {
+        let fileManager = FileManager.default
+        let didStartAccessing = grantedFolderURL.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                grantedFolderURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        var isDirectory: ObjCBool = false
+        if fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) {
+            if isDirectory.boolValue {
+                return
+            }
+
+            throw NSError(
+                domain: "DestinationResolver",
+                code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "A file already exists at \(url.lastPathComponent)."]
+            )
+        }
+
+        try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
+        Log.info("DestinationResolver: Created granted destination at '\(url.path)'", category: .bookmark)
     }
 }
 

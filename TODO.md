@@ -19,9 +19,13 @@ Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
 ## Rule Health & Template Destinations (March 10, 2026)
 - [x] Split Smart Rules health into duplicate/overlap, needs permission, will create, stable, and disabled states.
+- [x] Split exact duplicates from overlaps in Smart Rules so duplicate cleanup does not hide real routing conflicts.
+- [x] Add a contextual bulk duplicate cleanup action so historically duplicated stores do not require one-by-one rule deletion.
+- [x] Pre-populate destination permission flows with the suggested path and auto-create missing subfolders after access is granted.
 - [x] Materialize resolvable placeholder destinations on explicit save in Rule Editor and Inline Rule Builder.
 - [x] Add a bulk `Create Folders Now` action for resolvable generated-rule destinations.
 - [x] Normalize template/default destinations to canonical root-relative paths and prevent duplicate onboarding template seeding.
+- [x] Restore the default screenshot routing rule when it was recently deleted during duplicate cleanup and no replacement screenshot rule exists.
 - [x] Add regression coverage for destination materialization, legacy path normalization, template generation, onboarding scope, and rule health classification.
 
 ## File Surface + Toolbar Refactor (March 5, 2026)

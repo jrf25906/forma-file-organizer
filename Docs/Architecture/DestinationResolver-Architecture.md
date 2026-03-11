@@ -128,6 +128,11 @@ Forma uses the resolver in three different modes:
 3. **Runtime fallback**
    - `RuleEngine` and `FileOperationsService` still attempt lazy resolution if a placeholder destination survives into execution time
 
+4. **Guided access grant**
+   - `requestDestinationAccess(forSuggestedPath:)` powers destination pickers when Forma needs new folder permission
+   - The picker opens at the nearest existing parent for the suggested path, explains what will be created, and bookmarks the final destination after access is granted
+   - If the user chooses the suggested parent, Forma creates the remaining subfolders automatically; if the user explicitly chooses a different folder, Forma respects that choice
+
 ### Integration Points
 
 #### 1. Rule Editors (Primary Explicit Integration)

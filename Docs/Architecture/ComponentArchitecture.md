@@ -662,7 +662,7 @@ Card for creating/editing rules.
 
 ```swift
 RuleManagementCard(
-    rule: rule,
+    snapshot: RuleManagementCard.Snapshot(rule: rule),
     onEdit: { editRule(rule) },
     onToggle: { toggleRule(rule) },
     onDelete: { deleteRule(rule) }

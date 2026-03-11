@@ -122,6 +122,17 @@ struct Forma_File_OrganizingApp: App {
                 // Non-critical - rules will still work without explicit category assignment
             }
 
+            do {
+                let restoredScreenshotRule = try ruleService.restoreDeletedScreenshotRuleIfNeeded()
+                if restoredScreenshotRule {
+                    let categoryService = CategoryService(modelContext: context)
+                    _ = try categoryService.migrateExistingRulesToDefaultCategory()
+                    Log.info("Restored deleted Screenshot Sweeper rule after duplicate cleanup", category: .general)
+                }
+            } catch {
+                Log.error("Failed to restore screenshot rule: \(error.localizedDescription)", category: .general)
+            }
+
             // Initialize notification service (requests authorization)
             _ = appServices.notificationService
 

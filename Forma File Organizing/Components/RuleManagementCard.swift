@@ -4,32 +4,78 @@ import SwiftUI
 // MARK: - Rule Management Card
 
 struct RuleManagementCard: View {
-    static let verticalPadding: CGFloat = FormaSpacing.tight
+    struct Snapshot: Identifiable {
+        struct CategoryBadge {
+            let name: String
+            let color: Color
+        }
 
-    let rule: Rule
-    var health: RuleHealthService.RuleHealth? = nil
+        enum Description {
+            case legacy(typeLabel: String, value: String)
+            case compound
+        }
+
+        let id: UUID
+        let name: String
+        let isEnabled: Bool
+        let iconName: String
+        let description: Description
+        let actionType: Rule.ActionType
+        let destinationDisplayText: String
+        let lastTriggeredDate: Date?
+        let health: RuleHealthService.RuleHealth
+        let categoryBadge: CategoryBadge?
+        let scopeDetailMessage: String?
+
+        @MainActor
+        init(rule: Rule, health: RuleHealthService.RuleHealth? = nil) {
+            let category = rule.category
+
+            self.id = rule.id
+            self.name = rule.name
+            self.isEnabled = rule.isEnabled
+            self.iconName = RuleManagementCard.icon(for: rule.conditionType)
+            self.description = rule.logicalOperator == .single
+                ? .legacy(
+                    typeLabel: rule.conditionType.rawValue.camelCaseToTitleCase(),
+                    value: rule.conditionValue
+                )
+                : .compound
+            self.actionType = rule.actionType
+            self.destinationDisplayText = rule.actionType == .delete ? "Delete" : rule.destinationDisplayText
+            self.lastTriggeredDate = rule.lastTriggeredDate
+            self.health = health ?? RuleManagementCard.fallbackHealth(for: rule)
+
+            if let category, !category.isDefault || !category.scope.isGlobal {
+                self.categoryBadge = CategoryBadge(name: category.name, color: category.color)
+            } else {
+                self.categoryBadge = nil
+            }
+
+            if let category, !category.scope.isGlobal {
+                self.scopeDetailMessage = "Applies to \(category.scope.displayDescription)"
+            } else {
+                self.scopeDetailMessage = nil
+            }
+        }
+    }
+
+    static let verticalPadding: CGFloat = FormaSpacing.tight
+    private static let destinationResolver = DestinationResolver()
+
+    let snapshot: Snapshot
     let onEdit: () -> Void
     let onDelete: () -> Void
     let onToggle: () -> Void
 
-    private let destinationResolver = DestinationResolver()
     @Environment(\.colorScheme) private var colorScheme
     
     @State private var showingDeleteConfirmation = false
     @State private var isHovered = false
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
     
-    // Icon based on primary condition
-    private var ruleIcon: String {
-        if let firstCondition = rule.conditions.first {
-            return icon(for: firstCondition.type)
-        }
-        // Fallback or legacy single condition
-        return icon(for: rule.conditionType)
-    }
-    
     // Helper to map type to icon
-    private func icon(for type: Rule.ConditionType) -> String {
+    private static func icon(for type: Rule.ConditionType) -> String {
         switch type {
         case .fileExtension: return "doc.text"
         case .nameContains, .nameStartsWith, .nameEndsWith: return "text.quote"
@@ -43,25 +89,23 @@ struct RuleManagementCard: View {
     // Formatted "Sentence" description
     private var descriptionText: some View {
         Group {
-            if rule.conditions.isEmpty {
-                // Legacy single
+            switch snapshot.description {
+            case .legacy(let typeLabel, let value):
                 HStack(spacing: 0) {
                     Text("If ")
                         .foregroundColor(secondaryTextColor)
-                    Text(rule.conditionType.rawValue.camelCaseToTitleCase())
+                    Text(typeLabel)
                         .foregroundColor(.formaLabel)
                     Text(" is ")
                         .foregroundColor(secondaryTextColor)
-                    Text(rule.conditionValue)
+                    Text(value)
                         .foregroundColor(.formaLabel)
                 }
-            } else {
-                // Compound — fix singular/plural grammar
-                let count = rule.conditions.count
+            case .compound:
                 HStack(spacing: 0) {
                     Text("Matches ")
                         .foregroundColor(secondaryTextColor)
-                    Text("\(count) \(count == 1 ? "condition" : "conditions")")
+                    Text("multiple conditions")
                         .foregroundColor(.formaLabel)
                 }
             }
@@ -69,7 +113,7 @@ struct RuleManagementCard: View {
     }
     
     private var actionIcon: String {
-        switch rule.actionType {
+        switch snapshot.actionType {
         case .move: return "folder.fill"
         case .copy: return "plus.square.on.square.fill"
         case .delete: return "trash.fill"
@@ -77,53 +121,14 @@ struct RuleManagementCard: View {
     }
 
     private var resolvedHealth: RuleHealthService.RuleHealth {
-        health ?? fallbackHealth
-    }
-
-    private var fallbackHealth: RuleHealthService.RuleHealth {
-        if !rule.isEnabled {
-            return RuleHealthService.RuleHealth(kind: .disabled, badgeLabel: "Disabled", message: "This rule is turned off.")
-        }
-
-        if let category = rule.category, !category.isEnabled {
-            return RuleHealthService.RuleHealth(
-                kind: .disabled,
-                badgeLabel: "Category Off",
-                message: "The '\(category.name)' category is disabled."
-            )
-        }
-
-        guard rule.actionType != .delete,
-              let destination = rule.destination else {
-            return RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
-        }
-
-        if destination.bookmarkData != nil {
-            switch destination.validate() {
-            case .valid, .stale:
-                return RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
-            case .invalid(let reason):
-                return RuleHealthService.RuleHealth(kind: .needsPermission, badgeLabel: "Needs Permission", message: reason)
-            }
-        }
-
-        switch destinationResolver.checkResolvability(destination) {
-        case .valid:
-            return RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
-        case .resolvable(let parentFolder):
-            return RuleHealthService.RuleHealth(
-                kind: .willCreate,
-                badgeLabel: "Will Create",
-                message: "Forma can create this folder inside \(parentFolder) when you save."
-            )
-        case .unresolvable(let reason):
-            return RuleHealthService.RuleHealth(kind: .needsPermission, badgeLabel: "Needs Permission", message: reason)
-        }
+        snapshot.health
     }
 
     private var healthAccentColor: Color {
         switch resolvedHealth.kind {
-        case .duplicateOrOverlap, .needsPermission:
+        case .duplicate:
+            return .formaError
+        case .overlap, .needsPermission:
             return .formaWarmOrange
         case .willCreate:
             return .formaSteelBlue
@@ -136,7 +141,9 @@ struct RuleManagementCard: View {
 
     private var healthBadgeBackground: Color {
         switch resolvedHealth.kind {
-        case .duplicateOrOverlap, .needsPermission:
+        case .duplicate:
+            return Color.formaError.opacity(0.14)
+        case .overlap, .needsPermission:
             return Color.formaWarmOrange.opacity(0.15)
         case .willCreate:
             return Color.formaSteelBlue.opacity(0.14)
@@ -160,7 +167,9 @@ struct RuleManagementCard: View {
 
     private var healthDetailIconName: String {
         switch resolvedHealth.kind {
-        case .duplicateOrOverlap:
+        case .duplicate:
+            return "doc.on.doc.fill"
+        case .overlap:
             return "arrow.triangle.branch"
         case .needsPermission:
             return "exclamationmark.triangle.fill"
@@ -177,22 +186,17 @@ struct RuleManagementCard: View {
         switch resolvedHealth.kind {
         case .ready:
             return nil
-        case .duplicateOrOverlap, .needsPermission, .willCreate, .disabled:
+        case .duplicate, .overlap, .needsPermission, .willCreate, .disabled:
             return resolvedHealth.message
         }
     }
 
     private var scopeDetailMessage: String? {
-        guard let category = rule.category, !category.scope.isGlobal else {
-            return nil
-        }
-
-        return "Applies to \(category.scope.displayDescription)"
+        snapshot.scopeDetailMessage
     }
 
     private var showsCategoryBadge: Bool {
-        guard let category = rule.category else { return false }
-        return !category.isDefault || !category.scope.isGlobal
+        snapshot.categoryBadge != nil
     }
 
     private var destinationTextColor: Color {
@@ -283,7 +287,7 @@ struct RuleManagementCard: View {
                     .fill(iconCircleBackground)
                     .frame(width: 36, height: 36)
                 
-                Image(systemName: ruleIcon)
+                Image(systemName: snapshot.iconName)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.formaSteelBlue)
             }
@@ -295,9 +299,9 @@ struct RuleManagementCard: View {
             // 2. Main Content
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .center, spacing: 8) {
-                    Text(rule.name)
+                    Text(snapshot.name)
                         .font(.formaBodyBold)
-                        .foregroundColor(rule.isEnabled ? .formaLabel : secondaryTextColor)
+                        .foregroundColor(snapshot.isEnabled ? .formaLabel : secondaryTextColor)
 
                     if let badgeLabel = resolvedHealth.badgeLabel {
                         Text(badgeLabel)
@@ -311,14 +315,14 @@ struct RuleManagementCard: View {
                             .help(resolvedHealth.message ?? badgeLabel)
                     }
 
-                    if showsCategoryBadge, let category = rule.category {
-                        Text(category.name)
+                    if showsCategoryBadge, let categoryBadge = snapshot.categoryBadge {
+                        Text(categoryBadge.name)
                             .font(.system(size: 9, weight: .bold))
                             .textCase(.uppercase)
-                            .foregroundColor(category.color)
+                            .foregroundColor(categoryBadge.color)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(category.color.opacity(0.15))
+                            .background(categoryBadge.color.opacity(0.15))
                             .cornerRadius(4)
                     }
                 }
@@ -342,13 +346,13 @@ struct RuleManagementCard: View {
                             .foregroundColor(healthAccentColor)
                     }
 
-                    Text(rule.actionType == .delete ? "Delete" : rule.destinationDisplayText)
+                    Text(snapshot.destinationDisplayText)
                         .font(.formaSmall)
                         .foregroundColor(destinationTextColor)
                         .lineLimit(1)
                         .truncationMode(.middle)
 
-                    if let lastTriggered = rule.lastTriggeredDate {
+                    if let lastTriggered = snapshot.lastTriggeredDate {
                         Spacer().frame(width: 4)
 
                         Text("·")
@@ -408,18 +412,18 @@ struct RuleManagementCard: View {
                 Button(action: onToggle) {
                     ZStack {
                         Capsule()
-                            .fill(rule.isEnabled ? Color.formaSteelBlue : offToggleTrackColor)
+                            .fill(snapshot.isEnabled ? Color.formaSteelBlue : offToggleTrackColor)
                             .frame(width: 32, height: 18)
                         
                         Circle()
                             .fill(toggleThumbColor)
                             .frame(width: 14, height: 14)
                             .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
-                            .offset(x: rule.isEnabled ? 7 : -7)
+                            .offset(x: snapshot.isEnabled ? 7 : -7)
                     }
                 }
                 .buttonStyle(.plain)
-                .animation(.spring(response: 0.2, dampingFraction: 0.7), value: rule.isEnabled)
+                .animation(.spring(response: 0.2, dampingFraction: 0.7), value: snapshot.isEnabled)
             }
         }
         .padding(.horizontal, 12)
@@ -449,7 +453,7 @@ struct RuleManagementCard: View {
                 onDelete()
             }
         } message: {
-            Text("Are you sure you want to delete \"\(rule.name)\"? This action cannot be undone.")
+            Text("Are you sure you want to delete \"\(snapshot.name)\"? This action cannot be undone.")
         }
         .accessibilityIdentifier("ruleManagementCard")
         .accessibilityLabel(
@@ -472,6 +476,47 @@ struct RuleManagementCard: View {
                         "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio))"
                     )
             }
+        }
+    }
+
+    private static func fallbackHealth(for rule: Rule) -> RuleHealthService.RuleHealth {
+        if !rule.isEnabled {
+            return RuleHealthService.RuleHealth(kind: .disabled, badgeLabel: "Disabled", message: "This rule is turned off.")
+        }
+
+        if let category = rule.category, !category.isEnabled {
+            return RuleHealthService.RuleHealth(
+                kind: .disabled,
+                badgeLabel: "Category Off",
+                message: "The '\(category.name)' category is disabled."
+            )
+        }
+
+        guard rule.actionType != .delete,
+              let destination = rule.destination else {
+            return RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
+        }
+
+        if destination.bookmarkData != nil {
+            switch destination.validate() {
+            case .valid, .stale:
+                return RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
+            case .invalid(let reason):
+                return RuleHealthService.RuleHealth(kind: .needsPermission, badgeLabel: "Needs Permission", message: reason)
+            }
+        }
+
+        switch destinationResolver.checkResolvability(destination) {
+        case .valid:
+            return RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
+        case .resolvable(let parentFolder):
+            return RuleHealthService.RuleHealth(
+                kind: .willCreate,
+                badgeLabel: "Will Create",
+                message: "Forma can create this folder inside \(parentFolder) when you save."
+            )
+        case .unresolvable(let reason):
+            return RuleHealthService.RuleHealth(kind: .needsPermission, badgeLabel: "Needs Permission", message: reason)
         }
     }
 }

@@ -198,6 +198,58 @@ final class RuleServiceTests: XCTestCase {
         XCTAssertEqual(secondNames, firstNames)
     }
 
+    func testRestoreDeletedScreenshotRuleIfNeededRestoresRecentlyDeletedActiveRule() throws {
+        let applied = ActivityItem(
+            activityType: .ruleApplied,
+            fileName: "Screenshot Sweeper",
+            details: "Applied to 2 file(s)"
+        )
+        applied.timestamp = Date().addingTimeInterval(-3_600)
+
+        let deleted = ActivityItem(
+            activityType: .ruleDeleted,
+            fileName: "Screenshot Sweeper",
+            details: "Rule removed"
+        )
+        deleted.timestamp = Date().addingTimeInterval(-1_800)
+
+        modelContext.insert(applied)
+        modelContext.insert(deleted)
+        try modelContext.save()
+
+        let restored = try ruleService.restoreDeletedScreenshotRuleIfNeeded()
+        let rules = try ruleService.fetchRules()
+
+        XCTAssertTrue(restored)
+        XCTAssertEqual(rules.filter { $0.name == "Screenshot Sweeper" }.count, 1)
+        XCTAssertEqual(rules.first(where: { $0.name == "Screenshot Sweeper" })?.destination?.displayName, "Pictures/Screenshots")
+    }
+
+    func testRestoreDeletedScreenshotRuleIfNeededSkipsOldDeletion() throws {
+        let applied = ActivityItem(
+            activityType: .ruleApplied,
+            fileName: "Screenshot Sweeper",
+            details: "Applied to 2 file(s)"
+        )
+        applied.timestamp = Date().addingTimeInterval(-4 * 86_400)
+
+        let deleted = ActivityItem(
+            activityType: .ruleDeleted,
+            fileName: "Screenshot Sweeper",
+            details: "Rule removed"
+        )
+        deleted.timestamp = Date().addingTimeInterval(-3 * 86_400)
+
+        modelContext.insert(applied)
+        modelContext.insert(deleted)
+        try modelContext.save()
+
+        let restored = try ruleService.restoreDeletedScreenshotRuleIfNeeded()
+
+        XCTAssertFalse(restored)
+        XCTAssertFalse(try ruleService.fetchRules().contains { $0.name == "Screenshot Sweeper" })
+    }
+
     // MARK: - Helpers
 
     private func makeRule(name: String, conditionValue: String) -> Rule {

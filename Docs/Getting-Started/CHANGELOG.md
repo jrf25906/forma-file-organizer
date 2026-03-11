@@ -95,7 +95,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed - Architecture & Components
 - Smart Rules now classify rule health via `RuleHealthService`, separating duplicate/overlap issues, missing permissions, resolvable `Will Create` destinations, and disabled rules instead of collapsing everything into one attention state.
 - Rule Editor and Inline Rule Builder now create resolvable destination folders immediately when the user explicitly saves a rule and Forma already has the necessary root permission.
+- Destination permission prompts now open to the nearest existing parent folder and prefill the first missing folder name for nested suggestions before Forma creates the remaining subfolders.
 - Template/default rule destinations now use canonical root-relative paths such as `Documents/...`, and onboarding applies per-folder template rules with scoped categories to avoid duplicate global rules.
+- Rule cards now render from stable snapshot data during delete flows, and both Smart Rules and Settings hide pending deletions immediately so SwiftData teardown cannot fault `Rule.conditions` on a disappearing row.
 - **DashboardViewModel Refactoring**: Significantly reduced the complexity of `DashboardViewModel` by breaking it down into smaller, single-responsibility controllers:
   - `DashboardPermissionState`: Isolates onboarding and permission states.
   - `DashboardTemplateController`: Handles template application and personality quiz logic.

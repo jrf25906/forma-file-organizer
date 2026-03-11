@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 /// Compact inline rule builder for the right panel
 struct InlineRuleBuilderView: View {
@@ -39,7 +38,7 @@ struct InlineRuleBuilderView: View {
     @State private var previewFiles: [FileItem] = []
     @State private var isLoadingPreview: Bool = false
     @State private var previewTask: Task<Void, Never>?
-    @State private var showFolderPicker: Bool = false
+    @State private var isChoosingDestination = false
     @State private var showDeleteConfirmation: Bool = false
 
     // Overlap detection state
@@ -306,13 +305,6 @@ struct InlineRuleBuilderView: View {
         .onAppear {
             initializeFields()
             updatePreview()
-        }
-        .fileImporter(
-            isPresented: $showFolderPicker,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            handleFolderSelection(result)
         }
         .alert(
             "Confirm Delete Rule",
@@ -641,7 +633,7 @@ struct InlineRuleBuilderView: View {
                     }
                     .padding(.vertical, 4)
                 } else {
-                    Button(action: { showFolderPicker = true }) {
+                    Button(action: requestDestinationAccess) {
                         HStack {
                             Image(systemName: "folder.fill")
                                 .foregroundColor(.formaSteelBlue)
@@ -668,6 +660,7 @@ struct InlineRuleBuilderView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .disabled(isChoosingDestination)
                 }
 
                 if case .resolvable(let parentFolder) = destinationResolvability {
@@ -677,6 +670,17 @@ struct InlineRuleBuilderView: View {
                         Text("Will create this folder inside \(parentFolder) when you save.")
                             .font(.formaSmall)
                             .foregroundColor(.formaSecondaryLabelHigh)
+                    }
+                }
+
+                if case .unresolvable = destinationResolvability {
+                    HStack(spacing: FormaSpacing.tight) {
+                        Image(systemName: "folder.badge.gearshape")
+                            .foregroundColor(.formaWarmOrange)
+                        Text("Click the destination field to grant access to the suggested parent folder. Forma will keep the suggested path and create any missing subfolders after access is granted.")
+                            .font(.formaSmall)
+                            .foregroundColor(.formaSecondaryLabelHigh)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
@@ -1189,52 +1193,33 @@ struct InlineRuleBuilderView: View {
         }
     }
     
-    private func handleFolderSelection(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let url = urls.first else { return }
+    private func requestDestinationAccess() {
+        guard !isChoosingDestination else { return }
 
-            // Start accessing the security-scoped resource
-            let didStartAccessing = url.startAccessingSecurityScopedResource()
-            defer {
-                if didStartAccessing {
-                    url.stopAccessingSecurityScopedResource()
-                }
-            }
+        isChoosingDestination = true
+        validationError = nil
+
+        Task { @MainActor in
+            defer { isChoosingDestination = false }
 
             do {
-                // Create security-scoped bookmark data
-                // This persists access across app launches and avoids path comparison bugs
-                let bookmarkData = try url.bookmarkData(
-                    options: .withSecurityScope,
-                    includingResourceValuesForKeys: nil,
-                    relativeTo: nil
+                let destination = try await destinationResolver.requestDestinationAccess(
+                    forSuggestedPath: formState.destinationDisplayPath
                 )
-
-                // Store bookmark and display name in unified form state
-                formState.destinationBookmarkData = bookmarkData
-                let homeURL = FileManager.default.homeDirectoryForCurrentUser
-                if url.path.hasPrefix(homeURL.path + "/") {
-                    formState.destinationDisplayPath = String(url.path.dropFirst(homeURL.path.count + 1))
-                } else {
-                    formState.destinationDisplayPath = url.lastPathComponent
-                }
-
-                validationError = nil
+                formState.destinationBookmarkData = destination.bookmarkData
+                formState.destinationDisplayPath = destination.displayName
 
                 #if DEBUG
-                Log.info("InlineRuleBuilderView: Created bookmark for '\(url.lastPathComponent)' at \(url.path)", category: .bookmark)
+                Log.info("InlineRuleBuilderView: Granted access for '\(destination.displayName)'", category: .bookmark)
                 #endif
-
+            } catch DestinationResolver.AccessGrantError.cancelled {
+                return
             } catch {
                 #if DEBUG
-                Log.error("InlineRuleBuilderView: Failed to create bookmark - \(error.localizedDescription)", category: .bookmark)
+                Log.error("InlineRuleBuilderView: Failed to grant destination access - \(error.localizedDescription)", category: .bookmark)
                 #endif
-                validationError = "Failed to save folder access: \(error.localizedDescription)"
+                validationError = "Failed to grant access for destination: \(error.localizedDescription)"
             }
-
-        case .failure(let error):
-            validationError = "Failed to select folder: \(error.localizedDescription)"
         }
     }
 

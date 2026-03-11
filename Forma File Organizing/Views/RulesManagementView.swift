@@ -16,6 +16,29 @@ struct RulesManagementView: View {
         let prompt: String
     }
 
+    private struct ContentState {
+        let healthByID: [UUID: RuleHealthService.RuleHealth]
+        let filteredRules: [Rule]
+        let totalEnabledCount: Int
+        let duplicateCount: Int
+        let duplicateCleanupPlan: RuleHealthService.ExactDuplicateCleanupPlan?
+        let overlapCount: Int
+        let needsPermissionCount: Int
+        let willCreateCount: Int
+        let disabledCount: Int
+        let recentlyTriggeredCount: Int
+        let stableRuleCount: Int
+        let isInitialEmptyState: Bool
+        let showsOperationalSections: Bool
+        let duplicateRules: [Rule]
+        let overlapRules: [Rule]
+        let needsPermissionRules: [Rule]
+        let willCreateRules: [Rule]
+        let recentlyTriggeredRules: [Rule]
+        let stableRules: [Rule]
+        let disabledRules: [Rule]
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
@@ -25,7 +48,7 @@ struct RulesManagementView: View {
     @Query private var categories: [RuleCategory]
 
     private var sortedAllRules: [Rule] {
-        allRules.sorted { lhs, rhs in
+        visibleAllRules.sorted { lhs, rhs in
             if lhs.sortOrder != rhs.sortOrder {
                 return lhs.sortOrder < rhs.sortOrder
             }
@@ -51,6 +74,9 @@ struct RulesManagementView: View {
     @State private var selectedCategoryID: UUID? // nil = "All" tab
     @State private var showManageCategories = false
     @State private var filterNeedsPermissionOnly = false
+    @State private var pendingDeletionRuleIDs: Set<UUID> = []
+    @State private var duplicateCleanupConfirmationPlan: RuleHealthService.ExactDuplicateCleanupPlan?
+    @State private var isDeletingDuplicateCopies = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     private let destinationResolver = DestinationResolver()
     private let ruleHealthService = RuleHealthService()
@@ -58,104 +84,8 @@ struct RulesManagementView: View {
     private let listRowSpacing: CGFloat = FormaSpacing.tight
     private let listContentPadding: CGFloat = FormaSpacing.standard
 
-    private var ruleHealthByID: [UUID: RuleHealthService.RuleHealth] {
-        ruleHealthService.classify(rules: sortedAllRules)
-    }
-
-    /// Rules filtered by search text and selected category
-    var filteredRules: [Rule] {
-        var rules = sortedAllRules
-
-        // Filter by category if one is selected
-        if let categoryID = selectedCategoryID {
-            rules = rules.filter { $0.category?.id == categoryID }
-        }
-
-        if filterNeedsPermissionOnly {
-            rules = rules.filter { health(for: $0).kind == .needsPermission }
-        }
-
-        // Filter by search text
-        if !searchText.isEmpty {
-            rules = rules.filter { rule in
-                rule.name.localizedCaseInsensitiveContains(searchText) ||
-                rule.conditionValue.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-
-        return rules
-    }
-
-    var enabledCount: Int {
-        filteredRules.filter(\.isEnabled).count
-    }
-
-    var totalEnabledCount: Int {
-        allRules.filter(\.isEnabled).count
-    }
-
-    private var duplicateOrOverlapCount: Int {
-        sortedAllRules.filter { health(for: $0).kind == .duplicateOrOverlap }.count
-    }
-
-    private var needsPermissionCount: Int {
-        sortedAllRules.filter { health(for: $0).kind == .needsPermission }.count
-    }
-
-    private var willCreateCount: Int {
-        sortedAllRules.filter { health(for: $0).kind == .willCreate }.count
-    }
-
-    private var disabledCount: Int {
-        sortedAllRules.filter { health(for: $0).kind == .disabled }.count
-    }
-
-    private var recentlyTriggeredCount: Int {
-        sortedAllRules.filter { rule in
-            health(for: rule).kind == .ready && wasTriggeredRecently(rule)
-        }.count
-    }
-
-    private var stableRuleCount: Int {
-        sortedAllRules.filter { rule in
-            health(for: rule).kind == .ready && !wasTriggeredRecently(rule)
-        }.count
-    }
-
-    private var isInitialEmptyState: Bool {
-        sortedAllRules.isEmpty && searchText.isEmpty
-    }
-
-    private var showsOperationalSections: Bool {
-        searchText.isEmpty && selectedCategoryID == nil && !filterNeedsPermissionOnly && !sortedAllRules.isEmpty
-    }
-
-    private var duplicateOrOverlapRules: [Rule] {
-        filteredRules.filter { health(for: $0).kind == .duplicateOrOverlap }
-    }
-
-    private var needsPermissionRules: [Rule] {
-        filteredRules.filter { health(for: $0).kind == .needsPermission }
-    }
-
-    private var willCreateRules: [Rule] {
-        filteredRules.filter { health(for: $0).kind == .willCreate }
-    }
-
-    private var recentlyTriggeredRules: [Rule] {
-        filteredRules.filter { rule in
-            health(for: rule).kind == .ready && wasTriggeredRecently(rule)
-        }
-    }
-
-    private var stableRules: [Rule] {
-        filteredRules.filter { rule in
-            health(for: rule).kind == .ready && !wasTriggeredRecently(rule)
-        }
-    }
-
-    private var disabledRules: [Rule] {
-        filteredRules.filter { health(for: $0).kind == .disabled }
+    private var visibleAllRules: [Rule] {
+        allRules.filter { !pendingDeletionRuleIDs.contains($0.id) }
     }
 
     private let starterTemplates: [StarterTemplate] = [
@@ -187,8 +117,75 @@ struct RulesManagementView: View {
             prompt: "Move image files containing IMG_ to Pictures/Camera Roll"
         )
     ]
+
+    private func health(for rule: Rule, in healthByID: [UUID: RuleHealthService.RuleHealth]) -> RuleHealthService.RuleHealth {
+        healthByID[rule.id] ?? RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
+    }
+
+    private func makeContentState() -> ContentState {
+        let sortedRules = sortedAllRules
+        let healthByID = ruleHealthService.classify(rules: sortedRules)
+
+        var filteredRules = sortedRules
+
+        if let categoryID = selectedCategoryID {
+            filteredRules = filteredRules.filter { $0.category?.id == categoryID }
+        }
+
+        if filterNeedsPermissionOnly {
+            filteredRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .needsPermission }
+        }
+
+        if !searchText.isEmpty {
+            filteredRules = filteredRules.filter { rule in
+                rule.name.localizedCaseInsensitiveContains(searchText) ||
+                rule.conditionValue.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+
+        let duplicateRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .duplicate }
+        let overlapRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .overlap }
+        let needsPermissionRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .needsPermission }
+        let willCreateRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .willCreate }
+        let recentlyTriggeredRules = filteredRules.filter { rule in
+            health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule)
+        }
+        let stableRules = filteredRules.filter { rule in
+            health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule)
+        }
+        let disabledRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .disabled }
+
+        return ContentState(
+            healthByID: healthByID,
+            filteredRules: filteredRules,
+            totalEnabledCount: sortedRules.filter(\.isEnabled).count,
+            duplicateCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .duplicate }.count,
+            duplicateCleanupPlan: ruleHealthService.exactDuplicateCleanupPlan(duplicateRules: duplicateRules),
+            overlapCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .overlap }.count,
+            needsPermissionCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .needsPermission }.count,
+            willCreateCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .willCreate }.count,
+            disabledCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .disabled }.count,
+            recentlyTriggeredCount: sortedRules.filter { rule in
+                health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule)
+            }.count,
+            stableRuleCount: sortedRules.filter { rule in
+                health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule)
+            }.count,
+            isInitialEmptyState: sortedRules.isEmpty && searchText.isEmpty,
+            showsOperationalSections: searchText.isEmpty && selectedCategoryID == nil && !filterNeedsPermissionOnly && !sortedRules.isEmpty,
+            duplicateRules: duplicateRules,
+            overlapRules: overlapRules,
+            needsPermissionRules: needsPermissionRules,
+            willCreateRules: willCreateRules,
+            recentlyTriggeredRules: recentlyTriggeredRules,
+            stableRules: stableRules,
+            disabledRules: disabledRules
+        )
+    }
     
     var body: some View {
+        let content = makeContentState()
+
         VStack(spacing: 0) {
             // Align with MainContentView's toolbar position (traffic lights clearance)
             Color.clear.frame(height: FormaSpacing.Toolbar.topOffset)
@@ -201,14 +198,14 @@ struct RulesManagementView: View {
                             .font(.formaH1)
                             .foregroundColor(.formaLabel)
 
-                        Text("\(totalEnabledCount) active")
+                        Text("\(content.totalEnabledCount) active")
                             .font(.formaSmall)
                             .foregroundColor(.formaSecondaryLabelHigh)
                     }
 
                     Spacer()
 
-                    if !isInitialEmptyState {
+                    if !content.isInitialEmptyState {
                         PrimaryButton("New", icon: "plus") {
                             // Primary flow: open rule builder in right panel
                             dashboardViewModel.showRuleBuilderPanel()
@@ -219,7 +216,7 @@ struct RulesManagementView: View {
                 }
                 
                 // Combined Toolbar (Search + Tabs)
-                if !isInitialEmptyState {
+                if !content.isInitialEmptyState {
                     HStack(spacing: 8) {
                         // Search Field (Compact)
                         HStack(spacing: 6) {
@@ -262,20 +259,23 @@ struct RulesManagementView: View {
             .padding(.horizontal, FormaSpacing.standard)
             .padding(.vertical, FormaSpacing.standard)
 
-            if !isInitialEmptyState {
-                rulesOverviewStrip
+            if !content.isInitialEmptyState {
+                rulesOverviewStrip(content: content)
                     .padding(.horizontal, FormaSpacing.generous)
                     .padding(.bottom, FormaSpacing.standard)
             }
 
-            if !needsPermissionRules.isEmpty {
-                needsPermissionBanner
+            if !content.needsPermissionRules.isEmpty {
+                needsPermissionBanner(count: content.needsPermissionRules.count)
                     .padding(.horizontal, FormaSpacing.generous)
                     .padding(.bottom, FormaSpacing.standard)
             }
 
-            if !willCreateRules.isEmpty {
-                willCreateBanner
+            if !content.willCreateRules.isEmpty {
+                willCreateBanner(
+                    count: content.willCreateRules.count,
+                    createAction: { createResolvableFoldersNow(rules: content.willCreateRules) }
+                )
                     .padding(.horizontal, FormaSpacing.generous)
                     .padding(.bottom, FormaSpacing.standard)
             }
@@ -284,7 +284,7 @@ struct RulesManagementView: View {
                 .opacity(0.5)
             
             // Rules list
-            if filteredRules.isEmpty {
+            if content.filteredRules.isEmpty {
                 if searchText.isEmpty {
                     VStack(spacing: FormaSpacing.generous) {
                         FormaEmptyState(
@@ -309,16 +309,19 @@ struct RulesManagementView: View {
                     )
                 }
             } else {
-                if showsOperationalSections {
-                    sectionedRulesList
+                if content.showsOperationalSections {
+                    sectionedRulesList(content: content)
                 } else {
-                    flatRulesList
+                    flatRulesList(rules: content.filteredRules, healthByID: content.healthByID)
                 }
             }
         }
         .background(Color.clear) // Allow unified window glass to show through
         .sheet(isPresented: $showManageCategories) {
             ManageCategoriesSheet()
+        }
+        .onChange(of: allRules.map(\.id)) { _, remainingRuleIDs in
+            pendingDeletionRuleIDs.formIntersection(Set(remainingRuleIDs))
         }
         .accessibilityIdentifier("smartRulesView")
         .overlay(alignment: .topLeading) {
@@ -378,14 +381,8 @@ struct RulesManagementView: View {
 
     // MARK: - Rule Health
 
-    private func health(for rule: Rule) -> RuleHealthService.RuleHealth {
-        ruleHealthByID[rule.id] ?? RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
-    }
-
-    private var needsPermissionBanner: some View {
-        let count = needsPermissionRules.count
-
-        return HStack(alignment: .center, spacing: FormaSpacing.standard) {
+    private func needsPermissionBanner(count: Int) -> some View {
+        HStack(alignment: .center, spacing: FormaSpacing.standard) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.formaBodySemibold)
                 .foregroundColor(.formaWarmOrange)
@@ -466,10 +463,8 @@ struct RulesManagementView: View {
         }
     }
 
-    private var willCreateBanner: some View {
-        let count = willCreateRules.count
-
-        return HStack(alignment: .center, spacing: FormaSpacing.standard) {
+    private func willCreateBanner(count: Int, createAction: @escaping () -> Void) -> some View {
+        HStack(alignment: .center, spacing: FormaSpacing.standard) {
             Image(systemName: "folder.badge.plus")
                 .font(.formaBodySemibold)
                 .foregroundColor(.formaSteelBlue)
@@ -494,7 +489,7 @@ struct RulesManagementView: View {
 
             Spacer()
 
-            Button(action: createResolvableFoldersNow) {
+            Button(action: createAction) {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")
                         .font(.formaCaptionSemibold)
@@ -522,44 +517,50 @@ struct RulesManagementView: View {
         )
     }
 
-    private var rulesOverviewStrip: some View {
+    private func rulesOverviewStrip(content: ContentState) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: FormaSpacing.tight) {
                 overviewPill(
-                    title: "Duplicate / overlap",
-                    count: duplicateOrOverlapCount,
+                    title: "Duplicates",
+                    count: content.duplicateCount,
+                    color: .formaError,
+                    isEmphasized: content.duplicateCount > 0
+                )
+                overviewPill(
+                    title: "Overlaps",
+                    count: content.overlapCount,
                     color: .formaWarmOrange,
-                    isEmphasized: duplicateOrOverlapCount > 0
+                    isEmphasized: content.overlapCount > 0
                 )
                 overviewPill(
                     title: "Needs permission",
-                    count: needsPermissionCount,
+                    count: content.needsPermissionCount,
                     color: .formaWarmOrange,
-                    isEmphasized: needsPermissionCount > 0
+                    isEmphasized: content.needsPermissionCount > 0
                 )
                 overviewPill(
                     title: "Will create",
-                    count: willCreateCount,
+                    count: content.willCreateCount,
                     color: .formaSteelBlue,
-                    isEmphasized: willCreateCount > 0
+                    isEmphasized: content.willCreateCount > 0
                 )
                 overviewPill(
                     title: "Recently triggered",
-                    count: recentlyTriggeredCount,
+                    count: content.recentlyTriggeredCount,
                     color: .formaSteelBlue,
-                    isEmphasized: recentlyTriggeredCount > 0
+                    isEmphasized: content.recentlyTriggeredCount > 0
                 )
                 overviewPill(
                     title: "Stable",
-                    count: stableRuleCount,
+                    count: content.stableRuleCount,
                     color: .formaSage,
-                    isEmphasized: stableRuleCount > 0
+                    isEmphasized: content.stableRuleCount > 0
                 )
                 overviewPill(
                     title: "Disabled",
-                    count: disabledCount,
+                    count: content.disabledCount,
                     color: .formaSecondaryLabelHigh,
-                    isEmphasized: disabledCount > 0
+                    isEmphasized: content.disabledCount > 0
                 )
             }
         }
@@ -586,10 +587,13 @@ struct RulesManagementView: View {
         )
     }
 
-    private var flatRulesList: some View {
+    private func flatRulesList(
+        rules: [Rule],
+        healthByID: [UUID: RuleHealthService.RuleHealth]
+    ) -> some View {
         ScrollView {
             LazyVStack(spacing: listRowSpacing) {
-                ForEach(Array(filteredRules.enumerated()), id: \.element.id) { index, rule in
+                ForEach(Array(rules.enumerated()), id: \.element.id) { index, rule in
                     HStack(alignment: .center, spacing: FormaSpacing.tight) {
                         if searchText.isEmpty && !filterNeedsPermissionOnly {
                             Text("\(index + 1)")
@@ -599,7 +603,7 @@ struct RulesManagementView: View {
                                 .frame(width: 20, alignment: .trailing)
                         }
 
-                        ruleCardRow(rule)
+                        ruleCardRow(rule, health: health(for: rule, in: healthByID))
                             .blockWindowDrag()
                             .onDrag {
                                 NSItemProvider(object: rule.id.uuidString as NSString)
@@ -631,43 +635,65 @@ struct RulesManagementView: View {
         }
     }
 
-    private var sectionedRulesList: some View {
+    private func sectionedRulesList(content: ContentState) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: FormaSpacing.large) {
-                if !duplicateOrOverlapRules.isEmpty {
+                if !content.duplicateRules.isEmpty {
+                    duplicateRuleSection(content: content)
+                }
+
+                if !content.overlapRules.isEmpty {
                     ruleSection(
-                        title: "Duplicate / Overlap",
-                        subtitle: "Rules that match the same files as another rule in the same scope.",
-                        rules: duplicateOrOverlapRules
+                        title: "Overlaps",
+                        subtitle: "Rules that may compete for some of the same files and need review before cleanup.",
+                        rules: content.overlapRules,
+                        healthByID: content.healthByID
                     )
                 }
 
-                if !needsPermissionRules.isEmpty {
+                if !content.needsPermissionRules.isEmpty {
                     ruleSection(
                         title: "Needs Permission",
                         subtitle: "Rules pointed at destinations outside Forma's current folder access.",
-                        rules: needsPermissionRules
+                        rules: content.needsPermissionRules,
+                        healthByID: content.healthByID
                     )
                 }
 
-                if !willCreateRules.isEmpty {
+                if !content.willCreateRules.isEmpty {
                     ruleSection(
                         title: "Will Create",
                         subtitle: "Rules with valid parent access whose destination folders can be created on demand.",
-                        rules: willCreateRules
+                        rules: content.willCreateRules,
+                        healthByID: content.healthByID
                     )
                 }
 
-                if !recentlyTriggeredRules.isEmpty {
-                    ruleSection(title: "Recently Triggered", subtitle: "Rules Forma has used recently.", rules: recentlyTriggeredRules)
+                if !content.recentlyTriggeredRules.isEmpty {
+                    ruleSection(
+                        title: "Recently Triggered",
+                        subtitle: "Rules Forma has used recently.",
+                        rules: content.recentlyTriggeredRules,
+                        healthByID: content.healthByID
+                    )
                 }
 
-                if !stableRules.isEmpty {
-                    ruleSection(title: "Stable", subtitle: "Active rules ready for background organization.", rules: stableRules)
+                if !content.stableRules.isEmpty {
+                    ruleSection(
+                        title: "Stable",
+                        subtitle: "Active rules ready for background organization.",
+                        rules: content.stableRules,
+                        healthByID: content.healthByID
+                    )
                 }
 
-                if !disabledRules.isEmpty {
-                    ruleSection(title: "Disabled", subtitle: "Rules kept for later but not currently running.", rules: disabledRules)
+                if !content.disabledRules.isEmpty {
+                    ruleSection(
+                        title: "Disabled",
+                        subtitle: "Rules kept for later but not currently running.",
+                        rules: content.disabledRules,
+                        healthByID: content.healthByID
+                    )
                 }
             }
             .padding(listContentPadding)
@@ -675,7 +701,76 @@ struct RulesManagementView: View {
         .accessibilityIdentifier("smartRulesListScroll")
     }
 
-    private func ruleSection(title: String, subtitle: String, rules: [Rule]) -> some View {
+    private func duplicateRuleSection(content: ContentState) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Duplicates")
+                        .font(.formaBodySemibold)
+                        .foregroundColor(.formaLabel)
+                    Text("Rules with identical conditions and destination. Safe to delete extra copies.")
+                        .font(.formaCaption)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                }
+
+                Spacer(minLength: FormaSpacing.tight)
+
+                if let cleanupPlan = content.duplicateCleanupPlan,
+                   cleanupPlan.duplicateCount > 0 {
+                    Button {
+                        duplicateCleanupConfirmationPlan = cleanupPlan
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isDeletingDuplicateCopies {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+
+                            Text(isDeletingDuplicateCopies ? "Deleting..." : "Delete \(cleanupPlan.duplicateCount) Extras")
+                                .font(.formaCaptionSemibold)
+                        }
+                        .foregroundColor(.formaError)
+                        .padding(.horizontal, FormaSpacing.standard)
+                        .padding(.vertical, FormaSpacing.tight)
+                        .background(Color.formaError.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                                .stroke(Color.formaError.opacity(0.3), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isDeletingDuplicateCopies)
+                }
+            }
+
+            LazyVStack(spacing: listRowSpacing) {
+                ForEach(content.duplicateRules, id: \.id) { rule in
+                    ruleCardRow(rule, health: health(for: rule, in: content.healthByID))
+                }
+            }
+        }
+        .alert(item: $duplicateCleanupConfirmationPlan) { cleanupPlan in
+            Alert(
+                title: Text("Delete Duplicate Rules"),
+                message: Text("Delete \(cleanupPlan.duplicateCount) duplicate rule\(cleanupPlan.duplicateCount == 1 ? "" : "s") and keep \(cleanupPlan.preservedRuleCount) original\(cleanupPlan.preservedRuleCount == 1 ? "" : "s")?"),
+                primaryButton: .destructive(Text("Delete Extras")) {
+                    deleteDuplicateCopies(cleanupPlan)
+                },
+                secondaryButton: .cancel()
+            )
+        }
+    }
+
+    private func ruleSection(
+        title: String,
+        subtitle: String,
+        rules: [Rule],
+        healthByID: [UUID: RuleHealthService.RuleHealth]
+    ) -> some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -688,38 +783,38 @@ struct RulesManagementView: View {
 
             LazyVStack(spacing: listRowSpacing) {
                 ForEach(rules, id: \.id) { rule in
-                    ruleCardRow(rule)
+                    ruleCardRow(rule, health: health(for: rule, in: healthByID))
                 }
             }
         }
     }
 
-    private func ruleCardRow(_ rule: Rule) -> some View {
-        RuleManagementCard(
-            rule: rule,
-            health: health(for: rule),
+    private func ruleCardRow(_ rule: Rule, health: RuleHealthService.RuleHealth) -> some View {
+        let snapshot = RuleManagementCard.Snapshot(rule: rule, health: health)
+
+        return RuleManagementCard(
+            snapshot: snapshot,
             onEdit: {
-                dashboardViewModel.showRuleBuilderPanel(editingRule: rule)
+                guard let liveRule = liveRule(withID: snapshot.id) else { return }
+                dashboardViewModel.showRuleBuilderPanel(editingRule: liveRule)
             },
             onDelete: {
-                deleteRule(rule)
+                deleteRule(id: snapshot.id, fallbackName: snapshot.name)
             },
             onToggle: {
-                toggleRule(rule)
+                toggleRule(id: snapshot.id)
             }
         )
     }
 
     @MainActor
-    private func createResolvableFoldersNow() {
-        let rulesToMaterialize = willCreateRules
-
-        guard !rulesToMaterialize.isEmpty else { return }
+    private func createResolvableFoldersNow(rules: [Rule]) {
+        guard !rules.isEmpty else { return }
 
         var createdCount = 0
         var failureCount = 0
 
-        for rule in rulesToMaterialize {
+        for rule in rules {
             guard let destination = rule.destination else { continue }
 
             do {
@@ -794,7 +889,7 @@ struct RulesManagementView: View {
     }
 
     private func rulesInCategory(_ category: RuleCategory) -> Int {
-        allRules.filter { $0.category?.id == category.id }.count
+        sortedAllRules.filter { $0.category?.id == category.id }.count
     }
 
     private func wasTriggeredRecently(_ rule: Rule) -> Bool {
@@ -901,7 +996,12 @@ struct RulesManagementView: View {
         }
     }
     
-    private func toggleRule(_ rule: Rule) {
+    private func liveRule(withID id: UUID) -> Rule? {
+        allRules.first { $0.id == id }
+    }
+
+    private func toggleRule(id: UUID) {
+        guard let rule = liveRule(withID: id) else { return }
         rule.isEnabled.toggle()
         do {
             let ruleService = RuleService(modelContext: modelContext)
@@ -915,15 +1015,44 @@ struct RulesManagementView: View {
         }
     }
 
-    private func deleteRule(_ rule: Rule) {
+    private func deleteRule(id: UUID, fallbackName: String) {
+        guard let rule = liveRule(withID: id) else { return }
+
+        pendingDeletionRuleIDs.insert(id)
         do {
             let ruleService = RuleService(modelContext: modelContext)
             try ruleService.deleteRule(rule)
             dashboardViewModel.loadRules(from: modelContext)
             dashboardViewModel.reEvaluateFilesAgainstRules(context: modelContext)
         } catch {
-            Log.error("RulesManagementView: Failed to delete rule '\(rule.name)' - \(error.localizedDescription)", category: .analytics)
+            pendingDeletionRuleIDs.remove(id)
+            Log.error("RulesManagementView: Failed to delete rule '\(fallbackName)' - \(error.localizedDescription)", category: .analytics)
         }
+    }
+
+    private func deleteDuplicateCopies(_ cleanupPlan: RuleHealthService.ExactDuplicateCleanupPlan) {
+        let ruleIDsToDelete = Set(cleanupPlan.duplicateRuleIDs)
+        let rulesToDelete = sortedAllRules.filter { ruleIDsToDelete.contains($0.id) }
+
+        guard !rulesToDelete.isEmpty else { return }
+
+        isDeletingDuplicateCopies = true
+        pendingDeletionRuleIDs.formUnion(ruleIDsToDelete)
+
+        do {
+            let ruleService = RuleService(modelContext: modelContext)
+            try ruleService.deleteRules(rulesToDelete)
+            dashboardViewModel.loadRules(from: modelContext)
+            dashboardViewModel.reEvaluateFilesAgainstRules(context: modelContext)
+            dashboardViewModel.showCelebrationPanel(
+                message: "Deleted \(rulesToDelete.count) duplicate rule\(rulesToDelete.count == 1 ? "" : "s")."
+            )
+        } catch {
+            pendingDeletionRuleIDs.subtract(ruleIDsToDelete)
+            Log.error("RulesManagementView: Failed to bulk delete duplicate rules - \(error.localizedDescription)", category: .analytics)
+        }
+
+        isDeletingDuplicateCopies = false
     }
 
     /// Reorders rules by updating their sortOrder values.

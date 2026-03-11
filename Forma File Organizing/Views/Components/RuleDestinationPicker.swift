@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RuleDestinationPicker: View {
     @Binding var formState: RuleFormState
-    @Binding var showFolderPicker: Bool
+    let onChooseFolder: () -> Void
     let onPreviewDeleteMatches: () -> Void
 
     var body: some View {
@@ -43,7 +43,7 @@ struct RuleDestinationPicker: View {
 
                 RulePreviewSection(onPreview: onPreviewDeleteMatches)
             } else {
-                Button(action: { showFolderPicker = true }) {
+                Button(action: onChooseFolder) {
                     HStack {
                         Image(systemName: "folder.fill")
                             .foregroundColor(.formaSteelBlue)

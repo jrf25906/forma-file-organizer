@@ -7,13 +7,18 @@ struct RulesManagerSection: View {
     @Query private var rules: [Rule]
 
     private var sortedRules: [Rule] {
-        rules.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        visibleRules.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     @State private var showingEditor = false
     @State private var editingRule: Rule?
+    @State private var pendingDeletionRuleIDs: Set<UUID> = []
     @Namespace private var ruleButtonNamespace
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+
+    private var visibleRules: [Rule] {
+        rules.filter { !pendingDeletionRuleIDs.contains($0.id) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -70,19 +75,7 @@ struct RulesManagerSection: View {
                 ScrollView {
                     LazyVStack(spacing: FormaSpacing.standard) {
                         ForEach(sortedRules) { rule in
-                            RuleManagementCard(
-                                rule: rule,
-                                onEdit: {
-                                    editingRule = rule
-                                    showingEditor = true
-                                },
-                                onDelete: {
-                                    deleteRule(rule)
-                                },
-                                onToggle: {
-                                    toggleRule(rule)
-                                }
-                            )
+                            ruleCard(for: rule)
                         }
                     }
                     .padding(FormaSpacing.generous)
@@ -90,12 +83,39 @@ struct RulesManagerSection: View {
             }
         }
         .background(Color.clear)
+        .onChange(of: rules.map(\.id)) { _, remainingRuleIDs in
+            pendingDeletionRuleIDs.formIntersection(Set(remainingRuleIDs))
+        }
         .sheet(isPresented: $showingEditor) {
             RuleEditorView(rule: editingRule, buttonNamespace: editingRule == nil ? ruleButtonNamespace : nil)
         }
     }
 
-    private func toggleRule(_ rule: Rule) {
+    private func ruleCard(for rule: Rule) -> some View {
+        let snapshot = RuleManagementCard.Snapshot(rule: rule)
+
+        return RuleManagementCard(
+            snapshot: snapshot,
+            onEdit: {
+                guard let liveRule = liveRule(withID: snapshot.id) else { return }
+                editingRule = liveRule
+                showingEditor = true
+            },
+            onDelete: {
+                deleteRule(id: snapshot.id, fallbackName: snapshot.name)
+            },
+            onToggle: {
+                toggleRule(id: snapshot.id)
+            }
+        )
+    }
+
+    private func liveRule(withID id: UUID) -> Rule? {
+        rules.first { $0.id == id }
+    }
+
+    private func toggleRule(id: UUID) {
+        guard let rule = liveRule(withID: id) else { return }
         rule.isEnabled.toggle()
         do {
             let ruleService = RuleService(modelContext: modelContext)
@@ -106,12 +126,16 @@ struct RulesManagerSection: View {
         }
     }
 
-    private func deleteRule(_ rule: Rule) {
+    private func deleteRule(id: UUID, fallbackName: String) {
+        guard let rule = liveRule(withID: id) else { return }
+
+        pendingDeletionRuleIDs.insert(id)
         do {
             let ruleService = RuleService(modelContext: modelContext)
             try ruleService.deleteRule(rule)
         } catch {
-            Log.error("RulesManagerSection: Failed to delete rule '\(rule.name)' - \(error.localizedDescription)", category: .analytics)
+            pendingDeletionRuleIDs.remove(id)
+            Log.error("RulesManagerSection: Failed to delete rule '\(fallbackName)' - \(error.localizedDescription)", category: .analytics)
         }
     }
 }

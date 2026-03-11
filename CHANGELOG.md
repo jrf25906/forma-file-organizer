@@ -7,6 +7,8 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 ## [Unreleased]
 ### Added
 - Smart Rules now use centralized `RuleHealthService` classification so rules can surface `Duplicate / Overlap`, `Needs Permission`, `Will Create`, `Ready`, and `Disabled` states consistently.
+- Smart Rules duplicate sections now offer a contextual bulk `Delete Extras` action for exact duplicate cleanup, so stores affected by past template duplication do not require one-by-one deletion.
+- Destination permission pickers now open with the suggested parent folder/path context, prefill the first missing folder name when creating nested destinations, and can finish creating remaining subfolders after access is granted.
 - Recursive scan controls: `FileScanOptions` now support bounded depth, per-root file caps, and hidden/package skip behavior.
 - `FileMetadata` and `FileItem` now persist `scanRootPath` + `relativeParentPath`, and dashboard card/list/grid rows show nested-folder context badges for files discovered in subfolders.
 - Added launch/legal documentation and marketing-site pages for Privacy Policy and Terms.
@@ -23,6 +25,9 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Smart Rules now count exact duplicates separately from overlaps, and overlap detection no longer flags unrelated rules such as extension-based rules versus `.env` name rules.
+- Duplicate cleanup now deletes exact duplicate rules in one batch and triggers a single post-delete reevaluation instead of reloading and rescanning after every individual deletion.
+- App launch now restores the default `Screenshot Sweeper` rule when it was recently deleted after real use and no screenshot-routing rule remains, preventing desktop screenshots from silently losing their destination.
 - Rule Editor and Inline Rule Builder now materialize resolvable placeholder destinations on explicit save, creating folders immediately inside already-permitted roots instead of waiting for the first rule run.
 - Template/default rule destinations now use canonical root-relative paths such as `Documents/...`, and onboarding applies per-folder templates with scoped categories to avoid duplicate global rules.
 - Smart Rules now separate duplicate/overlap issues from permission problems, surface `Will Create` states for resolvable placeholder destinations, and offer a bulk `Create Folders Now` action for generated rules.
@@ -129,6 +134,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
 
 ### Fixed
+- Deleting a rule from Smart Rules or Settings no longer crashes when SwiftUI re-renders a just-deleted SwiftData `Rule`; both lists now hide pending deletions immediately and rule cards render from stable snapshot data instead of faulting `conditions` during teardown.
 - Legacy absolute home-relative rule destinations now normalize back to canonical bookmark roots instead of being misclassified as unsupported paths.
 - Per-folder onboarding no longer multiplies template rules against the same default Documents root, which previously produced duplicate PARA/default rules in Smart Rules.
 - App Store review compliance: removed `ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER` from Xcode target build settings so release binaries no longer include `com.apple.security.files.downloads.read-write`; Downloads access continues through user-selected security-scoped bookmarks.

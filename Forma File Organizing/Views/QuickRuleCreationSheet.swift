@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 /// Quick rule creation sheet that pre-fills form based on a matched file's conditions.
 /// This provides a streamlined flow for creating rules directly from the review workflow.
@@ -13,8 +12,9 @@ struct QuickRuleCreationSheet: View {
     @State private var ruleName: String = ""
     @State private var destinationDisplayPath: String = ""
     @State private var destinationBookmarkData: Data?
-    @State private var showFolderPicker = false
+    @State private var isChoosingDestination = false
     @State private var validationError: String?
+    private let destinationResolver = DestinationResolver()
     
     var body: some View {
         VStack(spacing: 0) {
@@ -69,7 +69,7 @@ struct QuickRuleCreationSheet: View {
                         displayPath: destinationDisplayPath,
                         hasSelection: destinationBookmarkData != nil,
                         hasError: validationError != nil,
-                        onSelect: { showFolderPicker = true },
+                        onSelect: requestDestinationAccess,
                         onClear: {
                             destinationBookmarkData = nil
                             destinationDisplayPath = ""
@@ -135,15 +135,6 @@ struct QuickRuleCreationSheet: View {
         .onAppear {
             prefillForm()
         }
-        .fileImporter(
-            isPresented: $showFolderPicker,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                handleFolderSelection(url)
-            }
-        }
     }
     
     // MARK: - Helper Views
@@ -199,29 +190,26 @@ struct QuickRuleCreationSheet: View {
         destinationBookmarkData != nil
     }
 
-    private func handleFolderSelection(_ url: URL) {
-        guard url.startAccessingSecurityScopedResource() else {
-            validationError = "Could not access the selected folder"
-            return
-        }
-        defer { url.stopAccessingSecurityScopedResource() }
+    private func requestDestinationAccess() {
+        guard !isChoosingDestination else { return }
 
-        do {
-            let bookmarkData = try url.bookmarkData(
-                options: .withSecurityScope,
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-            destinationBookmarkData = bookmarkData
+        isChoosingDestination = true
+        validationError = nil
 
-            let homeURL = FileManager.default.homeDirectoryForCurrentUser
-            if url.path.hasPrefix(homeURL.path + "/") {
-                destinationDisplayPath = String(url.path.dropFirst(homeURL.path.count + 1))
-            } else {
-                destinationDisplayPath = url.lastPathComponent
+        Task { @MainActor in
+            defer { isChoosingDestination = false }
+
+            do {
+                let destination = try await destinationResolver.requestDestinationAccess(
+                    forSuggestedPath: destinationDisplayPath
+                )
+                destinationBookmarkData = destination.bookmarkData
+                destinationDisplayPath = destination.displayName
+            } catch DestinationResolver.AccessGrantError.cancelled {
+                return
+            } catch {
+                validationError = "Could not grant folder access: \(error.localizedDescription)"
             }
-        } catch {
-            validationError = "Could not save folder access: \(error.localizedDescription)"
         }
     }
 

@@ -67,7 +67,8 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 ### Recent API Updates (March 2026)
 
 - `DestinationResolver.materializeForExplicitSave(_:)` now resolves placeholder destinations during explicit rule-save flows, creates folders inside already-permitted roots, and throws actionable errors for unresolvable destinations.
-- `RuleHealthService` centralizes Smart Rules health classification with `duplicateOrOverlap`, `needsPermission`, `willCreate`, `ready`, and `disabled` states.
+- `DestinationResolver.requestDestinationAccess(forSuggestedPath:)` now powers guided destination permission flows by pre-seeding the nearest existing parent folder, prefilling the first missing folder name for nested suggestions, and materializing any remaining subfolders after access is granted.
+- `RuleHealthService` centralizes Smart Rules health classification with `duplicate`, `overlap`, `needsPermission`, `willCreate`, `ready`, and `disabled` states.
 - `RuleService.createRule(_:source:save:)` and `createRules(_:source:)` now require `RuleSource` metadata so activity logging can distinguish editor, inline, template, default, and learned-pattern creation flows.
 - `OrganizationTemplate.generateRules(baseDocumentsPath:)` now expects canonical root-relative bases such as `Documents`, `Desktop`, or `Downloads` rather than absolute `/Users/...` paths.
 

@@ -269,7 +269,11 @@ class RuleOverlapDetector {
             return .identical
         }
 
-        // Check for partial overlap (any condition could match same files)
+        if conditionSetsAreMutuallyExclusive(first, second) {
+            return nil
+        }
+
+        // Check for partial overlap using only high-confidence condition pairs.
         var hasOverlap = false
         for c1 in first {
             for c2 in second {
@@ -319,6 +323,18 @@ class RuleOverlapDetector {
             if lower2.hasSuffix(lower1) { return .superset }
             return nil
 
+        case let (.nameContains(text), .nameStartsWith(prefix)):
+            return compareNameContainsToStartsWith(text, prefix)
+
+        case let (.nameStartsWith(prefix), .nameContains(text)):
+            return inverted(compareNameContainsToStartsWith(text, prefix))
+
+        case let (.nameContains(text), .nameEndsWith(suffix)):
+            return compareNameContainsToEndsWith(text, suffix)
+
+        case let (.nameEndsWith(suffix), .nameContains(text)):
+            return inverted(compareNameContainsToEndsWith(text, suffix))
+
         // Size conditions
         case let (.sizeLargerThan(s1), .sizeLargerThan(s2)):
             if s1 == s2 { return .identical }
@@ -345,7 +361,7 @@ class RuleOverlapDetector {
 
         // File kind conditions
         case let (.fileKind(k1), .fileKind(k2)):
-            if k1.lowercased() == k2.lowercased() { return .identical }
+            if normalizedFileKind(k1) == normalizedFileKind(k2) { return .identical }
             return nil
 
         // Source location conditions
@@ -353,40 +369,231 @@ class RuleOverlapDetector {
             if l1 == l2 { return .identical }
             return nil
 
-        // Cross-type comparisons that could overlap
-        case (.fileExtension, .nameContains), (.nameContains, .fileExtension),
-             (.fileExtension, .fileKind), (.fileKind, .fileExtension):
-            // These could match the same file but aren't directly comparable
-            return .partial
+        // Cross-type comparisons with meaningful shared file-type constraints
+        case let (.fileExtension(ext), .fileKind(kind)):
+            return extensionMatchesFileKind(ext, kind) ? .subset : nil
+
+        case let (.fileKind(kind), .fileExtension(ext)):
+            return extensionMatchesFileKind(ext, kind) ? .superset : nil
+
+        case let (.dateOlderThan(_, extension: ext?), .fileExtension(otherExt)):
+            return ext.caseInsensitiveCompare(otherExt) == .orderedSame ? .subset : nil
+
+        case let (.fileExtension(ext), .dateOlderThan(_, extension: otherExt?)):
+            return ext.caseInsensitiveCompare(otherExt) == .orderedSame ? .superset : nil
+
+        case let (.dateOlderThan(_, extension: ext?), .fileKind(kind)):
+            return extensionMatchesFileKind(ext, kind) ? .subset : nil
+
+        case let (.fileKind(kind), .dateOlderThan(_, extension: ext?)):
+            return extensionMatchesFileKind(ext, kind) ? .superset : nil
 
         default:
-            // Different condition types that could theoretically match same files
-            return conditionsCouldOverlap(first, second) ? .partial : nil
+            return nil
         }
     }
 
     /// Checks if two conditions could match the same file.
     private func conditionsCouldOverlap(_ first: RuleCondition, _ second: RuleCondition) -> Bool {
+        compareSingleConditions(first, second) != nil
+    }
+
+    private func conditionSetsAreMutuallyExclusive(_ first: [RuleCondition], _ second: [RuleCondition]) -> Bool {
+        fileTypeConstraintsConflict(first, second) ||
+        sourceLocationConstraintsConflict(first, second) ||
+        prefixConstraintsConflict(first, second) ||
+        suffixConstraintsConflict(first, second)
+    }
+
+    private func sourceLocationConstraintsConflict(_ first: [RuleCondition], _ second: [RuleCondition]) -> Bool {
+        let firstLocations = first.compactMap(sourceLocationConstraint(from:))
+        let secondLocations = second.compactMap(sourceLocationConstraint(from:))
+
+        guard !firstLocations.isEmpty, !secondLocations.isEmpty else {
+            return false
+        }
+
+        return !firstLocations.contains { firstLocation in
+            secondLocations.contains(firstLocation)
+        }
+    }
+
+    private func prefixConstraintsConflict(_ first: [RuleCondition], _ second: [RuleCondition]) -> Bool {
+        let firstPrefixes = first.compactMap(prefixConstraint(from:))
+        let secondPrefixes = second.compactMap(prefixConstraint(from:))
+
+        guard !firstPrefixes.isEmpty, !secondPrefixes.isEmpty else {
+            return false
+        }
+
+        return !firstPrefixes.contains { firstPrefix in
+            secondPrefixes.contains { secondPrefix in
+                firstPrefix.hasPrefix(secondPrefix) || secondPrefix.hasPrefix(firstPrefix)
+            }
+        }
+    }
+
+    private func suffixConstraintsConflict(_ first: [RuleCondition], _ second: [RuleCondition]) -> Bool {
+        let firstSuffixes = first.compactMap(suffixConstraint(from:))
+        let secondSuffixes = second.compactMap(suffixConstraint(from:))
+
+        guard !firstSuffixes.isEmpty, !secondSuffixes.isEmpty else {
+            return false
+        }
+
+        return !firstSuffixes.contains { firstSuffix in
+            secondSuffixes.contains { secondSuffix in
+                firstSuffix.hasSuffix(secondSuffix) || secondSuffix.hasSuffix(firstSuffix)
+            }
+        }
+    }
+
+    private enum FileTypeConstraint {
+        case fileExtension(String)
+        case fileKind(String)
+    }
+
+    private func fileTypeConstraintsConflict(_ first: [RuleCondition], _ second: [RuleCondition]) -> Bool {
+        let firstConstraints = first.compactMap(fileTypeConstraint(from:))
+        let secondConstraints = second.compactMap(fileTypeConstraint(from:))
+
+        guard !firstConstraints.isEmpty, !secondConstraints.isEmpty else {
+            return false
+        }
+
+        return !firstConstraints.contains { firstConstraint in
+            secondConstraints.contains { secondConstraint in
+                fileTypeConstraintsCouldOverlap(firstConstraint, secondConstraint)
+            }
+        }
+    }
+
+    private func fileTypeConstraint(from condition: RuleCondition) -> FileTypeConstraint? {
+        switch condition {
+        case .fileExtension(let ext):
+            return .fileExtension(ext.lowercased())
+        case .fileKind(let kind):
+            return .fileKind(normalizedFileKind(kind))
+        case .dateOlderThan(_, extension: let ext?):
+            return .fileExtension(ext.lowercased())
+        default:
+            return nil
+        }
+    }
+
+    private func fileTypeConstraintsCouldOverlap(_ first: FileTypeConstraint, _ second: FileTypeConstraint) -> Bool {
         switch (first, second) {
-        // Same type conditions always could overlap (even if different values)
-        case (.fileExtension, .fileExtension): return true
-        case (.nameContains, .nameContains): return true
-        case (.nameStartsWith, .nameStartsWith): return true
-        case (.nameEndsWith, .nameEndsWith): return true
-        case (.sizeLargerThan, .sizeLargerThan): return true
-        case (.dateOlderThan, .dateOlderThan): return true
-        case (.dateModifiedOlderThan, .dateModifiedOlderThan): return true
-        case (.dateAccessedOlderThan, .dateAccessedOlderThan): return true
-        case (.fileKind, .fileKind): return true
-        case (.sourceLocation, .sourceLocation): return true
+        case let (.fileExtension(firstExt), .fileExtension(secondExt)):
+            return firstExt == secondExt
+        case let (.fileKind(firstKind), .fileKind(secondKind)):
+            return firstKind == secondKind
+        case let (.fileExtension(ext), .fileKind(kind)),
+             let (.fileKind(kind), .fileExtension(ext)):
+            return extensionMatchesFileKind(ext, kind)
+        }
+    }
 
-        // Cross-type conditions that could match the same file
-        case (.fileExtension, _), (_, .fileExtension): return true
-        case (.nameContains, _), (_, .nameContains): return true
-        case (.sizeLargerThan, _), (_, .sizeLargerThan): return true
-        case (.fileKind, _), (_, .fileKind): return true
+    private func sourceLocationConstraint(from condition: RuleCondition) -> FileLocationKind? {
+        guard case .sourceLocation(let location) = condition else {
+            return nil
+        }
+        return location
+    }
 
-        default: return true // Conservative: assume could overlap
+    private func prefixConstraint(from condition: RuleCondition) -> String? {
+        guard case .nameStartsWith(let prefix) = condition else {
+            return nil
+        }
+        return prefix.lowercased()
+    }
+
+    private func suffixConstraint(from condition: RuleCondition) -> String? {
+        guard case .nameEndsWith(let suffix) = condition else {
+            return nil
+        }
+        return suffix.lowercased()
+    }
+
+    private func compareNameContainsToStartsWith(_ containsText: String, _ prefix: String) -> ConditionRelation? {
+        let contains = containsText.lowercased()
+        let startsWith = prefix.lowercased()
+
+        if contains == startsWith {
+            return .superset
+        }
+
+        if startsWith.contains(contains) {
+            return .superset
+        }
+
+        return nil
+    }
+
+    private func compareNameContainsToEndsWith(_ containsText: String, _ suffix: String) -> ConditionRelation? {
+        let contains = containsText.lowercased()
+        let endsWith = suffix.lowercased()
+
+        if contains == endsWith {
+            return .superset
+        }
+
+        if endsWith.contains(contains) {
+            return .superset
+        }
+
+        return nil
+    }
+
+    private func inverted(_ relation: ConditionRelation?) -> ConditionRelation? {
+        guard let relation else { return nil }
+
+        switch relation {
+        case .identical:
+            return .identical
+        case .subset:
+            return .superset
+        case .superset:
+            return .subset
+        case .partial:
+            return .partial
+        }
+    }
+
+    private func normalizedFileKind(_ kind: String) -> String {
+        let lowercased = kind.lowercased()
+        switch lowercased {
+        case "images": return "image"
+        case "videos": return "video"
+        case "documents": return "document"
+        case "spreadsheets": return "spreadsheet"
+        case "presentations": return "presentation"
+        case "archives": return "archive"
+        default: return lowercased
+        }
+    }
+
+    private func extensionMatchesFileKind(_ fileExtension: String, _ kind: String) -> Bool {
+        let ext = fileExtension.lowercased()
+
+        switch normalizedFileKind(kind) {
+        case "image":
+            return ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "heic", "heif", "webp", "svg", "ico", "cr2"].contains(ext)
+        case "audio":
+            return ["mp3", "wav", "aac", "flac", "ogg", "m4a", "wma", "aiff", "ape"].contains(ext)
+        case "video":
+            return ["mp4", "mov", "avi", "mkv", "flv", "wmv", "m4v", "mpg", "mpeg", "webm"].contains(ext)
+        case "document":
+            return ["pdf", "doc", "docx", "txt", "rtf", "odt", "pages", "tex"].contains(ext)
+        case "spreadsheet":
+            return ["xls", "xlsx", "csv", "numbers", "ods"].contains(ext)
+        case "presentation":
+            return ["ppt", "pptx", "key", "odp"].contains(ext)
+        case "archive":
+            return ["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "dmg", "pkg", "iso"].contains(ext)
+        case "code":
+            return ["swift", "py", "js", "ts", "java", "cpp", "c", "h", "cs", "rb", "go", "rs", "php", "html", "css", "json", "xml", "yaml", "yml"].contains(ext)
+        default:
+            return false
         }
     }
 

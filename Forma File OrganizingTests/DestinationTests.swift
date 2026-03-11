@@ -103,4 +103,89 @@ final class DestinationTests: XCTestCase {
             )
         }
     }
+
+    func testResolverNormalizesSandboxContainerHomePathToCanonicalDisplayName() throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let documentsRoot = try Destination.folder(from: tempDir.url, displayName: "Documents")
+        let store = InMemoryBookmarkStore()
+        try store.saveBookmark(
+            try XCTUnwrap(documentsRoot.bookmarkData),
+            forKey: FormaConfig.Security.documentsBookmarkKey
+        )
+
+        let sandboxHomePath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/Areas/Health")
+            .path
+
+        try BookmarkStoreProvider.$override.withValue(store) {
+            let placeholder = Destination.folder(bookmark: Data(), displayName: sandboxHomePath)
+            let resolved = try XCTUnwrap(DestinationResolver().materializeForExplicitSave(placeholder))
+            let resolvedURL = try XCTUnwrap(resolved.resolve()?.url)
+
+            XCTAssertEqual(resolved.displayName, "Documents/Areas/Health")
+            XCTAssertEqual(
+                resolvedURL.standardizedFileURL.path,
+                tempDir.url.appendingPathComponent("Areas/Health").standardizedFileURL.path
+            )
+        }
+    }
+
+    func testSuggestedAccessPlanUsesNearestExistingDocumentsParentAndPrefillsFirstMissingFolder() throws {
+        let uniqueFolder = "FormaPermissionTest-\(UUID().uuidString)"
+        let suggestedPath = "Documents/\(uniqueFolder)/Secrets"
+
+        let plan = try XCTUnwrap(DestinationResolver().suggestedAccessPlan(for: suggestedPath))
+
+        XCTAssertEqual(plan.requestedDisplayPath, suggestedPath)
+        XCTAssertEqual(plan.initialDirectoryURL.lastPathComponent, "Documents")
+        XCTAssertEqual(plan.missingPathComponents, [uniqueFolder, "Secrets"])
+        XCTAssertEqual(plan.suggestedFolderName, uniqueFolder)
+    }
+
+    func testMaterializeGrantedDestinationCreatesSuggestedSubfoldersAfterGrant() throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let developmentURL = try tempDir.createDirectory(name: "Development")
+        let selectedDestination = try Destination.folder(from: developmentURL, displayName: "Development")
+        let selectedURL = try XCTUnwrap(selectedDestination.resolve()?.url)
+        let suggestedURL = developmentURL.appendingPathComponent("Secrets")
+
+        let destination = try DestinationResolver().materializeGrantedDestination(
+            from: selectedURL,
+            suggestedPath: suggestedURL.path
+        )
+        let resolvedURL = try XCTUnwrap(destination.resolve()?.url)
+
+        XCTAssertEqual(
+            resolvedURL.standardizedFileURL.path,
+            suggestedURL.standardizedFileURL.path
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: suggestedURL.path))
+    }
+
+    func testMaterializeGrantedDestinationRespectsExplicitDifferentFolderChoice() throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let developmentURL = try tempDir.createDirectory(name: "Development")
+        let unrelatedURL = try tempDir.createDirectory(name: "Picked Elsewhere")
+        let selectedDestination = try Destination.folder(from: unrelatedURL, displayName: "Picked Elsewhere")
+        let selectedURL = try XCTUnwrap(selectedDestination.resolve()?.url)
+        let suggestedURL = developmentURL.appendingPathComponent("Secrets")
+
+        let destination = try DestinationResolver().materializeGrantedDestination(
+            from: selectedURL,
+            suggestedPath: suggestedURL.path
+        )
+        let resolvedURL = try XCTUnwrap(destination.resolve()?.url)
+
+        XCTAssertEqual(
+            resolvedURL.standardizedFileURL.path,
+            unrelatedURL.standardizedFileURL.path
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: suggestedURL.path))
+    }
 }
