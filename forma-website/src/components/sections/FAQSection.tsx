@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useCallback } from "react";
-import { Plus, Minus } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
@@ -28,6 +28,9 @@ function FAQItem({
     () => {
       if (!answerRef.current || !innerRef.current) return;
 
+      const reducedMotion = getReducedMotionValue();
+      const dur = reducedMotion ? 0.01 : undefined;
+
       if (isOpen) {
         const height = innerRef.current.scrollHeight;
         gsap.fromTo(
@@ -36,7 +39,7 @@ function FAQItem({
           {
             height,
             opacity: 1,
-            duration: 0.4,
+            duration: dur ?? 0.35,
             ease: "power2.out",
           }
         );
@@ -44,8 +47,8 @@ function FAQItem({
         gsap.to(answerRef.current, {
           height: 0,
           opacity: 0,
-          duration: 0.3,
-          ease: "power2.inOut",
+          duration: dur ?? 0.25,
+          ease: "power2.out",
         });
       }
     },
@@ -58,21 +61,18 @@ function FAQItem({
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={`faq-answer-${index}`}
-        className="w-full py-4.5 flex items-center justify-between gap-4 text-left group cursor-pointer"
+        className="w-full py-5 flex items-center justify-between gap-4 text-left group cursor-pointer"
       >
-        <span
+        <h3
           id={`faq-question-${index}`}
-          className="font-display text-[17px] text-[var(--text-primary)] group-hover:text-[var(--text-primary)]/80 transition-colors"
+          className="text-[17px] font-semibold text-[var(--text-primary)] group-hover:opacity-80 transition-opacity"
         >
           {faq.question}
-        </span>
-        <div className="shrink-0 w-5 h-5 flex items-center justify-center">
-          {isOpen ? (
-            <Minus className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-          ) : (
-            <Plus className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-          )}
-        </div>
+        </h3>
+        <ChevronDown
+          className="shrink-0 w-4 h-4 text-[var(--text-muted)] transition-transform duration-200 ease-out"
+          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
       </button>
 
       <div
@@ -80,6 +80,7 @@ function FAQItem({
         id={`faq-answer-${index}`}
         role="region"
         aria-labelledby={`faq-question-${index}`}
+        aria-hidden={!isOpen}
         className="overflow-hidden"
         style={{ height: 0, opacity: 0 }}
       >
@@ -122,10 +123,9 @@ export default function FAQSection() {
         return;
       }
 
-      // Single scroll reveal for the whole section content
       gsap.fromTo(
         contentRef.current,
-        { opacity: 0.88, y: 24 },
+        { opacity: 0, y: 24 },
         {
           opacity: 1,
           y: 0,
@@ -153,21 +153,21 @@ export default function FAQSection() {
     <section
       ref={sectionRef}
       id="faq"
-      className="scroll-mt-16 bg-[var(--bg-secondary)] py-10 md:py-20"
+      className="scroll-mt-16 bg-[var(--bg-secondary)] py-20 md:py-28"
     >
       <div className="site-container">
         <div ref={contentRef} className="mx-auto max-w-2xl">
-          <p className="mb-4 text-[11px] font-medium tracking-[0.15em] uppercase text-forma-steel-blue text-center">
+          <p className="mb-5 text-[12px] font-semibold tracking-[0.12em] uppercase text-forma-steel-blue text-center">
             FAQ
           </p>
-          <h2 className="mb-6 text-center font-display text-3xl text-[var(--text-primary)] md:text-[2.25rem]">
-            Common Questions
+          <h2 className="mb-8 text-center text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
+            Common questions
           </h2>
 
           <div className="border border-[var(--border-subtle)] rounded-2xl px-5 md:px-8">
             {faqs.map((faq, index) => (
               <FAQItem
-                key={index}
+                key={faq.id}
                 faq={faq}
                 index={index}
                 isOpen={openIndex === index}

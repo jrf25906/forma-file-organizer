@@ -65,12 +65,12 @@ function getDirectionTransform(direction: Direction, distance: number) {
 export function ScrollReveal({
   children,
   direction = "up",
-  distance = 50,
+  distance = 24,
   duration = formaDuration.normal,
   delay = 0,
   stagger = 0,
   scrub = false,
-  threshold = 95,
+  threshold = 85,
   className,
   once = true,
 }: ScrollRevealProps) {

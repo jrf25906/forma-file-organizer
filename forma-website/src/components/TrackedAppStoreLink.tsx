@@ -45,9 +45,12 @@ export function TrackedAppStoreLink({
     onClick?.(event);
   };
 
+  const isExternal = href.startsWith("http");
+
   return (
     <a href={href} className={className} onClick={handleClick} {...linkProps}>
       {children}
+      {isExternal && <span className="sr-only"> (opens in new tab)</span>}
     </a>
   );
 }

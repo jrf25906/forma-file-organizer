@@ -1,572 +1,438 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
-import Link from "next/link";
+import { Eye, GitBranch, Type, Undo2, Camera, FileText, FolderOpen, Shield, RotateCcw, Scan } from "lucide-react";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
+import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import FAQSection from "@/components/sections/FAQSection";
-import MacWindowFrame from "@/components/ui/MacWindowFrame";
+import FormaBeforeAfter from "@/components/sections/FormaBeforeAfter";
+import FormaHeroWindow from "@/components/sections/FormaHeroWindow";
+import HeroEntrance from "@/components/animation/HeroEntrance";
 import { faqs } from "@/lib/faq";
 import { SITE_NAME, SITE_URL, WEBSITE_LAST_UPDATED_ISO } from "@/lib/site";
 
-const proofItems = [
-  {
-    title: "Preview-first",
-    body: "Nothing moves until you approve the batch.",
-  },
-  {
-    title: "Local-only",
-    body: "Files stay on your Mac. No account required.",
-  },
-  {
-    title: "Undo built in",
-    body: "Reverse a bad batch without cleanup archaeology.",
-  },
-  {
-    title: "One-time purchase",
-    body: "$29 once. No subscription or premium-tier maze.",
-  },
-] as const;
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONTENT DATA
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-const heroAnnotations = [
+const featureHighlights = [
   {
-    title: "Review queue",
-    body: "Approve the exact files that should move.",
-    className: "left-4 top-4 md:-left-5 md:top-8",
+    icon: Type,
+    title: "Natural language rules",
+    body: "Write conditions and destinations in plain English. No regex, no scripts.",
+    color: "text-forma-steel-blue",
+    bgTint: "bg-[rgba(74,107,136,0.14)]",
+    borderTint: "border-[rgba(74,107,136,0.22)]",
   },
   {
-    title: "Rule-aware decisions",
-    body: "Every row carries its destination before you run it.",
-    className: "right-4 top-6 md:-right-8 md:top-20",
+    icon: GitBranch,
+    title: "Auto-grouping",
+    body: "One rule handles 200 similar files instead of writing 200 rules.",
+    color: "text-forma-muted-blue",
+    bgTint: "bg-[rgba(107,127,168,0.14)]",
+    borderTint: "border-[rgba(107,127,168,0.22)]",
   },
   {
-    title: "Undo stays close",
-    body: "The workflow assumes you may want to reverse it later.",
-    className: "bottom-4 left-4 md:bottom-6 md:left-10",
+    icon: Eye,
+    title: "Preview before action",
+    body: "See exactly what will happen before it happens. Toggle files on or off.",
+    color: "text-forma-sage",
+    bgTint: "bg-[rgba(107,143,113,0.14)]",
+    borderTint: "border-[rgba(107,143,113,0.22)]",
+  },
+  {
+    icon: Undo2,
+    title: "Full undo history",
+    body: "Reverse any move, any time. Every action is tracked and reversible.",
+    color: "text-forma-warm-orange",
+    bgTint: "bg-[rgba(184,107,82,0.14)]",
+    borderTint: "border-[rgba(184,107,82,0.22)]",
   },
 ] as const;
 
 const workflowSteps = [
   {
-    step: "Step 01",
-    title: "Write the rule in plain English.",
-    body:
-      "Start with one pattern and one destination. Forma turns it into a repeatable rule instead of another fiddly settings panel.",
-    bullets: [
-      "Readable conditions instead of brittle automation syntax",
-      "One rule can cover screenshots, PDFs, imports, or project drops",
-      "Built for the way Mac users actually describe clutter",
-    ],
-    image: "/screenshots/story/forma-paper-02-rules.png",
-    alt: "Forma rule builder showing conditions and a destination folder",
+    number: "1",
+    label: "WRITE\u00b7RULE",
+    title: "Write the rule.",
+    body: "Set a plain English condition and a destination. Forma turns it into a repeatable rule instead of another fiddly settings panel.",
   },
   {
-    step: "Step 02",
-    title: "Approve the batch, not the gamble.",
-    body:
-      "Preview every change before it happens. Keep files in. Leave files out. The product earns trust by showing its work before it touches anything.",
-    bullets: [
-      "Each file is visible before the move runs",
-      "Skipped files stay out of the batch",
-      "The destination is legible at a glance",
-    ],
-    image: "/screenshots/story/forma-paper-03-preview.png",
-    alt: "Forma preview queue showing selected files and destinations before moving them",
+    number: "2",
+    label: "LOCAL\u00b7PREVIEW",
+    title: "Local preview.",
+    body: "Review every change before it happens. Keep files in, leave files out. The batch earns trust by showing its work first.",
+  },
+  {
+    number: "3",
+    label: "UNDO\u00b7BUILT\u00b7IN",
+    title: "Undo any batch.",
+    body: "Reverse any move from history. Forma keeps the path back close, in case it\u2019s wrong.",
   },
 ] as const;
 
 const useCases = [
   {
+    icon: Camera,
     title: "Screenshots and exports",
-    rule: "\"Move screenshots older than 7 days to Images.\"",
     body: "Turn recurring desktop noise into one maintained rule instead of one more weekly cleanup ritual.",
+    color: "text-forma-warm-orange",
+    bgTint: "bg-[rgba(184,107,82,0.14)]",
+    borderTint: "border-[rgba(184,107,82,0.22)]",
   },
   {
+    icon: FileText,
     title: "PDFs and paperwork",
-    rule: "\"Put invoices in Finance. Archive old contracts.\"",
     body: "Use rules that stay legible when you revisit them in three months.",
+    color: "text-forma-steel-blue",
+    bgTint: "bg-[rgba(74,107,136,0.14)]",
+    borderTint: "border-[rgba(74,107,136,0.22)]",
   },
   {
+    icon: FolderOpen,
     title: "Project overflow",
-    rule: "\"Route exports, recordings, and drafts into the right project home.\"",
     body: "Keep work-in-progress files moving without surrendering control to a black box.",
+    color: "text-forma-muted-blue",
+    bgTint: "bg-[rgba(107,127,168,0.14)]",
+    borderTint: "border-[rgba(107,127,168,0.22)]",
+  },
+  {
+    icon: Scan,
+    title: "Preview-first",
+    body: "Nothing moves until you approve the batch. The product earns trust by showing its work before it touches anything.",
+    color: "text-forma-sage",
+    bgTint: "bg-[rgba(107,143,113,0.14)]",
+    borderTint: "border-[rgba(107,143,113,0.22)]",
+  },
+  {
+    icon: Shield,
+    title: "Local-only privacy",
+    body: "Files stay on your Mac. No account required. No cloud dependency.",
+    color: "text-forma-steel-blue",
+    bgTint: "bg-[rgba(74,107,136,0.14)]",
+    borderTint: "border-[rgba(74,107,136,0.22)]",
+  },
+  {
+    icon: RotateCcw,
+    title: "Undo system",
+    body: "Reverse a bad batch without cleanup archaeology. The workflow assumes you may want to reverse it later.",
+    color: "text-forma-warm-orange",
+    bgTint: "bg-[rgba(184,107,82,0.14)]",
+    borderTint: "border-[rgba(184,107,82,0.22)]",
   },
 ] as const;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   SECTION COMPONENTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 function SectionEyebrow({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-forma-steel-blue">
+    <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-forma-steel-blue">
       {children}
     </p>
   );
 }
 
-function ProofCard({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/70 p-5 shadow-[0_12px_30px_rgba(15,18,24,0.04)] backdrop-blur">
-      <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{body}</p>
-    </div>
-  );
-}
-
-function Annotation({
-  title,
-  body,
-  className,
-}: {
-  title: string;
-  body: string;
-  className: string;
-}) {
-  return (
-    <div
-      className={`absolute hidden max-w-[220px] rounded-2xl border border-[var(--border-medium)] bg-[rgba(250,250,248,0.94)] px-4 py-3 shadow-[0_18px_40px_rgba(15,18,24,0.12)] backdrop-blur md:block ${className}`}
-    >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-forma-steel-blue">
-        {title}
-      </p>
-      <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-secondary)]">{body}</p>
-    </div>
-  );
-}
-
-function WorkflowPanel({
-  step,
-  title,
-  body,
-  bullets,
-  image,
-  alt,
-  reverse = false,
-}: {
-  step: string;
-  title: string;
-  body: string;
-  bullets: readonly string[];
-  image: string;
-  alt: string;
-  reverse?: boolean;
-}) {
-  return (
-    <article className="rounded-[2rem] border border-[var(--border-subtle)] bg-white/70 p-5 shadow-[0_18px_40px_rgba(15,18,24,0.05)] md:p-8">
-      <div
-        className={`grid items-center gap-8 lg:grid-cols-[0.92fr,1.08fr] ${reverse ? "lg:[&>*:first-child]:order-2 lg:[&>*:last-child]:order-1" : ""}`}
-      >
-        <div>
-          <SectionEyebrow>{step}</SectionEyebrow>
-          <h3 className="mt-4 max-w-[18ch] text-3xl font-semibold tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.5rem]">
-            {title}
-          </h3>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--text-secondary)]">
-            {body}
-          </p>
-          <ul className="mt-6 space-y-3">
-            {bullets.map((bullet) => (
-              <li key={bullet} className="flex items-start gap-3">
-                <span className="mt-[6px] h-2 w-2 rounded-full bg-forma-sage" />
-                <span className="text-sm leading-relaxed text-[var(--text-secondary)]">{bullet}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="overflow-hidden rounded-[1.5rem] border border-[var(--border-medium)] bg-[var(--bg-secondary)]">
-          <Image
-            src={image}
-            alt={alt}
-            width={1312}
-            height={900}
-            className="h-auto w-full"
-          />
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function UseCaseCard({
-  title,
-  rule,
-  body,
-}: {
-  title: string;
-  rule: string;
-  body: string;
-}) {
-  return (
-    <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6">
-      <h3 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
-        {title}
-      </h3>
-      <p className="mt-4 rounded-xl border border-[var(--border-medium)] bg-[var(--surface-glass)] px-4 py-3 font-mono text-[12px] leading-relaxed text-[var(--text-secondary)]">
-        {rule}
-      </p>
-      <p className="mt-4 text-[15px] leading-relaxed text-[var(--text-secondary)]">{body}</p>
-    </article>
-  );
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 export default function Home() {
-  const softwareApplicationJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: SITE_NAME,
-    applicationCategory: "ProductivityApplication",
-    operatingSystem: "macOS 15+",
-    offers: {
-      "@type": "Offer",
-      price: "29",
-      priceCurrency: "USD",
-      description: "One-time purchase. No subscription.",
-      url: `${SITE_URL}/#pricing`,
-    },
-    description:
-      "A file organizer for people who gave up on file organizers. Write rules in plain language, preview every move, and undo anytime.",
-    featureList: [
-      "Plain-language rules",
-      "Preview every move before approval",
-      "Full undo history",
-      "Local-only privacy",
-    ],
-    url: SITE_URL,
-  };
-
-  const organizationJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: SITE_NAME,
-    url: SITE_URL,
-    sameAs: [],
-  };
-
-  const websiteJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: SITE_NAME,
-    url: SITE_URL,
-    inLanguage: "en-US",
-    dateModified: WEBSITE_LAST_UPDATED_ISO,
-  };
-
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faqs.map((faqEntry) => ({
-      "@type": "Question",
-      name: faqEntry.question,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: faqEntry.answer,
+  const jsonLdGraph = [
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: SITE_NAME,
+      applicationCategory: "ProductivityApplication",
+      operatingSystem: "macOS 15+",
+      offers: {
+        "@type": "Offer",
+        price: "29",
+        priceCurrency: "USD",
+        description: "One-time purchase. No subscription.",
+        url: `${SITE_URL}/#pricing`,
       },
-    })),
-  };
+      description:
+        "A file organizer for people who gave up on file organizers. Write rules in plain language, preview every move, and undo anytime.",
+      featureList: [
+        "Plain-language rules",
+        "Preview every move before approval",
+        "Full undo history",
+        "Local-only privacy",
+      ],
+      url: SITE_URL,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: SITE_URL,
+      sameAs: [],
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: SITE_NAME,
+      url: SITE_URL,
+      inLanguage: "en-US",
+      dateModified: WEBSITE_LAST_UPDATED_ISO,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faqs.map((faqEntry) => ({
+        "@type": "Question",
+        name: faqEntry.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: faqEntry.answer,
+        },
+      })),
+    },
+  ];
+
+  const jsonLdString = JSON.stringify({ "@context": "https://schema.org", "@graph": jsonLdGraph }).replace(/<\//g, "<\\/");
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@graph": [
-              softwareApplicationJsonLd,
-              organizationJsonLd,
-              websiteJsonLd,
-              faqJsonLd,
-            ],
-          }),
-        }}
-      />
+      {/* Structured data — generated from trusted site constants, safe to inline */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString }} />
 
       <main id="main-content" className="relative overflow-hidden">
+        {/* ─── HERO ─────────────────────────────────────────────────────── */}
         <section
           id="top"
-          className="relative overflow-hidden border-b border-[var(--border-subtle)] bg-[linear-gradient(180deg,#fafaf8_0%,#f5f2eb_55%,#f2f2f0_100%)]"
+          className="relative overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--bg-primary)]"
         >
-          <div className="absolute inset-x-0 top-0 h-[320px] bg-[radial-gradient(circle_at_top_left,rgba(74,107,136,0.14),transparent_42%),radial-gradient(circle_at_top_right,rgba(107,143,113,0.14),transparent_38%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,var(--gradient-accent-blue),transparent_42%),radial-gradient(circle_at_top_right,var(--gradient-accent-green),transparent_38%)]" />
 
-          <div className="site-container relative py-10 md:py-14 lg:py-16">
-            <div className="grid items-center gap-10 lg:grid-cols-[0.84fr,1.16fr] lg:items-start lg:gap-14">
+          <HeroEntrance className="site-container relative py-12 md:py-16 lg:py-24">
+            <div className="grid items-center gap-10 lg:grid-cols-[3fr_4fr] lg:items-center lg:gap-14">
+              {/* Left: copy */}
               <div>
-                <SectionEyebrow>Preview-first file organization for Mac</SectionEyebrow>
-                <h1 className="mt-5 max-w-[11ch] text-[3rem] font-semibold leading-[0.98] tracking-[-0.05em] text-[var(--text-primary)] sm:text-[3.8rem] lg:text-[4.8rem]">
+                <div data-hero="eyebrow">
+                  <SectionEyebrow>Forma &mdash; Preview-first organization</SectionEyebrow>
+                </div>
+                <h1 data-hero="headline" className="mt-6 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.035em] text-[var(--text-primary)] text-balance sm:text-[2.5rem] md:text-[3rem] lg:text-[3.5rem]">
                   A file organizer for people who gave up on file organizers.
                 </h1>
-                <p className="mt-6 max-w-xl text-lg leading-relaxed text-[var(--text-secondary)] md:text-xl">
-                  Write the rule in plain English. Review every move before it happens. Undo
+                <p data-hero="subtext" className="mt-6 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
+                  Write rules in plain English. Review every move before it happens. Undo
                   the whole batch if it&apos;s wrong.
                 </p>
 
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <div data-hero="cta" className="mt-8">
                   <TrackedAppStoreLink
                     location="hero_primary"
-                    className="inline-flex items-center justify-center rounded-xl bg-[var(--cta-bg)] px-6 py-3.5 text-sm font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-bg-hover)]"
+                    className="inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-[#944A35] to-[#A86048] px-7 py-3.5 text-[15px] font-semibold text-white shadow-[0_4px_16px_rgba(148,74,53,0.35)] transition-[transform,box-shadow,filter] duration-200 ease-out will-change-transform hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(148,74,53,0.45)] hover:brightness-110 active:scale-[0.97]"
                   >
                     Download for Mac
                   </TrackedAppStoreLink>
-                  <a
-                    href="#how-it-works"
-                    className="inline-flex items-center justify-center rounded-xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.66)] px-6 py-3.5 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[rgba(255,255,255,0.82)]"
-                  >
-                    Watch a real cleanup
-                  </a>
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {["$29 once", "Local-only", "No account", "Never deletes files"].map((item) => (
-                    <span
-                      key={item}
-                      className="rounded-full border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]"
-                    >
-                      {item}
-                    </span>
-                  ))}
+                  <p className="mt-3 text-[13px] text-[var(--text-muted)]">
+                    $29 once. macOS 15+. No subscription.
+                  </p>
                 </div>
               </div>
 
-              <div className="relative">
-                <Annotation {...heroAnnotations[0]} />
-                <Annotation {...heroAnnotations[1]} />
-                <Annotation {...heroAnnotations[2]} />
-
-                <MacWindowFrame className="overflow-visible">
-                  <Image
-                    src="/screenshots/light/forma-01-hero-main-window.png"
-                    alt="Forma preview queue showing pending file moves, rules, and a right-side inspector"
-                    width={1440}
-                    height={900}
-                    priority
-                    className="h-auto w-full"
-                  />
-                </MacWindowFrame>
+              {/* Right: live app replica */}
+              <div data-hero="window" className="relative">
+                <FormaHeroWindow />
               </div>
             </div>
-
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {proofItems.map((item) => (
-                <ProofCard key={item.title} title={item.title} body={item.body} />
-              ))}
-            </div>
-          </div>
+          </HeroEntrance>
         </section>
 
-        <section id="how-it-works" className="scroll-mt-16 bg-[var(--bg-primary)] py-14 md:py-20">
+        {/* ─── FEATURE HIGHLIGHTS STRIP ─────────────────────────────────── */}
+        <section aria-labelledby="features-heading" className="border-b border-[var(--border-subtle)] bg-[var(--bg-primary)] py-20 md:py-28">
           <div className="site-container">
-            <div className="max-w-3xl">
-              <SectionEyebrow>How Forma works</SectionEyebrow>
-              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] md:text-[3.5rem]">
+            <div className="text-center">
+              <SectionEyebrow>The logic of craftsmanship</SectionEyebrow>
+              <h2 id="features-heading" className="mx-auto mt-5 max-w-2xl text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
                 Automation without blind trust.
               </h2>
-              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-[var(--text-secondary)]">
-                The site now has one job: show the mechanism, not just the promise. Rule creation,
-                review-before-action, and undo safety all need to appear before pricing.
+              <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
+                Plain language rules, preview-first logic, and full undo history.
               </p>
             </div>
 
-            <div className="mt-10 space-y-6">
-              {workflowSteps.map((step, index) => (
-                <WorkflowPanel
-                  key={step.step}
-                  step={step.step}
-                  title={step.title}
-                  body={step.body}
-                  bullets={step.bullets}
-                  image={step.image}
-                  alt={step.alt}
-                  reverse={index % 2 === 1}
-                />
-              ))}
-            </div>
+            <ScrollReveal direction="up" distance={30} stagger={0.08} className="mx-auto mt-14 grid max-w-4xl gap-10 sm:grid-cols-2 lg:grid-cols-4">
+              {featureHighlights.map((feature) => {
+                const Icon = feature.icon;
+                return (
+                  <div key={feature.title} className="text-center">
+                    <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border ${feature.borderTint} ${feature.bgTint}`}>
+                      <Icon className={`h-7 w-7 ${feature.color}`} strokeWidth={1.5} />
+                    </div>
+                    <p className="mt-4 text-[15px] font-medium text-[var(--text-primary)]">
+                      {feature.title}
+                    </p>
+                    <p className="mt-2 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                      {feature.body}
+                    </p>
+                  </div>
+                );
+              })}
+            </ScrollReveal>
           </div>
         </section>
 
-        <section className="border-y border-[var(--border-subtle)] bg-[linear-gradient(180deg,#f0eee8_0%,#f7f5ef_100%)] py-14 md:py-20">
+        {/* ─── HOW FORMA WORKS (3 steps) ────────────────────────────────── */}
+        <section id="how-it-works" aria-labelledby="how-it-works-heading" className="scroll-mt-16 bg-[var(--bg-primary)] py-20 md:py-28" style={{ backgroundImage: "linear-gradient(180deg, var(--bg-primary), rgba(74, 107, 136, 0.04), rgba(74, 107, 136, 0.06), rgba(74, 107, 136, 0.04), var(--bg-primary))" }}>
           <div className="site-container">
-            <div className="grid items-center gap-8 lg:grid-cols-[0.8fr,1.2fr]">
-              <div>
-                <SectionEyebrow>Transformation</SectionEyebrow>
-                <h2 className="mt-4 max-w-[12ch] text-4xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] md:text-[3.5rem]">
-                  From pile to system.
+            <div className="mx-auto max-w-5xl md:grid md:grid-cols-[1fr_2fr] md:gap-16 md:items-start">
+              {/* Left: section intro */}
+              <div className="mb-10 md:mb-0 md:sticky md:top-24">
+                <SectionEyebrow>How Forma works</SectionEyebrow>
+                <h2 id="how-it-works-heading" className="mt-5 text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
+                  Three steps. No learning curve.
                 </h2>
-                <p className="mt-5 max-w-xl text-lg leading-relaxed text-[var(--text-secondary)]">
-                  Forma is strongest when it turns recurring clutter into one maintainable rule.
-                  This is the exact before-and-after proof the current homepage was missing.
-                </p>
-
-                <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] p-4">
-                    <p className="text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
-                      200
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                      Files cleaned up by one rule instead of one more cleanup session.
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] p-4">
-                    <p className="text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
-                      3
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                      Destinations that stay legible when you revisit them later.
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] p-4">
-                    <p className="text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
-                      0
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                      Blind moves. The batch is reviewed before it runs.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-8">
-                  <TrackedAppStoreLink
-                    location="post_proof_primary"
-                    className="inline-flex items-center justify-center rounded-xl bg-[var(--cta-bg)] px-6 py-3.5 text-sm font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-bg-hover)]"
-                  >
-                    Download for Mac
-                  </TrackedAppStoreLink>
-                </div>
               </div>
 
-              <div className="overflow-hidden rounded-[2rem] border border-[var(--border-medium)] bg-white shadow-[0_24px_60px_rgba(15,18,24,0.08)]">
-                <Image
-                  src="/screenshots/story/forma-paper-04-before-after.png"
-                  alt="Before and after file organization showing a cluttered desktop turned into organized destination folders"
-                  width={1312}
-                  height={900}
-                  className="h-auto w-full"
-                />
-              </div>
+              {/* Right: steps */}
+              <ScrollReveal direction="up" distance={24} stagger={0.1} className="grid gap-10 md:gap-12">
+                {workflowSteps.map((step) => (
+                  <div key={step.number} className="text-left">
+                    <div className="flex items-baseline gap-3">
+                      <span aria-hidden="true" className="text-[4rem] font-bold leading-none tracking-[-0.04em] text-forma-steel-blue/60 sm:text-[4.5rem] md:text-[5.5rem]">
+                        {step.number}
+                      </span>
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-forma-steel-blue">
+                        {step.label}
+                      </p>
+                    </div>
+                    <h3 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+                      {step.title}
+                    </h3>
+                    <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                      {step.body}
+                    </p>
+                  </div>
+                ))}
+              </ScrollReveal>
             </div>
           </div>
         </section>
 
-        <section className="bg-[var(--bg-primary)] py-14 md:py-20">
+        {/* ─── BEFORE & AFTER ───────────────────────────────────────────── */}
+        <section aria-labelledby="before-after-heading" className="border-y border-[var(--border-subtle)] bg-[var(--bg-secondary)] py-20 md:py-28">
           <div className="site-container">
-            <div className="max-w-3xl">
-              <SectionEyebrow>Use cases</SectionEyebrow>
-              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] md:text-[3.25rem]">
-                Built for recurring clutter, not tidy demos.
+            <ScrollReveal direction="up" distance={24} className="mx-auto max-w-4xl">
+              <div>
+                <SectionEyebrow>Before and after</SectionEyebrow>
+                <h2 id="before-after-heading" className="mt-5 max-w-xl text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
+                  One rule. Hundreds of files.
+                </h2>
+                <p className="mt-5 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
+                  Forma turns recurring clutter into one maintainable rule.
+                </p>
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal direction="up" distance={30} delay={150} className="mx-auto mt-12 max-w-4xl">
+              <div>
+                <FormaBeforeAfter />
+              </div>
+            </ScrollReveal>
+          </div>
+        </section>
+
+        {/* ─── USE CASES (2x3 grid) ─────────────────────────────────────── */}
+        <section aria-labelledby="use-cases-heading" className="bg-[var(--bg-primary)] py-20 md:py-28" style={{ backgroundImage: "radial-gradient(circle, rgba(107, 143, 113, 0.08) 1px, transparent 1px)", backgroundSize: "24px 24px" }}>
+          <div className="site-container">
+            <div className="text-center">
+              <SectionEyebrow>How you&apos;ll use it</SectionEyebrow>
+              <h2 id="use-cases-heading" className="mx-auto mt-5 max-w-2xl text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
+                Built for recurring clutter.
               </h2>
-              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-[var(--text-secondary)]">
-                The strongest use cases are the ones you repeat every week. Start with one rule,
-                one folder, and one visible payoff.
+              <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
+                Start with one rule, one folder, and one visible payoff.
               </p>
             </div>
 
-            <div className="mt-10 grid gap-5 lg:grid-cols-3">
-              {useCases.map((useCase) => (
-                <UseCaseCard
-                  key={useCase.title}
-                  title={useCase.title}
-                  rule={useCase.rule}
-                  body={useCase.body}
-                />
-              ))}
-            </div>
+            <ScrollReveal direction="up" distance={24} stagger={0.06} className="mx-auto mt-14 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {useCases.map((useCase) => {
+                const Icon = useCase.icon;
+                return (
+                  <article
+                    key={useCase.title}
+                    className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 transition-shadow duration-300 hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+                  >
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl border ${useCase.borderTint} ${useCase.bgTint}`}>
+                      <Icon className={`h-6 w-6 ${useCase.color}`} strokeWidth={1.5} />
+                    </div>
+                    <h3 className="mt-5 text-[15px] font-medium text-[var(--text-primary)]">
+                      {useCase.title}
+                    </h3>
+                    <p className="mt-2 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                      {useCase.body}
+                    </p>
+                  </article>
+                );
+              })}
+            </ScrollReveal>
           </div>
         </section>
 
+        {/* ─── PRICING (split card) ─────────────────────────────────────── */}
         <section
           id="pricing"
-          className="scroll-mt-16 border-y border-[var(--border-subtle)] bg-[var(--bg-secondary)] py-14 md:py-20"
+          aria-labelledby="pricing-heading"
+          className="scroll-mt-16 border-y border-[var(--border-subtle)] bg-[var(--bg-secondary)] py-20 md:py-28"
+          style={{ backgroundImage: "linear-gradient(135deg, var(--bg-secondary), rgba(184, 107, 82, 0.03), rgba(74, 107, 136, 0.04))" }}
         >
-          <div className="site-container">
-            <div className="grid gap-6 lg:grid-cols-[0.9fr,1.1fr]">
-              <div className="rounded-[2rem] border border-[var(--border-medium)] bg-[var(--bg-primary)] p-8 md:p-10">
-                <SectionEyebrow>Pricing</SectionEyebrow>
-                <h2 className="mt-4 text-[3.5rem] font-semibold tracking-[-0.05em] text-[var(--text-primary)] md:text-[4.75rem]">
-                  $29 once.
-                </h2>
-                <p className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[var(--text-primary)]">
-                  Not another subscription.
-                </p>
-                <p className="mt-5 max-w-lg text-lg leading-relaxed text-[var(--text-secondary)]">
-                  No account. No cloud tax. No premium tier maze. Just a native Mac utility you
-                  own and can trust with your files.
-                </p>
-
-                <ul className="mt-8 space-y-3">
-                  {[
-                    "Preview every move before it runs",
-                    "Undo remains part of the workflow",
-                    "Runs locally on macOS 15 or later",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-3">
-                      <span className="mt-[6px] h-2 w-2 rounded-full bg-forma-steel-blue" />
-                      <span className="text-sm leading-relaxed text-[var(--text-secondary)]">
-                        {item}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                  <TrackedAppStoreLink
-                    location="pricing_primary"
-                    className="inline-flex items-center justify-center rounded-xl bg-[var(--cta-bg)] px-6 py-3.5 text-sm font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-bg-hover)]"
-                  >
-                    Download for Mac
-                  </TrackedAppStoreLink>
-                  <Link
-                    href="/support"
-                    className="inline-flex items-center justify-center rounded-xl border border-[var(--border-medium)] px-6 py-3.5 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-glass)]"
-                  >
-                    Talk to support
-                  </Link>
+          <ScrollReveal direction="up" distance={30} className="site-container">
+            <div className="mx-auto max-w-4xl overflow-hidden rounded-[2rem] border border-[var(--border-medium)] bg-[var(--bg-primary)] border-t-[3px] border-t-forma-warm-orange">
+              <div className="grid md:grid-cols-2">
+                {/* Left: headline */}
+                <div className="flex flex-col justify-center p-8 md:p-10 lg:p-14">
+                  <SectionEyebrow>Transparent</SectionEyebrow>
+                  <h2 id="pricing-heading" className="mt-5 text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
+                    One purchase. No subscriptions.
+                  </h2>
+                  <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--text-secondary)]">
+                    No account. No cloud tax. No premium tier maze. Just a native Mac utility you
+                    own and can trust with your files.
+                  </p>
                 </div>
-              </div>
 
-              <div className="rounded-[2rem] border border-[var(--border-medium)] bg-[linear-gradient(180deg,rgba(255,255,255,0.62)_0%,rgba(255,255,255,0.3)_100%)] p-8 md:p-10">
-                <SectionEyebrow>What you are buying</SectionEyebrow>
-                <h3 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.5rem]">
-                  Controlled automation that still feels native.
-                </h3>
-                <p className="mt-5 max-w-xl text-base leading-relaxed text-[var(--text-secondary)]">
-                  Forma wins when it makes file cleanup lighter without asking you to surrender
-                  judgment. The site should sell that promise as clearly as the app already does.
-                </p>
+                {/* Right: price + features + CTA */}
+                <div className="border-t border-[var(--border-subtle)] p-8 md:border-l md:border-t-0 md:p-10 lg:p-14">
+                  <p className="text-[3.5rem] font-bold tracking-[-0.04em] text-[var(--text-primary)] md:text-[4.5rem] md:leading-none">
+                    $29
+                  </p>
+                  <p className="mt-1 text-[13px] font-medium tracking-[0.12em] uppercase text-[var(--text-muted)]">
+                    One-time purchase
+                  </p>
 
-                <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] p-4">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Safer than auto-sorters
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                      Preview-first review means you stay in charge before files move.
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] p-4">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Designed for real mess
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                      Screenshots, PDFs, exports, and project debris are the starting point.
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] p-4">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Undo is expected
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                      The product assumes you may want to reverse a batch and keeps that path close.
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] p-4">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      No account required
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                      Local-only operation and no account wall keep the product honest.
-                    </p>
+                  <ul className="mt-8 space-y-3.5">
+                    {[
+                      "Preview every move before it runs",
+                      "No subscription \u2014 yours forever",
+                      "No cloud dependency. Runs locally on macOS 15+",
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-3">
+                        <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-forma-steel-blue" aria-hidden="true" />
+                        <span className="text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                          {item}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-10">
+                    <TrackedAppStoreLink
+                      location="pricing_primary"
+                      className="inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-[#944A35] to-[#A86048] px-7 py-3.5 text-[15px] font-semibold text-white shadow-[0_4px_16px_rgba(148,74,53,0.35)] transition-[transform,box-shadow,filter] duration-200 ease-out will-change-transform hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(148,74,53,0.45)] hover:brightness-110 active:scale-[0.97]"
+                    >
+                      Download for Mac
+                    </TrackedAppStoreLink>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </ScrollReveal>
         </section>
 
+        {/* ─── FAQ ──────────────────────────────────────────────────────── */}
         <FAQSection />
       </main>
     </>

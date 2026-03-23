@@ -54,7 +54,7 @@ export default function Footer() {
 
   return (
     <footer className="bg-[var(--footer-bg)] border-t border-[var(--border-subtle)]" role="contentinfo">
-      <div className="site-container py-10 md:py-12">
+      <div className="site-container py-12 md:py-16">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_auto] md:items-start">
           {/* Left: Logo + founder story */}
           <div className="flex items-start gap-4">
@@ -71,15 +71,15 @@ export default function Footer() {
           {/* Center: Link columns */}
           <div className="grid grid-cols-2 gap-10 sm:max-w-sm">
             <nav aria-label="Product">
-              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                 Product
               </p>
-              <ul className="space-y-2.5">
+              <ul className="space-y-1">
                 {productLinks.map(({ label, href }) => (
                   <li key={href}>
                     <SmoothScrollLink
                       href={href}
-                      className="text-sm text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text-primary)]"
+                      className="inline-block py-1.5 text-sm text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text-primary)]"
                     >
                       {label}
                     </SmoothScrollLink>
@@ -89,15 +89,15 @@ export default function Footer() {
             </nav>
 
             <nav aria-label="Legal">
-              <p className="mb-3 text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                 Legal
               </p>
-              <ul className="space-y-2.5">
+              <ul className="space-y-1">
                 {legalLinks.map(({ label, href }) => (
                   <li key={href}>
                     <Link
                       href={href}
-                      className="text-sm text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text-primary)]"
+                      className="inline-block py-1.5 text-sm text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text-primary)]"
                     >
                       {label}
                     </Link>
