@@ -13,7 +13,7 @@ export const faqs: FaqEntry[] = [
     id: "file-safety",
     question: "Will it delete my files?",
     answer:
-      "No. Forma never deletes files. It only moves files you review first, and you can undo moves later from history.",
+      "No. Forma only moves files \u2014 never deletes. You review every move before it happens, and you can undo from history if you change your mind.",
     category: "safety",
     lastUpdated: WEBSITE_LAST_UPDATED_ISO,
   },
@@ -29,7 +29,7 @@ export const faqs: FaqEntry[] = [
     id: "rules-overview",
     question: "How do rules work?",
     answer:
-      "Rules are plain conditions and destinations. Example: if filename contains 'screenshot', move it to ~/Screenshots.",
+      "A rule is a condition and a destination, written in plain English. Example: \u2018if the filename contains screenshot, move it to ~/Screenshots.\u2019 That\u2019s a real rule.",
     category: "rules",
     lastUpdated: WEBSITE_LAST_UPDATED_ISO,
   },
@@ -37,7 +37,7 @@ export const faqs: FaqEntry[] = [
     id: "undo-history",
     question: "Can I undo moves?",
     answer:
-      "Yes. Forma keeps a full activity history, so you can undo moves later.",
+      "Yes. Every move is tracked. Undo a single file or an entire batch, even weeks later.",
     category: "undo",
     lastUpdated: WEBSITE_LAST_UPDATED_ISO,
   },
@@ -53,7 +53,7 @@ export const faqs: FaqEntry[] = [
     id: "privacy",
     question: "Is my data private?",
     answer:
-      "Yes. Organization runs locally on your Mac. Files, filenames, and folder structures are not uploaded for processing.",
+      "Yes. Everything runs locally on your Mac. No file contents, names, or folder structures leave your machine.",
     category: "privacy",
     lastUpdated: WEBSITE_LAST_UPDATED_ISO,
   },

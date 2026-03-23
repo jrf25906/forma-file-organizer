@@ -30,10 +30,73 @@
 
   /* Animations */
   --animate-blink: blink 1s step-end infinite;
+  --animate-camera-snap: camera-snap 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  --animate-doc-shuffle: doc-shuffle 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  --animate-folder-pop: folder-pop 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  --animate-scan-pulse: scan-pulse 1.5s ease-in-out infinite;
+  --animate-shield-block: shield-block 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  --animate-undo-spin: undo-spin 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  --animate-type-bounce: type-bounce 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  --animate-branch-split: branch-split 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  --animate-eye-blink: eye-blink 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 
   @keyframes blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
+  }
+
+  @keyframes camera-snap {
+    0% { transform: scale(1) rotate(0deg); }
+    30% { transform: scale(0.9) rotate(-4deg); }
+    70% { transform: scale(1.15) rotate(4deg); }
+    100% { transform: scale(1.1) rotate(0deg); }
+  }
+
+  @keyframes doc-shuffle {
+    0% { transform: translateY(0) rotate(0); }
+    40% { transform: translateY(-4px) rotate(-6deg); }
+    70% { transform: translateY(-2px) rotate(3deg); }
+    100% { transform: translateY(-3px) rotate(-2deg); }
+  }
+
+  @keyframes folder-pop {
+    0% { transform: scale(1) translateY(0); }
+    50% { transform: scale(1.2) translateY(-6px); }
+    100% { transform: scale(1.1) translateY(-3px); }
+  }
+
+  @keyframes scan-pulse {
+    0%, 100% { transform: translateY(0) scale(1.05); }
+    50% { transform: translateY(-6px) scale(1.05); }
+  }
+
+  @keyframes shield-block {
+    0% { transform: scale(1) rotate(0); }
+    30% { transform: scale(1.15) rotate(-10deg); }
+    60% { transform: scale(1.15) rotate(8deg); }
+    100% { transform: scale(1.1) rotate(0deg); }
+  }
+
+  @keyframes undo-spin {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(-100deg) scale(1.1); }
+    100% { transform: rotate(-360deg) scale(1); }
+  }
+
+  @keyframes type-bounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-4px) scale(1.1); }
+  }
+
+  @keyframes branch-split {
+    0% { transform: rotate(0deg) scale(1); }
+    40% { transform: rotate(15deg) scale(1.1); }
+    100% { transform: rotate(0deg) scale(1.1); }
+  }
+
+  @keyframes eye-blink {
+    0%, 100% { transform: scaleX(1) scaleY(1); opacity: 1; }
+    50% { transform: scaleX(1.1) scaleY(0.4); opacity: 0.8; }
   }
 }
 
@@ -137,6 +200,15 @@
   --file-card-pill-text: #5B7C99;
   --file-card-status-ready: #7A9D7E;
   --file-card-status-pending: #FF9F0A;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

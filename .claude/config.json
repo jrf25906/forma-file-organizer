@@ -2,8 +2,12 @@
   "hooks": {
     "UserPromptSubmit": [
       {
-        "command": ".claude/hooks/prompt-rewriter.sh",
-        "background": false
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/prompt-rewriter.sh"
+          }
+        ]
       }
     ]
   }

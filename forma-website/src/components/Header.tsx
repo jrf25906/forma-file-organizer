@@ -60,7 +60,7 @@ export function Header() {
   return (
     <header
       role="banner"
-      className="w-full border-b border-[var(--border-subtle)] bg-[var(--bg-primary)]"
+      className="relative z-50 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-primary)]"
     >
       <div className="site-container flex h-[73px] items-center justify-between">
         <Link
@@ -92,7 +92,7 @@ export function Header() {
             location="header_desktop"
             className="inline-flex items-center rounded-lg bg-gradient-to-br from-[#944A35] to-[#A86048] px-4 py-2 text-[13px] font-medium leading-4 text-white transition-[transform,box-shadow,filter] duration-200 ease-out will-change-transform hover:brightness-110 active:scale-[0.97] min-h-[44px]"
           >
-            Download for Mac
+            Get Forma
           </TrackedAppStoreLink>
 
           {/* Mobile hamburger */}
