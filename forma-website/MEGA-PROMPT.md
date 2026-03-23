@@ -3,8 +3,10 @@ Refine and polish the Forma marketing website to best-in-class quality using eve
 ## PROJECT CONTEXT
 
 - **Product**: Forma -- a file organizer for people who gave up on file organizers. macOS utility, $29 one-time purchase.
-- **Target audience**: Mac users who've tried and abandoned other file organizers. Professionals, creatives, students who value control and reversibility.
-- **Brand tone**: Conversational, self-aware, confident but not arrogant. The product knows it's entering a graveyard of failed file organizers and leads with that honesty.
+- **Target audience**: People who accumulate files faster than any system can contain — especially those with ADHD or executive function challenges. Also: Mac users who've tried and abandoned other file organizers, and anyone who periodically rage-cleans their desktop. The hero eyebrow ("For the perpetually messy") names this audience directly.
+- **Brand tone**: Warm, self-aware, lightly funny. Humor comes from recognition ("Your desktop has 400 screenshots on it right now. Don't look."), not jokes. The product knows it's entering a graveyard of failed file organizers and leads with that honesty. Each section advances one argument — no repeating the same benefit across multiple sections.
+- **SEO keywords**: ADHD-related terms (adhd file organization, adhd desktop clutter, file organizer for adhd, adhd productivity mac, executive function file management) are in meta keywords, llms.txt, product API, and schema markup — but not in visible copy.
+- **CTA strategy**: Differentiated by context — "Get Forma" (header), "Get Forma for Mac" (hero), "Get Forma — $29" (pricing).
 - **Existing site**: Next.js 16 + React 19 + TailwindCSS v4 + GSAP animations, deployed on Vercel at formafiles.com
 - **What exists**: Full marketing homepage (9 sections), blog system, get-forma page, support page, privacy/terms pages, AI-consumable routes. This is already a polished site -- the goal is to take it from good to exceptional.
 - **Design tokens**: Custom Forma palette (obsidian, bone white, steel blue, sage, warm orange, soft green, muted blue) defined in forma-design-tokens.ts and globals.css

@@ -46,6 +46,11 @@ export const metadata: Metadata = {
     "file organizer",
     "macOS utility",
     "desktop cleanup",
+    "adhd file organization",
+    "adhd desktop clutter",
+    "file organizer for adhd",
+    "adhd productivity mac",
+    "executive function file management",
   ],
   authors: [{ name: SITE_NAME }],
   alternates: {

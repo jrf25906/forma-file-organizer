@@ -124,16 +124,28 @@ Forma uses native macOS file APIs to organize your files directly — but only a
 **Use:**
 > Built for people whose files outgrow folders — where screenshots, documents, assets, and ideas pile up faster than folders can handle.
 
+### Primary Audience: The Perpetually Messy
+
+The biggest audience is people who accumulate files faster than any system can contain — often those with ADHD or executive function challenges. They know their desktop is a mess, they feel guilty about it, they've tried solutions that were too complex or required too much upkeep. They need something that works without constant maintenance.
+
 ### The Unifying Thread
 
-The unifying thread is not profession, but *care*: people who take their work seriously and expect their tools to do the same.
+The unifying thread is not profession or diagnosis, but *overwhelm*: people whose files outpace their ability to organize, who want a tool that works with their brain instead of demanding a brain they don't have.
 
 ### Example Personas (behavior-based)
 
+- People with ADHD whose desktop has 400 screenshots and growing
 - People whose Downloads folder decides their productivity
 - Founders with 14 pitch decks and no canonical version
 - Researchers buried in PDFs, screenshots, and exports
 - Anyone who's ever named a file `Final_v2_edit_FINAL_FOR-REAL.mov`
+- Anyone who periodically rage-cleans their desktop, then repeats the cycle
+
+### ADHD/Executive Function Discoverability
+
+ADHD-related language appears in discovery layers (meta keywords, structured data, llms.txt, product API) but not in visible page copy. The reasoning: "for the perpetually messy" resonates with the ADHD experience without labeling or being reductive. Someone searching "adhd file organizer mac" finds Forma; someone landing on the homepage feels seen without being categorized.
+
+**Discovery keywords:** adhd file organization, adhd desktop clutter, file organizer for adhd, adhd productivity mac, executive function file management
 
 ---
 
@@ -225,10 +237,23 @@ These decisions apply to `forma-website` marketing copy. They represent delibera
 The website feature was renamed from "Natural Language Rules" to "Rules That Read Like Sentences." Rationale: Forma uses condition-based rules (if filename contains X, move to Y), not natural language processing or AI. "Natural Language Rules" overpromises and triggers the same AI skepticism the brand positioning explicitly avoids. The new name is honest — the rules *read* like sentences, but they're structured conditions.
 
 ### Competitive Positioning Angle
-Features intro now leads with: "Most organizers move first and explain later. Forma shows you everything upfront — then lets you decide." This positions Forma's preview-first workflow as the key differentiator against the competitive field, rather than listing features in isolation.
+Features intro now leads with: "Most file organizers run in the background and hope for the best. Forma shows you what it's about to do." This positions Forma's preview-first workflow as the key differentiator against the competitive field, rather than listing features in isolation.
 
 ### "Built natively for macOS" (not "No Electron")
 "Not another Electron wrapper" and "Native Swift app" were replaced with user-facing benefit language. "No Electron" is meaningless to most users and reads as developer in-group signaling. Reserve "No Electron" for technical audiences (Hacker News, developer press). General audiences get: "Fast and lightweight — built natively for macOS 15+."
+
+### Website Voice Direction (March 2026)
+Website copy was rewritten for a unified voice: **warm, self-aware, lightly funny**. The humor comes from recognition — the reader sees themselves in the copy — not from jokes or puns. Key principles:
+- Each section advances one argument (no repeating "preview before action" across sections)
+- Copy talks *to* the user, not *about* the product ("Your desktop has 400 screenshots on it right now")
+- Self-aware humor normalizes the mess rather than shaming it ("past-you was wrong", "Don't look. Just write a rule.")
+- The tornado background visual is echoed by the hero subheadline ("Your files are already out of control") — the visual shows the problem, the words name the resolution
+
+### Hero Eyebrow: "For the perpetually messy"
+Replaced "Forma — Preview-first organization" (which read like a category name, not an identity statement). The new eyebrow sets audience identity before the headline confirms it — one-two punch. Echoed in the product API tagline for agent discoverability.
+
+### ADHD/Executive Function SEO Strategy
+ADHD-related keywords added to meta keywords, llms.txt, product API tagline, and schema markup. These are discovery-layer only — not in visible copy. The goal: someone asking ChatGPT "what app helps with ADHD file organization" or searching Google for "adhd desktop clutter mac" finds Forma. The visible copy uses language that resonates with the ADHD experience ("perpetually messy", "change your mind", "out of control") without labeling.
 
 ---
 
@@ -249,14 +274,16 @@ Use this as the foundation for all messaging:
 
 ## CTA Consistency
 
-Use consistent CTAs throughout all materials:
+CTAs are differentiated by context — each location communicates different information:
 
-| Context | Primary CTA | Secondary CTA |
-|---------|-------------|---------------|
-| Hero | Download for Mac | Watch a 30-second demo |
-| Mid-page | Download for Mac | See how it works |
-| Footer | Download for Mac | — |
-| In-app | Organize now | Review first |
+| Context | Primary CTA | Rationale |
+|---------|-------------|-----------|
+| Header | Get Forma | Compact, fits nav without competing with page content |
+| Hero | Get Forma for Mac | Primary CTA, platform-clear for organic traffic |
+| Pricing | Get Forma — $29 | Includes price at the decision point |
+| In-app | Organize now | Action-oriented for existing users |
+
+> **Note (Mar 2026):** "Download for Mac" was replaced across all website CTAs. "Get Forma" is ownership-framed rather than action-framed, and differentiating CTAs by context avoids the generic feel of the same button text repeated everywhere.
 
 ---
 

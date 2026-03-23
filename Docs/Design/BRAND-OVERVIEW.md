@@ -1,6 +1,6 @@
 # Forma - Brand Overview
 
-**Last Updated:** February 2026
+**Last Updated:** March 2026
 **Status:** Design System Implemented, Visual Identity Finalized
 **Strategic Foundation:** See [BRAND-POSITIONING.md](BRAND-POSITIONING.md) for messaging source of truth
 
@@ -10,12 +10,16 @@
 
 **Brand Name:** Forma
 **Brand Tagline:** "Give your files form" *(brand-level; used in app, packaging, brand contexts)*
+**Product API Tagline:** "File organization for the perpetually messy" *(machine-readable product endpoint)*
 **Website Tagline:** "A file organizer that actually sticks" *(website `SITE_TAGLINE`; see rationale below)*
 **Website OG Headline:** "A file organizer for people who gave up on file organizers" *(OG title, metadata, social cards)*
+**Hero Eyebrow:** "For the perpetually messy" *(sets audience identity before the headline)*
 **Positioning:** A structural system layer for macOS files — not a replacement for Finder, but an executor of your intent
-**Target Behavior:** People whose files outgrow folders — where screenshots, documents, assets, and ideas pile up faster than folders can handle
+**Target Behavior:** People whose files outgrow folders — especially those with ADHD or executive function challenges who accumulate files faster than any system can contain. Also: people who've tried and abandoned other file organizers, and anyone who periodically rage-cleans their desktop.
 
 > **Note (Feb 2026):** The website now uses a distinct tagline from the brand-level tagline. "Give your files form" is elegant but doesn't communicate the product's value proposition to cold traffic. The website headline targets people who've already tried and failed with other organizers — a higher-intent audience. The brand tagline remains appropriate for in-app, packaging, and contexts where the user already knows Forma.
+
+> **Note (Mar 2026):** Website copy was rewritten for a unified warm, self-aware, lightly funny voice. Each section now advances a distinct argument instead of repeating "preview before action" in multiple places. CTAs differentiated by context: "Get Forma" (header), "Get Forma for Mac" (hero), "Get Forma — $29" (pricing). ADHD and executive function keywords added to meta keywords, llms.txt, product API, and schema markup for discoverability — but kept out of visible page copy to avoid being reductive.
 
 ---
 

@@ -4,7 +4,7 @@ import { PUBLIC_API_VERSION, WEBSITE_LAST_UPDATED_ISO } from "@/lib/site";
 
 export const publicProduct = {
   name: "Forma",
-  tagline: "Give your files form",
+  tagline: "File organization for the perpetually messy",
   platform: "macOS 15+",
   price_usd: 29,
   purchase_url: MAC_APP_STORE_URL,

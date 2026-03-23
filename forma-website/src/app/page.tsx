@@ -233,7 +233,7 @@ export default function Home() {
         url: `${SITE_URL}/#pricing`,
       },
       description:
-        "A file organizer for people who gave up on file organizers. Write rules in plain English, preview every move, undo anytime. $29 for Mac.",
+        "A file organizer for people who gave up on file organizers. Write rules in plain English, preview every move, undo anytime. Built for ADHD brains and anyone overwhelmed by file clutter. $29 for Mac.",
       featureList: [
         "Plain-language rules",
         "Preview every move before approval",
