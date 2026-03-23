@@ -293,14 +293,14 @@ export default function Home() {
               {/* Left: copy */}
               <div>
                 <div data-hero="eyebrow">
-                  <SectionEyebrow>Forma &mdash; Preview-first organization</SectionEyebrow>
+                  <SectionEyebrow>For the perpetually messy</SectionEyebrow>
                 </div>
                 <h1 data-hero="headline" className="mt-6 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.035em] text-[var(--text-primary)] text-balance sm:text-[2.5rem] md:text-[3rem] lg:text-[3.5rem]">
                   A file organizer for people who gave up on file organizers.
                 </h1>
                 <p data-hero="subtext" className="mt-6 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
-                  Tell it where things should go &mdash; in plain English, not regex.
-                  Preview the batch before anything moves. Undo the whole thing when you change your mind.
+                  Your files are already out of control. Tell Forma where they should go &mdash; in plain English, not regex.
+                  Preview the batch. Undo when you change your mind.
                 </p>
 
                 <div data-hero="cta" className="mt-8">
