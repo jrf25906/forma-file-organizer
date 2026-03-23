@@ -1,3 +1,4 @@
+"use client";
 // ---------------------------------------------------------------------------
 // FormaHeroWindow — High-fidelity HTML replica of the Forma app main window
 // Purely presentational. No interactivity, no animations.
@@ -796,7 +797,9 @@ function FileList() {
           <div style={{ display: "flex", alignItems: "center", height: 22, padding: "0 10px", borderRadius: 8, background: "rgba(0,0,0,0.05)" }}>
             <span style={{ fontSize: 10.5, fontWeight: 500, color: t.labelSecondary }}>Skip</span>
           </div>
-          <div
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('forma-organize-click'))}
+            className="transition-transform active:scale-95 hover:brightness-110 cursor-pointer pointer-events-auto"
             style={{
               display: "flex",
               alignItems: "center",
@@ -806,11 +809,12 @@ function FileList() {
               borderRadius: 8,
               background: t.organizeBg,
               color: t.organizeText,
+              border: "none",
             }}
           >
             <FolderMoveIcon size={11} color="#FFFFFF" />
             <span style={{ fontSize: 10.5, fontWeight: 600 }}>Organize 4</span>
-          </div>
+          </button>
           {/* Close X */}
           <svg width={14} height={14} viewBox="0 0 16 16" fill="none" style={{ marginLeft: 8, opacity: 0.4 }}>
             <path d="M4 4L12 12M12 4L4 12" stroke={t.labelPrimary} strokeWidth="1.5" strokeLinecap="round" />

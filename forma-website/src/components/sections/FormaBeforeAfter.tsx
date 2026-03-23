@@ -5,12 +5,12 @@ import Image from "next/image";
 
 // ─── macOS Dock Apps ─────────────────────────────────────────────────────────
 const DOCK_ICON_PATH = "/dock-icons";
-const dockApps = [
+const baseDockApps = [
   "Finder",
   "Safari",
   "Messages",
   "Mail",
-  "Maps",
+  // The center split perfectly intersects here (4 apps left, 4 apps right)
   "Photos",
   "Music",
   "Notes",
@@ -22,7 +22,7 @@ const desktopFiles = [
   { name: "Screenshot 2026-01-15 at 9.42.17 AM.png", type: "image", x: 3, y: 3 },
   { name: "IMG_4392.HEIC", type: "image", x: 16, y: 1 },
   { name: "Invoice_Feb2026.pdf", type: "pdf", x: 30, y: 5 },
-  { name: "budget-v3-FINAL.xlsx", type: "spreadsheet", x: 50, y: 2 },
+  { name: "budget-v3-FINAL.xlsx", type: "spreadsheet", x: 39, y: 2 },
   { name: "notes.txt", type: "text", x: 70, y: 4 },
   { name: "Untitled.sketch", type: "design", x: 85, y: 1 },
   { name: "meeting-recording.mp4", type: "video", x: 6, y: 18 },
@@ -34,7 +34,7 @@ const desktopFiles = [
   { name: "presentation-deck.pptx", type: "slides", x: 2, y: 33 },
   { name: "holiday-photo.jpg", type: "image", x: 15, y: 35 },
   { name: "banner-draft.png", type: "image", x: 32, y: 32 },
-  { name: "project-plan.pdf", type: "pdf", x: 48, y: 36 },
+  { name: "project-plan.pdf", type: "pdf", x: 37, y: 36 },
   { name: "Screen Recording...03.mov", type: "video", x: 64, y: 33 },
   { name: "old-resume.docx", type: "doc", x: 80, y: 34 },
   { name: "logo-final-FINAL2.ai", type: "design", x: 5, y: 49 },
@@ -116,15 +116,18 @@ function DesktopFolder({ folder, x, y }: { folder: (typeof desktopFolders)[numbe
       className="absolute flex w-[76px] cursor-default select-none flex-col items-center gap-[3px]"
       style={{ left: `${x}%`, top: `${y}%` }}
     >
-      <Image
-        src={`${FILE_ICON_PATH}/folder.png`}
-        alt=""
-        width={48}
-        height={48}
-        draggable={false}
-        aria-hidden="true"
-        style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.2))" }}
-      />
+      <div className="relative flex h-[48px] w-[56px] items-end justify-center">
+        <Image
+          src={`${FILE_ICON_PATH}/folder-open.png`}
+          alt=""
+          width={48}
+          height={48}
+          draggable={false}
+          aria-hidden="true"
+          className="relative z-10"
+          style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.2))" }}
+        />
+      </div>
       <span
         className="max-w-[74px] text-center text-white"
         style={{
@@ -165,14 +168,14 @@ function MenuBar({ activeApp = "Finder" }: { activeApp?: string }) {
             style={{ borderRadius: 3, marginRight: -6, transform: "scale(1.15)" }}
           />
         )}
-        <span style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.95)", textShadow: "0 1px 2px rgba(0,0,0,0.25)" }}>
           {activeApp}
         </span>
         {(activeApp === "Forma"
           ? ["File", "Edit", "View", "Organize"]
           : ["File", "Edit", "View", "Go"]
         ).map((m) => (
-          <span key={m} style={{ fontSize: 10.5, color: "rgba(255,255,255,0.75)" }}>
+          <span key={m} style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", textShadow: "0 1px 2px rgba(0,0,0,0.25)" }}>
             {m}
           </span>
         ))}
@@ -212,7 +215,7 @@ function MenuBar({ activeApp = "Finder" }: { activeApp?: string }) {
           <rect x="2" y="2" width="12" height="7" rx="1" fill="rgba(255,255,255,0.7)" />
           <rect x="19" y="3" width="2.5" height="5" rx="1" fill="rgba(255,255,255,0.4)" />
         </svg>
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", fontWeight: 400 }}>
+        <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.9)", fontWeight: 500, textShadow: "0 1px 2px rgba(0,0,0,0.25)" }}>
           Wed 9:42 AM
         </span>
       </div>
@@ -231,37 +234,29 @@ function Dock({ showForma = false }: { showForma?: boolean }) {
         border: "1px solid rgba(255,255,255,0.2)",
       }}
     >
-      {dockApps.map((name) => (
-        <Image
-          key={name}
-          src={`${DOCK_ICON_PATH}/${name}.png`}
-          alt={name}
-          width={34}
-          height={34}
-          draggable={false}
-          style={{
-            borderRadius: 34 * 0.22,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-          }}
-        />
-      ))}
-      {/* Forma dock icon — scaled down slightly because macOS app icons have
-         a translucent backing layer that makes their artwork appear smaller
-         within the same 34px box */}
-      {showForma && (
-        <Image
-          src="/app-icon-1024.png"
-          alt="Forma"
-          width={34}
-          height={34}
-          draggable={false}
-          style={{
-            borderRadius: 34 * 0.22,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-            transform: "scale(0.82)",
-          }}
-        />
-      )}
+      {baseDockApps.map((name, i) => {
+        // Drop Forma into the 5th slot precisely on the "After" side
+        const isFormaSlot = i === 4;
+        const iconName = (showForma && isFormaSlot) ? "Forma" : name;
+        const src = iconName === "Forma" ? "/app-icon-1024.png" : `${DOCK_ICON_PATH}/${name}.png`;
+        const scale = iconName === "Forma" ? "scale(0.82)" : "none";
+
+        return (
+          <Image
+            key={name}
+            src={src}
+            alt={iconName}
+            width={34}
+            height={34}
+            draggable={false}
+            style={{
+              borderRadius: 34 * 0.22,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+              transform: scale,
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -304,11 +299,12 @@ function FormaAppWindow() {
         >
           <div
             style={{
-              fontSize: 7.5,
-              color: "#999",
+              fontSize: 9,
+              color: "#737373",
               textTransform: "uppercase",
               letterSpacing: 0.5,
-              marginBottom: 2,
+              marginBottom: 4,
+              fontWeight: 600,
             }}
           >
             Locations
@@ -317,8 +313,9 @@ function FormaAppWindow() {
             <div
               key={loc}
               style={{
-                fontSize: 8.5,
-                color: "#555",
+                fontSize: 10,
+                color: "#404040",
+                fontWeight: 500,
                 padding: "2px 4px",
                 borderRadius: 3,
                 background: loc === "Desktop" ? "rgba(0,0,0,0.06)" : "transparent",
@@ -329,18 +326,19 @@ function FormaAppWindow() {
           ))}
           <div
             style={{
-              fontSize: 7.5,
-              color: "#999",
+              fontSize: 9,
+              color: "#737373",
               textTransform: "uppercase",
               letterSpacing: 0.5,
-              marginTop: 6,
-              marginBottom: 2,
+              marginTop: 8,
+              marginBottom: 4,
+              fontWeight: 600,
             }}
           >
             Tools
           </div>
           {["Rules", "Analytics"].map((tool) => (
-            <div key={tool} style={{ fontSize: 8.5, color: "#555", padding: "2px 4px" }}>
+            <div key={tool} style={{ fontSize: 10, color: "#404040", fontWeight: 500, padding: "2px 4px" }}>
               {tool}
             </div>
           ))}
@@ -353,7 +351,7 @@ function FormaAppWindow() {
           >
             <span
               style={{
-                fontSize: 8,
+                fontSize: 10,
                 fontWeight: 600,
                 color: "#1a1a1a",
                 borderBottom: "1.5px solid #1a1a1a",
@@ -362,7 +360,7 @@ function FormaAppWindow() {
             >
               Pending
             </span>
-            <span style={{ fontSize: 8, color: "#999" }}>All Files</span>
+            <span style={{ fontSize: 10, color: "#737373", fontWeight: 500 }}>All Files</span>
           </div>
           {[
             { name: "Invoice_Feb.pdf", dest: "~/Finance" },
@@ -375,10 +373,10 @@ function FormaAppWindow() {
               style={{ borderBottom: "1px solid rgba(0,0,0,0.03)" }}
             >
               <div>
-                <div style={{ fontSize: 8.5, color: "#1a1a1a", fontWeight: 500 }}>{f.name}</div>
-                <div style={{ fontSize: 7, color: "#5AC466" }}>● Ready</div>
+                <div style={{ fontSize: 10.5, color: "#1a1a1a", fontWeight: 600 }}>{f.name}</div>
+                <div style={{ fontSize: 8.5, color: "#5AC466", fontWeight: 500 }}>● Ready</div>
               </div>
-              <div style={{ fontSize: 7, color: "#999" }}>{f.dest}</div>
+              <div style={{ fontSize: 8.5, color: "#737373", fontWeight: 500 }}>{f.dest}</div>
             </div>
           ))}
           <div
@@ -386,7 +384,7 @@ function FormaAppWindow() {
             style={{
               background: "#1a1a1a",
               color: "#fff",
-              fontSize: 8,
+              fontSize: 10,
               fontWeight: 500,
               padding: "4px 0",
             }}
@@ -500,14 +498,6 @@ export default function FormaBeforeAfter() {
               <DesktopFolder key={i} folder={folder} x={82} y={2 + i * 16} />
             ))}
           </div>
-        </div>
-
-        {/* ── FORMA APP (Center) ── */}
-        <div
-          className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
-          style={{ filter: "drop-shadow(0 12px 40px rgba(0,0,0,0.25))" }}
-        >
-          <FormaAppWindow />
         </div>
 
         {/* ── SLIDER LINE ── */}

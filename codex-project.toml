@@ -1,0 +1,56 @@
+[project]
+name = "Forma"
+summary = "macOS file organizing app plus marketing site"
+stack = ["swift", "swiftui", "swiftdata", "xcode", "nextjs"]
+
+[paths]
+app = "Forma File Organizing"
+website = "forma-website"
+tests = "Forma File OrganizingTests"
+ui_tests = "Forma File OrganizingUITests"
+resources = "Forma File Organizing/Resources"
+entitlements = "Forma File Organizing/Forma_File_Organizing.entitlements"
+
+[commands]
+build = [
+  "xcodebuild -project \"Forma File Organizing.xcodeproj\" -scheme \"Forma File Organizing\" -configuration Debug build"
+]
+test = [
+  "xcodebuild test -project \"Forma File Organizing.xcodeproj\" -scheme \"Forma File Organizing\" -destination 'platform=macOS'"
+]
+test_no_ui = [
+  "xcodebuild test -project \"Forma File Organizing.xcodeproj\" -scheme \"Forma File Organizing\" -destination 'platform=macOS' -skip-testing:\"Forma File OrganizingUITests\""
+]
+clean = [
+  "xcodebuild clean -project \"Forma File Organizing.xcodeproj\" -scheme \"Forma File Organizing\""
+]
+open_xcode = [
+  "open \"Forma File Organizing.xcodeproj\""
+]
+
+[docs]
+sync = ["TODO.md", "CHANGELOG.md", "API_REFERENCE.md"]
+feature_dir = "Docs/Features"
+architecture_dir = "Docs/Architecture"
+
+[risks]
+areas = ["security-scoped bookmarks", "file operations", "undo flows", "multi-view parity"]
+notes = [
+  "Route file access through security-scoped bookmarks rather than ad hoc absolute paths.",
+  "Keep entitlements in sync with code signing and new capabilities.",
+  "Prefer non-destructive file handling and preserve undo coverage when touching Services."
+]
+
+[conventions]
+notes = [
+  "Swift 5.9 and SwiftUI-first; prefer structs and protocol-oriented patterns in services and models.",
+  "Use DesignSystem tokens instead of hard-coded UI values.",
+  "XCTest is the default; prefer mock-based unit tests unless filesystem integration is necessary.",
+  "All AI/ML features need FeatureFlagService.shared.isEnabled(...) guards at the feature entry point."
+]
+
+[checklists]
+items = [
+  "For file-level UI changes, update FileRow.swift, FileListRow.swift, FileGridItem.swift, and MainContentView.swift together.",
+  "Add targeted integration coverage for file moves, bookmark handling, and undo flows when touching Services."
+]

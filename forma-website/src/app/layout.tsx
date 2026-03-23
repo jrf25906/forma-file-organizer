@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    "A file organizer for people who gave up on file organizers. Create rules in plain language, preview every move, and undo anytime. $29 once. Native macOS app.",
+    "A file organizer for people who gave up on file organizers. Write rules in plain English, preview every move, undo anytime. $29 once for Mac.",
   keywords: [
     "organize mac files",
     "organize downloads folder mac",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: `${SITE_NAME} — A file organizer for people who gave up on file organizers`,
     description:
-      "Create rules in plain language, preview every move, and undo anytime. $29 once. Native macOS app.",
+      "Write rules in plain English, preview every move, undo anytime. $29 once for Mac.",
     url: SITE_URL,
     siteName: SITE_NAME,
     locale: "en_US",
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: SITE_NAME,
     description:
-      "Create rules in plain language, preview every move, and undo anytime.",
+      "Write rules in plain English, preview every move, undo anytime.",
   },
   robots: {
     index: true,
@@ -103,7 +103,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{document.documentElement.setAttribute('data-theme','light')}catch(e){}})()`,
+            __html: `(function(){try{var m=window.matchMedia('(prefers-color-scheme: light)').matches;document.documentElement.setAttribute('data-theme',m?'light':'dark')}catch(e){}})()`,
           }}
         />
       </head>
@@ -131,7 +131,7 @@ export default function RootLayout({
           </>
         ) : null}
 
-        <ThemeProvider defaultTheme="light">
+        <ThemeProvider defaultTheme="system">
           <a
             href="#main-content"
             className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-forma-obsidian focus:text-forma-bone focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-forma-steel-blue"

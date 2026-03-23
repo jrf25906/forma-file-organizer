@@ -62,6 +62,7 @@ open "Forma File Organizing.xcodeproj"  # Then press Cmd+R
 | [API_REFERENCE.md](API_REFERENCE.md) | API reference pointer |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |
 | [TODO.md](TODO.md) | Roadmap and project status |
+| [codex-project.toml](codex-project.toml) | Repo workflow manifest for commands, docs, and risk areas |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [AGENTS.md](AGENTS.md) | Agent and automation guidance |
 | [WARP.md](WARP.md) | AI assistant guidance |
