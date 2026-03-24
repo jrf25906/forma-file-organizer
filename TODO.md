@@ -10,6 +10,7 @@ Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 ## Menu Bar De-Dashboarding (March 23, 2026)
 - [x] Flatten the menu bar popover into one outer shell, one primary review block, and lightweight supporting rows.
 - [x] Remove the nested destination/review card treatment in the menu bar and simplify the action hierarchy around one primary organize button.
+- [x] Remove the remaining warning-panel treatment for missing destinations so the review card stays one continuous surface in both ready and needs-destination states.
 - [x] Add stable menu bar previews for pending-with-destination, pending-without-destination, and all-clear states.
 
 ## Optical Chrome Pass (March 10, 2026)

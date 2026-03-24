@@ -1,6 +1,28 @@
 import SwiftUI
 
 struct MenuBarFileReviewCard: View {
+    struct Snapshot {
+        let destinationTitle: String
+        let destinationName: String
+        let destinationDetail: String
+        let destinationIconName: String
+        let destinationTint: Color
+        let matchReason: String?
+
+        init(file: FileItem) {
+            self.destinationTitle = "Destination"
+            self.destinationName = file.destinationDisplayName ?? "No destination assigned"
+            self.destinationDetail = file.hasDestination
+                ? "Ready to move now"
+                : "Set a destination in the main app to organize this file."
+            self.destinationIconName = "arrow.turn.down.right"
+            self.destinationTint = file.hasDestination ? .formaSteelBlue : .formaWarning
+            self.matchReason = file.matchReason.flatMap { reason in
+                reason.isEmpty ? nil : reason
+            }
+        }
+    }
+
     let file: FileItem
     let paginationText: String
     let isOrganizing: Bool
@@ -13,6 +35,10 @@ struct MenuBarFileReviewCard: View {
     let onNext: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+
+    private var snapshot: Snapshot {
+        Snapshot(file: file)
+    }
 
     var body: some View {
         MenuBarSurface(
@@ -84,58 +110,51 @@ struct MenuBarFileReviewCard: View {
     }
 
     private var metadataBlock: some View {
-        MenuBarFlatRow(
-            tint: file.hasDestination ? accentTint : .formaWarning,
-            cornerRadius: FormaRadius.control,
-            padding: 10
-        ) {
-            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                Text(file.hasDestination ? "Destination" : "Needs destination")
-                    .font(.formaCaptionSemibold)
-                    .foregroundColor(file.hasDestination ? .formaTertiaryLabelHigh : .formaWarning)
-                    .textCase(.uppercase)
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Text(snapshot.destinationTitle)
+                .font(.formaCaptionSemibold)
+                .foregroundColor(.formaTertiaryLabelHigh)
+                .textCase(.uppercase)
 
-                destinationRow
+            destinationRow
 
-                if let matchReason = file.matchReason, !matchReason.isEmpty {
-                    MenuBarDivider()
-                        .padding(.vertical, 2)
+            if let matchReason = snapshot.matchReason {
+                HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                    Image(systemName: "sparkles")
+                        .font(.formaCaptionSemibold)
+                        .foregroundColor(.formaSteelBlue)
+                        .padding(.top, 2)
 
-                    HStack(alignment: .top, spacing: FormaSpacing.tight) {
-                        Image(systemName: "sparkles")
-                            .font(.formaCaptionSemibold)
-                            .foregroundColor(.formaSteelBlue)
-                            .padding(.top, 2)
-
-                        Text(matchReason)
-                            .font(.formaMenuMetadata)
-                            .foregroundColor(.formaSecondaryLabelHigh)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    Text(matchReason)
+                        .font(.formaMenuMetadata)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .padding(.leading, 20)
             }
         }
     }
 
     private var destinationRow: some View {
         HStack(alignment: .top, spacing: FormaSpacing.tight) {
-            Image(systemName: file.hasDestination ? "arrow.turn.down.right" : "exclamationmark.triangle")
+            Image(systemName: snapshot.destinationIconName)
                 .font(.formaCaptionSemibold)
-                .foregroundColor(file.hasDestination ? .formaSecondaryLabel : .formaWarning)
+                .foregroundColor(snapshot.destinationTint)
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(file.destinationDisplayName ?? "No destination assigned")
+                Text(snapshot.destinationName)
                     .font(.formaBody)
-                    .foregroundColor(file.hasDestination ? .formaLabel : .formaSecondaryLabelHigh)
+                    .foregroundColor(.formaLabel)
                     .lineLimit(2)
 
-                Text(file.hasDestination ? "Ready to move now" : "Choose a destination in the main app before organizing")
+                Text(snapshot.destinationDetail)
                     .font(.formaMenuMetadata)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(file.hasDestination ? .formaSecondaryLabel : .formaWarning)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .padding(.vertical, 2)
     }
 
     private var actionButtonsRow: some View {

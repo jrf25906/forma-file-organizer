@@ -257,7 +257,7 @@ struct MenuBarView: View {
     }
 
     private var supportRowsSection: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             activityStatsRow
 
             if viewModel.highConfidenceCount > 0 {
@@ -271,25 +271,24 @@ struct MenuBarView: View {
     }
 
     private var activityStatsRow: some View {
-        MenuBarFlatRow(tint: viewModel.hasPendingFiles ? .formaSteelBlue : .formaSage, padding: nil) {
-            HStack(spacing: 0) {
-                compactStatColumn(
-                    title: "Today",
-                    value: "\(viewModel.organizedTodayCount)",
-                    icon: "checkmark.circle.fill",
-                    tint: .formaSage
-                )
+        HStack(spacing: 0) {
+            compactStatColumn(
+                title: "Today",
+                value: "\(viewModel.organizedTodayCount)",
+                icon: "checkmark.circle.fill",
+                tint: .formaSage
+            )
 
-                verticalDivider
+            verticalDivider
 
-                compactStatColumn(
-                    title: "This Week",
-                    value: "\(viewModel.organizedThisWeekCount)",
-                    icon: "calendar",
-                    tint: .formaSteelBlue
-                )
-            }
+            compactStatColumn(
+                title: "This Week",
+                value: "\(viewModel.organizedThisWeekCount)",
+                icon: "calendar",
+                tint: .formaSteelBlue
+            )
         }
+        .padding(.horizontal, 2)
     }
 
     private func compactStatColumn(title: String, value: String, icon: String, tint: Color) -> some View {
@@ -319,7 +318,7 @@ struct MenuBarView: View {
     }
 
     private var highConfidenceRow: some View {
-        MenuBarFlatRow(tint: .formaSteelBlue, padding: nil) {
+        Group {
             if viewModel.showOrganizeAllConfirmation {
                 HStack(spacing: FormaSpacing.tight) {
                     Image(systemName: "checkmark.circle.fill")
@@ -339,6 +338,10 @@ struct MenuBarView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color.formaSage.opacity(colorScheme == .dark ? 0.12 : 0.08))
+                )
                 .transition(.opacity)
             } else {
                 Button(action: {
@@ -370,20 +373,19 @@ struct MenuBarView: View {
                 .help("Organize files with 90% or higher confidence")
             }
         }
+        .padding(.horizontal, 2)
         .animation(.easeInOut(duration: 0.2), value: viewModel.showOrganizeAllConfirmation)
     }
 
     private var monitoredFoldersSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let folders = viewModel.folderStatuses.filter(\.hasFiles)
+
+        return VStack(alignment: .leading, spacing: 6) {
             MenuBarSectionHeading(title: "Monitored Folders", detail: "\(viewModel.totalPendingFiles) pending")
                 .padding(.horizontal, 2)
 
-            ForEach(viewModel.folderStatuses.filter(\.hasFiles)) { folder in
-                MenuBarFlatRow(
-                    tint: folder.count > 0 ? .formaMutedBlue : nil,
-                    cornerRadius: FormaRadius.control,
-                    padding: 10
-                ) {
+            ForEach(Array(folders.enumerated()), id: \.element.id) { index, folder in
+                VStack(spacing: 0) {
                     HStack(spacing: FormaSpacing.tight) {
                         folderIcon(for: folder)
 
@@ -400,6 +402,12 @@ struct MenuBarView: View {
                         Spacer(minLength: FormaSpacing.tight)
 
                         folderCountBadge(for: folder)
+                    }
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 7)
+
+                    if index < folders.count - 1 {
+                        MenuBarDivider()
                     }
                 }
             }
@@ -459,7 +467,7 @@ struct MenuBarView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(MenuBarButtonStyle(kind: .secondary(.formaSteelBlue)))
+                .buttonStyle(MenuBarButtonStyle(kind: .secondary(nil)))
 
                 SettingsLink {
                     Image(systemName: "gearshape")
