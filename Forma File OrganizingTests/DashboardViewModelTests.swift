@@ -42,7 +42,7 @@ final class DashboardViewModelTests: XCTestCase {
 	        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
 	        try await super.tearDown()
 	    }
-    
+
     func testInitialPermissionsCheck() {
         // Given - onboarding not yet completed
         UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
@@ -64,7 +64,7 @@ final class DashboardViewModelTests: XCTestCase {
         // Then
         XCTAssertFalse(viewModel.showOnboarding, "Onboarding should not be shown after completion")
     }
-    
+
     func testRequestDesktopAccess() async {
         // Given
         mockService.hasDesktop = false

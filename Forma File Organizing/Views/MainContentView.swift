@@ -113,7 +113,7 @@ struct MainContentView: View {
                                 requestAccessForSelectedFolder()
                             }
                         )
-                        .padding(.top, unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing)
+                        .padding(.top, contentTopInset)
                     } else if dashboardViewModel.isLoading && dashboardViewModel.visibleFiles.isEmpty {
                         // Show loading state during initial file scan
                         Spacer()
@@ -129,7 +129,7 @@ struct MainContentView: View {
                         // Show empty state if in review mode and all caught up
                         if dashboardViewModel.reviewFilterMode == .needsReview {
                             AllCaughtUpView()
-                                .padding(.top, unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing)
+                                .padding(.top, contentTopInset)
                         } else {
                             VStack(spacing: FormaSpacing.generous) {
                                 // Show active filters above empty state
@@ -167,7 +167,7 @@ struct MainContentView: View {
                             }
                             .background(.ultraThinMaterial)
                             .formaFrostedTexture()
-                            .padding(.top, unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing)
+                            .padding(.top, contentTopInset)
                         }
                     } else {
                         // Phase 3: View mode switching
@@ -187,19 +187,21 @@ struct MainContentView: View {
                     }
                 }
 
-                UnifiedToolbar(availableWidth: availableWidth)
-                    .padding(.horizontal, FormaLayout.Gutters.center)
-                    .padding(.bottom, FormaLayout.Toolbar.bottomToContentSpacing)
-                    .background(
-                        GeometryReader { proxy in
-                            Color.clear
-                                .preference(key: UnifiedToolbarHeightKey.self, value: proxy.size.height)
+                contentContainer {
+                    UnifiedToolbar(availableWidth: contentMaxWidth)
+                        .padding(.top, toolbarTopOffset)
+                        .padding(.bottom, dashboardToolbarBottomSpacing)
+                        .background(
+                            GeometryReader { proxy in
+                                Color.clear
+                                    .preference(key: UnifiedToolbarHeightKey.self, value: proxy.size.height)
+                            }
+                        )
+                        .onPreferenceChange(UnifiedToolbarHeightKey.self) { newHeight in
+                            unifiedToolbarHeight = newHeight
                         }
-                    )
-                    .onPreferenceChange(UnifiedToolbarHeightKey.self) { newHeight in
-                        unifiedToolbarHeight = newHeight
-                    }
-                    .zIndex(10)
+                }
+                .zIndex(10)
             }
 
             KeyCaptureView { event in
@@ -656,7 +658,13 @@ struct MainContentView: View {
     private var contentMaxWidth: CGFloat { max(0, availableWidth - (contentHorizontalPadding * 2)) }
 
     private var contentTopPadding: CGFloat { FormaLayout.Content.topPadding }
-    private var scrollContentTopInset: CGFloat { unifiedToolbarHeight + FormaLayout.Toolbar.bottomToContentSpacing }
+    private var dashboardToolbarTopLift: CGFloat { FormaSpacing.tight }
+    private var dashboardToolbarBottomSpacing: CGFloat { FormaSpacing.standard - FormaSpacing.micro }
+    private var toolbarTopOffset: CGFloat { -dashboardToolbarTopLift }
+    private var contentTopInset: CGFloat {
+        max(0, unifiedToolbarHeight + dashboardToolbarBottomSpacing - dashboardToolbarTopLift)
+    }
+    private var scrollContentTopInset: CGFloat { contentTopInset }
 
     /// Mask applied to the scroll view group so content fades to transparent
     /// as it scrolls under the toolbar, letting the real background show through.

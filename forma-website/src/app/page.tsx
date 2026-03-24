@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Eye, EyeClosed, GitBranch, Type, Undo2, Camera, Image, FileText, FileCheck, Folder, FolderOpen, Shield, ShieldCheck, RotateCcw, History, Scan, ScanSearch } from "lucide-react";
+
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 import dynamic from "next/dynamic";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
@@ -7,117 +7,16 @@ import { ScrollReveal } from "@/components/animation/ScrollReveal";
 const ScrollDrivenTornado = dynamic(() => import("@/components/effects/ScrollDrivenTornado"));
 const FAQSection = dynamic(() => import("@/components/sections/FAQSection"));
 const FormaBeforeAfter = dynamic(() => import("@/components/sections/FormaBeforeAfter"));
+const UseCasesBento = dynamic(() => import("@/components/sections/UseCasesBento"));
+const FeaturesBento = dynamic(() => import("@/components/sections/FeaturesBento"));
 import FormaHeroWindow from "@/components/sections/FormaHeroWindow";
 import HeroEntrance from "@/components/animation/HeroEntrance";
 import { faqs } from "@/lib/faq";
 import { SITE_NAME, SITE_URL, WEBSITE_LAST_UPDATED_ISO } from "@/lib/site";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   CUSTOM ICONS
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function AnimatedTypeCursor({ className, strokeWidth, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth || "2"}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      {...props}
-    >
-      <g className="origin-center transition-all duration-300 ease-out group-hover:-translate-x-[3px] group-hover:scale-75">
-        <path d="M12 4v16" />
-        <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" />
-        <path d="M9 20h6" />
-      </g>
-      <path d="M19 4v16" className="opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-hover:animate-blink" strokeWidth={1.5} />
-    </svg>
-  );
-}
-
-function AnimatedLayersIcon({ className, strokeWidth, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth || "2"}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      {...props}
-    >
-      <g className="origin-center transition-all duration-300 ease-out group-hover:scale-110">
-        <polygon 
-          points="12 2 2 7 12 12 22 7 12 2" 
-          className="transition-transform duration-300 ease-out" 
-        />
-        <polyline 
-          points="2 12 12 17 22 12" 
-          className="transition-all duration-300 ease-out group-hover:-translate-y-[5px] group-hover:opacity-0" 
-        />
-        <polyline 
-          points="2 17 12 22 22 17" 
-          className="transition-all duration-300 ease-out group-hover:-translate-y-[10px] group-hover:opacity-0" 
-        />
-      </g>
-    </svg>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
    CONTENT DATA
    ═══════════════════════════════════════════════════════════════════════════ */
-
-const featureHighlights = [
-  {
-    icon: AnimatedTypeCursor,
-    title: "Natural language rules",
-    body: "Describe what you want in words, not code. \u2018If it\u2019s a screenshot, put it in Screenshots.\u2019 Done.",
-    color: "text-forma-steel-blue",
-    bgTint: "bg-[rgba(74,107,136,0.14)]",
-    borderTint: "border-[rgba(74,107,136,0.22)]",
-    animationClass: "",
-  },
-  {
-    icon: AnimatedLayersIcon,
-    title: "Auto-grouping",
-    body: "One rule catches 200 similar files. Not 200 rules for 200 files.",
-    color: "text-forma-muted-blue",
-    bgTint: "bg-[rgba(107,127,168,0.14)]",
-    borderTint: "border-[rgba(107,127,168,0.22)]",
-    animationClass: "",
-  },
-  {
-    icon: Eye,
-    hoverIcon: EyeClosed,
-    title: "Preview before action",
-    body: "See every file that matched before anything moves. Uncheck the ones you\u2019re not sure about.",
-    color: "text-forma-sage",
-    bgTint: "bg-[rgba(107,143,113,0.14)]",
-    borderTint: "border-[rgba(107,143,113,0.22)]",
-    animationClass: "group-hover:animate-eye-blink",
-  },
-  {
-    icon: RotateCcw,
-    hoverIcon: History,
-    title: "Full undo history",
-    body: "Changed your mind Tuesday about what you did Monday? One click.",
-    color: "text-forma-warm-orange",
-    bgTint: "bg-[rgba(184,107,82,0.14)]",
-    borderTint: "border-[rgba(184,107,82,0.22)]",
-    animationClass: "group-hover:animate-undo-spin",
-  },
-] as const;
 
 const workflowSteps = [
   {
@@ -140,66 +39,6 @@ const workflowSteps = [
   },
 ] as const;
 
-const useCases = [
-  {
-    icon: Camera,
-    hoverIcon: Image,
-    title: "Screenshots and exports",
-    body: "Your desktop has 400 screenshots on it right now. Don\u2019t look. Just write a rule.",
-    color: "text-forma-warm-orange",
-    bgTint: "bg-[rgba(184,107,82,0.14)]",
-    borderTint: "border-[rgba(184,107,82,0.22)]",
-    animationClass: "group-hover:animate-camera-snap",
-  },
-  {
-    icon: FileText,
-    hoverIcon: FileCheck,
-    title: "PDFs and paperwork",
-    body: "Invoices, tax forms, bank statements. Rules you can still understand when tax season hits.",
-    color: "text-forma-steel-blue",
-    bgTint: "bg-[rgba(74,107,136,0.14)]",
-    borderTint: "border-[rgba(74,107,136,0.22)]",
-    animationClass: "group-hover:animate-doc-shuffle",
-  },
-  {
-    icon: Folder,
-    hoverIcon: FolderOpen,
-    title: "Project overflow",
-    body: "Exports, renders, drafts \u2014 the files that pile up mid-project. Move them without losing track.",
-    color: "text-forma-muted-blue",
-    bgTint: "bg-[rgba(107,127,168,0.14)]",
-    borderTint: "border-[rgba(107,127,168,0.22)]",
-    animationClass: "group-hover:animate-folder-pop",
-  },
-  {
-    icon: Scan,
-    hoverIcon: ScanSearch,
-    title: "Post-trip photo dump",
-    body: "You came home with 400 photos, 12 receipts, and a boarding pass. One rule sorts the whole trip.",
-    color: "text-forma-sage",
-    bgTint: "bg-[rgba(107,143,113,0.14)]",
-    borderTint: "border-[rgba(107,143,113,0.22)]",
-    animationClass: "group-hover:animate-scan-pulse",
-  },
-  {
-    icon: GitBranch,
-    title: "Design asset sprawl",
-    body: "PSDs, mockups, exported PNGs\u200A\u2014\u200Ascattered across three folders. Group them by project in one pass.",
-    color: "text-forma-steel-blue",
-    bgTint: "bg-[rgba(74,107,136,0.14)]",
-    borderTint: "border-[rgba(74,107,136,0.22)]",
-    animationClass: "",
-  },
-  {
-    icon: Undo2,
-    title: "New Mac migration prep",
-    body: "Before you migrate, clean house. Sort years of clutter so you start fresh on the new machine.",
-    color: "text-forma-warm-orange",
-    bgTint: "bg-[rgba(184,107,82,0.14)]",
-    borderTint: "border-[rgba(184,107,82,0.22)]",
-    animationClass: "",
-  },
-] as const;
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SECTION COMPONENTS
@@ -326,54 +165,19 @@ export default function Home() {
           </HeroEntrance>
         </section>
 
-        {/* ─── FEATURE HIGHLIGHTS STRIP ─────────────────────────────────── */}
-        <section aria-labelledby="features-heading" className="relative z-10 border-b border-[var(--border-subtle)] bg-transparent py-20 md:py-28">
-          <div className="site-container">
-            <div className="text-center max-w-4xl mx-auto">
-              <SectionEyebrow>What makes it different</SectionEyebrow>
-              <h2 id="features-heading" className="mx-auto mt-5 max-w-2xl text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
-                Automation you can actually see.
-              </h2>
-              <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
-                Most file organizers run in the background and hope for the best. Forma shows you what it&apos;s about to do.
-              </p>
-            </div>
-
-            <ScrollReveal direction="up" distance={30} stagger={0.08} className="mx-auto mt-14 grid max-w-4xl gap-10 sm:grid-cols-2 lg:grid-cols-4">
-              {featureHighlights.map((feature) => {
-                const Icon = feature.icon;
-                const HoverIcon = ('hoverIcon' in feature ? feature.hoverIcon : null) as React.ComponentType<any> | null;
-                return (
-                  <div key={feature.title} className="text-center group cursor-default">
-                    <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border ${feature.borderTint} ${feature.bgTint} transition-transform duration-300`}>
-                      {HoverIcon ? (
-                        <div className="relative h-7 w-7">
-                          <Icon className={`absolute inset-0 h-7 w-7 transition-opacity duration-300 group-hover:opacity-0 ${feature.color}`} strokeWidth={1.5} />
-                          <HoverIcon className={`absolute inset-0 h-7 w-7 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${feature.color} ${feature.animationClass}`} strokeWidth={1.5} />
-                        </div>
-                      ) : (
-                        <Icon className={`h-7 w-7 ${feature.color} ${feature.animationClass}`} strokeWidth={1.5} />
-                      )}
-                    </div>
-                    <p className="mt-4 text-[15px] font-medium text-[var(--text-primary)]">
-                      {feature.title}
-                    </p>
-                    <p className="mt-2 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-                      {feature.body}
-                    </p>
-                  </div>
-                );
-              })}
-            </ScrollReveal>
-          </div>
-        </section>
+        {/* ─── FEATURE HIGHLIGHTS (bento cards) ────────────────────────── */}
+        <FeaturesBento />
 
         {/* ─── HOW FORMA WORKS (3 steps) ────────────────────────────────── */}
-        <section id="how-it-works" aria-labelledby="how-it-works-heading" className="relative z-10 scroll-mt-16 bg-[rgba(253,252,251,0.5)] backdrop-blur-[2px] py-20 md:py-28 border-b border-[var(--border-subtle)]">
+        <section
+          id="how-it-works"
+          aria-labelledby="how-it-works-heading"
+          className="relative z-10 scroll-mt-16 border-b border-[var(--border-subtle)] bg-[var(--workflow-section-bg)] py-24 md:py-32"
+        >
           <div className="site-container">
-            <div className="mx-auto max-w-5xl md:grid md:grid-cols-[1fr_2fr] md:gap-16 md:items-start">
+            <div className="mx-auto max-w-5xl md:grid md:grid-cols-[1fr_2fr] md:gap-18 md:items-start">
               {/* Left: section intro */}
-              <div className="mb-10 md:mb-0 md:sticky md:top-24">
+              <div className="mb-12 md:mb-0 md:sticky md:top-28">
                 <SectionEyebrow>How Forma works</SectionEyebrow>
                 <h2 id="how-it-works-heading" className="mt-5 text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
                   Three steps. No manual.
@@ -383,19 +187,25 @@ export default function Home() {
               {/* Right: steps */}
               <ScrollReveal direction="up" distance={24} stagger={0.1} className="grid gap-10 md:gap-12">
                 {workflowSteps.map((step) => (
-                  <div key={step.number} className="text-left">
+                  <div
+                    key={step.number}
+                    className="border-t border-[var(--workflow-step-divider)] pt-8 first:border-t-0 first:pt-0"
+                  >
                     <div className="flex items-baseline gap-3">
-                      <span aria-hidden="true" className="text-[4rem] font-bold leading-none tracking-[-0.04em] text-forma-steel-blue/60 sm:text-[4.5rem] md:text-[5.5rem]">
+                      <span
+                        aria-hidden="true"
+                        className="text-[4rem] font-bold leading-none tracking-[-0.04em] text-[var(--workflow-step-number)] sm:text-[4.5rem] md:text-[5.5rem]"
+                      >
                         {step.number}
                       </span>
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-forma-steel-blue">
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--workflow-step-label)]">
                         {step.label}
                       </p>
                     </div>
-                    <h3 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+                    <h3 className="mt-5 text-xl font-semibold tracking-[-0.02em] text-[var(--text-primary)] md:text-[1.65rem]">
                       {step.title}
                     </h3>
-                    <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                    <p className="mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--text-secondary)] md:text-[1.03rem]">
                       {step.body}
                     </p>
                   </div>
@@ -428,50 +238,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ─── USE CASES (2x3 grid) ─────────────────────────────────────── */}
-        <section aria-labelledby="use-cases-heading" className="relative z-10 bg-transparent py-20 md:py-28">
-          <div className="site-container">
-            <div className="text-center max-w-3xl mx-auto">
-              <SectionEyebrow>Where it clicks</SectionEyebrow>
-              <h2 id="use-cases-heading" className="mx-auto mt-5 max-w-2xl text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
-                Start with the folder that bothers you most.
-              </h2>
-              <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
-                One rule, one folder, one visible payoff. Expand from there.
-              </p>
-            </div>
-
-            <ScrollReveal direction="up" distance={24} stagger={0.06} className="mx-auto mt-14 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {useCases.map((useCase) => {
-                const Icon = useCase.icon;
-                const HoverIcon = ('hoverIcon' in useCase ? useCase.hoverIcon : null) as React.ComponentType<any> | null;
-                return (
-                  <article
-                    key={useCase.title}
-                    className="group rounded-2xl cursor-default border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[var(--border-medium)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.98] active:border-[var(--border-medium)]"
-                  >
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl border ${useCase.borderTint} ${useCase.bgTint} transition-transform duration-300`}>
-                      {HoverIcon ? (
-                        <div className="relative h-6 w-6">
-                          <Icon className={`absolute inset-0 h-6 w-6 transition-opacity duration-300 group-hover:opacity-0 ${useCase.color}`} strokeWidth={1.5} />
-                          <HoverIcon className={`absolute inset-0 h-6 w-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${useCase.color} ${useCase.animationClass}`} strokeWidth={1.5} />
-                        </div>
-                      ) : (
-                        <Icon className={`h-6 w-6 ${useCase.color} ${useCase.animationClass}`} strokeWidth={1.5} />
-                      )}
-                    </div>
-                    <h3 className="mt-5 text-[15px] font-medium text-[var(--text-primary)]">
-                      {useCase.title}
-                    </h3>
-                    <p className="mt-2 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-                      {useCase.body}
-                    </p>
-                  </article>
-                );
-              })}
-            </ScrollReveal>
-          </div>
-        </section>
+        {/* ─── USE CASES (bento cards + trust signals) ──────────────────── */}
+        <UseCasesBento />
 
         {/* ─── OPAQUE BACKGROUND WRAPPER TO HIDE 3D CANVAS BELOW USE CASES ─ */}
         <div className="relative z-20 bg-[var(--bg-primary)]">

@@ -200,6 +200,72 @@
   --file-card-pill-text: #5B7C99;
   --file-card-status-ready: #7A9D7E;
   --file-card-status-pending: #FF9F0A;
+
+  /* Hero window tokens */
+  --hero-window-bg: #191b20;
+  --hero-window-titlebar-bg: #202329;
+  --hero-window-toolbar-bg: #1d2026;
+  --hero-window-toolbar-border: rgba(255, 255, 255, 0.08);
+  --hero-window-chip-bg: rgba(255, 255, 255, 0.06);
+  --hero-window-chip-border: rgba(255, 255, 255, 0.08);
+  --hero-window-chip-strong-bg: rgba(255, 255, 255, 0.12);
+  --hero-window-sidebar-bg: #15171c;
+  --hero-window-sidebar-border: rgba(255, 255, 255, 0.07);
+  --hero-window-sidebar-header: rgba(240, 240, 242, 0.42);
+  --hero-window-sidebar-item: rgba(240, 240, 242, 0.82);
+  --hero-window-sidebar-selected-bg: rgba(91, 124, 153, 0.24);
+  --hero-window-sidebar-selected-text: #A8BED3;
+  --hero-window-sidebar-badge-bg: rgba(91, 124, 153, 0.18);
+  --hero-window-sidebar-badge-text: rgba(240, 240, 242, 0.5);
+  --hero-window-inspector-bg: #171a20;
+  --hero-window-inspector-border: rgba(255, 255, 255, 0.08);
+  --hero-window-card-bg: #20242B;
+  --hero-window-card-border: rgba(255, 255, 255, 0.06);
+  --hero-window-card-shadow: 0 12px 24px rgba(0, 0, 0, 0.24), 0 0 0 0.5px rgba(255, 255, 255, 0.04);
+  --hero-window-label-primary: rgba(248, 248, 249, 0.94);
+  --hero-window-label-secondary: rgba(240, 240, 242, 0.7);
+  --hero-window-label-tertiary: rgba(240, 240, 242, 0.46);
+  --hero-window-status-ready: #79A47D;
+  --hero-window-status-pending: #E59A62;
+  --hero-window-accent: #88A8C2;
+  --hero-window-pending-pill-bg: #B86B52;
+  --hero-window-pending-pill-text: #FFFFFF;
+  --hero-window-organize-bg: #B86B52;
+  --hero-window-organize-text: #FFFFFF;
+  --hero-window-category-documents: #7E9BB5;
+  --hero-window-category-images: #D18C73;
+  --hero-window-category-videos: #7B8FB8;
+  --hero-window-category-archives: #8EA58B;
+  --hero-window-content-gradient: linear-gradient(170deg, #1C1F25 0%, #1A1D23 32%, #171A20 58%, #15181D 80%, #13161B 100%);
+  --hero-window-search-bg: rgba(255, 255, 255, 0.05);
+  --hero-window-search-border: rgba(255, 255, 255, 0.06);
+  --hero-window-divider: rgba(255, 255, 255, 0.08);
+  --hero-window-checkbox-border: rgba(255, 255, 255, 0.18);
+  --hero-window-row-border: rgba(255, 255, 255, 0.06);
+  --hero-window-row-highlight-bg: rgba(255, 255, 255, 0.035);
+  --hero-window-file-icon-bg: rgba(255, 255, 255, 0.05);
+  --hero-window-file-icon-border: rgba(255, 255, 255, 0.05);
+  --hero-window-pending-button-border: rgba(229, 154, 98, 0.26);
+  --hero-window-pending-button-bg: rgba(229, 154, 98, 0.1);
+  --hero-window-action-bar-bg: rgba(24, 26, 31, 0.82);
+  --hero-window-action-bar-border: rgba(255, 255, 255, 0.08);
+  --hero-window-action-bar-shadow: 0 10px 24px rgba(0, 0, 0, 0.24), 0 0 0 0.5px rgba(255, 255, 255, 0.04);
+  --hero-window-action-button-bg: rgba(255, 255, 255, 0.08);
+  --hero-window-ghost-button-border: rgba(255, 255, 255, 0.12);
+  --hero-window-progress-track: rgba(255, 255, 255, 0.08);
+  --hero-window-timer-track: rgba(255, 255, 255, 0.08);
+  --hero-window-control-button-bg: rgba(255, 255, 255, 0.08);
+  --hero-window-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.26),
+    0 16px 32px rgba(0, 0, 0, 0.24),
+    0 36px 68px -12px rgba(0, 0, 0, 0.56);
+
+  /* Workflow section tokens */
+  --workflow-section-bg: linear-gradient(180deg, rgba(18, 19, 22, 0.94) 0%, rgba(14, 15, 18, 0.98) 100%);
+  --workflow-step-divider: rgba(255, 255, 255, 0.08);
+  --workflow-step-number: rgba(136, 168, 194, 0.58);
+  --workflow-step-label: rgba(168, 190, 211, 0.92);
 }
 
 @keyframes float {
@@ -290,6 +356,70 @@
   --file-card-pill-text: #4A6B88;
   --file-card-status-ready: #6B8F71;
   --file-card-status-pending: #B86B52;
+
+  --hero-window-bg: #FAFAF7;
+  --hero-window-titlebar-bg: #F6F5F2;
+  --hero-window-toolbar-bg: #F6F5F2;
+  --hero-window-toolbar-border: rgba(0, 0, 0, 0.06);
+  --hero-window-chip-bg: rgba(0, 0, 0, 0.04);
+  --hero-window-chip-border: rgba(0, 0, 0, 0.06);
+  --hero-window-chip-strong-bg: rgba(0, 0, 0, 0.08);
+  --hero-window-sidebar-bg: #EEEDEA;
+  --hero-window-sidebar-border: rgba(0, 0, 0, 0.06);
+  --hero-window-sidebar-header: #8E8E93;
+  --hero-window-sidebar-item: #3C3C43;
+  --hero-window-sidebar-selected-bg: rgba(74, 107, 136, 0.14);
+  --hero-window-sidebar-selected-text: #4A6B88;
+  --hero-window-sidebar-badge-bg: rgba(74, 107, 136, 0.1);
+  --hero-window-sidebar-badge-text: rgba(60, 60, 67, 0.36);
+  --hero-window-inspector-bg: #F4F3F0;
+  --hero-window-inspector-border: rgba(0, 0, 0, 0.05);
+  --hero-window-card-bg: #FFFFFF;
+  --hero-window-card-border: rgba(0, 0, 0, 0.06);
+  --hero-window-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  --hero-window-label-primary: #1A1A1A;
+  --hero-window-label-secondary: rgba(60, 60, 67, 0.6);
+  --hero-window-label-tertiary: rgba(60, 60, 67, 0.36);
+  --hero-window-status-ready: #5AC466;
+  --hero-window-status-pending: #E8744F;
+  --hero-window-accent: #4A6B88;
+  --hero-window-pending-pill-bg: #E8744F;
+  --hero-window-pending-pill-text: #FFFFFF;
+  --hero-window-organize-bg: #E8744F;
+  --hero-window-organize-text: #FFFFFF;
+  --hero-window-category-documents: #6B8CA8;
+  --hero-window-category-images: #C97E66;
+  --hero-window-category-videos: #6B7FA8;
+  --hero-window-category-archives: #8BA688;
+  --hero-window-content-gradient: linear-gradient(170deg, #FAFAF7 0%, #F7F5F1 30%, #F4F1EC 55%, #F2EFEA 80%, #EFECEA 100%);
+  --hero-window-search-bg: rgba(0, 0, 0, 0.04);
+  --hero-window-search-border: rgba(0, 0, 0, 0.05);
+  --hero-window-divider: rgba(0, 0, 0, 0.06);
+  --hero-window-checkbox-border: rgba(0, 0, 0, 0.15);
+  --hero-window-row-border: rgba(0, 0, 0, 0.04);
+  --hero-window-row-highlight-bg: rgba(0, 0, 0, 0.02);
+  --hero-window-file-icon-bg: rgba(0, 0, 0, 0.03);
+  --hero-window-file-icon-border: rgba(0, 0, 0, 0.04);
+  --hero-window-pending-button-border: rgba(232, 116, 79, 0.25);
+  --hero-window-pending-button-bg: rgba(232, 116, 79, 0.06);
+  --hero-window-action-bar-bg: rgba(240, 238, 234, 0.82);
+  --hero-window-action-bar-border: rgba(0, 0, 0, 0.06);
+  --hero-window-action-bar-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.03);
+  --hero-window-action-button-bg: rgba(0, 0, 0, 0.05);
+  --hero-window-ghost-button-border: rgba(0, 0, 0, 0.1);
+  --hero-window-progress-track: rgba(0, 0, 0, 0.06);
+  --hero-window-timer-track: rgba(0, 0, 0, 0.06);
+  --hero-window-control-button-bg: rgba(0, 0, 0, 0.05);
+  --hero-window-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.10),
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 8px 20px rgba(0, 0, 0, 0.10),
+    0 24px 48px -8px rgba(0, 0, 0, 0.15);
+
+  --workflow-section-bg: rgba(253, 252, 251, 0.5);
+  --workflow-step-divider: rgba(0, 0, 0, 0.08);
+  --workflow-step-number: rgba(74, 107, 136, 0.6);
+  --workflow-step-label: #4A6B88;
 }
 
 /* Font loading CLS prevention */

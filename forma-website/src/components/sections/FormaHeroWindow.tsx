@@ -2,61 +2,16 @@
 // ---------------------------------------------------------------------------
 // FormaHeroWindow — High-fidelity HTML replica of the Forma app main window
 // Purely presentational. No interactivity, no animations.
-// Uses hardcoded light-mode colors sampled from the native app.
+// Uses shared semantic tokens so the screenshot-style composition works in
+// both light and dark site themes.
 // ---------------------------------------------------------------------------
 
 import Image from "next/image";
+import { heroWindowTheme as t } from "@/lib/hero-window-theme";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TOKENS — sampled from real Forma macOS app (light mode)
+   THEME TOKENS
    ═══════════════════════════════════════════════════════════════════════════ */
-
-const t = {
-  font: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif',
-  // Window chrome — the real app toolbar is a warm near-white
-  windowBg: "#FAFAF7",
-  titleBarBg: "#F6F5F2",
-  toolbarBg: "#F6F5F2",
-  toolbarBorder: "rgba(0,0,0,0.06)",
-  // Sidebar — distinct warm gray panel
-  sidebarBg: "#EEEDEA",
-  sidebarBorder: "rgba(0,0,0,0.06)",
-  sidebarHeaderColor: "#8E8E93",
-  sidebarItemColor: "#3C3C43",
-  sidebarSelectedBg: "rgba(74,107,136,0.14)",
-  sidebarSelectedColor: "#4A6B88",
-  // Inspector — slightly lighter than sidebar
-  inspectorBg: "#F4F3F0",
-  inspectorBorder: "rgba(0,0,0,0.05)",
-  // Cards (inspector)
-  cardBg: "#FFFFFF",
-  cardBorder: "rgba(0,0,0,0.06)",
-  cardShadow: "0 1px 3px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(0,0,0,0.04)",
-  // Text
-  labelPrimary: "#1A1A1A",
-  labelSecondary: "rgba(60,60,67,0.6)",
-  labelTertiary: "rgba(60,60,67,0.36)",
-  // Status
-  statusReady: "#5AC466",
-  statusPending: "#E8744F",
-  // Accent — Forma uses a warm teal/steel-blue, not pure blue
-  accent: "#4A6B88",
-  // Pending pill — orange
-  pendingPillBg: "#E8744F",
-  pendingPillText: "#FFFFFF",
-  // Organize CTA — warm orange
-  organizeBg: "#E8744F",
-  organizeText: "#FFFFFF",
-  // Category colors
-  catDocuments: "#6B8CA8",
-  catImages: "#C97E66",
-  catVideos: "#6B7FA8",
-  catArchives: "#8BA688",
-} as const;
-
-// Main content gradient (subtle warm mesh, matches the real app)
-const contentGradient =
-  "linear-gradient(170deg, #FAFAF7 0%, #F7F5F1 30%, #F4F1EC 55%, #F2EFEA 80%, #EFECEA 100%)";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    FILE DATA
@@ -333,8 +288,8 @@ function CheckboxIcon({ checked = false, size = 14 }: { checked?: boolean; size?
     );
   }
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
-      <rect x="1.5" y="1.5" width="13" height="13" rx="3" stroke="rgba(0,0,0,0.15)" strokeWidth="1" fill="none" />
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+        <rect x="1.5" y="1.5" width="13" height="13" rx="3" stroke={t.checkboxBorder} strokeWidth="1" fill="none" />
     </svg>
   );
 }
@@ -400,17 +355,17 @@ function Toolbar() {
       </div>
 
       {/* Center: File count pill */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "3px 12px",
-          borderRadius: 99,
-          background: "rgba(0,0,0,0.04)",
-          border: "1px solid rgba(0,0,0,0.06)",
-        }}
-      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "3px 12px",
+            borderRadius: 99,
+            background: t.toolbarChipBg,
+            border: `1px solid ${t.toolbarChipBorder}`,
+          }}
+        >
         <svg width={10} height={10} viewBox="0 0 16 16" fill="none">
           <circle cx="8" cy="8" r="5.5" stroke={t.labelTertiary} strokeWidth="1.2" />
           <path d="M8 5v3l2 1.5" stroke={t.labelTertiary} strokeWidth="1" strokeLinecap="round" />
@@ -437,7 +392,7 @@ function Toolbar() {
             style={{
               padding: "2px 4px",
               borderRadius: 4,
-              background: "rgba(0,0,0,0.08)",
+              background: t.toolbarSelectedViewBg,
             }}
           >
             <DetailIcon size={12} color={t.labelPrimary} />
@@ -522,8 +477,8 @@ function SidebarItem({
           style={{
             fontSize: 9,
             fontWeight: 500,
-            color: selected ? t.sidebarSelectedColor : t.labelTertiary,
-            background: selected ? "rgba(74,107,136,0.10)" : "rgba(0,0,0,0.05)",
+            color: selected ? t.sidebarSelectedColor : t.sidebarBadgeText,
+            background: selected ? t.sidebarBadgeBg : t.toolbarChipBg,
             borderRadius: 99,
             padding: "1px 6px",
             lineHeight: 1.5,
@@ -557,8 +512,8 @@ function Sidebar() {
           margin: "0 8px 10px",
           padding: "5px 7px",
           borderRadius: 6,
-          background: "rgba(0,0,0,0.04)",
-          border: "1px solid rgba(0,0,0,0.05)",
+          background: t.searchBg,
+          border: `1px solid ${t.searchBorder}`,
           display: "flex",
           alignItems: "center",
           gap: 5,
@@ -589,7 +544,7 @@ function Sidebar() {
       </SidebarSection>
 
       {/* Separator */}
-      <div style={{ height: 1, background: "rgba(0,0,0,0.06)", margin: "2px 10px 6px" }} />
+      <div style={{ height: 1, background: t.divider, margin: "2px 10px 6px" }} />
 
       {/* Actions */}
       <SidebarSection title="Actions">
@@ -607,7 +562,7 @@ function Sidebar() {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "5px 10px",
-          borderTop: `1px solid rgba(0,0,0,0.06)`,
+          borderTop: `1px solid ${t.divider}`,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -631,9 +586,9 @@ function FileRow({ file, index }: { file: HeroFile; index: number }) {
         alignItems: "center",
         gap: 8,
         padding: "7px 12px",
-        borderBottom: index < heroFiles.length - 1 ? `1px solid rgba(0,0,0,0.04)` : undefined,
+        borderBottom: index < heroFiles.length - 1 ? `1px solid ${t.rowBorder}` : undefined,
         fontFamily: t.font,
-        background: index === 0 ? "rgba(0,0,0,0.02)" : "transparent",
+        background: index === 0 ? t.rowHighlightBg : "transparent",
       }}
     >
       {/* Checkbox */}
@@ -649,8 +604,8 @@ function FileRow({ file, index }: { file: HeroFile; index: number }) {
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 6,
-          background: "rgba(0,0,0,0.03)",
-          border: "0.5px solid rgba(0,0,0,0.04)",
+          background: t.fileIconBg,
+          border: `0.5px solid ${t.fileIconBorder}`,
         }}
       >
         <Image
@@ -731,8 +686,8 @@ function FileRow({ file, index }: { file: HeroFile; index: number }) {
             color: t.statusPending,
             padding: "3px 10px",
             borderRadius: 6,
-            border: `1px solid rgba(232,116,79,0.25)`,
-            background: "rgba(232,116,79,0.06)",
+            border: `1px solid ${t.pendingButtonBorder}`,
+            background: t.pendingButtonBg,
             flexShrink: 0,
             whiteSpace: "nowrap",
           }}
@@ -751,7 +706,7 @@ function FileList() {
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        background: contentGradient,
+        background: t.contentGradient,
         minWidth: 0,
         position: "relative",
       }}
@@ -769,11 +724,11 @@ function FileList() {
           margin: "0 12px 12px",
           padding: "7px 8px 7px 12px",
           borderRadius: 20,
-          background: "rgba(240,238,234,0.82)",
+          background: t.actionBarBg,
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(0,0,0,0.06)",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(0,0,0,0.03)",
+          border: `1px solid ${t.actionBarBorder}`,
+          boxShadow: t.actionBarShadow,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -791,11 +746,11 @@ function FileList() {
 
         {/* Right: action buttons */}
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, height: 22, padding: "0 10px", borderRadius: 8, background: "rgba(0,0,0,0.05)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, height: 22, padding: "0 10px", borderRadius: 8, background: t.actionBarButtonBg }}>
             <FolderMoveIcon size={11} color={t.labelSecondary} />
             <span style={{ fontSize: 10.5, fontWeight: 500, color: t.labelSecondary }}>Move</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", height: 22, padding: "0 10px", borderRadius: 8, background: "rgba(0,0,0,0.05)" }}>
+          <div style={{ display: "flex", alignItems: "center", height: 22, padding: "0 10px", borderRadius: 8, background: t.actionBarButtonBg }}>
             <span style={{ fontSize: 10.5, fontWeight: 500, color: t.labelSecondary }}>Skip</span>
           </div>
           <button
@@ -813,7 +768,7 @@ function FileList() {
               border: "none",
             }}
           >
-            <FolderMoveIcon size={11} color="#FFFFFF" />
+            <FolderMoveIcon size={11} color={t.organizeText} />
             <span style={{ fontSize: 10.5, fontWeight: 600 }}>Organize 4</span>
           </button>
           {/* Close X */}
@@ -894,7 +849,7 @@ function Inspector() {
             flex: 1,
             padding: "4px 0",
             borderRadius: 5,
-            border: "1px solid rgba(0,0,0,0.10)",
+            border: `1px solid ${t.ghostButtonBorder}`,
             textAlign: "center",
             fontSize: 8.5,
             fontWeight: 500,
@@ -910,7 +865,7 @@ function Inspector() {
             style={{
               height: 3,
               borderRadius: 2,
-              background: "rgba(0,0,0,0.06)",
+              background: t.progressTrackBg,
               overflow: "hidden",
             }}
           >
@@ -986,7 +941,7 @@ function Inspector() {
           {/* Timer ring */}
           <div style={{ position: "relative", width: 30, height: 30, flexShrink: 0 }}>
             <svg width={30} height={30} viewBox="0 0 30 30">
-              <circle cx="15" cy="15" r="12.5" fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="2" />
+              <circle cx="15" cy="15" r="12.5" fill="none" stroke={t.timerTrack} strokeWidth="2" />
               <circle
                 cx="15"
                 cy="15"
@@ -1018,7 +973,7 @@ function Inspector() {
                   flex: 1,
                   padding: "2px 0",
                   borderRadius: 4,
-                  background: "rgba(0,0,0,0.05)",
+                  background: t.controlButtonBg,
                   textAlign: "center",
                   fontSize: 8.5,
                   fontWeight: 500,
@@ -1039,7 +994,7 @@ function Inspector() {
                   width: 18,
                   height: 16,
                   borderRadius: 4,
-                  background: "rgba(0,0,0,0.05)",
+                  background: t.controlButtonBg,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1070,13 +1025,8 @@ export default function FormaHeroWindow() {
       style={{
         fontFamily: t.font,
         background: t.windowBg,
-        minWidth: 540,
-        boxShadow: `
-          0 0 0 0.5px rgba(0,0,0,0.10),
-          0 1px 3px rgba(0,0,0,0.08),
-          0 8px 20px rgba(0,0,0,0.10),
-          0 24px 48px -8px rgba(0,0,0,0.15)
-        `,
+        minWidth: 740,
+        boxShadow: t.windowShadow,
       }}
       role="img"
       aria-label="Forma app main window showing file organization queue with sidebar, file list, and inspector panel"

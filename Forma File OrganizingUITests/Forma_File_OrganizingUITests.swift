@@ -19,8 +19,15 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         continueAfterFailure = false
 
         let isLaunchPerformanceTest = name.contains("testLaunchPerformance")
+        let usesCustomLaunchWindowSize = false
         if !isLaunchPerformanceTest {
             terminateRunningAppIfNeeded()
+        }
+
+        if usesCustomLaunchWindowSize {
+            app = nil
+            harness = nil
+            return
         }
 
         let launchedApp = await MainActor.run {

@@ -21,6 +21,17 @@ final class FileSurfaceToolbarValidationTests: XCTestCase {
         try captureCompactWidthShot(windowSize: "1080x760", name: "file-surface-toolbar-05-all-files-list-1080", outputDir: baseOutputDir)
         try captureCompactWidthShot(windowSize: "920x700", name: "file-surface-toolbar-06-all-files-list-920", outputDir: baseOutputDir)
     }
+
+    @MainActor
+    func testDashboardDoesNotShowLegacyFileManagementHeader() throws {
+        let app = launchApp(windowSize: "1440x900")
+        defer { app.terminate() }
+
+        XCTAssertFalse(
+            app.staticTexts["Forma: File Management"].waitForExistence(timeout: 1),
+            "Dashboard should not show the legacy file management header"
+        )
+    }
 }
 
 @MainActor

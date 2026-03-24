@@ -215,7 +215,6 @@ struct DashboardView: View {
             }
             .background(Color.formaBackground)
             .frame(minWidth: 1200, idealWidth: 1400, minHeight: 600)
-            .navigationTitle("Forma: File Management")
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .category(let cat):

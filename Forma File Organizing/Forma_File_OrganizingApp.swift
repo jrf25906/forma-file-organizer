@@ -2,6 +2,47 @@ import SwiftUI
 import SwiftData
 import AppKit
 
+protocol MainWindowChromeConfigurable: AnyObject {
+    var title: String { get set }
+    var titleVisibility: NSWindow.TitleVisibility { get set }
+    var titlebarAppearsTransparent: Bool { get set }
+    var styleMask: NSWindow.StyleMask { get set }
+    func assignFrameAutosaveName(_ name: String)
+}
+
+extension NSWindow: MainWindowChromeConfigurable {
+    func assignFrameAutosaveName(_ name: String) {
+        setFrameAutosaveName(name)
+    }
+}
+
+enum MainWindowPresentation {
+    static let autosaveName = "FormaMainWindow"
+    static let title = "Forma"
+
+    static var defaultSize: CGSize {
+        CGSize(
+            width: FormaSpacing.Window.preferredWidth,
+            height: FormaSpacing.Window.preferredHeight
+        )
+    }
+
+    static var minimumSize: CGSize {
+        CGSize(
+            width: FormaSpacing.Window.minWidth,
+            height: FormaSpacing.Window.minHeight
+        )
+    }
+
+    static func applyChrome(to window: MainWindowChromeConfigurable) {
+        window.assignFrameAutosaveName(autosaveName)
+        window.title = ""
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask.insert(.fullSizeContentView)
+    }
+}
+
 @main
 @MainActor
 struct Forma_File_OrganizingApp: App {
@@ -171,17 +212,18 @@ struct Forma_File_OrganizingApp: App {
 
     private var mainWindowScene: some Scene {
         let windowSize = Self.uiTestWindowSize()
-        return WindowGroup(id: "main") {
+        return Window(MainWindowPresentation.title, id: "main") {
             dashboardRootView
         }
         .defaultSize(
-            width: windowSize?.width ?? FormaSpacing.Window.preferredWidth,
-            height: windowSize?.height ?? FormaSpacing.Window.preferredHeight
+            width: windowSize?.width ?? MainWindowPresentation.defaultSize.width,
+            height: windowSize?.height ?? MainWindowPresentation.defaultSize.height
         )
         .modelContainer(container)
         .commands {
             SidebarCommands()
         }
+        .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified)
     }
 
@@ -189,8 +231,8 @@ struct Forma_File_OrganizingApp: App {
         let windowSize = Self.uiTestWindowSize()
         return DashboardView()
             .frame(
-                minWidth: windowSize?.width ?? 1200,
-                minHeight: windowSize?.height ?? 800
+                minWidth: windowSize?.width ?? MainWindowPresentation.minimumSize.width,
+                minHeight: windowSize?.height ?? MainWindowPresentation.minimumSize.height
             )
             .environmentObject(services)
             .environmentObject(dashboardViewModel)
@@ -249,8 +291,6 @@ private struct WindowChromeConfiguratorView: NSViewRepresentable {
     }
 
     private func configure(_ window: NSWindow) {
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        window.styleMask.insert(.fullSizeContentView)
+        MainWindowPresentation.applyChrome(to: window)
     }
 }

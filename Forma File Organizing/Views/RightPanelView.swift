@@ -6,6 +6,10 @@ struct RightPanelView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var panelTransition
 
+    private var defaultPanelTopAlignmentOffset: CGFloat {
+        FormaSpacing.Toolbar.topOffset + FormaSpacing.tight
+    }
+
     // MARK: - Mode Header Properties
 
     /// Whether to show the mode header (hidden in default mode)
@@ -57,7 +61,7 @@ struct RightPanelView: View {
                 switch dashboardViewModel.rightPanelMode {
                 case .default:
                     DefaultPanelView()
-                        .padding(.top, -FormaSpacing.Toolbar.topOffset)
+                        .padding(.top, -defaultPanelTopAlignmentOffset)
                         .matchedGeometryEffect(id: "panel", in: panelTransition)
                         .transition(.opacity)
 

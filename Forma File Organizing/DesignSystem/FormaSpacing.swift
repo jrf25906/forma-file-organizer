@@ -75,15 +75,15 @@ enum FormaSpacing {
     
     /// Window sizes
     struct Window {
-        /// Minimum window width
-        static let minWidth: CGFloat = 600
+        /// Minimum window width that preserves the full dashboard layout
+        static let minWidth: CGFloat = 1200
 
-        /// Minimum window height
-        static let minHeight: CGFloat = 400
+        /// Minimum window height that preserves the main dashboard chrome
+        static let minHeight: CGFloat = 600
 
-        /// Preferred initial size (matches ideal window proportions from design)
-        static let preferredWidth: CGFloat = 1400
-        static let preferredHeight: CGFloat = 970
+        /// Preferred focused launch size
+        static let preferredWidth: CGFloat = 1340
+        static let preferredHeight: CGFloat = 900
     }
 
     /// Toolbar spacing constants

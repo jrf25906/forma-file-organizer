@@ -2,6 +2,11 @@
 
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
+## Website Dark-Mode Polish (March 23, 2026)
+- [x] Refactor the website hero window to use shared semantic theme tokens.
+- [x] Restore dark-mode readability for the screenshot-style hero composition.
+- [x] Replace the washed-out "How Forma Works" background with a dark-aware section surface and tighter hierarchy.
+
 ## Optical Chrome Pass (March 10, 2026)
 - [x] Add a shared optical chrome primitive for concentric rims, specular sheen, and stateful elevation in `DesignSystem/FormaControlChrome.swift`.
 - [x] Apply the chrome pass to the dashboard toolbar and file-surface actions/states across card/list/grid.

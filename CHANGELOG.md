@@ -6,6 +6,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- `forma-website` hero window now uses shared theme tokens so the current screenshot-style composition renders correctly in dark mode, and the "How Forma Works" section now uses a dark-aware surface with tighter hierarchy.
 - Smart Rules now use centralized `RuleHealthService` classification so rules can surface `Duplicate / Overlap`, `Needs Permission`, `Will Create`, `Ready`, and `Disabled` states consistently.
 - Smart Rules duplicate sections now offer a contextual bulk `Delete Extras` action for exact duplicate cleanup, so stores affected by past template duplication do not require one-by-one deletion.
 - Destination permission pickers now open with the suggested parent folder/path context, prefill the first missing folder name when creating nested destinations, and can finish creating remaining subfolders after access is granted.

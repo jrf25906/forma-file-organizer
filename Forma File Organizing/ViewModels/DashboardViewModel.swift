@@ -63,7 +63,6 @@ class DashboardViewModel: ObservableObject {
     private let notificationService: NotificationService
     private let quickLookService: QuickLookService
     private let insightsService: InsightsService
-
     // MARK: - Private State
     private var modelContext: ModelContext?
     private var rules: [Rule] = []

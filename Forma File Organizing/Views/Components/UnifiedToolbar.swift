@@ -107,6 +107,46 @@ private struct ToolbarCluster<Content: View>: View {
     }
 }
 
+private struct ToolbarSegmentButton<Label: View>: View {
+    let isSelected: Bool
+    let action: () -> Void
+    let accessibilityIdentifier: String?
+    let accessibilityLabel: String?
+    @ViewBuilder let label: Label
+
+    init(
+        isSelected: Bool,
+        accessibilityIdentifier: String? = nil,
+        accessibilityLabel: String? = nil,
+        action: @escaping () -> Void,
+        @ViewBuilder label: () -> Label
+    ) {
+        self.isSelected = isSelected
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.accessibilityLabel = accessibilityLabel
+        self.action = action
+        self.label = label()
+    }
+
+    var body: some View {
+        Button(action: action) {
+            label
+                .frame(maxWidth: .infinity)
+                .frame(height: 24)
+                .padding(.horizontal, FormaSpacing.standard - 2)
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+                        .fill(isSelected ? Color.formaSteelBlue : Color.clear)
+                )
+                .foregroundStyle(isSelected ? Color.white : Color.formaLabel)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier ?? "")
+        .accessibilityLabel(accessibilityLabel ?? "")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
 struct UnifiedToolbar: View {
     let availableWidth: CGFloat
     @EnvironmentObject var viewModel: DashboardViewModel
@@ -122,15 +162,9 @@ struct UnifiedToolbar: View {
 
     var body: some View {
         HStack(spacing: compressionLevel == .compact ? FormaSpacing.tight : FormaSpacing.standard - FormaSpacing.micro) {
-            scopeGroup
-
-            if showsContextCluster {
-                contextCluster
-            }
+            leftToolbarGroup
 
             Spacer(minLength: compressionLevel.spacing)
-
-            arrangeMenu
 
             displayGroup
         }
@@ -162,18 +196,51 @@ struct UnifiedToolbar: View {
         viewModel.visibleFiles.count
     }
 
-    private var scopeGroup: some View {
-        Picker("Review Filter", selection: $viewModel.reviewFilterMode) {
-            Text(pendingSegmentTitle)
-                .accessibilityIdentifier("reviewMode_needsReview")
-                .tag(ReviewFilterMode.needsReview)
-            Text("All Files")
-                .accessibilityIdentifier("reviewMode_allFiles")
-                .tag(ReviewFilterMode.all)
+    @ViewBuilder
+    private var leftToolbarGroup: some View {
+        HStack(spacing: compressionLevel == .compact ? FormaSpacing.tight : FormaSpacing.standard - FormaSpacing.micro) {
+            scopeGroup
+
+            if showsContextCluster {
+                contextCluster
+            }
+
+            arrangeMenu
         }
-        .labelsHidden()
-        .pickerStyle(.segmented)
+    }
+
+    private var scopeGroup: some View {
+        ToolbarCluster(
+            spacing: FormaSpacing.micro,
+            horizontalPadding: FormaSpacing.micro,
+            verticalPadding: FormaSpacing.micro,
+            tint: reviewModeClusterTint,
+            elevation: reviewModeClusterElevation
+        ) {
+            ToolbarSegmentButton(
+                isSelected: viewModel.reviewFilterMode == .needsReview,
+                accessibilityIdentifier: "reviewMode_needsReview",
+                accessibilityLabel: pendingSegmentTitle,
+                action: { viewModel.reviewFilterMode = .needsReview }
+            ) {
+                Text(pendingSegmentTitle)
+                    .font(.formaSmallSemibold)
+                    .lineLimit(1)
+            }
+
+            ToolbarSegmentButton(
+                isSelected: viewModel.reviewFilterMode == .all,
+                accessibilityIdentifier: "reviewMode_allFiles",
+                accessibilityLabel: "All Files",
+                action: { viewModel.reviewFilterMode = .all }
+            ) {
+                Text("All Files")
+                    .font(.formaSmallSemibold)
+                    .lineLimit(1)
+            }
+        }
         .frame(width: compressionLevel.scopeWidth)
+        .frame(height: primaryRowHeight)
         .accessibilityIdentifier("toolbarReviewModePicker")
     }
 
@@ -187,13 +254,17 @@ struct UnifiedToolbar: View {
         ) {
             contextLeadingAccessory
 
-            VStack(alignment: .leading, spacing: compressionLevel.showContextDetail ? 2 : 0) {
+            HStack(spacing: FormaSpacing.micro + 2) {
                 Text(contextSummaryTitle)
                     .font(.formaSmallSemibold)
                     .foregroundColor(.formaLabel)
                     .monospacedDigit()
 
                 if compressionLevel.showContextDetail {
+                    Text("·")
+                        .font(.formaCaption)
+                        .foregroundColor(.formaTertiaryLabel)
+
                     Text(contextSummaryDetail)
                         .font(.formaCaption)
                         .foregroundColor(.formaSecondaryLabel)
@@ -268,15 +339,14 @@ struct UnifiedToolbar: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.formaSecondaryLabelHigh)
 
-                if compressionLevel.showArrangeLabel {
-                    Text(arrangeSummary)
-                        .font(.formaSmallMedium)
-                        .foregroundColor(.formaLabel)
-                        .lineLimit(1)
-                }
+                Text(arrangeSummary)
+                    .font(.formaSmallMedium)
+                    .foregroundColor(.formaLabel)
+                    .lineLimit(1)
             }
         }
         .menuStyle(.borderlessButton)
+        .frame(height: primaryRowHeight)
         .fixedSize(horizontal: true, vertical: false)
         .help(arrangeHelpText)
         .accessibilityIdentifier("toolbarArrangeMenu")
@@ -291,22 +361,11 @@ struct UnifiedToolbar: View {
             verticalPadding: FormaSpacing.micro + 1,
             tint: isInspectorEffectivelyVisible ? .formaSteelBlue : nil
         ) {
-            Picker("View Mode", selection: $viewModel.currentViewMode) {
-                Image(systemName: "square.grid.2x2")
-                    .accessibilityLabel("Grid view")
-                    .accessibilityIdentifier("viewMode_grid")
-                    .tag(ViewMode.grid)
-                Image(systemName: "list.bullet")
-                    .accessibilityLabel("List view")
-                    .accessibilityIdentifier("viewMode_list")
-                    .tag(ViewMode.list)
-                Image(systemName: "rectangle.grid.1x2")
-                    .accessibilityLabel("Card view")
-                    .accessibilityIdentifier("viewMode_card")
-                    .tag(ViewMode.card)
+            HStack(spacing: FormaSpacing.micro) {
+                viewModeButton(mode: .grid, systemName: "square.grid.2x2", accessibilityIdentifier: "viewMode_grid", accessibilityLabel: "Grid view")
+                viewModeButton(mode: .list, systemName: "list.bullet", accessibilityIdentifier: "viewMode_list", accessibilityLabel: "List view")
+                viewModeButton(mode: .card, systemName: "rectangle.grid.1x2", accessibilityIdentifier: "viewMode_card", accessibilityLabel: "Card view")
             }
-            .labelsHidden()
-            .pickerStyle(.segmented)
             .frame(width: compressionLevel.viewModeWidth)
 
             Divider()
@@ -334,7 +393,32 @@ struct UnifiedToolbar: View {
             .accessibilityIdentifier("toolbarInspectorToggle")
             .accessibilityLabel(inspectorAccessibilityLabel)
         }
+        .frame(height: primaryRowHeight)
         .accessibilityIdentifier("toolbarViewModePicker")
+    }
+
+    @ViewBuilder
+    private func viewModeButton(
+        mode: ViewMode,
+        systemName: String,
+        accessibilityIdentifier: String,
+        accessibilityLabel: String
+    ) -> some View {
+        Button(action: { viewModel.currentViewMode = mode }) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .frame(height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+                        .fill(viewModel.currentViewMode == mode ? Color.formaSteelBlue : Color.clear)
+                )
+                .foregroundStyle(viewModel.currentViewMode == mode ? Color.white : Color.formaSecondaryLabelHigh)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(viewModel.currentViewMode == mode ? .isSelected : [])
     }
 
     private var pendingSegmentTitle: String {
@@ -386,6 +470,14 @@ struct UnifiedToolbar: View {
         }
 
         return nil
+    }
+
+    private var reviewModeClusterTint: Color? {
+        viewModel.reviewFilterMode == .needsReview ? .formaMutedBlue : nil
+    }
+
+    private var reviewModeClusterElevation: FormaChromeElevation {
+        viewModel.reviewFilterMode == .needsReview ? .raised : .resting
     }
 
     private var contextClusterElevation: FormaChromeElevation {
