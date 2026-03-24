@@ -59,7 +59,7 @@ export default function GetFormaPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.32)_100%)] p-7 md:p-8">
+          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 md:p-8">
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
               What you get
             </h2>

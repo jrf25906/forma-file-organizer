@@ -97,7 +97,15 @@ export function ScrollReveal({
 
       if (elements.length === 0) return;
 
-      // Set initial state
+      // Skip hiding if the element is already in the viewport on load
+      const rect = container.getBoundingClientRect();
+      const alreadyInView = rect.top < window.innerHeight && rect.bottom > 0;
+      if (alreadyInView) {
+        gsap.set(elements, { opacity: 1, x: 0, y: 0 });
+        return;
+      }
+
+      // Set initial state for elements below the fold
       gsap.set(elements, {
         opacity: 0,
         x,

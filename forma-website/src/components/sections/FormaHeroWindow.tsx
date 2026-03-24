@@ -658,6 +658,7 @@ function FileRow({ file, index }: { file: HeroFile; index: number }) {
           alt=""
           width={22}
           height={22}
+          priority
           draggable={false}
           aria-hidden="true"
           style={{ objectFit: "contain" }}

@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 import { Eye, EyeClosed, GitBranch, Type, Undo2, Camera, Image, FileText, FileCheck, Folder, FolderOpen, Shield, ShieldCheck, RotateCcw, History, Scan, ScanSearch } from "lucide-react";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
-import ScrollDrivenTornado from "@/components/effects/ScrollDrivenTornado";
+import dynamic from "next/dynamic";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
-import FAQSection from "@/components/sections/FAQSection";
-import FormaBeforeAfter from "@/components/sections/FormaBeforeAfter";
+
+const ScrollDrivenTornado = dynamic(() => import("@/components/effects/ScrollDrivenTornado"));
+const FAQSection = dynamic(() => import("@/components/sections/FAQSection"));
+const FormaBeforeAfter = dynamic(() => import("@/components/sections/FormaBeforeAfter"));
 import FormaHeroWindow from "@/components/sections/FormaHeroWindow";
 import HeroEntrance from "@/components/animation/HeroEntrance";
 import { faqs } from "@/lib/faq";
@@ -172,32 +174,30 @@ const useCases = [
   {
     icon: Scan,
     hoverIcon: ScanSearch,
-    title: "Preview-first",
-    body: "Nothing moves until you approve the batch. Every file, every destination, visible before it happens.",
+    title: "Post-trip photo dump",
+    body: "You came home with 400 photos, 12 receipts, and a boarding pass. One rule sorts the whole trip.",
     color: "text-forma-sage",
     bgTint: "bg-[rgba(107,143,113,0.14)]",
     borderTint: "border-[rgba(107,143,113,0.22)]",
     animationClass: "group-hover:animate-scan-pulse",
   },
   {
-    icon: Shield,
-    hoverIcon: ShieldCheck,
-    title: "Local-only privacy",
-    body: "Your files never leave your Mac. No account, no uploads, no \u2018we take privacy seriously\u2019 blog post.",
+    icon: GitBranch,
+    title: "Design asset sprawl",
+    body: "PSDs, mockups, exported PNGs\u200A\u2014\u200Ascattered across three folders. Group them by project in one pass.",
     color: "text-forma-steel-blue",
     bgTint: "bg-[rgba(74,107,136,0.14)]",
     borderTint: "border-[rgba(74,107,136,0.22)]",
-    animationClass: "group-hover:animate-shield-block",
+    animationClass: "",
   },
   {
-    icon: RotateCcw,
-    hoverIcon: History,
-    title: "Undo system",
-    body: "Moved 200 files to the wrong folder? One click to undo. No archaeological dig required.",
+    icon: Undo2,
+    title: "New Mac migration prep",
+    body: "Before you migrate, clean house. Sort years of clutter so you start fresh on the new machine.",
     color: "text-forma-warm-orange",
     bgTint: "bg-[rgba(184,107,82,0.14)]",
     borderTint: "border-[rgba(184,107,82,0.22)]",
-    animationClass: "group-hover:animate-undo-spin",
+    animationClass: "",
   },
 ] as const;
 
@@ -279,23 +279,25 @@ export default function Home() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString }} />
 
       <main id="main-content" className="relative overflow-hidden w-full h-full">
-        <ScrollDrivenTornado />
         
         {/* ─── HERO ─────────────────────────────────────────────────────── */}
         <section
           id="top"
           className="relative overflow-hidden border-b border-[var(--border-subtle)] bg-transparent"
         >
+          <ScrollDrivenTornado />
           {/* We removed the static background gradients here so the WebGL shines through */}
 
           <HeroEntrance className="site-container relative z-10 py-12 md:py-16 lg:py-24">
             <div className="grid items-center gap-10 lg:grid-cols-[3fr_4fr] lg:items-center lg:gap-14">
               {/* Left: copy */}
-              <div>
+              <div className="min-w-0">
                 <div data-hero="eyebrow">
-                  <SectionEyebrow>For the perpetually messy</SectionEyebrow>
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-forma-steel-blue [text-shadow:0_1px_8px_rgba(0,0,0,0.5)]">
+                    For the perpetually messy
+                  </p>
                 </div>
-                <h1 data-hero="headline" className="mt-6 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.035em] text-[var(--text-primary)] text-balance sm:text-[2.5rem] md:text-[3rem] lg:text-[3.5rem]">
+                <h1 data-hero="headline" className="mt-6 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.035em] text-[var(--text-primary)] sm:text-balance sm:text-[2.5rem] md:text-[3rem] lg:text-[3.5rem]">
                   A file organizer for people who gave up on file organizers.
                 </h1>
                 <p data-hero="subtext" className="mt-6 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
@@ -306,7 +308,7 @@ export default function Home() {
                 <div data-hero="cta" className="mt-8">
                   <TrackedAppStoreLink
                     location="hero_primary"
-                    className="inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-[#944A35] to-[#A86048] px-7 py-3.5 text-[15px] font-semibold text-white shadow-[0_4px_16px_rgba(148,74,53,0.35)] transition-[transform,box-shadow,filter] duration-200 ease-out will-change-transform hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(148,74,53,0.45)] hover:brightness-110 active:scale-[0.97]"
+                    className="btn-forma-primary px-8 py-4 text-[15px]"
                   >
                     Get Forma for Mac
                   </TrackedAppStoreLink>
@@ -317,7 +319,7 @@ export default function Home() {
               </div>
 
               {/* Right: live app replica */}
-              <div data-hero="window" className="relative">
+              <div data-hero="window" className="relative min-w-0">
                 <FormaHeroWindow />
               </div>
             </div>
@@ -418,7 +420,7 @@ export default function Home() {
               </div>
             </ScrollReveal>
 
-            <ScrollReveal direction="up" distance={30} delay={0.15} className="mx-auto mt-12 max-w-4xl">
+            <ScrollReveal direction="up" distance={30} className="mx-auto mt-8 max-w-4xl">
               <div>
                 <FormaBeforeAfter />
               </div>
@@ -446,7 +448,7 @@ export default function Home() {
                 return (
                   <article
                     key={useCase.title}
-                    className="group rounded-2xl cursor-default border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 transition-shadow duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
+                    className="group rounded-2xl cursor-default border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[var(--border-medium)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.98] active:border-[var(--border-medium)]"
                   >
                     <div className={`flex h-12 w-12 items-center justify-center rounded-xl border ${useCase.borderTint} ${useCase.bgTint} transition-transform duration-300`}>
                       {HoverIcon ? (
@@ -478,7 +480,7 @@ export default function Home() {
             id="pricing"
             aria-labelledby="pricing-heading"
             className="scroll-mt-16 border-y border-[var(--border-subtle)] bg-[var(--bg-secondary)] py-20 md:py-28"
-            style={{ backgroundImage: "linear-gradient(135deg, var(--bg-secondary), rgba(184, 107, 82, 0.03), rgba(74, 107, 136, 0.04))" }}
+            style={{ backgroundImage: "linear-gradient(135deg, var(--bg-secondary), rgba(184, 107, 82, 0.07), rgba(74, 107, 136, 0.08))" }}
           >
             <ScrollReveal direction="up" distance={30} className="site-container">
             <div className="mx-auto max-w-4xl overflow-hidden rounded-[2rem] border-[3px] border-forma-warm-orange bg-[var(--bg-primary)]">
@@ -521,7 +523,7 @@ export default function Home() {
                   <div className="mt-10">
                     <TrackedAppStoreLink
                       location="pricing_primary"
-                      className="inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-[#944A35] to-[#A86048] px-7 py-3.5 text-[15px] font-semibold text-white shadow-[0_4px_16px_rgba(148,74,53,0.35)] transition-[transform,box-shadow,filter] duration-200 ease-out will-change-transform hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(148,74,53,0.45)] hover:brightness-110 active:scale-[0.97]"
+                      className="btn-forma-primary w-full px-7 py-4 text-[15px]"
                     >
                       Get Forma &mdash; $29
                     </TrackedAppStoreLink>

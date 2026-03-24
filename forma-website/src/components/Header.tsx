@@ -90,7 +90,7 @@ export function Header() {
 
           <TrackedAppStoreLink
             location="header_desktop"
-            className="inline-flex items-center rounded-lg bg-gradient-to-br from-[#944A35] to-[#A86048] px-4 py-2 text-[13px] font-medium leading-4 text-white transition-[transform,box-shadow,filter] duration-200 ease-out will-change-transform hover:brightness-110 active:scale-[0.97] min-h-[44px]"
+            className="btn-forma-primary px-5 py-2.5 text-[13.5px] min-h-[44px]"
           >
             Get Forma
           </TrackedAppStoreLink>

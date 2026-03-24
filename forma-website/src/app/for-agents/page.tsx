@@ -66,7 +66,7 @@ export default function ForAgentsPage() {
   return (
     <main id="main-content" className="relative py-20 md:py-24">
       <div className="site-container mx-auto max-w-5xl">
-        <header className="overflow-hidden rounded-[2rem] border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(255,255,255,0.46)_100%)] p-7 shadow-[0_18px_40px_rgba(15,18,24,0.05)] md:p-10">
+        <header className="overflow-hidden rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 md:p-10">
           <div className="grid gap-8 lg:grid-cols-[1.05fr,0.95fr]">
             <div>
               <p className="mb-3 text-xs uppercase tracking-[0.14em] text-forma-steel-blue">
@@ -85,7 +85,7 @@ export default function ForAgentsPage() {
                 {routeSignals.map((signal) => (
                   <span
                     key={signal}
-                    className="rounded-full border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]"
+                    className="rounded-full border border-[var(--border-medium)] bg-[var(--surface-glass)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]"
                   >
                     {signal}
                   </span>
@@ -101,14 +101,14 @@ export default function ForAgentsPage() {
                 </a>
                 <Link
                   href="/"
-                  className="inline-flex items-center justify-center rounded-xl border border-[var(--border-medium)] bg-[rgba(255,255,255,0.66)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[rgba(255,255,255,0.82)]"
+                  className="inline-flex items-center justify-center rounded-xl border border-[var(--border-medium)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-glass)]"
                 >
                   See the product
                 </Link>
               </div>
             </div>
 
-            <section className="rounded-[1.5rem] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.58)] p-6">
+            <section className="rounded-[1.5rem] border border-[var(--border-subtle)] bg-[var(--surface-glass)] p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-forma-steel-blue">
                 Route intent
               </p>
@@ -157,7 +157,7 @@ export default function ForAgentsPage() {
                     Public
                   </span>
                 </div>
-                <code className="mt-4 block rounded-xl bg-[rgba(255,255,255,0.72)] px-3 py-3 text-[13px] leading-relaxed text-[var(--text-primary)]">
+                <code className="mt-4 block rounded-xl bg-[var(--surface-glass)] px-3 py-3 text-[13px] leading-relaxed text-[var(--text-primary)]">
                   {endpoint.path}
                 </code>
                 <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">

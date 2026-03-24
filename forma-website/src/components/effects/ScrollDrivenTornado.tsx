@@ -127,8 +127,6 @@ function TexturedSwarm({ texturePath, textureIndex }: { texturePath: string, tex
         ref={meshRef} 
         args={[undefined, undefined, PARTICLES_PER_TEXTURE]}
         geometry={curvedCardGeometry}
-        castShadow
-        receiveShadow
     >
       <meshPhysicalMaterial 
         map={texture}
@@ -175,15 +173,14 @@ export default function ScrollDrivenTornado() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
-    // We bind the scrollState mathematically to the user's scroll depth globally across the DOM
+    // We bind the scrollState mathematically to the user's scroll depth across the hero section
     const tween = gsap.to(tornadoScrollState, {
       progress: 1,
       ease: "none",
       scrollTrigger: {
-        trigger: "#before-after-heading", // Start transitioning when Before & After appears
-        start: "top center",
-        endTrigger: "#pricing", // Become perfectly organized just as the pricing section arrives
-        end: "top 80%",
+        trigger: "#top", // Start transitioning when scrolling the hero section
+        start: "top top",
+        end: "bottom top", // Become perfectly organized just as the hero section leaves the viewport
         scrub: 1.2, // 1.2 seconds of GSAP lag creates a heavier, extremely fluid physical animation
       }
     });
@@ -204,14 +201,14 @@ export default function ScrollDrivenTornado() {
   }); // Global triggers like #pricing can be found because scope was removed
 
   return (
-    <div ref={containerRef} className="fixed inset-0 z-0 pointer-events-none w-full h-[100vh] opacity-40 md:opacity-35">
+    <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none w-full h-full opacity-40 md:opacity-35">
       {/* gl={{ alpha: true }} allows the white background of the page below to shine through the tornado */}
-      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
+      <Canvas shadows dpr={[1, 1.5]} gl={{ antialias: true, alpha: true }}>
         <fog attach="fog" args={['#FDFCFB', 15, 38]} />
         <PerspectiveCamera makeDefault position={[0, -2, 28]} fov={50} />
         
         <ambientLight intensity={0.6} />
-        <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0005} />
+        <directionalLight position={[10, 20, 10]} intensity={1.5} />
         <directionalLight position={[-10, 10, -10]} intensity={0.8} color="#FFD1A9" />
         <pointLight position={[0, 0, 5]} intensity={0.5} color="#ffffff" distance={20} />
         

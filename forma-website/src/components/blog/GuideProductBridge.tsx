@@ -37,7 +37,7 @@ export default function GuideProductBridge({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[2rem] border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.78)_0%,rgba(255,255,255,0.48)_100%)] p-6 shadow-[0_18px_40px_rgba(15,18,24,0.05)] md:p-8",
+        "overflow-hidden rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6 md:p-8",
         className
       )}
     >
@@ -66,7 +66,7 @@ export default function GuideProductBridge({
             {proofChips.map((item) => (
               <span
                 key={item}
-                className="rounded-full border border-[var(--border-medium)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]"
+                className="rounded-full border border-[var(--border-medium)] bg-[var(--surface-glass)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]"
               >
                 {item}
               </span>

@@ -378,16 +378,35 @@ input, textarea { background-color: var(--input-bg); border-color: var(--input-b
     will-change: transform;
   }
   .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(74, 107, 136, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
-  .btn-primary:active { transform: scale(0.97); }
-  .btn-secondary {
-    @apply px-6 py-3 rounded-xl font-medium;
-    font-family: var(--font-display);
-    background: var(--surface-glass); border: 1px solid var(--border-medium); backdrop-filter: blur(10px);
-    transition: transform 0.2s ease-out, background 0.2s ease-out, border-color 0.2s ease-out;
-    will-change: transform;
-  }
-  .btn-secondary:hover { background: var(--surface-glass-hover); border-color: var(--border-strong); transform: translateY(-2px); }
   .btn-secondary:active { transform: scale(0.97); }
+
+  .btn-forma-primary {
+    @apply inline-flex items-center justify-center font-semibold text-white;
+    background: linear-gradient(135deg, #944A35 0%, #A86048 100%);
+    box-shadow: 
+      0 4px 16px rgba(148, 74, 53, 0.35), 
+      inset 0 1px 1px rgba(255, 255, 255, 0.25),
+      inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease-out, filter 0.2s ease-out;
+    will-change: transform;
+    border-radius: 12px;
+  }
+  .btn-forma-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 8px 24px rgba(148, 74, 53, 0.45), 
+      inset 0 1px 1px rgba(255, 255, 255, 0.3),
+      inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+    filter: brightness(1.1);
+  }
+  .btn-forma-primary:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: 
+      0 2px 8px rgba(148, 74, 53, 0.35), 
+      inset 0 1px 1px rgba(255, 255, 255, 0.1),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+    filter: brightness(0.95);
+  }
 }
 
 .gradient-bg {
