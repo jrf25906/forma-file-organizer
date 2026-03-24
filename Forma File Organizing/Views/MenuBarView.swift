@@ -6,8 +6,14 @@ struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.colorScheme) private var colorScheme
 
-    init(viewModel: MenuBarViewModel = MenuBarViewModel()) {
+    private let autoRefreshOnAppear: Bool
+
+    init(
+        viewModel: MenuBarViewModel = MenuBarViewModel(),
+        autoRefreshOnAppear: Bool = true
+    ) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.autoRefreshOnAppear = autoRefreshOnAppear
     }
 
     var body: some View {
@@ -23,22 +29,16 @@ struct MenuBarView: View {
                 cornerRadius: FormaRadius.large,
                 padding: FormaSpacing.standard
             ) {
-                VStack(spacing: FormaSpacing.tight) {
+                VStack(alignment: .leading, spacing: 12) {
                     headerSection
-                    summarySection
 
                     if FeatureFlagService.shared.isEnabled(.menuBarFileReview), viewModel.hasPendingFiles {
                         reviewQueueSection
+                    } else {
+                        allClearSection
                     }
 
-                    if viewModel.highConfidenceCount > 0 {
-                        quickActionsSection
-                    }
-
-                    if viewModel.hasPendingFiles {
-                        folderCountsSection
-                    }
-
+                    supportRowsSection
                     footerSection
                 }
             }
@@ -47,9 +47,11 @@ struct MenuBarView: View {
         .frame(width: 344)
         .background(Color.clear)
         .onAppear {
+            guard autoRefreshOnAppear else { return }
             viewModel.startRefreshing()
         }
         .onDisappear {
+            guard autoRefreshOnAppear else { return }
             viewModel.stopRefreshing()
         }
     }
@@ -71,10 +73,10 @@ struct MenuBarView: View {
                 tint: .formaSteelBlue,
                 elevation: .raised
             )
-                .frame(width: 34, height: 34)
-                .overlay(
-                    FormaLogo(style: .mark, height: 18)
-                )
+            .frame(width: 34, height: 34)
+            .overlay(
+                FormaLogo(style: .mark, height: 18)
+            )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Forma")
@@ -95,7 +97,7 @@ struct MenuBarView: View {
 
     private var headerSubtitle: String {
         if viewModel.hasPendingFiles {
-            return "\(viewModel.pendingFiles.count) item\(viewModel.pendingFiles.count == 1 ? "" : "s") in review queue"
+            return "\(viewModel.pendingFiles.count) item\(viewModel.pendingFiles.count == 1 ? "" : "s") ready for review"
         }
 
         return viewModel.automationStatus.statusText
@@ -152,58 +154,61 @@ struct MenuBarView: View {
         }
     }
 
-    private var summarySection: some View {
-        MenuBarSurface(
-            tint: viewModel.hasPendingFiles
-                ? Color.formaWarning.opacity(colorScheme == .dark ? 0.20 : 0.12)
-                : Color.formaSage.opacity(colorScheme == .dark ? 0.16 : 0.10)
-        ) {
-            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                HStack(spacing: FormaSpacing.standard) {
-                    summaryIcon
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(viewModel.hasPendingFiles ? "Pending review" : "All clear")
-                            .font(.formaBodySemibold)
-                            .foregroundColor(.formaLabel)
-
-                        Text(viewModel.hasPendingFiles ? reviewSummaryText : clearSummaryText)
-                            .font(.formaMenuMetadata)
-                            .foregroundColor(.formaSecondaryLabel)
-                            .fixedSize(horizontal: false, vertical: true)
+    private var reviewQueueSection: some View {
+        Group {
+            if let file = viewModel.currentReviewFile {
+                MenuBarFileReviewCard(
+                    file: file,
+                    paginationText: viewModel.reviewPaginationText,
+                    isOrganizing: viewModel.isOrganizingCurrent,
+                    canGoBack: viewModel.currentReviewIndex > 0,
+                    canGoForward: viewModel.currentReviewIndex < viewModel.pendingFiles.count - 1,
+                    onOrganize: {
+                        Task { await viewModel.organizeCurrentFile() }
+                    },
+                    onSkip: {
+                        viewModel.skipCurrentFile()
+                    },
+                    onPrevious: {
+                        viewModel.navigateReview(direction: .previous)
+                    },
+                    onNext: {
+                        viewModel.navigateReview(direction: .next)
                     }
-
-                    Spacer(minLength: FormaSpacing.tight)
-
-                    summaryCountBadge
-                }
-
-                HStack(spacing: FormaSpacing.tight) {
-                    statTile(
-                        title: "Today",
-                        value: "\(viewModel.organizedTodayCount)",
-                        icon: "checkmark.circle.fill",
-                        tint: .formaSage
+                )
+                .id(file.path)
+                .transition(
+                    .asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
                     )
-
-                    statTile(
-                        title: "This Week",
-                        value: "\(viewModel.organizedThisWeekCount)",
-                        icon: "calendar",
-                        tint: .formaSteelBlue
-                    )
-                }
+                )
             }
-            .padding(FormaSpacing.standard)
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: viewModel.currentReviewFile?.path)
     }
 
-    private var reviewSummaryText: String {
-        if viewModel.highConfidenceCount > 0 {
-            return "\(viewModel.highConfidenceCount) high-confidence match\(viewModel.highConfidenceCount == 1 ? "" : "es") ready to move."
-        }
+    private var allClearSection: some View {
+        MenuBarFlatRow(tint: .formaSage, cornerRadius: FormaRadius.card, padding: FormaSpacing.standard) {
+            HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                summaryIcon
 
-        return "Review files before Forma moves them."
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("All clear")
+                        .font(.formaBodySemibold)
+                        .foregroundColor(.formaLabel)
+
+                    Text(clearSummaryText)
+                        .font(.formaMenuMetadata)
+                        .foregroundColor(.formaSecondaryLabel)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: FormaSpacing.tight)
+
+                summaryCountBadge
+            }
+        }
     }
 
     private var clearSummaryText: String {
@@ -211,34 +216,30 @@ struct MenuBarView: View {
             return "Nothing needs attention right now."
         }
 
-        return "Nothing needs attention. Forma is still watching your folders."
+        return "No files are waiting. Forma is still watching your folders."
     }
 
     private var summaryIcon: some View {
         FormaChromeSurface(
             cornerRadius: FormaRadius.control,
             fill: colorScheme == .dark
-                ? Color.formaControlBackground.opacity(0.80)
-                : Color.formaBoneWhite.opacity(0.92),
-            tint: summaryIconTint,
-            elevation: .raised
+                ? Color.formaControlBackground.opacity(0.78)
+                : Color.formaBoneWhite.opacity(0.90),
+            tint: .formaSage,
+            elevation: .resting
         )
-            .frame(width: 36, height: 36)
-            .overlay(
-                Image(systemName: viewModel.hasPendingFiles ? "tray.full.fill" : "checkmark.circle.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(summaryIconTint)
-            )
-    }
-
-    private var summaryIconTint: Color {
-        viewModel.hasPendingFiles ? .formaWarning : .formaSage
+        .frame(width: 34, height: 34)
+        .overlay(
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.formaSage)
+        )
     }
 
     private var summaryCountBadge: some View {
-        Text(viewModel.hasPendingFiles ? "\(viewModel.pendingFiles.count)" : "0")
+        Text("0")
             .font(.formaBodySemibold)
-            .foregroundColor(summaryIconTint)
+            .foregroundColor(.formaSage)
             .monospacedDigit()
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -246,155 +247,155 @@ struct MenuBarView: View {
                 FormaChromeSurface(
                     cornerRadius: FormaRadius.pill,
                     fill: colorScheme == .dark
-                        ? Color.formaControlBackground.opacity(0.76)
-                        : Color.formaBoneWhite.opacity(0.92),
-                    tint: summaryIconTint,
+                        ? Color.formaControlBackground.opacity(0.72)
+                        : Color.formaBoneWhite.opacity(0.88),
+                    tint: .formaSage,
                     elevation: .resting
                 )
             )
-            .accessibilityLabel(viewModel.hasPendingFiles ? "\(viewModel.pendingFiles.count) files need review" : "No files need review")
+            .accessibilityLabel("No files need review")
     }
 
-    private func statTile(title: String, value: String, icon: String, tint: Color) -> some View {
-        MenuBarSurface(
-            tier: .base,
-            tint: tint.opacity(colorScheme == .dark ? 0.22 : 0.14),
-            cornerRadius: FormaRadius.control,
-            padding: FormaSpacing.tight
-        ) {
-            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-                Label(title, systemImage: icon)
+    private var supportRowsSection: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            activityStatsRow
+
+            if viewModel.highConfidenceCount > 0 {
+                highConfidenceRow
+            }
+
+            if viewModel.totalPendingFiles > 0 {
+                monitoredFoldersSection
+            }
+        }
+    }
+
+    private var activityStatsRow: some View {
+        MenuBarFlatRow(tint: viewModel.hasPendingFiles ? .formaSteelBlue : .formaSage, padding: nil) {
+            HStack(spacing: 0) {
+                compactStatColumn(
+                    title: "Today",
+                    value: "\(viewModel.organizedTodayCount)",
+                    icon: "checkmark.circle.fill",
+                    tint: .formaSage
+                )
+
+                verticalDivider
+
+                compactStatColumn(
+                    title: "This Week",
+                    value: "\(viewModel.organizedThisWeekCount)",
+                    icon: "calendar",
+                    tint: .formaSteelBlue
+                )
+            }
+        }
+    }
+
+    private func compactStatColumn(title: String, value: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: FormaSpacing.tight) {
+            Image(systemName: icon)
+                .font(.formaCaptionSemibold)
+                .foregroundColor(tint)
+                .frame(width: 12)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
                     .font(.formaCaptionSemibold)
                     .foregroundColor(.formaSecondaryLabel)
+                    .textCase(.uppercase)
 
                 Text(value)
                     .font(.formaBodySemibold)
                     .foregroundColor(.formaLabel)
                     .monospacedDigit()
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var reviewQueueSection: some View {
-        MenuBarSurface(
-            tint: Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.18 : 0.10)
-        ) {
-            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                MenuBarSectionHeading(title: "Review Queue")
-                    .padding(.horizontal, FormaSpacing.standard)
-                    .padding(.top, FormaSpacing.standard)
+    private var highConfidenceRow: some View {
+        MenuBarFlatRow(tint: .formaSteelBlue, padding: nil) {
+            if viewModel.showOrganizeAllConfirmation {
+                HStack(spacing: FormaSpacing.tight) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.formaSage)
 
-                if let file = viewModel.currentReviewFile {
-                    MenuBarFileReviewCard(
-                        file: file,
-                        paginationText: viewModel.reviewPaginationText,
-                        isOrganizing: viewModel.isOrganizingCurrent,
-                        canGoBack: viewModel.currentReviewIndex > 0,
-                        canGoForward: viewModel.currentReviewIndex < viewModel.pendingFiles.count - 1,
-                        onOrganize: {
-                            Task { await viewModel.organizeCurrentFile() }
-                        },
-                        onSkip: {
-                            viewModel.skipCurrentFile()
-                        },
-                        onPrevious: {
-                            viewModel.navigateReview(direction: .previous)
-                        },
-                        onNext: {
-                            viewModel.navigateReview(direction: .next)
-                        }
-                    )
-                    .id(file.path)
-                    .padding(.horizontal, FormaSpacing.standard)
-                    .padding(.bottom, FormaSpacing.standard)
-                    .transition(
-                        .asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        )
-                    )
-                }
-            }
-        }
-        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: viewModel.currentReviewFile?.path)
-    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Files organized")
+                            .font(.formaBodySemibold)
+                            .foregroundColor(.formaLabel)
 
-    private var quickActionsSection: some View {
-        MenuBarSurface(
-            tint: Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.20 : 0.12)
-        ) {
-            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                MenuBarSectionHeading(title: "Quick Actions")
-
-                if viewModel.showOrganizeAllConfirmation {
-                    MenuBarSurface(
-                        tier: .base,
-                        tint: Color.formaSage.opacity(colorScheme == .dark ? 0.22 : 0.14),
-                        cornerRadius: FormaRadius.control,
-                        padding: FormaSpacing.tight
-                    ) {
-                        HStack(spacing: FormaSpacing.tight) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.formaSage)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Files organized")
-                                    .font(.formaBodySemibold)
-                                    .foregroundColor(.formaLabel)
-
-                                Text("High-confidence matches were moved.")
-                                    .font(.formaMenuMetadata)
-                                    .foregroundColor(.formaSecondaryLabel)
-                            }
-
-                            Spacer(minLength: 0)
-                        }
+                        Text("High-confidence matches were moved.")
+                            .font(.formaMenuMetadata)
+                            .foregroundColor(.formaSecondaryLabel)
                     }
-                    .transition(.opacity)
-                } else {
-                    Button(action: {
-                        Task { await viewModel.organizeAllHighConfidence() }
-                    }) {
-                        HStack(spacing: FormaSpacing.tight) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Organize High-Confidence Files")
-                                    .font(.formaBodySemibold)
 
-                                Text("\(viewModel.highConfidenceCount) file\(viewModel.highConfidenceCount == 1 ? "" : "s") with 90%+ confidence")
-                                    .font(.formaMenuMetadata)
-                            }
-
-                            Spacer(minLength: 0)
-
-                            Image(systemName: "bolt.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .buttonStyle(MenuBarButtonStyle(kind: .secondary(.formaSteelBlue)))
-                    .help("Organize files with 90% or higher confidence")
+                    Spacer(minLength: 0)
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .transition(.opacity)
+            } else {
+                Button(action: {
+                    Task { await viewModel.organizeAllHighConfidence() }
+                }) {
+                    HStack(spacing: FormaSpacing.tight) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("High-confidence matches")
+                                .font(.formaBodySemibold)
+                                .foregroundColor(.formaLabel)
+
+                            Text("\(viewModel.highConfidenceCount) file\(viewModel.highConfidenceCount == 1 ? "" : "s") can be organized immediately")
+                                .font(.formaMenuMetadata)
+                                .foregroundColor(.formaSecondaryLabel)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        Label("Organize", systemImage: "bolt.fill")
+                            .font(.formaCompactSemibold)
+                            .foregroundColor(.formaSteelBlue)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Organize files with 90% or higher confidence")
             }
-            .padding(FormaSpacing.standard)
         }
         .animation(.easeInOut(duration: 0.2), value: viewModel.showOrganizeAllConfirmation)
     }
 
-    private var folderCountsSection: some View {
-        MenuBarSurface(
-            tint: Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.18 : 0.10)
-        ) {
-            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                MenuBarSectionHeading(title: "Monitored Folders", detail: "\(viewModel.totalPendingFiles) pending")
+    private var monitoredFoldersSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            MenuBarSectionHeading(title: "Monitored Folders", detail: "\(viewModel.totalPendingFiles) pending")
+                .padding(.horizontal, 2)
 
-                ForEach(viewModel.folderStatuses) { folder in
+            ForEach(viewModel.folderStatuses.filter(\.hasFiles)) { folder in
+                MenuBarFlatRow(
+                    tint: folder.count > 0 ? .formaMutedBlue : nil,
+                    cornerRadius: FormaRadius.control,
+                    padding: 10
+                ) {
                     HStack(spacing: FormaSpacing.tight) {
                         folderIcon(for: folder)
 
-                        Text(folder.name)
-                            .font(.formaMenuItem)
-                            .foregroundColor(.formaLabel)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(folder.name)
+                                .font(.formaMenuItem)
+                                .foregroundColor(.formaLabel)
+
+                            Text(folder.count == 1 ? "1 file waiting" : "\(folder.count) files waiting")
+                                .font(.formaMenuMetadata)
+                                .foregroundColor(.formaSecondaryLabel)
+                        }
 
                         Spacer(minLength: FormaSpacing.tight)
 
@@ -402,7 +403,6 @@ struct MenuBarView: View {
                     }
                 }
             }
-            .padding(FormaSpacing.standard)
         }
     }
 
@@ -431,7 +431,7 @@ struct MenuBarView: View {
                 Capsule(style: .continuous)
                     .fill(
                         (folder.count > 0 ? Color.formaSteelBlue : Color.formaSecondaryLabel)
-                            .opacity(colorScheme == .dark ? 0.18 : 0.10)
+                            .opacity(colorScheme == .dark ? 0.16 : 0.08)
                     )
             )
             .overlay(
@@ -445,9 +445,10 @@ struct MenuBarView: View {
     }
 
     private var footerSection: some View {
-        MenuBarSurface(
-            tint: Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.14 : 0.08)
-        ) {
+        VStack(spacing: FormaSpacing.tight) {
+            MenuBarDivider()
+                .padding(.top, 2)
+
             HStack(spacing: FormaSpacing.tight) {
                 Button(action: openMainInterface) {
                     HStack(spacing: FormaSpacing.micro) {
@@ -476,8 +477,14 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(MenuBarButtonStyle(kind: .utility))
             }
-            .padding(FormaSpacing.standard)
         }
+    }
+
+    private var verticalDivider: some View {
+        Rectangle()
+            .fill(Color.formaSeparator.opacity(colorScheme == .dark ? 0.22 : 0.10))
+            .frame(width: 1)
+            .padding(.vertical, 8)
     }
 
     private func openMainInterface() {
@@ -486,6 +493,23 @@ struct MenuBarView: View {
     }
 }
 
-#Preview {
-    MenuBarView(viewModel: MenuBarViewModel())
+#Preview("Menu Bar - Pending Destination") {
+    MenuBarView(
+        viewModel: .previewPendingWithDestination(),
+        autoRefreshOnAppear: false
+    )
+}
+
+#Preview("Menu Bar - Pending Needs Destination") {
+    MenuBarView(
+        viewModel: .previewPendingWithoutDestination(),
+        autoRefreshOnAppear: false
+    )
+}
+
+#Preview("Menu Bar - All Clear") {
+    MenuBarView(
+        viewModel: .previewAllClear(),
+        autoRefreshOnAppear: false
+    )
 }

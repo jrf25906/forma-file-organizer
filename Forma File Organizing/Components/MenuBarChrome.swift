@@ -124,6 +124,76 @@ struct MenuBarSurface<Content: View>: View {
     }
 }
 
+struct MenuBarFlatRow<Content: View>: View {
+    let tint: Color?
+    let cornerRadius: CGFloat
+    let padding: CGFloat?
+    let content: Content
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(
+        tint: Color? = nil,
+        cornerRadius: CGFloat = FormaRadius.control,
+        padding: CGFloat? = FormaSpacing.tight,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.tint = tint
+        self.cornerRadius = cornerRadius
+        self.padding = padding
+        self.content = content()
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        Group {
+            if let padding {
+                content.padding(padding)
+            } else {
+                content
+            }
+        }
+        .background {
+            shape
+                .fill(baseFill)
+                .overlay {
+                    if let tint {
+                        shape.fill(tint.opacity(colorScheme == .dark ? 0.11 : 0.07))
+                    }
+                }
+                .overlay(
+                    shape.strokeBorder(borderColor, lineWidth: 1)
+                )
+        }
+        .clipShape(shape)
+    }
+
+    private var baseFill: Color {
+        colorScheme == .dark
+            ? Color.formaControlBackground.opacity(0.46)
+            : Color.formaBoneWhite.opacity(0.58)
+    }
+
+    private var borderColor: Color {
+        if let tint {
+            return tint.opacity(colorScheme == .dark ? 0.22 : 0.14)
+        }
+
+        return Color.formaSeparator.opacity(colorScheme == .dark ? 0.28 : 0.12)
+    }
+}
+
+struct MenuBarDivider: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.formaSeparator.opacity(colorScheme == .dark ? 0.28 : 0.10))
+            .frame(height: 1)
+    }
+}
+
 struct MenuBarSectionHeading: View {
     let title: String
     var detail: String? = nil
@@ -227,7 +297,7 @@ struct MenuBarButtonStyle: ButtonStyle {
         case .primary:
             return .emphasized
         case .secondary:
-            return .raised
+            return .resting
         case .utility:
             return .resting
         }
@@ -236,20 +306,20 @@ struct MenuBarButtonStyle: ButtonStyle {
     private func backgroundFill(isPressed: Bool) -> Color {
         switch kind {
         case let .primary(tint):
-            return tint.opacity(isPressed ? 0.82 : 0.96)
+            return tint.opacity(isPressed ? 0.82 : 0.94)
         case let .secondary(tint):
             if tint == nil {
                 return colorScheme == .dark
-                    ? Color.formaControlBackground.opacity(isPressed ? 0.82 : 0.74)
-                    : Color.formaBoneWhite.opacity(isPressed ? 0.82 : 0.92)
+                    ? Color.formaControlBackground.opacity(isPressed ? 0.68 : 0.56)
+                    : Color.formaBoneWhite.opacity(isPressed ? 0.84 : 0.72)
             }
             return colorScheme == .dark
-                ? Color.formaControlBackground.opacity(isPressed ? 0.82 : 0.76)
-                : Color.formaBoneWhite.opacity(isPressed ? 0.84 : 0.94)
+                ? Color.formaControlBackground.opacity(isPressed ? 0.72 : 0.60)
+                : Color.formaBoneWhite.opacity(isPressed ? 0.86 : 0.76)
         case .utility:
             return colorScheme == .dark
-                ? Color.formaControlBackground.opacity(isPressed ? 0.78 : 0.68)
-                : Color.formaBoneWhite.opacity(isPressed ? 0.80 : 0.88)
+                ? Color.formaControlBackground.opacity(isPressed ? 0.58 : 0.42)
+                : Color.formaBoneWhite.opacity(isPressed ? 0.74 : 0.58)
         }
     }
 
@@ -258,7 +328,7 @@ struct MenuBarButtonStyle: ButtonStyle {
         case let .primary(tint):
             return tint
         case let .secondary(tint):
-            return tint
+            return tint?.opacity(isPressed ? 0.36 : 0.22)
         case .utility:
             return nil
         }
