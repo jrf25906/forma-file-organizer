@@ -16,14 +16,14 @@ struct MenuBarFileReviewCard: View {
 
     var body: some View {
         MenuBarSurface(
-            tier: .base,
+            tier: .raised,
             tint: cardTint,
             cornerRadius: FormaRadius.card,
             padding: FormaSpacing.standard
         ) {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 fileHeaderRow
-                destinationSummary
+                metadataBlock
                 actionButtonsRow
                 paginationRow
             }
@@ -39,10 +39,10 @@ struct MenuBarFileReviewCard: View {
 
     private var cardTint: Color {
         if file.hasDestination {
-            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.18 : 0.12)
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.16 : 0.10)
         }
 
-        return Color.formaWarning.opacity(colorScheme == .dark ? 0.18 : 0.10)
+        return Color.formaWarning.opacity(colorScheme == .dark ? 0.16 : 0.09)
     }
 
     private var accentTint: Color {
@@ -83,33 +83,24 @@ struct MenuBarFileReviewCard: View {
         }
     }
 
-    private var destinationSummary: some View {
-        MenuBarSurface(
-            tier: .base,
-            tint: accentTint.opacity(colorScheme == .dark ? 0.18 : 0.10),
+    private var metadataBlock: some View {
+        MenuBarFlatRow(
+            tint: file.hasDestination ? accentTint : .formaWarning,
             cornerRadius: FormaRadius.control,
-            padding: FormaSpacing.tight
+            padding: 10
         ) {
             VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                HStack(alignment: .top, spacing: FormaSpacing.tight) {
-                    Image(systemName: "arrow.turn.down.right")
-                        .font(.formaCaptionSemibold)
-                        .foregroundColor(.formaSecondaryLabel)
-                        .padding(.top, 2)
+                Text(file.hasDestination ? "Destination" : "Needs destination")
+                    .font(.formaCaptionSemibold)
+                    .foregroundColor(file.hasDestination ? .formaTertiaryLabelHigh : .formaWarning)
+                    .textCase(.uppercase)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(file.destinationDisplayName ?? "No destination assigned")
-                            .font(.formaBody)
-                            .foregroundColor(file.hasDestination ? .formaLabel : .formaSecondaryLabel)
-                            .lineLimit(2)
-
-                        Text(file.hasDestination ? "Destination" : "Needs a destination before organizing")
-                            .font(.formaMenuMetadata)
-                            .foregroundColor(.formaSecondaryLabel)
-                    }
-                }
+                destinationRow
 
                 if let matchReason = file.matchReason, !matchReason.isEmpty {
+                    MenuBarDivider()
+                        .padding(.vertical, 2)
+
                     HStack(alignment: .top, spacing: FormaSpacing.tight) {
                         Image(systemName: "sparkles")
                             .font(.formaCaptionSemibold)
@@ -118,10 +109,31 @@ struct MenuBarFileReviewCard: View {
 
                         Text(matchReason)
                             .font(.formaMenuMetadata)
-                            .foregroundColor(.formaSecondaryLabel)
+                            .foregroundColor(.formaSecondaryLabelHigh)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+            }
+        }
+    }
+
+    private var destinationRow: some View {
+        HStack(alignment: .top, spacing: FormaSpacing.tight) {
+            Image(systemName: file.hasDestination ? "arrow.turn.down.right" : "exclamationmark.triangle")
+                .font(.formaCaptionSemibold)
+                .foregroundColor(file.hasDestination ? .formaSecondaryLabel : .formaWarning)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(file.destinationDisplayName ?? "No destination assigned")
+                    .font(.formaBody)
+                    .foregroundColor(file.hasDestination ? .formaLabel : .formaSecondaryLabelHigh)
+                    .lineLimit(2)
+
+                Text(file.hasDestination ? "Ready to move now" : "Choose a destination in the main app before organizing")
+                    .font(.formaMenuMetadata)
+                    .foregroundColor(.formaSecondaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -156,33 +168,37 @@ struct MenuBarFileReviewCard: View {
     }
 
     private var paginationRow: some View {
-        HStack(spacing: FormaSpacing.tight) {
-            Button(action: onPrevious) {
-                Image(systemName: "chevron.left")
-                    .font(.formaCaptionSemibold)
-                    .frame(width: 16, height: 16)
+        VStack(spacing: FormaSpacing.tight) {
+            MenuBarDivider()
+
+            HStack(spacing: FormaSpacing.tight) {
+                Button(action: onPrevious) {
+                    Image(systemName: "chevron.left")
+                        .font(.formaCaptionSemibold)
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(MenuBarButtonStyle(kind: .utility))
+                .disabled(!canGoBack)
+                .accessibilityLabel("Previous file")
+
+                Spacer(minLength: 0)
+
+                Text(paginationText)
+                    .font(.formaMenuMetadata)
+                    .foregroundColor(.formaTertiaryLabelHigh)
+                    .monospacedDigit()
+
+                Spacer(minLength: 0)
+
+                Button(action: onNext) {
+                    Image(systemName: "chevron.right")
+                        .font(.formaCaptionSemibold)
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(MenuBarButtonStyle(kind: .utility))
+                .disabled(!canGoForward)
+                .accessibilityLabel("Next file")
             }
-            .buttonStyle(MenuBarButtonStyle(kind: .utility))
-            .disabled(!canGoBack)
-            .accessibilityLabel("Previous file")
-
-            Spacer(minLength: 0)
-
-            Text(paginationText)
-                .font(.formaMenuMetadata)
-                .foregroundColor(.formaTertiaryLabel)
-                .monospacedDigit()
-
-            Spacer(minLength: 0)
-
-            Button(action: onNext) {
-                Image(systemName: "chevron.right")
-                    .font(.formaCaptionSemibold)
-                    .frame(width: 16, height: 16)
-            }
-            .buttonStyle(MenuBarButtonStyle(kind: .utility))
-            .disabled(!canGoForward)
-            .accessibilityLabel("Next file")
         }
     }
 }

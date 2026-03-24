@@ -136,9 +136,11 @@ final class MenuBarViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init(actions: FormaActions = .shared) {
+    init(actions: FormaActions = .shared, observeExternalState: Bool = true) {
         self.actions = actions
-        setupObservers()
+        if observeExternalState {
+            setupObservers()
+        }
     }
 
     deinit {
@@ -347,3 +349,143 @@ extension MenuBarViewModel {
         ].filter { $0.hasFiles || fileCounts.total == 0 }
     }
 }
+
+#if DEBUG
+extension MenuBarViewModel {
+    static func previewPendingWithDestination() -> MenuBarViewModel {
+        let files = [
+            previewFile(
+                path: "/Users/test/Downloads/Screenshot 2026-03-23 at 11.05.04 AM.png",
+                sizeInBytes: 3_200_000,
+                destinationName: "Pictures/Screenshots",
+                status: .ready,
+                confidence: 0.97,
+                matchReason: "Name starts with 'Screenshot'"
+            ),
+            previewFile(
+                path: "/Users/test/Desktop/Invoice-March.pdf",
+                sizeInBytes: 860_000,
+                destinationName: "Documents/Finance",
+                status: .ready,
+                confidence: 0.91,
+                matchReason: "Matched: invoices rule"
+            ),
+            previewFile(
+                path: "/Users/test/Downloads/Untitled.zip",
+                sizeInBytes: 104_000,
+                destinationName: nil,
+                status: .pending,
+                confidence: nil,
+                matchReason: nil
+            )
+        ]
+
+        return preview(
+            pendingFiles: files,
+            fileCounts: .init(total: 3, desktop: 1, downloads: 2, documents: 0, pictures: 0, other: 0),
+            currentReviewIndex: 0,
+            organizedTodayCount: 6,
+            organizedThisWeekCount: 18,
+            automationStatus: .init(
+                mode: .scanOnly,
+                isRunning: false,
+                nextScheduledRun: nil,
+                lastRunDate: Date().addingTimeInterval(-1200),
+                lastRunSuccessCount: 4
+            )
+        )
+    }
+
+    static func previewPendingWithoutDestination() -> MenuBarViewModel {
+        let files = [
+            previewFile(
+                path: "/Users/test/Downloads/random_file.zip",
+                sizeInBytes: 50_000,
+                destinationName: nil,
+                status: .pending,
+                confidence: nil,
+                matchReason: "No destination matched yet"
+            ),
+            previewFile(
+                path: "/Users/test/Downloads/Screenshot 2026-03-23 at 10.55.41 AM.png",
+                sizeInBytes: 2_800_000,
+                destinationName: "Pictures/Screenshots",
+                status: .ready,
+                confidence: 0.93,
+                matchReason: "Name starts with 'Screenshot'"
+            )
+        ]
+
+        return preview(
+            pendingFiles: files,
+            fileCounts: .init(total: 2, desktop: 0, downloads: 2, documents: 0, pictures: 0, other: 0),
+            currentReviewIndex: 0,
+            organizedTodayCount: 2,
+            organizedThisWeekCount: 9,
+            automationStatus: .init(
+                mode: .scanOnly,
+                isRunning: false,
+                nextScheduledRun: Date().addingTimeInterval(1800),
+                lastRunDate: Date().addingTimeInterval(-600),
+                lastRunSuccessCount: 1
+            )
+        )
+    }
+
+    static func previewAllClear() -> MenuBarViewModel {
+        preview(
+            pendingFiles: [],
+            fileCounts: .init(),
+            currentReviewIndex: 0,
+            organizedTodayCount: 4,
+            organizedThisWeekCount: 12,
+            automationStatus: .init(
+                mode: .scanAndOrganize,
+                isRunning: false,
+                nextScheduledRun: Date().addingTimeInterval(900),
+                lastRunDate: Date().addingTimeInterval(-3600),
+                lastRunSuccessCount: 5
+            )
+        )
+    }
+
+    private static func preview(
+        pendingFiles: [FileItem],
+        fileCounts: FormaActions.PendingFileCounts,
+        currentReviewIndex: Int,
+        organizedTodayCount: Int,
+        organizedThisWeekCount: Int,
+        automationStatus: FormaActions.AutomationStatus
+    ) -> MenuBarViewModel {
+        let viewModel = MenuBarViewModel(observeExternalState: false)
+        viewModel.pendingFiles = pendingFiles
+        viewModel.fileCounts = fileCounts
+        viewModel.currentReviewIndex = currentReviewIndex
+        viewModel.organizedTodayCount = organizedTodayCount
+        viewModel.organizedThisWeekCount = organizedThisWeekCount
+        viewModel.automationStatus = automationStatus
+        viewModel.lastRefresh = Date()
+        return viewModel
+    }
+
+    private static func previewFile(
+        path: String,
+        sizeInBytes: Int64,
+        destinationName: String?,
+        status: FileItem.OrganizationStatus,
+        confidence: Double?,
+        matchReason: String?
+    ) -> FileItem {
+        let file = FileItem(
+            path: path,
+            sizeInBytes: sizeInBytes,
+            creationDate: Date(),
+            destination: destinationName.map(FileItem.mockDestination(displayName:)),
+            status: status
+        )
+        file.confidenceScore = confidence
+        file.matchReason = matchReason
+        return file
+    }
+}
+#endif

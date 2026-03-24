@@ -2,6 +2,11 @@
 
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
+## Menu Bar De-Dashboarding (March 23, 2026)
+- [x] Flatten the menu bar popover into one outer shell, one primary review block, and lightweight supporting rows.
+- [x] Remove the nested destination/review card treatment in the menu bar and simplify the action hierarchy around one primary organize button.
+- [x] Add stable menu bar previews for pending-with-destination, pending-without-destination, and all-clear states.
+
 ## Optical Chrome Pass (March 10, 2026)
 - [x] Add a shared optical chrome primitive for concentric rims, specular sheen, and stateful elevation in `DesignSystem/FormaControlChrome.swift`.
 - [x] Apply the chrome pass to the dashboard toolbar and file-surface actions/states across card/list/grid.
