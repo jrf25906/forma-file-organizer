@@ -128,6 +128,128 @@ final class DashboardViewModelTests: XCTestCase {
         // Then
         XCTAssertEqual(localPipeline.scanCallCount, 0, "Onboarding flow should defer refresh until dismissal")
     }
+
+    func testApplyAutomationScanUpdateMergesRescannedRootsWithoutDroppingOtherRoots() async throws {
+        let localService = MockFileSystemService()
+        let localPipeline = MockFileScanPipeline()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: localPipeline
+        )
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        localViewModel.setModelContext(context)
+
+        let desktopRoot = "/Users/test/Desktop"
+        let downloadsRoot = "/Users/test/Downloads"
+        let retainedDownloadsFile = FileItem(
+            path: "\(downloadsRoot)/keep.txt",
+            sizeInBytes: 100,
+            creationDate: Date(),
+            location: .downloads,
+            scanRootPath: downloadsRoot,
+            destination: nil,
+            status: .pending
+        )
+        let staleDesktopFile = FileItem(
+            path: "\(desktopRoot)/old.txt",
+            sizeInBytes: 100,
+            creationDate: Date(),
+            location: .desktop,
+            scanRootPath: desktopRoot,
+            destination: nil,
+            status: .pending
+        )
+        localViewModel._testSetFiles([staleDesktopFile, retainedDownloadsFile])
+
+        let updatedDesktopFile = FileItem(
+            path: "\(desktopRoot)/new.txt",
+            sizeInBytes: 200,
+            creationDate: Date(),
+            location: .desktop,
+            scanRootPath: desktopRoot,
+            destination: nil,
+            status: .pending
+        )
+        context.insert(updatedDesktopFile)
+        try context.save()
+
+        await localViewModel.applyAutomationScanUpdate(
+            scannedRootPaths: [desktopRoot],
+            errorSummary: nil,
+            replacesAllFiles: false,
+            context: context
+        )
+
+        let paths = Set(localViewModel.allFiles.map(\.path))
+        XCTAssertEqual(paths, [updatedDesktopFile.path, retainedDownloadsFile.path])
+        XCTAssertFalse(paths.contains(staleDesktopFile.path))
+    }
+
+    func testApplyAutomationScanUpdateFullRefreshReplacesAllFilesAndDropsDisabledRoots() async throws {
+        let localService = MockFileSystemService()
+        let localPipeline = MockFileScanPipeline()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: localPipeline
+        )
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        localViewModel.setModelContext(context)
+
+        let desktopRoot = "/Users/test/Desktop"
+        let downloadsRoot = "/Users/test/Downloads"
+        let staleDesktopFile = FileItem(
+            path: "\(desktopRoot)/old.txt",
+            sizeInBytes: 100,
+            creationDate: Date(),
+            location: .desktop,
+            scanRootPath: desktopRoot,
+            destination: nil,
+            status: .pending
+        )
+        let staleDownloadsFile = FileItem(
+            path: "\(downloadsRoot)/keep.txt",
+            sizeInBytes: 100,
+            creationDate: Date(),
+            location: .downloads,
+            scanRootPath: downloadsRoot,
+            destination: nil,
+            status: .pending
+        )
+        localViewModel._testSetFiles([staleDesktopFile, staleDownloadsFile])
+
+        let refreshedDesktopFile = FileItem(
+            path: "\(desktopRoot)/new.txt",
+            sizeInBytes: 200,
+            creationDate: Date(),
+            location: .desktop,
+            scanRootPath: desktopRoot,
+            destination: nil,
+            status: .pending
+        )
+        context.insert(refreshedDesktopFile)
+        try context.save()
+
+        await localViewModel.applyAutomationScanUpdate(
+            scannedRootPaths: [desktopRoot],
+            errorSummary: nil,
+            replacesAllFiles: true,
+            context: context
+        )
+
+        XCTAssertEqual(Set(localViewModel.allFiles.map(\.path)), [refreshedDesktopFile.path])
+    }
     
     func testFilterByLocation() {
         // Given

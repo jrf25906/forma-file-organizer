@@ -29,12 +29,20 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         let errorSummary: String?
         let rawErrors: [String: Error]
         let timedOut: Bool
+        let scannedRootPaths: [String]
 
-        init(files: [FileItem], errorSummary: String?, rawErrors: [String: Error], timedOut: Bool = false) {
+        init(
+            files: [FileItem],
+            errorSummary: String?,
+            rawErrors: [String: Error],
+            timedOut: Bool = false,
+            scannedRootPaths: [String] = []
+        ) {
             self.files = files
             self.errorSummary = errorSummary
             self.rawErrors = rawErrors
             self.timedOut = timedOut
+            self.scannedRootPaths = scannedRootPaths
         }
     }
 
@@ -84,7 +92,12 @@ struct FileScanPipeline: FileScanPipelineProtocol {
             id: discoveryId,
             metadata: "\(result.files.count) files, \(result.scannedRootPaths.count) roots"
         )
-        let scanMeta = ScanResult(files: [], errorSummary: result.errorSummary, rawErrors: result.errors)
+        let scanMeta = ScanResult(
+            files: [],
+            errorSummary: result.errorSummary,
+            rawErrors: result.errors,
+            scannedRootPaths: result.scannedRootPaths
+        )
         return await persist(
             files: result.files,
             scannedRootPaths: result.scannedRootPaths,
@@ -156,7 +169,12 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         )
 
         PerformanceMonitor.shared.end(.ruleEvaluation, id: persistId, metadata: "\(persistence.files.count) persisted")
-        return ScanResult(files: persistence.files, errorSummary: errorSummary, rawErrors: rawErrors)
+        return ScanResult(
+            files: persistence.files,
+            errorSummary: errorSummary,
+            rawErrors: rawErrors,
+            scannedRootPaths: scanMeta.scannedRootPaths
+        )
     }
 
     // MARK: - MainActor Data Fetching

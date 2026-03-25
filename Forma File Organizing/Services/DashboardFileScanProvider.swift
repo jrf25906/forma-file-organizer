@@ -39,19 +39,20 @@ final class DashboardFileScanProvider: FileScanProvider {
 
     // MARK: - FileScanProvider
 
-    func scanFiles(context: ModelContext) async throws -> FileScanResult {
+    func scanFiles(context: ModelContext, baseFolders: [FolderLocation]?) async throws -> FileScanResult {
         Log.info("DashboardFileScanProvider: Starting scan", category: .automation)
+        let replacesAllFiles = baseFolders == nil
 
         // Fetch current rules
         let rules = try fetchRules(context: context)
 
         // Determine which base folders to scan based on BookmarkFolderService
-        let baseFolders = BookmarkFolderService.shared.enabledFolderLocations
+        let selectedBaseFolders = baseFolders ?? BookmarkFolderService.shared.enabledFolderLocations
         let scanOptions = ScanOptionsResolver.current()
 
         // Perform the scan
         let result = await pipeline.scanAndPersist(
-            baseFolders: baseFolders,
+            baseFolders: selectedBaseFolders,
             scanOptions: scanOptions,
             fileSystemService: fileSystemService,
             ruleEngine: ruleEngine,
@@ -70,7 +71,12 @@ final class DashboardFileScanProvider: FileScanProvider {
         }
 
         // Compute metrics from the scan result
-        let metrics = computeMetrics(from: result.files, context: context, errorSummary: result.errorSummary)
+        let metrics = computeMetrics(
+            from: result.files,
+            context: context,
+            errorSummary: result.errorSummary,
+            scannedRootPaths: result.scannedRootPaths
+        )
 
         // Notify dashboard surfaces that rely on in-memory file lists.
         NotificationCenter.default.post(
@@ -78,6 +84,8 @@ final class DashboardFileScanProvider: FileScanProvider {
             object: nil,
             userInfo: [
                 AutomationScanNotificationUserInfo.scannedPaths: result.files.map(\.path),
+                AutomationScanNotificationUserInfo.scannedRootPaths: result.scannedRootPaths,
+                AutomationScanNotificationUserInfo.replacesAllFiles: replacesAllFiles,
                 AutomationScanNotificationUserInfo.errorSummary: result.errorSummary as Any
             ]
         )
@@ -137,7 +145,12 @@ final class DashboardFileScanProvider: FileScanProvider {
     }
 
 
-    private func computeMetrics(from files: [FileItem], context: ModelContext, errorSummary: String?) -> FileScanResult {
+    private func computeMetrics(
+        from files: [FileItem],
+        context: ModelContext,
+        errorSummary: String?,
+        scannedRootPaths: [String]
+    ) -> FileScanResult {
         var pendingCount = 0
         var readyCount = 0
         var organizedCount = 0
@@ -174,7 +187,8 @@ final class DashboardFileScanProvider: FileScanProvider {
             organizedCount: organizedCount,
             skippedCount: skippedCount,
             oldestPendingAgeDays: oldestAgeDays,
-            errorSummary: errorSummary
+            errorSummary: errorSummary,
+            scannedRootPaths: scannedRootPaths
         )
     }
 

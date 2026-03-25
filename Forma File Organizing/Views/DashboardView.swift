@@ -283,14 +283,16 @@ struct DashboardView: View {
             tourState.replayTour()
         }
         .onReceive(NotificationCenter.default.publisher(for: .automationScanDidPersist)) { notification in
-            guard let scannedPaths = notification.userInfo?[AutomationScanNotificationUserInfo.scannedPaths] as? [String] else {
+            guard let scannedRootPaths = notification.userInfo?[AutomationScanNotificationUserInfo.scannedRootPaths] as? [String] else {
                 return
             }
             let errorSummary = notification.userInfo?[AutomationScanNotificationUserInfo.errorSummary] as? String
+            let replacesAllFiles = notification.userInfo?[AutomationScanNotificationUserInfo.replacesAllFiles] as? Bool ?? false
             Task {
                 await dashboardViewModel.applyAutomationScanUpdate(
-                    scannedPaths: scannedPaths,
+                    scannedRootPaths: scannedRootPaths,
                     errorSummary: errorSummary,
+                    replacesAllFiles: replacesAllFiles,
                     context: modelContext
                 )
             }

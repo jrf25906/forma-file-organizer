@@ -1,60 +1,61 @@
-# Automation Architecture (v1.4)
+# Automation Architecture (v1.5)
 
 ## Overview
 
-The Automation system enables background file monitoring, scheduled scans, and automatic file organization. This document explains the architecture, key components, and design decisions.
+Forma automation now combines realtime filesystem watching with scheduled recovery sweeps. `AutomationEngine` owns both paths: it starts an `FSEvents` stream for enabled bookmark-backed standard folders while the app is active, converts bursty path changes into debounced root-level rescans, and keeps interval-based full scans as a fallback.
 
 ## Problem Statement
 
-Users want Forma to automatically organize files without manual intervention. This requires:
+Users want Forma to react quickly when files appear, move, or disappear without sacrificing correctness. This requires:
 
-- **Background Monitoring**: Detect new files and organize them automatically
-- **Scheduling**: Run scans at appropriate intervals based on system state
-- **Policy-Driven Decisions**: Determine when auto-organize is safe vs when to wait for user review
-- **Observability**: Show users what automation is doing and let them control it
+- **Realtime Watching**: detect nested file changes under watched roots without polling the whole filesystem
+- **Targeted Rescans**: rescan only the affected roots to keep automation lightweight
+- **Scheduled Recovery Sweeps**: periodically run a full automation scan in case watcher events are missed
+- **Policy-Driven Decisions**: determine when scan-only versus scan-and-organize behavior is allowed
+- **Partial Refresh Correctness**: update dashboard and menu bar after root-scoped persistence without dropping unaffected state
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         App Lifecycle                                │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │            AutomationLifecycleModifier                        │   │
-│  │  (Starts/stops engine based on ScenePhase)                    │   │
-│  └──────────────────────────┬───────────────────────────────────┘   │
-└─────────────────────────────┼───────────────────────────────────────┘
+│                         App Lifecycle                              │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │          AutomationLifecycleModifier / WindowLifecycle       │  │
+│  │  (activeWithWindow / menuBarOnly start, background stops)   │  │
+│  └──────────────────────────┬───────────────────────────────────┘  │
+└─────────────────────────────┼──────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      AutomationEngine                                │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────────┐   │
-│  │ AutomationState │  │ Timer/Scheduler │  │ Scan Coordinator   │   │
-│  │ (@Observable)   │  │ (Adaptive)      │  │ (FileScanProvider) │   │
-│  └────────┬────────┘  └────────┬────────┘  └─────────┬──────────┘   │
-│           │                    │                      │              │
-│           └────────────────────┴──────────────────────┘              │
-└─────────────────────────────────┬───────────────────────────────────┘
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-              ▼                   ▼                   ▼
-┌─────────────────────┐  ┌───────────────┐  ┌────────────────────────┐
-│  AutomationPolicy   │  │ FeatureFlags  │  │ ActivityLoggingService │
-│  (Decision Logic)   │  │ (Gates)       │  │ (Audit Trail)          │
-└─────────────────────┘  └───────────────┘  └────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    FormaConfig.Automation                            │
-│  (Thresholds, Intervals, Cooldowns)                                  │
-└─────────────────────────────────────────────────────────────────────┘
+│                         AutomationEngine                           │
+│  ┌─────────────────┐ ┌──────────────────┐ ┌─────────────────────┐  │
+│  │ AutomationState │ │ Scheduler/Backoff│ │ Realtime Watch Queue│  │
+│  │ (@Observable)   │ │ (full sweeps)    │ │ (debounced roots)   │  │
+│  └────────┬────────┘ └────────┬─────────┘ └──────────┬──────────┘  │
+│           │                   │                       │             │
+│           └───────────────────┴──────────────┬────────┘             │
+└──────────────────────────────────────────────┼──────────────────────┘
+                                               │
+                     ┌─────────────────────────┼────────────────────────┐
+                     │                         │                        │
+                     ▼                         ▼                        ▼
+         ┌─────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
+         │  AutomationPolicy   │  │  FileMonitorService  │  │ DashboardFileScan... │
+         │  (decisions/gates)  │  │  (FSEvents + scopes) │  │ + FileScanPipeline   │
+         └─────────────────────┘  └──────────────────────┘  └──────────────────────┘
+                     │                         │                        │
+                     ▼                         ▼                        ▼
+         ┌─────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
+         │   Feature Flags     │  │ BookmarkFolderService│  │ Activity / UI Refresh │
+         │  (rollout gates)    │  │  (enabled roots)     │  │ notifications/state   │
+         └─────────────────────┘  └──────────────────────┘  └──────────────────────┘
 ```
 
 ## Key Components
 
 ### 1. AutomationEngine (`Services/AutomationEngine.swift`)
 
-Singleton `@MainActor` class coordinating all automation activities.
+Singleton `@MainActor` coordinator for automation lifecycle, scheduling, watcher state, and scan orchestration.
 
 ```swift
 @MainActor
@@ -63,267 +64,204 @@ final class AutomationEngine: ObservableObject {
 
     @Published private(set) var state: AutomationState
 
-    func start()   // Begin scheduled scans
-    func stop()    // Pause automation
-    func runScan() // Trigger immediate scan
+    func start()
+    func stop()
+    func triggerManualScan() async
+    func refreshPolicy()
 }
 ```
 
 **Responsibilities:**
-- Manage scan timer with adaptive intervals
-- Coordinate with `FileScanProvider` for actual scanning
-- Update `AutomationState` for UI binding
-- Respect feature flags before operations
+- Start and stop realtime monitoring based on lifecycle and policy
+- Schedule interval-based full sweeps
+- Route watcher callbacks into root-targeted `FileScanProvider` scans
+- Prevent concurrent scans by queuing one follow-up realtime root set
+- Trigger auto-organize after both scheduled and watcher-driven scans when policy allows it
 
-### 2. AutomationState (`Services/AutomationEngine.swift`)
+### 2. FileMonitorService (`Services/FileMonitorService.swift`)
 
-Observable state for UI binding.
+`FSEvents`-backed implementation of `FileMonitoring`.
+
+```swift
+@MainActor
+protocol FileMonitoring: AnyObject {
+    func startMonitoring(
+        folders: [WatchedFolderDescriptor],
+        onChange: @escaping @MainActor (Set<FolderLocation>) -> Void
+    )
+
+    func updateMonitoredFolders(_ folders: [WatchedFolderDescriptor])
+    func stopMonitoring()
+}
+```
+
+**Responsibilities:**
+- Watch only currently enabled bookmark-backed standard folders
+- Hold security-scoped access for watched roots while the stream is active
+- Map changed file paths back to the owning `FolderLocation`
+- Debounce bursts of file events into one set of changed roots
+- Rebuild the stream when watched roots change
+
+### 3. AutomationState (`Services/AutomationEngine.swift`)
+
+Observable state shared by dashboard and menu bar surfaces.
 
 ```swift
 @Observable
 final class AutomationState {
     var isRunning: Bool = false
+    var isWatchingFolders: Bool = false
     var lastRunDate: Date?
     var nextScheduledRun: Date?
-    var statusMessage: String = "Idle"
-
-    // Last run statistics
-    var lastRunSuccessCount: Int = 0
-    var lastRunFailedCount: Int = 0
-    var lastRunSkippedCount: Int = 0
+    var statusMessage: String
 }
 ```
 
-### 3. AutomationPolicy (`Services/AutomationPolicy.swift`)
+`statusMessage` now distinguishes between active scanning, live watching, scheduled sweeps, and paused states.
 
-Pure struct containing decision logic (no side effects, easily testable).
+### 4. DashboardFileScanProvider + FileScanPipeline
 
-```swift
-struct AutomationPolicy {
-    /// Determines if a file should be auto-organized
-    func shouldAutoOrganize(
-        file: FileItem,
-        mlConfidence: Double?,
-        fileAgeDays: Int
-    ) -> Bool
+`DashboardFileScanProvider` now supports two scan modes:
 
-    /// Calculates next scan interval based on backlog
-    func calculateScanInterval(metrics: AutomationMetrics) -> TimeInterval
+- **Full sweep**: `scanFiles(context:baseFolders: nil)` for manual, launch, and scheduled scans
+- **Targeted rescan**: `scanFiles(context:baseFolders: watchedRoots)` for watcher-triggered changes
 
-    /// Determines if backlog reminder should be sent
-    func shouldSendBacklogReminder(
-        metrics: AutomationMetrics,
-        lastReminderDate: Date?
-    ) -> Bool
-}
-```
+`FileScanPipeline` persists both scanned file paths and `scannedRootPaths`, allowing downstream UI to merge only the refreshed roots.
 
-**Decision Factors:**
-- ML prediction confidence (≥0.85 for auto-organize)
-- File age (>7 days = stale, prioritize)
-- Backlog size (>50 files = increase scan frequency)
-- Cooldown timers (rate-limit notifications)
+### 5. Dashboard/Menu Bar Refresh Path
 
-### 4. AutomationLifecycleModifier (`Views/AutomationLifecycleModifier.swift`)
+Automation persistence notifications now carry:
 
-SwiftUI view modifier managing engine lifecycle.
+- `scannedPaths`
+- `scannedRootPaths`
+- `replacesAllFiles`
+- `errorSummary`
 
-```swift
-struct AutomationLifecycleModifier: ViewModifier {
-    @Environment(\.scenePhase) private var scenePhase
+Dashboard refresh uses `scanRootPath` to replace only files that belong to rescanned roots for partial watcher updates, or to replace the full in-memory slice for scheduled/manual full sweeps. The menu bar keeps a simpler model and re-queries its SwiftData-backed counts/files after any automation persistence event.
 
-    func body(content: Content) -> some View {
-        content.onChange(of: scenePhase) { _, newPhase in
-            switch newPhase {
-            case .active:
-                AutomationEngine.shared.start()
-            case .background, .inactive:
-                AutomationEngine.shared.stop()
-            }
-        }
-    }
-}
-```
+### 6. AutomationLifecycleModifier (`Configuration/AutomationLifecycleModifier.swift`)
 
-### 5. AutomationStatusWidget (`Components/AutomationStatusWidget.swift`)
+Lifecycle integration keeps behavior explicit:
 
-Dashboard UI component displaying automation status.
-
-**Features:**
-- Status indicator dot (blue=running, green=scheduled, orange=paused)
-- Pause/resume toggle button
-- Expandable last-run statistics
-- Feature-flag gated display
+- `.activeWithWindow` and `.menuBarOnly`: watchers and scheduled scans may run if policy allows scanning
+- `.backgrounded` or app termination: watchers and scheduled scans stop
 
 ## Data Flow
 
-### Scan Cycle
+### Realtime Watch Cycle
 
 ```
-1. Timer fires (based on adaptive interval)
+1. Lifecycle/policy permit automation
          │
          ▼
-2. Check feature flags (.backgroundMonitoring, .autoOrganize)
+2. AutomationEngine resolves enabled watched roots from BookmarkFolderService
          │
          ▼
-3. Run scan via FileScanProvider
+3. FileMonitorService starts or rebuilds an FSEvents stream
          │
          ▼
-3a. If scan completes with partial failures, surface `errorSummary` via notification and activity log
+4. Filesystem changes arrive as concrete paths
          │
          ▼
-4. For each file: AutomationPolicy.shouldAutoOrganize()
-         │
-         ├─ Yes → Queue for auto-organize
-         │
-         └─ No → Leave for user review
+5. FileMonitorService maps paths → watched roots and debounces bursts
          │
          ▼
-5. Execute moves (if auto-organize enabled)
+6. AutomationEngine runs scanFiles(context:baseFolders:) for only those roots
          │
          ▼
-6. Log results via ActivityLoggingService
+7. FileScanPipeline persists results and posts automationScanDidPersist
          │
          ▼
-7. Update AutomationState with statistics
+8. Dashboard merges rescanned roots by scanRootPath; menu bar re-queries SwiftData
          │
          ▼
-8. Calculate next interval, schedule timer
+9. If policy.canAutoOrganize, eligible files are auto-organized after the scan
 ```
 
-### State Updates
+If a realtime change arrives while another automation scan is already running, the engine unions the changed roots into a single queued follow-up rescan instead of launching a concurrent scan.
 
-```swift
-// Engine updates state
-state.isRunning = true
-state.statusMessage = "Scanning..."
+### Scheduled Sweep Cycle
 
-// Widget observes via @ObservedObject
-@ObservedObject private var engine = AutomationEngine.shared
-
-// UI automatically updates
-Text(engine.state.statusMessage)
 ```
+1. Scheduler fires using AutomationPolicy interval/backoff rules
+         │
+         ▼
+2. AutomationEngine performs a full scan (baseFolders = nil)
+         │
+         ▼
+3. Persistence, notifications, threshold checks, and optional auto-organize run normally
+         │
+         ▼
+4. Next sweep is scheduled
+```
+
+Scheduled sweeps remain the recovery path if watcher setup fails or an event is missed.
 
 ## Configuration
 
-All automation thresholds are centralized in `FormaConfig.Automation`:
+All automation thresholds live in `FormaConfig.Automation`:
 
 | Constant | Default | Description |
 |----------|---------|-------------|
 | `backlogThreshold` | 50 | Files pending before increasing scan frequency |
-| `ageThresholdDays` | 7 | Days before file is considered "stale" |
-| `minScanIntervalMinutes` | 5 | Minimum time between scans |
-| `maxScanIntervalMinutes` | 60 | Maximum time between scans |
-| `mlRuleConfidenceMinimum` | 0.75 | Min confidence for rule suggestion |
-| `mlAutoOrganizeConfidenceMinimum` | 0.85 | Min confidence for auto-organize |
+| `ageThresholdDays` | 7 | Days before a file is considered stale |
+| `minScanIntervalMinutes` | 5 | Minimum time between scheduled sweeps |
+| `maxScanIntervalMinutes` | 60 | Maximum time between scheduled sweeps |
+| `fileWatcherDebounceDurationSeconds` | 1.5 | Debounce window for coalescing watcher events |
+| `mlRuleConfidenceMinimum` | 0.75 | Minimum confidence for rule suggestion |
+| `mlAutoOrganizeConfidenceMinimum` | 0.85 | Minimum confidence for auto-organize |
 | `backlogReminderCooldownHours` | 24 | Hours between backlog reminders |
 | `errorNotificationCooldownMinutes` | 30 | Minutes between error notifications |
 | `maxNotificationsPerHour` | 5 | Rate limit for user notifications |
 
 ## Feature Flags
 
-Automation features are gated for staged rollout:
+Automation continues to be gated for staged rollout:
 
 ```swift
 enum FeatureFlag {
-    case backgroundMonitoring  // Master toggle for automation
-    case autoOrganize          // Enable auto-move (vs suggest-only)
-    case automationReminders   // Send backlog/stale file reminders
+    case backgroundMonitoring
+    case autoOrganize
+    case automationReminders
 }
 ```
 
-**Usage:**
-```swift
-if FeatureFlagService.shared.isEnabled(.autoOrganize) {
-    // Perform auto-organize
-} else {
-    // Just suggest, require user confirmation
-}
-```
+`backgroundMonitoring` gates both live watching and scheduled sweeps. `autoOrganize` controls whether completed scans also execute automatic file moves.
 
-## Activity Logging
+## Activity Logging and Notifications
 
-All automation activities are logged for audit/debugging:
-
-| Activity Type | Logged When |
-|---------------|-------------|
-| `.automationScanCompleted` | Scan finishes with file counts |
-| `.automationAutoOrganized` | Batch auto-organize completes |
-| `.automationError` | Scan or move fails |
-| `.automationPaused` | User or system pauses automation |
-| `.automationResumed` | Automation resumes |
+Automation continues to log scan completion, auto-organize batches, and failures through `ActivityLoggingService`. Partial scan failures are surfaced through `errorSummary` in the persistence notification and through the existing automation error logging/notification path.
 
 ## Undo Support
 
-Auto-organized files can be undone via:
-
-- **BulkMoveCommand**: Groups multiple auto-moved files into single undo entry
-- **MoveFileCommand**: Individual file moves preserve original status
-
-```swift
-// Batch auto-organize creates ONE undo entry
-let command = BulkMoveCommand(
-    id: UUID(),
-    timestamp: Date(),
-    operations: movedFiles.map { /* preserve original state */ }
-)
-coordinator.pushUndo(command)
-```
+Auto-organized files still flow through `FileOrganizationCoordinator`, which groups automation-driven moves into undoable commands so users can reverse a batch move after an automatic run.
 
 ## Testing
 
-### Unit Tests
+Key coverage for v1.5:
 
-`AutomationPolicy` is pure and easily unit-tested:
+- `FileMonitorServiceTests`: watcher start/stop, root mapping, debounce coalescing
+- `AutomationEngineRealtimeMonitoringTests`: watcher lifecycle, root-targeted scans, queued follow-up rescans
+- `DashboardViewModelTests`: root-scoped merge after partial automation persistence
+- Existing automation integration coverage: policy, metrics, logging, and auto-organize behavior
 
-```swift
-@Test
-func policy_shouldAutoOrganize_highConfidence() {
-    let policy = AutomationPolicy()
-    let result = policy.shouldAutoOrganize(
-        file: mockFile,
-        mlConfidence: 0.92,
-        fileAgeDays: 3
-    )
-    #expect(result == true)
-}
-```
-
-### Integration Tests
-
-`AutomationIntegrationTests.swift` covers:
-
-- Activity logging for all event types
-- Undo entry creation and state preservation
-- AutomationMetrics conversion
-- Feature flag validation
-- Config threshold verification
+Default unit tests use fake watcher injections. Live filesystem watcher behavior should remain integration-gated rather than timing-sensitive in standard unit runs.
 
 ## Design Decisions
 
-### Why Singleton Engine?
+### Why root-level rescans instead of per-file refreshes?
 
-The `AutomationEngine` is a singleton because:
-1. Only one timer should run at a time
-2. State must be consistent across all UI surfaces
-3. Lifecycle management is simpler with single instance
+Watcher callbacks report path changes, but the scan pipeline persists and reconciles state at the root level. Rescanning the affected roots keeps persistence correct for creations, deletions, renames, and metadata changes without needing fragile incremental diff logic.
 
-### Why Pure Policy Struct?
+### Why keep scheduled sweeps after adding watchers?
 
-`AutomationPolicy` is stateless for:
-1. Easy unit testing without mocks
-2. Deterministic behavior
-3. Thread safety (no shared mutable state)
+`FSEvents` is a trigger mechanism, not a persistence guarantee. Scheduled sweeps provide recovery if a watcher cannot start, bookmark access changes, or an event is missed while the app is not active.
 
-### Why Feature Flags?
+### Why keep watcher ownership inside AutomationEngine?
 
-Staged rollout allows:
-1. Testing in production with subset of users
-2. Quick disable if issues arise
-3. A/B testing different thresholds
+The engine already owns lifecycle, policy, scheduling, and auto-organize decisions. Centralizing watcher lifecycle there prevents split-brain behavior between the scheduler and realtime monitoring paths.
 
 ---
 
 **Created:** December 6, 2025
-**Last Updated:** December 6, 2025
+**Last Updated:** March 25, 2026

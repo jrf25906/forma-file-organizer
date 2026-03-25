@@ -66,15 +66,16 @@ final class DashboardScanRefreshController: ObservableObject {
     }
 
     func applyAutomationScanUpdate(
-        scannedPaths: [String],
+        scannedRootPaths: [String],
         errorSummary: String?,
+        replacesAllFiles: Bool,
         context: ModelContext,
         actions: Actions
     ) async {
         phaseStatusText = "Applying automation updates..."
         let refreshId = PerformanceMonitor.shared.begin(
             .dashboardScanRefresh,
-            metadata: "automation update (\(scannedPaths.count) paths)"
+            metadata: "automation update (\(scannedRootPaths.count) roots)"
         )
         defer {
             phaseStatusText = nil
@@ -87,7 +88,7 @@ final class DashboardScanRefreshController: ObservableObject {
 
         let files: [FileItem]
         do {
-            files = try fetchAutomationFiles(scannedPaths: scannedPaths, context: context)
+            files = try fetchAutomationFiles(scannedRootPaths: scannedRootPaths, context: context)
         } catch {
             Log.error(
                 "DashboardViewModel: Failed to fetch automation scan files - \(error.localizedDescription)",
@@ -97,7 +98,11 @@ final class DashboardScanRefreshController: ObservableObject {
             return
         }
 
-        scanViewModel.replaceScannedFiles(files)
+        if replacesAllFiles {
+            scanViewModel.replaceScannedFiles(files)
+        } else {
+            scanViewModel.mergeScannedFiles(files, forScannedRootPaths: scannedRootPaths)
+        }
         actions.onAutomationSummary(errorSummary)
         actions.resetOrganizationProgress(scanViewModel.allFiles)
 
@@ -121,8 +126,8 @@ final class DashboardScanRefreshController: ObservableObject {
         let boundedSampleIterations = max(1, iterations)
         let boundedWarmupIterations = max(0, warmupIterations)
         let totalIterations = boundedWarmupIterations + boundedSampleIterations
-        let scannedPaths = scanViewModel.allFiles.map(\.path)
-        guard !scannedPaths.isEmpty else { return }
+        let scannedRootPaths = Array(Set(scanViewModel.allFiles.compactMap(\.scanRootPath)))
+        guard !scannedRootPaths.isEmpty else { return }
         hasRunPerformanceSignpostHarness = true
 
         for iteration in 1...totalIterations {
@@ -136,8 +141,9 @@ final class DashboardScanRefreshController: ObservableObject {
                 metadata: metadata
             )
             await applyAutomationScanUpdate(
-                scannedPaths: scannedPaths,
+                scannedRootPaths: scannedRootPaths,
                 errorSummary: nil,
+                replacesAllFiles: false,
                 context: context,
                 actions: actions
             )
@@ -177,16 +183,15 @@ final class DashboardScanRefreshController: ObservableObject {
     }
 
     private func fetchAutomationFiles(
-        scannedPaths: [String],
+        scannedRootPaths: [String],
         context: ModelContext
     ) throws -> [FileItem] {
-        let pathSet = Set(scannedPaths)
-        let descriptor = FetchDescriptor<FileItem>(
-            predicate: #Predicate<FileItem> { file in
-                pathSet.contains(file.path)
-            }
-        )
-        return try context.fetch(descriptor)
+        let rootSet = Set(scannedRootPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
+        let descriptor = FetchDescriptor<FileItem>()
+        return try context.fetch(descriptor).filter { file in
+            guard let root = file.scanRootPath else { return false }
+            return rootSet.contains(URL(fileURLWithPath: root).standardizedFileURL.path)
+        }
     }
 
     private func refreshClustersAndPublish(

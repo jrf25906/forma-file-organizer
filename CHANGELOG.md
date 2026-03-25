@@ -6,6 +6,8 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Realtime filesystem watching via `FileMonitorService`, which watches enabled bookmark-backed standard folders with debounced `FSEvents` and reports changed `FolderLocation`s back to `AutomationEngine`.
+- `AutomationState`, menu bar automation status, and automation persistence notifications now expose explicit live-watching metadata, including `isWatchingFolders` and `scannedRootPaths`.
 - `forma-website` hero window now uses shared theme tokens so the current screenshot-style composition renders correctly in dark mode, and the "How Forma Works" section now uses a dark-aware surface with tighter hierarchy.
 - Smart Rules now use centralized `RuleHealthService` classification so rules can surface `Duplicate / Overlap`, `Needs Permission`, `Will Create`, `Ready`, and `Disabled` states consistently.
 - Smart Rules duplicate sections now offer a contextual bulk `Delete Extras` action for exact duplicate cleanup, so stores affected by past template duplication do not require one-by-one deletion.
@@ -26,6 +28,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Automation-triggered filesystem events now rescan only the affected watched roots, queue one follow-up root set while a scan is already running, and keep scheduled interval scans as fallback recovery sweeps.
 - Smart Rules now count exact duplicates separately from overlaps, and overlap detection no longer flags unrelated rules such as extension-based rules versus `.env` name rules.
 - Duplicate cleanup now deletes exact duplicate rules in one batch and triggers a single post-delete reevaluation instead of reloading and rescanning after every individual deletion.
 - App launch now restores the default `Screenshot Sweeper` rule when it was recently deleted after real use and no screenshot-routing rule remains, preventing desktop screenshots from silently losing their destination.
@@ -40,6 +43,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Menu bar extra now uses the same layered material surfaces, compact button chrome, and calmer file-status hierarchy as the main app, with a clearer summary, review queue, and footer structure.
 - Menu bar popover now uses a flatter review-first layout: the current file is the focal block, destination/match details render inline instead of as nested cards, supporting stats/folder counts are lighter rows, and stable previews cover the pending/all-clear states.
 - Menu bar review cards now keep missing-destination files in the same inline destination section as ready files, removing the leftover warning-panel treatment and flattening monitored-folder/support rows further.
+- Menu bar chrome is now denser and quieter overall: the outer shell and review block use reduced gloss/shadow, support stats/folder rows read as compact utility content, and footer/button emphasis is more restrained.
 - Dashboard toolbar clusters, card/list/grid file surfaces, and menu bar shells/buttons now use a shared optical chrome recipe with concentric inner rims, restrained specular sheen, monospaced count emphasis, and state-specific elevation so hover/selection/primary actions feel more deliberate.
 - Card, list, and grid file surfaces now share a common metadata strip for status, confidence, and destination context, and onboarding/settings copy now aligns more closely with the app’s preview-first product voice.
 - `forma-website` homepage now leads with a proof-first redesign: sharper hero positioning, real workflow storytelling, transformation proof, a stronger pricing close, and FAQ integration before the shared footer.
@@ -137,6 +141,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
 
 ### Fixed
+- Dashboard automation refreshes now replace only rescanned roots instead of dropping unaffected in-memory file slices after partial scan persistence updates.
 - Deleting a rule from Smart Rules or Settings no longer crashes when SwiftUI re-renders a just-deleted SwiftData `Rule`; both lists now hide pending deletions immediately and rule cards render from stable snapshot data instead of faulting `conditions` during teardown.
 - Legacy absolute home-relative rule destinations now normalize back to canonical bookmark roots instead of being misclassified as unsupported paths.
 - Per-folder onboarding no longer multiplies template rules against the same default Documents root, which previously produced duplicate PARA/default rules in Smart Rules.

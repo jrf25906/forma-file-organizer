@@ -1,0 +1,151 @@
+import XCTest
+@testable import Forma_File_Organizing
+
+@MainActor
+final class FileMonitorServiceTests: XCTestCase {
+
+    private final class MockEventStream: FileMonitorService.EventStream {
+        let startResult: Bool
+        private(set) var dispatchQueueLabel: String?
+        private(set) var stopped = false
+        private(set) var invalidated = false
+
+        init(startResult: Bool) {
+            self.startResult = startResult
+        }
+
+        func setDispatchQueue(_ queue: DispatchQueue) {
+            dispatchQueueLabel = queue.label
+        }
+
+        func start() -> Bool {
+            startResult
+        }
+
+        func stop() {
+            stopped = true
+        }
+
+        func invalidate() {
+            invalidated = true
+        }
+    }
+
+    func testCoalescesBurstyEventsIntoSingleRootCallback() async {
+        let service = FileMonitorService(debounceInterval: 0.05)
+        let desktop = WatchedFolderDescriptor(location: .desktop, rootURL: URL(fileURLWithPath: "/Users/test/Desktop"))
+        let downloads = WatchedFolderDescriptor(location: .downloads, rootURL: URL(fileURLWithPath: "/Users/test/Downloads"))
+        let changeExpectation = expectation(description: "coalesced change callback")
+
+        var receivedRoots: [Set<FolderLocation>] = []
+        service.startMonitoring(folders: [desktop, downloads]) { roots in
+            receivedRoots.append(roots)
+            changeExpectation.fulfill()
+        }
+
+        service._testEmitChangedPaths([
+            "/Users/test/Desktop/a.txt",
+            "/Users/test/Downloads/b.txt",
+            "/Users/test/Desktop/nested/c.txt"
+        ])
+
+        await fulfillment(of: [changeExpectation], timeout: 1.0)
+        XCTAssertEqual(receivedRoots, [[.desktop, .downloads]])
+    }
+
+    func testIgnoresPathsOutsideWatchedRoots() async {
+        let service = FileMonitorService(debounceInterval: 0.05)
+        let desktop = WatchedFolderDescriptor(location: .desktop, rootURL: URL(fileURLWithPath: "/Users/test/Desktop"))
+
+        service.startMonitoring(folders: [desktop]) { _ in
+            XCTFail("Unexpected callback for non-watched path")
+        }
+
+        service._testEmitChangedPaths(["/Users/test/Documents/ignore.txt"])
+        try? await Task.sleep(for: .milliseconds(120))
+    }
+
+    func testRebuildCancelsPendingDebounceForRemovedRoots() async {
+        let service = FileMonitorService(debounceInterval: 0.05)
+        let desktop = WatchedFolderDescriptor(location: .desktop, rootURL: URL(fileURLWithPath: "/Users/test/Desktop"))
+        let downloads = WatchedFolderDescriptor(location: .downloads, rootURL: URL(fileURLWithPath: "/Users/test/Downloads"))
+        let staleCallback = expectation(description: "no stale callback")
+        staleCallback.isInverted = true
+
+        service.startMonitoring(folders: [desktop, downloads]) { roots in
+            if roots.contains(.desktop) {
+                staleCallback.fulfill()
+            }
+        }
+
+        service._testEmitChangedPaths(["/Users/test/Desktop/a.txt"])
+        service.updateMonitoredFolders([downloads])
+
+        await fulfillment(of: [staleCallback], timeout: 0.15)
+    }
+
+    func testCreateStreamFailureReleasesSecurityScopedAccess() {
+        let rootURL = URL(fileURLWithPath: "/Users/test/Desktop")
+        let desktop = WatchedFolderDescriptor(
+            location: .desktop,
+            rootURL: rootURL,
+            bookmarkData: Data([0x01])
+        )
+        var started: [URL] = []
+        var stopped: [URL] = []
+
+        let service = FileMonitorService(
+            debounceInterval: 0.05,
+            dependencies: .init(
+                makeStream: { _, _, _, _ in nil },
+                startSecurityScopedAccess: { url in
+                    started.append(url)
+                    return true
+                },
+                stopSecurityScopedAccess: { url in
+                    stopped.append(url)
+                }
+            )
+        )
+
+        service.startMonitoring(folders: [desktop]) { _ in }
+
+        XCTAssertEqual(started, [rootURL.standardizedFileURL])
+        XCTAssertEqual(stopped, [rootURL.standardizedFileURL])
+        XCTAssertFalse(service.isMonitoring)
+    }
+
+    func testStartStreamFailureReleasesSecurityScopedAccess() {
+        let rootURL = URL(fileURLWithPath: "/Users/test/Desktop")
+        let desktop = WatchedFolderDescriptor(
+            location: .desktop,
+            rootURL: rootURL,
+            bookmarkData: Data([0x01])
+        )
+        var started: [URL] = []
+        var stopped: [URL] = []
+        let stream = MockEventStream(startResult: false)
+
+        let service = FileMonitorService(
+            debounceInterval: 0.05,
+            dependencies: .init(
+                makeStream: { _, _, _, _ in stream },
+                startSecurityScopedAccess: { url in
+                    started.append(url)
+                    return true
+                },
+                stopSecurityScopedAccess: { url in
+                    stopped.append(url)
+                }
+            )
+        )
+
+        service.startMonitoring(folders: [desktop]) { _ in }
+
+        XCTAssertEqual(stream.dispatchQueueLabel, "com.forma.file-monitor")
+        XCTAssertTrue(stream.invalidated)
+        XCTAssertEqual(started, [rootURL.standardizedFileURL])
+        XCTAssertEqual(stopped, [rootURL.standardizedFileURL])
+        XCTAssertFalse(service.isMonitoring)
+    }
+}

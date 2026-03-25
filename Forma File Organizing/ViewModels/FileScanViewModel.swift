@@ -111,6 +111,17 @@ class FileScanViewModel: ObservableObject {
         updateRecentFiles()
     }
 
+    func mergeScannedFiles(_ files: [FileItem], forScannedRootPaths scannedRootPaths: [String]) {
+        let rootSet = Set(scannedRootPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
+        let retained = allFiles.filter { file in
+            guard let root = file.scanRootPath else { return true }
+            return !rootSet.contains(URL(fileURLWithPath: root).standardizedFileURL.path)
+        }
+
+        allFiles = retained + files
+        updateRecentFiles()
+    }
+
     /// Update a file's metadata (called after organization)
     func updateFile(_ file: FileItem) {
         if let index = allFiles.firstIndex(where: { $0.path == file.path }) {

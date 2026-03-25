@@ -45,9 +45,9 @@ struct MenuBarFileReviewCard: View {
             tier: .raised,
             tint: cardTint,
             cornerRadius: FormaRadius.card,
-            padding: FormaSpacing.standard
+            padding: FormaSpacing.tight
         ) {
-            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
                 fileHeaderRow
                 metadataBlock
                 actionButtonsRow
@@ -65,10 +65,10 @@ struct MenuBarFileReviewCard: View {
 
     private var cardTint: Color {
         if file.hasDestination {
-            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.16 : 0.10)
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.10 : 0.05)
         }
 
-        return Color.formaWarning.opacity(colorScheme == .dark ? 0.16 : 0.09)
+        return Color.formaWarning.opacity(colorScheme == .dark ? 0.10 : 0.05)
     }
 
     private var accentTint: Color {
@@ -85,10 +85,10 @@ struct MenuBarFileReviewCard: View {
                 tint: accentTint,
                 elevation: .raised
             )
-                .frame(width: 36, height: 36)
+                .frame(width: 32, height: 32)
                 .overlay(
                     Image(systemName: file.iconName)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(accentTint)
                 )
 
@@ -96,7 +96,7 @@ struct MenuBarFileReviewCard: View {
                 Text(file.name)
                     .font(.formaBodySemibold)
                     .foregroundColor(.formaLabel)
-                    .lineLimit(2)
+                    .lineLimit(1)
 
                 Text(file.size)
                     .font(.formaMenuMetadata)
@@ -111,11 +111,6 @@ struct MenuBarFileReviewCard: View {
 
     private var metadataBlock: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-            Text(snapshot.destinationTitle)
-                .font(.formaCaptionSemibold)
-                .foregroundColor(.formaTertiaryLabelHigh)
-                .textCase(.uppercase)
-
             destinationRow
 
             if let matchReason = snapshot.matchReason {
@@ -133,6 +128,7 @@ struct MenuBarFileReviewCard: View {
                 .padding(.leading, 20)
             }
         }
+        .padding(.top, 2)
     }
 
     private var destinationRow: some View {
@@ -161,7 +157,7 @@ struct MenuBarFileReviewCard: View {
         HStack(spacing: FormaSpacing.tight) {
             Button(action: onSkip) {
                 Text("Skip")
-                    .font(.formaBody)
+                    .font(.formaCompactSemibold)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(MenuBarButtonStyle(kind: .secondary(nil)))
@@ -175,7 +171,7 @@ struct MenuBarFileReviewCard: View {
                             .frame(maxWidth: .infinity)
                     } else {
                         Text("Organize")
-                            .font(.formaBodySemibold)
+                            .font(.formaCompactSemibold)
                             .frame(maxWidth: .infinity)
                     }
                 }
@@ -187,14 +183,14 @@ struct MenuBarFileReviewCard: View {
     }
 
     private var paginationRow: some View {
-        VStack(spacing: FormaSpacing.tight) {
+        VStack(spacing: 6) {
             MenuBarDivider()
 
             HStack(spacing: FormaSpacing.tight) {
                 Button(action: onPrevious) {
                     Image(systemName: "chevron.left")
                         .font(.formaCaptionSemibold)
-                        .frame(width: 16, height: 16)
+                        .frame(width: 14, height: 14)
                 }
                 .buttonStyle(MenuBarButtonStyle(kind: .utility))
                 .disabled(!canGoBack)
@@ -212,7 +208,7 @@ struct MenuBarFileReviewCard: View {
                 Button(action: onNext) {
                     Image(systemName: "chevron.right")
                         .font(.formaCaptionSemibold)
-                        .frame(width: 16, height: 16)
+                        .frame(width: 14, height: 14)
                 }
                 .buttonStyle(MenuBarButtonStyle(kind: .utility))
                 .disabled(!canGoForward)

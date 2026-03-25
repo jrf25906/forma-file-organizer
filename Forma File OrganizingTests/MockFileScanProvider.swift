@@ -43,14 +43,18 @@ final class MockFileScanProvider: FileScanProvider, @unchecked Sendable {
     /// Timestamps of each scan call (for verifying intervals)
     private(set) var scanCallTimestamps: [Date] = []
 
+    /// Base folders requested by each scan call (`nil` = full scan)
+    private(set) var requestedBaseFolders: [[FolderLocation]?] = []
+
     /// The confidence thresholds passed to getAutoOrganizeEligibleFiles()
     private(set) var requestedConfidenceThresholds: [Double] = []
 
     // MARK: - FileScanProvider Conformance
 
-    func scanFiles(context: ModelContext) async throws -> FileScanResult {
+    func scanFiles(context: ModelContext, baseFolders: [FolderLocation]?) async throws -> FileScanResult {
         scanFilesCallCount += 1
         scanCallTimestamps.append(Date())
+        requestedBaseFolders.append(baseFolders?.sorted { $0.displayName < $1.displayName })
 
         if let error = scanError {
             throw error
@@ -80,6 +84,7 @@ final class MockFileScanProvider: FileScanProvider, @unchecked Sendable {
         scanFilesCallCount = 0
         getEligibleFilesCallCount = 0
         scanCallTimestamps = []
+        requestedBaseFolders = []
         requestedConfidenceThresholds = []
         scanError = nil
         autoOrganizeEligibleFilesError = nil

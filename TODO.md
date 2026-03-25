@@ -2,6 +2,12 @@
 
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
+## Realtime Filesystem Watching (March 25, 2026)
+- [x] Add an `FSEvents`-backed `FileMonitorService` for enabled bookmark-backed standard folders, with debounced root-level change coalescing.
+- [x] Route watcher changes through `AutomationEngine` as targeted rescans and queue one follow-up realtime rescan instead of starting overlapping scans.
+- [x] Merge partial automation refreshes by scanned root so dashboard and menu bar stay correct after create/delete/rename/modify events.
+- [x] Surface live watching state in automation UI copy and keep scheduled interval sweeps as the recovery path.
+
 ## Website Dark-Mode Polish (March 23, 2026)
 - [x] Refactor the website hero window to use shared semantic theme tokens.
 - [x] Restore dark-mode readability for the screenshot-style hero composition.
@@ -11,6 +17,7 @@ Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 - [x] Flatten the menu bar popover into one outer shell, one primary review block, and lightweight supporting rows.
 - [x] Remove the nested destination/review card treatment in the menu bar and simplify the action hierarchy around one primary organize button.
 - [x] Remove the remaining warning-panel treatment for missing destinations so the review card stays one continuous surface in both ready and needs-destination states.
+- [x] Tighten the shell, footer, and support-row density so the popover reads like a compact utility instead of a mini dashboard.
 - [x] Add stable menu bar previews for pending-with-destination, pending-without-destination, and all-clear states.
 
 ## Optical Chrome Pass (March 10, 2026)

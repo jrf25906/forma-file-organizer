@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 /// Command palette (⌘K) - searchable list of all available commands
 /// Inspired by Linear, Notion, and modern productivity apps

@@ -252,6 +252,8 @@ struct AutomationStatusWidget: View {
     private var statusColor: Color {
         if engine.state.isRunning {
             return Color.formaSteelBlue
+        } else if engine.state.isWatchingFolders {
+            return Color.formaSage
         } else if engine.state.nextScheduledRun != nil {
             return Color.formaSage
         } else {
@@ -262,8 +264,10 @@ struct AutomationStatusWidget: View {
     private var statusLabel: String {
         if engine.state.isRunning {
             return "Scanning"
+        } else if engine.state.isWatchingFolders {
+            return "Watching"
         } else if engine.state.nextScheduledRun != nil {
-            return "Active"
+            return "Scheduled"
         } else {
             return "Paused"
         }
@@ -272,6 +276,8 @@ struct AutomationStatusWidget: View {
     private var statusMessage: String {
         if engine.state.isRunning {
             return "Scanning files..."
+        } else if engine.state.isWatchingFolders {
+            return "Watching folders"
         } else if engine.state.nextScheduledRun != nil {
             return "Next scan"
         } else {

@@ -27,9 +27,9 @@ struct MenuBarView: View {
                 tier: .overlay,
                 tint: shellTint,
                 cornerRadius: FormaRadius.large,
-                padding: FormaSpacing.standard
+                padding: FormaSpacing.tight
             ) {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
                     headerSection
 
                     if FeatureFlagService.shared.isEnabled(.menuBarFileReview), viewModel.hasPendingFiles {
@@ -43,7 +43,7 @@ struct MenuBarView: View {
                 }
             }
         }
-        .padding(6)
+        .padding(4)
         .frame(width: 344)
         .background(Color.clear)
         .onAppear {
@@ -58,9 +58,9 @@ struct MenuBarView: View {
 
     private var shellTint: Color {
         if viewModel.hasPendingFiles {
-            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.28 : 0.18)
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.18 : 0.10)
         }
-        return Color.formaSage.opacity(colorScheme == .dark ? 0.24 : 0.14)
+        return Color.formaSage.opacity(colorScheme == .dark ? 0.16 : 0.08)
     }
 
     private var headerSection: some View {
@@ -73,9 +73,9 @@ struct MenuBarView: View {
                 tint: .formaSteelBlue,
                 elevation: .raised
             )
-            .frame(width: 34, height: 34)
+            .frame(width: 30, height: 30)
             .overlay(
-                FormaLogo(style: .mark, height: 18)
+                FormaLogo(style: .mark, height: 16)
             )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -97,7 +97,7 @@ struct MenuBarView: View {
 
     private var headerSubtitle: String {
         if viewModel.hasPendingFiles {
-            return "\(viewModel.pendingFiles.count) item\(viewModel.pendingFiles.count == 1 ? "" : "s") ready for review"
+            return "\(viewModel.pendingFiles.count) item\(viewModel.pendingFiles.count == 1 ? "" : "s") in review queue"
         }
 
         return viewModel.automationStatus.statusText
@@ -216,7 +216,11 @@ struct MenuBarView: View {
             return "Nothing needs attention right now."
         }
 
-        return "No files are waiting. Forma is still watching your folders."
+        if viewModel.automationStatus.isWatchingFolders {
+            return "No files are waiting. Forma is live-watching your folders."
+        }
+
+        return "No files are waiting. Forma is ready for the next scan."
     }
 
     private var summaryIcon: some View {
@@ -257,14 +261,18 @@ struct MenuBarView: View {
     }
 
     private var supportRowsSection: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+        VStack(alignment: .leading, spacing: 0) {
             activityStatsRow
 
             if viewModel.highConfidenceCount > 0 {
+                MenuBarDivider()
+                    .padding(.vertical, 4)
                 highConfidenceRow
             }
 
             if viewModel.totalPendingFiles > 0 {
+                MenuBarDivider()
+                    .padding(.vertical, 4)
                 monitoredFoldersSection
             }
         }
@@ -289,6 +297,7 @@ struct MenuBarView: View {
             )
         }
         .padding(.horizontal, 2)
+        .padding(.vertical, 2)
     }
 
     private func compactStatColumn(title: String, value: String, icon: String, tint: Color) -> some View {
@@ -374,16 +383,14 @@ struct MenuBarView: View {
             }
         }
         .padding(.horizontal, 2)
+        .padding(.vertical, 2)
         .animation(.easeInOut(duration: 0.2), value: viewModel.showOrganizeAllConfirmation)
     }
 
     private var monitoredFoldersSection: some View {
         let folders = viewModel.folderStatuses.filter(\.hasFiles)
 
-        return VStack(alignment: .leading, spacing: 6) {
-            MenuBarSectionHeading(title: "Monitored Folders", detail: "\(viewModel.totalPendingFiles) pending")
-                .padding(.horizontal, 2)
-
+        return VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(folders.enumerated()), id: \.element.id) { index, folder in
                 VStack(spacing: 0) {
                     HStack(spacing: FormaSpacing.tight) {
@@ -404,7 +411,7 @@ struct MenuBarView: View {
                         folderCountBadge(for: folder)
                     }
                     .padding(.horizontal, 2)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, 6)
 
                     if index < folders.count - 1 {
                         MenuBarDivider()
@@ -416,15 +423,15 @@ struct MenuBarView: View {
 
     private func folderIcon(for folder: MenuBarViewModel.FolderStatus) -> some View {
         RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-            .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.08 : 0.60))
-            .frame(width: 28, height: 28)
+            .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.06 : 0.42))
+            .frame(width: 24, height: 24)
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                    .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.30 : 0.20), lineWidth: 1)
+                    .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.22 : 0.16), lineWidth: 1)
             )
             .overlay(
                 Image(systemName: folder.iconName)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundColor(folder.count > 0 ? .formaSteelBlue : .formaTertiaryLabel)
             )
     }
@@ -434,19 +441,19 @@ struct MenuBarView: View {
             .font(.formaCaptionSemibold)
             .foregroundColor(folder.count > 0 ? .formaSteelBlue : .formaSecondaryLabel)
             .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.vertical, 3)
             .background(
                 Capsule(style: .continuous)
                     .fill(
                         (folder.count > 0 ? Color.formaSteelBlue : Color.formaSecondaryLabel)
-                            .opacity(colorScheme == .dark ? 0.16 : 0.08)
+                            .opacity(colorScheme == .dark ? 0.12 : 0.06)
                     )
             )
             .overlay(
                 Capsule(style: .continuous)
                     .strokeBorder(
                         (folder.count > 0 ? Color.formaSteelBlue : Color.formaSecondaryLabel)
-                            .opacity(colorScheme == .dark ? 0.24 : 0.14),
+                            .opacity(colorScheme == .dark ? 0.18 : 0.10),
                         lineWidth: 1
                     )
             )

@@ -213,13 +213,15 @@ class DashboardViewModel: ObservableObject {
 
     /// Applies an automation-triggered scan result to the dashboard state without re-scanning.
     func applyAutomationScanUpdate(
-        scannedPaths: [String],
+        scannedRootPaths: [String],
         errorSummary: String?,
+        replacesAllFiles: Bool = false,
         context: ModelContext
     ) async {
         await scanRefreshController.applyAutomationScanUpdate(
-            scannedPaths: scannedPaths,
+            scannedRootPaths: scannedRootPaths,
             errorSummary: errorSummary,
+            replacesAllFiles: replacesAllFiles,
             context: context,
             actions: makeScanRefreshActions()
         )

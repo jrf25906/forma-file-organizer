@@ -38,10 +38,19 @@ final class AutomationState {
     /// Current backoff interval in minutes (0 = no backoff).
     var currentBackoffMinutes: Int = 0
 
+    /// Whether realtime folder watching is currently active.
+    var isWatchingFolders: Bool = false
+
     /// Human-readable status for UI display.
     var statusMessage: String {
         if isRunning {
             return "Scanning..."
+        } else if isWatchingFolders, let next = nextScheduledRun {
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .abbreviated
+            return "Watching folders · next sweep \(formatter.localizedString(for: next, relativeTo: clock.now))"
+        } else if isWatchingFolders {
+            return "Watching folders"
         } else if let next = nextScheduledRun {
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .abbreviated
@@ -112,7 +121,9 @@ final class AutomationEngine: ObservableObject {
     private let notificationService: AutomationNotificationServing
     private let clock: Clock
     private let policyResolver: () -> AutomationPolicy
-    private weak var modelContext: ModelContext?
+    private let fileMonitor: FileMonitoring
+    private let watchedFoldersProvider: @MainActor () -> [WatchedFolderDescriptor]
+    private var modelContext: ModelContext?
 
     // Lazy initialization to avoid circular dependencies
     private var organizationCoordinator: FileOrganizationCoordinator?
@@ -126,6 +137,8 @@ final class AutomationEngine: ObservableObject {
     private var lastErrorNotificationDate: Date?
     private var notificationCountThisHour: Int = 0
     private var hourStartDate: Date
+    private var pendingRealtimeRoots: Set<FolderLocation> = []
+    private var bookmarkFolderObservationTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -133,13 +146,26 @@ final class AutomationEngine: ObservableObject {
         featureFlags: FeatureFlagService = .shared,
         notificationService: AutomationNotificationServing = NotificationService.shared,
         clock: Clock = SystemClock(),
-        policyResolver: (() -> AutomationPolicy)? = nil
+        policyResolver: (() -> AutomationPolicy)? = nil,
+        fileMonitor: FileMonitoring = FileMonitorService(),
+        watchedFoldersProvider: (@MainActor () -> [WatchedFolderDescriptor])? = nil
     ) {
         self.featureFlags = featureFlags
         self.notificationService = notificationService
         self.clock = clock
+        self.fileMonitor = fileMonitor
         self.policyResolver = policyResolver ?? {
             AutomationPolicy.resolve(flags: featureFlags, userSettings: .current)
+        }
+        self.watchedFoldersProvider = watchedFoldersProvider ?? {
+            BookmarkFolderService.shared.enabledFolders.compactMap { folder in
+                guard let resolved = folder.resolveURL() else { return nil }
+                return WatchedFolderDescriptor(
+                    location: FolderLocation.from(bookmarkFolderType: folder.folderType),
+                    rootURL: resolved.url,
+                    bookmarkData: folder.bookmarkData
+                )
+            }
         }
         self.policy = self.policyResolver()
         self.state = AutomationState(clock: clock)
@@ -147,6 +173,10 @@ final class AutomationEngine: ObservableObject {
 
         // Observe feature flag changes
         setupObservers()
+    }
+
+    deinit {
+        bookmarkFolderObservationTask?.cancel()
     }
 
     // MARK: - Configuration
@@ -181,6 +211,7 @@ final class AutomationEngine: ObservableObject {
     func start() {
         guard policy.canScan else {
             Log.info("AutomationEngine: Not starting - automation disabled", category: .automation)
+            refreshMonitoringState()
             return
         }
 
@@ -189,12 +220,13 @@ final class AutomationEngine: ObservableObject {
         // Scan on launch if enabled
         if policy.scanOnLaunch {
             Task {
-                await performScan(reason: .appLaunch)
+                await performScan(reason: .appLaunch, baseFolders: nil)
             }
         }
 
         // Start scheduled scans
         scheduleNextScan()
+        refreshMonitoringState()
     }
 
     /// Stops the automation engine.
@@ -206,6 +238,9 @@ final class AutomationEngine: ObservableObject {
         scheduledScanTask?.cancel()
         scheduledScanTask = nil
         state.nextScheduledRun = nil
+        pendingRealtimeRoots.removeAll()
+        fileMonitor.stopMonitoring()
+        state.isWatchingFolders = false
     }
 
     /// Refreshes the policy from current settings and feature flags.
@@ -225,6 +260,8 @@ final class AutomationEngine: ObservableObject {
             if newPolicy.canScan {
                 start()
             }
+        } else {
+            refreshMonitoringState()
         }
     }
 
@@ -234,7 +271,7 @@ final class AutomationEngine: ObservableObject {
     ///
     /// Use for user-initiated "Scan Now" actions.
     func triggerManualScan() async {
-        await performScan(reason: .manual)
+        await performScan(reason: .manual, baseFolders: nil)
     }
 
     /// Triggers an auto-organize pass for eligible files.
@@ -270,25 +307,42 @@ final class AutomationEngine: ObservableObject {
 
     // MARK: - Private: Scanning
 
-    private func performScan(reason: ScanReason) async {
+    private func performScan(reason: ScanReason, baseFolders: [FolderLocation]?) async {
         guard let context = modelContext, let provider = scanProvider else {
             Log.warning("AutomationEngine: Cannot scan - not configured", category: .automation)
             return
         }
 
+        if state.isRunning {
+            if reason == .fileSystemEvent, let baseFolders {
+                pendingRealtimeRoots.formUnion(baseFolders)
+            } else {
+                Log.info("AutomationEngine: Ignoring \(reason.rawValue) while a scan is already running", category: .automation)
+            }
+            return
+        }
+
         // Debounce rapid scans
         if let last = lastScanDate,
+           reason != .fileSystemEvent,
            clock.now.timeIntervalSince(last) < FormaConfig.Automation.scanDebounceDurationSeconds {
             Log.info("AutomationEngine: Scan debounced", category: .automation)
             return
         }
 
         state.isRunning = true
+        defer {
+            state.isRunning = false
+            scheduleNextScan()
+            Task { @MainActor [weak self] in
+                await self?.drainPendingRealtimeRescansIfNeeded()
+            }
+        }
         Log.info("AutomationEngine: Starting scan (reason: \(reason))", category: .automation)
 
         do {
             // Perform the scan via the provider
-            let result = try await provider.scanFiles(context: context)
+            let result = try await provider.scanFiles(context: context, baseFolders: baseFolders)
 
             // Update state
             lastScanDate = clock.now
@@ -315,9 +369,6 @@ final class AutomationEngine: ObservableObject {
         } catch {
             handleScanFailure(error: error)
         }
-
-        state.isRunning = false
-        scheduleNextScan()
     }
 
     private func performAutoOrganize() async {
@@ -396,7 +447,7 @@ final class AutomationEngine: ObservableObject {
             }
 
             guard !Task.isCancelled else { return }
-            await self?.performScan(reason: .scheduled)
+            await self?.performScan(reason: .scheduled, baseFolders: nil)
         }
     }
 
@@ -504,11 +555,66 @@ final class AutomationEngine: ObservableObject {
             // Interval changed - reschedule
             scheduleNextScan()
         }
+
+        refreshMonitoringState()
     }
 
     private func setupObservers() {
-        // In a full implementation, observe FeatureFlagService changes
-        // and call refreshPolicy() when they change
+        bookmarkFolderObservationTask?.cancel()
+        bookmarkFolderObservationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            for await _ in BookmarkFolderService.shared.$availableFolders.values {
+                self.refreshMonitoringState()
+            }
+        }
+    }
+
+    private func refreshMonitoringState() {
+        let shouldWatchFolders = policy.canScan &&
+            (lifecycleState == .activeWithWindow || lifecycleState == .menuBarOnly)
+
+        guard shouldWatchFolders else {
+            pendingRealtimeRoots.removeAll()
+            fileMonitor.stopMonitoring()
+            state.isWatchingFolders = false
+            return
+        }
+
+        let folders = watchedFoldersProvider()
+        let watchedLocations = Set(folders.map(\.location))
+        pendingRealtimeRoots = pendingRealtimeRoots.intersection(watchedLocations)
+        guard !folders.isEmpty else {
+            pendingRealtimeRoots.removeAll()
+            fileMonitor.stopMonitoring()
+            state.isWatchingFolders = false
+            return
+        }
+
+        if fileMonitor.isMonitoring {
+            fileMonitor.updateMonitoredFolders(folders)
+        } else {
+            fileMonitor.startMonitoring(folders: folders) { [weak self] changedFolders in
+                self?.handleWatchedFoldersChanged(changedFolders)
+            }
+        }
+
+        state.isWatchingFolders = fileMonitor.isMonitoring
+    }
+
+    private func handleWatchedFoldersChanged(_ folders: Set<FolderLocation>) {
+        guard policy.canScan, !folders.isEmpty else { return }
+        pendingRealtimeRoots.formUnion(folders)
+
+        Task { @MainActor [weak self] in
+            await self?.drainPendingRealtimeRescansIfNeeded()
+        }
+    }
+
+    private func drainPendingRealtimeRescansIfNeeded() async {
+        guard !state.isRunning, !pendingRealtimeRoots.isEmpty else { return }
+        let roots = pendingRealtimeRoots.sorted { $0.displayName < $1.displayName }
+        pendingRealtimeRoots.removeAll()
+        await performScan(reason: .fileSystemEvent, baseFolders: roots)
     }
 }
 
@@ -519,6 +625,7 @@ enum ScanReason: String, Sendable {
     case appLaunch = "app_launch"
     case scheduled = "scheduled"
     case manual = "manual"
+    case fileSystemEvent = "file_system_event"
     case thresholdExceeded = "threshold_exceeded"
 }
 
@@ -576,7 +683,7 @@ enum AutomationErrorType: Sendable {
 @MainActor
 protocol FileScanProvider: AnyObject {
     /// Performs a file scan and returns the result.
-    func scanFiles(context: ModelContext) async throws -> FileScanResult
+    func scanFiles(context: ModelContext, baseFolders: [FolderLocation]?) async throws -> FileScanResult
 
     /// Returns files eligible for auto-organization.
     func getAutoOrganizeEligibleFiles(
@@ -594,6 +701,7 @@ struct FileScanResult: Sendable {
     let skippedCount: Int
     let oldestPendingAgeDays: Int?
     let errorSummary: String?
+    let scannedRootPaths: [String]
 
     init(
         totalScanned: Int,
@@ -602,7 +710,8 @@ struct FileScanResult: Sendable {
         organizedCount: Int,
         skippedCount: Int,
         oldestPendingAgeDays: Int?,
-        errorSummary: String? = nil
+        errorSummary: String? = nil,
+        scannedRootPaths: [String] = []
     ) {
         self.totalScanned = totalScanned
         self.pendingCount = pendingCount
@@ -611,6 +720,13 @@ struct FileScanResult: Sendable {
         self.skippedCount = skippedCount
         self.oldestPendingAgeDays = oldestPendingAgeDays
         self.errorSummary = errorSummary
+        self.scannedRootPaths = scannedRootPaths
+    }
+}
+
+extension FileScanProvider {
+    func scanFiles(context: ModelContext) async throws -> FileScanResult {
+        try await scanFiles(context: context, baseFolders: nil)
     }
 }
 

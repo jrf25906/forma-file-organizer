@@ -49,8 +49,8 @@ struct MenuBarSurface<Content: View>: View {
 
     private var fillOverlay: Color {
         colorScheme == .dark
-            ? Color.formaControlBackground.opacity(0.84)
-            : Color.formaBoneWhite.opacity(0.90)
+            ? Color.formaControlBackground.opacity(0.80)
+            : Color.formaBoneWhite.opacity(0.86)
     }
 
     private var elevation: FormaChromeElevation {
@@ -69,9 +69,9 @@ struct MenuBarSurface<Content: View>: View {
         case .base:
             return Color.formaObsidian.opacity(colorScheme == .dark ? 0.10 : 0.05)
         case .raised:
-            return Color.formaObsidian.opacity(colorScheme == .dark ? 0.14 : 0.07)
+            return Color.formaObsidian.opacity(colorScheme == .dark ? 0.11 : 0.05)
         case .overlay:
-            return Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : 0.10)
+            return Color.formaObsidian.opacity(colorScheme == .dark ? 0.14 : 0.08)
         }
     }
 
@@ -80,9 +80,9 @@ struct MenuBarSurface<Content: View>: View {
         case .base:
             return 4
         case .raised:
-            return 8
+            return 6
         case .overlay:
-            return 14
+            return 10
         }
     }
 
@@ -91,14 +91,14 @@ struct MenuBarSurface<Content: View>: View {
         case .base:
             return 1
         case .raised:
-            return 3
+            return 2
         case .overlay:
-            return 5
+            return 3
         }
     }
 
     private var contactShadowColor: Color {
-        Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : 0.09)
+        Color.formaObsidian.opacity(colorScheme == .dark ? 0.14 : 0.07)
     }
 
     private var contactShadowRadius: CGFloat {
@@ -108,7 +108,7 @@ struct MenuBarSurface<Content: View>: View {
         case .raised:
             return 2
         case .overlay:
-            return 3
+            return 2
         }
     }
 
@@ -119,7 +119,7 @@ struct MenuBarSurface<Content: View>: View {
         case .raised:
             return 1
         case .overlay:
-            return 2
+            return 1
         }
     }
 }
@@ -171,8 +171,8 @@ struct MenuBarFlatRow<Content: View>: View {
 
     private var baseFill: Color {
         colorScheme == .dark
-            ? Color.formaControlBackground.opacity(0.46)
-            : Color.formaBoneWhite.opacity(0.58)
+            ? Color.formaControlBackground.opacity(0.38)
+            : Color.formaBoneWhite.opacity(0.46)
     }
 
     private var borderColor: Color {
@@ -306,20 +306,20 @@ struct MenuBarButtonStyle: ButtonStyle {
     private func backgroundFill(isPressed: Bool) -> Color {
         switch kind {
         case let .primary(tint):
-            return tint.opacity(isPressed ? 0.82 : 0.94)
+            return tint.opacity(isPressed ? 0.80 : 0.88)
         case let .secondary(tint):
             if tint == nil {
                 return colorScheme == .dark
-                    ? Color.formaControlBackground.opacity(isPressed ? 0.68 : 0.56)
-                    : Color.formaBoneWhite.opacity(isPressed ? 0.84 : 0.72)
+                    ? Color.formaControlBackground.opacity(isPressed ? 0.54 : 0.42)
+                    : Color.formaBoneWhite.opacity(isPressed ? 0.68 : 0.54)
             }
             return colorScheme == .dark
-                ? Color.formaControlBackground.opacity(isPressed ? 0.72 : 0.60)
-                : Color.formaBoneWhite.opacity(isPressed ? 0.86 : 0.76)
+                ? Color.formaControlBackground.opacity(isPressed ? 0.60 : 0.48)
+                : Color.formaBoneWhite.opacity(isPressed ? 0.72 : 0.60)
         case .utility:
             return colorScheme == .dark
-                ? Color.formaControlBackground.opacity(isPressed ? 0.58 : 0.42)
-                : Color.formaBoneWhite.opacity(isPressed ? 0.74 : 0.58)
+                ? Color.formaControlBackground.opacity(isPressed ? 0.42 : 0.28)
+                : Color.formaBoneWhite.opacity(isPressed ? 0.58 : 0.42)
         }
     }
 

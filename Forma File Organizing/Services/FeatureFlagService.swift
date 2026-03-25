@@ -114,7 +114,7 @@ struct FeatureFlagService: Sendable {
                 return "Scan files inside subfolders of monitored folders."
             // Automation (v1.4)
             case .backgroundMonitoring:
-                return "Periodically scan folders for new files while the app is running."
+                return "Live-watch folders while the app is running, with scheduled sweeps as a fallback."
             case .autoOrganize:
                 return "Automatically move files that match rules with high confidence."
             case .automationReminders:

@@ -36,6 +36,7 @@ final class MenuBarViewModel: ObservableObject {
     @Published private(set) var automationStatus = FormaActions.AutomationStatus(
         mode: .off,
         isRunning: false,
+        isWatchingFolders: false,
         nextScheduledRun: nil,
         lastRunDate: nil,
         lastRunSuccessCount: 0
@@ -389,6 +390,7 @@ extension MenuBarViewModel {
             automationStatus: .init(
                 mode: .scanOnly,
                 isRunning: false,
+                isWatchingFolders: true,
                 nextScheduledRun: nil,
                 lastRunDate: Date().addingTimeInterval(-1200),
                 lastRunSuccessCount: 4
@@ -425,6 +427,7 @@ extension MenuBarViewModel {
             automationStatus: .init(
                 mode: .scanOnly,
                 isRunning: false,
+                isWatchingFolders: true,
                 nextScheduledRun: Date().addingTimeInterval(1800),
                 lastRunDate: Date().addingTimeInterval(-600),
                 lastRunSuccessCount: 1
@@ -442,6 +445,7 @@ extension MenuBarViewModel {
             automationStatus: .init(
                 mode: .scanAndOrganize,
                 isRunning: false,
+                isWatchingFolders: true,
                 nextScheduledRun: Date().addingTimeInterval(900),
                 lastRunDate: Date().addingTimeInterval(-3600),
                 lastRunSuccessCount: 5

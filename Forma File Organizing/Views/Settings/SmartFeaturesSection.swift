@@ -217,8 +217,8 @@ struct SmartFeaturesSection: View {
 
                             // Scan Interval
                             SettingsRow(
-                                "Background Scan Interval",
-                                subtitle: "How often Forma scans for new files"
+                                "Background Sweep Interval",
+                                subtitle: "How often Forma runs a fallback sweep while live watching is enabled"
                             ) {
                                 Picker("", selection: $scanInterval) {
                                     Text("Every 5 minutes").tag(5)

@@ -4,6 +4,22 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- `FormaConfig.Automation`
+  - `fileWatcherDebounceDurationSeconds`
+- Filesystem monitoring (`Forma File Organizing/Services/FileMonitorService.swift`)
+  - `WatchedFolderDescriptor`
+  - `FileMonitoring`
+  - `FileMonitorService`
+- `FileScanProvider`
+  - `scanFiles(context:baseFolders:)`
+- `FileScanResult`
+  - `scannedRootPaths: [String]`
+- `AutomationScanNotificationUserInfo`
+  - `scannedRootPaths`
+  - `replacesAllFiles`
+- Automation status
+  - `AutomationState.isWatchingFolders`
+  - `AutomationStatus.isWatchingFolders`
 - UI test launch sizing
   - Set `FORMA_WINDOW_SIZE=WIDTHxHEIGHT` when launching UI tests to force the window size used for screenshot and layout coverage.
 - `FileScanOptions` (`Forma File Organizing/Services/FileSystemService.swift`)

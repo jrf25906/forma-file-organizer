@@ -376,6 +376,7 @@ final class FormaActions: ObservableObject {
         return AutomationStatus(
             mode: policy.effectiveMode,
             isRunning: state.isRunning,
+            isWatchingFolders: state.isWatchingFolders,
             nextScheduledRun: state.nextScheduledRun,
             lastRunDate: state.lastRunDate,
             lastRunSuccessCount: state.lastRunSuccessCount
@@ -470,6 +471,7 @@ extension FormaActions {
     struct AutomationStatus: Sendable {
         let mode: AutomationMode
         let isRunning: Bool
+        let isWatchingFolders: Bool
         let nextScheduledRun: Date?
         let lastRunDate: Date?
         let lastRunSuccessCount: Int
@@ -481,6 +483,8 @@ extension FormaActions {
         var statusText: String {
             if isRunning {
                 return "Scanning..."
+            } else if isWatchingFolders {
+                return "Watching folders"
             } else if let next = nextScheduledRun {
                 let formatter = RelativeDateTimeFormatter()
                 formatter.unitsStyle = .abbreviated
