@@ -37,6 +37,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - External review sessions now self-prune as requested files leave the pending/ready queue, and skip-only Finder/Spotlight feedback no longer resets the user’s existing dashboard filters.
 - External folder requests now behave as one-time, top-level scan roots instead of automatically mutating bookmark-backed monitored-folder settings.
 - External ingress now treats failed bookmark capture/resolution as explicit reauthorization work, surfacing actionable feedback in-app instead of silently falling back to unscoped file paths.
+- Finder Services metadata now declares both Finder-only required context and the registered provider port name, fixing cases where `Organize with Forma` was registered but did not appear in Finder’s Services submenu.
 - Automation-style scan refresh notifications now optionally carry exact `scannedPaths` in addition to `scannedRootPaths`, allowing focused external refreshes to merge correctly in the dashboard.
 - Automation-triggered filesystem events now rescan only the affected watched roots, queue one follow-up root set while a scan is already running, and keep scheduled interval scans as fallback recovery sweeps.
 - Smart Rules now count exact duplicates separately from overlaps, and overlap detection no longer flags unrelated rules such as extension-based rules versus `.env` name rules.

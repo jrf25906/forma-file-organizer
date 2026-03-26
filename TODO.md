@@ -9,6 +9,7 @@ Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 - [x] Scope dashboard review sessions to externally requested file paths so ambiguous items open in a focused review state.
 - [x] Clear focused external review sessions once their requested files are no longer pending, and keep skip-only feedback from wiping the user’s existing dashboard filters.
 - [x] Register `Organize with Forma` in the app's `NSServices` metadata and refresh Finder Services registration on first launch after version changes.
+- [x] Add the required Finder context and provider port metadata to the `Organize with Forma` service declaration so Finder can both show and dispatch the service reliably.
 - [x] Surface explicit reauthorization feedback when Finder/Spotlight selections lose security-scoped access instead of silently retrying raw paths.
 - [x] Add targeted coverage for explicit selection scanning, non-reconciling explicit persistence, external review scoping, onboarding resume, and registration refresh state.
 - [ ] Add a post-review affordance to convert a one-time external folder request into a persistent monitored folder when the workflow proves useful.

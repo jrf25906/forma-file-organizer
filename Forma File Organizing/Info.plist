@@ -16,6 +16,13 @@
 			</dict>
 			<key>NSMessage</key>
 			<string>organizeWithForma</string>
+			<key>NSPortName</key>
+			<string>$(PRODUCT_NAME)</string>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSApplicationIdentifier</key>
+				<string>com.apple.finder</string>
+			</dict>
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.item</string>
