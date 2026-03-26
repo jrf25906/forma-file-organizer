@@ -534,9 +534,30 @@ final class ExternalIngressCoordinator {
 final class FinderServicesRegistrationController {
     static let shared = FinderServicesRegistrationController()
 
+    typealias CommandRunner = @MainActor (_ path: String, _ arguments: [String]) throws -> Void
+
     private enum Keys {
         static let registeredVersion = "finderServices.registeredVersion"
         static let lastRefreshDate = "finderServices.lastRefreshDate"
+    }
+
+    private enum ToolPaths {
+        static let launchServicesRegister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+        static let pasteboardServer = "/System/Library/CoreServices/pbs"
+    }
+
+    private enum RegistrationCommandError: LocalizedError {
+        case commandFailed(path: String, status: Int32, errorOutput: String)
+
+        var errorDescription: String? {
+            switch self {
+            case let .commandFailed(path, status, errorOutput):
+                if errorOutput.isEmpty {
+                    return "\(path) exited with status \(status)."
+                }
+                return "\(path) exited with status \(status): \(errorOutput)"
+            }
+        }
     }
 
     struct Status: Sendable {
@@ -566,25 +587,53 @@ final class FinderServicesRegistrationController {
 
     private let defaults: UserDefaults
     private let bundle: Bundle
+    private let runCommand: CommandRunner
+    private let updateDynamicServices: () -> Void
+    private let isTestingProcess: () -> Bool
+    private let now: () -> Date
 
-    init(defaults: UserDefaults = .standard, bundle: Bundle = .main) {
+    init(
+        defaults: UserDefaults = .standard,
+        bundle: Bundle = .main,
+        runCommand: @escaping CommandRunner = FinderServicesRegistrationController.defaultRunCommand,
+        updateDynamicServices: @escaping () -> Void = { NSUpdateDynamicServices() },
+        isTestingProcess: @escaping () -> Bool = {
+            ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        },
+        now: @escaping () -> Date = Date.init
+    ) {
         self.defaults = defaults
         self.bundle = bundle
+        self.runCommand = runCommand
+        self.updateDynamicServices = updateDynamicServices
+        self.isTestingProcess = isTestingProcess
+        self.now = now
     }
 
     func refreshRegistrationIfNeeded(force: Bool = false) {
         let status = currentStatus()
         guard force || status.needsRefresh else { return }
 
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+        let refreshDate = now()
+
+        guard !isTestingProcess() else {
             defaults.set(status.currentVersion, forKey: Keys.registeredVersion)
-            defaults.set(Date(), forKey: Keys.lastRefreshDate)
+            defaults.set(refreshDate, forKey: Keys.lastRefreshDate)
             return
         }
 
-        NSUpdateDynamicServices()
+        do {
+            try rebuildServicesRegistration()
+        } catch {
+            Log.error(
+                "FinderServicesRegistrationController: Failed to rebuild Finder Services registration - \(error.localizedDescription)",
+                category: .automation
+            )
+            updateDynamicServices()
+        }
+
         defaults.set(status.currentVersion, forKey: Keys.registeredVersion)
-        defaults.set(Date(), forKey: Keys.lastRefreshDate)
+        defaults.set(refreshDate, forKey: Keys.lastRefreshDate)
     }
 
     func currentStatus() -> Status {
@@ -599,6 +648,42 @@ final class FinderServicesRegistrationController {
         let shortVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
         let buildVersion = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
         return "\(shortVersion) (\(buildVersion))"
+    }
+
+    private func rebuildServicesRegistration() throws {
+        try runCommand(
+            ToolPaths.launchServicesRegister,
+            ["-f", "-R", "-trusted", bundle.bundleURL.path]
+        )
+        try runCommand(ToolPaths.pasteboardServer, ["-flush"])
+        try runCommand(ToolPaths.pasteboardServer, ["-update"])
+        updateDynamicServices()
+    }
+
+    private static func defaultRunCommand(path: String, arguments: [String]) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+
+        let standardError = Pipe()
+        process.standardError = standardError
+
+        try process.run()
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            let errorOutput = String(
+                data: standardError.fileHandleForReading.readDataToEndOfFile(),
+                encoding: .utf8
+            )?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            throw RegistrationCommandError.commandFailed(
+                path: path,
+                status: process.terminationStatus,
+                errorOutput: errorOutput
+            )
+        }
     }
 }
 

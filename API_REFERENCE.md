@@ -24,6 +24,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `FinderServicesRegistrationStatus`
   - `FinderServicesProvider.organizeWithForma(_:userData:error:)`
   - `Info.plist` now declares `NSRequiredContext` for Finder and `NSPortName` for the registered provider lookup used by `NSRegisterServicesProvider`.
+  - `FinderServicesRegistrationController.refreshRegistrationIfNeeded(force:)` now re-registers the bundle with `lsregister`, flushes `pbs`, and runs `pbs -update` before calling `NSUpdateDynamicServices()`.
 - `FileSystemServiceProtocol`
   - `scanExplicitSelection(urls:options:)`
 - `ExplicitSelectionScanResult`

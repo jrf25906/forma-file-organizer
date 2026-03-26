@@ -36,6 +36,40 @@ final class FinderServicesRegistrationControllerTests: XCTestCase {
         XCTAssertNotNil(refreshedStatus.lastRefreshDate)
     }
 
+    func testRefreshRegistrationIfNeeded_RebuildsLaunchServicesAndPbsCacheOutsideTests() {
+        var executedCommands: [(path: String, arguments: [String])] = []
+        var dynamicServicesUpdateCount = 0
+
+        let controller = FinderServicesRegistrationController(
+            defaults: defaults,
+            bundle: .main,
+            runCommand: { path, arguments in
+                executedCommands.append((path, arguments))
+            },
+            updateDynamicServices: {
+                dynamicServicesUpdateCount += 1
+            },
+            isTestingProcess: { false }
+        )
+        defaults.set("0.0 (0)", forKey: "finderServices.registeredVersion")
+
+        controller.refreshRegistrationIfNeeded()
+
+        XCTAssertEqual(dynamicServicesUpdateCount, 1)
+        XCTAssertEqual(
+            executedCommands.map(\.path),
+            [
+                "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
+                "/System/Library/CoreServices/pbs",
+                "/System/Library/CoreServices/pbs"
+            ]
+        )
+        XCTAssertEqual(executedCommands[0].arguments.prefix(3), ["-f", "-R", "-trusted"])
+        XCTAssertEqual(executedCommands[0].arguments.last, Bundle.main.bundleURL.path)
+        XCTAssertEqual(executedCommands[1].arguments, ["-flush"])
+        XCTAssertEqual(executedCommands[2].arguments, ["-update"])
+    }
+
     func testFinderServiceDeclarationIncludesRequiredContextForAutomaticMenuPresentation() throws {
         XCTAssertNotNil(
             try organizeWithFormaServiceDeclaration()["NSRequiredContext"] as? [String: Any],
