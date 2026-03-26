@@ -69,6 +69,7 @@ class DashboardViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var bulkOperationTask: Task<Void, Never>?
     private var permissionRefreshTask: Task<Void, Never>?
+    private var lastPresentedExternalSessionID: UUID?
 
     // MARK: - Initialization
 
@@ -159,8 +160,8 @@ class DashboardViewModel: ObservableObject {
     convenience init(services: AppServices) {
         self.init(
             services: services,
-            fileSystemService: FileSystemService(),
-            fileScanPipeline: FileScanPipeline()
+            fileSystemService: services.fileSystemService,
+            fileScanPipeline: services.fileScanPipeline
         )
     }
 
@@ -213,12 +214,14 @@ class DashboardViewModel: ObservableObject {
 
     /// Applies an automation-triggered scan result to the dashboard state without re-scanning.
     func applyAutomationScanUpdate(
+        scannedPaths: [String] = [],
         scannedRootPaths: [String],
         errorSummary: String?,
         replacesAllFiles: Bool = false,
         context: ModelContext
     ) async {
         await scanRefreshController.applyAutomationScanUpdate(
+            scannedPaths: scannedPaths,
             scannedRootPaths: scannedRootPaths,
             errorSummary: errorSummary,
             replacesAllFiles: replacesAllFiles,
@@ -324,7 +327,49 @@ class DashboardViewModel: ObservableObject {
     }
 
     func clearAllFilters() {
+        if filterViewModel.hasExternalReviewScope || ExternalReviewSessionStore.shared.currentSession != nil {
+            exitExternalReviewSession()
+        }
         filterViewModel.clearAllFilters()
+    }
+
+    func applyExternalReviewSession(_ session: ExternalReviewSession?) {
+        guard let session else {
+            filterViewModel.clearExternalReviewPaths()
+            return
+        }
+
+        if lastPresentedExternalSessionID != session.requestID {
+            showToast(message: makeExternalReviewToastMessage(for: session), canUndo: false)
+            lastPresentedExternalSessionID = session.requestID
+        }
+
+        if session.reviewPaths.isEmpty {
+            exitExternalReviewSession()
+            return
+        }
+
+        filterViewModel.searchText = ""
+        filterViewModel.selectedCategory = .all
+        filterViewModel.selectedFolder = .home
+        filterViewModel.selectedRelativeFolderPath = nil
+        filterViewModel.includeNestedSubfolders = false
+        filterViewModel.selectedSecondaryFilter = .none
+        filterViewModel.reviewFilterMode = .needsReview
+        filterViewModel.setExternalReviewPaths(Set(session.reviewPaths))
+    }
+
+    func restoreExternalReviewSessionIfNeeded() {
+        applyExternalReviewSession(ExternalReviewSessionStore.shared.currentSession)
+    }
+
+    private func makeExternalReviewToastMessage(for session: ExternalReviewSession) -> String {
+        let uniqueSkipMessages = Array(NSOrderedSet(array: session.skippedItems.map(\.message))) as? [String] ?? []
+        guard !uniqueSkipMessages.isEmpty else {
+            return session.statusText
+        }
+
+        return ([session.statusText] + uniqueSkipMessages).joined(separator: " ")
     }
 
     func setViewMode(_ mode: ViewMode) {
@@ -832,6 +877,7 @@ class DashboardViewModel: ObservableObject {
                 guard let self else { return }
                 self.synchronizeOrganizationProgressTotal(with: files)
                 self.filterViewModel.updateSourceFiles(files)
+                self.synchronizeExternalReviewSession(with: files)
                 self.analyticsViewModel.updateAnalytics(from: files)
             }
             .store(in: &cancellables)
@@ -857,6 +903,52 @@ class DashboardViewModel: ObservableObject {
 
     func showCelebrationPanel(message: String) {
         panelManager.showCelebrationPanel(message: message)
+    }
+
+    private func exitExternalReviewSession() {
+        filterViewModel.clearExternalReviewPaths()
+        if ExternalReviewSessionStore.shared.currentSession != nil {
+            ExternalReviewSessionStore.shared.publish(nil)
+        }
+    }
+
+    private func synchronizeExternalReviewSession(with files: [FileItem]) {
+        guard let session = ExternalReviewSessionStore.shared.currentSession,
+              !session.reviewPaths.isEmpty else {
+            return
+        }
+
+        let activePaths = Set(
+            files.compactMap { file in
+                switch file.status {
+                case .pending, .ready:
+                    return file.path
+                case .completed, .skipped:
+                    return nil
+                }
+            }
+        )
+        let remainingReviewPaths = session.reviewPaths.filter { activePaths.contains($0) }
+
+        guard remainingReviewPaths != session.reviewPaths else {
+            return
+        }
+
+        if remainingReviewPaths.isEmpty {
+            exitExternalReviewSession()
+            return
+        }
+
+        ExternalReviewSessionStore.shared.publish(
+            ExternalReviewSession(
+                requestID: session.requestID,
+                source: session.source,
+                reviewPaths: remainingReviewPaths,
+                scannedRootPaths: session.scannedRootPaths,
+                skippedItems: session.skippedItems,
+                statusText: session.statusText
+            )
+        )
     }
 
     private func setupBulkOperationCallbacks() {

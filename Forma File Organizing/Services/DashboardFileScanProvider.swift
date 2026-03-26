@@ -120,18 +120,25 @@ final class DashboardFileScanProvider: FileScanProvider {
             throw ScanError.candidateFetchFailed(error.localizedDescription)
         }
 
-        // Cache destination validation results to avoid repeated bookmark resolution
-        // (each validate() call triggers URL(resolvingBookmarkData:) which causes SecCodeCopySelf)
-        var destinationValidationCache: [Data: Bool] = [:]
-
-        // Filter to eligible files
-        let eligible = candidates.filter { file in
-            isEligibleForAutoOrganize(file, confidenceThreshold: confidenceThreshold, validationCache: &destinationValidationCache)
-        }
+        let eligible = Self.autoOrganizeEligibleFiles(from: candidates, confidenceThreshold: confidenceThreshold)
 
         Log.info("DashboardFileScanProvider: Found \(eligible.count) eligible files from \(candidates.count) candidates", category: .automation)
 
         return eligible
+    }
+
+    static func autoOrganizeEligibleFiles(
+        from candidates: [FileItem],
+        confidenceThreshold: Double = 0.9
+    ) -> [FileItem] {
+        var destinationValidationCache: [Data: Bool] = [:]
+        return candidates.filter { file in
+            isEligibleForAutoOrganize(
+                file,
+                confidenceThreshold: confidenceThreshold,
+                validationCache: &destinationValidationCache
+            )
+        }
     }
 
     // MARK: - Private Helpers
@@ -202,7 +209,7 @@ final class DashboardFileScanProvider: FileScanProvider {
     ///
     /// - Parameter validationCache: Cache of bookmark Data -> isUsable to avoid repeated validation calls.
     ///   This prevents excessive SecCodeCopySelf calls when many files share the same destination.
-    private func isEligibleForAutoOrganize(
+    private static func isEligibleForAutoOrganize(
         _ file: FileItem,
         confidenceThreshold: Double,
         validationCache: inout [Data: Bool]

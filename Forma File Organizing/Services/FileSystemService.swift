@@ -50,6 +50,7 @@ protocol FileSystemServiceProtocol {
     func scanMusic(options: FileScanOptions) async throws -> [FileMetadata]
     @MainActor func scanAllFolders(options: FileScanOptions) async -> ScanResult
     func scan(baseFolders: [FolderLocation], options: FileScanOptions) async -> ScanResult
+    func scanExplicitSelection(urls: [URL], options: FileScanOptions) async throws -> ExplicitSelectionScanResult
 
     func hasDesktopAccess() -> Bool
     func hasDownloadsAccess() -> Bool
@@ -134,6 +135,10 @@ extension FileSystemServiceProtocol {
 
     func scan(baseFolders: [FolderLocation]) async -> ScanResult {
         await scan(baseFolders: baseFolders, options: .defaults)
+    }
+
+    func scanExplicitSelection(urls: [URL]) async throws -> ExplicitSelectionScanResult {
+        try await scanExplicitSelection(urls: urls, options: .defaults)
     }
 }
 
@@ -671,6 +676,133 @@ class FileSystemService: FileSystemServiceProtocol, @unchecked Sendable {
 
         // Treat all custom folders as `.custom` origin
         return try await scanDirectory(at: resolvedURL, location: .custom, options: options)
+    }
+
+    func scanExplicitSelection(
+        urls: [URL],
+        options: FileScanOptions = .defaults
+    ) async throws -> ExplicitSelectionScanResult {
+        var discoveredFiles: [FileMetadata] = []
+        var skippedItems: [ExternalIngressSkippedItem] = []
+        var scannedRootPaths: [String] = []
+
+        for candidate in urls {
+            let standardizedURL = candidate.standardizedFileURL
+            let resourceKeys: Set<URLResourceKey> = [
+                .isDirectoryKey,
+                .isPackageKey,
+                .isSymbolicLinkKey,
+                .isAliasFileKey,
+                .fileSizeKey,
+                .creationDateKey,
+                .contentModificationDateKey,
+                .contentAccessDateKey
+            ]
+
+            let resourceValues: URLResourceValues
+            do {
+                resourceValues = try standardizedURL.resourceValues(forKeys: resourceKeys)
+            } catch {
+                skippedItems.append(
+                    ExternalIngressSkippedItem(
+                        path: standardizedURL.path,
+                        reason: .inaccessibleSelection,
+                        message: "Forma couldn't read the selected item."
+                    )
+                )
+                continue
+            }
+
+            if resourceValues.isSymbolicLink ?? false {
+                skippedItems.append(
+                    ExternalIngressSkippedItem(
+                        path: standardizedURL.path,
+                        reason: .unsupportedSelection,
+                        message: "Symbolic links aren't supported in Finder quick actions yet."
+                    )
+                )
+                continue
+            }
+
+            if resourceValues.isAliasFile ?? false {
+                skippedItems.append(
+                    ExternalIngressSkippedItem(
+                        path: standardizedURL.path,
+                        reason: .aliasSelection,
+                        message: "Alias files need to be resolved before Forma can organize them."
+                    )
+                )
+                continue
+            }
+
+            if resourceValues.isPackage ?? false {
+                skippedItems.append(
+                    ExternalIngressSkippedItem(
+                        path: standardizedURL.path,
+                        reason: .packageSelection,
+                        message: "App bundles and package folders are skipped to avoid moving bundled contents."
+                    )
+                )
+                continue
+            }
+
+            if resourceValues.isDirectory ?? false {
+                do {
+                    let folderFiles = try await scanDirectory(
+                        at: standardizedURL,
+                        location: .custom,
+                        options: FileScanOptions(
+                            isRecursive: false,
+                            maxDepth: 0,
+                            maxFilesPerRoot: options.maxFilesPerRoot,
+                            skipPackages: options.skipPackages,
+                            skipHidden: options.skipHidden
+                        )
+                    )
+                    discoveredFiles.append(contentsOf: folderFiles)
+                    scannedRootPaths.append(standardizedURL.path)
+                } catch {
+                    skippedItems.append(
+                        ExternalIngressSkippedItem(
+                            path: standardizedURL.path,
+                            reason: .inaccessibleSelection,
+                            message: "Forma couldn't access the selected folder."
+                        )
+                    )
+                }
+                continue
+            }
+
+            guard FileManager.default.fileExists(atPath: standardizedURL.path),
+                  FileManager.default.isReadableFile(atPath: standardizedURL.path) else {
+                skippedItems.append(
+                    ExternalIngressSkippedItem(
+                        path: standardizedURL.path,
+                        reason: .inaccessibleSelection,
+                        message: "Forma couldn't access the selected file."
+                    )
+                )
+                continue
+            }
+
+            let parentURL = standardizedURL.deletingLastPathComponent()
+            let fileMetadata = FileMetadata(
+                path: standardizedURL.path,
+                sizeInBytes: Int64(resourceValues.fileSize ?? 0),
+                creationDate: resourceValues.creationDate ?? Date(),
+                modificationDate: resourceValues.contentModificationDate ?? Date(),
+                lastAccessedDate: resourceValues.contentAccessDate ?? Date(),
+                location: .custom,
+                scanRootPath: parentURL.path
+            )
+            discoveredFiles.append(fileMetadata)
+        }
+
+        return ExplicitSelectionScanResult(
+            files: discoveredFiles,
+            skippedItems: skippedItems,
+            scannedRootPaths: Array(NSOrderedSet(array: scannedRootPaths)) as? [String] ?? scannedRootPaths
+        )
     }
 
     /// Scans all folders that have valid Keychain bookmarks.

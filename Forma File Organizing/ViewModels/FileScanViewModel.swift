@@ -111,9 +111,18 @@ class FileScanViewModel: ObservableObject {
         updateRecentFiles()
     }
 
-    func mergeScannedFiles(_ files: [FileItem], forScannedRootPaths scannedRootPaths: [String]) {
+    func mergeScannedFiles(
+        _ files: [FileItem],
+        scannedPaths: [String] = [],
+        forScannedRootPaths scannedRootPaths: [String]
+    ) {
+        let pathSet = Set(scannedPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
         let rootSet = Set(scannedRootPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
         let retained = allFiles.filter { file in
+            let standardizedPath = URL(fileURLWithPath: file.path).standardizedFileURL.path
+            if pathSet.contains(standardizedPath) {
+                return false
+            }
             guard let root = file.scanRootPath else { return true }
             return !rootSet.contains(URL(fileURLWithPath: root).standardizedFileURL.path)
         }

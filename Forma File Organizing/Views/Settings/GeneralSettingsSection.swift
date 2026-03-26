@@ -9,6 +9,7 @@ struct GeneralSettingsSection: View {
     @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
     @State private var launchAtLoginErrorMessage: String?
     @State private var isApplyingLaunchAtLogin = false
+    @State private var externalIntegrationStatus = FinderServicesRegistrationController.shared.currentStatus()
 
     var body: some View {
         ScrollView {
@@ -77,6 +78,19 @@ struct GeneralSettingsSection: View {
                 }
 
                 // Help Section
+                SettingsSection("Finder & Spotlight") {
+                    SettingsRow(
+                        "Quick Actions",
+                        subtitle: "Use Finder's Organize with Forma service or Spotlight's item action. \(externalIntegrationStatus.statusText)"
+                    ) {
+                        Button("Refresh Registration") {
+                            FinderServicesRegistrationController.shared.refreshRegistrationIfNeeded(force: true)
+                            externalIntegrationStatus = FinderServicesRegistrationController.shared.currentStatus()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+
                 SettingsSection("Help") {
                     SettingsRow("Guided Tour", subtitle: "Walk through Forma's main features") {
                         Button("Replay Tour") {
@@ -102,6 +116,7 @@ struct GeneralSettingsSection: View {
         .frame(minWidth: 400)
         .onAppear {
             syncLaunchAtLoginStateFromSystem()
+            externalIntegrationStatus = FinderServicesRegistrationController.shared.currentStatus()
         }
         .onChange(of: launchAtLogin) { _, newValue in
             applyLaunchAtLoginChange(enabled: newValue)

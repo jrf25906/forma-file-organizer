@@ -250,6 +250,85 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertEqual(Set(localViewModel.allFiles.map(\.path)), [refreshedDesktopFile.path])
     }
+
+    func testApplyExternalReviewSessionSkipOnlyRequestPreservesExistingFilters() {
+        ExternalReviewSessionStore.shared.publish(nil)
+
+        let existingSearch = "invoice"
+        viewModel.searchText = existingSearch
+        viewModel.selectedCategory = .documents
+        viewModel.selectedFolder = .downloads
+        viewModel.selectedRelativeFolderPath = "Receipts/2026"
+        viewModel.includeNestedSubfolders = true
+        viewModel.selectedSecondaryFilter = .recent
+
+        let session = ExternalReviewSession(
+            requestID: UUID(),
+            source: .finderService,
+            reviewPaths: [],
+            scannedRootPaths: [],
+            skippedItems: [
+                ExternalIngressSkippedItem(
+                    path: "/tmp/Selected.alias",
+                    reason: .aliasSelection,
+                    message: "Alias files need to be resolved before Forma can organize them."
+                )
+            ],
+            statusText: "Forma skipped 1 item."
+        )
+
+        viewModel.applyExternalReviewSession(session)
+
+        XCTAssertEqual(viewModel.searchText, existingSearch)
+        XCTAssertEqual(viewModel.selectedCategory, .documents)
+        XCTAssertEqual(viewModel.selectedFolder, .downloads)
+        XCTAssertEqual(viewModel.selectedRelativeFolderPath, "Receipts/2026")
+        XCTAssertTrue(viewModel.includeNestedSubfolders)
+        XCTAssertEqual(viewModel.selectedSecondaryFilter, .recent)
+        XCTAssertFalse(viewModel.filterViewModel.hasExternalReviewScope)
+        XCTAssertNil(ExternalReviewSessionStore.shared.currentSession)
+    }
+
+    func testExternalReviewSessionClearsWhenRequestedReviewPathsAreNoLongerActionable() {
+        ExternalReviewSessionStore.shared.publish(nil)
+
+        let reviewFile = FileItem(
+            path: "/f/review.txt",
+            sizeInBytes: 1_000,
+            creationDate: Date(),
+            destination: nil,
+            status: .pending
+        )
+        let unrelatedPendingFile = FileItem(
+            path: "/f/unrelated.txt",
+            sizeInBytes: 1_000,
+            creationDate: Date(),
+            destination: nil,
+            status: .pending
+        )
+
+        viewModel._testSetFiles([reviewFile, unrelatedPendingFile])
+
+        let session = ExternalReviewSession(
+            requestID: UUID(),
+            source: .finderService,
+            reviewPaths: [reviewFile.path],
+            scannedRootPaths: [],
+            skippedItems: [],
+            statusText: "Forma 1 need review."
+        )
+
+        ExternalReviewSessionStore.shared.publish(session)
+        viewModel.applyExternalReviewSession(session)
+
+        XCTAssertEqual(viewModel.visibleFiles.map(\.path), [reviewFile.path])
+
+        reviewFile.status = .completed
+        viewModel._testSetFiles([reviewFile, unrelatedPendingFile])
+
+        XCTAssertNil(ExternalReviewSessionStore.shared.currentSession)
+        XCTAssertEqual(viewModel.visibleFiles.map(\.path), [unrelatedPendingFile.path])
+    }
     
     func testFilterByLocation() {
         // Given

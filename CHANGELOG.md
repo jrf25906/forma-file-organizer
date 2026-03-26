@@ -6,6 +6,11 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Finder Services integration via `Organize with Forma`, allowing Finder selections to launch Forma and route files or folders into a shared external-ingress workflow.
+- `ExternalIngressCoordinator`, `ExternalIngressRequest`, `ExternalIngressResult`, and `ExternalReviewSession` to normalize external requests, persist onboarding handoff, and focus review state on externally requested items.
+- `FinderServicesRegistrationController` and `FinderServicesProvider` so Forma can refresh Launch Services registration on version changes and accept Services pasteboard selections at app startup.
+- `FileSystemService.scanExplicitSelection(...)` and `FileScanPipeline.evaluateAndPersistExplicitFiles(...)` for one-time explicit scans that keep monitored-folder state unchanged and skip stale-row reconciliation.
+- A new Spotlight/App Intent action, `OrganizeSelectionIntent`, for sending a selected file or folder through the same ingress pipeline used by Finder Services.
 - Realtime filesystem watching via `FileMonitorService`, which watches enabled bookmark-backed standard folders with debounced `FSEvents` and reports changed `FolderLocation`s back to `AutomationEngine`.
 - `AutomationState`, menu bar automation status, and automation persistence notifications now expose explicit live-watching metadata, including `isWatchingFolders` and `scannedRootPaths`.
 - `forma-website` hero window now uses shared theme tokens so the current screenshot-style composition renders correctly in dark mode, and the "How Forma Works" section now uses a dark-aware surface with tighter hierarchy.
@@ -28,6 +33,11 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Dashboard startup now restores pending external review sessions before normal launch scanning, resumes deferred external requests after onboarding, and limits externally opened review sessions to the requested file paths.
+- External review sessions now self-prune as requested files leave the pending/ready queue, and skip-only Finder/Spotlight feedback no longer resets the user’s existing dashboard filters.
+- External folder requests now behave as one-time, top-level scan roots instead of automatically mutating bookmark-backed monitored-folder settings.
+- External ingress now treats failed bookmark capture/resolution as explicit reauthorization work, surfacing actionable feedback in-app instead of silently falling back to unscoped file paths.
+- Automation-style scan refresh notifications now optionally carry exact `scannedPaths` in addition to `scannedRootPaths`, allowing focused external refreshes to merge correctly in the dashboard.
 - Automation-triggered filesystem events now rescan only the affected watched roots, queue one follow-up root set while a scan is already running, and keep scheduled interval scans as fallback recovery sweeps.
 - Smart Rules now count exact duplicates separately from overlaps, and overlap detection no longer flags unrelated rules such as extension-based rules versus `.env` name rules.
 - Duplicate cleanup now deletes exact duplicate rules in one batch and triggers a single post-delete reevaluation instead of reloading and rescanning after every individual deletion.

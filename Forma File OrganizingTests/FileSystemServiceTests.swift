@@ -604,6 +604,45 @@ final class FileSystemServiceTests: XCTestCase {
         XCTAssertEqual(file.name, "README")
         XCTAssertEqual(file.fileExtension, "", "File without extension should have empty string for fileExtension")
     }
+
+    func testScanExplicitSelection_IncludesDirectFilesAndImmediateFolderChildrenOnly() async throws {
+        let selectedFile = try tempDir.createFile(name: "selected.txt")
+        let selectedFolder = try tempDir.createDirectory(name: "SelectedFolder")
+        _ = try tempDir.createFile(name: "SelectedFolder/top-level.md")
+        _ = try tempDir.createFile(name: "SelectedFolder/Nested/deep.txt")
+
+        let service = FileSystemService()
+
+        let result = try await service.scanExplicitSelection(
+            urls: [selectedFile, selectedFolder],
+            options: .defaults
+        )
+
+        let discoveredPaths = Set(result.files.map(\.path))
+        XCTAssertTrue(discoveredPaths.contains(selectedFile.path))
+        XCTAssertTrue(discoveredPaths.contains(selectedFolder.appendingPathComponent("top-level.md").path))
+        XCTAssertFalse(discoveredPaths.contains(selectedFolder.appendingPathComponent("Nested/deep.txt").path), "Folder selections should remain top-level only in v1")
+        XCTAssertEqual(result.scannedRootPaths, [selectedFolder.path], "Only selected folders should contribute explicit scan roots")
+    }
+
+    func testScanExplicitSelection_SkipsPackagesAndSymlinksWithFeedback() async throws {
+        let packageURL = try tempDir.createDirectory(name: "Sample.app")
+        _ = try tempDir.createFile(name: "Sample.app/Contents.txt")
+        let targetFile = try tempDir.createFile(name: "real.txt")
+        let symlinkURL = tempDir.url.appendingPathComponent("link.txt")
+        try FileManager.default.createSymbolicLink(at: symlinkURL, withDestinationURL: targetFile)
+
+        let service = FileSystemService()
+
+        let result = try await service.scanExplicitSelection(
+            urls: [packageURL, symlinkURL],
+            options: .defaults
+        )
+
+        XCTAssertTrue(result.files.isEmpty)
+        XCTAssertEqual(result.skippedItems.count, 2)
+        XCTAssertEqual(Set(result.skippedItems.map(\.reason)), Set([.packageSelection, .unsupportedSelection]))
+    }
 }
 
 // MARK: - Test Notes

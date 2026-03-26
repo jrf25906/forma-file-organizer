@@ -66,6 +66,7 @@ final class DashboardScanRefreshController: ObservableObject {
     }
 
     func applyAutomationScanUpdate(
+        scannedPaths: [String] = [],
         scannedRootPaths: [String],
         errorSummary: String?,
         replacesAllFiles: Bool,
@@ -88,7 +89,11 @@ final class DashboardScanRefreshController: ObservableObject {
 
         let files: [FileItem]
         do {
-            files = try fetchAutomationFiles(scannedRootPaths: scannedRootPaths, context: context)
+            files = try fetchAutomationFiles(
+                scannedPaths: scannedPaths,
+                scannedRootPaths: scannedRootPaths,
+                context: context
+            )
         } catch {
             Log.error(
                 "DashboardViewModel: Failed to fetch automation scan files - \(error.localizedDescription)",
@@ -101,7 +106,11 @@ final class DashboardScanRefreshController: ObservableObject {
         if replacesAllFiles {
             scanViewModel.replaceScannedFiles(files)
         } else {
-            scanViewModel.mergeScannedFiles(files, forScannedRootPaths: scannedRootPaths)
+            scanViewModel.mergeScannedFiles(
+                files,
+                scannedPaths: scannedPaths,
+                forScannedRootPaths: scannedRootPaths
+            )
         }
         actions.onAutomationSummary(errorSummary)
         actions.resetOrganizationProgress(scanViewModel.allFiles)
@@ -183,12 +192,20 @@ final class DashboardScanRefreshController: ObservableObject {
     }
 
     private func fetchAutomationFiles(
+        scannedPaths: [String],
         scannedRootPaths: [String],
         context: ModelContext
     ) throws -> [FileItem] {
+        let pathSet = Set(scannedPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
         let rootSet = Set(scannedRootPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
+        guard !pathSet.isEmpty || !rootSet.isEmpty else { return [] }
         let descriptor = FetchDescriptor<FileItem>()
         return try context.fetch(descriptor).filter { file in
+            let standardizedPath = URL(fileURLWithPath: file.path).standardizedFileURL.path
+            if pathSet.contains(standardizedPath) {
+                return true
+            }
+
             guard let root = file.scanRootPath else { return false }
             return rootSet.contains(URL(fileURLWithPath: root).standardizedFileURL.path)
         }

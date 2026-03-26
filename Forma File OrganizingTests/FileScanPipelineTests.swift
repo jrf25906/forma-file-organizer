@@ -49,6 +49,18 @@ final class FileScanPipelineTests: XCTestCase {
             ScanResult(files: metadata, errors: [:], scannedRootPaths: scannedRootPaths)
         }
 
+        func scanExplicitSelection(
+            urls: [URL],
+            options: FileScanOptions
+        ) async throws -> ExplicitSelectionScanResult {
+            _ = urls
+            return ExplicitSelectionScanResult(
+                files: metadata,
+                skippedItems: [],
+                scannedRootPaths: scannedRootPaths
+            )
+        }
+
         func hasDesktopAccess() -> Bool { true }
         func hasDownloadsAccess() -> Bool { true }
         func hasDocumentsAccess() -> Bool { true }
@@ -283,5 +295,46 @@ final class FileScanPipelineTests: XCTestCase {
         let file = try XCTUnwrap(result.files.first)
         XCTAssertEqual(file.status, .completed)
         XCTAssertNil(file.matchReason, "Completed in-place files should not remain in review suggestion state")
+    }
+
+    func testEvaluateAndPersistExplicitFiles_DoesNotReconcileMissingFilesWhenDisabled() async throws {
+        let rootPath = "/Users/test/Desktop"
+
+        let existingSibling = FileItem(
+            path: "\(rootPath)/keep-me.txt",
+            sizeInBytes: 64,
+            creationDate: Date(),
+            location: .desktop,
+            scanRootPath: rootPath,
+            destination: nil,
+            status: .pending
+        )
+        context.insert(existingSibling)
+        try context.save()
+
+        let explicitMetadata = FileMetadata(
+            path: "\(rootPath)/organize-me.txt",
+            sizeInBytes: 96,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .desktop,
+            scanRootPath: rootPath
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.evaluateAndPersistExplicitFiles(
+            files: [explicitMetadata],
+            scannedRootPaths: [rootPath],
+            reconcileMissingFiles: false,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let files = try context.fetch(FetchDescriptor<FileItem>())
+        XCTAssertTrue(files.contains { $0.path == existingSibling.path }, "Explicit ingress should not delete other files under the same root")
+        XCTAssertTrue(files.contains { $0.path == explicitMetadata.path }, "Explicitly scanned files should still persist")
     }
 }

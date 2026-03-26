@@ -5,6 +5,9 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
     var mockFiles: [FileMetadata] = []
     var shouldSucceed: Bool = true
     var mockErrors: [String: Error] = [:]  // For testing error scenarios
+    var explicitSelectionResult = ExplicitSelectionScanResult(files: [], skippedItems: [], scannedRootPaths: [])
+    var explicitSelectionError: Error?
+    private(set) var explicitSelectionCallCount = 0
 
     var hasDesktop: Bool = false
     var hasDownloads: Bool = false
@@ -46,6 +49,19 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
 
     func scan(baseFolders: [FolderLocation], options: FileScanOptions) async -> ScanResult {
         return ScanResult(files: mockFiles, errors: mockErrors)
+    }
+
+    func scanExplicitSelection(
+        urls: [URL],
+        options: FileScanOptions
+    ) async throws -> ExplicitSelectionScanResult {
+        explicitSelectionCallCount += 1
+
+        if let explicitSelectionError {
+            throw explicitSelectionError
+        }
+
+        return explicitSelectionResult
     }
 
     func hasDesktopAccess() -> Bool { return hasDesktop }

@@ -1,5 +1,6 @@
 import AppIntents
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Scan Files Intent
 
@@ -95,6 +96,50 @@ struct GetPendingCountIntent: AppIntent {
     }
 }
 
+// MARK: - Organize Selection Intent
+
+/// Organizes a specific file or folder handed to Forma from Spotlight or Shortcuts.
+struct OrganizeSelectionIntent: AppIntent {
+    static let title: LocalizedStringResource = "Organize Selected Item"
+    static let description = IntentDescription("Send a selected file or folder to Forma for one-time organization")
+
+    static let openAppWhenRun: Bool = false
+
+    @Parameter(
+        title: "Item",
+        description: "The file or folder to organize with Forma",
+        supportedContentTypes: [.item]
+    )
+    var item: IntentFile
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        guard let url = item.fileURL else {
+            throw FormaIntentError.selectionUnavailable
+        }
+
+        let disposition = try await ExternalIngressCoordinator.shared.handleRequest(
+            source: .spotlightIntent,
+            urls: [url]
+        )
+
+        switch disposition {
+        case .processed(let result):
+            return .result(value: result.statusText)
+        case .needsOnboarding:
+            return .result(value: "Finish Forma setup in the app, then the selected item will resume automatically.")
+        case .notConfigured:
+            throw FormaIntentError.notConfigured
+        case .noPendingRequest:
+            return .result(value: "Forma didn't receive a valid selection.")
+        }
+    }
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Organize a selected file or folder with Forma")
+    }
+}
+
 // MARK: - Toggle Automation Intent
 
 /// Toggles Forma's automation mode on or off.
@@ -166,6 +211,7 @@ enum FormaIntentError: Error, CustomLocalizedStringResourceConvertible {
     case scanFailed(String)
     case organizeFailed(String)
     case notConfigured
+    case selectionUnavailable
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
@@ -175,6 +221,8 @@ enum FormaIntentError: Error, CustomLocalizedStringResourceConvertible {
             return "Organization failed: \(message)"
         case .notConfigured:
             return "Forma is not fully configured. Please open the app first."
+        case .selectionUnavailable:
+            return "Forma couldn't access the selected file or folder."
         }
     }
 }
@@ -209,6 +257,17 @@ struct FormaShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Quick Organize",
             systemImageName: "folder.badge.gearshape"
+        )
+
+        AppShortcut(
+            intent: OrganizeSelectionIntent(),
+            phrases: [
+                "Organize a selected item with \(.applicationName)",
+                "Send a selected item to \(.applicationName)",
+                "Review a selected item in \(.applicationName)"
+            ],
+            shortTitle: "Organize Selection",
+            systemImageName: "sparkles.rectangle.stack"
         )
 
         AppShortcut(

@@ -25,6 +25,8 @@ class FileFilterManager: ObservableObject {
     @Published var reviewFilterMode: ReviewFilterMode = .needsReview
     @Published var groupingMode: FileGroupingService.GroupingMode = .date
     @Published var sortMode: SortMode = .newestFirst
+
+    private(set) var externalReviewPaths: Set<String> = []
     
     // MARK: - Cached Values (Performance Optimization)
     
@@ -89,6 +91,20 @@ class FileFilterManager: ObservableObject {
     var groupedFiles: [FileGroup] {
         cachedGroupedFiles
     }
+
+    var hasExternalReviewScope: Bool {
+        !externalReviewPaths.isEmpty
+    }
+
+    func setExternalReviewPaths(_ paths: Set<String>) {
+        guard externalReviewPaths != paths else { return }
+        externalReviewPaths = paths
+        invalidateFilterCache()
+    }
+
+    func clearExternalReviewPaths() {
+        setExternalReviewPaths([])
+    }
     
     // MARK: - Private Methods
     
@@ -112,6 +128,9 @@ class FileFilterManager: ObservableObject {
         hasher.combine(selectedSecondaryFilter)
         hasher.combine(groupingMode)
         hasher.combine(sortMode)
+        for path in externalReviewPaths.sorted() {
+            hasher.combine(path)
+        }
         if !searchText.isEmpty {
             hasher.combine(contentMatchGeneration)
         }
@@ -133,6 +152,10 @@ class FileFilterManager: ObservableObject {
         }
         
         var files = allFiles
+
+        if !externalReviewPaths.isEmpty {
+            files = files.filter { externalReviewPaths.contains($0.path) }
+        }
         
         // 1. Filter by Search Text (includes both filename and content matches)
         if !searchText.isEmpty {

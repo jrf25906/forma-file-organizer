@@ -18,11 +18,17 @@ final class MockFileScanPipeline: FileScanPipelineProtocol {
 
     /// Whether to simulate a timeout
     var timedOut: Bool = false
+    var explicitSelectionResult = FileScanPipeline.ScanResult(
+        files: [],
+        errorSummary: nil,
+        rawErrors: [:]
+    )
 
     // MARK: - Call Tracking
 
     /// Number of times scanAndPersist() was called
     private(set) var scanCallCount = 0
+    private(set) var explicitScanCallCount = 0
 
     // MARK: - FileScanPipelineProtocol Conformance
 
@@ -43,6 +49,18 @@ final class MockFileScanPipeline: FileScanPipelineProtocol {
         )
     }
 
+    func evaluateAndPersistExplicitFiles(
+        files: [FileMetadata],
+        scannedRootPaths: [String],
+        reconcileMissingFiles: Bool,
+        ruleEngine: RuleEngine,
+        rules: [Rule],
+        context: ModelContext
+    ) async -> FileScanPipeline.ScanResult {
+        explicitScanCallCount += 1
+        return explicitSelectionResult
+    }
+
     // MARK: - Test Helpers
 
     /// Resets all call tracking and configuration
@@ -51,5 +69,11 @@ final class MockFileScanPipeline: FileScanPipelineProtocol {
         errorSummary = nil
         timedOut = false
         scanCallCount = 0
+        explicitScanCallCount = 0
+        explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [],
+            errorSummary: nil,
+            rawErrors: [:]
+        )
     }
 }

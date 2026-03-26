@@ -150,7 +150,11 @@ class FilterViewModel: ObservableObject {
     func clearAllFilters() {
         searchText = ""
         selectedCategory = .all
+        selectedFolder = .home
+        selectedRelativeFolderPath = nil
+        includeNestedSubfolders = false
         selectedSecondaryFilter = .none
+        filterManager.clearExternalReviewPaths()
         applyFilterImmediately()
     }
 
@@ -194,6 +198,20 @@ class FilterViewModel: ObservableObject {
     /// Grouped files
     var groupedFiles: [FileGroup] {
         cachedGroupedFiles
+    }
+
+    var hasExternalReviewScope: Bool {
+        filterManager.hasExternalReviewScope
+    }
+
+    func setExternalReviewPaths(_ paths: Set<String>) {
+        filterManager.setExternalReviewPaths(paths)
+        applyFilterImmediately()
+    }
+
+    func clearExternalReviewPaths() {
+        filterManager.clearExternalReviewPaths()
+        applyFilterImmediately()
     }
 
     // MARK: - Content Search Support

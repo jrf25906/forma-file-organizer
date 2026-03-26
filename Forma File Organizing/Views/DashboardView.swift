@@ -46,6 +46,23 @@ struct DashboardView: View {
         #endif
     }
 
+    private func runStartupFlow() async {
+        dashboardViewModel.restoreExternalReviewSessionIfNeeded()
+
+        if dashboardViewModel.showOnboarding {
+            return
+        }
+
+        _ = await ExternalIngressCoordinator.shared.processPendingRequestIfPossible()
+        dashboardViewModel.restoreExternalReviewSessionIfNeeded()
+
+        guard autoScanOnLaunch else {
+            return
+        }
+
+        await dashboardViewModel.scanFiles(context: modelContext)
+    }
+
     // MARK: - Extracted Views (helps compiler type-checking)
 
     @ViewBuilder
@@ -245,16 +262,7 @@ struct DashboardView: View {
             if CommandLine.arguments.contains("--uitesting") {
                 return
             }
-            // Don't scan files until onboarding is complete - scanning triggers
-            // folder permission requests which would interrupt the onboarding flow
-            if dashboardViewModel.showOnboarding {
-                return
-            }
-            guard autoScanOnLaunch else {
-                return
-            }
-            // Initial scan when dashboard appears
-            await dashboardViewModel.scanFiles(context: modelContext)
+            await runStartupFlow()
         }
         .sheet(isPresented: $dashboardViewModel.showOnboarding) {
             OnboardingFlowView()
@@ -263,11 +271,9 @@ struct DashboardView: View {
         .onChange(of: dashboardViewModel.showOnboarding) { wasShowingOnboarding, isShowingOnboarding in
             // Trigger scan when onboarding completes (was showing, now dismissed)
             if wasShowingOnboarding && !isShowingOnboarding {
-                if autoScanOnLaunch {
-                    scanTask?.cancel()
-                    scanTask = Task {
-                        await dashboardViewModel.scanFiles(context: modelContext)
-                    }
+                scanTask?.cancel()
+                scanTask = Task {
+                    await runStartupFlow()
                 }
                 // Show guided tour after onboarding with delay for frames to populate
                 Task { @MainActor in
@@ -283,6 +289,7 @@ struct DashboardView: View {
             tourState.replayTour()
         }
         .onReceive(NotificationCenter.default.publisher(for: .automationScanDidPersist)) { notification in
+            let scannedPaths = notification.userInfo?[AutomationScanNotificationUserInfo.scannedPaths] as? [String] ?? []
             guard let scannedRootPaths = notification.userInfo?[AutomationScanNotificationUserInfo.scannedRootPaths] as? [String] else {
                 return
             }
@@ -290,12 +297,17 @@ struct DashboardView: View {
             let replacesAllFiles = notification.userInfo?[AutomationScanNotificationUserInfo.replacesAllFiles] as? Bool ?? false
             Task {
                 await dashboardViewModel.applyAutomationScanUpdate(
+                    scannedPaths: scannedPaths,
                     scannedRootPaths: scannedRootPaths,
                     errorSummary: errorSummary,
                     replacesAllFiles: replacesAllFiles,
                     context: modelContext
                 )
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .externalReviewSessionDidChange)) { notification in
+            let session = notification.userInfo?[ExternalReviewSessionNotificationUserInfo.session] as? ExternalReviewSession
+            dashboardViewModel.applyExternalReviewSession(session)
         }
         .sheet(isPresented: $dashboardViewModel.showQuickLookSheet) {
             if let url = dashboardViewModel.quickLookURL {

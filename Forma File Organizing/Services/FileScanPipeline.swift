@@ -21,6 +21,15 @@ protocol FileScanPipelineProtocol {
         rules: [Rule],
         context: ModelContext
     ) async -> FileScanPipeline.ScanResult
+
+    func evaluateAndPersistExplicitFiles(
+        files: [FileMetadata],
+        scannedRootPaths: [String],
+        reconcileMissingFiles: Bool,
+        ruleEngine: RuleEngine,
+        rules: [Rule],
+        context: ModelContext
+    ) async -> FileScanPipeline.ScanResult
 }
 
 struct FileScanPipeline: FileScanPipelineProtocol {
@@ -72,6 +81,32 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         )
     }
 
+    func evaluateAndPersistExplicitFiles(
+        files: [FileMetadata],
+        scannedRootPaths: [String],
+        reconcileMissingFiles: Bool,
+        ruleEngine: RuleEngine,
+        rules: [Rule],
+        context: ModelContext
+    ) async -> ScanResult {
+        let scanMeta = ScanResult(
+            files: [],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: scannedRootPaths
+        )
+
+        return await persist(
+            files: files,
+            scannedRootPaths: scannedRootPaths,
+            reconcileMissingFiles: reconcileMissingFiles,
+            evaluatedBy: ruleEngine,
+            rules: rules,
+            context: context,
+            scanMeta: scanMeta
+        )
+    }
+
     /// Performs the actual scan operation (extracted for timeout wrapper)
     private func performScan(
         baseFolders: [FolderLocation],
@@ -101,6 +136,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         return await persist(
             files: result.files,
             scannedRootPaths: result.scannedRootPaths,
+            reconcileMissingFiles: true,
             evaluatedBy: ruleEngine,
             rules: rules,
             context: context,
@@ -111,6 +147,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     private func persist(
         files: [FileMetadata],
         scannedRootPaths: [String],
+        reconcileMissingFiles: Bool,
         evaluatedBy ruleEngine: RuleEngine,
         rules: [Rule],
         context: ModelContext,
@@ -157,7 +194,12 @@ struct FileScanPipeline: FileScanPipelineProtocol {
 
         // PHASE 3: Persist results (SwiftData requirement)
         let normalized = normalizeAlreadyOrganizedFiles(evaluated)
-        let persistence = persistToSwiftData(evaluated: normalized, scannedRootPaths: scannedRootPaths, context: context)
+        let persistence = persistToSwiftData(
+            evaluated: normalized,
+            scannedRootPaths: scannedRootPaths,
+            shouldReconcileMissingFiles: reconcileMissingFiles,
+            context: context
+        )
 
         var rawErrors = scanMeta.rawErrors
         if let saveError = persistence.saveError {
@@ -219,6 +261,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     private func persistToSwiftData(
         evaluated: [FileMetadata],
         scannedRootPaths: [String],
+        shouldReconcileMissingFiles: Bool,
         context: ModelContext
     ) -> PersistenceResult {
         // Batch fetch existing FileItem by path
@@ -278,11 +321,13 @@ struct FileScanPipeline: FileScanPipelineProtocol {
             }
         }
 
-        reconcileMissingFiles(
-            scannedPaths: scannedPaths,
-            scannedRootPaths: scannedRootPaths.isEmpty ? Set(evaluated.compactMap(\.scanRootPath)) : Set(scannedRootPaths),
-            context: context
-        )
+        if shouldReconcileMissingFiles {
+            reconcileMissingFiles(
+                scannedPaths: scannedPaths,
+                scannedRootPaths: scannedRootPaths.isEmpty ? Set(evaluated.compactMap(\.scanRootPath)) : Set(scannedRootPaths),
+                context: context
+            )
+        }
 
         let saveError: Error?
         do {

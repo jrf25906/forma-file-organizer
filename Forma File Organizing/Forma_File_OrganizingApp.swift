@@ -47,6 +47,8 @@ enum MainWindowPresentation {
 @MainActor
 struct Forma_File_OrganizingApp: App {
 
+    @NSApplicationDelegateAdaptor(FormaApplicationDelegate.self) private var appDelegate
+
     let container: ModelContainer
 
     @StateObject private var services: AppServices
@@ -183,7 +185,8 @@ struct Forma_File_OrganizingApp: App {
             #endif
 
             // Configure FormaActions with full capabilities for menu bar and AppIntents
-            configureFormaActions()
+            configureFormaActions(using: appServices)
+            configureExternalIngress(using: appServices)
 
             scheduleAnalyticsMaintenance(using: appServices)
 
@@ -249,14 +252,22 @@ struct Forma_File_OrganizingApp: App {
 
     /// Configures FormaActions with full capabilities for scanning and organizing.
     /// This enables the menu bar and AppIntents to perform file operations.
-    private func configureFormaActions() {
-        let scanProvider = DashboardFileScanProvider()
+    private func configureFormaActions(using services: AppServices) {
         let coordinator = FileOrganizationCoordinator()
 
         FormaActions.shared.configureFull(
             modelContext: container.mainContext,
             organizationCoordinator: coordinator,
-            scanProvider: scanProvider
+            scanProvider: services.dashboardScanProvider
+        )
+    }
+
+    private func configureExternalIngress(using services: AppServices) {
+        ExternalIngressCoordinator.shared.configure(
+            modelContext: container.mainContext,
+            fileSystemService: services.fileSystemService,
+            fileScanPipeline: services.fileScanPipeline,
+            ruleEngine: services.ruleEngine
         )
     }
 

@@ -2,6 +2,17 @@
 
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
+## Spotlight + Finder Services Integration (March 25, 2026)
+- [x] Add an `ExternalIngressCoordinator` that normalizes Finder Services and Spotlight/App Intent requests into one resumable ingress flow.
+- [x] Accept both directly selected files and selected folders, scanning only each folder's immediate file children for one-time external organization requests.
+- [x] Persist pending external requests through onboarding and resume them automatically once setup completes.
+- [x] Scope dashboard review sessions to externally requested file paths so ambiguous items open in a focused review state.
+- [x] Clear focused external review sessions once their requested files are no longer pending, and keep skip-only feedback from wiping the user’s existing dashboard filters.
+- [x] Register `Organize with Forma` in the app's `NSServices` metadata and refresh Finder Services registration on first launch after version changes.
+- [x] Surface explicit reauthorization feedback when Finder/Spotlight selections lose security-scoped access instead of silently retrying raw paths.
+- [x] Add targeted coverage for explicit selection scanning, non-reconciling explicit persistence, external review scoping, onboarding resume, and registration refresh state.
+- [ ] Add a post-review affordance to convert a one-time external folder request into a persistent monitored folder when the workflow proves useful.
+
 ## Realtime Filesystem Watching (March 25, 2026)
 - [x] Add an `FSEvents`-backed `FileMonitorService` for enabled bookmark-backed standard folders, with debounced root-level change coalescing.
 - [x] Route watcher changes through `AutomationEngine` as targeted rescans and queue one follow-up realtime rescan instead of starting overlapping scans.

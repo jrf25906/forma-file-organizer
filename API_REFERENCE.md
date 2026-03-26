@@ -4,6 +4,47 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- External ingress (`Forma File Organizing/Services/ExternalIngressCoordinator.swift`)
+  - `ExternalIngressSource`
+  - `ExternalIngressItemKind`
+  - `ExternalIngressSkipReason`
+  - `ExternalIngressSkippedItem`
+  - `ExternalIngressRequestItem`
+    - `bookmarkCreationFailed: Bool`
+  - `ExternalIngressRequest`
+  - `ExternalIngressResult`
+  - `ExternalIngressDisposition`
+  - `ExternalReviewSession`
+  - `ExternalReviewSessionStore`
+  - `ExternalIngressCoordinator.handleRequest(source:urls:)`
+  - `ExternalIngressCoordinator.processPendingRequestIfNeeded()`
+  - Reauthorization failures are surfaced as skipped-item feedback instead of falling back to raw file paths.
+- Finder Services registration (`Forma File Organizing/Services/ExternalIngressCoordinator.swift`)
+  - `FinderServicesRegistrationController`
+  - `FinderServicesRegistrationStatus`
+  - `FinderServicesProvider.organizeWithForma(_:userData:error:)`
+- `FileSystemServiceProtocol`
+  - `scanExplicitSelection(urls:options:)`
+- `ExplicitSelectionScanResult`
+  - `files: [FileMetadata]`
+  - `skippedItems: [ExternalIngressSkippedItem]`
+  - `scannedRootPaths: [String]`
+- `FileScanPipelineProtocol`
+  - `evaluateAndPersistExplicitFiles(...)`
+- `DashboardFileScanProvider`
+  - `autoOrganizeEligibleFiles(from:confidenceThreshold:)`
+- `DashboardViewModel`
+  - `applyExternalReviewSession(_:)`
+  - `restoreExternalReviewSessionIfNeeded()`
+  - External review sessions now clear themselves once scoped files are no longer pending or ready.
+- `FileFilterManager`
+  - `externalReviewPaths`
+  - `setExternalReviewPaths(_:)`
+  - `clearExternalReviewPaths()`
+- `FilterViewModel`
+  - `hasExternalReviewScope`
+  - `setExternalReviewPaths(_:)`
+  - `clearExternalReviewPaths()`
 - `FormaConfig.Automation`
   - `fileWatcherDebounceDurationSeconds`
 - Filesystem monitoring (`Forma File Organizing/Services/FileMonitorService.swift`)
@@ -15,8 +56,11 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - `FileScanResult`
   - `scannedRootPaths: [String]`
 - `AutomationScanNotificationUserInfo`
+  - `scannedPaths`
   - `scannedRootPaths`
   - `replacesAllFiles`
+- App Intents (`Forma File Organizing/Services/FormaAppIntents.swift`)
+  - `OrganizeSelectionIntent`
 - Automation status
   - `AutomationState.isWatchingFolders`
   - `AutomationStatus.isWatchingFolders`

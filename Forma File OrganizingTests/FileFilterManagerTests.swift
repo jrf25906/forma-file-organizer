@@ -111,6 +111,55 @@ final class FileFilterManagerTests: XCTestCase {
         XCTAssertTrue(manager.filteredFiles.isEmpty)
     }
 
+    func testExternalReviewScope_FiltersToRequestedPathsOnly() {
+        let now = Date()
+        let requestedA = FileItem(
+            path: "/Users/test/Documents/requested-a.txt",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let unrelated = FileItem(
+            path: "/Users/test/Documents/unrelated.txt",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let requestedB = FileItem(
+            path: "/Users/test/Documents/requested-b.txt",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .ready
+        )
+
+        let manager = FileFilterManager()
+        manager.setExternalReviewPaths([requestedA.path, requestedB.path])
+        manager.updateSourceFiles([requestedA, unrelated, requestedB])
+
+        XCTAssertEqual(
+            Set(manager.filteredFiles.map(\.path)),
+            Set([requestedA.path, requestedB.path])
+        )
+        XCTAssertTrue(manager.hasExternalReviewScope)
+
+        manager.clearExternalReviewPaths()
+        manager.applyFilterImmediately(to: [requestedA, unrelated, requestedB])
+        XCTAssertEqual(manager.filteredFiles.count, 3)
+        XCTAssertFalse(manager.hasExternalReviewScope)
+    }
+
     func testNestedFolderFilter_ExactFolderOnly() {
         let now = Date()
         let inSelectedFolder = FileItem(
