@@ -67,7 +67,7 @@ export function Header() {
                 location="header_desktop"
                 className={cn(
                   formaShellCtaVariants({ variant: "primary" }),
-                  "h-11 px-4 text-[13px] sm:px-5"
+                  "h-11 px-4 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forma-steel-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--shell-surface)] sm:px-5"
                 )}
               >
                 Get Forma
@@ -77,9 +77,9 @@ export function Header() {
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon"
                   aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-                  className="border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] text-[var(--text-primary)] hover:bg-[var(--shell-surface)] md:hidden"
+                  className="h-11 w-11 border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] text-[var(--text-primary)] hover:bg-[var(--shell-surface)] md:hidden"
                 >
                   {mobileOpen ? <XIcon /> : <MenuIcon />}
                 </Button>

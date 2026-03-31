@@ -118,7 +118,7 @@ export default function Footer() {
                 location="footer"
                 className={cn(
                   formaShellCtaVariants({ variant: "secondary" }),
-                  "h-10 px-4 text-[13px]"
+                  "h-10 px-4 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forma-steel-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--shell-surface)]"
                 )}
               >
                 {SUPPORT_EMAIL}
