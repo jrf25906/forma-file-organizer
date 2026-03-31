@@ -10,6 +10,9 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `FormaShellCta`
   - `formaShellCtaVariants`
   - Shared across the header/footer shell, pricing, FAQ, newsletter, and support routes while the hero and product demos remain bespoke.
+- Website header shell layout (`forma-website/src/lib/header-shell-layout.ts`)
+  - `HEADER_SHELL_LAYOUT`
+  - Centralizes the floating header shell inset, shell height, hero overlay marker, and hero-clearance contract shared by `Header.tsx` and the homepage hero.
 - File-surface recovery and accessibility helpers
   - `FileRecoveryState`
     - `recoverToReady(_:destination:)`
