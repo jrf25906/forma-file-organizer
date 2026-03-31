@@ -1,168 +1,201 @@
 # Forma Feature Roadmap
 
-*Generated March 23, 2026*
+*Updated March 30, 2026*
 
-## Strategic Frame
+## Product Posture
 
-Forma's durable moat is **reliable file infrastructure**, not smart file assistance. AI agents will handle classification and suggestions better than any on-device model. Forma should be the trustworthy, always-on system that either works independently or that AI agents plug into.
+Forma is **preview-first by default**.
 
-All features below are naturally local/on-device — the privacy-first positioning holds without compromise.
+The product should help users move faster and make fewer decisions, but it should not default to opaque "AI moved your files somewhere" behavior. Autopilot can exist later as an **optional, scoped mode** for users who have already built trust in the system.
 
-**Primary design constraint:** executive functioning support. Every feature is evaluated against how well it reduces decision fatigue, eliminates task initiation barriers, and prevents the shame/overwhelm spiral that causes people with ADHD (and similar profiles) to give up on file organization entirely.
+This keeps Forma aligned with its strongest positioning:
 
----
+- Users can see what Forma is about to do
+- Users can understand why it made the suggestion
+- Users can undo changes safely
+- Users stay in control of their file system
 
-## Now (Months 1–2)
+## Strategic Moat
 
-### 1. File System Watching + Aggressive Auto-Organize
-**Effort:** Moderate · **Moat:** High · **Impact:** Foundational
+Forma should optimize for features that are **hard to replicate with a prompt**:
 
-The single most important feature for executive functioning: prevent the pile from ever forming. If files are handled as they arrive, users never face a 400-file backlog. They never need to "decide to organize." The mess never reaches the point where it triggers overwhelm and avoidance.
+1. **Trust infrastructure**: preview, explanation, simulation, rollback, auditability
+2. **Persistent local memory**: long-lived knowledge of how this specific user organizes
+3. **OS-level integration**: Finder, Spotlight, Services, menu bar, Shortcuts, app intents
+4. **Workflow lock-in**: metadata, project views, recurring organization systems, repeatable automation
 
-- Feature flag already stubbed: `Performance.enableFileSystemWatching`
-- FSEvents/DispatchSource for real-time folder monitoring
-- Existing `FileScanPipeline` can consume events without major refactoring
-- **Promote auto-organize from cautious opt-in to the default path.** The current gating (`autoOrganize` flag, conservative thresholds) makes sense for control-oriented users but is the wrong default for ADHD users. The safety net is undo, not pre-approval.
-- Key risk: battery/performance overhead — needs configurable throttling
-- Design goal: after onboarding, the user should be able to forget Forma exists and still have organized files
+Forma should explicitly **de-prioritize generic AI surface area** that can be reproduced by a chatbot or thin wrapper:
 
-### 2. Quick-Win Onboarding with Instant Results
-**Effort:** Low–Moderate · **Moat:** Moderate · **Impact:** Critical for retention
+- Broad AI categorization expansion
+- "Chat with your files" style features
+- Natural-language rule parsing as a flagship differentiator
+- Cloud AI summaries that weaken the local-first trust story
 
-The first 60 seconds after install must deliver visible results. Not "set up your rules" — that's homework. ADHD brains need immediate payoff to build trust and momentum.
+## What Is Already Shipped
 
-- On first scan, present one-tap batch actions: "Forma found 47 screenshots on your Desktop. Move them all to ~/Screenshots?"
-- Show a single, specific, achievable action — not the full scope of the mess
-- One tap → instant visible result → dopamine hit → trust established
-- Templates already exist but the gap between "installed" and "seeing results" is too long
-- Celebrate the win: brief positive feedback ("Done — 47 files organized") before presenting the next batch
+The roadmap should start from the current product, not from older planning assumptions.
 
-### 3. Positive-Reinforcement Notifications
-**Effort:** Low · **Moat:** Moderate · **Impact:** Retention / emotional safety
+- **Realtime monitoring exists** via background monitoring, `AutomationEngine`, and `FileMonitorService`
+- **Preview and undo exist** via the review queue, activity logging, and undo flows
+- **Learned patterns exist** via `LearningService`, `LearnedPattern`, and `RuleSuggestionView`
+- **Reasoning exists** via match explanations in scan/rule/prediction flows
+- **External macOS ingress exists** via Finder Services, Spotlight/App Intents, and `ExternalIngressCoordinator`
 
-Redesign the notification system around celebration, not guilt. "You have 47 unorganized files" triggers shame and avoidance. "Forma organized 23 files this week" builds confidence.
-
-- Replace backlog-count alerts with progress-focused messaging
-- Weekly summary: "Forma handled X files this week. Your Downloads folder is 40% lighter."
-- Stale rule detection stays, but framed as system health ("Forma cleaned up a rule that wasn't matching anything") not user failure
-- Folder size alerts framed as actionable: "Your Downloads hit 10 GB — want Forma to archive files older than 90 days?"
-- Never surface the full scope of disorganization unprompted
+This means the next roadmap should not focus on "add basic intelligence" or "add monitoring." Those are foundations already in place.
 
 ---
 
-## Next (Months 2–4)
+## Now (0-8 Weeks)
 
-### 4. Zero-Decision Mode
-**Effort:** Moderate · **Moat:** High · **Impact:** Core differentiator for ADHD users
+### 1. Quick-Win Onboarding and First-Run Proof
+**Goal:** Show value before asking the user to become a system designer.
 
-A dedicated mode where Forma handles everything with zero user input post-onboarding. The interaction model flips from "Forma suggests, user approves" to "Forma acts, user can undo."
+- Detect obvious first-run batches such as screenshots, archives, invoices, and stale downloads
+- Offer one-tap actions with visible before/after payoff
+- Move from "set up Forma" to "Forma already found something useful"
+- Carry the same quick-win flow into post-onboarding first launch if onboarding is skipped
+- Reuse the existing external-ingress flow to promote one-time folder requests into persistent monitored folders when the review proves useful
 
-- Combines aggressive auto-organize + generous undo history (already built via `ActivityLoggingService`)
-- Every decision the app asks the user to make is a potential drop-off point for executive dysfunction — minimize them
-- When Forma notices repeated manual organization patterns, auto-create the rule and notify: "Forma noticed you keep moving invoices to Finance. It'll handle that from now on."
-- Configurable escape hatch: users can switch to review mode anytime
-- This is the philosophical shift from "tool" to "system that works for you"
+**Why now:** This is the fastest path to better retention without changing the product thesis.
 
-### 5. Batch-Based UI That Hides Overwhelm
-**Effort:** Moderate · **Moat:** Moderate · **Impact:** Reduces abandonment
+### 2. Batch UX That Hides Overwhelm
+**Goal:** Make the review workflow feel finite and forgiving.
 
-Never show the full scope of the mess. Present small, achievable chunks instead of a wall of 400 files.
+- Present files in manageable chunks instead of backlog walls
+- Add a clear `Done for now` affordance
+- Emphasize progress completed, not backlog remaining
+- Keep card/list/grid surfaces aligned around the same chunked workflow semantics
+- Reduce shame-inducing counts and all-or-nothing review framing
 
-- Category-scoped batches: "Here are your 12 PDFs that look like invoices" is manageable. "Here are your 400 unsorted files" triggers shutdown.
-- One-action-at-a-time flow: present → confirm → celebrate → next batch
-- Progress indicator shows what's been handled, not what remains ("34 files organized today" not "366 files remaining")
-- "Done for now" option that's respected — no guilt if user stops mid-batch
-- Revisit `MainContentView` and all file surfaces (FileRow, FileListRow, FileGridItem) to support chunked presentation
+**Why now:** This improves the core product loop without giving up preview-first control.
 
-### 6. Progressive Auto-Rule Creation
-**Effort:** Moderate · **Moat:** High · **Impact:** Compounding automation
+### 3. Trust Infrastructure
+**Goal:** Make Forma feel safer than any prompt-based organizer.
 
-The existing pattern learning system (`LearningService`, `LearnedPattern`) observes behavior and suggests rules. For ADHD users, flip this: don't suggest, just act.
+- Add rule simulation: "show what this rule would have done to the last 30/90 days"
+- Add stronger preflight validation before automation runs
+- Improve explanation surfaces: why this matched, why this destination, why this was skipped
+- Add clearer scoped rollback and richer audit history for automated actions
+- Surface confidence and safety thresholds in user-facing language, not just internal logic
 
-- When confidence is high enough, auto-create the rule and inform the user after the fact
-- "Forma created a new rule: PDFs from Downloads → Documents/Finance. Undo?"
-- Rejection handling already exists (3+ rejections suppress a pattern) — reuse this
-- The user's organizational system grows automatically from their behavior
-- Reduces the "I need to set up rules" barrier that prevents adoption
+**Why now:** Trust infrastructure is a moat, not polish.
 
----
+### 4. Notification Tone Reset
+**Goal:** Reinforce progress, not failure.
 
-## Later (Months 4–6+)
+- Replace guilt-heavy backlog copy with progress-forward notifications
+- Frame reminders as system health and momentum, not user neglect
+- Highlight wins such as organized files, reduced clutter, or newly automated patterns
+- Keep error and permission notifications explicit, but non-judgmental
 
-### 7. Multi-Step Workflow Chains
-**Effort:** Moderate · **Moat:** High · **Impact:** Power user retention
+**Why now:** The current automation messaging is functional but not yet aligned with the emotional product strategy.
 
-Extend the rule system from single-action (match → move) to multi-step workflows.
+### 5. Tighten the Preview-First Flagship Workflow
+**Goal:** Make the main differentiated behavior look and feel like the main event.
 
-- Chain steps: match → rename → tag (xattr) → move → notify → log
-- Deterministic, auditable, with guaranteed rollback via existing undo system
-- **For ADHD users, these should be pre-built templates, not DIY configuration.** Offer "Invoice Processing," "Screenshot Cleanup," "Project Archival" as one-tap installs.
-- Lightweight xattr-based tagging as first pass validates metadata demand
-- Power users can build custom chains; everyone else gets templates
+- Keep improving the inline rule builder as a staged composer rather than a cramped form
+- Push the review queue, rule creation, explanation, and undo sequence as one coherent flow
+- Continue reducing "admin screen" energy in Smart Rules and Analytics
 
-### 8. Finder Extension
-**Effort:** High · **Moat:** Very High · **Impact:** Reduces friction for remaining manual decisions
-
-Embed organization directly into Finder — context menus, inline badges, sidebar integration.
-
-- Separate Xcode target, XPC communication, limited Finder extension APIs
-- Wait until core product loop (watching → auto-organize → notifications) is tight
-- For ADHD users: right-click → "Organize with Forma" removes the friction of switching apps for the few files that need manual routing
-- macOS 27 may expand Finder extension APIs — waiting gives a better canvas
-
-### 9. Persistent Metadata Layer
-**Effort:** High · **Moat:** Very High · **Impact:** Lock-in (if validated)
-
-A lightweight database overlay on the file system — tags, custom fields, project associations, status — that persists across moves and renames.
-
-- Start with xattr-based tagging in workflow chains (#7) to validate demand
-- If users actually use tags, invest in full metadata: custom fields, cross-folder queries, project spaces
-- If they don't, you saved months of infrastructure work
-- **For ADHD users, auto-tagging matters more than manual tagging.** The metadata layer is only valuable if it fills itself.
-- Implementation options: macOS extended attributes (xattr) or local SQLite sidecar
-
-### 10. Cross-Folder Project Spaces
-**Effort:** High · **Moat:** High · **Impact:** Depends on metadata adoption
-
-First-class "project" entities spanning multiple folders — virtual views that aggregate related files regardless of location.
-
-- Depends on metadata layer (#9) being validated and built
-- Extends existing project clustering from read-only detection to user-managed spaces
-- For ADHD users: "Where did I put that file?" is a constant struggle. Project spaces answer it without requiring the user to remember their own organizational system.
+**Why now:** The flagship workflow should feel premium before Forma expands outward.
 
 ---
 
-## Deprioritize / Hold Steady
+## Next (2-4 Months)
 
-| Feature | Rationale |
-|---|---|
-| ML prediction expansion | Will be commoditized by general-purpose AI agents within 1–2 years |
-| Content scanning (`contentScanning` flag) | LLMs will read file contents better than any on-device model |
-| NL rule parser improvements | Useful but not a differentiator — AI agents do this natively |
-| Personality quiz deepening | One-time experience, doesn't compound over time |
-| Pattern learning R&D | Table stakes, not moat — redirect into auto-rule creation (#6) |
-| Audit trail & export | Still valuable but niche; revisit after core ADHD loop is proven |
-| Complex rule builder UX | Power user feature; ADHD users need fewer decisions, not more options |
+### 6. Personal Organization Memory
+**Goal:** Build compounding user-specific value that a prompt cannot fake.
+
+- Store persistent local memory about preferred destinations, repeated exceptions, archive habits, project associations, and recovery behavior
+- Learn from accepted changes, overridden suggestions, and later manual corrections
+- Treat this as durable product memory, not disposable ML suggestions
+
+**Why next:** This is where Forma starts becoming more valuable with age.
+
+### 7. Progressive Automation Upgrades
+**Goal:** Let automation earn trust instead of demanding it upfront.
+
+- Suggest turning repeated patterns into rules with stronger confidence and clearer rationale
+- Allow users to promote specific rules, folders, or categories into optional autopilot
+- Keep preview-first as the default posture even as trusted areas become more automatic
+- Add visible automation scopes so users know exactly where autopilot is active
+
+**Why next:** Autopilot should be a reward for trust, not the opening move.
+
+### 8. Metadata Layer v1
+**Goal:** Give Forma durable memory beyond folder paths.
+
+- Add lightweight local metadata such as tags, status, project association, and organization history
+- Bias toward auto-applied metadata before manual tagging UX
+- Use metadata to improve retrieval and cross-folder understanding
+- Keep the implementation local-first and reversible
+
+**Why next:** Metadata is a stronger moat than more classification prompts.
+
+### 9. Cross-Folder Project Spaces
+**Goal:** Answer "where did I put that?" without forcing rigid folder discipline.
+
+- Build virtual project views that span folders
+- Aggregate related files by project, client, or active context
+- Use metadata and activity history to keep spaces accurate over time
+
+**Why next:** This turns Forma from sorter into retrieval system.
+
+---
+
+## Later (4-8+ Months)
+
+### 10. Workflow Chains With Simulation
+**Goal:** Extend single-step organization into trustworthy multi-step systems.
+
+- Support chains such as match -> rename -> tag -> move -> notify -> log
+- Preserve simulation, audit, and rollback across the whole chain
+- Ship opinionated templates before opening advanced custom workflow building
+
+### 11. Deeper macOS Integration
+**Goal:** Own more of the file workflow at the OS layer.
+
+- Build on Finder Services, Spotlight, and App Intents with deeper integration
+- Revisit a Finder extension once the core loop is tighter and more valuable
+- Continue investing in menu bar, Shortcuts, and external-entry workflows
+
+### 12. Backup, Sync, and Portability
+**Goal:** Make Forma's system durable across machines.
+
+- Back up and restore rules, settings, metadata, and organization memory
+- Add sync only after the local model is strong and clearly worth preserving
+- Treat cloud support as infrastructure, not the headline
+
+### 13. Collaboration and Shared Conventions
+**Goal:** Expand from solo cleanup to team file systems if demand appears.
+
+- Shared naming conventions
+- Shared folder policies
+- Shared workflow templates for common folder types
+
+---
+
+## Not Now
+
+These are intentionally deprioritized because they are easier to copy or weaken the product thesis.
+
+- Generic AI categorization expansion
+- Natural-language rule parsing as a primary marketing feature
+- Cloud AI explanations and summaries
+- "Chat with your files" interfaces
+- Autopilot as the default product posture
+- Broad cloud-storage expansion before local memory and trust infrastructure are stronger
 
 ---
 
 ## Sequencing Logic
 
-Make the product **invisible** first (file system watching + auto-organize), then make the first experience **rewarding** (quick-win onboarding + positive notifications), then **eliminate remaining decisions** (zero-decision mode + auto-rule creation), then add **depth for power users** (workflows, Finder, metadata).
+1. **Improve first-run proof and reduce overwhelm**
+2. **Make preview-first meaningfully safer than competitors**
+3. **Build persistent local memory that compounds over time**
+4. **Let optional automation emerge from earned trust**
+5. **Deepen workflow lock-in through metadata, project views, and OS integration**
 
-Each phase should be independently shippable and valuable. Don't gate early phases on later ones.
+The core idea is simple:
 
-## Executive Function Design Principles
-
-These should guide implementation decisions across all features:
-
-1. **Every user decision is a cost.** Minimize required choices. Default aggressively. Let undo be the safety net.
-2. **Never show the full scope of the mess.** Present small, achievable batches. Progress over backlog.
-3. **Celebrate action, don't punish inaction.** Notifications frame progress positively. No guilt-based alerts.
-4. **The system should work if the user forgets it exists.** Forma's success state is invisibility.
-5. **Forgiveness by default.** Everything is undoable. Nothing is permanent. Reduce fear of making mistakes.
-6. **Momentum over perfection.** A 70% correct auto-organize that runs silently beats a 95% correct system that requires approval on every file.
-
-## On-Device / Privacy Note
-
-All features above are inherently local. No cloud component needed. If intelligence features (smart rename, auto-tag from content) become desirable later, Apple's on-device Foundation Models (macOS 26+) preserve the privacy story. Build the infrastructure first, add intelligence later.
+> Forma should win because it becomes the trusted local system for how a person actually organizes files over time, not because it has the flashiest AI prompt surface.

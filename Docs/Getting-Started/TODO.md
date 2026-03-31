@@ -1,6 +1,24 @@
 # Forma - Project TODO
 
-**Last Updated:** March 10, 2026
+**Last Updated:** March 30, 2026
+
+Strategic roadmap: [`forma-feature-roadmap.md`](../../forma-feature-roadmap.md). This document is the execution checklist and historical backlog reference.
+
+---
+
+## Strategic Alignment (March 30, 2026)
+
+Current sequencing is intentionally aligned with the preview-first, moat-driven roadmap:
+
+Implementation plan for this wave: [`Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md`](../plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
+
+- [ ] Ship quick-win onboarding and first-run proof before asking users to configure more rules.
+- [ ] Add chunked review sessions with `Done for now` semantics so the core workflow feels finite and forgiving.
+- [ ] Build trust infrastructure first: rule simulation, stronger preflight checks, richer explanations, and clearer scoped rollback.
+- [ ] Rewrite automation notifications around progress and system health instead of backlog guilt.
+- [ ] Convert successful one-time Finder/Spotlight review flows into persistent monitored folders.
+- [ ] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.
+- [ ] Plan metadata-backed project spaces and retrieval workflows as the next durable moat.
 
 ---
 
@@ -278,7 +296,9 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
 
 ---
 
-## 🚀 Feature Roadmap
+## 🚀 Historical Versioned Roadmap
+
+The versioned roadmap below is preserved as a backlog reference. It is **not** the source of truth for sequencing. Use the strategic roadmap above when deciding what to build next.
 
 ### v1.1.0 - Enhanced Organization
 **Target:** Q1 2025
@@ -376,8 +396,8 @@ This checklist tracks the cleanup execution plan; keep it aligned with the canon
   - Feature-flag gated display in `DefaultPanelView`
   - Status indicator dot with color-coded states
 
-### v2.0.0 - Cloud & Sync
-**Target:** Q4 2025
+### Later - Portability, Backup, and Cloud
+**Status:** Deferred behind trust infrastructure, personal memory, and metadata-backed workflows
 
 - [ ] **iCloud Support**
   - Organize iCloud Drive folders

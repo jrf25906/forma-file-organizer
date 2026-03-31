@@ -1,6 +1,17 @@
 # Project TODO
 
-Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
+Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
+
+## Strategic Roadmap Reset (March 30, 2026)
+Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md](Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
+
+- [ ] Ship quick-win onboarding and first-run proof so Forma demonstrates value before asking users to configure rules.
+- [ ] Add chunked review sessions with `Done for now` semantics to reduce overwhelm in the core preview flow.
+- [ ] Build trust infrastructure: rule simulation, stronger preflight checks, richer reasoning, and clearer scoped rollback.
+- [ ] Reframe automation notifications around progress and system health instead of backlog guilt.
+- [ ] Add a post-review path that converts useful one-time Finder/Spotlight folder requests into persistent monitored folders.
+- [ ] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
+- [ ] Plan metadata-backed project spaces and workflow memory before broad cloud or chatbot-style AI expansion.
 
 ## Spotlight + Finder Services Integration (March 25, 2026)
 - [x] Add an `ExternalIngressCoordinator` that normalizes Finder Services and Spotlight/App Intent requests into one resumable ingress flow.
