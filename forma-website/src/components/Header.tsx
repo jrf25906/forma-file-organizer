@@ -32,9 +32,10 @@ export function Header() {
     <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
       <header
         role="banner"
-        className="relative z-50 w-full border-b border-[var(--shell-border)] bg-[var(--bg-primary)]"
+        data-header-shell="floating"
+        className="relative z-50 w-full pointer-events-none"
       >
-        <div className="site-container py-4">
+        <div className="site-container pointer-events-auto py-4">
           <FormaShellCard className="flex h-[72px] items-center justify-between gap-3 px-4 md:px-5">
             <Link
               href="/#top"
