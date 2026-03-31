@@ -12,8 +12,9 @@ final class StorageSnapshot {
     var fileCount: Int
     /// JSON-encoded category → bytes map (FileTypeCategory.rawValue keys).
     var categoryBreakdownData: Data
-    /// JSON-encoded folder type → bytes map (BookmarkFolder.FolderType.rawValue keys).
-    var folderBreakdownData: Data
+    /// Defaults to empty data so legacy stores can lightweight-migrate rows created
+    /// before folder-level analytics were introduced.
+    var folderBreakdownData: Data = Data()
     /// Difference in bytes from the previous snapshot (negative indicates cleanup).
     var deltaBytesSincePrevious: Int64?
 

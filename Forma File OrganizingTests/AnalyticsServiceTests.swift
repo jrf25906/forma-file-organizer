@@ -2,6 +2,42 @@ import XCTest
 import SwiftData
 @testable import Forma_File_Organizing
 
+private enum StorageSnapshotMigrationV1: VersionedSchema {
+    static let versionIdentifier = Schema.Version(1, 0, 0)
+    static var models: [any PersistentModel.Type] { [StorageSnapshot.self] }
+
+    @Model
+    final class StorageSnapshot {
+        var id: UUID
+        var date: Date
+        var totalBytes: Int64
+        var fileCount: Int
+        var categoryBreakdownData: Data
+        var deltaBytesSincePrevious: Int64?
+
+        init(
+            id: UUID = UUID(),
+            date: Date,
+            totalBytes: Int64,
+            fileCount: Int,
+            categoryBreakdownData: Data,
+            deltaBytesSincePrevious: Int64? = nil
+        ) {
+            self.id = id
+            self.date = date
+            self.totalBytes = totalBytes
+            self.fileCount = fileCount
+            self.categoryBreakdownData = categoryBreakdownData
+            self.deltaBytesSincePrevious = deltaBytesSincePrevious
+        }
+    }
+}
+
+private enum StorageSnapshotMigrationV2: VersionedSchema {
+    static let versionIdentifier = Schema.Version(2, 0, 0)
+    static var models: [any PersistentModel.Type] { [Forma_File_Organizing.StorageSnapshot.self] }
+}
+
 final class AnalyticsServiceTests: XCTestCase {
     override func setUp() {
         super.setUp()
@@ -182,6 +218,52 @@ final class AnalyticsServiceTests: XCTestCase {
 
         XCTAssertTrue(snapshot.folderBreakdown.isEmpty)
         XCTAssertEqual(snapshot.bytes(for: .downloads), 0)
+    }
+
+    @MainActor
+    func testStorageSnapshotLegacyStoreMigratesWithoutFolderBreakdownData() throws {
+        let tempDir = try TemporaryDirectory()
+
+        let storeURL = tempDir.url.appendingPathComponent("storage-snapshot-legacy.store")
+        let legacySchema = Schema(versionedSchema: StorageSnapshotMigrationV1.self)
+        let legacyConfiguration = ModelConfiguration(
+            schema: legacySchema,
+            url: storeURL,
+            cloudKitDatabase: .none
+        )
+        let legacyContainer = try ModelContainer(for: legacySchema, configurations: [legacyConfiguration])
+        let legacyContext = ModelContext(legacyContainer)
+        legacyContext.insert(
+            StorageSnapshotMigrationV1.StorageSnapshot(
+                date: Date(timeIntervalSince1970: 1_700_000_000),
+                totalBytes: 2_048,
+                fileCount: 2,
+                categoryBreakdownData: Data([0x01, 0x02]),
+                deltaBytesSincePrevious: 128
+            )
+        )
+        try legacyContext.save()
+
+        let currentSchema = Schema(versionedSchema: StorageSnapshotMigrationV2.self)
+        let currentConfiguration = ModelConfiguration(
+            schema: currentSchema,
+            url: storeURL,
+            cloudKitDatabase: .none
+        )
+
+        let currentContainer = try ModelContainer(for: currentSchema, configurations: [currentConfiguration])
+        let currentContext = ModelContext(currentContainer)
+        let descriptor = FetchDescriptor<StorageSnapshot>(
+            sortBy: [SortDescriptor(\.date)]
+        )
+        let snapshot = try XCTUnwrap(try currentContext.fetch(descriptor).first)
+
+        XCTAssertEqual(snapshot.totalBytes, 2_048)
+        XCTAssertEqual(snapshot.fileCount, 2)
+        XCTAssertEqual(snapshot.categoryBreakdownData, Data([0x01, 0x02]))
+        XCTAssertTrue(snapshot.folderBreakdownData.isEmpty)
+        XCTAssertTrue(snapshot.folderBreakdown.isEmpty)
+        XCTAssertEqual(snapshot.deltaBytesSincePrevious, 128)
     }
 
     @MainActor

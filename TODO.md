@@ -18,6 +18,9 @@ Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-
 - [x] Honor `accessibilityReduceTransparency` in `SidebarGlassOverlay` so the sidebar sheen falls back cleanly when macOS Reduce Transparency is enabled.
 - [x] Add one browser-level assertion for newsletter success-focus behavior and revisit the regex-based homepage shell-boundary coverage if homepage section nesting changes.
 
+## Stability Fixes (March 31, 2026)
+- [x] Restore lightweight migration for legacy `StorageSnapshot` rows created before `folderBreakdownData` existed so existing installs no longer crash during SwiftData container startup.
+
 ## Preview-First Onboarding Wave (March 30, 2026)
 - [x] Surface a first-run quick-win banner only when Forma has a meaningful visible ready batch, scope the CTA to that batch instead of every ready file in the current dashboard state, and suppress the banner during focused external review sessions.
 - [x] Upgrade first-run proof from a generic folder/count prompt into deterministic quick-win candidates (screenshots, archives, stale downloads, invoices, fallback ready batches), reset onboarding completion into the review-first state, and persist per-candidate dismissals across sessions.
