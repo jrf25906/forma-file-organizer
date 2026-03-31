@@ -89,6 +89,13 @@ final class ActivityItem {
         case automationPaused
         case automationResumed
 
+        enum ToneCategory: String, Codable {
+            case neutral
+            case progressWin
+            case reminder
+            case errorOrPermission
+        }
+
         var iconName: String {
             switch self {
             case .fileScanned: return "doc.badge.plus"
@@ -145,11 +152,24 @@ final class ActivityItem {
             case .bulkOrganized: return "Bulk Organized"
             case .bulkUndone: return "Bulk Undone"
             case .bulkPartialFailure: return "Partial Failure"
-            case .automationScanCompleted: return "Auto-Scan Complete"
-            case .automationAutoOrganized: return "Auto-Organized"
-            case .automationError: return "Automation Error"
+            case .automationScanCompleted: return "Review Queue Updated"
+            case .automationAutoOrganized: return "Auto-Organize Progress"
+            case .automationError: return "Automation Needs Attention"
             case .automationPaused: return "Automation Paused"
             case .automationResumed: return "Automation Resumed"
+            }
+        }
+
+        var toneCategory: ToneCategory {
+            switch self {
+            case .automationAutoOrganized, .automationResumed:
+                return .progressWin
+            case .automationScanCompleted, .automationPaused:
+                return .reminder
+            case .automationError:
+                return .errorOrPermission
+            default:
+                return .neutral
             }
         }
     }

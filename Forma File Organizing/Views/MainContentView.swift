@@ -233,7 +233,6 @@ struct MainContentView: View {
         
         
         // Floating Action Bar - Direct ZStack child
-        // Show in Selection mode OR Review mode (needs review filter)
         if dashboardViewModel.isSelectionMode {
             FloatingActionBar(
                 mode: .selection,
@@ -250,6 +249,21 @@ struct MainContentView: View {
                 },
                 onDeselect: {
                     dashboardViewModel.deselectAll()
+                }
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .zIndex(100)
+            .padding(.bottom, FloatingActionBar.bottomOffset)
+        } else if dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.visibleFiles.isEmpty {
+            FloatingActionBar(
+                mode: .review,
+                count: dashboardViewModel.currentReviewChunkReadyCount,
+                canOrganizeAll: dashboardViewModel.currentReviewChunkReadyCount > 0,
+                onOrganize: {
+                    dashboardViewModel.organizeAllReadyFiles(context: modelContext)
+                },
+                onSkip: {
+                    dashboardViewModel.doneForNow()
                 }
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))

@@ -32,6 +32,19 @@ class DashboardViewModel: ObservableObject {
 
     private static let minimumFirstRunQuickWinFileCount = 5
 
+    private struct ReviewChunkScopeKey: Hashable {
+        let selectedCategory: FileTypeCategory
+        let selectedFolder: FolderLocation
+        let selectedRelativeFolderPath: String?
+        let includeNestedSubfolders: Bool
+        let searchText: String
+        let selectedSecondaryFilter: SecondaryFilter
+        let sortMode: SortMode
+        let externalReviewRequestID: UUID?
+    }
+
+    private static let defaultReviewChunkSize = 8
+
     // MARK: - Focused ViewModels (New Architecture)
 
     /// Manages file scanning and discovery
@@ -87,6 +100,7 @@ class DashboardViewModel: ObservableObject {
     private var bulkOperationTask: Task<Void, Never>?
     private var permissionRefreshTask: Task<Void, Never>?
     private var lastPresentedExternalSessionID: UUID?
+    private var deferredReviewPathsByScope: [ReviewChunkScopeKey: Set<String>] = [:]
 
     // MARK: - Initialization
 
@@ -413,7 +427,7 @@ class DashboardViewModel: ObservableObject {
     }
 
     func selectAll() {
-        selectionViewModel.selectAll(visibleFiles: filterViewModel.visibleFiles)
+        selectionViewModel.selectAll(visibleFiles: visibleFiles)
         updateRightPanelMode()
     }
 
@@ -423,7 +437,7 @@ class DashboardViewModel: ObservableObject {
     }
 
     func selectRange(from startFile: FileItem, to endFile: FileItem) {
-        selectionViewModel.selectRange(from: startFile, to: endFile, in: filterViewModel.visibleFiles)
+        selectionViewModel.selectRange(from: startFile, to: endFile, in: visibleFiles)
         updateRightPanelMode()
     }
 
@@ -438,30 +452,30 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Keyboard Navigation
 
     func focusNextFile() {
-        selectionViewModel.focusNextFile(in: filterViewModel.visibleFiles)
+        selectionViewModel.focusNextFile(in: visibleFiles)
     }
 
     func focusPreviousFile() {
-        selectionViewModel.focusPreviousFile(in: filterViewModel.visibleFiles)
+        selectionViewModel.focusPreviousFile(in: visibleFiles)
     }
 
     func organizeFocusedFile(context: ModelContext? = nil) {
-        guard let file = selectionViewModel.getFocusedFile(in: filterViewModel.visibleFiles) else { return }
+        guard let file = selectionViewModel.getFocusedFile(in: visibleFiles) else { return }
         organizeFile(file, context: context)
     }
 
     func skipFocusedFile() {
-        guard let file = selectionViewModel.getFocusedFile(in: filterViewModel.visibleFiles) else { return }
+        guard let file = selectionViewModel.getFocusedFile(in: visibleFiles) else { return }
         skipFile(file)
     }
 
     func quickLookFocusedFile() {
-        guard let file = selectionViewModel.getFocusedFile(in: filterViewModel.visibleFiles) else { return }
+        guard let file = selectionViewModel.getFocusedFile(in: visibleFiles) else { return }
         showQuickLook(for: file)
     }
 
     func editDestinationForFocusedFile() {
-        guard let file = selectionViewModel.getFocusedFile(in: filterViewModel.visibleFiles) else { return }
+        guard let file = selectionViewModel.getFocusedFile(in: visibleFiles) else { return }
         beginEditingDestination(for: file)
     }
 
@@ -542,6 +556,39 @@ class DashboardViewModel: ObservableObject {
     func skipAllPendingFiles() {
         bulkOperationViewModel.skipAllPendingFiles(reviewableFiles)
         filterViewModel.applyFilterImmediately()
+    }
+
+    func doneForNow() {
+        guard let scopeKey = currentReviewChunkScopeKey else { return }
+
+        let deferredPaths = Set(currentReviewChunkPaths)
+        guard !deferredPaths.isEmpty else { return }
+
+        var existingDeferredPaths = deferredReviewPathsByScope[scopeKey] ?? []
+        existingDeferredPaths.formUnion(deferredPaths)
+        deferredReviewPathsByScope[scopeKey] = existingDeferredPaths
+
+        deselectAll()
+        objectWillChange.send()
+        showToast(
+            message: "Set aside \(deferredPaths.count) file\(deferredPaths.count == 1 ? "" : "s") for now. Resume whenever you're ready.",
+            canUndo: false
+        )
+    }
+
+    func resumeDeferredReviewFiles() {
+        guard let scopeKey = currentReviewChunkScopeKey,
+              let deferredPaths = deferredReviewPathsByScope.removeValue(forKey: scopeKey),
+              !deferredPaths.isEmpty else {
+            return
+        }
+
+        deselectAll()
+        objectWillChange.send()
+        showToast(
+            message: "Brought back \(deferredPaths.count) deferred file\(deferredPaths.count == 1 ? "" : "s").",
+            canUndo: false
+        )
     }
 
     func bulkEditDestination(_ destination: String, createRules: Bool, context: ModelContext? = nil) {
@@ -1038,10 +1085,23 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Computed Properties (Delegation)
 
-    var visibleFiles: [FileItem] { filterViewModel.visibleFiles }
+    var reviewChunkSize: Int { Self.defaultReviewChunkSize }
+    var visibleFiles: [FileItem] {
+        guard reviewFilterMode == .needsReview else {
+            return filterViewModel.visibleFiles
+        }
+
+        return currentReviewChunkFiles
+    }
     var needsReviewCount: Int { filterViewModel.needsReviewCount }
     var allFilesCount: Int { filterViewModel.allFilesCount }
-    var reviewableFiles: [FileItem] { filterViewModel.reviewableFiles }
+    var reviewableFiles: [FileItem] {
+        guard reviewFilterMode == .needsReview else {
+            return filterViewModel.reviewableFiles
+        }
+
+        return currentReviewChunkFiles
+    }
     var firstRunQuickWinSuggestion: FirstRunQuickWinSuggestion? { firstRunQuickWinBatch?.suggestion }
     var groupedFiles: [FileGroup] { filterViewModel.groupedFiles }
     var allFiles: [FileItem] { scanViewModel.allFiles }
@@ -1074,6 +1134,15 @@ class DashboardViewModel: ObservableObject {
     var cachedGroupedFiles: [FileGroup] { filterViewModel.cachedGroupedFiles }
     var cachedNeedsReviewCount: Int { filterViewModel.cachedNeedsReviewCount }
     var cachedReviewableFiles: [FileItem] { filterViewModel.cachedReviewableFiles }
+    var currentReviewChunkCount: Int { currentReviewChunkFiles.count }
+    var currentReviewChunkPaths: [String] { currentReviewChunkFiles.map(\.path) }
+    var currentReviewChunkReadyCount: Int {
+        currentReviewChunkFiles.filter { $0.status == .ready }.count
+    }
+    var deferredReviewFileCount: Int {
+        activeDeferredReviewPaths(in: filterViewModel.reviewableFiles).count
+    }
+    var hasDeferredReviewFiles: Bool { deferredReviewFileCount > 0 }
     var organizationProgressOrganizedCount: Int {
         max(0, organizationProgressTotalCount - organizationProgressRemainingCount)
     }
@@ -1231,5 +1300,44 @@ class DashboardViewModel: ObservableObject {
         }
 
         return lhs.suggestion.folderName.localizedCaseInsensitiveCompare(rhs.suggestion.folderName) == .orderedAscending
+    }
+
+    private var currentReviewChunkScopeKey: ReviewChunkScopeKey? {
+        guard reviewFilterMode == .needsReview else { return nil }
+
+        return ReviewChunkScopeKey(
+            selectedCategory: selectedCategory,
+            selectedFolder: selectedFolder,
+            selectedRelativeFolderPath: selectedRelativeFolderPath,
+            includeNestedSubfolders: includeNestedSubfolders,
+            searchText: searchText,
+            selectedSecondaryFilter: selectedSecondaryFilter,
+            sortMode: sortMode,
+            externalReviewRequestID: filterViewModel.hasExternalReviewScope
+                ? ExternalReviewSessionStore.shared.currentSession?.requestID
+                : nil
+        )
+    }
+
+    private func activeDeferredReviewPaths(in files: [FileItem]) -> Set<String> {
+        guard let scopeKey = currentReviewChunkScopeKey,
+              let deferredPaths = deferredReviewPathsByScope[scopeKey],
+              !deferredPaths.isEmpty else {
+            return []
+        }
+
+        let activePaths = Set(files.map(\.path))
+        return deferredPaths.intersection(activePaths)
+    }
+
+    private var currentReviewChunkFiles: [FileItem] {
+        let baseVisibleFiles = filterViewModel.visibleFiles
+        let deferredPaths = activeDeferredReviewPaths(in: baseVisibleFiles)
+
+        return Array(
+            baseVisibleFiles
+                .filter { !deferredPaths.contains($0.path) }
+                .prefix(reviewChunkSize)
+        )
     }
 }

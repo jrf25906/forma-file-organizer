@@ -1,6 +1,20 @@
 import Foundation
 import UserNotifications
 
+enum AutomationNotificationToneCategory: Equatable {
+    case progressWin
+    case reminder
+    case errorOrPermission
+}
+
+struct AutomationNotificationPayload: Equatable {
+    let category: AutomationNotificationToneCategory
+    let identifier: String
+    let title: String
+    let body: String
+    let categoryIdentifier: String?
+}
+
 /// Service responsible for managing macOS system notifications
 final class NotificationService: Sendable {
 
@@ -202,28 +216,13 @@ final class NotificationService: Sendable {
     ///   - skippedCount: Number of files skipped (didn't meet criteria)
     func notifyAutoOrganizeSummary(successCount: Int, failedCount: Int, skippedCount: Int) {
         guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
-        guard successCount > 0 || failedCount > 0 else { return }
+        guard let payload = Self.autoOrganizeSummaryPayload(
+            successCount: successCount,
+            failedCount: failedCount,
+            skippedCount: skippedCount
+        ) else { return }
 
-        let content = UNMutableNotificationContent()
-        content.title = "Auto-Organize Complete"
-        content.sound = .default
-
-        if failedCount == 0 && skippedCount == 0 {
-            content.body = "Automatically organized \(successCount) file\(successCount == 1 ? "" : "s") based on your rules."
-        } else if failedCount > 0 {
-            content.body = "Organized \(successCount) file\(successCount == 1 ? "" : "s"). \(failedCount) couldn't be moved."
-        } else {
-            content.body = "Organized \(successCount) file\(successCount == 1 ? "" : "s"). \(skippedCount) skipped."
-        }
-
-        // Use fixed identifier so subsequent summaries replace the previous one
-        let request = UNNotificationRequest(
-            identifier: AutomationNotificationID.autoOrganizeSummary,
-            content: content,
-            trigger: nil
-        )
-
-        UNUserNotificationCenter.current().add(request) { error in
+        enqueue(payload) { error in
             if let error = error {
                 Log.error("Error showing auto-organize notification: \(error)", category: .automation)
             } else {
@@ -240,29 +239,9 @@ final class NotificationService: Sendable {
     func notifyBacklogReminder(pendingCount: Int, oldestAgeDays: Int?) {
         guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
 
-        let content = UNMutableNotificationContent()
-        content.title = "Files Need Attention"
-        content.sound = .default
-        content.categoryIdentifier = "BACKLOG_REMINDER"
+        let payload = Self.backlogReminderPayload(pendingCount: pendingCount, oldestAgeDays: oldestAgeDays)
 
-        var body = "You have \(pendingCount) file\(pendingCount == 1 ? "" : "s") waiting for review."
-        if let days = oldestAgeDays, days > 0 {
-            body += " Some have been waiting \(days) day\(days == 1 ? "" : "s")."
-        }
-        content.body = body
-
-        // Determine identifier based on trigger type
-        let identifier = oldestAgeDays != nil && pendingCount == 0
-            ? AutomationNotificationID.ageReminder
-            : AutomationNotificationID.backlogReminder
-
-        let request = UNNotificationRequest(
-            identifier: identifier,
-            content: content,
-            trigger: nil
-        )
-
-        UNUserNotificationCenter.current().add(request) { error in
+        enqueue(payload) { error in
             if let error = error {
                 Log.error("Error showing backlog reminder: \(error)", category: .automation)
             } else {
@@ -279,21 +258,11 @@ final class NotificationService: Sendable {
     ///   - ruleID: Unique identifier of the rule (for notification deduplication)
     func notifyRuleHighlights(ruleName: String, matchCount: Int, ruleID: String) {
         guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
-        guard matchCount > 1 else { return } // Only notify for multiple matches
+        guard let payload = Self.ruleHighlightPayload(ruleName: ruleName, matchCount: matchCount, ruleID: ruleID) else {
+            return
+        }
 
-        let content = UNMutableNotificationContent()
-        content.title = "Rule Match: \(ruleName)"
-        content.body = "\(matchCount) files matched this rule and are ready to organize."
-        content.sound = .default
-
-        // Use rule-specific identifier so each rule gets its own notification
-        let request = UNNotificationRequest(
-            identifier: AutomationNotificationID.ruleHighlight(ruleID: ruleID),
-            content: content,
-            trigger: nil
-        )
-
-        UNUserNotificationCenter.current().add(request) { error in
+        enqueue(payload) { error in
             if let error = error {
                 Log.error("Error showing rule highlight notification: \(error)", category: .automation)
             } else {
@@ -310,21 +279,9 @@ final class NotificationService: Sendable {
     func notifyAutomationError(type: AutomationErrorType, message: String) {
         guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
 
-        let content = UNMutableNotificationContent()
-        content.title = type.title
-        content.body = message
-        content.sound = .default
+        let payload = Self.automationErrorPayload(type: type, message: message)
 
-        // Use error-type-specific identifier so we can clear by type
-        let identifier = AutomationNotificationID.error(type: type.notificationIdentifier)
-
-        let request = UNNotificationRequest(
-            identifier: identifier,
-            content: content,
-            trigger: nil
-        )
-
-        UNUserNotificationCenter.current().add(request) { error in
+        enqueue(payload) { error in
             if let error = error {
                 Log.error("Error showing automation error notification: \(error)", category: .automation)
             } else {
@@ -363,6 +320,117 @@ final class NotificationService: Sendable {
             Log.info("Cleared automation notifications: \(types)", category: .automation)
         }
     }
+
+    static func autoOrganizeSummaryPayload(
+        successCount: Int,
+        failedCount: Int,
+        skippedCount: Int
+    ) -> AutomationNotificationPayload? {
+        guard successCount > 0 || failedCount > 0 else { return nil }
+
+        var sentences = ["Forma cleared \(successCount) file\(successCount == 1 ? "" : "s") from your queue based on your rules"]
+        if failedCount > 0 {
+            sentences.append("\(failedCount) still need\(failedCount == 1 ? "s" : "") your attention")
+        }
+        if skippedCount > 0 {
+            sentences.append("\(skippedCount) \(skippedCount == 1 ? "is" : "are") still waiting for review")
+        }
+
+        return AutomationNotificationPayload(
+            category: .progressWin,
+            identifier: AutomationNotificationID.autoOrganizeSummary,
+            title: "Auto-Organize Made Progress",
+            body: sentences.joined(separator: ". ").ensureTrailingPeriod(),
+            categoryIdentifier: nil
+        )
+    }
+
+    static func backlogReminderPayload(
+        pendingCount: Int,
+        oldestAgeDays: Int?
+    ) -> AutomationNotificationPayload {
+        let identifier = oldestAgeDays != nil && pendingCount == 0
+            ? AutomationNotificationID.ageReminder
+            : AutomationNotificationID.backlogReminder
+
+        let title: String
+        let body: String
+        if pendingCount > 0 {
+            title = "Your Next Review Pass Is Ready"
+            let fileLabel = "\(pendingCount) file\(pendingCount == 1 ? "" : "s")"
+            var sentences = ["\(fileLabel) \(pendingCount == 1 ? "is" : "are") ready for your next review pass"]
+            if let days = oldestAgeDays, days > 0 {
+                sentences.append("The oldest has been waiting \(days) day\(days == 1 ? "" : "s")")
+            }
+            body = sentences.joined(separator: ". ").ensureTrailingPeriod()
+        } else if let days = oldestAgeDays, days > 0 {
+            title = "A Quick Review Pass Would Help"
+            body = "Some files have been waiting \(days) day\(days == 1 ? "" : "s"). A quick review pass will get them moving again."
+        } else {
+            title = "Your Next Review Pass Is Ready"
+            body = "A quick review pass will help keep your queue moving."
+        }
+
+        return AutomationNotificationPayload(
+            category: .reminder,
+            identifier: identifier,
+            title: title,
+            body: body,
+            categoryIdentifier: "BACKLOG_REMINDER"
+        )
+    }
+
+    static func ruleHighlightPayload(
+        ruleName: String,
+        matchCount: Int,
+        ruleID: String
+    ) -> AutomationNotificationPayload? {
+        guard matchCount > 1 else { return nil }
+
+        return AutomationNotificationPayload(
+            category: .progressWin,
+            identifier: AutomationNotificationID.ruleHighlight(ruleID: ruleID),
+            title: "Rule Match: \(ruleName)",
+            body: "\(matchCount) files matched this rule and are ready to organize.",
+            categoryIdentifier: nil
+        )
+    }
+
+    static func automationErrorPayload(
+        type: AutomationErrorType,
+        message: String
+    ) -> AutomationNotificationPayload {
+        AutomationNotificationPayload(
+            category: .errorOrPermission,
+            identifier: AutomationNotificationID.error(type: type.notificationIdentifier),
+            title: type.title,
+            body: type.supportiveMessage(detail: message),
+            categoryIdentifier: nil
+        )
+    }
+
+    private func enqueue(
+        _ payload: AutomationNotificationPayload,
+        completion: @escaping @Sendable (Error?) -> Void
+    ) {
+        let request = UNNotificationRequest(
+            identifier: payload.identifier,
+            content: Self.notificationContent(from: payload),
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: completion)
+    }
+
+    private static func notificationContent(from payload: AutomationNotificationPayload) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = payload.title
+        content.body = payload.body
+        content.sound = .default
+        if let categoryIdentifier = payload.categoryIdentifier {
+            content.categoryIdentifier = categoryIdentifier
+        }
+        return content
+    }
 }
 
 // MARK: - Automation Notification Types
@@ -386,5 +454,15 @@ extension AutomationErrorType {
         case .destinationInaccessible: return "destinationInaccessible"
         case .permissionDenied: return "permissionDenied"
         }
+    }
+}
+
+private extension String {
+    func ensureTrailingPeriod() -> String {
+        guard let last else { return self }
+        if last == "." || last == "!" || last == "?" {
+            return self
+        }
+        return self + "."
     }
 }

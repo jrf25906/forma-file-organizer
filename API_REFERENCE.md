@@ -45,6 +45,18 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - `FirstRunQuickWinSuggestion`
   - `folderName: String`
   - `fileCount: Int`
+  - Chunked review session surface:
+    - `reviewChunkSize`
+    - `currentReviewChunkCount`
+    - `currentReviewChunkPaths`
+    - `currentReviewChunkReadyCount`
+    - `deferredReviewFileCount`
+    - `hasDeferredReviewFiles`
+    - `doneForNow()`
+    - `resumeDeferredReviewFiles()`
+- `ActivityItem.ActivityType`
+  - `toneCategory`
+  - Automation activity display names now align with the notification-tone reset (`Review Queue Updated`, `Auto-Organize Progress`, `Automation Needs Attention`).
 - `FileFilterManager`
   - `externalReviewPaths`
   - `setExternalReviewPaths(_:)`
@@ -62,6 +74,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - `FileScanProvider`
   - `scanFiles(context:baseFolders:)`
 - `FileScanResult`
+  - `primaryErrorType: AutomationErrorType?`
   - `scannedRootPaths: [String]`
 - `AutomationScanNotificationUserInfo`
   - `scannedPaths`
@@ -72,6 +85,18 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - Automation status
   - `AutomationState.isWatchingFolders`
   - `AutomationStatus.isWatchingFolders`
+- `NotificationService`
+  - `autoOrganizeSummaryPayload(successCount:failedCount:skippedCount:)`
+  - `backlogReminderPayload(pendingCount:oldestAgeDays:)`
+  - `automationErrorPayload(type:message:)`
+  - Automation notification payloads now classify copy as `progressWin`, `reminder`, or `errorOrPermission` while preserving stable replacement identifiers.
+- `AutomationErrorType`
+  - `supportiveMessage(detail:)`
+  - `classify(error:)`
+  - `classify(scanErrors:fallbackSummary:)`
+  - `classify(message:)`
+  - `cleanMessage(from:)`
+  - Automation scan surfaces now prefer `FileScanResult.primaryErrorType` derived from raw scan errors before falling back to human-readable summary text.
 - UI test launch sizing
   - Set `FORMA_WINDOW_SIZE=WIDTHxHEIGHT` when launching UI tests to force the window size used for screenshot and layout coverage.
 - `FileScanOptions` (`Forma File Organizing/Services/FileSystemService.swift`)

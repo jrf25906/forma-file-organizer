@@ -482,6 +482,86 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNil(ExternalReviewSessionStore.shared.currentSession)
         XCTAssertEqual(viewModel.visibleFiles.map(\.path), [unrelatedPendingFile.path])
     }
+
+    func testReviewChunkUsesStableSizeAndSortOrder() {
+        let files = makeReviewFiles(count: 12)
+
+        viewModel._testSetFiles(files)
+
+        let expectedPaths = files
+            .sorted { $0.creationDate > $1.creationDate }
+            .prefix(viewModel.reviewChunkSize)
+            .map(\.path)
+
+        XCTAssertEqual(viewModel.currentReviewChunkPaths, expectedPaths)
+        XCTAssertEqual(viewModel.visibleFiles.map(\.path), expectedPaths)
+        XCTAssertEqual(viewModel.currentReviewChunkCount, viewModel.reviewChunkSize)
+    }
+
+    func testDoneForNowDefersCurrentChunkWithoutMutatingFileStatus() {
+        let files = makeReviewFiles(count: 10)
+        let originalStatuses = Dictionary(uniqueKeysWithValues: files.map { ($0.path, $0.status) })
+
+        viewModel._testSetFiles(files)
+        let deferredPaths = viewModel.currentReviewChunkPaths
+
+        viewModel.doneForNow()
+
+        let expectedVisiblePaths = files
+            .sorted { $0.creationDate > $1.creationDate }
+            .dropFirst(viewModel.reviewChunkSize)
+            .prefix(viewModel.reviewChunkSize)
+            .map(\.path)
+
+        XCTAssertEqual(viewModel.deferredReviewFileCount, deferredPaths.count)
+        XCTAssertEqual(viewModel.visibleFiles.map(\.path), expectedVisiblePaths)
+        XCTAssertTrue(
+            files
+                .filter { deferredPaths.contains($0.path) }
+                .allSatisfy { originalStatuses[$0.path] == $0.status }
+        )
+    }
+
+    func testResumeDeferredReviewFilesRestoresDeferredChunk() {
+        let files = makeReviewFiles(count: 10)
+
+        viewModel._testSetFiles(files)
+        let initialChunkPaths = viewModel.currentReviewChunkPaths
+
+        viewModel.doneForNow()
+        viewModel.resumeDeferredReviewFiles()
+
+        XCTAssertEqual(viewModel.currentReviewChunkPaths, initialChunkPaths)
+        XCTAssertEqual(viewModel.deferredReviewFileCount, 0)
+    }
+
+    func testExternalReviewSessionDoesNotInheritGeneralDeferredChunkState() {
+        ExternalReviewSessionStore.shared.publish(nil)
+
+        let files = makeReviewFiles(count: 12)
+        viewModel._testSetFiles(files)
+
+        let deferredPath = viewModel.currentReviewChunkPaths[0]
+        viewModel.doneForNow()
+
+        let session = ExternalReviewSession(
+            requestID: UUID(),
+            source: .finderService,
+            reviewPaths: [deferredPath],
+            scannedRootPaths: [],
+            skippedItems: [],
+            statusText: "Forma opened 1 file for review."
+        )
+
+        ExternalReviewSessionStore.shared.publish(session)
+        viewModel.applyExternalReviewSession(session)
+
+        XCTAssertEqual(viewModel.visibleFiles.map(\.path), [deferredPath])
+
+        viewModel.applyExternalReviewSession(nil)
+
+        XCTAssertFalse(viewModel.visibleFiles.map(\.path).contains(deferredPath))
+    }
     
     func testFilterByLocation() {
         // Given
@@ -529,6 +609,20 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(visible.count, 2)
         XCTAssertTrue(visible.contains { $0.path == pendingWithSuggestion.path })
         XCTAssertTrue(visible.contains { $0.path == pendingNoSuggestion.path })
+    }
+
+    private func makeReviewFiles(count: Int) -> [FileItem] {
+        let now = Date()
+        return (0..<count).map { index in
+            let hasDestination = index.isMultiple(of: 2)
+            return FileItem(
+                path: "/review/file-\(index).txt",
+                sizeInBytes: Int64(1_000 + index),
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                destination: hasDestination ? .mockFolder("Documents/Sorted") : nil,
+                status: hasDestination ? .ready : .pending
+            )
+        }
     }
     
     func testVisibleFilesAllModeExcludesCompleted() {

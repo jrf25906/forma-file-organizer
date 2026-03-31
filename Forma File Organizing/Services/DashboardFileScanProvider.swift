@@ -75,6 +75,7 @@ final class DashboardFileScanProvider: FileScanProvider {
             from: result.files,
             context: context,
             errorSummary: result.errorSummary,
+            rawErrors: result.rawErrors,
             scannedRootPaths: result.scannedRootPaths
         )
 
@@ -156,6 +157,7 @@ final class DashboardFileScanProvider: FileScanProvider {
         from files: [FileItem],
         context: ModelContext,
         errorSummary: String?,
+        rawErrors: [String: Error],
         scannedRootPaths: [String]
     ) -> FileScanResult {
         var pendingCount = 0
@@ -195,6 +197,10 @@ final class DashboardFileScanProvider: FileScanProvider {
             skippedCount: skippedCount,
             oldestPendingAgeDays: oldestAgeDays,
             errorSummary: errorSummary,
+            primaryErrorType: AutomationErrorType.classify(
+                scanErrors: rawErrors,
+                fallbackSummary: errorSummary
+            ),
             scannedRootPaths: scannedRootPaths
         )
     }

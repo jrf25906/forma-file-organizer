@@ -35,7 +35,16 @@ struct DefaultPanelView: View {
 
     /// Primary-action ownership for the current dashboard state.
     private var primaryActionSource: PrimaryActionSource {
-        dashboardViewModel.isSelectionMode ? .floatingActionBar : .rightPanelPinned
+        if dashboardViewModel.isSelectionMode {
+            return .floatingActionBar
+        }
+
+        if dashboardViewModel.reviewFilterMode == .needsReview,
+           dashboardViewModel.currentReviewChunkCount > 0 {
+            return .floatingActionBar
+        }
+
+        return .rightPanelPinned
     }
 
     /// Hide right-panel primary CTA when another surface owns primary action or
@@ -196,29 +205,66 @@ struct DefaultPanelView: View {
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             let reviewCount = dashboardViewModel.cachedNeedsReviewCount
+            let currentChunkCount = dashboardViewModel.currentReviewChunkCount
 
             if reviewCount > 0 {
-                // Active task state with contextual explanation
-                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                    // Current task label
-                    Text("CURRENT TASK")
-                        .font(.formaCaption)
-                        .tracking(0.5)
-                        .foregroundStyle(currentTaskLabelColor)
+                if dashboardViewModel.hasDeferredReviewFiles && currentChunkCount == 0 {
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        Text("CURRENT TASK")
+                            .font(.formaCaption)
+                            .tracking(0.5)
+                            .foregroundStyle(currentTaskLabelColor)
 
-                    // Main headline with contextual count
-                    Text("\(taskHeadlineCount) \(taskDescription)")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(Color.formaLabel)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                        Text("\(dashboardViewModel.deferredReviewFileCount) Files Set Aside")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Color.formaLabel)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
 
-                    // Contextual explanation - why these files were chosen
-                    Text(taskExplanation)
-                        .font(.formaBodyMedium)
-                        .foregroundStyle(currentTaskSubtextColor)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                        Text("You're done for now. Resume this pass whenever you want to pick it back up.")
+                            .font(.formaBodyMedium)
+                            .foregroundStyle(currentTaskSubtextColor)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else if currentChunkCount == 0 {
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        Text("CURRENT TASK")
+                            .font(.formaCaption)
+                            .tracking(0.5)
+                            .foregroundStyle(currentTaskLabelColor)
+
+                        Text("No Files in This Filter")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Color.formaLabel)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text("The current review filters hide the queue. Adjust them to pick the next pass.")
+                            .font(.formaBodyMedium)
+                            .foregroundStyle(currentTaskSubtextColor)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        Text("CURRENT TASK")
+                            .font(.formaCaption)
+                            .tracking(0.5)
+                            .foregroundStyle(currentTaskLabelColor)
+
+                        Text("\(taskHeadlineCount) \(taskDescription)")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Color.formaLabel)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(taskExplanation)
+                            .font(.formaBodyMedium)
+                            .foregroundStyle(currentTaskSubtextColor)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 scanPhaseStatusSection
@@ -307,25 +353,33 @@ struct DefaultPanelView: View {
     /// Returns a description of the current task based on file characteristics
     private var taskDescription: String {
         if shouldEmphasizeStaleTask {
-            return "Stale Files"
+            return "Stale Files in This Pass"
         } else if dominantCategory != .all {
-            return "\(dominantCategory.displayName)"
+            return "\(dominantCategory.displayName) in This Pass"
         } else {
-            return "Files to Review"
+            return "Files in This Pass"
         }
     }
 
     /// Returns an explanation of why these files were prioritized
     private var taskExplanation: String {
         let reviewCount = dashboardViewModel.cachedNeedsReviewCount
+        let currentChunkCount = dashboardViewModel.currentReviewChunkCount
+        let hiddenCount = max(0, reviewCount - currentChunkCount)
 
         if shouldEmphasizeStaleTask {
+            if hiddenCount > 0 {
+                return "These top-level files have been \(locationPreposition) your \(locationDisplayPhrase) for over 30 days. \(hiddenCount) more will wait until this pass is done."
+            }
             return "These top-level files have been \(locationPreposition) your \(locationDisplayPhrase) for over 30 days."
+        } else if dominantCategory != .all, hiddenCount > 0 {
+            return "Showing the next \(currentChunkCount), mostly \(dominantCategory.displayName.lowercased()). \(hiddenCount) more stay tucked away for later."
         } else if dominantCategory != .all {
-            let categoryCount = dashboardViewModel.filteredStorageAnalytics.fileCountForCategory(dominantCategory)
-            return "Mostly \(dominantCategory.displayName.lowercased()) (\(categoryCount) of \(reviewCount))."
+            return "Mostly \(dominantCategory.displayName.lowercased()) in the current pass."
+        } else if hiddenCount > 0 {
+            return "Showing the next \(currentChunkCount) now. \(hiddenCount) more stay tucked away until you're ready."
         } else {
-            return "A mix of file types waiting for organization."
+            return "A focused pass through what still needs your attention."
         }
     }
 
@@ -333,21 +387,21 @@ struct DefaultPanelView: View {
     /// When stale framing is active, show only actionable stale files to avoid
     /// counting nested historical files discovered by recursive scans.
     private var taskHeadlineCount: Int {
-        shouldEmphasizeStaleTask ? actionableStaleCount : dashboardViewModel.cachedNeedsReviewCount
+        shouldEmphasizeStaleTask ? actionableStaleCount : dashboardViewModel.currentReviewChunkCount
     }
 
     /// Whether the hero should frame the current task around stale files.
     private var shouldEmphasizeStaleTask: Bool {
-        let reviewCount = dashboardViewModel.cachedNeedsReviewCount
-        guard reviewCount > 0 else { return false }
-        return actionableStaleCount > 0 && actionableStaleCount >= max(1, reviewCount / 2)
+        let currentChunkCount = dashboardViewModel.currentReviewChunkCount
+        guard currentChunkCount > 0 else { return false }
+        return actionableStaleCount > 0 && actionableStaleCount >= max(1, currentChunkCount / 2)
     }
 
     /// "Stale" files that are still actionable in the primary queue.
     /// We intentionally scope this to top-level items so nested files inside
     /// already-organized subfolders do not dominate the task callout.
     private var actionableStaleCount: Int {
-        dashboardViewModel.cachedReviewableFiles.filter { file in
+        dashboardViewModel.reviewableFiles.filter { file in
 
             // Only treat files at the selected root level as "stale task" items.
             let isTopLevel = (file.relativeParentPath?.isEmpty ?? true)
@@ -360,21 +414,21 @@ struct DefaultPanelView: View {
 
     /// The dominant category in the current file set
     private var dominantCategory: FileTypeCategory {
-        let analytics = dashboardViewModel.filteredStorageAnalytics
+        let reviewFiles = dashboardViewModel.reviewableFiles
         let categories: [(FileTypeCategory, Int)] = [
-            (.images, analytics.fileCountForCategory(.images)),
-            (.documents, analytics.fileCountForCategory(.documents)),
-            (.videos, analytics.fileCountForCategory(.videos)),
-            (.audio, analytics.fileCountForCategory(.audio)),
-            (.archives, analytics.fileCountForCategory(.archives))
+            (.images, reviewFiles.filter { $0.category == .images }.count),
+            (.documents, reviewFiles.filter { $0.category == .documents }.count),
+            (.videos, reviewFiles.filter { $0.category == .videos }.count),
+            (.audio, reviewFiles.filter { $0.category == .audio }.count),
+            (.archives, reviewFiles.filter { $0.category == .archives }.count)
         ]
 
-        guard let max = categories.max(by: { $0.1 < $1.1 }),
-              max.1 > 0,
-              max.1 >= dashboardViewModel.cachedNeedsReviewCount / 2 else {
+        guard let dominant = categories.max(by: { $0.1 < $1.1 }),
+              dominant.1 > 0,
+              dominant.1 >= Swift.max(1, reviewFiles.count / 2) else {
             return .all
         }
-        return max.0
+        return dominant.0
     }
 
     /// Current folder location name
@@ -446,7 +500,7 @@ struct DefaultPanelView: View {
 
                 Spacer()
 
-                Text("\(organizedFilesCount)/\(totalFilesCount) Files")
+                Text("\(organizedFilesCount) of \(totalFilesCount) organized")
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(progressLabelColor)
@@ -496,10 +550,21 @@ struct DefaultPanelView: View {
     // MARK: - Pinned Primary Action
     
     private var pinnedPrimaryAction: some View {
-        let readyFiles = dashboardViewModel.cachedReviewableFiles.filter { $0.status == .ready }
+        let readyFiles = dashboardViewModel.reviewableFiles.filter { $0.status == .ready }
         
         return Group {
-            if !readyFiles.isEmpty {
+            if dashboardViewModel.hasDeferredReviewFiles && dashboardViewModel.currentReviewChunkCount == 0 {
+                Button(action: {
+                    dashboardViewModel.resumeDeferredReviewFiles()
+                }) {
+                    Text("Resume \(dashboardViewModel.deferredReviewFileCount) Deferred \(dashboardViewModel.deferredReviewFileCount == 1 ? "File" : "Files")")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.formaSteelBlue)
+                .controlSize(.large)
+                .help("Bring back the files you set aside for now")
+            } else if !readyFiles.isEmpty {
                 Button(action: {
                     dashboardViewModel.organizeAllReadyFiles(context: modelContext)
                 }) {

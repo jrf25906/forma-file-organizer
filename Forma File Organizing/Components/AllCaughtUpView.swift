@@ -7,37 +7,72 @@ struct AllCaughtUpView: View {
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
-        FormaActionableEmptyState(
-            title: "All Caught Up!",
-            message: "You've organized all your files in review mode.",
-            iconName: "checkmark.circle.fill",
-            iconColor: .formaSage
-        ) {
-            NextActionButton(
-                icon: "arrow.clockwise",
-                title: "Scan for new files",
-                action: {
-                    Task { @MainActor in
-                        await dashboardViewModel.scanFiles(context: modelContext)
+        if dashboardViewModel.hasDeferredReviewFiles {
+            FormaActionableEmptyState(
+                title: "Done For Now",
+                message: "You set aside \(dashboardViewModel.deferredReviewFileCount) file\(dashboardViewModel.deferredReviewFileCount == 1 ? "" : "s") in this pass. Bring them back whenever you're ready.",
+                iconName: "pause.circle.fill",
+                iconColor: .formaSteelBlue
+            ) {
+                NextActionButton(
+                    icon: "arrow.counterclockwise",
+                    title: "Resume Deferred Files",
+                    action: {
+                        dashboardViewModel.resumeDeferredReviewFiles()
                     }
-                }
-            )
-            
-            NextActionButton(
-                icon: "folder.fill",
-                title: "Switch to All Files view",
-                action: {
-                    dashboardViewModel.reviewFilterMode = .all
-                }
-            )
-            
-            NextActionButton(
-                icon: "slider.horizontal.3",
-                title: "Review rules",
-                action: {
-                    // This would open rules view - implement based on your navigation
-                }
-            )
+                )
+
+                NextActionButton(
+                    icon: "folder.fill",
+                    title: "Switch to All Files view",
+                    action: {
+                        dashboardViewModel.reviewFilterMode = .all
+                    }
+                )
+
+                NextActionButton(
+                    icon: "arrow.clockwise",
+                    title: "Scan for new files",
+                    action: {
+                        Task { @MainActor in
+                            await dashboardViewModel.scanFiles(context: modelContext)
+                        }
+                    }
+                )
+            }
+        } else {
+            FormaActionableEmptyState(
+                title: "All Caught Up!",
+                message: "You've organized all your files in review mode.",
+                iconName: "checkmark.circle.fill",
+                iconColor: .formaSage
+            ) {
+                NextActionButton(
+                    icon: "arrow.clockwise",
+                    title: "Scan for new files",
+                    action: {
+                        Task { @MainActor in
+                            await dashboardViewModel.scanFiles(context: modelContext)
+                        }
+                    }
+                )
+                
+                NextActionButton(
+                    icon: "folder.fill",
+                    title: "Switch to All Files view",
+                    action: {
+                        dashboardViewModel.reviewFilterMode = .all
+                    }
+                )
+                
+                NextActionButton(
+                    icon: "slider.horizontal.3",
+                    title: "Review rules",
+                    action: {
+                        // This would open rules view - implement based on your navigation
+                    }
+                )
+            }
         }
     }
     
