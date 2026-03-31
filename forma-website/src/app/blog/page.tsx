@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllBlogPosts } from "@/lib/content";
+import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
 import { SITE_URL } from "@/lib/site";
 import GuideProductBridge from "@/components/blog/GuideProductBridge";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
@@ -25,7 +26,7 @@ export default async function BlogIndexPage() {
   const posts = await getAllBlogPosts();
 
   return (
-    <main id="main-content" className="relative py-20 md:py-24">
+    <main id="main-content" className={`relative ${HEADER_SHELL_LAYOUT.routeClearanceClassName}`}>
       <div className="site-container mx-auto max-w-4xl">
         <header className="mb-10 border-b border-[var(--border-subtle)] pb-8">
           <p className="mb-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">

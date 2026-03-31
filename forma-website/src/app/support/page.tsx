@@ -3,6 +3,7 @@ import Link from "next/link";
 import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
 import { FormaShellCard } from "@/components/ui/forma-shell-card";
 import { formaShellCtaVariants } from "@/components/ui/forma-shell-cta";
+import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
 import { SUPPORT_EMAIL } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +41,7 @@ export default function SupportPage() {
   return (
     <main
       id="main-content"
-      className="relative border-y border-[var(--shell-border)] bg-[var(--bg-secondary)] py-20 md:py-24"
+      className={`relative border-y border-[var(--shell-border)] bg-[var(--bg-secondary)] ${HEADER_SHELL_LAYOUT.routeClearanceClassName}`}
     >
       <div className="site-container mx-auto max-w-5xl">
         <div className="rounded-[2rem] border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] p-5 shadow-[var(--shell-shadow-soft)] md:p-6">

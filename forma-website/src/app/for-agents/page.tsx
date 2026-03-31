@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
 import { PUBLIC_API_VERSION, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -64,7 +65,7 @@ const usageGuardrails = [
 
 export default function ForAgentsPage() {
   return (
-    <main id="main-content" className="relative py-20 md:py-24">
+    <main id="main-content" className={`relative ${HEADER_SHELL_LAYOUT.routeClearanceClassName}`}>
       <div className="site-container mx-auto max-w-5xl">
         <header className="overflow-hidden rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 md:p-10">
           <div className="grid gap-8 lg:grid-cols-[1.05fr,0.95fr]">

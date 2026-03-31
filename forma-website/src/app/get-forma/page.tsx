@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
 import { MAC_APP_STORE_URL } from "@/lib/links";
 
 export const metadata: Metadata = {
@@ -15,7 +16,7 @@ export default function GetFormaPage() {
   const liveMacAppStoreUrl = MAC_APP_STORE_URL;
 
   return (
-    <main id="main-content" className="relative py-20 md:py-24">
+    <main id="main-content" className={`relative ${HEADER_SHELL_LAYOUT.routeClearanceClassName}`}>
       <div className="site-container mx-auto max-w-4xl">
         <header className="mb-10 border-b border-[var(--border-subtle)] pb-8">
           <p className="mb-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">

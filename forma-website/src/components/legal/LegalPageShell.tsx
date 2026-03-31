@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
+import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
 import { SUPPORT_EMAIL } from "@/lib/site";
 
 type LegalSection = {
@@ -39,7 +40,7 @@ export default function LegalPageShell({
   relatedLinks,
 }: LegalPageShellProps) {
   return (
-    <main id="main-content" className="relative py-20 md:py-24">
+    <main id="main-content" className={`relative ${HEADER_SHELL_LAYOUT.routeClearanceClassName}`}>
       <div className="site-container mx-auto max-w-5xl">
         <header className="overflow-hidden rounded-[2rem] border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(255,255,255,0.46)_100%)] p-7 shadow-[0_18px_40px_rgba(15,18,24,0.05)] md:p-10">
           <div className="grid gap-8 lg:grid-cols-[1.05fr,0.95fr]">

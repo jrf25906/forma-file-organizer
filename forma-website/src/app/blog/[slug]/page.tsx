@@ -7,6 +7,7 @@ import {
   getRelatedBlogPosts,
 } from "@/lib/content";
 import GuideProductBridge from "@/components/blog/GuideProductBridge";
+import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 
@@ -116,7 +117,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       : null;
 
   return (
-    <main id="main-content" className="relative py-20 md:py-24">
+    <main id="main-content" className={`relative ${HEADER_SHELL_LAYOUT.routeClearanceClassName}`}>
       <div className="site-container mx-auto max-w-3xl">
         <script
           type="application/ld+json"

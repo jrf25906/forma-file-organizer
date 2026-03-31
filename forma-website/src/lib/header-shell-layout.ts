@@ -4,4 +4,5 @@ export const HEADER_SHELL_LAYOUT = {
   heroLayout: "header-overlay",
   heroClearanceContract: "floating-header-shell",
   heroClearanceClassName: "pt-32 pb-12 md:pt-36 md:pb-16 lg:pt-40 lg:pb-24",
+  routeClearanceClassName: "pt-24 pb-20 md:py-24",
 } as const
