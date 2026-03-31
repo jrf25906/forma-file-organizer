@@ -33,15 +33,27 @@ function classTokens(tagHtml: string) {
   return classMatch[1].split(/\s+/).filter(Boolean)
 }
 
+function firstInnerDiv(html: string) {
+  const match = html.match(/<header\b[^>]*>(\s*<div\b[^>]*>)/)
+
+  if (!match) {
+    throw new Error("Missing inner shell host container")
+  }
+
+  return match[1]
+}
+
 describe("Header", () => {
   it("uses the floating shell contract for the header surface", () => {
     const html = renderToStaticMarkup(<Header />)
     const header = headerHtml(html)
-    const headerClasses = classTokens(headerOpenTag(header))
+    const headerTag = headerOpenTag(header)
+    const headerClasses = classTokens(headerTag)
+    const shellHostClasses = classTokens(firstInnerDiv(header))
 
-    expect(header).toContain('data-header-shell="floating"')
-    expect(header).toContain("pointer-events-none")
-    expect(header).toContain("pointer-events-auto")
+    expect(headerTag).toContain('data-header-shell="floating"')
+    expect(headerClasses).toContain("pointer-events-none")
+    expect(shellHostClasses).toContain("pointer-events-auto")
     expect(headerClasses).not.toEqual(
       expect.arrayContaining(["border-b", "bg-[var(--bg-primary)]"])
     )
