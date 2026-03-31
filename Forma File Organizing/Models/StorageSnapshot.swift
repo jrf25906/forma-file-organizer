@@ -12,6 +12,8 @@ final class StorageSnapshot {
     var fileCount: Int
     /// JSON-encoded category → bytes map (FileTypeCategory.rawValue keys).
     var categoryBreakdownData: Data
+    /// JSON-encoded folder type → bytes map (BookmarkFolder.FolderType.rawValue keys).
+    var folderBreakdownData: Data
     /// Difference in bytes from the previous snapshot (negative indicates cleanup).
     var deltaBytesSincePrevious: Int64?
 
@@ -21,6 +23,7 @@ final class StorageSnapshot {
         totalBytes: Int64,
         fileCount: Int,
         categoryBreakdownData: Data,
+        folderBreakdownData: Data = Data(),
         deltaBytesSincePrevious: Int64? = nil
     ) {
         self.id = id
@@ -28,6 +31,7 @@ final class StorageSnapshot {
         self.totalBytes = totalBytes
         self.fileCount = fileCount
         self.categoryBreakdownData = categoryBreakdownData
+        self.folderBreakdownData = folderBreakdownData
         self.deltaBytesSincePrevious = deltaBytesSincePrevious
     }
 
@@ -39,6 +43,23 @@ final class StorageSnapshot {
     /// Bytes for a given category.
     func bytes(for category: FileTypeCategory) -> Int64 {
         categoryBreakdown[category.rawValue] ?? 0
+    }
+
+    /// Decoded folder breakdown with type safety.
+    var folderBreakdown: [BookmarkFolder.FolderType: Int64] {
+        guard let decoded = try? StorageFolderBreakdown(from: folderBreakdownData) else {
+            return [:]
+        }
+
+        return decoded.bytesByFolder.reduce(into: [:]) { result, element in
+            guard let folderType = BookmarkFolder.FolderType(rawValue: element.key) else { return }
+            result[folderType] = element.value
+        }
+    }
+
+    /// Bytes for a given monitored folder type.
+    func bytes(for folderType: BookmarkFolder.FolderType) -> Int64 {
+        folderBreakdown[folderType] ?? 0
     }
 }
 
@@ -56,5 +77,26 @@ struct StorageCategoryBreakdown: Sendable {
 
     func encoded() throws -> Data {
         try JSONEncoder().encode(bytesByCategory)
+    }
+}
+
+struct StorageFolderBreakdown: Sendable {
+    var bytesByFolder: [String: Int64]
+
+    init(bytesByFolder: [String: Int64] = [:]) {
+        self.bytesByFolder = bytesByFolder
+    }
+
+    init(from data: Data) throws {
+        guard !data.isEmpty else {
+            self.bytesByFolder = [:]
+            return
+        }
+
+        self.bytesByFolder = try JSONDecoder().decode([String: Int64].self, from: data)
+    }
+
+    func encoded() throws -> Data {
+        try JSONEncoder().encode(bytesByFolder)
     }
 }

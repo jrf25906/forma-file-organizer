@@ -5,10 +5,19 @@ import SwiftData
 @MainActor
 final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
 
+    private struct EngineHarness {
+        let engine: AutomationEngine
+        let container: ModelContainer
+    }
+
     private final class MockNotificationService: AutomationNotificationServing {
         func notifyAutoOrganizeSummary(successCount: Int, failedCount: Int, skippedCount: Int) {}
         func notifyBacklogReminder(pendingCount: Int, oldestAgeDays: Int?) {}
         func notifyAutomationError(type: AutomationErrorType, message: String) {}
+        func notifyFolderHealthAlert(folderType: BookmarkFolder.FolderType, currentBytes: Int64, thresholdBytes: Int64) {}
+        func notifyStaleRulesAlert(ruleNames: [String], thresholdDays: Int) {}
+        func clearFolderHealthAlert(folderType: BookmarkFolder.FolderType) {}
+        func clearStaleRulesAlert() {}
     }
 
     private final class MockFileMonitor: FileMonitoring {
@@ -107,7 +116,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
     func testStartBeginsWatchingConfiguredFolders() throws {
         let monitor = MockFileMonitor()
         let provider = RecordingScanProvider()
-        let engine = try makeEngine(
+        let harness = try makeEngine(
             monitor: monitor,
             provider: provider,
             watchedFolders: [
@@ -115,6 +124,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
                 WatchedFolderDescriptor(location: .downloads, rootURL: URL(fileURLWithPath: "/Users/test/Downloads"))
             ]
         )
+        let engine = harness.engine
 
         engine.start()
 
@@ -126,7 +136,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
     func testRealtimeChangeTriggersTargetedScan() async throws {
         let monitor = MockFileMonitor()
         let provider = RecordingScanProvider()
-        let engine = try makeEngine(
+        let harness = try makeEngine(
             monitor: monitor,
             provider: provider,
             watchedFolders: [
@@ -134,6 +144,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
                 WatchedFolderDescriptor(location: .downloads, rootURL: URL(fileURLWithPath: "/Users/test/Downloads"))
             ]
         )
+        let engine = harness.engine
         engine.start()
 
         monitor.emitChange([.downloads, .desktop])
@@ -146,7 +157,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         let monitor = MockFileMonitor()
         let provider = RecordingScanProvider()
         provider.suspendFirstScan = true
-        let engine = try makeEngine(
+        let harness = try makeEngine(
             monitor: monitor,
             provider: provider,
             watchedFolders: [
@@ -155,6 +166,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
             ],
             mode: .scanOnly
         )
+        let engine = harness.engine
         engine.start()
 
         monitor.emitChange([.desktop])
@@ -177,12 +189,13 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         let downloads = WatchedFolderDescriptor(location: .downloads, rootURL: URL(fileURLWithPath: "/Users/test/Downloads"))
         var watchedFolders = [desktop, downloads]
 
-        let engine = try makeEngine(
+        let harness = try makeEngine(
             monitor: monitor,
             provider: provider,
             watchedFoldersProvider: { watchedFolders },
             mode: .scanOnly
         )
+        let engine = harness.engine
         engine.start()
 
         monitor.emitChange([.desktop])
@@ -206,7 +219,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         provider: RecordingScanProvider,
         watchedFolders: [WatchedFolderDescriptor],
         mode: AutomationMode = .scanOnly
-    ) throws -> AutomationEngine {
+    ) throws -> EngineHarness {
         try makeEngine(
             monitor: monitor,
             provider: provider,
@@ -220,7 +233,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         provider: RecordingScanProvider,
         watchedFoldersProvider: @escaping @MainActor () -> [WatchedFolderDescriptor],
         mode: AutomationMode = .scanOnly
-    ) throws -> AutomationEngine {
+    ) throws -> EngineHarness {
         let policy = AutomationPolicy(
             userMode: mode,
             effectiveMode: mode,
@@ -251,6 +264,6 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
             organizationCoordinator: FileOrganizationCoordinator(),
             scanProvider: provider
         )
-        return engine
+        return EngineHarness(engine: engine, container: container)
     }
 }

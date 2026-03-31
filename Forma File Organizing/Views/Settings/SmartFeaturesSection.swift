@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SmartFeaturesSection: View {
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var bookmarkFolderService = BookmarkFolderService.shared
     @AppStorage("feature.masterAI") private var masterAIEnabled = true
     @AppStorage(FeatureFlagService.Feature.patternLearning.rawValue) private var patternLearning = FeatureFlagService.Feature.patternLearning.defaultValue
     @AppStorage(FeatureFlagService.Feature.ruleSuggestions.rawValue) private var ruleSuggestions = FeatureFlagService.Feature.ruleSuggestions.defaultValue
@@ -259,6 +260,55 @@ struct SmartFeaturesSection: View {
                     }
                 }
 
+                if masterAIEnabled && analyticsAndInsights {
+                    SettingsSection("Folder Health Alerts") {
+                        VStack(spacing: 0) {
+                            if accessibleAlertFolders.isEmpty {
+                                SettingsRow(
+                                    "Folder Size Alerts",
+                                    subtitle: "Grant bookmark access to a monitored folder to enable per-folder size alerts."
+                                ) {
+                                    Text("No folders available")
+                                        .font(.formaSmall)
+                                        .foregroundColor(.formaSecondaryLabelHigh)
+                                }
+
+                                Divider().padding(.leading, FormaSpacing.standard)
+                            }
+
+                            ForEach(Array(accessibleAlertFolders.enumerated()), id: \.element.id) { index, folder in
+                                SettingsRow(
+                                    "\(folder.displayName) Size Alert",
+                                    subtitle: "Alert when tracked \(folder.displayName.lowercased()) files reach this size. Leave blank to disable."
+                                ) {
+                                    thresholdEntryField(
+                                        text: folderThresholdTextBinding(for: folder.folderType),
+                                        unitLabel: "GB"
+                                    )
+                                }
+
+                                if index < accessibleAlertFolders.count - 1 {
+                                    Divider().padding(.leading, FormaSpacing.standard)
+                                }
+                            }
+
+                            if !accessibleAlertFolders.isEmpty {
+                                Divider().padding(.leading, FormaSpacing.standard)
+                            }
+
+                            SettingsRow(
+                                "Stale Rule Alert",
+                                subtitle: "Flag enabled rules that have not matched in this many days. Leave blank to disable."
+                            ) {
+                                thresholdEntryField(
+                                    text: staleRuleThresholdTextBinding,
+                                    unitLabel: "days"
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Info Section
                 if !masterAIEnabled {
                     HStack(spacing: 12) {
@@ -334,6 +384,93 @@ struct SmartFeaturesSection: View {
         backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
         autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
         automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue
+
+        for folderType in BookmarkFolder.FolderType.allCases {
+            UserDefaults.standard.removeObject(forKey: FolderHealthAlertSettings.Keys.folderSizeThreshold(folderType))
+            NotificationService.shared.clearFolderHealthAlert(folderType: folderType)
+        }
+        UserDefaults.standard.removeObject(forKey: FolderHealthAlertSettings.Keys.staleRuleThresholdDays)
+        NotificationService.shared.clearStaleRulesAlert()
+        AutomationEngine.shared.refreshPolicy()
+    }
+
+    private var accessibleAlertFolders: [BookmarkFolder] {
+        BookmarkFolder.alertEligibleFolders()
+    }
+
+    private func thresholdEntryField(text: Binding<String>, unitLabel: String) -> some View {
+        HStack(spacing: FormaSpacing.tight) {
+            TextField("Off", text: text)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 72)
+                .multilineTextAlignment(.trailing)
+
+            Text(unitLabel)
+                .font(.formaSmall)
+                .foregroundColor(.formaSecondaryLabelHigh)
+        }
+    }
+
+    private func folderThresholdTextBinding(for folderType: BookmarkFolder.FolderType) -> Binding<String> {
+        Binding(
+            get: {
+                guard let bytes = FolderHealthAlertSettings.current().folderSizeThresholdBytesByFolder[folderType],
+                      bytes > 0 else {
+                    return ""
+                }
+                return String(bytes / bytesPerGigabyte)
+            },
+            set: { newValue in
+                let key = FolderHealthAlertSettings.Keys.folderSizeThreshold(folderType)
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                if trimmed.isEmpty {
+                    UserDefaults.standard.removeObject(forKey: key)
+                    NotificationService.shared.clearFolderHealthAlert(folderType: folderType)
+                    AutomationEngine.shared.refreshPolicy()
+                    return
+                }
+
+                guard let thresholdBytes = FolderHealthAlertSettings.parseFolderSizeThresholdBytes(trimmed) else {
+                    return
+                }
+
+                UserDefaults.standard.set(thresholdBytes, forKey: key)
+                AutomationEngine.shared.refreshPolicy()
+            }
+        )
+    }
+
+    private var staleRuleThresholdTextBinding: Binding<String> {
+        Binding(
+            get: {
+                guard let days = FolderHealthAlertSettings.current().staleRuleThresholdDays else {
+                    return ""
+                }
+                return String(days)
+            },
+            set: { newValue in
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                if trimmed.isEmpty {
+                    UserDefaults.standard.removeObject(forKey: FolderHealthAlertSettings.Keys.staleRuleThresholdDays)
+                    NotificationService.shared.clearStaleRulesAlert()
+                    AutomationEngine.shared.refreshPolicy()
+                    return
+                }
+
+                guard let days = FolderHealthAlertSettings.parseStaleRuleThresholdDays(trimmed) else {
+                    return
+                }
+
+                UserDefaults.standard.set(days, forKey: FolderHealthAlertSettings.Keys.staleRuleThresholdDays)
+                AutomationEngine.shared.refreshPolicy()
+            }
+        )
+    }
+
+    private var bytesPerGigabyte: Int64 {
+        1024 * 1024 * 1024
     }
 }
 

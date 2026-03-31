@@ -196,6 +196,8 @@ final class NotificationService: Sendable {
         static let autoOrganizeSummary = "forma.automation.organize-summary"
         static let backlogReminder = "forma.automation.backlog-reminder"
         static let ageReminder = "forma.automation.age-reminder"
+        static let folderHealthPrefix = "forma.automation.folder-health"
+        static let staleRules = "forma.automation.stale-rules"
         static let ruleHighlight = "forma.automation.rule-highlight"
         static let errorPrefix = "forma.automation.error"
 
@@ -205,6 +207,10 @@ final class NotificationService: Sendable {
 
         static func ruleHighlight(ruleID: String) -> String {
             "\(ruleHighlight).\(ruleID)"
+        }
+
+        static func folderHealth(folderType: BookmarkFolder.FolderType) -> String {
+            "\(folderHealthPrefix).\(folderType.rawValue)"
         }
     }
 
@@ -288,6 +294,75 @@ final class NotificationService: Sendable {
                 Log.info("Automation error notification shown: \(type) - \(message)", category: .automation)
             }
         }
+    }
+
+    func notifyFolderHealthAlert(
+        folderType: BookmarkFolder.FolderType,
+        currentBytes: Int64,
+        thresholdBytes: Int64
+    ) {
+        guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "\(folderType.displayName) Is Over Limit"
+        content.body = "\(folderType.displayName) is using \(ByteCountFormatter.string(fromByteCount: currentBytes, countStyle: .file)), above your \(ByteCountFormatter.string(fromByteCount: thresholdBytes, countStyle: .file)) alert threshold."
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: AutomationNotificationID.folderHealth(folderType: folderType),
+            content: content,
+            trigger: nil
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error {
+                Log.error("Error showing folder health alert notification: \(error)", category: .automation)
+            } else {
+                Log.info("Folder health alert notification shown for \(folderType.displayName)", category: .automation)
+            }
+        }
+    }
+
+    func notifyStaleRulesAlert(ruleNames: [String], thresholdDays: Int) {
+        guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
+        guard !ruleNames.isEmpty else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = ruleNames.count == 1 ? "Rule Needs Attention" : "\(ruleNames.count) Rules Need Attention"
+        content.sound = .default
+
+        let previewNames = Array(ruleNames.prefix(2))
+        if ruleNames.count == 1, let ruleName = ruleNames.first {
+            content.body = "\"\(ruleName)\" hasn't matched in \(thresholdDays) days."
+        } else if ruleNames.count == 2 {
+            content.body = "\(previewNames.joined(separator: " and ")) haven't matched in \(thresholdDays) days."
+        } else {
+            content.body = "\(previewNames.joined(separator: ", ")) and \(ruleNames.count - 2) more haven't matched in \(thresholdDays) days."
+        }
+
+        let request = UNNotificationRequest(
+            identifier: AutomationNotificationID.staleRules,
+            content: content,
+            trigger: nil
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error {
+                Log.error("Error showing stale rules alert notification: \(error)", category: .automation)
+            } else {
+                Log.info("Stale rules alert notification shown for \(ruleNames.count) rules", category: .automation)
+            }
+        }
+    }
+
+    func clearFolderHealthAlert(folderType: BookmarkFolder.FolderType) {
+        UNUserNotificationCenter.current().removeDeliveredNotifications(
+            withIdentifiers: [AutomationNotificationID.folderHealth(folderType: folderType)]
+        )
+    }
+
+    func clearStaleRulesAlert() {
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [AutomationNotificationID.staleRules])
     }
 
     /// Clears automation-related notifications when issues are resolved.

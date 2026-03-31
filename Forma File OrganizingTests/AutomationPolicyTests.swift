@@ -306,6 +306,56 @@ final class AutomationPolicyTests: XCTestCase {
         XCTAssertTrue(policy.notificationsEnabled)
     }
 
+    func testFolderHealthAlertSettingsLoadFromDefaultsAndFlowIntoPolicy() {
+        let suiteName = "AutomationPolicyTests.folderHealth.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(10 * 1024 * 1024 * 1024, forKey: FolderHealthAlertSettings.Keys.folderSizeThreshold(.downloads))
+        defaults.set(30, forKey: FolderHealthAlertSettings.Keys.staleRuleThresholdDays)
+
+        let settings = FolderHealthAlertSettings.current(defaults: defaults)
+        XCTAssertEqual(
+            settings.folderSizeThresholdBytesByFolder[.downloads],
+            10 * 1024 * 1024 * 1024
+        )
+        XCTAssertEqual(settings.staleRuleThresholdDays, 30)
+
+        let userSettings = AutomationUserSettings(
+            mode: .scanOnly,
+            scanIntervalMinutes: 30,
+            scanOnLaunch: true,
+            notificationsEnabled: true
+        )
+
+        let policy = AutomationPolicy.resolve(
+            flags: featureFlags,
+            userSettings: userSettings,
+            folderHealthAlertSettings: settings
+        )
+
+        XCTAssertEqual(policy.folderHealthAlerts, settings)
+    }
+
+    func testParseFolderSizeThresholdBytesRejectsMalformedInput() {
+        let gigabyte: Int64 = 1024 * 1024 * 1024
+
+        XCTAssertEqual(FolderHealthAlertSettings.parseFolderSizeThresholdBytes("10"), 10 * gigabyte)
+        XCTAssertNil(FolderHealthAlertSettings.parseFolderSizeThresholdBytes("1.5"))
+        XCTAssertNil(FolderHealthAlertSettings.parseFolderSizeThresholdBytes("-5"))
+        XCTAssertNil(FolderHealthAlertSettings.parseFolderSizeThresholdBytes("0"))
+        XCTAssertNil(FolderHealthAlertSettings.parseFolderSizeThresholdBytes("abc"))
+    }
+
+    func testParseStaleRuleThresholdDaysRejectsMalformedInput() {
+        XCTAssertEqual(FolderHealthAlertSettings.parseStaleRuleThresholdDays("30"), 30)
+        XCTAssertNil(FolderHealthAlertSettings.parseStaleRuleThresholdDays("3.0"))
+        XCTAssertNil(FolderHealthAlertSettings.parseStaleRuleThresholdDays("-7"))
+        XCTAssertNil(FolderHealthAlertSettings.parseStaleRuleThresholdDays("0"))
+        XCTAssertNil(FolderHealthAlertSettings.parseStaleRuleThresholdDays("days"))
+    }
+
     // MARK: - Scan On Launch Tests
 
     /// Test: Scan on launch disabled when effective mode is .off

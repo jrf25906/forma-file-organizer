@@ -37,6 +37,9 @@ class AnalyticsViewModel: ObservableObject {
     /// Storage health score
     @Published private(set) var healthScore: StorageHealthScore?
 
+    /// Active folder health alerts derived from the current file/rule state
+    @Published private(set) var folderHealthEvaluation: FolderHealthEvaluation = .empty
+
     /// Latest generated report
     @Published private(set) var latestReport: AnalyticsReport?
 
@@ -86,6 +89,13 @@ class AnalyticsViewModel: ObservableObject {
             // Fetch latest storage analytics from files
             let files = try modelContext.fetch(FetchDescriptor<FileItem>())
             latestStorageAnalytics = storageService.calculateAnalytics(from: files)
+            let rules = try modelContext.fetch(FetchDescriptor<Rule>())
+            folderHealthEvaluation = FolderHealthAlertService().evaluate(
+                files: files,
+                rules: rules,
+                settings: FolderHealthAlertSettings.current(),
+                monitoredRootPathsByFolder: BookmarkFolder.alertEligibleRootPaths()
+            )
 
             // Fetch storage trend points
             trendPoints = try await analyticsService.computeStorageTrend(

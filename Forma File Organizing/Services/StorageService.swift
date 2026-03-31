@@ -48,4 +48,25 @@ struct StorageService: Sendable {
 
         return grouped
     }
+
+    /// Aggregate bytes by current monitored folder membership for alerting and snapshots.
+    func calculateFolderBreakdown(
+        from files: [FileItem],
+        monitoredRootPathsByFolder: [BookmarkFolder.FolderType: String] = BookmarkFolder.alertEligibleRootPaths()
+    ) -> [BookmarkFolder.FolderType: Int64] {
+        let monitoredRootPaths = monitoredRootPathsByFolder.map { ($0.key, $0.value) }
+        .sorted { $0.1.count > $1.1.count }
+
+        return files.reduce(into: [:]) { result, file in
+            let filePath = URL(fileURLWithPath: file.path).standardizedFileURL.path
+            guard let folderType = monitoredRootPaths.first(where: { isFilePath(filePath, withinRootPath: $0.1) })?.0 else {
+                return
+            }
+            result[folderType, default: 0] += file.sizeInBytes
+        }
+    }
+
+    private func isFilePath(_ filePath: String, withinRootPath rootPath: String) -> Bool {
+        filePath == rootPath || filePath.hasPrefix(rootPath + "/")
+    }
 }

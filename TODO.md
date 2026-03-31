@@ -36,6 +36,12 @@ Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-
 - [x] Merge partial automation refreshes by scanned root so dashboard and menu bar stay correct after create/delete/rename/modify events.
 - [x] Surface live watching state in automation UI copy and keep scheduled interval sweeps as the recovery path.
 
+## Folder Health Alerts (March 25, 2026)
+- [x] Persist per-folder snapshot bytes alongside category breakdowns for analytics history.
+- [x] Add user-configurable folder-size thresholds and a global stale-rule inactivity threshold in Smart Features.
+- [x] Centralize folder/stale-rule evaluation so Rules, Analytics, and automation notifications use the same alert state.
+- [x] Send and clear dedicated folder health/stale-rule notifications from `AutomationEngine` after successful scans.
+
 ## Website Dark-Mode Polish (March 23, 2026)
 - [x] Refactor the website hero window to use shared semantic theme tokens.
 - [x] Restore dark-mode readability for the screenshot-style hero composition.

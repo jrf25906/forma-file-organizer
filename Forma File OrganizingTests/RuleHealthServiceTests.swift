@@ -4,6 +4,167 @@ import XCTest
 @MainActor
 final class RuleHealthServiceTests: XCTestCase {
 
+    func testClassifyReadyRuleAsStaleWhenThresholdExceeded() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let rule = Rule(
+            name: "Old Archive Rule",
+            conditionType: .nameContains,
+            conditionValue: "archive",
+            actionType: .delete,
+            destination: .trash
+        )
+        rule.lastTriggeredDate = now.addingTimeInterval(-(31 * 86_400))
+
+        let health = RuleHealthService().classify(
+            rules: [rule],
+            staleRuleThresholdDays: 30,
+            evaluationDate: now
+        )[rule.id]
+
+        guard case .stale? = health?.kind else {
+            return XCTFail("Expected stale health state")
+        }
+        XCTAssertEqual(health?.badgeLabel, "Stale")
+    }
+
+    func testClassifyNeverTriggeredRuleUsesCreationDateForStaleness() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let rule = Rule(
+            name: "Never Used Rule",
+            conditionType: .nameContains,
+            conditionValue: "unused",
+            actionType: .delete,
+            destination: .trash
+        )
+        rule.creationDate = now.addingTimeInterval(-(45 * 86_400))
+
+        let health = RuleHealthService().classify(
+            rules: [rule],
+            staleRuleThresholdDays: 30,
+            evaluationDate: now
+        )[rule.id]
+
+        guard case .stale? = health?.kind else {
+            return XCTFail("Expected stale health state when creation date is older than the threshold")
+        }
+    }
+
+    func testNeedsPermissionTakesPriorityOverStale() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let rule = Rule(
+            name: "Broken Archive Rule",
+            conditionType: .nameContains,
+            conditionValue: "archive",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "ExternalDrive/Archive")
+        )
+        rule.lastTriggeredDate = now.addingTimeInterval(-(45 * 86_400))
+
+        let health = RuleHealthService().classify(
+            rules: [rule],
+            staleRuleThresholdDays: 30,
+            evaluationDate: now
+        )[rule.id]
+
+        guard case .needsPermission? = health?.kind else {
+            return XCTFail("Expected needsPermission to take priority over stale")
+        }
+    }
+
+    func testFolderHealthAlertServiceFlagsFolderAtOrAboveThreshold() throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let downloadsRoot = try TemporaryDirectory()
+        defer { downloadsRoot.cleanup() }
+        let store = InMemoryBookmarkStore()
+        let destination = try Destination.folder(from: downloadsRoot.url, displayName: "Downloads")
+        try store.saveBookmark(
+            try XCTUnwrap(destination.bookmarkData),
+            forKey: FormaConfig.Security.downloadsBookmarkKey
+        )
+
+        let downloadsFile = FileItem(
+            path: downloadsRoot.url.appendingPathComponent("archive.zip").path,
+            sizeInBytes: 10 * 1024 * 1024 * 1024,
+            creationDate: now,
+            location: .downloads,
+            scanRootPath: downloadsRoot.url.path
+        )
+
+        let evaluation = try BookmarkStoreProvider.$override.withValue(store) {
+            FolderHealthAlertService().evaluate(
+                files: [downloadsFile],
+                rules: [],
+                settings: FolderHealthAlertSettings(
+                    folderSizeThresholdBytesByFolder: [.downloads: 10 * 1024 * 1024 * 1024],
+                    staleRuleThresholdDays: nil
+                ),
+                monitoredRootPathsByFolder: [.downloads: downloadsRoot.url.standardizedFileURL.path],
+                now: now
+            )
+        }
+
+        XCTAssertEqual(evaluation.folderSizeAlerts.map(\.folderType), [.downloads])
+        XCTAssertNil(evaluation.staleRuleAlert)
+    }
+
+    func testFolderHealthAlertServiceIgnoresInaccessibleFolders() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let downloadsFile = FileItem(
+            path: "/Users/test/Downloads/archive.zip",
+            sizeInBytes: 12 * 1024 * 1024 * 1024,
+            creationDate: now,
+            location: .downloads,
+            scanRootPath: "/Users/test/Downloads"
+        )
+
+        let evaluation = FolderHealthAlertService().evaluate(
+            files: [downloadsFile],
+            rules: [],
+            settings: FolderHealthAlertSettings(
+                folderSizeThresholdBytesByFolder: [.downloads: 10 * 1024 * 1024 * 1024],
+                staleRuleThresholdDays: nil
+            ),
+            monitoredRootPathsByFolder: [:],
+            now: now
+        )
+
+        XCTAssertTrue(evaluation.folderSizeAlerts.isEmpty)
+    }
+
+    func testFolderHealthAlertServiceBuildsStaleRulesSummaryFromHealthyRulesOnly() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let healthyRule = Rule(
+            name: "Healthy But Stale",
+            conditionType: .nameContains,
+            conditionValue: "archive",
+            actionType: .delete,
+            destination: .trash
+        )
+        healthyRule.lastTriggeredDate = now.addingTimeInterval(-(45 * 86_400))
+
+        let brokenRule = Rule(
+            name: "Broken And Old",
+            conditionType: .nameContains,
+            conditionValue: "broken",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "ExternalDrive/Broken")
+        )
+        brokenRule.lastTriggeredDate = now.addingTimeInterval(-(45 * 86_400))
+
+        let evaluation = FolderHealthAlertService().evaluate(
+            files: [],
+            rules: [healthyRule, brokenRule],
+            settings: FolderHealthAlertSettings(
+                folderSizeThresholdBytesByFolder: [:],
+                staleRuleThresholdDays: 30
+            ),
+            monitoredRootPathsByFolder: [:],
+            now: now
+        )
+
+        XCTAssertEqual(evaluation.staleRuleAlert?.rules.map(\.ruleName), ["Healthy But Stale"])
+    }
+
     func testClassifyResolvablePlaceholderAsWillCreate() throws {
         let tempDir = try TemporaryDirectory()
         defer { tempDir.cleanup() }

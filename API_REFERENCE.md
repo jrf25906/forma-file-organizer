@@ -76,6 +76,10 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - `FileScanResult`
   - `primaryErrorType: AutomationErrorType?`
   - `scannedRootPaths: [String]`
+- `StorageSnapshot`
+  - `folderBreakdownData: Data`
+  - `folderBreakdown: [BookmarkFolder.FolderType: Int64]` (computed)
+  - `bytes(for: BookmarkFolder.FolderType)` (computed helper)
 - `AutomationScanNotificationUserInfo`
   - `scannedPaths`
   - `scannedRootPaths`
@@ -97,6 +101,24 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `classify(message:)`
   - `cleanMessage(from:)`
   - Automation scan surfaces now prefer `FileScanResult.primaryErrorType` derived from raw scan errors before falling back to human-readable summary text.
+- Folder health alerts
+  - `FolderHealthAlertSettings`
+    - `folderSizeThresholdBytesByFolder`
+    - `staleRuleThresholdDays`
+  - `FolderHealthAlertService`
+    - `evaluate(files:rules:settings:accessibleFolderTypes:now:)`
+  - `FolderHealthEvaluation`
+    - `folderSizeAlerts`
+    - `staleRuleAlert`
+    - `activeAlerts`
+  - `AutomationNotificationServing`
+    - `notifyFolderHealthAlert(folderType:currentBytes:thresholdBytes:)`
+    - `notifyStaleRulesAlert(ruleNames:thresholdDays:)`
+    - `clearFolderHealthAlert(folderType:)`
+    - `clearStaleRulesAlert()`
+  - `RuleHealthService`
+    - `RuleHealth.Kind.stale`
+    - `classify(rules:staleRuleThresholdDays:evaluationDate:)`
 - UI test launch sizing
   - Set `FORMA_WINDOW_SIZE=WIDTHxHEIGHT` when launching UI tests to force the window size used for screenshot and layout coverage.
 - `FileScanOptions` (`Forma File Organizing/Services/FileSystemService.swift`)

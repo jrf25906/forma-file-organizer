@@ -170,6 +170,11 @@ struct BookmarkFolder: Identifiable, Equatable, Hashable {
         bookmarkData != nil
     }
 
+    /// Whether this folder can currently be resolved and is enabled for monitoring.
+    var isAlertEligible: Bool {
+        isEnabled && resolveURL() != nil
+    }
+
     /// Resolves the bookmark to a URL for file access.
     /// - Returns: Tuple of (URL, isStale) or nil if resolution fails
     func resolveURL() -> (url: URL, isStale: Bool)? {
@@ -195,6 +200,11 @@ struct BookmarkFolder: Identifiable, Equatable, Hashable {
         resolveURL()?.url.path
     }
 
+    /// The standardized root path for comparisons against live file paths.
+    var resolvedRootPath: String? {
+        resolveURL()?.url.standardizedFileURL.path
+    }
+
     // MARK: - Equatable & Hashable
 
     static func == (lhs: BookmarkFolder, rhs: BookmarkFolder) -> Bool {
@@ -211,5 +221,29 @@ struct BookmarkFolder: Identifiable, Equatable, Hashable {
 extension BookmarkFolder: CustomStringConvertible {
     var description: String {
         "\(displayName) (\(hasValidBookmark ? "accessible" : "no bookmark"))"
+    }
+}
+
+extension BookmarkFolder {
+    static func alertEligibleFolders() -> [BookmarkFolder] {
+        FolderType.allCases
+            .map { BookmarkFolder(folderType: $0) }
+            .filter(\.isAlertEligible)
+            .sorted { $0.sortPriority < $1.sortPriority }
+    }
+
+    static func alertEligibleRootPaths() -> [FolderType: String] {
+        Dictionary(
+            uniqueKeysWithValues: alertEligibleFolders().compactMap { folder in
+                guard let rootPath = folder.resolvedRootPath else { return nil }
+                return (folder.folderType, rootPath)
+            }
+        )
+    }
+}
+
+extension BookmarkFolder.FolderType {
+    static func accessibleTypes() -> Set<BookmarkFolder.FolderType> {
+        Set(BookmarkFolder.alertEligibleFolders().map(\.folderType))
     }
 }

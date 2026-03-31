@@ -108,6 +108,9 @@ struct AutomationPolicy: Equatable, Sendable {
     /// Cooldown between error notifications (in minutes).
     let errorNotificationCooldownMinutes: Int
 
+    /// Resolved folder health alert settings for notifications and UI.
+    let folderHealthAlerts: FolderHealthAlertSettings
+
     // MARK: - Computed Properties
 
     /// Whether any form of background scanning is allowed.
@@ -125,6 +128,34 @@ struct AutomationPolicy: Equatable, Sendable {
         canScan && scanIntervalMinutes > 0
     }
 
+    init(
+        userMode: AutomationMode,
+        effectiveMode: AutomationMode,
+        scanIntervalMinutes: Int,
+        scanOnLaunch: Bool,
+        backlogThreshold: Int,
+        ageThresholdDays: Int,
+        mlConfidenceThreshold: Double,
+        maxConsecutiveFailures: Int,
+        notificationsEnabled: Bool,
+        backlogReminderCooldownHours: Int,
+        errorNotificationCooldownMinutes: Int,
+        folderHealthAlerts: FolderHealthAlertSettings = .disabled
+    ) {
+        self.userMode = userMode
+        self.effectiveMode = effectiveMode
+        self.scanIntervalMinutes = scanIntervalMinutes
+        self.scanOnLaunch = scanOnLaunch
+        self.backlogThreshold = backlogThreshold
+        self.ageThresholdDays = ageThresholdDays
+        self.mlConfidenceThreshold = mlConfidenceThreshold
+        self.maxConsecutiveFailures = maxConsecutiveFailures
+        self.notificationsEnabled = notificationsEnabled
+        self.backlogReminderCooldownHours = backlogReminderCooldownHours
+        self.errorNotificationCooldownMinutes = errorNotificationCooldownMinutes
+        self.folderHealthAlerts = folderHealthAlerts
+    }
+
     // MARK: - Resolution
 
     /// Creates a resolved policy from current app state.
@@ -140,7 +171,8 @@ struct AutomationPolicy: Equatable, Sendable {
     /// - Returns: A fully resolved policy ready for use
     static func resolve(
         flags: FeatureFlagService,
-        userSettings: AutomationUserSettings
+        userSettings: AutomationUserSettings,
+        folderHealthAlertSettings: FolderHealthAlertSettings = .current()
     ) -> AutomationPolicy {
 
         // Determine effective mode based on feature flags
@@ -180,7 +212,8 @@ struct AutomationPolicy: Equatable, Sendable {
             maxConsecutiveFailures: FormaConfig.Automation.maxConsecutiveFailures,
             notificationsEnabled: notificationsEnabled,
             backlogReminderCooldownHours: FormaConfig.Automation.backlogReminderCooldownHours,
-            errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
+            errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes,
+            folderHealthAlerts: folderHealthAlertSettings
         )
     }
 }
@@ -216,6 +249,73 @@ struct AutomationUserSettings: Equatable, Sendable {
         static let scanInterval = "automation.scanInterval"
         static let scanOnLaunch = "automation.scanOnLaunch"
         static let notifications = "automation.notifications"
+    }
+}
+
+struct FolderHealthAlertSettings: Equatable, Sendable {
+    let folderSizeThresholdBytesByFolder: [BookmarkFolder.FolderType: Int64]
+    let staleRuleThresholdDays: Int?
+
+    private static let bytesPerGigabyte: Int64 = 1024 * 1024 * 1024
+
+    static let disabled = FolderHealthAlertSettings(
+        folderSizeThresholdBytesByFolder: [:],
+        staleRuleThresholdDays: nil
+    )
+
+    static func current(defaults: UserDefaults = .standard) -> FolderHealthAlertSettings {
+        var folderThresholds: [BookmarkFolder.FolderType: Int64] = [:]
+
+        for folderType in BookmarkFolder.FolderType.allCases {
+            let key = Keys.folderSizeThreshold(folderType)
+            guard defaults.object(forKey: key) != nil else { continue }
+
+            let threshold = defaults.object(forKey: key) as? NSNumber
+            let bytes = threshold?.int64Value ?? Int64(defaults.integer(forKey: key))
+            guard bytes > 0 else { continue }
+            folderThresholds[folderType] = bytes
+        }
+
+        let staleRuleThresholdDays: Int?
+        if defaults.object(forKey: Keys.staleRuleThresholdDays) != nil {
+            let days = defaults.integer(forKey: Keys.staleRuleThresholdDays)
+            staleRuleThresholdDays = days > 0 ? days : nil
+        } else {
+            staleRuleThresholdDays = nil
+        }
+
+        return FolderHealthAlertSettings(
+            folderSizeThresholdBytesByFolder: folderThresholds,
+            staleRuleThresholdDays: staleRuleThresholdDays
+        )
+    }
+
+    static func parseFolderSizeThresholdBytes(_ input: String) -> Int64? {
+        guard let value = parsePositiveWholeNumber(input) else { return nil }
+        return Int64(value) * bytesPerGigabyte
+    }
+
+    static func parseStaleRuleThresholdDays(_ input: String) -> Int? {
+        parsePositiveWholeNumber(input)
+    }
+
+    private static func parsePositiveWholeNumber(_ input: String) -> Int? {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.allSatisfy(\.isNumber),
+              let value = Int(trimmed),
+              value > 0 else {
+            return nil
+        }
+        return value
+    }
+
+    enum Keys {
+        static let staleRuleThresholdDays = "automation.folderHealth.staleRuleDays"
+
+        static func folderSizeThreshold(_ folderType: BookmarkFolder.FolderType) -> String {
+            "automation.folderHealth.folderThresholdBytes.\(folderType.rawValue)"
+        }
     }
 }
 
