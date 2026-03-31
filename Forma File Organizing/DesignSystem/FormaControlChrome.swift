@@ -111,7 +111,19 @@ enum FormaControlChromePalette {
             : Color.formaBoneWhite.opacity(opacity)
     }
 
-    static func sidebarGlassStyle(_ colorScheme: ColorScheme, isWindowActive: Bool) -> FormaSidebarGlassStyle {
+    static func sidebarGlassStyle(
+        _ colorScheme: ColorScheme,
+        isWindowActive: Bool,
+        reduceTransparency: Bool = false
+    ) -> FormaSidebarGlassStyle {
+        if reduceTransparency {
+            return FormaSidebarGlassStyle(
+                sheenTopOpacity: 0,
+                sheenBottomOpacity: 0,
+                edgeOpacity: 0
+            )
+        }
+
         let activeMultiplier = isWindowActive ? 1.0 : 0.82
 
         if colorScheme == .dark {

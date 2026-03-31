@@ -23,6 +23,18 @@ final class FormaControlChromePaletteTests: XCTestCase {
         )
     }
 
+    func testSidebarGlassStyle_reduceTransparencyRemovesSheenAndEdgeHighlights() {
+        let style = FormaControlChromePalette.sidebarGlassStyle(
+            .light,
+            isWindowActive: true,
+            reduceTransparency: true
+        )
+
+        XCTAssertEqual(style.sheenTopOpacity, 0)
+        XCTAssertEqual(style.sheenBottomOpacity, 0)
+        XCTAssertEqual(style.edgeOpacity, 0)
+    }
+
     private func XCTAssertColor(
         _ color: Color,
         matches expected: Color,
