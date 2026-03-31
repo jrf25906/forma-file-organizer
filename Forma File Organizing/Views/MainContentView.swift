@@ -707,6 +707,16 @@ struct MainContentView: View {
         return destinations.filter { seen.insert($0).inserted }
     }
 
+    private func fileSurfaceActivity(for file: FileItem) -> FileSurfaceStyle.ActivityState {
+        if dashboardViewModel.organizingFilePaths.contains(file.path) {
+            return .processing
+        }
+        if let lastOrganizeError = file.lastOrganizeError, !lastOrganizeError.isEmpty {
+            return .error
+        }
+        return .none
+    }
+
     @ViewBuilder
     private var firstRunBannerIfNeeded: some View {
         if shouldShowFirstRunBanner,
@@ -794,6 +804,7 @@ struct MainContentView: View {
                                 isSelectionMode: dashboardViewModel.isSelectionMode,
                                 showsPrimaryActionButton: showsRowPrimaryActionButtons,
                                 showKeyboardHints: dashboardViewModel.isKeyboardNavigating,
+                                surfaceActivity: fileSurfaceActivity(for: file),
                                 searchMatchType: dashboardViewModel.searchMatchType(for: file),
                                 contentSnippet: dashboardViewModel.contentSnippet(for: file),
                                 availableDestinations: availableDestinations,
@@ -906,6 +917,7 @@ struct MainContentView: View {
             isSelected: dashboardViewModel.isSelected(file),
             isSelectionMode: dashboardViewModel.isSelectionMode,
             showsPrimaryActionButton: showsRowPrimaryActionButtons,
+            surfaceActivity: fileSurfaceActivity(for: file),
             searchMatchType: dashboardViewModel.searchMatchType(for: file),
             onToggleSelection: { handleSelectionToggle(for: file) },
             onOrganize: { organizeFileWithAnimation(file) },
@@ -967,6 +979,7 @@ struct MainContentView: View {
                             isSelected: dashboardViewModel.isSelected(file),
                             isSelectionMode: dashboardViewModel.isSelectionMode,
                             showsPrimaryActionButton: showsRowPrimaryActionButtons,
+                            surfaceActivity: fileSurfaceActivity(for: file),
                             searchMatchType: dashboardViewModel.searchMatchType(for: file),
                             onToggleSelection: {
                                 handleSelectionToggle(for: file)

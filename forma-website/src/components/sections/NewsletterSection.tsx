@@ -6,6 +6,11 @@ import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
 import { trackEvent } from "@/lib/analytics";
+import { FormaShellCard } from "@/components/ui/forma-shell-card";
+import { FormaShellSectionHeading } from "@/components/ui/forma-shell-section-heading";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -104,31 +109,26 @@ export default function NewsletterSection() {
     >
       <div className="site-container">
         <div className="mx-auto max-w-2xl">
-          <div
-            ref={cardRef}
-            className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-6 md:px-12 md:py-12 text-center"
-          >
-            <h2 className="font-display text-2xl md:text-3xl text-[var(--text-primary)]">
-              Stay in the loop
-            </h2>
+          <div ref={cardRef}>
+            <FormaShellCard className="px-6 py-6 text-center md:px-12 md:py-12">
+              <FormaShellSectionHeading
+                title="Stay in the loop"
+                description="Updates on new features and the occasional file organization joke."
+                align="center"
+              />
 
-            <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-              Updates on new features and the occasional file organization joke.
-            </p>
-
-            <div className="mt-6">
-              {formState === "success" ? (
-                <div className="flex items-center justify-center gap-2 text-forma-sage py-3">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span className="font-display text-base">You&apos;re in.</span>
-                </div>
-              ) : (
-                <form
-                  onSubmit={handleSubmit}
-                  className="flex flex-col sm:flex-row gap-2.5 max-w-sm mx-auto"
-                >
-                  <div className="flex-1 relative">
-                    <input
+              <div className="mt-6">
+                {formState === "success" ? (
+                  <div className="flex items-center justify-center gap-2 py-3 text-forma-sage">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="font-display text-base">You&apos;re in.</span>
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={handleSubmit}
+                    className="mx-auto flex max-w-sm flex-col gap-2.5 sm:flex-row"
+                  >
+                    <Input
                       type="email"
                       value={email}
                       onChange={(e) => {
@@ -139,32 +139,38 @@ export default function NewsletterSection() {
                       required
                       disabled={formState === "loading"}
                       aria-label="Email address"
-                      className={`w-full rounded-lg bg-[var(--input-bg)] border px-3.5 py-2.5 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-forma-steel-blue/50 focus:ring-1 focus:ring-forma-steel-blue/30 transition-all disabled:opacity-50 ${formState === "error" ? "border-red-400" : "border-[var(--border-strong)]"}`}
+                      aria-invalid={formState === "error"}
+                      className={cn(
+                        "h-11 flex-1 rounded-xl border bg-[var(--shell-surface-muted)] px-4 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-forma-steel-blue focus-visible:ring-2 focus-visible:ring-forma-steel-blue/20 disabled:opacity-50",
+                        formState === "error"
+                          ? "border-red-400"
+                          : "border-[var(--shell-border)]"
+                      )}
                     />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={formState === "loading"}
-                    className="inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[var(--border-medium)] bg-[var(--cta-bg)] px-5 py-2.5 text-[14px] font-medium text-[var(--cta-text)] transition-all duration-200 hover:bg-[var(--cta-bg-hover)] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {formState === "loading" ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Subscribing</span>
-                      </>
-                    ) : (
-                      <span>Subscribe</span>
-                    )}
-                  </button>
-                </form>
-              )}
+                    <Button
+                      type="submit"
+                      disabled={formState === "loading"}
+                      className="h-11 cursor-pointer whitespace-nowrap rounded-xl border border-[var(--shell-cta-border)] bg-[var(--shell-cta-bg)] px-5 text-[14px] font-semibold text-[var(--shell-cta-text)] transition-all duration-200 hover:bg-[var(--shell-cta-bg-hover)] hover:shadow-[var(--shell-shadow-strong)]"
+                    >
+                      {formState === "loading" ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Subscribing</span>
+                        </>
+                      ) : (
+                        <span>Subscribe</span>
+                      )}
+                    </Button>
+                  </form>
+                )}
 
-              {formState === "error" && errorMessage && (
-                <p role="alert" className="mt-2 text-[13px] text-red-400">
-                  {errorMessage}
-                </p>
-              )}
-            </div>
+                {formState === "error" && errorMessage && (
+                  <p role="alert" className="mt-2 text-[13px] text-red-400">
+                    {errorMessage}
+                  </p>
+                )}
+              </div>
+            </FormaShellCard>
           </div>
         </div>
       </div>

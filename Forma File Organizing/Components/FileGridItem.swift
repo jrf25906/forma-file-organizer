@@ -8,6 +8,7 @@ struct FileGridItem: View {
     let isSelected: Bool
     let isSelectionMode: Bool
     let showsPrimaryActionButton: Bool
+    var surfaceActivity: FileSurfaceStyle.ActivityState = .none
 
     // Search match type for content search badge
     let searchMatchType: ContentSearchService.MatchType?
@@ -56,6 +57,16 @@ struct FileGridItem: View {
 
     private var primaryActionKind: FilePrimaryActionKind {
         FilePrimaryActionKind.resolve(for: file)
+    }
+
+    private var surfaceStyle: FileSurfaceStyle {
+        .resolved(
+            kind: .card,
+            isHovered: isHovered,
+            isSelected: isSelected,
+            isFocused: isFocused,
+            activity: surfaceActivity
+        )
     }
 
     // MARK: - Dynamic Thumbnail Properties
@@ -131,10 +142,19 @@ struct FileGridItem: View {
                 .frame(height: footerHeight, alignment: .topLeading)
                 .background(footerBackground)
             }
-            .background(tileBackground)
+            .background(FileSurfaceBackground(style: surfaceStyle))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(tileSheen)
-            .overlay(tileBorder)
+            .overlay(
+                FileSurfaceBorder(
+                    style: surfaceStyle,
+                    cornerRadius: cornerRadius,
+                    primaryLineWidth: tileOuterBorderWidth,
+                    accentLineWidth: 1,
+                    accentInset: 3,
+                    innerBorderColor: tileInnerBorderColor
+                )
+            )
             .shadow(color: tileAmbientShadowColor, radius: tileAmbientShadowRadius, x: 0, y: tileAmbientShadowY)
             .shadow(color: tileContactShadowColor, radius: tileContactShadowRadius, x: 0, y: tileContactShadowY)
 
@@ -243,8 +263,10 @@ struct FileGridItem: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.formaBoneWhite.opacity(isFocused || isSelected ? 0.24 : 0.16),
-                        Color.formaBoneWhite.opacity(isHovered ? 0.08 : 0.05),
+                        Color.formaBoneWhite.opacity(
+                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.24 : 0.16
+                        ),
+                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.08 : 0.05),
                         Color.formaBoneWhite.opacity(0)
                     ],
                     startPoint: .topLeading,
@@ -255,103 +277,89 @@ struct FileGridItem: View {
             .allowsHitTesting(false)
     }
 
-    @ViewBuilder
-    private var tileBackground: some View {
-        ZStack {
-            Color.formaCardBackground
-
-            if isHovered && !isSelected && !isFocused {
-                Color.formaListRowHoverOverlay
-            }
-
-            if isSelected || isFocused {
-                Color.formaListRowSelectionOverlay
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var tileBorder: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .strokeBorder(tileOuterBorderColor, lineWidth: tileOuterBorderWidth)
-            .overlay(
-                RoundedRectangle(cornerRadius: FormaNestedRadius.inset(cornerRadius), style: .continuous)
-                    .stroke(tileInnerBorderColor, lineWidth: 0.75)
-            )
-    }
-
     private var footerBackground: some View {
         ZStack(alignment: .top) {
-            Color.formaCardBackground.opacity(Color.FormaOpacity.strong)
+            surfaceStyle.fillColor.opacity(Color.FormaOpacity.strong)
 
             Color.formaSeparator.opacity(0.3)
                 .frame(height: 0.5)
         }
     }
 
-    private var tileOuterBorderColor: Color {
-        isFocused ? Color.formaListRowFocusedBorder :
-        isSelected ? Color.formaListRowSelectedBorder :
-        isHovered ? Color.formaListRowHoverBorder :
-        Color.formaListRowBorder
-    }
-
     private var tileInnerBorderColor: Color {
-        if isFocused || isSelected {
+        switch surfaceStyle.interactionState {
+        case .focused, .selected:
             return Color.formaBoneWhite.opacity(0.32)
-        }
-        if isHovered {
+        case .hover:
             return Color.formaBoneWhite.opacity(0.18)
+        case .rest:
+            if surfaceStyle.activityState != .none {
+                return Color.formaBoneWhite.opacity(0.16)
+            }
+            return Color.formaBoneWhite.opacity(0.12)
         }
-        return Color.formaBoneWhite.opacity(0.12)
     }
 
     private var tileOuterBorderWidth: CGFloat {
-        isFocused ? 1.5 : (isSelected ? 1.0 : 0.75)
+        switch surfaceStyle.interactionState {
+        case .focused:
+            return 1.5
+        case .selected:
+            return 1.0
+        case .hover, .rest:
+            return 0.75
+        }
     }
 
     private var tileAmbientShadowColor: Color {
-        if isFocused {
+        switch surfaceStyle.interactionState {
+        case .focused:
             return Color.formaSteelBlue.opacity(0.12)
-        }
-        if isSelected {
+        case .selected:
             return Color.formaObsidian.opacity(0.06)
-        }
-        if isHovered {
+        case .hover:
             return Color.formaObsidian.opacity(0.08)
+        case .rest:
+            return Color.formaObsidian.opacity(0.03)
         }
-        return Color.formaObsidian.opacity(0.03)
     }
 
     private var tileAmbientShadowRadius: CGFloat {
-        if isFocused { return 12 }
-        if isSelected { return 8 }
-        if isHovered { return 6 }
-        return 4
+        switch surfaceStyle.interactionState {
+        case .focused: return 12
+        case .selected: return 8
+        case .hover: return 6
+        case .rest: return 4
+        }
     }
 
     private var tileAmbientShadowY: CGFloat {
-        if isFocused { return 4 }
-        if isSelected || isHovered { return 3 }
-        return 1
+        switch surfaceStyle.interactionState {
+        case .focused: return 4
+        case .selected, .hover: return 3
+        case .rest: return 1
+        }
     }
 
     private var tileContactShadowColor: Color {
-        if isFocused || isHovered {
+        switch surfaceStyle.interactionState {
+        case .focused, .hover:
             return Color.formaObsidian.opacity(0.10)
+        case .selected, .rest:
+            return Color.formaObsidian.opacity(0.05)
         }
-        return Color.formaObsidian.opacity(0.05)
     }
 
     private var tileContactShadowRadius: CGFloat {
-        if isFocused { return 2 }
-        if isHovered || isSelected { return 1.5 }
-        return 1
+        switch surfaceStyle.interactionState {
+        case .focused: return 2
+        case .selected, .hover: return 1.5
+        case .rest: return 1
+        }
     }
 
     private var tileContactShadowY: CGFloat {
-        if isFocused { return 2 }
-        return 1
+        surfaceStyle.interactionState == .focused ? 2 : 1
     }
 }
 

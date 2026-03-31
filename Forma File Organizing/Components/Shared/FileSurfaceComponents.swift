@@ -98,6 +98,74 @@ enum FileIdentityLayout {
     }
 }
 
+extension FileSurfaceStyle {
+    static func resolved(
+        kind: SurfaceKind,
+        isHovered: Bool,
+        isSelected: Bool,
+        isFocused: Bool,
+        activity: ActivityState = .none
+    ) -> FileSurfaceStyle {
+        resolve(
+            .init(
+                kind: kind,
+                isHovered: isHovered,
+                isSelected: isSelected,
+                isFocused: isFocused,
+                activity: activity
+            )
+        )
+    }
+}
+
+struct FileSurfaceBackground: View {
+    let style: FileSurfaceStyle
+
+    var body: some View {
+        ZStack {
+            style.fillColor
+
+            ForEach(Array(style.overlayColors.enumerated()), id: \.offset) { _, color in
+                color
+            }
+        }
+    }
+}
+
+struct FileSurfaceBorder: View {
+    let style: FileSurfaceStyle
+    let cornerRadius: CGFloat
+    let primaryLineWidth: CGFloat
+    var accentLineWidth: CGFloat = 1
+    var accentInset: CGFloat = 3
+    var innerBorderColor: Color? = nil
+    var innerBorderWidth: CGFloat = 0.75
+    var innerBorderInset: CGFloat = 1
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .strokeBorder(style.primaryBorderColor, lineWidth: primaryLineWidth)
+            .overlay {
+                if let accentBorderColor = style.accentBorderColor {
+                    RoundedRectangle(
+                        cornerRadius: FormaNestedRadius.inset(cornerRadius, by: accentInset),
+                        style: .continuous
+                    )
+                    .stroke(accentBorderColor, lineWidth: accentLineWidth)
+                }
+            }
+            .overlay {
+                if let innerBorderColor {
+                    RoundedRectangle(
+                        cornerRadius: FormaNestedRadius.inset(cornerRadius, by: innerBorderInset),
+                        style: .continuous
+                    )
+                    .stroke(innerBorderColor, lineWidth: innerBorderWidth)
+                }
+            }
+    }
+}
+
 struct FileIdentityBlock: View {
     let file: FileItem
     let layout: FileIdentityLayout
