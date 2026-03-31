@@ -132,6 +132,13 @@ struct DashboardView: View {
         showsInspectorColumn ? "threeColumn" : "twoColumn"
     }
 
+    private var shouldCollectGuidedTourFrames: Bool {
+        GuidedTourMeasurementPolicy.shouldCollectFrames(
+            isTourActive: tourState.isActive,
+            hasSeenTour: tourState.hasSeenTour
+        )
+    }
+
     @ViewBuilder
     private var sidebarColumn: some View {
         SidebarView(
@@ -225,9 +232,13 @@ struct DashboardView: View {
                     }
                 }
             }
+            .environment(\.guidedTourMeasurementsEnabled, shouldCollectGuidedTourFrames)
             .onPreferenceChange(GuidedTourRegionPreferenceKey.self) { frames in
+                guard shouldCollectGuidedTourFrames else { return }
                 for regionFrame in frames {
-                    tourState.regionFrames[regionFrame.region] = regionFrame.frame
+                    if tourState.regionFrames[regionFrame.region] != regionFrame.frame {
+                        tourState.regionFrames[regionFrame.region] = regionFrame.frame
+                    }
                 }
             }
             .background(Color.formaBackground)

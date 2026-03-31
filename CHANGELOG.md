@@ -153,6 +153,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
 
 ### Fixed
+- Sidebar collapse/expand no longer re-runs bookmark refresh work on every reappearance, and guided-tour frame collection now shuts off once the tour has been seen to reduce left-sidebar animation hitching.
 - Dashboard automation refreshes now replace only rescanned roots instead of dropping unaffected in-memory file slices after partial scan persistence updates.
 - Deleting a rule from Smart Rules or Settings no longer crashes when SwiftUI re-renders a just-deleted SwiftData `Rule`; both lists now hide pending deletions immediately and rule cards render from stable snapshot data instead of faulting `conditions` during teardown.
 - Legacy absolute home-relative rule destinations now normalize back to canonical bookmark roots instead of being misclassified as unsupported paths.

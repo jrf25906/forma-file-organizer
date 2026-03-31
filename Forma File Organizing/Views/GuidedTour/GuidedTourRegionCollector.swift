@@ -17,22 +17,39 @@ struct GuidedTourRegionPreferenceKey: PreferenceKey {
     }
 }
 
+private struct GuidedTourMeasurementsEnabledKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var guidedTourMeasurementsEnabled: Bool {
+        get { self[GuidedTourMeasurementsEnabledKey.self] }
+        set { self[GuidedTourMeasurementsEnabledKey.self] = newValue }
+    }
+}
+
 // MARK: - GuidedTourRegionModifier
 
 private struct GuidedTourRegionModifier: ViewModifier {
     let region: GuidedTourRegion
+    @Environment(\.guidedTourMeasurementsEnabled) private var guidedTourMeasurementsEnabled
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
-            .background(
-                GeometryReader { proxy in
-                    Color.clear
-                        .preference(
-                            key: GuidedTourRegionPreferenceKey.self,
-                            value: [GuidedTourRegionFrame(region: region, frame: proxy.frame(in: .global))]
-                        )
-                }
-            )
+        if guidedTourMeasurementsEnabled {
+            content
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(
+                                key: GuidedTourRegionPreferenceKey.self,
+                                value: [GuidedTourRegionFrame(region: region, frame: proxy.frame(in: .global))]
+                            )
+                    }
+                )
+        } else {
+            content
+        }
     }
 }
 

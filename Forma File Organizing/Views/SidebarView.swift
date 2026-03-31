@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import SwiftData
 
@@ -142,8 +143,6 @@ struct SidebarView: View {
                 .ignoresSafeArea(edges: .top)
         )
         .onAppear {
-            // Refresh folder service when sidebar appears to ensure locations are current
-            folderService.refresh()
             if case .nestedFolder(let base, let relativePath, let includeSubfolders) = nav.selection {
                 expandedNestedFolders.insert(base)
                 if includeSubfolders != scanSubfolders {
@@ -155,6 +154,9 @@ struct SidebarView: View {
                         )
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            folderService.refresh()
         }
         .onChange(of: nav.selection) { _, newSelection in
             guard case .nestedFolder(let base, _, _) = newSelection else { return }
