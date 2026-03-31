@@ -25,7 +25,7 @@ const formaShellCtaVariants = cva(
 
 type FormaShellCtaProps = Omit<
   React.ComponentProps<typeof Button>,
-  "variant"
+  "variant" | "size"
 > &
   VariantProps<typeof formaShellCtaVariants>
 

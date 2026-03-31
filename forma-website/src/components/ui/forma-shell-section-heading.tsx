@@ -35,7 +35,12 @@ function FormaShellSectionHeading({
         {title}
       </h2>
       {description ? (
-        <p className="max-w-2xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
+        <p
+          className={cn(
+            "max-w-2xl text-[15px] leading-relaxed text-[var(--text-secondary)]",
+            align === "center" && "mx-auto"
+          )}
+        >
           {description}
         </p>
       ) : null}
