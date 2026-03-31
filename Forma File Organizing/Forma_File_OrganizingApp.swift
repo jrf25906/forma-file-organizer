@@ -67,6 +67,26 @@ struct Forma_File_OrganizingApp: App {
         return (CGFloat(width), CGFloat(height))
     }
 
+    private static func windowPresentationDefaults() -> UserDefaults {
+        guard let suiteName = ProcessInfo.processInfo.environment["FORMA_WINDOW_PRESENTATION_SUITE"],
+              !suiteName.isEmpty,
+              let defaults = UserDefaults(suiteName: suiteName) else {
+            return .standard
+        }
+        return defaults
+    }
+
+    private static var shouldResetWindowPresentation: Bool {
+        ProcessInfo.processInfo.environment["FORMA_RESET_WINDOW_PRESENTATION"] == "1"
+    }
+
+    private static var launchPresentation: DashboardLaunchPresentation {
+        DashboardLaunchPresentation(
+            launchWidth: uiTestWindowSize()?.width ?? MainWindowPresentation.defaultSize.width,
+            hasMeaningfulDefaultPanelContent: true
+        )
+    }
+
     private var isTesting: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
         Self.isUITesting
@@ -86,8 +106,20 @@ struct Forma_File_OrganizingApp: App {
 
     init() {
         let appServices = AppServices()
+        let windowPresentationStore = WindowPresentationStore(defaults: Self.windowPresentationDefaults())
+        if Self.shouldResetWindowPresentation {
+            windowPresentationStore.resetInspectorVisibility()
+        }
         _services = StateObject(wrappedValue: appServices)
-        _dashboardViewModel = StateObject(wrappedValue: DashboardViewModel(services: appServices))
+        _dashboardViewModel = StateObject(
+            wrappedValue: DashboardViewModel(
+                services: appServices,
+                fileSystemService: appServices.fileSystemService,
+                fileScanPipeline: appServices.fileScanPipeline,
+                windowPresentationStore: windowPresentationStore,
+                launchPresentation: Self.launchPresentation
+            )
+        )
 
         // Check if running UI Tests (take precedence over XCTestConfigurationFilePath)
         if Self.isUITesting {

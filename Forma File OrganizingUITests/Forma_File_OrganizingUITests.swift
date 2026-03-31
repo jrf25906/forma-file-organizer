@@ -19,7 +19,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         continueAfterFailure = false
 
         let isLaunchPerformanceTest = name.contains("testLaunchPerformance")
-        let usesCustomLaunchWindowSize = false
+        let usesCustomLaunchWindowSize = requiresManualLaunch
         if !isLaunchPerformanceTest {
             terminateRunningAppIfNeeded()
         }
@@ -30,11 +30,14 @@ final class Forma_File_OrganizingUITests: XCTestCase {
             return
         }
 
+        let defaultWindowPresentationSuiteName = defaultWindowPresentationSuiteName
         let launchedApp = await MainActor.run {
             let app = XCUIApplication()
             // Pass a launch argument to indicate UI test mode, which can be used
             // to seed mock data or skip onboarding
             app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
+            app.launchEnvironment["FORMA_WINDOW_PRESENTATION_SUITE"] = defaultWindowPresentationSuiteName
+            app.launchEnvironment["FORMA_RESET_WINDOW_PRESENTATION"] = "1"
 
             if !isLaunchPerformanceTest {
                 app.launch()
@@ -86,6 +89,53 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     }
 
     // MARK: - Keyboard Navigation Tests
+
+    @MainActor
+    func testMediumWindowLaunchDefaultsToTwoColumnLayout() throws {
+        launchApp(windowSize: "1340x900")
+        harness.waitForMainContent()
+
+        let splitProbe = harness.splitLayoutProbe()
+        harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
+        harness.waitForSplitLayout("twoColumn", timeout: 4)
+    }
+
+    @MainActor
+    func testLargeWindowLaunchDefaultsToThreeColumnLayoutWhenInspectorHasMeaningfulContent() throws {
+        launchApp(windowSize: "1600x980")
+        harness.waitForMainContent()
+
+        let splitProbe = harness.splitLayoutProbe()
+        harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+    }
+
+    @MainActor
+    func testInspectorVisibilityPersistsAcrossRelaunches() throws {
+        let suiteName = "\(defaultWindowPresentationSuiteName).inspectorPersistence"
+        launchApp(
+            windowSize: "1600x980",
+            suiteName: suiteName,
+            resetWindowPresentation: true
+        )
+        harness.waitForMainContent()
+
+        let splitProbe = harness.splitLayoutProbe()
+        harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+
+        app.activate()
+        app.typeKey("i", modifierFlags: .command)
+        harness.waitForSplitLayout("twoColumn", timeout: 4)
+
+        launchApp(
+            windowSize: "1600x980",
+            suiteName: suiteName,
+            resetWindowPresentation: false
+        )
+        harness.waitForMainContent()
+        harness.waitForSplitLayout("twoColumn", timeout: 4)
+    }
     
     @MainActor
     func testKeyboardNavigationDownAndJ() throws {
@@ -495,5 +545,61 @@ final class Forma_File_OrganizingUITests: XCTestCase {
             app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
             app.launch()
         }
+    }
+}
+
+private extension Forma_File_OrganizingUITests {
+    var requiresManualLaunch: Bool {
+        name.contains("testMediumWindowLaunchDefaultsToTwoColumnLayout") ||
+        name.contains("testLargeWindowLaunchDefaultsToThreeColumnLayoutWhenInspectorHasMeaningfulContent") ||
+        name.contains("testInspectorVisibilityPersistsAcrossRelaunches")
+    }
+
+    var defaultWindowPresentationSuiteName: String {
+        sanitizeSuiteName(name)
+    }
+
+    @MainActor
+    func launchApp(
+        windowSize: String,
+        suiteName: String? = nil,
+        resetWindowPresentation: Bool = true
+    ) {
+        app?.terminate()
+        terminateRunningAppIfNeeded()
+
+        let launchedApp = XCUIApplication()
+        launchedApp.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
+        launchedApp.launchEnvironment["FORMA_WINDOW_SIZE"] = windowSize
+        configureWindowPresentationIsolation(
+            for: launchedApp,
+            suiteName: suiteName ?? defaultWindowPresentationSuiteName,
+            resetWindowPresentation: resetWindowPresentation
+        )
+        launchedApp.launch()
+        _ = launchedApp.wait(for: .runningForeground, timeout: 5)
+
+        app = launchedApp
+        harness = UITestHarness(app: launchedApp)
+    }
+
+    @MainActor
+    func configureWindowPresentationIsolation(
+        for app: XCUIApplication,
+        suiteName: String? = nil,
+        resetWindowPresentation: Bool = true
+    ) {
+        app.launchEnvironment["FORMA_WINDOW_PRESENTATION_SUITE"] = suiteName ?? defaultWindowPresentationSuiteName
+        app.launchEnvironment["FORMA_RESET_WINDOW_PRESENTATION"] = resetWindowPresentation ? "1" : "0"
+    }
+
+    func sanitizeSuiteName(_ rawValue: String) -> String {
+        let sanitized = rawValue.map { character -> Character in
+            if character.isLetter || character.isNumber {
+                return character
+            }
+            return "_"
+        }
+        return "FormaUITests.\(String(sanitized))"
     }
 }

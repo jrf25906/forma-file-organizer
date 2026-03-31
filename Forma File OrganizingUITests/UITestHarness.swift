@@ -37,6 +37,16 @@ final class UITestHarness {
     }
 
     @MainActor
+    func splitLayoutProbe() -> XCUIElement {
+        element(withIdentifier: "dashboardSplitLayoutProbe")
+    }
+
+    @MainActor
+    func inspectorToggle() -> XCUIElement {
+        app.buttons["toolbarInspectorToggle"]
+    }
+
+    @MainActor
     func tapNeedsReviewSegment(timeout: TimeInterval = 4) {
         let picker = reviewModePicker()
         XCTAssertTrue(picker.waitForExistence(timeout: timeout), "Review mode picker should exist")
@@ -169,5 +179,22 @@ final class UITestHarness {
     @MainActor
     func waitForViewMode(_ mode: String, timeout: TimeInterval = 4) {
         waitForValue(element(withIdentifier: "mainContent_viewMode"), contains: mode, timeout: timeout)
+    }
+
+    @MainActor
+    func waitForSplitLayout(_ mode: String, timeout: TimeInterval = 4) {
+        waitForValue(splitLayoutProbe(), equals: mode, timeout: timeout)
+    }
+
+    @MainActor
+    func toggleInspector(timeout: TimeInterval = 4) {
+        let toggle = inspectorToggle()
+        if toggle.waitForExistence(timeout: timeout) {
+            toggle.click()
+            return
+        }
+
+        app.activate()
+        app.typeKey("i", modifierFlags: .command)
     }
 }

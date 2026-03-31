@@ -13,6 +13,13 @@ Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-
 - [ ] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
 - [ ] Plan metadata-backed project spaces and workflow memory before broad cloud or chatbot-style AI expansion.
 
+## Adaptive Window Launch Presentation (March 30, 2026)
+- [x] Default dashboard launch to `twoColumn` at medium window widths and to `threeColumn` only on wide launches with meaningful default inspector content.
+- [x] Persist user-driven inspector visibility across relaunches through `WindowPresentationStore` instead of resetting to an always-open inspector.
+- [x] Add targeted UI coverage for medium-width launch, large-width launch, and inspector visibility persistence across relaunches.
+- [x] Isolate UI-test window-presentation defaults per suite so screenshot and layout coverage stay deterministic.
+- [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
+
 ## Spotlight + Finder Services Integration (March 25, 2026)
 - [x] Add an `ExternalIngressCoordinator` that normalizes Finder Services and Spotlight/App Intent requests into one resumable ingress flow.
 - [x] Accept both directly selected files and selected folders, scanning only each folder's immediate file children for one-time external organization requests.

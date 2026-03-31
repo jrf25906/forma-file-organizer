@@ -33,6 +33,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Dashboard launch now defaults to `twoColumn` at medium widths and only starts in `threeColumn` on wide launches with meaningful default inspector content; user-driven inspector visibility now persists across relaunches.
 - Dashboard startup now restores pending external review sessions before normal launch scanning, resumes deferred external requests after onboarding, and limits externally opened review sessions to the requested file paths.
 - External review sessions now self-prune as requested files leave the pending/ready queue, and skip-only Finder/Spotlight feedback no longer resets the user’s existing dashboard filters.
 - External folder requests now behave as one-time, top-level scan roots instead of automatically mutating bookmark-backed monitored-folder settings.
