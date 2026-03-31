@@ -54,8 +54,7 @@ describe("Header", () => {
     expect(headerTag).toContain('data-header-shell="floating"')
     expect(headerClasses).toContain("pointer-events-none")
     expect(shellHostClasses).toContain("pointer-events-auto")
-    expect(headerClasses).not.toEqual(
-      expect.arrayContaining(["border-b", "bg-[var(--bg-primary)]"])
-    )
+    expect(headerClasses).not.toContain("border-b")
+    expect(headerClasses).not.toContain("bg-[var(--bg-primary)]")
   })
 })
