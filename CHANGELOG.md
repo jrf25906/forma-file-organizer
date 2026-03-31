@@ -41,7 +41,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `SidebarGlassOverlay` now disables its sheen and edge highlight treatment when macOS Reduce Transparency is enabled, so the sidebar falls back cleanly instead of layering decorative glass over the accessibility preference.
 - Reapplying the same rule to a `.ready` file now clears stale organize-error state when the destination is still resolved, and card/list/grid accessibility identifiers now use stable path-backed keys so duplicate filenames no longer collide in UI automation.
 - Card/list/grid file-surface accessibility state probes now include the shared activity axis (`none`, `pending`, `organizing`, `error`) so UI automation can assert the new Luma activity model directly instead of inferring it from visual chrome.
-- `forma-website` home now treats the header as a floating shell layered over the hero instead of a full-width top bar, and the homepage hero uses a shared header-clearance contract so the shell inset, shell height, and hero offset stay aligned.
+- `forma-website` home now treats the header as a floating shell layered over the hero instead of a full-width top bar, and shared header-clearance contracts now keep the shell inset, shell height, homepage hero offset, and non-home route top spacing aligned.
 - `forma-website` now routes the header/footer shell, pricing, FAQ, newsletter, and support surfaces through shared `FormaShellCard`, `FormaShellSectionHeading`, and `FormaShellCta` primitives while keeping the hero and product demos bespoke.
 - Newsletter validation and confirmation states now expose linked error text plus a focusable live success message, and the support route shell keeps a single visible page-level `h1` after the shell pass.
 - Post-onboarding first-run guidance now appears only when the visible review context contains a meaningful ready batch, the banner’s CTA scopes organization to that suggested batch instead of acting on every ready file in view, and the prompt stays hidden during focused external review sessions.
@@ -171,6 +171,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
 
 ### Fixed
+- Legacy SwiftData stores with `StorageSnapshot` rows created before `folderBreakdownData` existed now lightweight-migrate with an empty folder breakdown instead of crashing app launch during `ModelContainer` initialization.
 - Sidebar collapse/expand no longer re-runs bookmark refresh work on every reappearance, and guided-tour frame collection now shuts off once the tour has been seen to reduce left-sidebar animation hitching.
 - Dashboard automation refreshes now replace only rescanned roots instead of dropping unaffected in-memory file slices after partial scan persistence updates.
 - Deleting a rule from Smart Rules or Settings no longer crashes when SwiftUI re-renders a just-deleted SwiftData `Rule`; both lists now hide pending deletions immediately and rule cards render from stable snapshot data instead of faulting `conditions` during teardown.

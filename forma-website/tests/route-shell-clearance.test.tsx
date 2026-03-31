@@ -9,6 +9,7 @@ import ForAgentsPage from "../src/app/for-agents/page"
 import GetFormaPage from "../src/app/get-forma/page"
 import SupportPage from "../src/app/support/page"
 import LegalPageShell from "../src/components/legal/LegalPageShell"
+import { getAllBlogSlugs } from "../src/lib/content"
 import { HEADER_SHELL_LAYOUT } from "../src/lib/header-shell-layout"
 
 function mainOpenTag(html: string) {
@@ -34,15 +35,21 @@ function classTokens(tagHtml: string) {
 describe("Non-home route shells", () => {
   it("apply the shared header clearance contract to every top-level route shell", async () => {
     const clearanceClasses = HEADER_SHELL_LAYOUT.routeClearanceClassName.split(/\s+/).filter(Boolean)
+    const [blogSlug] = await getAllBlogSlugs()
+
+    if (!blogSlug) {
+      throw new Error("Expected at least one blog slug for route shell clearance coverage")
+    }
 
     const renderedPages = [
       await BlogIndexPage(),
-      await BlogPostPage({ params: Promise.resolve({ slug: "organize-mac-files" }) }),
-      <GetFormaPage />,
-      <SupportPage />,
-      <ForAgentsPage />,
+      await BlogPostPage({ params: Promise.resolve({ slug: blogSlug }) }),
+      <GetFormaPage key="get-forma" />,
+      <SupportPage key="support" />,
+      <ForAgentsPage key="for-agents" />,
       (
         <LegalPageShell
+          key="legal-shell"
           eyebrow="Legal"
           title="Terms"
           description="Terms description"
