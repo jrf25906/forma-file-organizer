@@ -4,13 +4,18 @@ import SwiftUI
 struct SidebarGlassOverlay: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.controlActiveState) private var controlActiveState
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var isWindowActive: Bool {
         controlActiveState != .inactive
     }
 
     private var glassStyle: FormaSidebarGlassStyle {
-        FormaControlChromePalette.sidebarGlassStyle(colorScheme, isWindowActive: isWindowActive)
+        FormaControlChromePalette.sidebarGlassStyle(
+            colorScheme,
+            isWindowActive: isWindowActive,
+            reduceTransparency: reduceTransparency
+        )
     }
 
     private var sheenGradient: LinearGradient {

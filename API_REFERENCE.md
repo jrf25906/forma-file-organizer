@@ -21,6 +21,9 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `FileRowAccessibilityIdentifier.listStateIdentifier(fileName:filePath:)`
   - `FileRowAccessibilityIdentifier.gridStateIdentifier(fileName:filePath:)`
   - Card/list/grid accessibility probes now expose the shared activity axis, and row/state identifiers remain unique when duplicate filenames are present.
+- Sidebar glass accessibility fallback
+  - `FormaControlChromePalette.sidebarGlassStyle(_:isWindowActive:reduceTransparency:)`
+  - `SidebarGlassOverlay` now forwards the Reduce Transparency environment setting into the sidebar glass palette so sheen and edge highlights drop to zero under the accessibility preference.
 - External ingress (`Forma File Organizing/Services/ExternalIngressCoordinator.swift`)
   - `ExternalIngressSource`
   - `ExternalIngressItemKind`

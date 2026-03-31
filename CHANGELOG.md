@@ -38,6 +38,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ### Changed
 - Native Luma refresh chrome now applies the sidebar glass treatment in the live split-view sidebar, and light-mode toolbar/view-mode selected states use a stronger shared compact segment style for clearer native selection contrast.
+- `SidebarGlassOverlay` now disables its sheen and edge highlight treatment when macOS Reduce Transparency is enabled, so the sidebar falls back cleanly instead of layering decorative glass over the accessibility preference.
 - Reapplying the same rule to a `.ready` file now clears stale organize-error state when the destination is still resolved, and card/list/grid accessibility identifiers now use stable path-backed keys so duplicate filenames no longer collide in UI automation.
 - Card/list/grid file-surface accessibility state probes now include the shared activity axis (`none`, `pending`, `organizing`, `error`) so UI automation can assert the new Luma activity model directly instead of inferring it from visual chrome.
 - `forma-website` now routes the header/footer shell, pricing, FAQ, newsletter, and support surfaces through shared `FormaShellCard`, `FormaShellSectionHeading`, and `FormaShellCta` primitives while keeping the hero and product demos bespoke.
