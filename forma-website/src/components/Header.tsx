@@ -33,9 +33,9 @@ export function Header() {
       <header
         role="banner"
         data-header-shell="floating"
-        className="relative z-50 w-full pointer-events-none"
+        className="fixed inset-x-0 top-0 z-50 pointer-events-none"
       >
-        <div className="site-container pointer-events-auto py-4">
+        <div className="site-container pointer-events-auto pt-4 md:pt-5">
           <FormaShellCard className="flex h-[72px] items-center justify-between gap-3 px-4 md:px-5">
             <Link
               href="/#top"
