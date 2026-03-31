@@ -62,7 +62,7 @@ struct FloatingActionBar: View {
         case .selection:
             return "file\(count == 1 ? "" : "s") selected"
         case .review:
-            return "Ready to Organize"
+            return count > 0 ? "\(count) ready right now" : "Review current pass"
         }
     }
     
@@ -126,11 +126,11 @@ struct FloatingActionBar: View {
 
                 // Skip button (Ghost outline style)
                 FormaSecondaryButton(
-                    title: mode == .selection ? "Skip Selection" : "Skip",
+                    title: mode == .selection ? "Skip Selection" : "Done for now",
                     action: onSkip,
                     cornerRadius: FormaRadius.pill
                 )
-                .frame(width: mode == .selection ? 140 : 80, height: 32)
+                .frame(width: mode == .selection ? 140 : 132, height: 32)
 
                 // Primary action (Organize)
                 if canOrganizeAll || mode == .selection {

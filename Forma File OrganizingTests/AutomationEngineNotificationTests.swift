@@ -139,8 +139,41 @@ final class AutomationEngineNotificationTests: XCTestCase {
         await engine.triggerAutoOrganize()
 
         XCTAssertEqual(notificationService.automationErrors.count, 1)
-        XCTAssertEqual(notificationService.automationErrors.first?.type, .scanFailed)
-        XCTAssertTrue(notificationService.automationErrors.first?.message.contains("Auto-organize preflight failed") == true)
+        XCTAssertEqual(notificationService.automationErrors.first?.type, .permissionDenied)
+        XCTAssertEqual(notificationService.automationErrors.first?.message, "Access to folder denied")
+    }
+
+    func testScanSummaryUsesStructuredErrorTypeInsteadOfGenericSummaryText() async throws {
+        let policy = makePolicy(notificationsEnabled: true)
+        let notificationService = MockNotificationService()
+        let engine = makeEngine(policy: policy, notificationService: notificationService)
+
+        let container = try ModelContainer(
+            for: FileItem.self, Rule.self, ActivityItem.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let provider = MockFileScanProvider()
+        provider.scanResult = FileScanResult(
+            totalScanned: 20,
+            pendingCount: 3,
+            readyCount: 1,
+            organizedCount: 16,
+            skippedCount: 0,
+            oldestPendingAgeDays: 2,
+            errorSummary: "Failed to scan Downloads",
+            primaryErrorType: .permissionDenied
+        )
+        engine.configure(
+            modelContext: container.mainContext,
+            organizationCoordinator: FileOrganizationCoordinator(),
+            scanProvider: provider
+        )
+
+        await engine.triggerManualScan()
+
+        XCTAssertEqual(notificationService.automationErrors.count, 1)
+        XCTAssertEqual(notificationService.automationErrors.first?.type, .permissionDenied)
+        XCTAssertEqual(notificationService.automationErrors.first?.message, "Failed to scan Downloads")
     }
 
     // MARK: - Helpers

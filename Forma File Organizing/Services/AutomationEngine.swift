@@ -353,9 +353,10 @@ final class AutomationEngine: ObservableObject {
             // Check thresholds
             let metrics = AutomationMetrics(from: result)
             if let errorSummary = result.errorSummary {
+                let errorType = result.primaryErrorType ?? AutomationErrorType.classify(message: errorSummary)
                 Log.warning("AutomationEngine: Scan completed with errors - \(errorSummary)", category: .automation)
-                ActivityLoggingService.create(from: context)?.logAutomationError(type: .scanFailed, message: errorSummary)
-                sendErrorNotification(type: .scanFailed, message: errorSummary)
+                ActivityLoggingService.create(from: context)?.logAutomationError(type: errorType, message: errorSummary)
+                sendErrorNotification(type: errorType, message: errorSummary)
             }
             checkThresholds(metrics: metrics)
 
@@ -386,10 +387,11 @@ final class AutomationEngine: ObservableObject {
                 confidenceThreshold: policy.mlConfidenceThreshold
             )
         } catch {
-            let message = "Auto-organize preflight failed: \(error.localizedDescription)"
+            let errorType = AutomationErrorType.classify(error: error)
+            let message = AutomationErrorType.cleanMessage(from: error)
             Log.error("AutomationEngine: \(message)", category: .automation)
-            ActivityLoggingService.create(from: context)?.logAutomationError(type: .scanFailed, message: message)
-            sendErrorNotification(type: .scanFailed, message: message)
+            ActivityLoggingService.create(from: context)?.logAutomationError(type: errorType, message: message)
+            sendErrorNotification(type: errorType, message: message)
             return
         }
 
@@ -464,7 +466,10 @@ final class AutomationEngine: ObservableObject {
             )
 
             // Send error notification
-            sendErrorNotification(type: .scanFailed, message: error.localizedDescription)
+            sendErrorNotification(
+                type: AutomationErrorType.classify(error: error),
+                message: AutomationErrorType.cleanMessage(from: error)
+            )
         }
     }
 
@@ -667,11 +672,125 @@ enum AutomationErrorType: Sendable {
 
     var title: String {
         switch self {
-        case .scanFailed: return "Scan Failed"
-        case .bookmarkInvalid: return "Folder Access Lost"
+        case .scanFailed: return "Scan Needs Attention"
+        case .bookmarkInvalid: return "Reconnect Folder Access"
         case .destinationInaccessible: return "Destination Unavailable"
-        case .permissionDenied: return "Permission Required"
+        case .permissionDenied: return "Permission Needed"
         }
+    }
+
+    func supportiveMessage(detail: String) -> String {
+        let prefix: String
+        switch self {
+        case .scanFailed:
+            prefix = "Forma couldn't finish a scan"
+        case .bookmarkInvalid:
+            prefix = "Forma needs folder access restored before it can keep watching this location"
+        case .destinationInaccessible:
+            prefix = "Forma couldn't reach one of your organize destinations"
+        case .permissionDenied:
+            prefix = "Forma needs macOS permission before it can keep organizing here"
+        }
+
+        let cleanedDetail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedDetail.isEmpty else {
+            return prefix + "."
+        }
+        return prefix + ". " + cleanedDetail.terminatedSentence()
+    }
+
+    static func classify(error: Error) -> AutomationErrorType {
+        if let scanError = error as? DashboardFileScanProvider.ScanError {
+            switch scanError {
+            case .bookmarkFailure:
+                return .bookmarkInvalid
+            case .candidateFetchFailed(let details):
+                return classify(message: details)
+            case .timeout, .noFoldersConfigured:
+                return .scanFailed
+            }
+        }
+
+        if let formaError = error as? FormaError {
+            switch formaError {
+            case .fileSystem(let fileError):
+                switch fileError {
+                case .permissionDenied:
+                    return .permissionDenied
+                default:
+                    break
+                }
+            case .validation(let validationError):
+                switch validationError {
+                case .invalidDestination(let details):
+                    let normalized = details.lowercased()
+                    return normalized.contains("bookmark") ? .bookmarkInvalid : .destinationInaccessible
+                default:
+                    break
+                }
+            case .data(let dataError):
+                switch dataError {
+                case .corruptedData(let details), .invalidData(let details):
+                    if details.lowercased().contains("bookmark") {
+                        return .bookmarkInvalid
+                    }
+                default:
+                    break
+                }
+            default:
+                break
+            }
+        }
+
+        return classify(message: cleanMessage(from: error))
+    }
+
+    static func classify(scanErrors: [String: Error], fallbackSummary: String?) -> AutomationErrorType? {
+        let structuredTypes = scanErrors.values.map(classify(error:))
+        let priority: [AutomationErrorType] = [
+            .bookmarkInvalid,
+            .permissionDenied,
+            .destinationInaccessible,
+            .scanFailed
+        ]
+
+        for candidate in priority where structuredTypes.contains(candidate) {
+            return candidate
+        }
+
+        guard let fallbackSummary else {
+            return nil
+        }
+        return classify(message: fallbackSummary)
+    }
+
+    static func classify(message: String) -> AutomationErrorType {
+        let normalized = message.lowercased()
+        if normalized.contains("bookmark") || normalized.contains("security-scoped") {
+            return .bookmarkInvalid
+        }
+        if normalized.contains("permission") || normalized.contains("access denied") || normalized.contains("access to folder denied") {
+            return .permissionDenied
+        }
+        if normalized.contains("destination") || normalized.contains("unavailable") {
+            return .destinationInaccessible
+        }
+        return .scanFailed
+    }
+
+    static func cleanMessage(from error: Error) -> String {
+        let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        return message.isEmpty ? "Unknown automation error" : message
+    }
+}
+
+private extension String {
+    func terminatedSentence() -> String {
+        guard let last else { return self }
+        if last == "." || last == "!" || last == "?" {
+            return self
+        }
+        return self + "."
     }
 }
 
@@ -701,6 +820,7 @@ struct FileScanResult: Sendable {
     let skippedCount: Int
     let oldestPendingAgeDays: Int?
     let errorSummary: String?
+    let primaryErrorType: AutomationErrorType?
     let scannedRootPaths: [String]
 
     init(
@@ -711,6 +831,7 @@ struct FileScanResult: Sendable {
         skippedCount: Int,
         oldestPendingAgeDays: Int?,
         errorSummary: String? = nil,
+        primaryErrorType: AutomationErrorType? = nil,
         scannedRootPaths: [String] = []
     ) {
         self.totalScanned = totalScanned
@@ -720,6 +841,7 @@ struct FileScanResult: Sendable {
         self.skippedCount = skippedCount
         self.oldestPendingAgeDays = oldestPendingAgeDays
         self.errorSummary = errorSummary
+        self.primaryErrorType = primaryErrorType
         self.scannedRootPaths = scannedRootPaths
     }
 }

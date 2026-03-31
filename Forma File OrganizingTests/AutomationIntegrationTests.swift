@@ -9,6 +9,7 @@ import SwiftData
 /// all components work together correctly.
 ///
 /// Uses Swift Testing framework for better @MainActor support with SwiftData.
+@Suite(.serialized)
 struct AutomationIntegrationTests {
 
     private func requireIntegration() -> Bool {
@@ -16,6 +17,13 @@ struct AutomationIntegrationTests {
     }
 
     // MARK: - Activity Logging Tests
+
+    @Test
+    func automationActivityType_ClassifiesToneBuckets() {
+        #expect(ActivityItem.ActivityType.automationAutoOrganized.toneCategory == .progressWin)
+        #expect(ActivityItem.ActivityType.automationScanCompleted.toneCategory == .reminder)
+        #expect(ActivityItem.ActivityType.automationError.toneCategory == .errorOrPermission)
+    }
 
     /// Test: Automation scan completed is logged correctly
     @Test @MainActor
@@ -40,7 +48,7 @@ struct AutomationIntegrationTests {
 
         #expect(scanActivities.count == 1)
         #expect(scanActivities.first?.fileName == "100 files")
-        #expect(scanActivities.first?.details.contains("5 new") ?? false)
+        #expect(scanActivities.first?.details == "Queued 5 new files for your next review pass.")
     }
 
     /// Test: Auto-organize batch is logged with correct counts
@@ -65,9 +73,7 @@ struct AutomationIntegrationTests {
         let batchActivities = activities.filter { $0.activityType == .automationAutoOrganized }
 
         #expect(batchActivities.count == 1)
-        #expect(batchActivities.first?.details.contains("10") ?? false)
-        #expect(batchActivities.first?.details.contains("2 failed") ?? false)
-        #expect(batchActivities.first?.details.contains("3 skipped") ?? false)
+        #expect(batchActivities.first?.details == "Cleared 10 files from the queue. 2 still need attention. 3 are still waiting for review.")
     }
 
     /// Test: Automation error is logged correctly
@@ -83,7 +89,7 @@ struct AutomationIntegrationTests {
         let loggingService = ActivityLoggingService(modelContext: context)
 
         // When: Logging an automation error
-        loggingService.logAutomationError(type: .scanFailed, message: "Permission denied")
+        loggingService.logAutomationError(type: .permissionDenied, message: "Access to folder denied")
         try context.save()
 
         // Then: Activity should be recorded
@@ -92,8 +98,8 @@ struct AutomationIntegrationTests {
         let errorActivities = activities.filter { $0.activityType == .automationError }
 
         #expect(errorActivities.count == 1)
-        #expect(errorActivities.first?.fileName == "Scan Failed")
-        #expect(errorActivities.first?.details == "Permission denied")
+        #expect(errorActivities.first?.fileName == "Permission Needed")
+        #expect(errorActivities.first?.details == "Forma needs macOS permission before it can keep organizing here. Access to folder denied.")
     }
 
     /// Test: Automation paused/resumed is logged correctly

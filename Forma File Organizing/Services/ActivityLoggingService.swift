@@ -176,8 +176,8 @@ final class ActivityLoggingService {
     ///   - newPending: Number of new files requiring review
     func logAutomationScanCompleted(filesScanned: Int, newPending: Int) {
         let details = newPending > 0
-            ? "Found \(newPending) new file\(newPending == 1 ? "" : "s") to review"
-            : "No new files found"
+            ? "Queued \(newPending) new file\(newPending == 1 ? "" : "s") for your next review pass."
+            : "No new files were added to your review queue."
         log(.automationScanCompleted, name: "\(filesScanned) files", details: details, affectedFileCount: filesScanned)
     }
 
@@ -188,13 +188,18 @@ final class ActivityLoggingService {
     ///   - failedCount: Number of files that failed to organize
     ///   - skippedCount: Number of files skipped (didn't meet confidence threshold)
     func logAutoOrganizeBatch(successCount: Int, failedCount: Int, skippedCount: Int = 0) {
-        var details = "Organized \(successCount) file\(successCount == 1 ? "" : "s")"
+        var segments = [
+            successCount > 0
+                ? "Cleared \(successCount) file\(successCount == 1 ? "" : "s") from the queue"
+                : "No files were cleared from the queue"
+        ]
         if failedCount > 0 {
-            details += ", \(failedCount) failed"
+            segments.append("\(failedCount) still need\(failedCount == 1 ? "s" : "") attention")
         }
         if skippedCount > 0 {
-            details += ", \(skippedCount) skipped"
+            segments.append("\(skippedCount) \(skippedCount == 1 ? "is" : "are") still waiting for review")
         }
+        let details = segments.joined(separator: ". ") + "."
         log(.automationAutoOrganized, name: "Auto-Organize", details: details, affectedFileCount: successCount)
     }
 
@@ -204,7 +209,7 @@ final class ActivityLoggingService {
     ///   - type: Type of automation error
     ///   - message: Descriptive error message
     func logAutomationError(type: AutomationErrorType, message: String) {
-        log(.automationError, name: type.title, details: message)
+        log(.automationError, name: type.title, details: type.supportiveMessage(detail: message))
     }
 
     /// Log automation being paused by the user.

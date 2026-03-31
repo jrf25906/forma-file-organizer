@@ -13,9 +13,9 @@ Current sequencing is intentionally aligned with the preview-first, moat-driven 
 Implementation plan for this wave: [`Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md`](../plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
 
 - [ ] Ship quick-win onboarding and first-run proof before asking users to configure more rules.
-- [ ] Add chunked review sessions with `Done for now` semantics so the core workflow feels finite and forgiving.
+- [x] Add chunked review sessions with `Done for now` semantics so the core workflow feels finite and forgiving.
 - [ ] Build trust infrastructure first: rule simulation, stronger preflight checks, richer explanations, and clearer scoped rollback.
-- [ ] Rewrite automation notifications around progress and system health instead of backlog guilt.
+- [x] Rewrite automation notifications around progress and system health instead of backlog guilt.
 - [ ] Convert successful one-time Finder/Spotlight review flows into persistent monitored folders.
 - [ ] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.
 - [ ] Plan metadata-backed project spaces and retrieval workflows as the next durable moat.

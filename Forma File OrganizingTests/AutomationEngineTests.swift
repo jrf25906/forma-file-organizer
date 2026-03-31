@@ -57,4 +57,35 @@ final class AutomationEngineTests: XCTestCase {
         XCTAssertEqual(metrics.skippedCount, 0)
         XCTAssertNil(metrics.oldestPendingAgeDays)
     }
+
+    // MARK: - Error Classification
+
+    func testAutomationErrorTypeClassifiesBookmarkFailureFromConcreteErrorType() {
+        let error = DashboardFileScanProvider.ScanError.bookmarkFailure("Downloads")
+
+        XCTAssertEqual(AutomationErrorType.classify(error: error), .bookmarkInvalid)
+    }
+
+    func testAutomationErrorTypeClassifiesStaleBookmarkCorruptionFromConcreteErrorType() {
+        let error = FormaError.data(.corruptedData("Bookmark is stale. Please re-add this folder."))
+
+        XCTAssertEqual(AutomationErrorType.classify(error: error), .bookmarkInvalid)
+    }
+
+    func testAutomationErrorTypeClassifiesDestinationValidationFromConcreteErrorType() {
+        let error = FormaError.validation(.invalidDestination("/Users/test/Documents"))
+
+        XCTAssertEqual(AutomationErrorType.classify(error: error), .destinationInaccessible)
+    }
+
+    func testAutomationErrorTypeClassifiesStructuredScanErrorsBeforeGenericSummary() {
+        let errors: [String: Error] = [
+            "Downloads": FormaError.fileSystem(.permissionDenied("Downloads"))
+        ]
+
+        XCTAssertEqual(
+            AutomationErrorType.classify(scanErrors: errors, fallbackSummary: "Failed to scan Downloads"),
+            .permissionDenied
+        )
+    }
 }
