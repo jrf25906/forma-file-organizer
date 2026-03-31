@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/sheet";
 import { FormaShellCard } from "@/components/ui/forma-shell-card";
 import { formaShellCtaVariants } from "@/components/ui/forma-shell-cta";
+import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -35,8 +36,10 @@ export function Header() {
         data-header-shell="floating"
         className="fixed inset-x-0 top-0 z-50 pointer-events-none"
       >
-        <div className="site-container pointer-events-auto pt-4 md:pt-5">
-          <FormaShellCard className="flex h-[72px] items-center justify-between gap-3 px-4 md:px-5">
+        <div className={`site-container pointer-events-auto ${HEADER_SHELL_LAYOUT.topInsetClassName}`}>
+          <FormaShellCard
+            className={`flex items-center justify-between gap-3 px-4 md:px-5 ${HEADER_SHELL_LAYOUT.cardHeightClassName}`}
+          >
             <Link
               href="/#top"
               className="inline-flex items-center gap-[10px] text-[var(--text-primary)]"

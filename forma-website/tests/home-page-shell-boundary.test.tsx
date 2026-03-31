@@ -16,15 +16,17 @@ function sectionHtml(html: string, id: string) {
 }
 
 describe("Home", () => {
-  it("keeps the hero bespoke while the pricing section uses shell surfaces", () => {
+  it("keeps the hero bespoke while clearing the floating header shell", () => {
     const html = renderToStaticMarkup(<Home />)
     const heroSection = sectionHtml(html, "top")
     const pricingSection = sectionHtml(html, "pricing")
 
+    expect(heroSection).toContain('data-hero-layout="header-overlay"')
     expect(heroSection).toContain('<h1 data-hero="headline"')
     expect(heroSection).toContain('data-hero="window"')
-    expect(heroSection).toContain('data-hero-layout="header-overlay"')
     expect(heroSection).toContain("bg-transparent")
+    expect(heroSection).toContain("pt-32 pb-12 md:pt-36 md:pb-16 lg:pt-40 lg:pb-24")
+    expect(heroSection).not.toContain("py-12")
     expect(heroSection).not.toContain("rounded-[2.25rem]")
     expect(heroSection).not.toContain("shadow-[var(--shell-shadow)]")
 

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 import dynamic from "next/dynamic";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
+import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
 
 const ScrollDrivenTornado = dynamic(() => import("@/components/effects/ScrollDrivenTornado"));
 const FAQSection = dynamic(() => import("@/components/sections/FAQSection"));
@@ -122,12 +123,15 @@ export default function Home() {
         {/* ─── HERO ─────────────────────────────────────────────────────── */}
         <section
           id="top"
+          data-hero-layout={HEADER_SHELL_LAYOUT.heroLayout}
           className="relative overflow-hidden border-b border-[var(--shell-border)] bg-transparent"
         >
           <ScrollDrivenTornado />
           {/* We removed the static background gradients here so the WebGL shines through */}
 
-          <HeroEntrance className="site-container relative z-10 py-12 md:py-16 lg:py-24">
+          <HeroEntrance
+            className={`site-container relative z-10 ${HEADER_SHELL_LAYOUT.heroClearanceClassName}`}
+          >
             <div className="grid items-center gap-10 lg:grid-cols-[3fr_4fr] lg:items-center lg:gap-14">
               {/* Left: copy */}
               <div className="min-w-0">
