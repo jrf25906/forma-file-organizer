@@ -4,6 +4,18 @@ import SwiftUI
 // Redesigned for Apple Design Award quality
 // Features: Progressive disclosure, premium thumbnail treatment, refined visual hierarchy
 
+enum FileRowAccessibilityState {
+    static func value(
+        view: String,
+        isSelected: Bool,
+        isFocused: Bool,
+        status: FileItem.OrganizationStatus,
+        activity: FileSurfaceStyle.ActivityState
+    ) -> String {
+        "view=\(view);selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(status.rawValue);activity=\(activity.rawValue)"
+    }
+}
+
 struct FileRow: View {
     let file: FileItem
     var density: FileDisplayDensity = .balanced
@@ -127,7 +139,13 @@ struct FileRow: View {
     }
 
     private var rowStateAccessibilityValue: String {
-        "view=card;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
+        FileRowAccessibilityState.value(
+            view: "card",
+            isSelected: isSelected,
+            isFocused: isFocused,
+            status: file.status,
+            activity: surfaceActivity
+        )
     }
 
     // MARK: - Primary Action Configuration

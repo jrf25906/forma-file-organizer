@@ -97,7 +97,13 @@ struct FileListRow: View {
     }
 
     private var rowStateAccessibilityValue: String {
-        "view=list;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
+        FileRowAccessibilityState.value(
+            view: "list",
+            isSelected: isSelected,
+            isFocused: isFocused,
+            status: file.status,
+            activity: surfaceActivity
+        )
     }
 
     // MARK: - Computed Properties

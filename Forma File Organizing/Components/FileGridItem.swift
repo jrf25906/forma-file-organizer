@@ -52,7 +52,13 @@ struct FileGridItem: View {
     }
 
     private var rowStateAccessibilityValue: String {
-        "view=grid;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
+        FileRowAccessibilityState.value(
+            view: "grid",
+            isSelected: isSelected,
+            isFocused: isFocused,
+            status: file.status,
+            activity: surfaceActivity
+        )
     }
 
     private var primaryActionKind: FilePrimaryActionKind {

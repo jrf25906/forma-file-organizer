@@ -193,6 +193,36 @@ final class FileRowTests: XCTestCase {
         XCTAssertTrue(createRuleCalled)
         XCTAssertEqual(ruleFile?.path, file.path)
     }
+
+    func testAccessibilityStateValue_IncludesProcessingActivity() {
+        let value = FileRowAccessibilityState.value(
+            view: "card",
+            isSelected: true,
+            isFocused: false,
+            status: .ready,
+            activity: .processing
+        )
+
+        XCTAssertEqual(
+            value,
+            "view=card;selected=1;focused=0;status=ready;activity=processing"
+        )
+    }
+
+    func testAccessibilityStateValue_IncludesErrorActivity() {
+        let value = FileRowAccessibilityState.value(
+            view: "grid",
+            isSelected: false,
+            isFocused: true,
+            status: .pending,
+            activity: .error
+        )
+
+        XCTAssertEqual(
+            value,
+            "view=grid;selected=0;focused=1;status=pending;activity=error"
+        )
+    }
 }
 
 // MARK: - Test Helpers
