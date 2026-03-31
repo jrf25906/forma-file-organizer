@@ -23,6 +23,7 @@ describe("Home", () => {
 
     expect(heroSection).toContain('<h1 data-hero="headline"')
     expect(heroSection).toContain('data-hero="window"')
+    expect(heroSection).toContain('data-hero-layout="header-overlay"')
     expect(heroSection).toContain("bg-transparent")
     expect(heroSection).not.toContain("rounded-[2.25rem]")
     expect(heroSection).not.toContain("shadow-[var(--shell-shadow)]")
