@@ -129,6 +129,159 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(localPipeline.scanCallCount, 0, "Onboarding flow should defer refresh until dismissal")
     }
 
+    func testFirstRunQuickWinPrefersLargestReadyFolderBatch() {
+        let now = Date()
+        let downloadsRoot = "/Users/test/Downloads"
+        let desktopRoot = "/Users/test/Desktop"
+
+        let downloadsReady = (1...5).map { index in
+            FileItem(
+                path: "\(downloadsRoot)/image-\(index).png",
+                sizeInBytes: 100,
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                location: .downloads,
+                scanRootPath: downloadsRoot,
+                destination: FileItem.mockDestination(displayName: "Pictures/Screenshots"),
+                status: .ready
+            )
+        }
+        let desktopReady = (1...3).map { index in
+            FileItem(
+                path: "\(desktopRoot)/document-\(index).pdf",
+                sizeInBytes: 100,
+                creationDate: now.addingTimeInterval(TimeInterval(index + 10)),
+                location: .desktop,
+                scanRootPath: desktopRoot,
+                destination: FileItem.mockDestination(displayName: "Documents/Work"),
+                status: .ready
+            )
+        }
+        let pendingDownloadsFile = FileItem(
+            path: "\(downloadsRoot)/pending.txt",
+            sizeInBytes: 100,
+            creationDate: now,
+            location: .downloads,
+            scanRootPath: downloadsRoot,
+            destination: nil,
+            status: .pending
+        )
+
+        viewModel._testSetFiles(downloadsReady + desktopReady + [pendingDownloadsFile])
+
+        let suggestion = viewModel.firstRunQuickWinSuggestion
+
+        XCTAssertEqual(suggestion?.folderName, "Downloads")
+        XCTAssertEqual(suggestion?.fileCount, 5)
+    }
+
+    func testFirstRunQuickWinRequiresMeaningfulReadyBatch() {
+        let now = Date()
+        let downloadsRoot = "/Users/test/Downloads"
+
+        let readyFiles = (1...4).map { index in
+            FileItem(
+                path: "\(downloadsRoot)/image-\(index).png",
+                sizeInBytes: 100,
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                location: .downloads,
+                scanRootPath: downloadsRoot,
+                destination: FileItem.mockDestination(displayName: "Pictures/Screenshots"),
+                status: .ready
+            )
+        }
+        let pendingFile = FileItem(
+            path: "\(downloadsRoot)/pending.txt",
+            sizeInBytes: 100,
+            creationDate: now,
+            location: .downloads,
+            scanRootPath: downloadsRoot,
+            destination: nil,
+            status: .pending
+        )
+
+        viewModel._testSetFiles(readyFiles + [pendingFile])
+
+        XCTAssertNil(viewModel.firstRunQuickWinSuggestion)
+    }
+
+    func testFirstRunQuickWinRespectsVisibleSecondaryFilters() {
+        let now = Date()
+        let downloadsRoot = "/Users/test/Downloads"
+        let desktopRoot = "/Users/test/Desktop"
+
+        let hiddenDownloadsBatch = (1...6).map { index in
+            FileItem(
+                path: "\(downloadsRoot)/small-\(index).png",
+                sizeInBytes: 1_000_000,
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                location: .downloads,
+                scanRootPath: downloadsRoot,
+                destination: FileItem.mockDestination(displayName: "Pictures/Screenshots"),
+                status: .ready
+            )
+        }
+        let visibleDesktopBatch = (1...5).map { index in
+            FileItem(
+                path: "\(desktopRoot)/large-\(index).mov",
+                sizeInBytes: 20 * 1_024 * 1_024,
+                creationDate: now.addingTimeInterval(TimeInterval(index + 20)),
+                location: .desktop,
+                scanRootPath: desktopRoot,
+                destination: FileItem.mockDestination(displayName: "Documents/Video"),
+                status: .ready
+            )
+        }
+
+        viewModel._testSetFiles(hiddenDownloadsBatch + visibleDesktopBatch)
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+        viewModel.selectedSecondaryFilter = .largeFiles
+
+        viewModel.selectCategory(.all)
+
+        let suggestion = viewModel.firstRunQuickWinSuggestion
+
+        XCTAssertEqual(suggestion?.folderName, "Desktop")
+        XCTAssertEqual(suggestion?.fileCount, 5)
+    }
+
+    func testFirstRunQuickWinIsSuppressedDuringExternalReviewSession() {
+        ExternalReviewSessionStore.shared.publish(nil)
+
+        let now = Date()
+        let downloadsRoot = "/Users/test/Downloads"
+        let quickWinFiles = (1...5).map { index in
+            FileItem(
+                path: "\(downloadsRoot)/image-\(index).png",
+                sizeInBytes: 100,
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                location: .downloads,
+                scanRootPath: downloadsRoot,
+                destination: FileItem.mockDestination(displayName: "Pictures/Screenshots"),
+                status: .ready
+            )
+        }
+
+        viewModel._testSetFiles(quickWinFiles)
+
+        let session = ExternalReviewSession(
+            requestID: UUID(),
+            source: .finderService,
+            reviewPaths: quickWinFiles.map(\.path),
+            scannedRootPaths: [downloadsRoot],
+            skippedItems: [],
+            statusText: "Review 5 files"
+        )
+
+        ExternalReviewSessionStore.shared.publish(session)
+        viewModel.applyExternalReviewSession(session)
+
+        XCTAssertNil(viewModel.firstRunQuickWinSuggestion)
+
+        ExternalReviewSessionStore.shared.publish(nil)
+        viewModel.applyExternalReviewSession(nil)
+    }
+
     func testApplyAutomationScanUpdateMergesRescannedRootsWithoutDroppingOtherRoots() async throws {
         let localService = MockFileSystemService()
         let localPipeline = MockFileScanPipeline()

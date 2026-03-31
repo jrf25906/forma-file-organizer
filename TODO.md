@@ -13,6 +13,9 @@ Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-
 - [ ] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
 - [ ] Plan metadata-backed project spaces and workflow memory before broad cloud or chatbot-style AI expansion.
 
+## Preview-First Onboarding Wave (March 30, 2026)
+- [x] Surface a first-run quick-win banner only when Forma has a meaningful visible ready batch, scope the CTA to that batch instead of every ready file in the current dashboard state, and suppress the banner during focused external review sessions.
+
 ## Spotlight + Finder Services Integration (March 25, 2026)
 - [x] Add an `ExternalIngressCoordinator` that normalizes Finder Services and Spotlight/App Intent requests into one resumable ingress flow.
 - [x] Accept both directly selected files and selected folders, scanning only each folder's immediate file children for one-time external organization requests.

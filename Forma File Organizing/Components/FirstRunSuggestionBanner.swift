@@ -20,13 +20,19 @@ struct FirstRunSuggestionBanner: View {
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.formaSage)
 
-            Text("Forma found **\(fileCount) files** in \(folderName). Organize them by type?")
-                .font(.formaBody)
-                .foregroundColor(.formaLabel)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Quick first win")
+                    .font(.formaCaptionSemibold)
+                    .foregroundColor(.formaSage)
+
+                Text("Forma already prepared **\(fileCount) files** from \(folderName). Organize this batch in one tap, or keep reviewing first.")
+                    .font(.formaBody)
+                    .foregroundColor(.formaLabel)
+            }
 
             Spacer(minLength: 0)
 
-            Button("Organize Now") {
+            Button("Organize Batch") {
                 onOrganize()
             }
             .buttonStyle(.plain)
