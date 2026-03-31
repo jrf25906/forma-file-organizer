@@ -124,6 +124,7 @@ export default function Home() {
         <section
           id="top"
           data-hero-layout={HEADER_SHELL_LAYOUT.heroLayout}
+          data-hero-clearance={HEADER_SHELL_LAYOUT.heroClearanceContract}
           className="relative overflow-hidden border-b border-[var(--shell-border)] bg-transparent"
         >
           <ScrollDrivenTornado />
