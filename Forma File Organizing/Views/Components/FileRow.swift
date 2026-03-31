@@ -4,6 +4,48 @@ import SwiftUI
 // Redesigned for Apple Design Award quality
 // Features: Progressive disclosure, premium thumbnail treatment, refined visual hierarchy
 
+enum FileRowAccessibilityState {
+    static func value(
+        view: String,
+        isSelected: Bool,
+        isFocused: Bool,
+        status: FileItem.OrganizationStatus,
+        activity: FileSurfaceStyle.ActivityState
+    ) -> String {
+        "view=\(view);selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(status.rawValue);activity=\(activity.rawValue)"
+    }
+}
+
+enum FileRowAccessibilityIdentifier {
+    static func rowIdentifier(fileName: String, filePath: String) -> String {
+        identifier(prefix: "fileRow", fileName: fileName, filePath: filePath)
+    }
+
+    static func cardStateIdentifier(fileName: String, filePath: String) -> String {
+        identifier(prefix: "fileRowState", fileName: fileName, filePath: filePath)
+    }
+
+    static func listStateIdentifier(fileName: String, filePath: String) -> String {
+        identifier(prefix: "fileListRowState", fileName: fileName, filePath: filePath)
+    }
+
+    static func gridStateIdentifier(fileName: String, filePath: String) -> String {
+        identifier(prefix: "fileGridItemState", fileName: fileName, filePath: filePath)
+    }
+
+    private static func identifier(prefix: String, fileName: String, filePath: String) -> String {
+        "\(prefix)_\(fileName)__\(encodedPath(filePath))"
+    }
+
+    private static func encodedPath(_ filePath: String) -> String {
+        Data(filePath.utf8)
+            .base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+}
+
 struct FileRow: View {
     let file: FileItem
     var density: FileDisplayDensity = .balanced
@@ -14,6 +56,7 @@ struct FileRow: View {
     var isSelectionMode: Bool = false
     var showsPrimaryActionButton: Bool = true
     var showKeyboardHints: Bool = false
+    var surfaceActivity: FileSurfaceStyle.ActivityState = .none
 
     // Search Match Display (from ContentSearchService)
     var searchMatchType: ContentSearchService.MatchType?
@@ -102,6 +145,16 @@ struct FileRow: View {
         FilePrimaryActionKind.resolve(for: file)
     }
 
+    private var surfaceStyle: FileSurfaceStyle {
+        .resolved(
+            kind: .card,
+            isHovered: isHovered,
+            isSelected: isSelected,
+            isFocused: isFocused,
+            activity: surfaceActivity
+        )
+    }
+
     private var shouldRevealPrimaryAction: Bool {
         guard showsPrimaryActionButton, !isSelectionMode else { return false }
         if primaryActionKind == .setDestination {
@@ -116,7 +169,13 @@ struct FileRow: View {
     }
 
     private var rowStateAccessibilityValue: String {
-        "view=card;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
+        FileRowAccessibilityState.value(
+            view: "card",
+            isSelected: isSelected,
+            isFocused: isFocused,
+            status: file.status,
+            activity: surfaceActivity
+        )
     }
 
     // MARK: - Primary Action Configuration
@@ -194,10 +253,19 @@ struct FileRow: View {
         .padding(.vertical, rowVerticalPadding)
         .frame(minHeight: rowMinHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardBackground)
+        .background(FileSurfaceBackground(style: surfaceStyle))
         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
         .overlay(cardSheen)
-        .overlay(cardBorder)
+        .overlay(
+            FileSurfaceBorder(
+                style: surfaceStyle,
+                cornerRadius: FormaRadius.control,
+                primaryLineWidth: cardOuterBorderWidth,
+                accentLineWidth: 1,
+                accentInset: 3,
+                innerBorderColor: cardInnerBorderColor
+            )
+        )
         .shadow(color: cardAmbientShadowColor, radius: cardAmbientShadowRadius, x: 0, y: cardAmbientShadowY)
         .shadow(color: cardContactShadowColor, radius: cardContactShadowRadius, x: 0, y: cardContactShadowY)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
@@ -212,13 +280,23 @@ struct FileRow: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("fileRow_\(file.name)")
+        .accessibilityIdentifier(
+            FileRowAccessibilityIdentifier.rowIdentifier(
+                fileName: file.name,
+                filePath: file.path
+            )
+        )
         .accessibilityValue(rowStateAccessibilityValue)
         .overlay(alignment: .topLeading) {
             Color.clear
                 .frame(width: 1, height: 1)
                 .allowsHitTesting(false)
-                .accessibilityIdentifier("fileRowState_\(file.name)")
+                .accessibilityIdentifier(
+                    FileRowAccessibilityIdentifier.cardStateIdentifier(
+                        fileName: file.name,
+                        filePath: file.path
+                    )
+                )
                 .accessibilityLabel("File row state \(rowStateAccessibilityValue)")
                 .accessibilityValue(rowStateAccessibilityValue)
         }
@@ -229,8 +307,10 @@ struct FileRow: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.formaBoneWhite.opacity(isFocused || isSelected ? 0.28 : 0.18),
-                        Color.formaBoneWhite.opacity(isHovered ? 0.10 : 0.06),
+                        Color.formaBoneWhite.opacity(
+                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.28 : 0.18
+                        ),
+                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.10 : 0.06),
                         Color.formaBoneWhite.opacity(0)
                     ],
                     startPoint: .topLeading,
@@ -241,93 +321,80 @@ struct FileRow: View {
             .allowsHitTesting(false)
     }
 
-    private var cardBackground: some View {
-        ZStack {
-            Color.formaCardBackground
-
-            if isHovered && !isSelected && !isFocused {
-                Color.formaListRowHoverOverlay
-            }
-
-            if isSelected || isFocused {
-                Color.formaListRowSelectionOverlay
-            }
-        }
-    }
-
-    private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-            .strokeBorder(cardOuterBorderColor, lineWidth: cardOuterBorderWidth)
-            .overlay(
-                RoundedRectangle(cornerRadius: FormaNestedRadius.inset(FormaRadius.control), style: .continuous)
-                    .stroke(cardInnerBorderColor, lineWidth: 0.75)
-            )
-    }
-
-    private var cardOuterBorderColor: Color {
-        isFocused ? Color.formaListRowFocusedBorder :
-        isSelected ? Color.formaListRowSelectedBorder :
-        isHovered ? Color.formaListRowHoverBorder :
-        Color.formaListRowBorder
-    }
-
     private var cardInnerBorderColor: Color {
-        if isFocused || isSelected {
+        switch surfaceStyle.interactionState {
+        case .focused, .selected:
             return Color.formaBoneWhite.opacity(0.34)
-        }
-        if isHovered {
+        case .hover:
             return Color.formaBoneWhite.opacity(0.22)
+        case .rest:
+            if surfaceStyle.activityState != .none {
+                return Color.formaBoneWhite.opacity(0.18)
+            }
+            return Color.formaBoneWhite.opacity(0.14)
         }
-        return Color.formaBoneWhite.opacity(0.14)
     }
 
     private var cardOuterBorderWidth: CGFloat {
-        isFocused ? 1.5 : (isSelected ? 1.0 : 0.75)
+        switch surfaceStyle.interactionState {
+        case .focused:
+            return 1.5
+        case .selected:
+            return 1.0
+        case .hover, .rest:
+            return 0.75
+        }
     }
 
     private var cardAmbientShadowColor: Color {
-        if isFocused {
+        switch surfaceStyle.interactionState {
+        case .focused:
             return Color.formaSteelBlue.opacity(0.12)
-        }
-        if isSelected {
+        case .selected:
             return Color.formaObsidian.opacity(0.05)
-        }
-        if isHovered {
+        case .hover:
             return Color.formaObsidian.opacity(0.08)
+        case .rest:
+            return Color.formaObsidian.opacity(0.03)
         }
-        return Color.formaObsidian.opacity(0.03)
     }
 
     private var cardAmbientShadowRadius: CGFloat {
-        if isFocused { return 10 }
-        if isSelected { return 6 }
-        if isHovered { return 5 }
-        return 3
+        switch surfaceStyle.interactionState {
+        case .focused: return 10
+        case .selected: return 6
+        case .hover: return 5
+        case .rest: return 3
+        }
     }
 
     private var cardAmbientShadowY: CGFloat {
-        if isFocused { return 4 }
-        if isSelected { return 2 }
-        if isHovered { return 2 }
-        return 1
+        switch surfaceStyle.interactionState {
+        case .focused: return 4
+        case .selected, .hover: return 2
+        case .rest: return 1
+        }
     }
 
     private var cardContactShadowColor: Color {
-        if isFocused || isHovered {
+        switch surfaceStyle.interactionState {
+        case .focused, .hover:
             return Color.formaObsidian.opacity(0.10)
+        case .selected, .rest:
+            return Color.formaObsidian.opacity(0.05)
         }
-        return Color.formaObsidian.opacity(0.05)
     }
 
     private var cardContactShadowRadius: CGFloat {
-        if isFocused { return 2 }
-        if isHovered || isSelected { return 1.5 }
-        return 1
+        switch surfaceStyle.interactionState {
+        case .focused: return 2
+        case .selected, .hover: return 1.5
+        case .rest: return 1
+        }
     }
 
     private var cardContactShadowY: CGFloat {
-        if isFocused { return 2 }
-        return 1
+        surfaceStyle.interactionState == .focused ? 2 : 1
     }
 }
 

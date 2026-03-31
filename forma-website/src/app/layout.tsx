@@ -114,7 +114,7 @@ export default function RootLayout({
       </head>
       <body
         className={clsx(
-          "min-h-screen antialiased overflow-x-hidden font-body",
+          "min-h-screen antialiased overflow-x-hidden font-body bg-[var(--bg-secondary)] text-[var(--text-primary)]",
           inter.variable,
           jetbrainsMono.variable
         )}
@@ -137,17 +137,19 @@ export default function RootLayout({
         ) : null}
 
         <ThemeProvider defaultTheme="system">
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-forma-obsidian focus:text-forma-bone focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-forma-steel-blue"
-          >
-            Skip to main content
-          </a>
-          <Header />
-          <div tabIndex={-1} className="outline-none">
-            {children}
+          <div className="relative mx-auto flex min-h-screen w-full max-w-[1920px] flex-col border-x border-[var(--shell-border)] bg-[var(--bg-primary)] shadow-[var(--shell-shadow)]">
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-forma-obsidian focus:text-forma-bone focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-forma-steel-blue"
+            >
+              Skip to main content
+            </a>
+            <Header />
+            <div tabIndex={-1} className="outline-none">
+              {children}
+            </div>
+            <Footer />
           </div>
-          <Footer />
         </ThemeProvider>
       </body>
     </html>

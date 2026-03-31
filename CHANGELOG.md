@@ -37,6 +37,11 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Native Luma refresh chrome now applies the sidebar glass treatment in the live split-view sidebar, and light-mode toolbar/view-mode selected states use a stronger shared compact segment style for clearer native selection contrast.
+- Reapplying the same rule to a `.ready` file now clears stale organize-error state when the destination is still resolved, and card/list/grid accessibility identifiers now use stable path-backed keys so duplicate filenames no longer collide in UI automation.
+- Card/list/grid file-surface accessibility state probes now include the shared activity axis (`none`, `pending`, `organizing`, `error`) so UI automation can assert the new Luma activity model directly instead of inferring it from visual chrome.
+- `forma-website` now routes the header/footer shell, pricing, FAQ, newsletter, and support surfaces through shared `FormaShellCard`, `FormaShellSectionHeading`, and `FormaShellCta` primitives while keeping the hero and product demos bespoke.
+- Newsletter validation and confirmation states now expose linked error text plus a focusable live success message, and the support route shell keeps a single visible page-level `h1` after the shell pass.
 - Post-onboarding first-run guidance now appears only when the visible review context contains a meaningful ready batch, the banner’s CTA scopes organization to that suggested batch instead of acting on every ready file in view, and the prompt stays hidden during focused external review sessions.
 - First-run quick wins now use deterministic candidate kinds (`screenshots`, `archives`, `staleDownloads`, `invoices`, fallback ready batches), rank against the full filtered reviewable set instead of the current chunk, and reset onboarding completion back into the review-first scope so the first launch lands on one concrete quick win.
 - Default-panel review framing now focuses on the current pass instead of the whole backlog, and deferred-only states now offer explicit resume affordances instead of reading as "all caught up."

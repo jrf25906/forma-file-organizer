@@ -2,6 +2,34 @@ import SwiftUI
 import SwiftData
 import AppKit
 
+enum FileRecoveryState {
+    static func recoverToReady(_ file: FileItem, destination: Destination) {
+        file.destination = destination
+        file.status = .ready
+        file.lastOrganizeError = nil
+    }
+
+    static func clearErrorIfRecovered(_ file: FileItem) {
+        guard file.status == .ready, file.destination != nil else { return }
+        file.lastOrganizeError = nil
+    }
+
+    static func clearErrorIfRecovered(
+        _ file: FileItem,
+        previousDestination: Destination?,
+        previousStatus: FileItem.OrganizationStatus,
+        recoveredDestination: Destination? = nil
+    ) {
+        guard file.status == .ready, let currentDestination = file.destination else { return }
+
+        let changedState = currentDestination != previousDestination || previousStatus != .ready
+        let reappliedRecoveredDestination = recoveredDestination == currentDestination
+        guard changedState || reappliedRecoveredDestination else { return }
+
+        file.lastOrganizeError = nil
+    }
+}
+
 struct MainContentView: View {
     private enum PrimaryActionSource {
         case floatingActionBar
@@ -707,6 +735,34 @@ struct MainContentView: View {
         return destinations.filter { seen.insert($0).inserted }
     }
 
+    private func fileSurfaceActivity(for file: FileItem) -> FileSurfaceStyle.ActivityState {
+        if dashboardViewModel.organizingFilePaths.contains(file.path) {
+            return .processing
+        }
+        if let lastOrganizeError = file.lastOrganizeError, !lastOrganizeError.isEmpty {
+            return .error
+        }
+        return .none
+    }
+
+    private func recoverFile(_ file: FileItem, to destination: Destination) {
+        FileRecoveryState.recoverToReady(file, destination: destination)
+        dashboardViewModel.filterViewModel.applyFilterImmediately()
+    }
+
+    private func applyRuleRecovery(_ rule: Rule, to file: FileItem) {
+        let previousDestination = file.destination
+        let previousStatus = file.status
+
+        dashboardViewModel.applyRule(rule, to: file)
+        FileRecoveryState.clearErrorIfRecovered(
+            file,
+            previousDestination: previousDestination,
+            previousStatus: previousStatus,
+            recoveredDestination: rule.destination
+        )
+    }
+
     @ViewBuilder
     private var firstRunBannerIfNeeded: some View {
         if shouldShowFirstRunBanner,
@@ -794,13 +850,12 @@ struct MainContentView: View {
                                 isSelectionMode: dashboardViewModel.isSelectionMode,
                                 showsPrimaryActionButton: showsRowPrimaryActionButtons,
                                 showKeyboardHints: dashboardViewModel.isKeyboardNavigating,
+                                surfaceActivity: fileSurfaceActivity(for: file),
                                 searchMatchType: dashboardViewModel.searchMatchType(for: file),
                                 contentSnippet: dashboardViewModel.contentSnippet(for: file),
                                 availableDestinations: availableDestinations,
                                 onChangeDestination: { item, destination in
-                                    item.destination = destination
-                                    item.status = .ready
-                                    dashboardViewModel.filterViewModel.applyFilterImmediately()
+                                    recoverFile(item, to: destination)
                                 },
                                 onOrganize: { item in
                                     organizeFileWithAnimation(item)
@@ -820,7 +875,7 @@ struct MainContentView: View {
                                 onViewRule: nil,
                                 matchingRules: dashboardViewModel.getMatchingRules(for: file),
                                 onApplyRule: { rule in
-                                    dashboardViewModel.applyRule(rule, to: file)
+                                    applyRuleRecovery(rule, to: file)
                                     ruleAppliedFilePaths.insert(file.path)
                                     Task { @MainActor in
                                         try? await Task.sleep(nanoseconds: 500_000_000)
@@ -906,6 +961,7 @@ struct MainContentView: View {
             isSelected: dashboardViewModel.isSelected(file),
             isSelectionMode: dashboardViewModel.isSelectionMode,
             showsPrimaryActionButton: showsRowPrimaryActionButtons,
+            surfaceActivity: fileSurfaceActivity(for: file),
             searchMatchType: dashboardViewModel.searchMatchType(for: file),
             onToggleSelection: { handleSelectionToggle(for: file) },
             onOrganize: { organizeFileWithAnimation(file) },
@@ -914,9 +970,7 @@ struct MainContentView: View {
             onQuickLook: { dashboardViewModel.showQuickLook(for: file) },
             availableDestinations: availableDestinations,
             onChangeDestination: { destination in
-                file.destination = destination
-                file.status = .ready
-                dashboardViewModel.filterViewModel.applyFilterImmediately()
+                recoverFile(file, to: destination)
             },
             matchingRules: dashboardViewModel.getMatchingRules(for: file),
             onCreateRule: {
@@ -926,7 +980,7 @@ struct MainContentView: View {
                 }
             },
             onApplyRule: { rule in
-                dashboardViewModel.applyRule(rule, to: file)
+                applyRuleRecovery(rule, to: file)
                 ruleAppliedFilePaths.insert(file.path)
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 500_000_000)
@@ -967,6 +1021,7 @@ struct MainContentView: View {
                             isSelected: dashboardViewModel.isSelected(file),
                             isSelectionMode: dashboardViewModel.isSelectionMode,
                             showsPrimaryActionButton: showsRowPrimaryActionButtons,
+                            surfaceActivity: fileSurfaceActivity(for: file),
                             searchMatchType: dashboardViewModel.searchMatchType(for: file),
                             onToggleSelection: {
                                 handleSelectionToggle(for: file)
@@ -985,9 +1040,7 @@ struct MainContentView: View {
                             },
                             availableDestinations: availableDestinations,
                             onChangeDestination: { destination in
-                                file.destination = destination
-                                file.status = .ready
-                                dashboardViewModel.filterViewModel.applyFilterImmediately()
+                                recoverFile(file, to: destination)
                             },
                             matchingRules: dashboardViewModel.getMatchingRules(for: file),
                             onCreateRule: {
@@ -997,7 +1050,7 @@ struct MainContentView: View {
                                 }
                             },
                             onApplyRule: { rule in
-                                dashboardViewModel.applyRule(rule, to: file)
+                                applyRuleRecovery(rule, to: file)
                                 ruleAppliedFilePaths.insert(file.path)
                                 Task { @MainActor in
                                     try? await Task.sleep(nanoseconds: 500_000_000)

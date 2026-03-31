@@ -9,6 +9,7 @@ struct FileListRow: View {
     let isSelected: Bool
     let isSelectionMode: Bool
     let showsPrimaryActionButton: Bool
+    var surfaceActivity: FileSurfaceStyle.ActivityState = .none
 
     // Search match type for content search badge
     var searchMatchType: ContentSearchService.MatchType? = nil
@@ -73,6 +74,16 @@ struct FileListRow: View {
         FilePrimaryActionKind.resolve(for: file)
     }
 
+    private var surfaceStyle: FileSurfaceStyle {
+        .resolved(
+            kind: .listRow,
+            isHovered: isHovered,
+            isSelected: isSelected,
+            isFocused: isFocused,
+            activity: surfaceActivity
+        )
+    }
+
     private var shouldRevealAccessoryActions: Bool {
         isHovered || isFocused || isSelected || isSelectionMode
     }
@@ -86,7 +97,13 @@ struct FileListRow: View {
     }
 
     private var rowStateAccessibilityValue: String {
-        "view=list;selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(file.status.rawValue)"
+        FileRowAccessibilityState.value(
+            view: "list",
+            isSelected: isSelected,
+            isFocused: isFocused,
+            status: file.status,
+            activity: surfaceActivity
+        )
     }
 
     // MARK: - Computed Properties
@@ -153,10 +170,20 @@ struct FileListRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, FormaSpacing.tight)
         .frame(minHeight: rowMinHeight)
-        .background(rowBackground)
+        .background(FileSurfaceBackground(style: surfaceStyle))
         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous))
         .overlay(rowSheen)
-        .overlay(rowBorder)
+        .overlay(
+            FileSurfaceBorder(
+                style: surfaceStyle,
+                cornerRadius: FormaRadius.small,
+                primaryLineWidth: rowBorderWidth,
+                accentLineWidth: 1,
+                accentInset: 2.5,
+                innerBorderColor: rowInnerBorderColor,
+                innerBorderInset: 1
+            )
+        )
         .shadow(color: rowAmbientShadowColor, radius: rowAmbientShadowRadius, x: 0, y: rowAmbientShadowY)
         .shadow(color: rowContactShadowColor, radius: rowContactShadowRadius, x: 0, y: rowContactShadowY)
         .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isHovered)
@@ -171,13 +198,23 @@ struct FileListRow: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("fileRow_\(file.name)")
+        .accessibilityIdentifier(
+            FileRowAccessibilityIdentifier.rowIdentifier(
+                fileName: file.name,
+                filePath: file.path
+            )
+        )
         .accessibilityValue(rowStateAccessibilityValue)
         .overlay(alignment: .topLeading) {
             Color.clear
                 .frame(width: 1, height: 1)
                 .allowsHitTesting(false)
-                .accessibilityIdentifier("fileListRowState_\(file.name)")
+                .accessibilityIdentifier(
+                    FileRowAccessibilityIdentifier.listStateIdentifier(
+                        fileName: file.name,
+                        filePath: file.path
+                    )
+                )
                 .accessibilityLabel("File list row state \(rowStateAccessibilityValue)")
                 .accessibilityValue(rowStateAccessibilityValue)
         }
@@ -190,8 +227,10 @@ struct FileListRow: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.formaBoneWhite.opacity(isFocused || isSelected ? 0.24 : 0.14),
-                        Color.formaBoneWhite.opacity(isHovered ? 0.08 : 0.04),
+                        Color.formaBoneWhite.opacity(
+                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.24 : 0.14
+                        ),
+                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.08 : 0.04),
                         Color.formaBoneWhite.opacity(0)
                     ],
                     startPoint: .topLeading,
@@ -202,104 +241,81 @@ struct FileListRow: View {
             .allowsHitTesting(false)
     }
 
-    @ViewBuilder
-    private var rowBackground: some View {
-        ZStack {
-            Color.formaListRowBackground
-
-            if isHovered && !isSelected && !isFocused {
-                Color.formaListRowHoverOverlay
-            }
-
-            if isSelected || isFocused {
-                Color.formaListRowSelectionOverlay
-            }
-        }
-    }
-
-    private var rowBorder: some View {
-        RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-            .strokeBorder(rowBorderColor, lineWidth: rowBorderWidth)
-            .overlay(
-                RoundedRectangle(cornerRadius: FormaNestedRadius.inset(FormaRadius.small, by: 1), style: .continuous)
-                    .stroke(rowInnerBorderColor, lineWidth: 0.7)
-            )
-    }
-
-    private var rowBorderColor: Color {
-        if isFocused {
-            return .formaListRowFocusedBorder
-        }
-        if isSelected {
-            return .formaListRowSelectedBorder
-        }
-        if isHovered {
-            return .formaListRowHoverBorder
-        }
-        return .formaListRowBorder
-    }
-
     private var rowBorderWidth: CGFloat {
-        if isFocused {
+        if surfaceStyle.interactionState == .focused {
             return 1.5
         }
-        if isSelected {
+        if surfaceStyle.interactionState == .selected {
             return 1.0
         }
         return colorScheme == .dark ? 0.75 : 0.6
     }
 
     private var rowInnerBorderColor: Color {
-        if isFocused || isSelected {
+        switch surfaceStyle.interactionState {
+        case .focused, .selected:
             return Color.formaBoneWhite.opacity(0.30)
-        }
-        if isHovered {
+        case .hover:
             return Color.formaBoneWhite.opacity(0.18)
+        case .rest:
+            if surfaceStyle.activityState != .none {
+                return Color.formaBoneWhite.opacity(0.16)
+            }
+            return Color.formaBoneWhite.opacity(0.10)
         }
-        return Color.formaBoneWhite.opacity(0.10)
     }
 
     private var rowAmbientShadowColor: Color {
-        if isFocused {
+        switch surfaceStyle.interactionState {
+        case .focused:
             return Color.formaSteelBlue.opacity(0.10)
-        }
-        if isSelected {
+        case .selected:
             return Color.formaObsidian.opacity(0.05)
-        }
-        if isHovered {
+        case .hover:
             return Color.formaObsidian.opacity(0.06)
+        case .rest:
+            return .clear
         }
-        return .clear
     }
 
     private var rowAmbientShadowRadius: CGFloat {
-        if isFocused { return 8 }
-        if isSelected { return 5 }
-        if isHovered { return 4 }
-        return 0
+        switch surfaceStyle.interactionState {
+        case .focused: return 8
+        case .selected: return 5
+        case .hover: return 4
+        case .rest: return 0
+        }
     }
 
     private var rowAmbientShadowY: CGFloat {
-        if isFocused { return 3 }
-        if isSelected || isHovered { return 2 }
-        return 0
+        switch surfaceStyle.interactionState {
+        case .focused: return 3
+        case .selected, .hover: return 2
+        case .rest: return 0
+        }
     }
 
     private var rowContactShadowColor: Color {
-        if isFocused || isHovered {
+        switch surfaceStyle.interactionState {
+        case .focused, .hover:
             return Color.formaObsidian.opacity(0.08)
+        case .selected, .rest:
+            return .clear
         }
-        return .clear
     }
 
     private var rowContactShadowRadius: CGFloat {
-        if isFocused || isHovered { return 1 }
-        return 0
+        switch surfaceStyle.interactionState {
+        case .focused, .hover: return 1
+        case .selected, .rest: return 0
+        }
     }
 
     private var rowContactShadowY: CGFloat {
-        if isFocused || isHovered { return 1 }
-        return 0
+        switch surfaceStyle.interactionState {
+        case .focused, .hover: return 1
+        case .selected, .rest: return 0
+        }
     }
 
     private func primaryActionHandler() {

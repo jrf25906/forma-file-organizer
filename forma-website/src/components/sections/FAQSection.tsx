@@ -1,124 +1,54 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useCallback } from "react";
-import { ChevronDown } from "lucide-react";
+import { useRef } from "react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
 import { getReducedMotionValue } from "@/hooks/use-reduced-motion";
 import { faqs } from "@/lib/faq";
 import { SUPPORT_EMAIL } from "@/lib/site";
 import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
+import { FormaShellCard } from "@/components/ui/forma-shell-card";
+import { FormaShellSectionHeading } from "@/components/ui/forma-shell-section-heading";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
-function FAQItem({
-  faq,
-  index,
-  isOpen,
-  onToggle,
-}: {
-  faq: (typeof faqs)[number];
-  index: number;
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  const answerRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
+type FAQEntranceRevealOptions = {
+  reducedMotion: boolean;
+  triggerTop: number;
+  viewportHeight: number;
+};
 
-  useGSAP(
-    () => {
-      if (!answerRef.current || !innerRef.current) return;
-
-      const reducedMotion = getReducedMotionValue();
-      const dur = reducedMotion ? 0.01 : undefined;
-
-      if (isOpen) {
-        const height = innerRef.current.scrollHeight;
-        gsap.fromTo(
-          answerRef.current,
-          { height: 0, opacity: 0 },
-          {
-            height,
-            opacity: 1,
-            duration: dur ?? 0.35,
-            ease: "power2.out",
-          }
-        );
-      } else {
-        gsap.to(answerRef.current, {
-          height: 0,
-          opacity: 0,
-          duration: dur ?? 0.25,
-          ease: "power2.out",
-        });
-      }
-    },
-    { dependencies: [isOpen] }
-  );
-
-  return (
-    <div className="border-b border-[var(--border-medium)] last:border-0">
-      <button
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        aria-controls={`faq-answer-${index}`}
-        className="w-full py-5 flex items-center justify-between gap-4 text-left group cursor-pointer"
-      >
-        <h3
-          id={`faq-question-${index}`}
-          className="text-[17px] font-semibold text-[var(--text-primary)] group-hover:opacity-80 transition-opacity"
-        >
-          {faq.question}
-        </h3>
-        <ChevronDown
-          className="shrink-0 w-4 h-4 text-[var(--text-muted)] transition-transform duration-200 ease-out"
-          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-        />
-      </button>
-
-      <div
-        ref={answerRef}
-        id={`faq-answer-${index}`}
-        role="region"
-        aria-labelledby={`faq-question-${index}`}
-        aria-hidden={!isOpen}
-        className="overflow-hidden"
-        style={{ height: 0, opacity: 0 }}
-      >
-        <div ref={innerRef}>
-          <p className="pb-5 text-[15px] text-[var(--text-secondary)] leading-relaxed pr-8">
-            {faq.answer}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+export function shouldRevealFAQSectionImmediately({
+  reducedMotion,
+  triggerTop,
+  viewportHeight,
+}: FAQEntranceRevealOptions): boolean {
+  return reducedMotion || triggerTop <= viewportHeight * 0.8;
 }
 
 export default function FAQSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
-
-  const handleToggle = useCallback(
-    (index: number) => {
-      setOpenIndex((prev) => (prev === index ? null : index));
-    },
-    []
-  );
 
   useGSAP(
     () => {
       if (!sectionRef.current || !contentRef.current) return;
 
       const reducedMotion = getReducedMotionValue();
-
-      if (reducedMotion) {
-        gsap.set(contentRef.current, { opacity: 1, y: 0 });
-        return;
-      }
-
       const triggerTop = sectionRef.current.getBoundingClientRect().top;
-      if (triggerTop <= window.innerHeight * 0.8) {
+
+      if (
+        shouldRevealFAQSectionImmediately({
+          reducedMotion,
+          triggerTop,
+          viewportHeight: window.innerHeight,
+        })
+      ) {
         gsap.set(contentRef.current, { opacity: 1, y: 0 });
         return;
       }
@@ -157,42 +87,47 @@ export default function FAQSection() {
     >
       <div className="site-container">
         <div ref={contentRef} className="mx-auto max-w-2xl">
-          <p className="mb-5 text-[12px] font-semibold tracking-[0.12em] uppercase text-forma-steel-blue text-center">
-            FAQ
-          </p>
-          <h2 className="mb-8 text-center text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
-            Common questions
-          </h2>
+          <FormaShellSectionHeading
+            eyebrow="FAQ"
+            title="Common questions"
+            align="center"
+          />
 
-          <div className="border border-[var(--border-subtle)] rounded-2xl px-5 md:px-8">
-            {faqs.map((faq, index) => (
-              <FAQItem
-                key={faq.id}
-                faq={faq}
-                index={index}
-                isOpen={openIndex === index}
-                onToggle={() => handleToggle(index)}
-              />
-            ))}
-          </div>
+          <FormaShellCard className="mt-8 px-5 py-2 md:px-8">
+            <Accordion type="single" collapsible defaultValue={faqs[0]?.id}>
+              {faqs.map((faq) => (
+                <AccordionItem
+                  key={faq.id}
+                  value={faq.id}
+                  className="border-b border-[var(--shell-border)] last:border-b-0"
+                >
+                  <AccordionTrigger className="py-5 text-left text-[16px] leading-6 font-medium text-[var(--text-primary)] hover:no-underline md:py-6 md:text-[17px]">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="pr-8 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </FormaShellCard>
 
-          {/* Contact link */}
-          <div className="mt-6 text-center">
+          <div className="mt-6 space-y-2 text-center">
             <p className="text-[14px] text-[var(--text-muted)]">
               Something else?{" "}
               <TrackedMailtoLink
                 email={SUPPORT_EMAIL}
                 location="faq_section"
-                className="text-forma-steel-blue font-medium underline underline-offset-4 decoration-forma-steel-blue/30 hover:decoration-forma-steel-blue/60 transition-all"
+                className="font-medium text-forma-steel-blue underline underline-offset-4 decoration-forma-steel-blue/30 transition-all hover:decoration-forma-steel-blue/60"
               >
                 {SUPPORT_EMAIL}
               </TrackedMailtoLink>
             </p>
-            <p className="mt-2 text-[14px] text-[var(--text-muted)]">
+            <p className="text-[14px] text-[var(--text-muted)]">
               Need a full walkthrough?{" "}
               <Link
                 href="/blog"
-                className="text-forma-steel-blue font-medium underline underline-offset-4 decoration-forma-steel-blue/30 hover:decoration-forma-steel-blue/60 transition-all"
+                className="font-medium text-forma-steel-blue underline underline-offset-4 decoration-forma-steel-blue/30 transition-all hover:decoration-forma-steel-blue/60"
               >
                 Read our organization guides
               </Link>

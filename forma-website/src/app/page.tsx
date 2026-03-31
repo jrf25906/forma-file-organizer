@@ -122,7 +122,7 @@ export default function Home() {
         {/* ─── HERO ─────────────────────────────────────────────────────── */}
         <section
           id="top"
-          className="relative overflow-hidden border-b border-[var(--border-subtle)] bg-transparent"
+          className="relative overflow-hidden border-b border-[var(--shell-border)] bg-transparent"
         >
           <ScrollDrivenTornado />
           {/* We removed the static background gradients here so the WebGL shines through */}
@@ -216,7 +216,7 @@ export default function Home() {
         </section>
 
         {/* ─── BEFORE & AFTER ───────────────────────────────────────────── */}
-        <section aria-labelledby="before-after-heading" className="relative z-10 border-y border-[var(--border-subtle)] bg-transparent py-20 md:py-28">
+        <section aria-labelledby="before-after-heading" className="relative z-10 border-y border-[var(--shell-border)] bg-transparent py-20 md:py-28">
           <div className="site-container">
             <ScrollReveal direction="up" distance={24} className="mx-auto max-w-4xl">
               <div>
@@ -247,60 +247,62 @@ export default function Home() {
           <section
             id="pricing"
             aria-labelledby="pricing-heading"
-            className="scroll-mt-16 border-y border-[var(--border-subtle)] bg-[var(--bg-secondary)] py-20 md:py-28"
+            className="scroll-mt-16 border-y border-[var(--shell-border)] bg-[var(--bg-secondary)] py-20 md:py-28"
             style={{ backgroundImage: "linear-gradient(135deg, var(--bg-secondary), rgba(184, 107, 82, 0.07), rgba(74, 107, 136, 0.08))" }}
           >
             <ScrollReveal direction="up" distance={30} className="site-container">
-            <div className="mx-auto max-w-4xl overflow-hidden rounded-[2rem] border-[3px] border-forma-warm-orange bg-[var(--bg-primary)]">
-              <div className="grid md:grid-cols-2">
-                {/* Left: headline */}
-                <div className="flex flex-col justify-center p-8 md:p-10 lg:p-14">
-                  <SectionEyebrow>Pricing</SectionEyebrow>
-                  <h2 id="pricing-heading" className="mt-5 text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
-                    One price. You own it.
-                  </h2>
-                  <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--text-secondary)]">
-                    No account. No cloud. No &ldquo;Pro tier&rdquo; that unlocks the features you actually need. A Mac app. Yours.
-                  </p>
-                </div>
+              <div className="mx-auto max-w-5xl rounded-[2.25rem] border border-[var(--shell-border)] bg-[var(--shell-surface)] p-3 shadow-[var(--shell-shadow)] md:p-4">
+                <div className="overflow-hidden rounded-[1.8rem] border-[3px] border-forma-warm-orange bg-[var(--bg-primary)]">
+                  <div className="grid md:grid-cols-2">
+                    {/* Left: headline */}
+                    <div className="flex flex-col justify-center p-8 md:p-10 lg:p-14">
+                      <SectionEyebrow>Pricing</SectionEyebrow>
+                      <h2 id="pricing-heading" className="mt-5 text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
+                        One price. You own it.
+                      </h2>
+                      <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--text-secondary)]">
+                        No account. No cloud. No &ldquo;Pro tier&rdquo; that unlocks the features you actually need. A Mac app. Yours.
+                      </p>
+                    </div>
 
-                {/* Right: price + features + CTA */}
-                <div className="border-t border-[var(--border-subtle)] p-8 md:border-l md:border-t-0 md:p-10 lg:p-14">
-                  <p className="text-[3.5rem] font-bold tracking-[-0.04em] text-[var(--text-primary)] md:text-[4.5rem] md:leading-none">
-                    $29
-                  </p>
-                  <p className="mt-1 text-[13px] font-medium tracking-[0.12em] uppercase text-[var(--text-muted)]">
-                    One-time purchase
-                  </p>
+                    {/* Right: price + features + CTA */}
+                    <div className="border-t border-[var(--border-subtle)] p-8 md:border-l md:border-t-0 md:p-10 lg:p-14">
+                      <p className="text-[3.5rem] font-bold tracking-[-0.04em] text-[var(--text-primary)] md:text-[4.5rem] md:leading-none">
+                        $29
+                      </p>
+                      <p className="mt-1 text-[13px] font-medium tracking-[0.12em] uppercase text-[var(--text-muted)]">
+                        One-time purchase
+                      </p>
 
-                  <ul className="mt-8 space-y-3.5">
-                    {[
-                      "Preview every move before it runs",
-                      "Pay once, keep it forever",
-                      "Runs locally on your Mac. macOS 15+",
-                    ].map((item) => (
-                      <li key={item} className="flex items-start gap-3">
-                        <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-forma-steel-blue" aria-hidden="true" />
-                        <span className="text-[15px] leading-relaxed text-[var(--text-secondary)]">
-                          {item}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                      <ul className="mt-8 space-y-3.5">
+                        {[
+                          "Preview every move before it runs",
+                          "Pay once, keep it forever",
+                          "Runs locally on your Mac. macOS 15+",
+                        ].map((item) => (
+                          <li key={item} className="flex items-start gap-3">
+                            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-forma-steel-blue" aria-hidden="true" />
+                            <span className="text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                              {item}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
 
-                  <div className="mt-10">
-                    <TrackedAppStoreLink
-                      location="pricing_primary"
-                      className="btn-forma-primary w-full px-7 py-4 text-[15px]"
-                    >
-                      Get Forma &mdash; $29
-                    </TrackedAppStoreLink>
+                      <div className="mt-10">
+                        <TrackedAppStoreLink
+                          location="pricing_primary"
+                          className="btn-forma-primary w-full px-7 py-4 text-[15px]"
+                        >
+                          Get Forma &mdash; $29
+                        </TrackedAppStoreLink>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </ScrollReveal>
-        </section>
+            </ScrollReveal>
+          </section>
 
         {/* ─── FAQ ──────────────────────────────────────────────────────── */}
         <FAQSection />

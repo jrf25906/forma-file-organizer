@@ -9,6 +9,18 @@
 import SwiftUI
 import AppKit
 
+private func formaDynamicColor(
+    named name: String,
+    _ provider: @escaping (_ isDark: Bool) -> NSColor
+) -> Color {
+    Color(
+        NSColor(name: NSColor.Name(name)) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return provider(isDark)
+        }
+    )
+}
+
 /// Forma's brand color system
 /// Provides both custom brand colors and semantic color usage
 extension Color {
@@ -102,65 +114,101 @@ extension Color {
         }
     )
 
-    /// Subtle hover overlay for list rows. Hover should feel like proximity, not selection.
-    static let formaListRowHoverOverlay = Color(
-        NSColor(name: NSColor.Name("formaListRowHoverOverlay")) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            if isDark {
-                return NSColor.formaBoneWhite.withAlphaComponent(0.05)
-            }
-            return NSColor.formaObsidian.withAlphaComponent(0.03)
+    /// Shared hover overlay for file surfaces. Hover should read as proximity, not commitment.
+    static let formaFileSurfaceHoverOverlay = formaDynamicColor(named: "formaFileSurfaceHoverOverlay") { isDark in
+        if isDark {
+            return NSColor.formaBoneWhite.withAlphaComponent(0.05)
         }
-    )
+        return NSColor.formaObsidian.withAlphaComponent(0.03)
+    }
 
-    /// Accent-tinted selection overlay for list rows. Kept low alpha so base material remains stable.
-    static let formaListRowSelectionOverlay = Color(
-        NSColor(name: NSColor.Name("formaListRowSelectionOverlay")) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let alpha: CGFloat = isDark ? 0.20 : 0.12
-            return NSColor.formaSteelBlue.withAlphaComponent(alpha)
-        }
-    )
+    /// Shared selected/focused overlay for file surfaces.
+    static let formaFileSurfaceSelectionOverlay = formaDynamicColor(named: "formaFileSurfaceSelectionOverlay") { isDark in
+        let alpha: CGFloat = isDark ? 0.20 : 0.12
+        return NSColor.formaSteelBlue.withAlphaComponent(alpha)
+    }
 
-    /// Rest-state border for list rows.
-    static let formaListRowBorder = Color(
-        NSColor(name: NSColor.Name("formaListRowBorder")) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            if isDark {
-                return NSColor.formaBoneWhite.withAlphaComponent(0.14)
-            }
-            return NSColor.formaObsidian.withAlphaComponent(0.10)
-        }
-    )
+    /// Pending overlay for files awaiting review or confirmation.
+    static let formaFileSurfacePendingOverlay = formaDynamicColor(named: "formaFileSurfacePendingOverlay") { isDark in
+        let alpha: CGFloat = isDark ? 0.20 : 0.12
+        return NSColor.systemOrange.withAlphaComponent(alpha)
+    }
 
-    /// Hover border for list rows.
-    static let formaListRowHoverBorder = Color(
-        NSColor(name: NSColor.Name("formaListRowHoverBorder")) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            if isDark {
-                return NSColor.formaBoneWhite.withAlphaComponent(0.22)
-            }
-            return NSColor.formaObsidian.withAlphaComponent(0.16)
-        }
-    )
+    /// Processing overlay for active work in progress.
+    static let formaFileSurfaceProcessingOverlay = formaDynamicColor(named: "formaFileSurfaceProcessingOverlay") { isDark in
+        let alpha: CGFloat = isDark ? 0.24 : 0.14
+        return NSColor.systemBlue.withAlphaComponent(alpha)
+    }
 
-    /// Selected border for list rows.
-    static let formaListRowSelectedBorder = Color(
-        NSColor(name: NSColor.Name("formaListRowSelectedBorder")) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let alpha: CGFloat = isDark ? 0.58 : 0.42
-            return NSColor.formaSteelBlue.withAlphaComponent(alpha)
-        }
-    )
+    /// Error overlay for failed file operations or permission states.
+    static let formaFileSurfaceErrorOverlay = formaDynamicColor(named: "formaFileSurfaceErrorOverlay") { isDark in
+        let alpha: CGFloat = isDark ? 0.22 : 0.14
+        return NSColor.systemRed.withAlphaComponent(alpha)
+    }
 
-    /// Focus border for keyboard focus state in list rows.
-    static let formaListRowFocusedBorder = Color(
-        NSColor(name: NSColor.Name("formaListRowFocusedBorder")) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let alpha: CGFloat = isDark ? 0.86 : 0.70
-            return NSColor.formaSteelBlue.withAlphaComponent(alpha)
+    /// Rest-state border for shared file surfaces.
+    static let formaFileSurfaceBorder = formaDynamicColor(named: "formaFileSurfaceBorder") { isDark in
+        if isDark {
+            return NSColor.formaBoneWhite.withAlphaComponent(0.14)
         }
-    )
+        return NSColor.formaObsidian.withAlphaComponent(0.10)
+    }
+
+    /// Hover border for shared file surfaces.
+    static let formaFileSurfaceHoverBorder = formaDynamicColor(named: "formaFileSurfaceHoverBorder") { isDark in
+        if isDark {
+            return NSColor.formaBoneWhite.withAlphaComponent(0.22)
+        }
+        return NSColor.formaObsidian.withAlphaComponent(0.16)
+    }
+
+    /// Selected border for shared file surfaces.
+    static let formaFileSurfaceSelectedBorder = formaDynamicColor(named: "formaFileSurfaceSelectedBorder") { isDark in
+        let alpha: CGFloat = isDark ? 0.58 : 0.42
+        return NSColor.formaSteelBlue.withAlphaComponent(alpha)
+    }
+
+    /// Focus border for shared file surfaces.
+    static let formaFileSurfaceFocusedBorder = formaDynamicColor(named: "formaFileSurfaceFocusedBorder") { isDark in
+        let alpha: CGFloat = isDark ? 0.86 : 0.70
+        return NSColor.formaSteelBlue.withAlphaComponent(alpha)
+    }
+
+    /// Pending border for shared file surfaces.
+    static let formaFileSurfacePendingBorder = formaDynamicColor(named: "formaFileSurfacePendingBorder") { isDark in
+        let alpha: CGFloat = isDark ? 0.68 : 0.46
+        return NSColor.systemOrange.withAlphaComponent(alpha)
+    }
+
+    /// Processing border for shared file surfaces.
+    static let formaFileSurfaceProcessingBorder = formaDynamicColor(named: "formaFileSurfaceProcessingBorder") { isDark in
+        let alpha: CGFloat = isDark ? 0.72 : 0.50
+        return NSColor.systemBlue.withAlphaComponent(alpha)
+    }
+
+    /// Error border for shared file surfaces.
+    static let formaFileSurfaceErrorBorder = formaDynamicColor(named: "formaFileSurfaceErrorBorder") { isDark in
+        let alpha: CGFloat = isDark ? 0.76 : 0.54
+        return NSColor.systemRed.withAlphaComponent(alpha)
+    }
+
+    /// Backward-compatible alias for existing list-row hover styling.
+    static let formaListRowHoverOverlay = formaFileSurfaceHoverOverlay
+
+    /// Backward-compatible alias for existing list-row selection styling.
+    static let formaListRowSelectionOverlay = formaFileSurfaceSelectionOverlay
+
+    /// Backward-compatible alias for existing list-row rest border styling.
+    static let formaListRowBorder = formaFileSurfaceBorder
+
+    /// Backward-compatible alias for existing list-row hover border styling.
+    static let formaListRowHoverBorder = formaFileSurfaceHoverBorder
+
+    /// Backward-compatible alias for existing list-row selected border styling.
+    static let formaListRowSelectedBorder = formaFileSurfaceSelectedBorder
+
+    /// Backward-compatible alias for existing list-row focused border styling.
+    static let formaListRowFocusedBorder = formaFileSurfaceFocusedBorder
     
     /// Primary text (automatically adapts contrast for light/dark mode)
     static let formaLabel = Color(NSColor.labelColor)

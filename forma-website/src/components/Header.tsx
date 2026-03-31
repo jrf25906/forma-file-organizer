@@ -1,9 +1,23 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { MenuIcon, XIcon } from "lucide-react";
 import { FormaLogoImage } from "@/components/icons";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { FormaShellCard } from "@/components/ui/forma-shell-card";
+import { formaShellCtaVariants } from "@/components/ui/forma-shell-cta";
+import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { label: "How it works", href: "/#how-it-works" },
@@ -13,144 +27,97 @@ const NAV_LINKS = [
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const hamburgerRef = useRef<HTMLButtonElement>(null);
-  const navRef = useRef<HTMLElement>(null);
-
-  const closeMobile = useCallback(() => {
-    setMobileOpen(false);
-    hamburgerRef.current?.focus();
-  }, []);
-
-  // Close on Escape key
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeMobile();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [mobileOpen, closeMobile]);
-
-  // Close on route change (hash navigation)
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const onHashChange = () => closeMobile();
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, [mobileOpen, closeMobile]);
-
-  // Prevent scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [mobileOpen]);
-
-  // Move focus into nav when opened
-  useEffect(() => {
-    if (mobileOpen && navRef.current) {
-      const firstLink = navRef.current.querySelector<HTMLElement>("a");
-      firstLink?.focus();
-    }
-  }, [mobileOpen]);
 
   return (
-    <header
-      role="banner"
-      className="relative z-50 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-primary)]"
-    >
-      <div className="site-container flex h-[73px] items-center justify-between">
-        <Link
-          href="/#top"
-          className="inline-flex items-center gap-[10px] text-[var(--text-primary)]"
-          aria-label="Forma home"
-        >
-          <FormaLogoImage size={22} priority />
-          <span className="text-[17px] leading-5 tracking-[-0.02em] font-[650]">
-            Forma
-          </span>
-        </Link>
-
-        <div className="flex items-center gap-4 sm:gap-7">
-          {/* Desktop nav */}
-          <nav className="hidden items-center gap-7 md:flex" aria-label="Main navigation">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-[14px] font-medium leading-4 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          <TrackedAppStoreLink
-            location="header_desktop"
-            className="btn-forma-primary px-5 py-2.5 text-[13.5px] min-h-[44px]"
-          >
-            Get Forma
-          </TrackedAppStoreLink>
-
-          {/* Mobile hamburger */}
-          <button
-            ref={hamburgerRef}
-            onClick={() => setMobileOpen((prev) => !prev)}
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav"
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            className="flex h-11 w-11 items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-glass-hover)] md:hidden"
-          >
-            <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true">
-              <line
-                x1="0" y1="1" x2="18" y2="1"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
-                className="origin-center transition-transform duration-200"
-                style={mobileOpen ? { transform: "translateY(6px) rotate(45deg)" } : undefined}
-              />
-              <line
-                x1="0" y1="7" x2="18" y2="7"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
-                className="transition-opacity duration-200"
-                style={mobileOpen ? { opacity: 0 } : undefined}
-              />
-              <line
-                x1="0" y1="13" x2="18" y2="13"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
-                className="origin-center transition-transform duration-200"
-                style={mobileOpen ? { transform: "translateY(-6px) rotate(-45deg)" } : undefined}
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile nav panel — always in DOM for aria-controls, hidden when closed */}
-      <nav
-        ref={navRef}
-        id="mobile-nav"
-        aria-label="Mobile navigation"
-        hidden={!mobileOpen}
-        className="border-t border-[var(--border-subtle)] bg-[var(--bg-primary)] px-5 pb-6 pt-4 md:hidden"
+    <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+      <header
+        role="banner"
+        className="relative z-50 w-full border-b border-[var(--shell-border)] bg-[var(--bg-primary)]"
       >
-        <ul className="flex flex-col gap-1">
-          {NAV_LINKS.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                onClick={closeMobile}
-                className="block rounded-lg px-3 py-2.5 text-[15px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]"
+        <div className="site-container py-4">
+          <FormaShellCard className="flex h-[72px] items-center justify-between gap-3 px-4 md:px-5">
+            <Link
+              href="/#top"
+              className="inline-flex items-center gap-[10px] text-[var(--text-primary)]"
+              aria-label="Forma home"
+            >
+              <FormaLogoImage size={22} priority />
+              <span className="text-[17px] leading-5 tracking-[-0.02em] font-[650]">
+                Forma
+              </span>
+            </Link>
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              <nav
+                className="hidden items-center gap-1 rounded-full border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] p-1 md:flex"
+                aria-label="Main navigation"
               >
-                {link.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    </header>
+                {NAV_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="rounded-full px-3.5 py-2 text-[13px] font-medium leading-4 text-[var(--text-secondary)] transition-colors hover:bg-[var(--shell-surface)] hover:text-[var(--text-primary)]"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+
+              <TrackedAppStoreLink
+                location="header_desktop"
+                className={cn(
+                  formaShellCtaVariants({ variant: "primary" }),
+                  "h-11 px-4 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forma-steel-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--shell-surface)] sm:px-5"
+                )}
+              >
+                Get Forma
+              </TrackedAppStoreLink>
+
+              <SheetTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+                  className="h-11 w-11 border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] text-[var(--text-primary)] hover:bg-[var(--shell-surface)] md:hidden"
+                >
+                  {mobileOpen ? <XIcon /> : <MenuIcon />}
+                </Button>
+              </SheetTrigger>
+            </div>
+          </FormaShellCard>
+        </div>
+      </header>
+
+      <SheetContent
+        side="right"
+        className="w-[min(22rem,calc(100vw-1rem))] border-l border-[var(--shell-border)] bg-[var(--shell-surface)] px-4 pb-4 pt-14 text-[var(--text-primary)] shadow-[var(--shell-shadow-strong)] sm:max-w-none"
+      >
+        <SheetHeader className="p-0">
+          <SheetTitle className="sr-only">Main navigation</SheetTitle>
+          <SheetDescription className="sr-only">
+            Navigate to the main sections of Forma.
+          </SheetDescription>
+        </SheetHeader>
+
+        <nav aria-label="Mobile navigation" className="mt-2">
+          <ul className="space-y-2">
+            {NAV_LINKS.map((link) => (
+              <li key={link.href}>
+                <SheetClose asChild>
+                  <Link
+                    href={link.href}
+                    className="flex items-center rounded-xl border border-transparent px-4 py-3 text-[15px] font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--shell-border)] hover:bg-[var(--shell-surface-muted)]"
+                  >
+                    {link.label}
+                  </Link>
+                </SheetClose>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </SheetContent>
+    </Sheet>
   );
 }
 

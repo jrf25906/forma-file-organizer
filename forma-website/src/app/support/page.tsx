@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
+import { FormaShellCard } from "@/components/ui/forma-shell-card";
+import { formaShellCtaVariants } from "@/components/ui/forma-shell-cta";
 import { SUPPORT_EMAIL } from "@/lib/site";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Support",
@@ -12,106 +15,125 @@ export const metadata: Metadata = {
   },
 };
 
+const quickFixes = [
+  "If a folder is not scanning, remove it and add it again in Forma, then confirm access in macOS settings.",
+  "If a move fails, confirm the destination folder is available and has enough free space.",
+  "If results look off, run preview again and adjust your rule before approving changes.",
+] as const;
+
+const guides = [
+  {
+    href: "/blog/organize-mac-files",
+    label: "How to Organize Mac Files",
+  },
+  {
+    href: "/blog/organize-downloads-folder-mac",
+    label: "Organize Downloads Folder on Mac",
+  },
+  {
+    href: "/blog/organize-desktop-files-mac",
+    label: "Organize Desktop Files on Mac",
+  },
+] as const;
+
 export default function SupportPage() {
   return (
-    <main id="main-content" className="relative py-20 md:py-24">
-      <div className="site-container mx-auto max-w-4xl">
-        <header className="mb-10 border-b border-[var(--border-subtle)] pb-8">
-          <p className="mb-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            Support
-          </p>
-          <h1 className="text-4xl font-semibold tracking-[-0.02em] text-[var(--text-primary)] md:text-5xl">
-            Support without a ticket maze
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--text-secondary)]">
-            Send what happened, what you expected, and your macOS version. We will help you get
-            unstuck without making you fight the website first.
-          </p>
-        </header>
+    <main
+      id="main-content"
+      className="relative border-y border-[var(--shell-border)] bg-[var(--bg-secondary)] py-20 md:py-24"
+    >
+      <div className="site-container mx-auto max-w-5xl">
+        <div className="rounded-[2rem] border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] p-5 shadow-[var(--shell-shadow-soft)] md:p-6">
+          <header className="border-b border-[var(--shell-border)] pb-8 md:pb-10">
+            <div className="max-w-3xl space-y-3">
+              <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-forma-steel-blue">
+                Support
+              </p>
+              <h1 className="font-display text-[1.875rem] leading-[1.1] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem]">
+                Support without a ticket maze
+              </h1>
+              <p className="max-w-2xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                Send what happened, what you expected, and your macOS version. We will help you get
+                unstuck without making you fight the website first.
+              </p>
+            </div>
+          </header>
 
-        <div className="grid gap-6 md:grid-cols-[0.9fr,1.1fr]">
-          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
-            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
-              Contact
-            </h2>
-            <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-              Include the folder involved, what rule or action you ran, and whether the issue is
-              repeatable.
-            </p>
-            <p className="mt-5">
-              <TrackedMailtoLink
-                email={SUPPORT_EMAIL}
-                location="support_page"
-                className="text-forma-steel-blue transition-opacity hover:opacity-80"
+          <div className="mt-6 grid gap-5 lg:grid-cols-[0.92fr,1.08fr]">
+            <FormaShellCard className="p-6 md:p-7">
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+                Contact
+              </h2>
+              <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                Include the folder involved, what rule or action you ran, and whether the issue is
+                repeatable.
+              </p>
+              <p className="mt-6">
+                <TrackedMailtoLink
+                  email={SUPPORT_EMAIL}
+                  location="support_page"
+                  className={cn(
+                    formaShellCtaVariants({ variant: "secondary" }),
+                    "h-auto min-h-11 px-4 py-3 text-[15px]"
+                  )}
+                >
+                  {SUPPORT_EMAIL}
+                </TrackedMailtoLink>
+              </p>
+            </FormaShellCard>
+
+            <FormaShellCard className="p-6 md:p-7">
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+                Quick fixes
+              </h2>
+              <ul className="mt-5 space-y-4 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                {quickFixes.map((item) => (
+                  <li
+                    key={item}
+                    className="border-t border-[var(--shell-border)] pt-4 first:border-t-0 first:pt-0"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </FormaShellCard>
+          </div>
+
+          <FormaShellCard className="mt-5 p-6 md:p-7">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+                  Guides
+                </h2>
+                <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                  If you want the workflow behind the product instead of just the fix, start here.
+                </p>
+              </div>
+
+              <Link
+                href="/"
+                className={cn(
+                  formaShellCtaVariants({ variant: "ghost" }),
+                  "h-11 px-0 text-[14px] lg:px-4"
+                )}
               >
-                {SUPPORT_EMAIL}
-              </TrackedMailtoLink>
-            </p>
-          </section>
+                &larr; Back to home
+              </Link>
+            </div>
 
-          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
-            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
-              Quick fixes
-            </h2>
-            <ul className="mt-4 list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-              <li>
-                If a folder is not scanning, remove it and add it again in Forma, then confirm
-                access in macOS settings.
-              </li>
-              <li>
-                If a move fails, confirm the destination folder is available and has enough free
-                space.
-              </li>
-              <li>
-                If results look off, run preview again and adjust your rule before approving
-                changes.
-              </li>
+            <ul className="mt-6 grid gap-3 md:grid-cols-3">
+              {guides.map((guide) => (
+                <li key={guide.href}>
+                  <Link
+                    href={guide.href}
+                    className="block rounded-xl border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] px-4 py-4 text-[15px] font-medium leading-relaxed text-[var(--text-primary)] transition-colors hover:bg-[var(--shell-surface)]"
+                  >
+                    {guide.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
-          </section>
-        </div>
-
-        <section className="mt-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
-            Guides
-          </h2>
-          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
-            If you want the workflow behind the product instead of just the fix, start here.
-          </p>
-          <ul className="mt-5 list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-            <li>
-              <Link
-                href="/blog/organize-mac-files"
-                className="text-forma-steel-blue transition-opacity hover:opacity-80"
-              >
-                How to Organize Mac Files
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/blog/organize-downloads-folder-mac"
-                className="text-forma-steel-blue transition-opacity hover:opacity-80"
-              >
-                Organize Downloads Folder on Mac
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/blog/organize-desktop-files-mac"
-                className="text-forma-steel-blue transition-opacity hover:opacity-80"
-              >
-                Organize Desktop Files on Mac
-              </Link>
-            </li>
-          </ul>
-        </section>
-
-        <div className="mt-10">
-          <Link
-            href="/"
-            className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-          >
-            &larr; Back to home
-          </Link>
+          </FormaShellCard>
         </div>
       </div>
     </main>

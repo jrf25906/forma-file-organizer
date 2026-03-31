@@ -101,27 +101,29 @@ private struct ToolbarCluster<Content: View>: View {
     }
 
     private var clusterFill: Color {
-        colorScheme == .dark
-            ? Color.formaControlBackground.opacity(0.76)
-            : Color.formaBoneWhite.opacity(0.82)
+        FormaControlChromePalette.clusterFill(colorScheme, elevation: elevation)
     }
 }
 
 private struct ToolbarSegmentButton<Label: View>: View {
     let isSelected: Bool
+    let tint: Color
     let action: () -> Void
     let accessibilityIdentifier: String?
     let accessibilityLabel: String?
     @ViewBuilder let label: Label
+    @Environment(\.colorScheme) private var colorScheme
 
     init(
         isSelected: Bool,
+        tint: Color = .formaSteelBlue,
         accessibilityIdentifier: String? = nil,
         accessibilityLabel: String? = nil,
         action: @escaping () -> Void,
         @ViewBuilder label: () -> Label
     ) {
         self.isSelected = isSelected
+        self.tint = tint
         self.accessibilityIdentifier = accessibilityIdentifier
         self.accessibilityLabel = accessibilityLabel
         self.action = action
@@ -135,10 +137,17 @@ private struct ToolbarSegmentButton<Label: View>: View {
                 .frame(height: 24)
                 .padding(.horizontal, FormaSpacing.standard - 2)
                 .background(
-                    RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                        .fill(isSelected ? Color.formaSteelBlue : Color.clear)
+                    FormaCompactSelectionChrome(
+                        isSelected: isSelected,
+                        tint: tint,
+                        cornerRadius: FormaRadius.small
+                    )
                 )
-                .foregroundStyle(isSelected ? Color.white : Color.formaLabel)
+                .foregroundStyle(
+                    isSelected
+                        ? FormaControlChromePalette.selectedForeground(colorScheme, tint: tint)
+                        : Color.formaLabel
+                )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier ?? "")
@@ -150,6 +159,7 @@ private struct ToolbarSegmentButton<Label: View>: View {
 struct UnifiedToolbar: View {
     let availableWidth: CGFloat
     @EnvironmentObject var viewModel: DashboardViewModel
+    @Environment(\.colorScheme) private var colorScheme
     
     // Calculate compression level based on available width
     private var compressionLevel: CompressionLevel {
@@ -333,7 +343,8 @@ struct UnifiedToolbar: View {
                 spacing: compressionLevel.spacing,
                 horizontalPadding: compressionLevel.horizontalPadding,
                 verticalPadding: FormaSpacing.micro + 1,
-                tint: arrangeClusterTint
+                tint: arrangeClusterTint,
+                elevation: arrangeClusterElevation
             ) {
                 Image(systemName: "arrow.up.arrow.down.circle")
                     .font(.system(size: 13, weight: .semibold))
@@ -359,7 +370,8 @@ struct UnifiedToolbar: View {
             spacing: compressionLevel.spacing,
             horizontalPadding: compressionLevel.horizontalPadding - (compressionLevel == .compact ? FormaSpacing.micro : 0),
             verticalPadding: FormaSpacing.micro + 1,
-            tint: isInspectorEffectivelyVisible ? .formaSteelBlue : nil
+            tint: isInspectorEffectivelyVisible ? .formaSteelBlue : nil,
+            elevation: displayGroupElevation
         ) {
             HStack(spacing: FormaSpacing.micro) {
                 viewModeButton(mode: .grid, systemName: "square.grid.2x2", accessibilityIdentifier: "viewMode_grid", accessibilityLabel: "Grid view")
@@ -410,10 +422,17 @@ struct UnifiedToolbar: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 24)
                 .background(
-                    RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
-                        .fill(viewModel.currentViewMode == mode ? Color.formaSteelBlue : Color.clear)
+                    FormaCompactSelectionChrome(
+                        isSelected: viewModel.currentViewMode == mode,
+                        tint: .formaSteelBlue,
+                        cornerRadius: FormaRadius.small
+                    )
                 )
-                .foregroundStyle(viewModel.currentViewMode == mode ? Color.white : Color.formaSecondaryLabelHigh)
+                .foregroundStyle(
+                    viewModel.currentViewMode == mode
+                        ? FormaControlChromePalette.selectedForeground(colorScheme, tint: .formaSteelBlue)
+                        : Color.formaSecondaryLabelHigh
+                )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier)
@@ -494,6 +513,14 @@ struct UnifiedToolbar: View {
         }
 
         return nil
+    }
+
+    private var arrangeClusterElevation: FormaChromeElevation {
+        viewModel.reviewFilterMode == .all && viewModel.groupingMode != .none ? .raised : .resting
+    }
+
+    private var displayGroupElevation: FormaChromeElevation {
+        isInspectorEffectivelyVisible ? .raised : .resting
     }
 
     private var contextSymbolName: String {

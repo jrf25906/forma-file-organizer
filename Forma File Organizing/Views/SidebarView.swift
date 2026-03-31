@@ -139,8 +139,11 @@ struct SidebarView: View {
             .padding(.vertical, FormaSpacing.tight)
         }
         .background(
-            PaneMaterialBackground(role: .sidebar)
-                .ignoresSafeArea(edges: .top)
+            ZStack {
+                PaneMaterialBackground(role: .sidebar)
+                SidebarGlassOverlay()
+            }
+            .ignoresSafeArea(edges: .top)
         )
         .onAppear {
             if case .nestedFolder(let base, let relativePath, let includeSubfolders) = nav.selection {

@@ -1,44 +1,45 @@
 import SwiftUI
-import AppKit
 
 /// Xcode-style sidebar glass overlay with nested corner radii.
 struct SidebarGlassOverlay: View {
-    let isKeyWindow: Bool
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.controlActiveState) private var controlActiveState
+
+    private var isWindowActive: Bool {
+        controlActiveState != .inactive
+    }
+
+    private var glassStyle: FormaSidebarGlassStyle {
+        FormaControlChromePalette.sidebarGlassStyle(colorScheme, isWindowActive: isWindowActive)
+    }
 
     private var sheenGradient: LinearGradient {
-        // macOS standard liquid glass window reflection approach: Let the top material have a very light
-        // solid edge, fading transparent immediately to let the popover material do the heavy lifting.
-        let topOpacity: Double = colorScheme == .dark
-            ? Color.FormaOpacity.light
-            : Color.FormaOpacity.medium
-        
-        let bottomOpacity: Double = colorScheme == .dark
-            ? Color.FormaOpacity.ultraSubtle
-            : Color.FormaOpacity.subtle
-
         return LinearGradient(
             colors: [
-                Color.formaBoneWhite.opacity(topOpacity),
-                Color.formaBoneWhite.opacity(bottomOpacity)
+                Color.formaBoneWhite.opacity(glassStyle.sheenTopOpacity),
+                Color.formaBoneWhite.opacity((glassStyle.sheenTopOpacity + glassStyle.sheenBottomOpacity) * 0.5),
+                Color.formaBoneWhite.opacity(glassStyle.sheenBottomOpacity)
             ],
-            startPoint: .top,
-            endPoint: .bottom
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
         )
     }
 
     var body: some View {
         ZStack {
-            VisualEffectView(
-                material: .popover,
-                blendingMode: .withinWindow,
-                state: isKeyWindow ? .active : .inactive
-            )
-            
-            // Refraction / Volume Gradient (White sheen)
             sheenGradient
-            .blendMode(.overlay)
+                .blendMode(.overlay)
+
+            HStack(spacing: 0) {
+                Spacer()
+
+                Rectangle()
+                    .fill(Color.formaBoneWhite.opacity(glassStyle.edgeOpacity))
+                    .frame(width: 1)
+            }
         }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -49,7 +50,7 @@ struct SidebarGlassOverlay_Previews: PreviewProvider {
             LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
-            SidebarGlassOverlay(isKeyWindow: true)
+            SidebarGlassOverlay()
                 .frame(width: FormaLayout.Dashboard.sidebarExpandedWidth)
         }
         .frame(width: 420, height: 520)
