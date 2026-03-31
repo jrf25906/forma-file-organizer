@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useMemo, Suspense } from 'react';
+import { useRef, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Object3D, DoubleSide, BoxGeometry, MathUtils, Quaternion, Euler, InstancedMesh, Group } from 'three';
 import { Environment, PerspectiveCamera, useTexture } from '@react-three/drei';
@@ -30,6 +30,58 @@ const PARTICLES_PER_TEXTURE = 35; // Total ~385 particles
 const TORNADO_HEIGHT = 45;
 const TORNADO_SPEED = 1.2;
 
+type ScrollParticle = {
+  tY: number;
+  angle: number;
+  speed: number;
+  radiusOffset: number;
+  tRx: number;
+  tRy: number;
+  tRz: number;
+  tRs: number;
+  oX: number;
+  oY: number;
+  oZ: number;
+  oRx: number;
+  oRy: number;
+  oRz: number;
+};
+
+function centeredRandom(scale: number) {
+  return (Math.random() - 0.5) * scale;
+}
+
+function createScrollParticles(textureIndex: number): ScrollParticle[] {
+  const particles: ScrollParticle[] = [];
+  const stackX = (textureIndex - 5) * 3.2;
+  const stackZ = 5;
+
+  for (let i = 0; i < PARTICLES_PER_TEXTURE; i++) {
+    particles.push({
+      tY: centeredRandom(TORNADO_HEIGHT),
+      angle: Math.random() * Math.PI * 2,
+      speed: (Math.random() * 0.4 + 0.8) * TORNADO_SPEED,
+      radiusOffset: centeredRandom(2.5),
+      tRx: Math.random() * Math.PI,
+      tRy: Math.random() * Math.PI,
+      tRz: Math.random() * Math.PI,
+      tRs: centeredRandom(4),
+      oX: stackX + centeredRandom(0.15),
+      oY: -14 + i * 0.045,
+      oZ: stackZ + centeredRandom(0.15),
+      oRx: -Math.PI / 2,
+      oRy: centeredRandom(0.35),
+      oRz: centeredRandom(0.1),
+    });
+  }
+
+  return particles;
+}
+
+const SCROLL_PARTICLES_BY_TEXTURE = TEXTURE_PATHS.map((_, index) =>
+  createScrollParticles(index)
+);
+
 // Shared Curved Geometry for memory efficiency
 const curvedCardGeometry = new BoxGeometry(2.5, 2.5, 0.04, 12, 12, 1);
 const pos = curvedCardGeometry.attributes.position;
@@ -44,37 +96,14 @@ curvedCardGeometry.computeVertexNormals();
 function TexturedSwarm({ texturePath, textureIndex }: { texturePath: string, textureIndex: number }) {
   const texture = useTexture(texturePath);
   const meshRef = useRef<InstancedMesh>(null);
-  const dummy = useMemo(() => new Object3D(), []);
-  
-  const particles = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < PARTICLES_PER_TEXTURE; i++) {
-      // Organized Stack Parameters
-      const stackX = (textureIndex - 5) * 3.2;
-      const stackZ = 5; 
-      
-      temp.push({
-        // TORNADO CONSTANTS
-        tY: (Math.random() - 0.5) * TORNADO_HEIGHT,
-        angle: Math.random() * Math.PI * 2,
-        speed: (Math.random() * 0.4 + 0.8) * TORNADO_SPEED,
-        radiusOffset: Math.random() * 2.5 - 1.25,
-        tRx: Math.random() * Math.PI,
-        tRy: Math.random() * Math.PI,
-        tRz: Math.random() * Math.PI,
-        tRs: (Math.random() - 0.5) * 4,
-        
-        // ORGANIZED CONSTANTS
-        oX: stackX + (Math.random() - 0.5) * 0.15,
-        oY: -14 + i * 0.045, // Stack up vertically from a much lower base to stay out of the center view
-        oZ: stackZ + (Math.random() - 0.5) * 0.15,
-        oRx: -Math.PI / 2, // lay flat on the ground
-        oRy: (Math.random() - 0.5) * 0.35, // Organic stack twist so piles look loose and physically messy
-        oRz: (Math.random() - 0.5) * 0.1, // Slight tilt variation
-      });
-    }
-    return temp;
-  }, [textureIndex]);
+  const dummyRef = useRef<Object3D | null>(null);
+
+  if (dummyRef.current === null) {
+    dummyRef.current = new Object3D();
+  }
+
+  const dummy = dummyRef.current;
+  const particles = SCROLL_PARTICLES_BY_TEXTURE[textureIndex] ?? [];
 
   useFrame((state) => {
     if (!meshRef.current) return;

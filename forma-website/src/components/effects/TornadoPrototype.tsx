@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useMemo, Suspense, useState } from 'react';
+import { useRef, Suspense, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Object3D, DoubleSide, BoxGeometry, MathUtils, Quaternion, Euler, InstancedMesh } from 'three';
 import { Environment, PerspectiveCamera, OrbitControls, useTexture } from '@react-three/drei';
@@ -22,6 +22,85 @@ const PARTICLES_PER_TEXTURE = 35; // Total ~385 particles
 const TORNADO_HEIGHT = 45;
 const TORNADO_SPEED = 1.2;
 
+type PrototypeParticleSeed = {
+  tY: number;
+  angle: number;
+  speed: number;
+  radiusOffset: number;
+  tRx: number;
+  tRy: number;
+  tRz: number;
+  tRs: number;
+  oX: number;
+  oY: number;
+  oZ: number;
+  oRx: number;
+  oRy: number;
+  oRz: number;
+  x: number;
+  y: number;
+  z: number;
+  qx: number;
+  qy: number;
+  qz: number;
+  qw: number;
+};
+
+type PrototypeParticleState = Omit<PrototypeParticleSeed, 'qx' | 'qy' | 'qz' | 'qw'> & {
+  q: Quaternion;
+};
+
+function centeredRandom(scale: number) {
+  return (Math.random() - 0.5) * scale;
+}
+
+function createPrototypeParticleSeeds(textureIndex: number): PrototypeParticleSeed[] {
+  const particles: PrototypeParticleSeed[] = [];
+  const stackX = (textureIndex - 5) * 3.2;
+  const stackZ = 5;
+
+  for (let i = 0; i < PARTICLES_PER_TEXTURE; i++) {
+    const orientation = new Quaternion().random();
+
+    particles.push({
+      tY: centeredRandom(TORNADO_HEIGHT),
+      angle: Math.random() * Math.PI * 2,
+      speed: (Math.random() * 0.4 + 0.8) * TORNADO_SPEED,
+      radiusOffset: centeredRandom(2.5),
+      tRx: Math.random() * Math.PI,
+      tRy: Math.random() * Math.PI,
+      tRz: Math.random() * Math.PI,
+      tRs: centeredRandom(4),
+      oX: stackX + centeredRandom(0.15),
+      oY: -8 + i * 0.045,
+      oZ: stackZ + centeredRandom(0.15),
+      oRx: -Math.PI / 2,
+      oRy: 0,
+      oRz: centeredRandom(0.2),
+      x: centeredRandom(20),
+      y: centeredRandom(20),
+      z: centeredRandom(20),
+      qx: orientation.x,
+      qy: orientation.y,
+      qz: orientation.z,
+      qw: orientation.w,
+    });
+  }
+
+  return particles;
+}
+
+function clonePrototypeParticles(seeds: PrototypeParticleSeed[]): PrototypeParticleState[] {
+  return seeds.map(({ qx, qy, qz, qw, ...particle }) => ({
+    ...particle,
+    q: new Quaternion(qx, qy, qz, qw),
+  }));
+}
+
+const PROTOTYPE_PARTICLES_BY_TEXTURE = TEXTURE_PATHS.map((_, index) =>
+  createPrototypeParticleSeeds(index)
+);
+
 // Shared Curved Geometry
 const curvedCardGeometry = new BoxGeometry(2.5, 2.5, 0.04, 12, 12, 1);
 const pos = curvedCardGeometry.attributes.position;
@@ -36,45 +115,21 @@ curvedCardGeometry.computeVertexNormals();
 function TexturedSwarm({ texturePath, textureIndex, isOrganized }: { texturePath: string, textureIndex: number, isOrganized: boolean }) {
   const texture = useTexture(texturePath);
   const meshRef = useRef<InstancedMesh>(null);
-  const dummy = useMemo(() => new Object3D(), []);
-  
-  // Store physics data for each particle
-  const particles = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < PARTICLES_PER_TEXTURE; i++) {
-      // Organized Stack Parameters (where they belong when neat)
-      // 11 texture types mapped from -15 to +15 on X axis
-      const stackX = (textureIndex - 5) * 3.2;
-      const stackZ = 5; // bringing them slightly forward for the camera
-      
-      temp.push({
-        // TORNADO CONSTANTS
-        tY: (Math.random() - 0.5) * TORNADO_HEIGHT,
-        angle: Math.random() * Math.PI * 2,
-        speed: (Math.random() * 0.4 + 0.8) * TORNADO_SPEED,
-        radiusOffset: Math.random() * 2.5 - 1.25,
-        tRx: Math.random() * Math.PI,
-        tRy: Math.random() * Math.PI,
-        tRz: Math.random() * Math.PI,
-        tRs: (Math.random() - 0.5) * 4,
-        
-        // ORGANIZED CONSTANTS
-        oX: stackX + (Math.random() - 0.5) * 0.15, // slight sloppy stack
-        oY: -8 + i * 0.045, // Stack up vertically from base
-        oZ: stackZ + (Math.random() - 0.5) * 0.15,
-        oRx: -Math.PI / 2, // lay flat on the ground
-        oRy: 0,
-        oRz: (Math.random() - 0.5) * 0.2, // slight rotational twist
-        
-        // CURRENT PHYSICS STATE
-        x: (Math.random() - 0.5) * 20,
-        y: (Math.random() - 0.5) * 20,
-        z: (Math.random() - 0.5) * 20,
-        q: new Quaternion().random()
-      });
-    }
-    return temp;
-  }, [textureIndex]);
+  const dummyRef = useRef<Object3D | null>(null);
+  const particlesRef = useRef<PrototypeParticleState[] | null>(null);
+
+  if (dummyRef.current === null) {
+    dummyRef.current = new Object3D();
+  }
+
+  if (particlesRef.current === null) {
+    particlesRef.current = clonePrototypeParticles(
+      PROTOTYPE_PARTICLES_BY_TEXTURE[textureIndex] ?? []
+    );
+  }
+
+  const dummy = dummyRef.current;
+  const particles = particlesRef.current;
 
   useFrame((state) => {
     if (!meshRef.current) return;
