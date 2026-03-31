@@ -93,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed - Architecture & Components
+- Dashboard launch now defaults to `twoColumn` at medium widths and only starts in `threeColumn` on wide launches with meaningful default inspector content; user-driven inspector visibility now persists across relaunches.
 - Smart Rules now classify rule health via `RuleHealthService`, separating duplicate/overlap issues, missing permissions, resolvable `Will Create` destinations, and disabled rules instead of collapsing everything into one attention state.
 - Rule Editor and Inline Rule Builder now create resolvable destination folders immediately when the user explicitly saves a rule and Forma already has the necessary root permission.
 - Destination permission prompts now open to the nearest existing parent folder and prefill the first missing folder name for nested suggestions before Forma creates the remaining subfolders.

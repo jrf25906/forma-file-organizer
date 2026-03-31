@@ -66,6 +66,10 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 
 ### Recent API Updates (March 2026)
 
+- `WindowPresentationStore` now encapsulates persisted inspector-visibility defaults with `savedInspectorVisibility`, `setInspectorVisible(_:)`, and `resetInspectorVisibility()`.
+- `DashboardLaunchPresentation` now carries launch-width-derived inspector defaults so `DashboardViewModel` can choose between two-column and three-column startup without reading AppKit window state directly.
+- `DashboardViewModel.setRightPanelVisible(_:)` now persists user-driven inspector visibility changes instead of mutating the published flag only in-memory.
+- UI tests can now isolate persisted window-presentation state with `FORMA_WINDOW_PRESENTATION_SUITE` and reset it with `FORMA_RESET_WINDOW_PRESENTATION=1`, in addition to `FORMA_WINDOW_SIZE`.
 - `DestinationResolver.materializeForExplicitSave(_:)` now resolves placeholder destinations during explicit rule-save flows, creates folders inside already-permitted roots, and throws actionable errors for unresolvable destinations.
 - `DestinationResolver.requestDestinationAccess(forSuggestedPath:)` now powers guided destination permission flows by pre-seeding the nearest existing parent folder, prefilling the first missing folder name for nested suggestions, and materializing any remaining subfolders after access is granted.
 - `RuleHealthService` centralizes Smart Rules health classification with `duplicate`, `overlap`, `needsPermission`, `willCreate`, `ready`, and `disabled` states.

@@ -364,7 +364,7 @@ git commit -m "feat: persist contextual inspector visibility"
 - Modify: `CHANGELOG.md`
 - Modify: `API_REFERENCE.md`
 
-- [ ] **Step 1: Write the failing UI assertions for adaptive launch posture**
+- [x] **Step 1: Write the failing UI assertions for adaptive launch posture**
 
 Add UI coverage to `Forma File OrganizingUITests/Forma_File_OrganizingUITests.swift` for:
 - medium launch width defaults to `twoColumn`
@@ -386,7 +386,7 @@ func test_mediumWindowLaunchDefaultsToTwoColumnLayout() {
 }
 ```
 
-- [ ] **Step 2: Run the targeted UI tests to verify they fail**
+- [x] **Step 2: Run the targeted UI tests to verify they fail**
 
 Run:
 
@@ -396,24 +396,24 @@ xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File O
 
 Expected: FAIL because launch posture persistence and adaptive defaults are not fully wired yet.
 
-- [ ] **Step 3: Update UI probes and screenshot coverage if needed**
+- [x] **Step 3: Update UI probes and screenshot coverage if needed**
 
 Adjust `Forma File OrganizingUITests/FileSurfaceToolbarValidationTests.swift` only if the new default launch size changes the stable screenshot baseline or requires explicit window sizes per scenario. Keep the toolbar assertions intact.
 
-- [ ] **Step 4: Re-run the targeted UI tests**
+- [x] **Step 4: Re-run the targeted UI tests**
 
 Run the command from Step 2.
 
 Expected: PASS, or if the macOS UI runner remains flaky locally, capture the exact stall point and keep the assertions/test code in place.
 
-- [ ] **Step 5: Update docs**
+- [x] **Step 5: Update docs**
 
 Update:
 - `TODO.md` with any follow-up polish items for window restoration edge cases
 - `CHANGELOG.md` with the new default window behavior and inspector persistence
 - `API_REFERENCE.md` if the app’s launch behavior or configurable environment variables (`FORMA_WINDOW_SIZE`) need documentation for QA/UI testing
 
-- [ ] **Step 6: Run the no-UI suite plus a final build**
+- [x] **Step 6: Run the no-UI suite plus a final build**
 
 Run:
 

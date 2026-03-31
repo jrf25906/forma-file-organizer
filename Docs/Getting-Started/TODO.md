@@ -20,6 +20,13 @@ Implementation plan for this wave: [`Docs/plans/2026-03-30-preview-first-roadmap
 - [ ] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.
 - [ ] Plan metadata-backed project spaces and retrieval workflows as the next durable moat.
 
+## Adaptive Window Launch Presentation (March 30, 2026)
+- [x] Default dashboard launch to `twoColumn` at medium window widths and to `threeColumn` only on wide launches with meaningful default inspector content.
+- [x] Persist user-driven inspector visibility across relaunches through `WindowPresentationStore` instead of resetting to an always-open inspector.
+- [x] Add targeted UI coverage for medium-width launch, large-width launch, and inspector visibility persistence across relaunches.
+- [x] Isolate UI-test window-presentation defaults per suite so screenshot and layout coverage stay deterministic.
+- [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
+
 ---
 
 ## Product Redesign Program (March 5, 2026)

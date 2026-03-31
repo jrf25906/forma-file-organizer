@@ -40,6 +40,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `restoreExternalReviewSessionIfNeeded()`
   - `firstRunQuickWinSuggestion`
   - `organizeFirstRunQuickWin(context:)`
+  - `setRightPanelVisible(_:)`
   - First-run quick wins now derive from the current `visibleFiles` review context and are suppressed while an external review session is active.
   - External review sessions now clear themselves once scoped files are no longer pending or ready.
 - `FirstRunQuickWinSuggestion`
@@ -57,6 +58,15 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - `ActivityItem.ActivityType`
   - `toneCategory`
   - Automation activity display names now align with the notification-tone reset (`Review Queue Updated`, `Auto-Organize Progress`, `Automation Needs Attention`).
+- Window presentation policy (`Forma File Organizing/ViewModels/DashboardViewModel.swift`)
+  - `WindowPresentationStore`
+    - `savedInspectorVisibility`
+    - `setInspectorVisible(_:)`
+    - `resetInspectorVisibility()`
+  - `DashboardLaunchPresentation`
+    - `launchWidth: CGFloat`
+    - `hasMeaningfulDefaultPanelContent: Bool`
+    - `defaultInspectorVisibility: Bool`
 - `FileFilterManager`
   - `externalReviewPaths`
   - `setExternalReviewPaths(_:)`
@@ -121,6 +131,8 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `classify(rules:staleRuleThresholdDays:evaluationDate:)`
 - UI test launch sizing
   - Set `FORMA_WINDOW_SIZE=WIDTHxHEIGHT` when launching UI tests to force the window size used for screenshot and layout coverage.
+  - Set `FORMA_WINDOW_PRESENTATION_SUITE` to isolate persisted inspector visibility for a test run.
+  - Set `FORMA_RESET_WINDOW_PRESENTATION=1` to clear stored inspector visibility before launch.
 - `FileScanOptions` (`Forma File Organizing/Services/FileSystemService.swift`)
   - `isRecursive: Bool`
   - `maxDepth: Int`

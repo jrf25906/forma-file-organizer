@@ -8,6 +8,43 @@ struct FirstRunQuickWinSuggestion: Equatable {
     let fileCount: Int
 }
 
+@MainActor
+final class WindowPresentationStore {
+    private enum Keys {
+        static let inspectorVisible = "windowPresentation.inspectorVisible"
+    }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    var savedInspectorVisibility: Bool? {
+        guard defaults.object(forKey: Keys.inspectorVisible) != nil else { return nil }
+        return defaults.bool(forKey: Keys.inspectorVisible)
+    }
+
+    func setInspectorVisible(_ isVisible: Bool) {
+        defaults.set(isVisible, forKey: Keys.inspectorVisible)
+    }
+
+    func resetInspectorVisibility() {
+        defaults.removeObject(forKey: Keys.inspectorVisible)
+    }
+}
+
+struct DashboardLaunchPresentation {
+    static let inspectorEligibleWidth: CGFloat = 1500
+
+    let launchWidth: CGFloat
+    let hasMeaningfulDefaultPanelContent: Bool
+
+    var defaultInspectorVisibility: Bool {
+        launchWidth >= Self.inspectorEligibleWidth && hasMeaningfulDefaultPanelContent
+    }
+}
+
 /// Coordinator ViewModel that composes focused ViewModels.
 /// This is the main entry point for the Dashboard, delegating responsibilities
 /// to specialized ViewModels for scanning, filtering, selection, analytics, and bulk operations.
@@ -73,6 +110,7 @@ class DashboardViewModel: ObservableObject {
     @ObservedObject private var organizationCoordinator: FileOrganizationCoordinator
     private let undoRedoController: DashboardUndoRedoController
     @ObservedObject private var panelManager = PanelStateManager()
+    private let windowPresentationStore: WindowPresentationStore
 
     // MARK: - Permissions State
     @ObservedObject private(set) var permissionState = DashboardPermissionState()
@@ -108,11 +146,18 @@ class DashboardViewModel: ObservableObject {
         services: AppServices,
         fileSystemService: FileSystemServiceProtocol,
         fileScanPipeline: FileScanPipelineProtocol,
-        contentSearchService: ContentSearchServing = ContentSearchService.shared
+        contentSearchService: ContentSearchServing = ContentSearchService.shared,
+        windowPresentationStore: WindowPresentationStore = WindowPresentationStore(),
+        launchPresentation: DashboardLaunchPresentation = DashboardLaunchPresentation(
+            launchWidth: FormaSpacing.Window.preferredWidth,
+            hasMeaningfulDefaultPanelContent: true
+        )
     ) {
         let coordinator = FileOrganizationCoordinator()
         self.organizationCoordinator = coordinator
         self.undoRedoController = DashboardUndoRedoController(coordinator: coordinator)
+        self.windowPresentationStore = windowPresentationStore
+        self.isRightPanelVisible = windowPresentationStore.savedInspectorVisibility ?? launchPresentation.defaultInspectorVisibility
         self.fileSystemService = fileSystemService
         self.storageService = services.storageService
         self.notificationService = services.notificationService
@@ -679,6 +724,11 @@ class DashboardViewModel: ObservableObject {
 
     func returnToDefaultPanel() {
         panelManager.returnToDefaultPanel()
+    }
+
+    func setRightPanelVisible(_ isVisible: Bool) {
+        isRightPanelVisible = isVisible
+        windowPresentationStore.setInspectorVisible(isVisible)
     }
 
     var rightPanelMode: PanelStateManager.RightPanelMode {

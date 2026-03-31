@@ -40,6 +40,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Default-panel review framing now focuses on the current pass instead of the whole backlog, and deferred-only states now offer explicit resume affordances instead of reading as "all caught up."
 - Automation summaries, reminders, and permission/error alerts now use progress-oriented review-pass language, keep stable dedupe identifiers, and avoid guilt-heavy or misleading `0 files waiting` copy in age-based reminders.
 - Automation scan failures now preserve structured permission, bookmark, and destination buckets from raw scan errors, so generic summaries like `Failed to scan Downloads` still route to the correct notification and activity-log tone.
+- Dashboard launch now defaults to `twoColumn` at medium widths and only starts in `threeColumn` on wide launches with meaningful default inspector content; user-driven inspector visibility now persists across relaunches.
 - Dashboard startup now restores pending external review sessions before normal launch scanning, resumes deferred external requests after onboarding, and limits externally opened review sessions to the requested file paths.
 - External review sessions now self-prune as requested files leave the pending/ready queue, and skip-only Finder/Spotlight feedback no longer resets the user’s existing dashboard filters.
 - External folder requests now behave as one-time, top-level scan roots instead of automatically mutating bookmark-backed monitored-folder settings.

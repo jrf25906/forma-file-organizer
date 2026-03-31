@@ -42,6 +42,8 @@ private extension FileSurfaceToolbarValidationTests {
         app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
         app.launchEnvironment["FORMA_APPEARANCE_MODE"] = "light"
         app.launchEnvironment["FORMA_WINDOW_SIZE"] = windowSize
+        app.launchEnvironment["FORMA_WINDOW_PRESENTATION_SUITE"] = sanitizedSuiteName(name)
+        app.launchEnvironment["FORMA_RESET_WINDOW_PRESENTATION"] = "1"
         app.launch()
 
         UITestHarness(app: app).waitForMainContent(timeout: 12)
@@ -53,6 +55,7 @@ private extension FileSurfaceToolbarValidationTests {
         let harness = UITestHarness(app: app)
         defer { app.terminate() }
 
+        ensureInspectorVisible(app: app, harness: harness)
         assertToolbarGroups(app: app)
         harness.waitForViewMode("card")
         waitForRow(in: app)
@@ -109,6 +112,16 @@ private extension FileSurfaceToolbarValidationTests {
         try captureWindowShot(app: app, name: name, outputDir: outputDir)
     }
 
+    func ensureInspectorVisible(app: XCUIApplication, harness: UITestHarness, timeout: TimeInterval = 4) {
+        let splitProbe = harness.splitLayoutProbe()
+        harness.waitForExists(splitProbe, timeout: timeout, message: "Split layout probe should exist")
+        guard splitProbe.label != "threeColumn",
+              (splitProbe.value as? String) != "threeColumn" else { return }
+
+        harness.toggleInspector(timeout: timeout)
+        harness.waitForSplitLayout("threeColumn", timeout: timeout)
+    }
+
     func assertToolbarGroups(app: XCUIApplication) {
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "toolbarReviewModePicker").firstMatch.waitForExistence(timeout: 3),
@@ -157,5 +170,15 @@ private extension FileSurfaceToolbarValidationTests {
 
         let outURL = outputDir.appendingPathComponent("\(name).png")
         try screenshot.pngRepresentation.write(to: outURL, options: .atomic)
+    }
+
+    func sanitizedSuiteName(_ rawValue: String) -> String {
+        let sanitized = rawValue.map { character -> Character in
+            if character.isLetter || character.isNumber {
+                return character
+            }
+            return "_"
+        }
+        return "FileSurfaceToolbarValidationTests.\(String(sanitized))"
     }
 }
