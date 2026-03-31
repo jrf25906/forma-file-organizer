@@ -6,6 +6,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- `FirstRunQuickWinSuggestion` and `DashboardViewModel.firstRunQuickWinSuggestion` so the dashboard can surface a meaningful first-run batch instead of a generic post-onboarding prompt.
 - Finder Services integration via `Organize with Forma`, allowing Finder selections to launch Forma and route files or folders into a shared external-ingress workflow.
 - `ExternalIngressCoordinator`, `ExternalIngressRequest`, `ExternalIngressResult`, and `ExternalReviewSession` to normalize external requests, persist onboarding handoff, and focus review state on externally requested items.
 - `FinderServicesRegistrationController` and `FinderServicesProvider` so Forma can refresh Launch Services registration on version changes and accept Services pasteboard selections at app startup.
@@ -33,6 +34,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Post-onboarding first-run guidance now appears only when the visible review context contains a meaningful ready batch, the banner’s CTA scopes organization to that suggested batch instead of acting on every ready file in view, and the prompt stays hidden during focused external review sessions.
 - Dashboard startup now restores pending external review sessions before normal launch scanning, resumes deferred external requests after onboarding, and limits externally opened review sessions to the requested file paths.
 - External review sessions now self-prune as requested files leave the pending/ready queue, and skip-only Finder/Spotlight feedback no longer resets the user’s existing dashboard filters.
 - External folder requests now behave as one-time, top-level scan roots instead of automatically mutating bookmark-backed monitored-folder settings.

@@ -3,6 +3,11 @@ import SwiftUI
 import SwiftData
 import Combine
 
+struct FirstRunQuickWinSuggestion: Equatable {
+    let folderName: String
+    let fileCount: Int
+}
+
 /// Coordinator ViewModel that composes focused ViewModels.
 /// This is the main entry point for the Dashboard, delegating responsibilities
 /// to specialized ViewModels for scanning, filtering, selection, analytics, and bulk operations.
@@ -15,6 +20,18 @@ import Combine
 /// - BulkOperationViewModel: Batch operations and progress
 @MainActor
 class DashboardViewModel: ObservableObject {
+    private struct FirstRunQuickWinBatch {
+        let suggestion: FirstRunQuickWinSuggestion
+        let files: [FileItem]
+    }
+
+    private struct FirstRunQuickWinBatchKey: Hashable {
+        let identifier: String
+        let folderName: String
+    }
+
+    private static let minimumFirstRunQuickWinFileCount = 5
+
     // MARK: - Focused ViewModels (New Architecture)
 
     /// Manages file scanning and discovery
@@ -327,7 +344,7 @@ class DashboardViewModel: ObservableObject {
     }
 
     func clearAllFilters() {
-        if filterViewModel.hasExternalReviewScope || ExternalReviewSessionStore.shared.currentSession != nil {
+        if hasActiveExternalReviewSession {
             exitExternalReviewSession()
         }
         filterViewModel.clearAllFilters()
@@ -507,6 +524,17 @@ class DashboardViewModel: ObservableObject {
         startBulkOperation { [weak self] in
             guard let self else { return }
             await self.bulkOperationViewModel.organizeAllReadyFiles(self.reviewableFiles, context: context)
+            self.filterViewModel.applyFilterImmediately()
+        }
+    }
+
+    func organizeFirstRunQuickWin(context: ModelContext? = nil) {
+        let quickWinFiles = firstRunQuickWinBatch?.files ?? []
+        guard !quickWinFiles.isEmpty else { return }
+
+        startBulkOperation { [weak self] in
+            guard let self else { return }
+            await self.bulkOperationViewModel.organizeSelectedFiles(quickWinFiles, context: context)
             self.filterViewModel.applyFilterImmediately()
         }
     }
@@ -1014,6 +1042,7 @@ class DashboardViewModel: ObservableObject {
     var needsReviewCount: Int { filterViewModel.needsReviewCount }
     var allFilesCount: Int { filterViewModel.allFilesCount }
     var reviewableFiles: [FileItem] { filterViewModel.reviewableFiles }
+    var firstRunQuickWinSuggestion: FirstRunQuickWinSuggestion? { firstRunQuickWinBatch?.suggestion }
     var groupedFiles: [FileGroup] { filterViewModel.groupedFiles }
     var allFiles: [FileItem] { scanViewModel.allFiles }
     var recentFiles: [FileItem] { scanViewModel.recentFiles }
@@ -1132,6 +1161,39 @@ class DashboardViewModel: ObservableObject {
         )
     }
 
+    private var firstRunQuickWinBatch: FirstRunQuickWinBatch? {
+        guard !hasActiveExternalReviewSession else {
+            return nil
+        }
+
+        let groupedReadyFiles = Dictionary(
+            grouping: visibleFiles.filter { $0.status == .ready && $0.destination != nil },
+            by: Self.firstRunQuickWinBatchKey(for:)
+        )
+
+        guard let bestBatch = groupedReadyFiles
+            .map({ key, files in
+                FirstRunQuickWinBatch(
+                    suggestion: FirstRunQuickWinSuggestion(
+                        folderName: key.folderName,
+                        fileCount: files.count
+                    ),
+                    files: files
+                )
+            })
+            .filter({ $0.suggestion.fileCount >= Self.minimumFirstRunQuickWinFileCount })
+            .sorted(by: Self.isPreferredQuickWinBatch(_:_:))
+            .first else {
+            return nil
+        }
+
+        return bestBatch
+    }
+
+    private var hasActiveExternalReviewSession: Bool {
+        filterViewModel.hasExternalReviewScope || ExternalReviewSessionStore.shared.currentSession != nil
+    }
+
     private func resetOrganizationProgress(with files: [FileItem]) {
         organizationProgressTotalCount = files.filter { $0.status != .completed }.count
     }
@@ -1141,5 +1203,33 @@ class DashboardViewModel: ObservableObject {
         if currentRemaining > organizationProgressTotalCount {
             organizationProgressTotalCount = currentRemaining
         }
+    }
+
+    private static func firstRunQuickWinBatchKey(for file: FileItem) -> FirstRunQuickWinBatchKey {
+        if let scanRootPath = file.scanRootPath,
+           !scanRootPath.isEmpty {
+            let normalizedRoot = URL(fileURLWithPath: scanRootPath).standardizedFileURL.path
+            let folderName = URL(fileURLWithPath: normalizedRoot).lastPathComponent
+            return FirstRunQuickWinBatchKey(
+                identifier: normalizedRoot,
+                folderName: folderName.isEmpty ? file.location.displayName : folderName
+            )
+        }
+
+        return FirstRunQuickWinBatchKey(
+            identifier: file.location.rawValue,
+            folderName: file.location.displayName
+        )
+    }
+
+    private static func isPreferredQuickWinBatch(
+        _ lhs: FirstRunQuickWinBatch,
+        _ rhs: FirstRunQuickWinBatch
+    ) -> Bool {
+        if lhs.suggestion.fileCount != rhs.suggestion.fileCount {
+            return lhs.suggestion.fileCount > rhs.suggestion.fileCount
+        }
+
+        return lhs.suggestion.folderName.localizedCaseInsensitiveCompare(rhs.suggestion.folderName) == .orderedAscending
     }
 }

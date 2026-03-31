@@ -81,7 +81,7 @@ struct MainContentView: View {
         UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
         && firstRunBannerDismissCount < 3
         && !firstRunBannerDismissedThisSession
-        && !dashboardViewModel.visibleFiles.isEmpty
+        && dashboardViewModel.firstRunQuickWinSuggestion != nil
     }
 
     /// Whether the floating action bar should be displayed
@@ -700,12 +700,13 @@ struct MainContentView: View {
 
     @ViewBuilder
     private var firstRunBannerIfNeeded: some View {
-        if shouldShowFirstRunBanner {
+        if shouldShowFirstRunBanner,
+           let suggestion = dashboardViewModel.firstRunQuickWinSuggestion {
             FirstRunSuggestionBanner(
-                fileCount: dashboardViewModel.visibleFiles.count,
-                folderName: dashboardViewModel.selectedFolder.displayName,
+                fileCount: suggestion.fileCount,
+                folderName: suggestion.folderName,
                 onOrganize: {
-                    dashboardViewModel.organizeAllReadyFiles(context: modelContext)
+                    dashboardViewModel.organizeFirstRunQuickWin(context: modelContext)
                     firstRunBannerDismissedThisSession = true
                 },
                 onDismiss: {

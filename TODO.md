@@ -2,6 +2,9 @@
 
 Canonical roadmap: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
+## Preview-First Onboarding Wave (March 30, 2026)
+- [x] Surface a first-run quick-win banner only when Forma has a meaningful visible ready batch, scope the CTA to that batch instead of every ready file in the current dashboard state, and suppress the banner during focused external review sessions.
+
 ## Spotlight + Finder Services Integration (March 25, 2026)
 - [x] Add an `ExternalIngressCoordinator` that normalizes Finder Services and Spotlight/App Intent requests into one resumable ingress flow.
 - [x] Accept both directly selected files and selected folders, scanning only each folder's immediate file children for one-time external organization requests.

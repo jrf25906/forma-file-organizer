@@ -38,7 +38,13 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - `DashboardViewModel`
   - `applyExternalReviewSession(_:)`
   - `restoreExternalReviewSessionIfNeeded()`
+  - `firstRunQuickWinSuggestion`
+  - `organizeFirstRunQuickWin(context:)`
+  - First-run quick wins now derive from the current `visibleFiles` review context and are suppressed while an external review session is active.
   - External review sessions now clear themselves once scoped files are no longer pending or ready.
+- `FirstRunQuickWinSuggestion`
+  - `folderName: String`
+  - `fileCount: Int`
 - `FileFilterManager`
   - `externalReviewPaths`
   - `setExternalReviewPaths(_:)`
