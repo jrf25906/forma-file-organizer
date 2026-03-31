@@ -33,7 +33,7 @@ struct GetStartedStepView: View {
         InfoRow(
             icon: "bolt.fill",
             color: .formaWarmOrange,
-            text: "Forma starts scanning immediately"
+            text: "Forma opens with one safe quick win instead of a generic dashboard"
         ),
     ]
 
@@ -58,7 +58,7 @@ struct GetStartedStepView: View {
                         .multilineTextAlignment(.center)
                         .progressiveReveal(isVisible: appeared, index: 1)
 
-                    Text("We'll ask to access your Downloads folder.\nThis lets Forma scan and organize files for you.")
+                    Text("We'll ask to access your Downloads folder.\nThis lets Forma scan your files and lead with one clear first batch.")
                         .font(.formaBodyLarge)
                         .foregroundColor(.formaSecondaryLabel)
                         .multilineTextAlignment(.center)

@@ -5,7 +5,7 @@ Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Executi
 ## Strategic Roadmap Reset (March 30, 2026)
 Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md](Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
 
-- [ ] Ship quick-win onboarding and first-run proof so Forma demonstrates value before asking users to configure rules.
+- [x] Ship quick-win onboarding and first-run proof so Forma demonstrates value before asking users to configure rules.
 - [x] Add chunked review sessions with `Done for now` semantics to reduce overwhelm in the core preview flow.
 - [ ] Build trust infrastructure: rule simulation, stronger preflight checks, richer reasoning, and clearer scoped rollback.
 - [x] Reframe automation notifications around progress and system health instead of backlog guilt.
@@ -16,6 +16,7 @@ Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-
 
 ## Preview-First Onboarding Wave (March 30, 2026)
 - [x] Surface a first-run quick-win banner only when Forma has a meaningful visible ready batch, scope the CTA to that batch instead of every ready file in the current dashboard state, and suppress the banner during focused external review sessions.
+- [x] Upgrade first-run proof from a generic folder/count prompt into deterministic quick-win candidates (screenshots, archives, stale downloads, invoices, fallback ready batches), reset onboarding completion into the review-first state, and persist per-candidate dismissals across sessions.
 
 ## Adaptive Window Launch Presentation (March 30, 2026)
 - [x] Default dashboard launch to `twoColumn` at medium window widths and to `threeColumn` only on wide launches with meaningful default inspector content.

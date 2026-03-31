@@ -21,6 +21,7 @@ final class DashboardViewModelTests: XCTestCase {
 
 	    override func setUp() async throws {
 	        try await super.setUp()
+	        UserDefaults.standard.removeObject(forKey: "dismissedFirstRunQuickWinCandidateKeys")
 	
 	        await MainActor.run {
 	            mockService = MockFileSystemService()
@@ -40,6 +41,7 @@ final class DashboardViewModelTests: XCTestCase {
 	            mockPipeline = nil
 	        }
 	        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+	        UserDefaults.standard.removeObject(forKey: "dismissedFirstRunQuickWinCandidateKeys")
 	        try await super.tearDown()
 	    }
 
@@ -280,6 +282,148 @@ final class DashboardViewModelTests: XCTestCase {
 
         ExternalReviewSessionStore.shared.publish(nil)
         viewModel.applyExternalReviewSession(nil)
+    }
+
+    func testFirstRunQuickWinPrefersDeterministicScreenshotBatchOverLargerGenericBatch() {
+        let now = Date()
+        let downloadsRoot = "/Users/test/Downloads"
+        let desktopRoot = "/Users/test/Desktop"
+
+        let screenshotBatch = (1...5).map { index in
+            FileItem(
+                path: "\(downloadsRoot)/Screenshot 2026-03-30 at 0\(index).png",
+                sizeInBytes: 2_000_000,
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                location: .downloads,
+                scanRootPath: downloadsRoot,
+                destination: FileItem.mockDestination(displayName: "Pictures/Screenshots"),
+                status: .ready
+            )
+        }
+
+        let genericBatch = (1...6).map { index in
+            FileItem(
+                path: "\(desktopRoot)/notes-\(index).txt",
+                sizeInBytes: 500,
+                creationDate: now.addingTimeInterval(TimeInterval(index + 20)),
+                location: .desktop,
+                scanRootPath: desktopRoot,
+                destination: FileItem.mockDestination(displayName: "Documents/Notes"),
+                status: .ready
+            )
+        }
+
+        viewModel._testSetFiles(genericBatch + screenshotBatch)
+
+        let suggestion = viewModel.firstRunQuickWinSuggestion
+
+        XCTAssertEqual(suggestion?.folderName, "Downloads")
+        XCTAssertEqual(suggestion?.fileCount, 5)
+    }
+
+    func testFirstRunQuickWinHonorsPersistedDismissedCandidateKeys() {
+        let dismissedCandidateKey = "screenshots|/Users/test/Downloads|Pictures/Screenshots"
+        UserDefaults.standard.set([dismissedCandidateKey], forKey: "dismissedFirstRunQuickWinCandidateKeys")
+
+        let now = Date()
+        let downloadsRoot = "/Users/test/Downloads"
+        let screenshotBatch = (1...5).map { index in
+            FileItem(
+                path: "\(downloadsRoot)/Screenshot 2026-03-30 at 0\(index).png",
+                sizeInBytes: 2_000_000,
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                location: .downloads,
+                scanRootPath: downloadsRoot,
+                destination: FileItem.mockDestination(displayName: "Pictures/Screenshots"),
+                status: .ready
+            )
+        }
+
+        viewModel._testSetFiles(screenshotBatch)
+
+        XCTAssertNil(viewModel.firstRunQuickWinSuggestion)
+    }
+
+    func testDismissFirstRunQuickWinPromotesNextAvailableCandidate() {
+        let now = Date()
+        let downloadsRoot = "/Users/test/Downloads"
+        let documentsRoot = "/Users/test/Documents"
+
+        let screenshotBatch = (1...5).map { index in
+            FileItem(
+                path: "\(downloadsRoot)/Screenshot 2026-03-30 at 0\(index).png",
+                sizeInBytes: 2_000_000,
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                location: .downloads,
+                scanRootPath: downloadsRoot,
+                destination: FileItem.mockDestination(displayName: "Pictures/Screenshots"),
+                status: .ready
+            )
+        }
+
+        let invoiceBatch = (1...5).map { index in
+            FileItem(
+                path: "\(documentsRoot)/invoice-\(index).pdf",
+                sizeInBytes: 100_000,
+                creationDate: now.addingTimeInterval(TimeInterval(index + 20)),
+                location: .documents,
+                scanRootPath: documentsRoot,
+                destination: FileItem.mockDestination(displayName: "Documents/Invoices"),
+                status: .ready
+            )
+        }
+
+        viewModel._testSetFiles(screenshotBatch + invoiceBatch)
+
+        XCTAssertEqual(viewModel.firstRunQuickWinSuggestion?.kind, .screenshots)
+
+        viewModel.dismissFirstRunQuickWin()
+
+        let suggestion = viewModel.firstRunQuickWinSuggestion
+
+        XCTAssertEqual(suggestion?.kind, .invoices)
+        XCTAssertEqual(suggestion?.folderName, "Documents")
+        XCTAssertEqual(suggestion?.fileCount, 5)
+    }
+
+    func testCompleteOnboardingResetsFiltersSoQuickWinCanAppearAfterSkip() throws {
+        let now = Date()
+        let downloadsRoot = "/Users/test/Downloads"
+        let screenshotBatch = (1...5).map { index in
+            FileItem(
+                path: "\(downloadsRoot)/Screenshot 2026-03-30 at 0\(index).png",
+                sizeInBytes: 2_000_000,
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                location: .downloads,
+                scanRootPath: downloadsRoot,
+                destination: FileItem.mockDestination(displayName: "Pictures/Screenshots"),
+                status: .ready
+            )
+        }
+
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        viewModel.setModelContext(container.mainContext)
+        viewModel._testSetFiles(screenshotBatch)
+        viewModel.selectedFolder = .desktop
+        viewModel.selectedSecondaryFilter = .largeFiles
+        viewModel.searchText = "invoice"
+
+        XCTAssertNil(viewModel.firstRunQuickWinSuggestion)
+
+        viewModel.completeOnboarding()
+
+        let suggestion = viewModel.firstRunQuickWinSuggestion
+
+        XCTAssertEqual(viewModel.selectedFolder, .home)
+        XCTAssertEqual(viewModel.selectedSecondaryFilter, .none)
+        XCTAssertEqual(viewModel.searchText, "")
+        XCTAssertEqual(viewModel.reviewFilterMode, .needsReview)
+        XCTAssertEqual(suggestion?.folderName, "Downloads")
+        XCTAssertEqual(suggestion?.fileCount, 5)
     }
 
     func testApplyAutomationScanUpdateMergesRescannedRootsWithoutDroppingOtherRoots() async throws {

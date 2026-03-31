@@ -3,11 +3,9 @@ import SwiftUI
 // MARK: - First Run Suggestion Banner
 
 /// Post-onboarding prompt shown at the top of MainContentView.
-/// Suggests organizing files in the current folder using PARA template.
-/// Dismisses after user acts or after 3 dismissals across sessions.
+/// Suggests one concrete first-run quick win based on the current scan results.
 struct FirstRunSuggestionBanner: View {
-    let fileCount: Int
-    let folderName: String
+    let suggestion: FirstRunQuickWinSuggestion
     let onOrganize: () -> Void
     let onDismiss: () -> Void
 
@@ -16,7 +14,7 @@ struct FirstRunSuggestionBanner: View {
 
     var body: some View {
         HStack(spacing: FormaSpacing.standard) {
-            Image(systemName: "sparkles")
+            Image(systemName: suggestion.iconName)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.formaSage)
 
@@ -25,14 +23,22 @@ struct FirstRunSuggestionBanner: View {
                     .font(.formaCaptionSemibold)
                     .foregroundColor(.formaSage)
 
-                Text("Forma already prepared **\(fileCount) files** from \(folderName). Organize this batch in one tap, or keep reviewing first.")
+                Text(suggestion.titleText)
+                    .font(.formaBodySemibold)
+                    .foregroundColor(.formaLabel)
+
+                Text(suggestion.detailText)
                     .font(.formaBody)
                     .foregroundColor(.formaLabel)
+
+                Text("Suggested destination: \(suggestion.destinationSummary)")
+                    .font(.formaCaption)
+                    .foregroundColor(.formaSecondaryLabel)
             }
 
             Spacer(minLength: 0)
 
-            Button("Organize Batch") {
+            Button(suggestion.primaryActionTitle) {
                 onOrganize()
             }
             .buttonStyle(.plain)
@@ -79,8 +85,14 @@ struct FirstRunSuggestionBanner: View {
 
 #Preview("First Run Banner") {
     FirstRunSuggestionBanner(
-        fileCount: 47,
-        folderName: "Downloads",
+        suggestion: FirstRunQuickWinSuggestion(
+            kind: .screenshots,
+            folderName: "Downloads",
+            fileCount: 47,
+            destinationSummary: "Pictures/Screenshots",
+            primaryActionTitle: "Organize Screenshots",
+            candidateKey: "screenshots|Downloads|Pictures/Screenshots"
+        ),
         onOrganize: {},
         onDismiss: {}
     )

@@ -4,8 +4,81 @@ import SwiftData
 import Combine
 
 struct FirstRunQuickWinSuggestion: Equatable {
+    enum Kind: String, Equatable {
+        case screenshots
+        case archives
+        case staleDownloads
+        case invoices
+        case readyBatch
+
+        var priority: Int {
+            switch self {
+            case .screenshots: 0
+            case .archives: 1
+            case .staleDownloads: 2
+            case .invoices: 3
+            case .readyBatch: 4
+            }
+        }
+
+        var iconName: String {
+            switch self {
+            case .screenshots: "camera.viewfinder"
+            case .archives: "archivebox.fill"
+            case .staleDownloads: "tray.full.fill"
+            case .invoices: "doc.text.fill"
+            case .readyBatch: "sparkles"
+            }
+        }
+
+        var titleText: String {
+            switch self {
+            case .screenshots: "Clean up your screenshots"
+            case .archives: "Clear out ready archives"
+            case .staleDownloads: "Move older Downloads out of the way"
+            case .invoices: "File your invoices"
+            case .readyBatch: "Organize one ready batch"
+            }
+        }
+
+        var primaryActionTitle: String {
+            switch self {
+            case .screenshots: "Organize Screenshots"
+            case .archives: "Organize Archives"
+            case .staleDownloads: "Organize Older Downloads"
+            case .invoices: "File Invoices"
+            case .readyBatch: "Organize Batch"
+            }
+        }
+    }
+
+    let kind: Kind
     let folderName: String
     let fileCount: Int
+    let destinationSummary: String
+    let primaryActionTitle: String
+    let candidateKey: String
+
+    var iconName: String { kind.iconName }
+    var titleText: String { kind.titleText }
+
+    var detailText: String {
+        let noun: String
+        switch kind {
+        case .screenshots:
+            noun = fileCount == 1 ? "screenshot" : "screenshots"
+        case .archives:
+            noun = fileCount == 1 ? "archive" : "archives"
+        case .staleDownloads:
+            noun = fileCount == 1 ? "older download" : "older downloads"
+        case .invoices:
+            noun = fileCount == 1 ? "invoice" : "invoices"
+        case .readyBatch:
+            noun = fileCount == 1 ? "file" : "files"
+        }
+
+        return "\(fileCount) \(noun) from \(folderName) are ready for \(destinationSummary)."
+    }
 }
 
 @MainActor
@@ -57,6 +130,10 @@ struct DashboardLaunchPresentation {
 /// - BulkOperationViewModel: Batch operations and progress
 @MainActor
 class DashboardViewModel: ObservableObject {
+    private enum FirstRunQuickWinDefaultsKeys {
+        static let dismissedCandidateKeys = "dismissedFirstRunQuickWinCandidateKeys"
+    }
+
     private struct FirstRunQuickWinBatch {
         let suggestion: FirstRunQuickWinSuggestion
         let files: [FileItem]
@@ -65,9 +142,16 @@ class DashboardViewModel: ObservableObject {
     private struct FirstRunQuickWinBatchKey: Hashable {
         let identifier: String
         let folderName: String
+        let kind: FirstRunQuickWinSuggestion.Kind
+        let destinationSummary: String
+
+        var storageKey: String {
+            "\(kind.rawValue)|\(identifier)|\(destinationSummary)"
+        }
     }
 
     private static let minimumFirstRunQuickWinFileCount = 5
+    private static let staleDownloadsThresholdDays = 7
 
     private struct ReviewChunkScopeKey: Hashable {
         let selectedCategory: FileTypeCategory
@@ -131,6 +215,7 @@ class DashboardViewModel: ObservableObject {
     private let notificationService: NotificationService
     private let quickLookService: QuickLookService
     private let insightsService: InsightsService
+    private let userDefaults: UserDefaults
     // MARK: - Private State
     private var modelContext: ModelContext?
     private var rules: [Rule] = []
@@ -148,6 +233,7 @@ class DashboardViewModel: ObservableObject {
         fileScanPipeline: FileScanPipelineProtocol,
         contentSearchService: ContentSearchServing = ContentSearchService.shared,
         windowPresentationStore: WindowPresentationStore = WindowPresentationStore(),
+        userDefaults: UserDefaults = .standard,
         launchPresentation: DashboardLaunchPresentation = DashboardLaunchPresentation(
             launchWidth: FormaSpacing.Window.preferredWidth,
             hasMeaningfulDefaultPanelContent: true
@@ -163,6 +249,7 @@ class DashboardViewModel: ObservableObject {
         self.notificationService = services.notificationService
         self.quickLookService = services.quickLookService
         self.insightsService = services.insightsService
+        self.userDefaults = userDefaults
         self.contentSearchController = DashboardContentSearchController(
             contentSearchService: contentSearchService
         )
@@ -596,6 +683,20 @@ class DashboardViewModel: ObservableObject {
             await self.bulkOperationViewModel.organizeSelectedFiles(quickWinFiles, context: context)
             self.filterViewModel.applyFilterImmediately()
         }
+    }
+
+    func dismissFirstRunQuickWin() {
+        guard let candidateKey = firstRunQuickWinSuggestion?.candidateKey else { return }
+
+        var dismissedCandidateKeys = dismissedFirstRunQuickWinCandidateKeys
+        let inserted = dismissedCandidateKeys.insert(candidateKey).inserted
+        guard inserted else { return }
+
+        userDefaults.set(
+            Array(dismissedCandidateKeys).sorted(),
+            forKey: FirstRunQuickWinDefaultsKeys.dismissedCandidateKeys
+        )
+        objectWillChange.send()
     }
 
     func skipAllPendingFiles() {
@@ -1278,6 +1379,7 @@ class DashboardViewModel: ObservableObject {
             permissionState: permissionState,
             modelContext: modelContext
         )
+        prepareFirstRunQuickWinPresentation()
     }
 
     private var firstRunQuickWinBatch: FirstRunQuickWinBatch? {
@@ -1286,7 +1388,7 @@ class DashboardViewModel: ObservableObject {
         }
 
         let groupedReadyFiles = Dictionary(
-            grouping: visibleFiles.filter { $0.status == .ready && $0.destination != nil },
+            grouping: filterViewModel.visibleFiles.filter { $0.status == .ready && $0.destination != nil },
             by: Self.firstRunQuickWinBatchKey(for:)
         )
 
@@ -1294,13 +1396,18 @@ class DashboardViewModel: ObservableObject {
             .map({ key, files in
                 FirstRunQuickWinBatch(
                     suggestion: FirstRunQuickWinSuggestion(
+                        kind: key.kind,
                         folderName: key.folderName,
-                        fileCount: files.count
+                        fileCount: files.count,
+                        destinationSummary: key.destinationSummary,
+                        primaryActionTitle: key.kind.primaryActionTitle,
+                        candidateKey: key.storageKey
                     ),
                     files: files
                 )
             })
             .filter({ $0.suggestion.fileCount >= Self.minimumFirstRunQuickWinFileCount })
+            .filter({ !dismissedFirstRunQuickWinCandidateKeys.contains($0.suggestion.candidateKey) })
             .sorted(by: Self.isPreferredQuickWinBatch(_:_:))
             .first else {
             return nil
@@ -1325,19 +1432,26 @@ class DashboardViewModel: ObservableObject {
     }
 
     private static func firstRunQuickWinBatchKey(for file: FileItem) -> FirstRunQuickWinBatchKey {
+        let kind = firstRunQuickWinKind(for: file)
+        let destinationSummary = file.destinationDisplayName ?? "Suggested folder"
+
         if let scanRootPath = file.scanRootPath,
            !scanRootPath.isEmpty {
             let normalizedRoot = URL(fileURLWithPath: scanRootPath).standardizedFileURL.path
             let folderName = URL(fileURLWithPath: normalizedRoot).lastPathComponent
             return FirstRunQuickWinBatchKey(
                 identifier: normalizedRoot,
-                folderName: folderName.isEmpty ? file.location.displayName : folderName
+                folderName: folderName.isEmpty ? file.location.displayName : folderName,
+                kind: kind,
+                destinationSummary: destinationSummary
             )
         }
 
         return FirstRunQuickWinBatchKey(
             identifier: file.location.rawValue,
-            folderName: file.location.displayName
+            folderName: file.location.displayName,
+            kind: kind,
+            destinationSummary: destinationSummary
         )
     }
 
@@ -1345,11 +1459,63 @@ class DashboardViewModel: ObservableObject {
         _ lhs: FirstRunQuickWinBatch,
         _ rhs: FirstRunQuickWinBatch
     ) -> Bool {
+        if lhs.suggestion.kind.priority != rhs.suggestion.kind.priority {
+            return lhs.suggestion.kind.priority < rhs.suggestion.kind.priority
+        }
+
         if lhs.suggestion.fileCount != rhs.suggestion.fileCount {
             return lhs.suggestion.fileCount > rhs.suggestion.fileCount
         }
 
-        return lhs.suggestion.folderName.localizedCaseInsensitiveCompare(rhs.suggestion.folderName) == .orderedAscending
+        let folderComparison = lhs.suggestion.folderName.localizedCaseInsensitiveCompare(rhs.suggestion.folderName)
+        if folderComparison != .orderedSame {
+            return folderComparison == .orderedAscending
+        }
+
+        return lhs.suggestion.destinationSummary.localizedCaseInsensitiveCompare(rhs.suggestion.destinationSummary) == .orderedAscending
+    }
+
+    private var dismissedFirstRunQuickWinCandidateKeys: Set<String> {
+        Set(userDefaults.stringArray(forKey: FirstRunQuickWinDefaultsKeys.dismissedCandidateKeys) ?? [])
+    }
+
+    private func prepareFirstRunQuickWinPresentation() {
+        filterViewModel.searchText = ""
+        filterViewModel.selectedCategory = .all
+        filterViewModel.selectedFolder = .home
+        filterViewModel.selectedRelativeFolderPath = nil
+        filterViewModel.includeNestedSubfolders = false
+        filterViewModel.selectedSecondaryFilter = .none
+        filterViewModel.reviewFilterMode = .needsReview
+        filterViewModel.applyFilterImmediately()
+    }
+
+    private static func firstRunQuickWinKind(for file: FileItem) -> FirstRunQuickWinSuggestion.Kind {
+        let lowercasedName = file.name.lowercased()
+        let destinationName = file.destinationDisplayName?.lowercased() ?? ""
+
+        if file.category == .images &&
+            (lowercasedName.contains("screenshot") ||
+             lowercasedName.contains("screen shot") ||
+             destinationName.contains("screenshot")) {
+            return .screenshots
+        }
+
+        if file.category == .archives {
+            return .archives
+        }
+
+        if file.location == .downloads &&
+            file.creationDate <= Date().addingTimeInterval(-TimeInterval(Self.staleDownloadsThresholdDays * 86_400)) {
+            return .staleDownloads
+        }
+
+        if file.category == .documents &&
+            ["invoice", "receipt", "bill"].contains(where: lowercasedName.contains) {
+            return .invoices
+        }
+
+        return .readyBatch
     }
 
     private var currentReviewChunkScopeKey: ReviewChunkScopeKey? {

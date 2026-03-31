@@ -40,12 +40,20 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `restoreExternalReviewSessionIfNeeded()`
   - `firstRunQuickWinSuggestion`
   - `organizeFirstRunQuickWin(context:)`
+  - `dismissFirstRunQuickWin()`
   - `setRightPanelVisible(_:)`
-  - First-run quick wins now derive from the current `visibleFiles` review context and are suppressed while an external review session is active.
+  - First-run quick wins now derive from the current filtered `reviewableFiles` context, are suppressed while an external review session is active, and persist per-candidate dismissals across sessions.
   - External review sessions now clear themselves once scoped files are no longer pending or ready.
 - `FirstRunQuickWinSuggestion`
+  - `kind: Kind`
   - `folderName: String`
   - `fileCount: Int`
+  - `destinationSummary: String`
+  - `primaryActionTitle: String`
+  - `candidateKey: String`
+  - `iconName` (computed)
+  - `titleText` (computed)
+  - `detailText` (computed)
   - Chunked review session surface:
     - `reviewChunkSize`
     - `currentReviewChunkCount`

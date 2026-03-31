@@ -7,6 +7,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 ## [Unreleased]
 ### Added
 - `FirstRunQuickWinSuggestion` and `DashboardViewModel.firstRunQuickWinSuggestion` so the dashboard can surface a meaningful first-run batch instead of a generic post-onboarding prompt.
+- `DashboardViewModel.dismissFirstRunQuickWin()` so dismissed quick-win candidates can stay suppressed across sessions without hiding unrelated later candidates.
 - Chunked review sessions in the dashboard review flow, including scope-aware `Done for now` deferrals, per-scope resume support, and a dedicated review-mode floating action bar.
 - Finder Services integration via `Organize with Forma`, allowing Finder selections to launch Forma and route files or folders into a shared external-ingress workflow.
 - `ExternalIngressCoordinator`, `ExternalIngressRequest`, `ExternalIngressResult`, and `ExternalReviewSession` to normalize external requests, persist onboarding handoff, and focus review state on externally requested items.
@@ -37,6 +38,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ### Changed
 - Post-onboarding first-run guidance now appears only when the visible review context contains a meaningful ready batch, the banner’s CTA scopes organization to that suggested batch instead of acting on every ready file in view, and the prompt stays hidden during focused external review sessions.
+- First-run quick wins now use deterministic candidate kinds (`screenshots`, `archives`, `staleDownloads`, `invoices`, fallback ready batches), rank against the full filtered reviewable set instead of the current chunk, and reset onboarding completion back into the review-first scope so the first launch lands on one concrete quick win.
 - Default-panel review framing now focuses on the current pass instead of the whole backlog, and deferred-only states now offer explicit resume affordances instead of reading as "all caught up."
 - Automation summaries, reminders, and permission/error alerts now use progress-oriented review-pass language, keep stable dedupe identifiers, and avoid guilt-heavy or misleading `0 files waiting` copy in age-based reminders.
 - Automation scan failures now preserve structured permission, bookmark, and destination buckets from raw scan errors, so generic summaries like `Failed to scan Downloads` still route to the correct notification and activity-log tone.

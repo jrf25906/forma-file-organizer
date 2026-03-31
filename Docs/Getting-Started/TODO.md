@@ -12,7 +12,7 @@ Current sequencing is intentionally aligned with the preview-first, moat-driven 
 
 Implementation plan for this wave: [`Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md`](../plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
 
-- [ ] Ship quick-win onboarding and first-run proof before asking users to configure more rules.
+- [x] Ship quick-win onboarding and first-run proof before asking users to configure more rules.
 - [x] Add chunked review sessions with `Done for now` semantics so the core workflow feels finite and forgiving.
 - [ ] Build trust infrastructure first: rule simulation, stronger preflight checks, richer explanations, and clearer scoped rollback.
 - [x] Rewrite automation notifications around progress and system health instead of backlog guilt.
@@ -26,6 +26,9 @@ Implementation plan for this wave: [`Docs/plans/2026-03-30-preview-first-roadmap
 - [x] Add targeted UI coverage for medium-width launch, large-width launch, and inspector visibility persistence across relaunches.
 - [x] Isolate UI-test window-presentation defaults per suite so screenshot and layout coverage stay deterministic.
 - [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
+
+## Preview-First Onboarding Wave (March 30, 2026)
+- [x] Upgrade first-run proof from a generic folder/count prompt into deterministic quick-win candidates (screenshots, archives, stale downloads, invoices, fallback ready batches), reset onboarding completion into the review-first state, and persist per-candidate dismissals across sessions.
 
 ---
 

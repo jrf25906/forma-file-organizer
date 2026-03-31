@@ -128,9 +128,9 @@ struct WelcomeStepView: View {
 
     private var subtitleText: String {
         if let count = fileCount, count > 0 {
-            return "\(count) files on your Desktop and Downloads are ready for review. Forma suggests destinations and lets you approve each move."
+            return "\(count) files on your Desktop and Downloads are ready for review. Forma will start with one concrete batch so you can see the payoff before configuring anything else."
         }
-        return "Forma helps you review clutter, apply rules, and organize files without blind automation."
+        return "Forma helps you review clutter, apply rules, and organize files without blind automation. The first thing you’ll see is one clear quick win."
     }
 
     // MARK: - Trust Signal Row

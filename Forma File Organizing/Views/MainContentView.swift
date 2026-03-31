@@ -32,10 +32,6 @@ struct MainContentView: View {
 
     @State private var unifiedToolbarHeight: CGFloat = 0
 
-    // First-run suggestion banner
-    @AppStorage("firstRunBannerDismissCount") private var firstRunBannerDismissCount = 0
-    @State private var firstRunBannerDismissedThisSession = false
-    
     init(
         selection: NavigationSelection,
         searchText: String,
@@ -79,8 +75,7 @@ struct MainContentView: View {
     /// Whether the first-run suggestion banner should be shown
     private var shouldShowFirstRunBanner: Bool {
         UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
-        && firstRunBannerDismissCount < 3
-        && !firstRunBannerDismissedThisSession
+        && !dashboardViewModel.isBulkOperationInProgress
         && dashboardViewModel.firstRunQuickWinSuggestion != nil
     }
 
@@ -717,15 +712,12 @@ struct MainContentView: View {
         if shouldShowFirstRunBanner,
            let suggestion = dashboardViewModel.firstRunQuickWinSuggestion {
             FirstRunSuggestionBanner(
-                fileCount: suggestion.fileCount,
-                folderName: suggestion.folderName,
+                suggestion: suggestion,
                 onOrganize: {
                     dashboardViewModel.organizeFirstRunQuickWin(context: modelContext)
-                    firstRunBannerDismissedThisSession = true
                 },
                 onDismiss: {
-                    firstRunBannerDismissCount += 1
-                    firstRunBannerDismissedThisSession = true
+                    dashboardViewModel.dismissFirstRunQuickWin()
                 }
             )
         }

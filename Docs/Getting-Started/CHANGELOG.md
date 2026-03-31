@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added - Preview-First Onboarding
+- **Persistent Quick-Win Dismissals**: Dismissing a first-run quick win now suppresses that exact candidate across sessions without hiding unrelated future suggestions.
+
+### Changed - First-Run Proof
+- **Deterministic Quick-Win Candidates**: The post-onboarding banner now promotes one concrete batch at a time using explicit candidate kinds: screenshots, archives, stale downloads, invoices, and a fallback ready-batch case.
+- **Chunk-Independent Ranking**: Quick-win ranking now evaluates the full filtered reviewable set instead of only the currently visible chunk, so obvious wins still surface even when chunked review is active.
+- **Onboarding Handoff**: Completing or skipping onboarding now resets the dashboard into the review-first scope so the first post-onboarding screen can surface a real quick win instead of a generic landing state.
+
 ## [1.5.1] - 2025-12-19
 
 ### Changed - Sidebar Visuals "Glass Slab"
