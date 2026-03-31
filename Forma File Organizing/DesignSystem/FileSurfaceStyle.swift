@@ -2,11 +2,15 @@ import SwiftUI
 
 /// Shared semantic styling for file surfaces before view-specific metrics are applied.
 struct FileSurfaceStyle: Equatable {
-    enum State: String, CaseIterable {
+    enum InteractionState: String, CaseIterable {
         case rest
         case hover
         case selected
         case focused
+    }
+
+    enum ActivityState: String, CaseIterable {
+        case none
         case pending
         case processing
         case error
@@ -15,13 +19,6 @@ struct FileSurfaceStyle: Equatable {
     enum SurfaceKind: String, Equatable {
         case listRow
         case card
-    }
-
-    enum Activity: String, Equatable {
-        case none
-        case pending
-        case processing
-        case error
     }
 
     enum FillToken: String, Equatable {
@@ -52,13 +49,15 @@ struct FileSurfaceStyle: Equatable {
         var isHovered: Bool = false
         var isSelected: Bool = false
         var isFocused: Bool = false
-        var activity: Activity = .none
+        var activity: ActivityState = .none
     }
 
-    let state: State
+    let interactionState: InteractionState
+    let activityState: ActivityState
     let fillToken: FillToken
-    let overlayToken: OverlayToken?
-    let borderToken: BorderToken
+    let overlayTokens: [OverlayToken]
+    let primaryBorderToken: BorderToken
+    let accentBorderToken: BorderToken?
 
     var fillColor: Color {
         switch fillToken {
@@ -69,65 +68,56 @@ struct FileSurfaceStyle: Equatable {
         }
     }
 
-    var overlayColor: Color? {
-        switch overlayToken {
-        case .hover:
-            return .formaFileSurfaceHoverOverlay
-        case .selected:
-            return .formaFileSurfaceSelectionOverlay
-        case .pending:
-            return .formaFileSurfacePendingOverlay
-        case .processing:
-            return .formaFileSurfaceProcessingOverlay
-        case .error:
-            return .formaFileSurfaceErrorOverlay
-        case nil:
-            return nil
+    var overlayColors: [Color] {
+        overlayTokens.map { token in
+            switch token {
+            case .hover:
+                return .formaFileSurfaceHoverOverlay
+            case .selected:
+                return .formaFileSurfaceSelectionOverlay
+            case .pending:
+                return .formaFileSurfacePendingOverlay
+            case .processing:
+                return .formaFileSurfaceProcessingOverlay
+            case .error:
+                return .formaFileSurfaceErrorOverlay
+            }
         }
     }
 
-    var borderColor: Color {
-        switch borderToken {
-        case .rest:
-            return .formaFileSurfaceBorder
-        case .hover:
-            return .formaFileSurfaceHoverBorder
-        case .selected:
-            return .formaFileSurfaceSelectedBorder
-        case .focused:
-            return .formaFileSurfaceFocusedBorder
-        case .pending:
-            return .formaFileSurfacePendingBorder
-        case .processing:
-            return .formaFileSurfaceProcessingBorder
-        case .error:
-            return .formaFileSurfaceErrorBorder
-        }
+    var primaryBorderColor: Color {
+        borderColor(for: primaryBorderToken)
+    }
+
+    var accentBorderColor: Color? {
+        guard let accentBorderToken else { return nil }
+        return borderColor(for: accentBorderToken)
     }
 
     static func resolve(_ context: Context) -> FileSurfaceStyle {
-        let state = resolveState(for: context)
+        let interactionState = resolveInteractionState(for: context)
+        let activityState = context.activity
 
         return FileSurfaceStyle(
-            state: state,
+            interactionState: interactionState,
+            activityState: activityState,
             fillToken: fillToken(for: context.kind),
-            overlayToken: overlayToken(for: state),
-            borderToken: borderToken(for: state)
+            overlayTokens: overlayTokens(
+                interactionState: interactionState,
+                activityState: activityState
+            ),
+            primaryBorderToken: primaryBorderToken(
+                interactionState: interactionState,
+                activityState: activityState
+            ),
+            accentBorderToken: accentBorderToken(
+                interactionState: interactionState,
+                activityState: activityState
+            )
         )
     }
 
-    private static func resolveState(for context: Context) -> State {
-        switch context.activity {
-        case .error:
-            return .error
-        case .processing:
-            return .processing
-        case .pending:
-            return .pending
-        case .none:
-            break
-        }
-
+    private static func resolveInteractionState(for context: Context) -> InteractionState {
         if context.isFocused {
             return .focused
         }
@@ -149,7 +139,44 @@ struct FileSurfaceStyle: Equatable {
         }
     }
 
-    private static func overlayToken(for state: State) -> OverlayToken? {
+    private static func overlayTokens(
+        interactionState: InteractionState,
+        activityState: ActivityState
+    ) -> [OverlayToken] {
+        var tokens: [OverlayToken] = []
+
+        if let interactionOverlay = interactionOverlayToken(for: interactionState) {
+            tokens.append(interactionOverlay)
+        }
+
+        if let activityOverlay = activityOverlayToken(for: activityState) {
+            tokens.append(activityOverlay)
+        }
+
+        return tokens
+    }
+
+    private static func primaryBorderToken(
+        interactionState: InteractionState,
+        activityState: ActivityState
+    ) -> BorderToken {
+        if interactionState != .rest {
+            return borderToken(for: interactionState)
+        }
+        return borderToken(for: activityState)
+    }
+
+    private static func accentBorderToken(
+        interactionState: InteractionState,
+        activityState: ActivityState
+    ) -> BorderToken? {
+        guard interactionState != .rest, activityState != .none else {
+            return nil
+        }
+        return borderToken(for: activityState)
+    }
+
+    private static func interactionOverlayToken(for state: InteractionState) -> OverlayToken? {
         switch state {
         case .rest:
             return nil
@@ -157,6 +184,13 @@ struct FileSurfaceStyle: Equatable {
             return .hover
         case .selected, .focused:
             return .selected
+        }
+    }
+
+    private static func activityOverlayToken(for state: ActivityState) -> OverlayToken? {
+        switch state {
+        case .none:
+            return nil
         case .pending:
             return .pending
         case .processing:
@@ -166,7 +200,7 @@ struct FileSurfaceStyle: Equatable {
         }
     }
 
-    private static func borderToken(for state: State) -> BorderToken {
+    private static func borderToken(for state: InteractionState) -> BorderToken {
         switch state {
         case .rest:
             return .rest
@@ -176,12 +210,38 @@ struct FileSurfaceStyle: Equatable {
             return .selected
         case .focused:
             return .focused
+        }
+    }
+
+    private static func borderToken(for state: ActivityState) -> BorderToken {
+        switch state {
+        case .none:
+            return .rest
         case .pending:
             return .pending
         case .processing:
             return .processing
         case .error:
             return .error
+        }
+    }
+
+    private func borderColor(for token: BorderToken) -> Color {
+        switch token {
+        case .rest:
+            return .formaFileSurfaceBorder
+        case .hover:
+            return .formaFileSurfaceHoverBorder
+        case .selected:
+            return .formaFileSurfaceSelectedBorder
+        case .focused:
+            return .formaFileSurfaceFocusedBorder
+        case .pending:
+            return .formaFileSurfacePendingBorder
+        case .processing:
+            return .formaFileSurfaceProcessingBorder
+        case .error:
+            return .formaFileSurfaceErrorBorder
         }
     }
 }
