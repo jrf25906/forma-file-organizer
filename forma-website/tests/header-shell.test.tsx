@@ -3,15 +3,47 @@ import { describe, expect, it } from "vitest"
 
 import Header from "../src/components/Header"
 
+function headerHtml(html: string) {
+  const match = html.match(/<header\b[^>]*>[\s\S]*?<\/header>/)
+
+  if (!match) {
+    throw new Error("Missing header element")
+  }
+
+  return match[0]
+}
+
+function headerOpenTag(html: string) {
+  const match = html.match(/^<header\b[^>]*>/)
+
+  if (!match) {
+    throw new Error("Missing header opening tag")
+  }
+
+  return match[0]
+}
+
+function classTokens(tagHtml: string) {
+  const classMatch = tagHtml.match(/\bclass="([^"]*)"/)
+
+  if (!classMatch) {
+    return []
+  }
+
+  return classMatch[1].split(/\s+/).filter(Boolean)
+}
+
 describe("Header", () => {
   it("uses the floating shell contract for the header surface", () => {
     const html = renderToStaticMarkup(<Header />)
+    const header = headerHtml(html)
+    const headerClasses = classTokens(headerOpenTag(header))
 
-    expect(html).toContain('data-header-shell="floating"')
-    expect(html).toContain("pointer-events-none")
-    expect(html).toContain("pointer-events-auto")
-    expect(html).not.toContain(
-      "border-b border-[var(--shell-border)] bg-[var(--bg-primary)]"
+    expect(header).toContain('data-header-shell="floating"')
+    expect(header).toContain("pointer-events-none")
+    expect(header).toContain("pointer-events-auto")
+    expect(headerClasses).not.toEqual(
+      expect.arrayContaining(["border-b", "bg-[var(--bg-primary)]"])
     )
   })
 })
