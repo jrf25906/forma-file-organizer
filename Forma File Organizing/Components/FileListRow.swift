@@ -198,13 +198,23 @@ struct FileListRow: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("fileRow_\(file.name)")
+        .accessibilityIdentifier(
+            FileRowAccessibilityIdentifier.rowIdentifier(
+                fileName: file.name,
+                filePath: file.path
+            )
+        )
         .accessibilityValue(rowStateAccessibilityValue)
         .overlay(alignment: .topLeading) {
             Color.clear
                 .frame(width: 1, height: 1)
                 .allowsHitTesting(false)
-                .accessibilityIdentifier("fileListRowState_\(file.name)")
+                .accessibilityIdentifier(
+                    FileRowAccessibilityIdentifier.listStateIdentifier(
+                        fileName: file.name,
+                        filePath: file.path
+                    )
+                )
                 .accessibilityLabel("File list row state \(rowStateAccessibilityValue)")
                 .accessibilityValue(rowStateAccessibilityValue)
         }

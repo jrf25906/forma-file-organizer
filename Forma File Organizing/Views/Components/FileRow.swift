@@ -16,6 +16,36 @@ enum FileRowAccessibilityState {
     }
 }
 
+enum FileRowAccessibilityIdentifier {
+    static func rowIdentifier(fileName: String, filePath: String) -> String {
+        identifier(prefix: "fileRow", fileName: fileName, filePath: filePath)
+    }
+
+    static func cardStateIdentifier(fileName: String, filePath: String) -> String {
+        identifier(prefix: "fileRowState", fileName: fileName, filePath: filePath)
+    }
+
+    static func listStateIdentifier(fileName: String, filePath: String) -> String {
+        identifier(prefix: "fileListRowState", fileName: fileName, filePath: filePath)
+    }
+
+    static func gridStateIdentifier(fileName: String, filePath: String) -> String {
+        identifier(prefix: "fileGridItemState", fileName: fileName, filePath: filePath)
+    }
+
+    private static func identifier(prefix: String, fileName: String, filePath: String) -> String {
+        "\(prefix)_\(fileName)__\(encodedPath(filePath))"
+    }
+
+    private static func encodedPath(_ filePath: String) -> String {
+        Data(filePath.utf8)
+            .base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+}
+
 struct FileRow: View {
     let file: FileItem
     var density: FileDisplayDensity = .balanced
@@ -250,13 +280,23 @@ struct FileRow: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("fileRow_\(file.name)")
+        .accessibilityIdentifier(
+            FileRowAccessibilityIdentifier.rowIdentifier(
+                fileName: file.name,
+                filePath: file.path
+            )
+        )
         .accessibilityValue(rowStateAccessibilityValue)
         .overlay(alignment: .topLeading) {
             Color.clear
                 .frame(width: 1, height: 1)
                 .allowsHitTesting(false)
-                .accessibilityIdentifier("fileRowState_\(file.name)")
+                .accessibilityIdentifier(
+                    FileRowAccessibilityIdentifier.cardStateIdentifier(
+                        fileName: file.name,
+                        filePath: file.path
+                    )
+                )
                 .accessibilityLabel("File row state \(rowStateAccessibilityValue)")
                 .accessibilityValue(rowStateAccessibilityValue)
         }

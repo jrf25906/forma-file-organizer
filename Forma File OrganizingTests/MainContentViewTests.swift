@@ -46,4 +46,46 @@ final class MainContentViewTests: XCTestCase {
         XCTAssertNil(recovered.lastOrganizeError)
         XCTAssertEqual(stillFailed.lastOrganizeError, "Still failing")
     }
+
+    func testClearErrorIfRecovered_ClearsSameDestinationRuleRecoveryWhenFileIsReady() {
+        let destination = Destination.mockFolder("Documents/Ready")
+        let file = FileItem(
+            path: "/test/recovered-again.pdf",
+            sizeInBytes: 2_048,
+            creationDate: Date(),
+            destination: destination,
+            status: .ready
+        )
+        file.lastOrganizeError = "Previous move failed"
+
+        FileRecoveryState.clearErrorIfRecovered(
+            file,
+            previousDestination: destination,
+            previousStatus: .ready,
+            recoveredDestination: destination
+        )
+
+        XCTAssertNil(file.lastOrganizeError)
+    }
+
+    func testClearErrorIfRecovered_DoesNotClearUnresolvedErrorWhenFileIsNotReady() {
+        let destination = Destination.mockFolder("Documents/Ready")
+        let file = FileItem(
+            path: "/test/still-failing.pdf",
+            sizeInBytes: 2_048,
+            creationDate: Date(),
+            destination: destination,
+            status: .pending
+        )
+        file.lastOrganizeError = "Move still failing"
+
+        FileRecoveryState.clearErrorIfRecovered(
+            file,
+            previousDestination: destination,
+            previousStatus: .ready,
+            recoveredDestination: destination
+        )
+
+        XCTAssertEqual(file.lastOrganizeError, "Move still failing")
+    }
 }

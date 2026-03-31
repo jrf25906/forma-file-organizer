@@ -38,6 +38,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ### Changed
 - Native Luma refresh chrome now applies the sidebar glass treatment in the live split-view sidebar, and light-mode toolbar/view-mode selected states use a stronger shared compact segment style for clearer native selection contrast.
+- Reapplying the same rule to a `.ready` file now clears stale organize-error state when the destination is still resolved, and card/list/grid accessibility identifiers now use stable path-backed keys so duplicate filenames no longer collide in UI automation.
 - Post-onboarding first-run guidance now appears only when the visible review context contains a meaningful ready batch, the banner’s CTA scopes organization to that suggested batch instead of acting on every ready file in view, and the prompt stays hidden during focused external review sessions.
 - First-run quick wins now use deterministic candidate kinds (`screenshots`, `archives`, `staleDownloads`, `invoices`, fallback ready batches), rank against the full filtered reviewable set instead of the current chunk, and reset onboarding completion back into the review-first scope so the first launch lands on one concrete quick win.
 - Default-panel review framing now focuses on the current pass instead of the whole backlog, and deferred-only states now offer explicit resume affordances instead of reading as "all caught up."

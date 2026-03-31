@@ -248,13 +248,23 @@ struct FileGridItem: View {
         .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isHovered)
         .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isSelected)
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("fileRow_\(file.name)")
+        .accessibilityIdentifier(
+            FileRowAccessibilityIdentifier.rowIdentifier(
+                fileName: file.name,
+                filePath: file.path
+            )
+        )
         .accessibilityValue(rowStateAccessibilityValue)
         .overlay(alignment: .topLeading) {
             Color.clear
                 .frame(width: 1, height: 1)
                 .allowsHitTesting(false)
-                .accessibilityIdentifier("fileGridItemState_\(file.name)")
+                .accessibilityIdentifier(
+                    FileRowAccessibilityIdentifier.gridStateIdentifier(
+                        fileName: file.name,
+                        filePath: file.path
+                    )
+                )
                 .accessibilityLabel("File grid item state \(rowStateAccessibilityValue)")
                 .accessibilityValue(rowStateAccessibilityValue)
         }

@@ -223,6 +223,36 @@ final class FileRowTests: XCTestCase {
             "view=grid;selected=0;focused=1;status=pending;activity=error"
         )
     }
+
+    func testAccessibilityIdentifier_UsesStableUniqueKeyForDuplicateFilenames() {
+        let firstPath = "/Users/test/Desktop/report.pdf"
+        let secondPath = "/Users/test/Downloads/report.pdf"
+
+        let firstIdentifier = FileRowAccessibilityIdentifier.rowIdentifier(fileName: "report.pdf", filePath: firstPath)
+        let secondIdentifier = FileRowAccessibilityIdentifier.rowIdentifier(fileName: "report.pdf", filePath: secondPath)
+
+        XCTAssertNotEqual(firstIdentifier, secondIdentifier)
+        XCTAssertTrue(firstIdentifier.hasPrefix("fileRow_report.pdf__"))
+        XCTAssertTrue(secondIdentifier.hasPrefix("fileRow_report.pdf__"))
+    }
+
+    func testStateAccessibilityIdentifiers_UseStableUniqueKeyForDuplicateFilenames() {
+        let firstPath = "/Users/test/Desktop/report.pdf"
+        let secondPath = "/Users/test/Downloads/report.pdf"
+
+        XCTAssertNotEqual(
+            FileRowAccessibilityIdentifier.cardStateIdentifier(fileName: "report.pdf", filePath: firstPath),
+            FileRowAccessibilityIdentifier.cardStateIdentifier(fileName: "report.pdf", filePath: secondPath)
+        )
+        XCTAssertNotEqual(
+            FileRowAccessibilityIdentifier.listStateIdentifier(fileName: "report.pdf", filePath: firstPath),
+            FileRowAccessibilityIdentifier.listStateIdentifier(fileName: "report.pdf", filePath: secondPath)
+        )
+        XCTAssertNotEqual(
+            FileRowAccessibilityIdentifier.gridStateIdentifier(fileName: "report.pdf", filePath: firstPath),
+            FileRowAccessibilityIdentifier.gridStateIdentifier(fileName: "report.pdf", filePath: secondPath)
+        )
+    }
 }
 
 // MARK: - Test Helpers

@@ -17,10 +17,15 @@ enum FileRecoveryState {
     static func clearErrorIfRecovered(
         _ file: FileItem,
         previousDestination: Destination?,
-        previousStatus: FileItem.OrganizationStatus
+        previousStatus: FileItem.OrganizationStatus,
+        recoveredDestination: Destination? = nil
     ) {
-        guard file.status == .ready, file.destination != nil else { return }
-        guard file.destination != previousDestination || previousStatus != .ready else { return }
+        guard file.status == .ready, let currentDestination = file.destination else { return }
+
+        let changedState = currentDestination != previousDestination || previousStatus != .ready
+        let reappliedRecoveredDestination = recoveredDestination == currentDestination
+        guard changedState || reappliedRecoveredDestination else { return }
+
         file.lastOrganizeError = nil
     }
 }
@@ -753,7 +758,8 @@ struct MainContentView: View {
         FileRecoveryState.clearErrorIfRecovered(
             file,
             previousDestination: previousDestination,
-            previousStatus: previousStatus
+            previousStatus: previousStatus,
+            recoveredDestination: rule.destination
         )
     }
 
