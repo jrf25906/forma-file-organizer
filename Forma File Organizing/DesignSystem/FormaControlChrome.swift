@@ -24,6 +24,12 @@ enum FormaChromeElevation {
     case emphasized
 }
 
+struct FormaSidebarGlassStyle {
+    let sheenTopOpacity: Double
+    let sheenBottomOpacity: Double
+    let edgeOpacity: Double
+}
+
 enum FormaControlChromePalette {
     static func containerFill(_ colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
@@ -54,21 +60,33 @@ enum FormaControlChromePalette {
 
     static func activeFill(_ colorScheme: ColorScheme, tint: Color? = nil) -> Color {
         if let tint {
-            return tint.opacity(colorScheme == .dark ? 0.18 : 0.10)
+            if colorScheme == .dark {
+                return tint.opacity(0.18)
+            }
+
+            return tint.blend(with: .formaBoneWhite, ratio: 0.76)
         }
         return colorScheme == .dark
             ? Color.formaBoneWhite.opacity(0.12)
             : Color.formaBoneWhite.opacity(0.84)
     }
 
-    static func activeBorder(_ colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark
+    static func activeBorder(_ colorScheme: ColorScheme, tint: Color? = nil) -> Color {
+        if let tint, colorScheme == .light {
+            return tint.blend(with: .formaBoneWhite, ratio: 0.62)
+        }
+
+        return colorScheme == .dark
             ? Color.formaBoneWhite.opacity(0.34)
             : Color.formaObsidian.opacity(0.16)
     }
 
-    static func activeShadow(_ colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark
+    static func activeShadow(_ colorScheme: ColorScheme, tint: Color? = nil) -> Color {
+        if let tint, colorScheme == .light {
+            return tint.opacity(0.16)
+        }
+
+        return colorScheme == .dark
             ? Color.black.opacity(0.22)
             : Color.formaObsidian.opacity(0.10)
     }
@@ -93,23 +111,30 @@ enum FormaControlChromePalette {
             : Color.formaBoneWhite.opacity(opacity)
     }
 
-    static func sidebarSheenTopOpacity(_ colorScheme: ColorScheme, isWindowActive: Bool) -> Double {
-        let base: Double = colorScheme == .dark ? 0.11 : 0.16
-        return base * (isWindowActive ? 1.0 : 0.84)
+    static func sidebarGlassStyle(_ colorScheme: ColorScheme, isWindowActive: Bool) -> FormaSidebarGlassStyle {
+        let activeMultiplier = isWindowActive ? 1.0 : 0.82
+
+        if colorScheme == .dark {
+            return FormaSidebarGlassStyle(
+                sheenTopOpacity: 0.07 * activeMultiplier,
+                sheenBottomOpacity: 0.015 * activeMultiplier,
+                edgeOpacity: 0.08 * activeMultiplier
+            )
+        }
+
+        return FormaSidebarGlassStyle(
+            sheenTopOpacity: 0.10 * activeMultiplier,
+            sheenBottomOpacity: 0.025 * activeMultiplier,
+            edgeOpacity: 0.14 * activeMultiplier
+        )
     }
 
-    static func sidebarSheenBottomOpacity(_ colorScheme: ColorScheme, isWindowActive: Bool) -> Double {
-        let base: Double = colorScheme == .dark ? 0.02 : 0.04
-        return base * (isWindowActive ? 1.0 : 0.84)
-    }
+    static func selectedForeground(_ colorScheme: ColorScheme, tint: Color? = nil) -> Color {
+        if let tint, colorScheme == .light {
+            return tint.blend(with: .formaObsidian, ratio: 0.40)
+        }
 
-    static func sidebarEdgeOpacity(_ colorScheme: ColorScheme, isWindowActive: Bool) -> Double {
-        let base: Double = colorScheme == .dark ? 0.14 : 0.20
-        return base * (isWindowActive ? 1.0 : 0.86)
-    }
-
-    static func selectedForeground(_ colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark ? .formaBoneWhite : .formaLabel
+        return colorScheme == .dark ? .formaBoneWhite : .formaLabel
     }
 
     static func highlightedForeground(_ colorScheme: ColorScheme) -> Color {
@@ -118,6 +143,37 @@ enum FormaControlChromePalette {
 
     static func normalForeground(_ colorScheme: ColorScheme) -> Color {
         .formaSecondaryLabel
+    }
+}
+
+struct FormaCompactSelectionChrome: View {
+    let isSelected: Bool
+    let tint: Color
+    let cornerRadius: CGFloat
+    var lineWidth: CGFloat = 0.75
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        shape
+            .fill(isSelected ? FormaControlChromePalette.activeFill(colorScheme, tint: tint) : .clear)
+            .overlay {
+                if isSelected {
+                    shape
+                        .strokeBorder(
+                            FormaControlChromePalette.activeBorder(colorScheme, tint: tint),
+                            lineWidth: lineWidth
+                        )
+                }
+            }
+            .shadow(
+                color: isSelected ? FormaControlChromePalette.activeShadow(colorScheme, tint: tint) : .clear,
+                radius: isSelected ? 1.5 : 0,
+                x: 0,
+                y: isSelected ? 0.5 : 0
+            )
     }
 }
 

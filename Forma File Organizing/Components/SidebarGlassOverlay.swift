@@ -1,20 +1,24 @@
 import SwiftUI
-import AppKit
 
 /// Xcode-style sidebar glass overlay with nested corner radii.
 struct SidebarGlassOverlay: View {
-    let isKeyWindow: Bool
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.controlActiveState) private var controlActiveState
+
+    private var isWindowActive: Bool {
+        controlActiveState != .inactive
+    }
+
+    private var glassStyle: FormaSidebarGlassStyle {
+        FormaControlChromePalette.sidebarGlassStyle(colorScheme, isWindowActive: isWindowActive)
+    }
 
     private var sheenGradient: LinearGradient {
-        let topOpacity = FormaControlChromePalette.sidebarSheenTopOpacity(colorScheme, isWindowActive: isKeyWindow)
-        let bottomOpacity = FormaControlChromePalette.sidebarSheenBottomOpacity(colorScheme, isWindowActive: isKeyWindow)
-
         return LinearGradient(
             colors: [
-                Color.formaBoneWhite.opacity(topOpacity),
-                Color.formaBoneWhite.opacity((topOpacity + bottomOpacity) * 0.5),
-                Color.formaBoneWhite.opacity(bottomOpacity)
+                Color.formaBoneWhite.opacity(glassStyle.sheenTopOpacity),
+                Color.formaBoneWhite.opacity((glassStyle.sheenTopOpacity + glassStyle.sheenBottomOpacity) * 0.5),
+                Color.formaBoneWhite.opacity(glassStyle.sheenBottomOpacity)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -23,24 +27,19 @@ struct SidebarGlassOverlay: View {
 
     var body: some View {
         ZStack {
-            VisualEffectView(
-                material: .sidebar,
-                blendingMode: .withinWindow,
-                state: isKeyWindow ? .active : .inactive
-            )
-
             sheenGradient
-            .blendMode(.overlay)
+                .blendMode(.overlay)
 
             HStack(spacing: 0) {
                 Spacer()
 
                 Rectangle()
-                    .fill(Color.formaBoneWhite.opacity(FormaControlChromePalette.sidebarEdgeOpacity(colorScheme, isWindowActive: isKeyWindow)))
+                    .fill(Color.formaBoneWhite.opacity(glassStyle.edgeOpacity))
                     .frame(width: 1)
             }
         }
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -51,7 +50,7 @@ struct SidebarGlassOverlay_Previews: PreviewProvider {
             LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
-            SidebarGlassOverlay(isKeyWindow: true)
+            SidebarGlassOverlay()
                 .frame(width: FormaLayout.Dashboard.sidebarExpandedWidth)
         }
         .frame(width: 420, height: 520)
