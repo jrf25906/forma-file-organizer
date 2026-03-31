@@ -7,38 +7,40 @@ struct SidebarGlassOverlay: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var sheenGradient: LinearGradient {
-        // macOS standard liquid glass window reflection approach: Let the top material have a very light
-        // solid edge, fading transparent immediately to let the popover material do the heavy lifting.
-        let topOpacity: Double = colorScheme == .dark
-            ? Color.FormaOpacity.light
-            : Color.FormaOpacity.medium
-        
-        let bottomOpacity: Double = colorScheme == .dark
-            ? Color.FormaOpacity.ultraSubtle
-            : Color.FormaOpacity.subtle
+        let topOpacity = FormaControlChromePalette.sidebarSheenTopOpacity(colorScheme, isWindowActive: isKeyWindow)
+        let bottomOpacity = FormaControlChromePalette.sidebarSheenBottomOpacity(colorScheme, isWindowActive: isKeyWindow)
 
         return LinearGradient(
             colors: [
                 Color.formaBoneWhite.opacity(topOpacity),
+                Color.formaBoneWhite.opacity((topOpacity + bottomOpacity) * 0.5),
                 Color.formaBoneWhite.opacity(bottomOpacity)
             ],
-            startPoint: .top,
-            endPoint: .bottom
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
         )
     }
 
     var body: some View {
         ZStack {
             VisualEffectView(
-                material: .popover,
+                material: .sidebar,
                 blendingMode: .withinWindow,
                 state: isKeyWindow ? .active : .inactive
             )
-            
-            // Refraction / Volume Gradient (White sheen)
+
             sheenGradient
             .blendMode(.overlay)
+
+            HStack(spacing: 0) {
+                Spacer()
+
+                Rectangle()
+                    .fill(Color.formaBoneWhite.opacity(FormaControlChromePalette.sidebarEdgeOpacity(colorScheme, isWindowActive: isKeyWindow)))
+                    .frame(width: 1)
+            }
         }
+        .allowsHitTesting(false)
     }
 }
 

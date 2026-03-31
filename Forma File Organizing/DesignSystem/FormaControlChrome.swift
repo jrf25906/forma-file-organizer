@@ -27,50 +27,85 @@ enum FormaChromeElevation {
 enum FormaControlChromePalette {
     static func containerFill(_ colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.07)
-            : Color.formaObsidian.opacity(0.05)
+            ? Color.formaBoneWhite.opacity(0.06)
+            : Color.formaObsidian.opacity(0.04)
     }
 
     static func containerBorder(_ colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.20)
-            : Color.formaObsidian.opacity(0.10)
+            ? Color.formaBoneWhite.opacity(0.22)
+            : Color.formaObsidian.opacity(0.12)
     }
 
     static func separator(_ colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.16)
-            : Color.formaObsidian.opacity(0.10)
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.12)
     }
 
     static func hoverFill(_ colorScheme: ColorScheme, tint: Color? = nil) -> Color {
         if let tint {
-            return tint.opacity(colorScheme == .dark ? 0.12 : 0.08)
+            return tint.opacity(colorScheme == .dark ? 0.11 : 0.07)
         }
         return colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.08)
+            ? Color.formaBoneWhite.opacity(0.07)
             : Color.formaObsidian.opacity(0.04)
     }
 
     static func activeFill(_ colorScheme: ColorScheme, tint: Color? = nil) -> Color {
         if let tint {
-            return tint.opacity(colorScheme == .dark ? 0.20 : 0.12)
+            return tint.opacity(colorScheme == .dark ? 0.18 : 0.10)
         }
         return colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaBoneWhite.opacity(0.88)
+            ? Color.formaBoneWhite.opacity(0.12)
+            : Color.formaBoneWhite.opacity(0.84)
     }
 
     static func activeBorder(_ colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.30)
-            : Color.formaObsidian.opacity(0.14)
+            ? Color.formaBoneWhite.opacity(0.34)
+            : Color.formaObsidian.opacity(0.16)
     }
 
     static func activeShadow(_ colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color.black.opacity(0.24)
-            : Color.formaObsidian.opacity(0.08)
+            ? Color.black.opacity(0.22)
+            : Color.formaObsidian.opacity(0.10)
+    }
+
+    static func clusterFill(_ colorScheme: ColorScheme, elevation: FormaChromeElevation) -> Color {
+        let opacity: Double
+        switch elevation {
+        case .inset:
+            opacity = colorScheme == .dark ? 0.80 : 0.88
+        case .resting:
+            opacity = colorScheme == .dark ? 0.84 : 0.90
+        case .raised:
+            opacity = colorScheme == .dark ? 0.88 : 0.93
+        case .floating:
+            opacity = colorScheme == .dark ? 0.90 : 0.95
+        case .emphasized:
+            opacity = colorScheme == .dark ? 0.92 : 0.96
+        }
+
+        return colorScheme == .dark
+            ? Color.formaControlBackground.opacity(opacity)
+            : Color.formaBoneWhite.opacity(opacity)
+    }
+
+    static func sidebarSheenTopOpacity(_ colorScheme: ColorScheme, isWindowActive: Bool) -> Double {
+        let base: Double = colorScheme == .dark ? 0.11 : 0.16
+        return base * (isWindowActive ? 1.0 : 0.84)
+    }
+
+    static func sidebarSheenBottomOpacity(_ colorScheme: ColorScheme, isWindowActive: Bool) -> Double {
+        let base: Double = colorScheme == .dark ? 0.02 : 0.04
+        return base * (isWindowActive ? 1.0 : 0.84)
+    }
+
+    static func sidebarEdgeOpacity(_ colorScheme: ColorScheme, isWindowActive: Bool) -> Double {
+        let base: Double = colorScheme == .dark ? 0.14 : 0.20
+        return base * (isWindowActive ? 1.0 : 0.86)
     }
 
     static func selectedForeground(_ colorScheme: ColorScheme) -> Color {
@@ -165,8 +200,8 @@ struct FormaChromeSurface: View {
     private var specularGradient: LinearGradient {
         LinearGradient(
             colors: [
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.28 : 0.42),
-                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.08 : 0.16),
+                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.24 : 0.36),
+                Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.06 : 0.12),
                 Color.formaBoneWhite.opacity(0)
             ],
             startPoint: .topLeading,
@@ -175,20 +210,20 @@ struct FormaChromeSurface: View {
     }
 
     private var specularOpacity: Double {
-        guard elevation != .inset else { return 0.18 }
+        guard elevation != .inset else { return 0.12 }
 
         let base: Double
         switch elevation {
         case .inset:
-            base = 0.18
+            base = 0.12
         case .resting:
-            base = colorScheme == .dark ? 0.20 : 0.30
+            base = colorScheme == .dark ? 0.16 : 0.24
         case .raised:
-            base = colorScheme == .dark ? 0.24 : 0.34
+            base = colorScheme == .dark ? 0.20 : 0.28
         case .floating:
-            base = colorScheme == .dark ? 0.28 : 0.38
+            base = colorScheme == .dark ? 0.24 : 0.32
         case .emphasized:
-            base = colorScheme == .dark ? 0.32 : 0.42
+            base = colorScheme == .dark ? 0.28 : 0.36
         }
 
         return base * (isWindowActive ? 1.0 : 0.74)
@@ -202,30 +237,30 @@ struct FormaChromeSurface: View {
         switch elevation {
         case .inset:
             return colorScheme == .dark
-                ? Color.formaBoneWhite.opacity(0.10)
-                : Color.formaObsidian.opacity(0.06)
+                ? Color.formaBoneWhite.opacity(0.12)
+                : Color.formaObsidian.opacity(0.08)
         case .resting:
             return colorScheme == .dark
-                ? Color.formaBoneWhite.opacity(0.16)
-                : Color.formaObsidian.opacity(0.08)
+                ? Color.formaBoneWhite.opacity(0.18)
+                : Color.formaObsidian.opacity(0.10)
         case .raised:
             return colorScheme == .dark
-                ? Color.formaBoneWhite.opacity(0.20)
-                : Color.formaObsidian.opacity(0.10)
+                ? Color.formaBoneWhite.opacity(0.22)
+                : Color.formaObsidian.opacity(0.12)
         case .floating:
             return colorScheme == .dark
-                ? Color.formaBoneWhite.opacity(0.24)
-                : Color.formaObsidian.opacity(0.12)
+                ? Color.formaBoneWhite.opacity(0.26)
+                : Color.formaObsidian.opacity(0.14)
         case .emphasized:
             return colorScheme == .dark
-                ? Color.formaBoneWhite.opacity(0.28)
-                : Color.formaObsidian.opacity(0.14)
+                ? Color.formaBoneWhite.opacity(0.30)
+                : Color.formaObsidian.opacity(0.16)
         }
     }
 
     private var innerBorder: Color {
-        if let tint {
-            let baseOpacity = colorScheme == .dark ? 0.22 : 0.46
+        if tint != nil {
+            let baseOpacity = colorScheme == .dark ? 0.20 : 0.42
             let emphasisMultiplier = elevation == .emphasized ? 1.0 : 0.88
             let activeMultiplier = isWindowActive ? 1.0 : 0.76
             return Color.formaBoneWhite.opacity(baseOpacity * emphasisMultiplier * activeMultiplier)
@@ -234,15 +269,15 @@ struct FormaChromeSurface: View {
         let opacity: Double
         switch elevation {
         case .inset:
-            opacity = colorScheme == .dark ? 0.06 : 0.20
+            opacity = colorScheme == .dark ? 0.08 : 0.22
         case .resting:
-            opacity = colorScheme == .dark ? 0.10 : 0.26
+            opacity = colorScheme == .dark ? 0.12 : 0.28
         case .raised:
-            opacity = colorScheme == .dark ? 0.12 : 0.30
+            opacity = colorScheme == .dark ? 0.14 : 0.32
         case .floating:
-            opacity = colorScheme == .dark ? 0.14 : 0.34
+            opacity = colorScheme == .dark ? 0.16 : 0.36
         case .emphasized:
-            opacity = colorScheme == .dark ? 0.18 : 0.38
+            opacity = colorScheme == .dark ? 0.20 : 0.40
         }
 
         return Color.formaBoneWhite.opacity(opacity * (isWindowActive ? 1.0 : 0.76))
@@ -279,13 +314,13 @@ struct FormaChromeSurface: View {
         case .inset:
             return 0
         case .resting:
-            return 3
+            return 2
         case .raised:
-            return 8
+            return 6
         case .floating:
-            return 14
+            return 12
         case .emphasized:
-            return 10
+            return 8
         }
     }
 
@@ -296,17 +331,17 @@ struct FormaChromeSurface: View {
         case .resting:
             return 1
         case .raised:
-            return 3
+            return 2
         case .floating:
-            return 5
-        case .emphasized:
             return 4
+        case .emphasized:
+            return 3
         }
     }
 
     private var contactShadowColor: Color {
         guard elevation != .inset else { return .clear }
-        let baseOpacity = colorScheme == .dark ? 0.18 : 0.10
+        let baseOpacity = colorScheme == .dark ? 0.16 : 0.10
         let activeMultiplier = isWindowActive ? 1.0 : 0.72
         return Color.formaObsidian.opacity(baseOpacity * activeMultiplier)
     }
