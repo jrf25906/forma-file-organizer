@@ -44,6 +44,147 @@ final class AnalyticsServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testRecordDailySnapshotPersistsFolderBreakdown() async throws {
+        let (container, context) = try makeInMemoryContainer()
+        let calendar = makeUTCCalendar()
+        let now = try makeDate(year: 2026, month: 2, day: 12, hour: 9, minute: 30, calendar: calendar)
+        let downloadsRoot = try TemporaryDirectory()
+        let desktopRoot = try TemporaryDirectory()
+        defer {
+            downloadsRoot.cleanup()
+            desktopRoot.cleanup()
+        }
+
+        let bookmarkStore = InMemoryBookmarkStore()
+        let downloadsDestination = try Destination.folder(from: downloadsRoot.url, displayName: "Downloads")
+        try bookmarkStore.saveBookmark(
+            try XCTUnwrap(downloadsDestination.bookmarkData),
+            forKey: FormaConfig.Security.downloadsBookmarkKey
+        )
+        let desktopDestination = try Destination.folder(from: desktopRoot.url, displayName: "Desktop")
+        try bookmarkStore.saveBookmark(
+            try XCTUnwrap(desktopDestination.bookmarkData),
+            forKey: FormaConfig.Security.desktopBookmarkKey
+        )
+
+        let downloadsFile = FileItem(
+            path: downloadsRoot.url.appendingPathComponent("archive.zip").path,
+            sizeInBytes: 4 * 1024 * 1024 * 1024,
+            creationDate: now,
+            location: .downloads,
+            scanRootPath: downloadsRoot.url.path
+        )
+        let desktopFile = FileItem(
+            path: desktopRoot.url.appendingPathComponent("screenshot.png").path,
+            sizeInBytes: 512 * 1024 * 1024,
+            creationDate: now,
+            location: .desktop,
+            scanRootPath: desktopRoot.url.path
+        )
+
+        context.insert(downloadsFile)
+        context.insert(desktopFile)
+        try context.save()
+
+        let suiteName = "AnalyticsServiceTests.folderBreakdown.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let service = AnalyticsService(
+            defaults: defaults,
+            calendar: calendar,
+            clock: FixedClock(now: now, calendar: calendar)
+        )
+
+        try await BookmarkStoreProvider.$override.withValue(bookmarkStore) {
+            try await service.recordDailySnapshotIfNeeded(container: container)
+        }
+
+        let snapshot = try XCTUnwrap(try context.fetch(FetchDescriptor<StorageSnapshot>()).first)
+        XCTAssertEqual(
+            snapshot.bytes(for: .downloads),
+            downloadsFile.sizeInBytes
+        )
+        XCTAssertEqual(
+            snapshot.bytes(for: .desktop),
+            desktopFile.sizeInBytes
+        )
+        XCTAssertEqual(snapshot.folderBreakdown[.documents], nil)
+    }
+
+    @MainActor
+    func testRecordDailySnapshotUsesCurrentFilePathForFolderBreakdown() async throws {
+        let (container, context) = try makeInMemoryContainer()
+        let calendar = makeUTCCalendar()
+        let now = try makeDate(year: 2026, month: 2, day: 13, hour: 9, minute: 30, calendar: calendar)
+
+        let downloadsRoot = try TemporaryDirectory()
+        let archiveRoot = try TemporaryDirectory()
+        defer {
+            downloadsRoot.cleanup()
+            archiveRoot.cleanup()
+        }
+
+        let bookmarkStore = InMemoryBookmarkStore()
+        let downloadsDestination = try Destination.folder(from: downloadsRoot.url, displayName: "Downloads")
+        try bookmarkStore.saveBookmark(
+            try XCTUnwrap(downloadsDestination.bookmarkData),
+            forKey: FormaConfig.Security.downloadsBookmarkKey
+        )
+
+        let currentDownloadsFile = FileItem(
+            path: downloadsRoot.url.appendingPathComponent("current.zip").path,
+            sizeInBytes: 4 * 1024 * 1024 * 1024,
+            creationDate: now,
+            location: .downloads,
+            scanRootPath: downloadsRoot.url.path
+        )
+        let movedOutFile = FileItem(
+            path: archiveRoot.url.appendingPathComponent("moved.zip").path,
+            sizeInBytes: 6 * 1024 * 1024 * 1024,
+            creationDate: now,
+            location: .downloads,
+            scanRootPath: downloadsRoot.url.path,
+            status: .completed
+        )
+
+        context.insert(currentDownloadsFile)
+        context.insert(movedOutFile)
+        try context.save()
+
+        let suiteName = "AnalyticsServiceTests.liveFolderBreakdown.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let service = AnalyticsService(
+            defaults: defaults,
+            calendar: calendar,
+            clock: FixedClock(now: now, calendar: calendar)
+        )
+
+        try await BookmarkStoreProvider.$override.withValue(bookmarkStore) {
+            try await service.recordDailySnapshotIfNeeded(container: container)
+        }
+
+        let snapshot = try XCTUnwrap(try context.fetch(FetchDescriptor<StorageSnapshot>()).first)
+        XCTAssertEqual(snapshot.bytes(for: .downloads), currentDownloadsFile.sizeInBytes)
+    }
+
+    func testStorageSnapshotFolderBreakdownDefaultsToEmptyForLegacyData() {
+        let snapshot = StorageSnapshot(
+            date: Date(timeIntervalSince1970: 1_700_000_000),
+            totalBytes: 1_024,
+            fileCount: 1,
+            categoryBreakdownData: Data()
+        )
+
+        XCTAssertTrue(snapshot.folderBreakdown.isEmpty)
+        XCTAssertEqual(snapshot.bytes(for: .downloads), 0)
+    }
+
+    @MainActor
     func testFetchUsageStatistics_UsesInjectedClockForWeekWindow() async throws {
         let (_, context) = try makeInMemoryContainer()
         let calendar = makeUTCCalendar()

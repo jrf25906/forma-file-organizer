@@ -119,6 +119,7 @@ final class AutomationEngine: ObservableObject {
 
     private let featureFlags: FeatureFlagService
     private let notificationService: AutomationNotificationServing
+    private let folderHealthAlertService: FolderHealthAlertService
     private let clock: Clock
     private let policyResolver: () -> AutomationPolicy
     private let fileMonitor: FileMonitoring
@@ -145,6 +146,7 @@ final class AutomationEngine: ObservableObject {
     init(
         featureFlags: FeatureFlagService = .shared,
         notificationService: AutomationNotificationServing = NotificationService.shared,
+        folderHealthAlertService: FolderHealthAlertService = FolderHealthAlertService(),
         clock: Clock = SystemClock(),
         policyResolver: (() -> AutomationPolicy)? = nil,
         fileMonitor: FileMonitoring = FileMonitorService(),
@@ -152,6 +154,7 @@ final class AutomationEngine: ObservableObject {
     ) {
         self.featureFlags = featureFlags
         self.notificationService = notificationService
+        self.folderHealthAlertService = folderHealthAlertService
         self.clock = clock
         self.fileMonitor = fileMonitor
         self.policyResolver = policyResolver ?? {
@@ -263,6 +266,10 @@ final class AutomationEngine: ObservableObject {
         } else {
             refreshMonitoringState()
         }
+
+        if let context = modelContext {
+            evaluateFolderHealthAlerts(context: context, sendNotifications: false)
+        }
     }
 
     // MARK: - Manual Triggers
@@ -358,6 +365,7 @@ final class AutomationEngine: ObservableObject {
                 sendErrorNotification(type: .scanFailed, message: errorSummary)
             }
             checkThresholds(metrics: metrics)
+            evaluateFolderHealthAlerts(context: context)
 
             // Auto-organize if enabled
             if policy.canAutoOrganize {
@@ -512,6 +520,72 @@ final class AutomationEngine: ObservableObject {
         notificationService.notifyAutomationError(type: type, message: message)
         lastErrorNotificationDate = clock.now
         recordNotificationSent()
+    }
+
+    private func evaluateFolderHealthAlerts(context: ModelContext, sendNotifications: Bool = true) {
+        let monitoredRootPathsByFolder = BookmarkFolder.alertEligibleRootPaths()
+        let evaluation: FolderHealthEvaluation
+
+        do {
+            let files = try context.fetch(FetchDescriptor<FileItem>())
+            let rules = try context.fetch(FetchDescriptor<Rule>())
+            evaluation = folderHealthAlertService.evaluate(
+                files: files,
+                rules: rules,
+                settings: policy.folderHealthAlerts,
+                monitoredRootPathsByFolder: monitoredRootPathsByFolder,
+                now: clock.now
+            )
+        } catch {
+            Log.error("AutomationEngine: Failed evaluating folder health alerts - \(error.localizedDescription)", category: .automation)
+            return
+        }
+
+        clearResolvedFolderHealthNotifications(
+            configuredFolderTypes: Set(policy.folderHealthAlerts.folderSizeThresholdBytesByFolder.keys),
+            activeFolderTypes: Set(evaluation.folderSizeAlerts.map(\.folderType)),
+            hasStaleRulesAlert: evaluation.staleRuleAlert != nil
+        )
+
+        guard sendNotifications, policy.notificationsEnabled, canSendBacklogReminder() else { return }
+
+        var didSendReminder = false
+        for alert in evaluation.folderSizeAlerts where canSendNotification() {
+            notificationService.notifyFolderHealthAlert(
+                folderType: alert.folderType,
+                currentBytes: alert.currentBytes,
+                thresholdBytes: alert.thresholdBytes
+            )
+            recordNotificationSent()
+            didSendReminder = true
+        }
+
+        if let staleRuleAlert = evaluation.staleRuleAlert, canSendNotification() {
+            notificationService.notifyStaleRulesAlert(
+                ruleNames: staleRuleAlert.rules.map(\.ruleName),
+                thresholdDays: staleRuleAlert.thresholdDays
+            )
+            recordNotificationSent()
+            didSendReminder = true
+        }
+
+        if didSendReminder {
+            lastBacklogReminderDate = clock.now
+        }
+    }
+
+    private func clearResolvedFolderHealthNotifications(
+        configuredFolderTypes: Set<BookmarkFolder.FolderType>,
+        activeFolderTypes: Set<BookmarkFolder.FolderType>,
+        hasStaleRulesAlert: Bool
+    ) {
+        for folderType in configuredFolderTypes where !activeFolderTypes.contains(folderType) {
+            notificationService.clearFolderHealthAlert(folderType: folderType)
+        }
+
+        if policy.folderHealthAlerts.staleRuleThresholdDays == nil || !hasStaleRulesAlert {
+            notificationService.clearStaleRulesAlert()
+        }
     }
 
     private func canSendNotification() -> Bool {

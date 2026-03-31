@@ -130,6 +130,8 @@ struct RuleManagementCard: View {
             return .formaError
         case .overlap, .needsPermission:
             return .formaWarmOrange
+        case .stale:
+            return .formaWarmOrange
         case .willCreate:
             return .formaSteelBlue
         case .ready:
@@ -144,6 +146,8 @@ struct RuleManagementCard: View {
         case .duplicate:
             return Color.formaError.opacity(0.14)
         case .overlap, .needsPermission:
+            return Color.formaWarmOrange.opacity(0.15)
+        case .stale:
             return Color.formaWarmOrange.opacity(0.15)
         case .willCreate:
             return Color.formaSteelBlue.opacity(0.14)
@@ -173,6 +177,8 @@ struct RuleManagementCard: View {
             return "arrow.triangle.branch"
         case .needsPermission:
             return "exclamationmark.triangle.fill"
+        case .stale:
+            return "clock.badge.exclamationmark.fill"
         case .willCreate:
             return "folder.badge.plus"
         case .ready:
@@ -186,7 +192,7 @@ struct RuleManagementCard: View {
         switch resolvedHealth.kind {
         case .ready:
             return nil
-        case .duplicate, .overlap, .needsPermission, .willCreate, .disabled:
+        case .duplicate, .overlap, .needsPermission, .stale, .willCreate, .disabled:
             return resolvedHealth.message
         }
     }

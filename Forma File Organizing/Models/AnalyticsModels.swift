@@ -105,6 +105,66 @@ struct StorageHealthScore: Sendable {
     }
 }
 
+struct FolderSizeAlert: Identifiable, Equatable, Sendable {
+    let folderType: BookmarkFolder.FolderType
+    let currentBytes: Int64
+    let thresholdBytes: Int64
+
+    var id: String {
+        folderType.rawValue
+    }
+}
+
+struct StaleRuleAlert: Identifiable, Equatable, Sendable {
+    struct RuleSummary: Identifiable, Equatable, Sendable {
+        let id: UUID
+        let ruleName: String
+        let referenceDate: Date
+        let staleDays: Int
+        let hasMatchedBefore: Bool
+    }
+
+    let thresholdDays: Int
+    let rules: [RuleSummary]
+
+    var id: String {
+        "stale-rules"
+    }
+}
+
+enum FolderHealthAlert: Identifiable, Equatable, Sendable {
+    case folderSize(FolderSizeAlert)
+    case staleRules(StaleRuleAlert)
+
+    var id: String {
+        switch self {
+        case .folderSize(let alert):
+            return "folder.\(alert.folderType.rawValue)"
+        case .staleRules:
+            return "stale-rules"
+        }
+    }
+}
+
+struct FolderHealthEvaluation: Equatable, Sendable {
+    let folderSizeAlerts: [FolderSizeAlert]
+    let staleRuleAlert: StaleRuleAlert?
+
+    static let empty = FolderHealthEvaluation(folderSizeAlerts: [], staleRuleAlert: nil)
+
+    var hasActiveAlerts: Bool {
+        !folderSizeAlerts.isEmpty || staleRuleAlert != nil
+    }
+
+    var activeAlerts: [FolderHealthAlert] {
+        var alerts = folderSizeAlerts.map(FolderHealthAlert.folderSize)
+        if let staleRuleAlert {
+            alerts.append(.staleRules(staleRuleAlert))
+        }
+        return alerts
+    }
+}
+
 // MARK: - Report Types
 
 enum ReportPeriod: Equatable, Hashable, Sendable {
@@ -136,4 +196,5 @@ struct AnalyticsSummary: Sendable {
     let trendPoints: [StorageTrendPoint]
     let usageStatistics: UsageStatistics
     let healthScore: StorageHealthScore
+    let folderHealthEvaluation: FolderHealthEvaluation
 }

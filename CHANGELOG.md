@@ -8,6 +8,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 ### Added
 - Realtime filesystem watching via `FileMonitorService`, which watches enabled bookmark-backed standard folders with debounced `FSEvents` and reports changed `FolderLocation`s back to `AutomationEngine`.
 - `AutomationState`, menu bar automation status, and automation persistence notifications now expose explicit live-watching metadata, including `isWatchingFolders` and `scannedRootPaths`.
+- Folder health alerts: configurable per-folder size thresholds for bookmark-backed roots, a global stale-rule threshold, and shared alert models/evaluation consumed by Analytics, Smart Rules, and automation notifications.
 - `forma-website` hero window now uses shared theme tokens so the current screenshot-style composition renders correctly in dark mode, and the "How Forma Works" section now uses a dark-aware surface with tighter hierarchy.
 - Smart Rules now use centralized `RuleHealthService` classification so rules can surface `Duplicate / Overlap`, `Needs Permission`, `Will Create`, `Ready`, and `Disabled` states consistently.
 - Smart Rules duplicate sections now offer a contextual bulk `Delete Extras` action for exact duplicate cleanup, so stores affected by past template duplication do not require one-by-one deletion.
@@ -29,6 +30,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ### Changed
 - Automation-triggered filesystem events now rescan only the affected watched roots, queue one follow-up root set while a scan is already running, and keep scheduled interval scans as fallback recovery sweeps.
+- Daily analytics snapshots now persist per-folder byte breakdowns in addition to category data, and the right-panel analytics card now surfaces active folder/stale-rule alerts above optimization recommendations.
 - Smart Rules now count exact duplicates separately from overlaps, and overlap detection no longer flags unrelated rules such as extension-based rules versus `.env` name rules.
 - Duplicate cleanup now deletes exact duplicate rules in one batch and triggers a single post-delete reevaluation instead of reloading and rescanning after every individual deletion.
 - App launch now restores the default `Screenshot Sweeper` rule when it was recently deleted after real use and no screenshot-routing rule remains, preventing desktop screenshots from silently losing their destination.

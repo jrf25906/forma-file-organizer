@@ -14,12 +14,34 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `scanFiles(context:baseFolders:)`
 - `FileScanResult`
   - `scannedRootPaths: [String]`
+- `StorageSnapshot`
+  - `folderBreakdownData: Data`
+  - `folderBreakdown: [BookmarkFolder.FolderType: Int64]` (computed)
+  - `bytes(for: BookmarkFolder.FolderType)` (computed helper)
 - `AutomationScanNotificationUserInfo`
   - `scannedRootPaths`
   - `replacesAllFiles`
 - Automation status
   - `AutomationState.isWatchingFolders`
   - `AutomationStatus.isWatchingFolders`
+- Folder health alerts
+  - `FolderHealthAlertSettings`
+    - `folderSizeThresholdBytesByFolder`
+    - `staleRuleThresholdDays`
+  - `FolderHealthAlertService`
+    - `evaluate(files:rules:settings:accessibleFolderTypes:now:)`
+  - `FolderHealthEvaluation`
+    - `folderSizeAlerts`
+    - `staleRuleAlert`
+    - `activeAlerts`
+  - `AutomationNotificationServing`
+    - `notifyFolderHealthAlert(folderType:currentBytes:thresholdBytes:)`
+    - `notifyStaleRulesAlert(ruleNames:thresholdDays:)`
+    - `clearFolderHealthAlert(folderType:)`
+    - `clearStaleRulesAlert()`
+  - `RuleHealthService`
+    - `RuleHealth.Kind.stale`
+    - `classify(rules:staleRuleThresholdDays:evaluationDate:)`
 - UI test launch sizing
   - Set `FORMA_WINDOW_SIZE=WIDTHxHEIGHT` when launching UI tests to force the window size used for screenshot and layout coverage.
 - `FileScanOptions` (`Forma File Organizing/Services/FileSystemService.swift`)

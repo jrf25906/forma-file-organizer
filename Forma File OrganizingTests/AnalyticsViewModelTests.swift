@@ -39,4 +39,23 @@ final class AnalyticsViewModelTests: XCTestCase {
         await viewModel.refresh()
         XCTAssertNil(viewModel.errorMessage)
     }
+
+    func testRefreshDoesNotErrorWithFolderHealthAlertsEnabledAndEmptyData() async {
+        let staleKey = FolderHealthAlertSettings.Keys.staleRuleThresholdDays
+        let previousStaleValue = UserDefaults.standard.object(forKey: staleKey)
+        UserDefaults.standard.set(30, forKey: staleKey)
+        defer {
+            if let previousStaleValue {
+                UserDefaults.standard.set(previousStaleValue, forKey: staleKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: staleKey)
+            }
+        }
+
+        let viewModel = AnalyticsViewModel(modelContext: context)
+        await viewModel.refresh()
+
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertFalse(viewModel.folderHealthEvaluation.hasActiveAlerts)
+    }
 }

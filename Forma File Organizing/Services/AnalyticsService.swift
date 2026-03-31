@@ -39,6 +39,7 @@ extension AnalyticsService {
         now: Date? = nil
     ) async throws {
         let effectiveNow = now ?? clock.now
+        let monitoredRootPathsByFolder = BookmarkFolder.alertEligibleRootPaths()
 
         // Run on detached task to avoid main actor
         try await Task.detached {
@@ -74,6 +75,13 @@ extension AnalyticsService {
             let files = try modelContext.fetch(FetchDescriptor<FileItem>())
             let analytics = storageService.calculateAnalytics(from: files)
             let breakdownData = try analytics.encodedCategoryBreakdown()
+            let folderBreakdown = storageService.calculateFolderBreakdown(
+                from: files,
+                monitoredRootPathsByFolder: monitoredRootPathsByFolder
+            )
+            let folderBreakdownData = try StorageFolderBreakdown(
+                bytesByFolder: Dictionary(uniqueKeysWithValues: folderBreakdown.map { ($0.key.rawValue, $0.value) })
+            ).encoded()
 
             // Compute delta vs last snapshot
             var lastSnapshotDescriptor = FetchDescriptor<StorageSnapshot>(
@@ -88,6 +96,7 @@ extension AnalyticsService {
                 totalBytes: analytics.totalBytes,
                 fileCount: analytics.fileCount,
                 categoryBreakdownData: breakdownData,
+                folderBreakdownData: folderBreakdownData,
                 deltaBytesSincePrevious: delta
             )
 
@@ -322,7 +331,8 @@ extension AnalyticsService {
         for period: UsagePeriod,
         container: ModelContainer
     ) async throws -> AnalyticsSummary {
-        try await Task.detached {
+        let monitoredRootPathsByFolder = BookmarkFolder.alertEligibleRootPaths()
+        return try await Task.detached {
             let modelContext = ModelContext(container)
             guard FeatureFlagService.shared.isEnabled(.analyticsAndInsights) else {
                 throw AnalyticsError.reportGenerationFailed(reason: "Analytics disabled by feature flag.")
@@ -334,6 +344,14 @@ extension AnalyticsService {
 
             let files = try modelContext.fetch(FetchDescriptor<FileItem>())
             let currentAnalytics = StorageService.shared.calculateAnalytics(from: files)
+            let rules = try modelContext.fetch(FetchDescriptor<Rule>())
+            let folderHealthEvaluation = FolderHealthAlertService().evaluate(
+                files: files,
+                rules: rules,
+                settings: FolderHealthAlertSettings.current(defaults: self.defaults),
+                monitoredRootPathsByFolder: monitoredRootPathsByFolder,
+                now: self.clock.now
+            )
 
             // Ensure at least some history for health scoring
             let snapshots: [StorageSnapshot]
@@ -353,7 +371,8 @@ extension AnalyticsService {
             return AnalyticsSummary(
                 trendPoints: trendPoints,
                 usageStatistics: usageStats,
-                healthScore: healthScore
+                healthScore: healthScore,
+                folderHealthEvaluation: folderHealthEvaluation
             )
         }.value
     }

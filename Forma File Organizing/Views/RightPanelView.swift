@@ -163,6 +163,7 @@ private struct CompactAnalyticsPanel: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var services: AppServices
     @State private var healthScore: StorageHealthScore?
+    @State private var folderHealthEvaluation: FolderHealthEvaluation = .empty
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -184,7 +185,7 @@ private struct CompactAnalyticsPanel: View {
                     .font(.formaSmall)
                     .foregroundColor(.formaError)
             } else if let health = healthScore {
-                if health.recommendations.isEmpty {
+                if health.recommendations.isEmpty && !folderHealthEvaluation.hasActiveAlerts {
                     VStack(alignment: .leading, spacing: FormaSpacing.tight) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.title)
@@ -203,6 +204,10 @@ private struct CompactAnalyticsPanel: View {
                 } else {
                     ScrollView {
                         VStack(spacing: FormaSpacing.standard) {
+                            ForEach(folderHealthEvaluation.activeAlerts) { alert in
+                                FolderHealthAlertCard(alert: alert)
+                            }
+
                             ForEach(health.recommendations) { recommendation in
                                 RecommendationCard(recommendation: recommendation)
                             }
@@ -239,9 +244,88 @@ private struct CompactAnalyticsPanel: View {
             // Load only the summary to get fresh health score
             let summary = try await services.analyticsService.loadAnalyticsSummary(for: .week, container: modelContext.container)
             self.healthScore = summary.healthScore
+            self.folderHealthEvaluation = summary.folderHealthEvaluation
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+private struct FolderHealthAlertCard: View {
+    let alert: FolderHealthAlert
+
+    private var accentColor: Color {
+        .formaWarmOrange
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                Image(systemName: iconName)
+                    .foregroundColor(accentColor)
+                    .font(.formaBody)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.formaBodyBold)
+                        .foregroundColor(.formaLabel)
+
+                    Text(detail)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(FormaSpacing.large)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.formaControlBackground)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .stroke(accentColor.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+        )
+    }
+
+    private var iconName: String {
+        switch alert {
+        case .folderSize:
+            return "externaldrive.badge.exclamationmark"
+        case .staleRules:
+            return "clock.badge.exclamationmark"
+        }
+    }
+
+    private var title: String {
+        switch alert {
+        case .folderSize(let folderAlert):
+            return "\(folderAlert.folderType.displayName) over \(formattedBytes(folderAlert.thresholdBytes))"
+        case .staleRules(let staleRuleAlert):
+            if staleRuleAlert.rules.count == 1, let rule = staleRuleAlert.rules.first {
+                return "\"\(rule.ruleName)\" is stale"
+            }
+            return "\(staleRuleAlert.rules.count) stale rules"
+        }
+    }
+
+    private var detail: String {
+        switch alert {
+        case .folderSize(let folderAlert):
+            return "Tracked files currently use \(formattedBytes(folderAlert.currentBytes)) in \(folderAlert.folderType.displayName)."
+        case .staleRules(let staleRuleAlert):
+            if staleRuleAlert.rules.count == 1, let rule = staleRuleAlert.rules.first {
+                return "\"\(rule.ruleName)\" hasn't matched in \(staleRuleAlert.thresholdDays) days."
+            }
+            let names = staleRuleAlert.rules.prefix(3).map(\.ruleName).joined(separator: ", ")
+            if staleRuleAlert.rules.count <= 3 {
+                return "\(names) have not matched in \(staleRuleAlert.thresholdDays) days."
+            }
+            return "\(names), and \(staleRuleAlert.rules.count - 3) more, have not matched in \(staleRuleAlert.thresholdDays) days."
+        }
+    }
+
+    private func formattedBytes(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }
 

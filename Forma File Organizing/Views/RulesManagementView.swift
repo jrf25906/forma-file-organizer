@@ -27,6 +27,7 @@ struct RulesManagementView: View {
         let willCreateCount: Int
         let disabledCount: Int
         let recentlyTriggeredCount: Int
+        let staleRuleCount: Int
         let stableRuleCount: Int
         let isInitialEmptyState: Bool
         let showsOperationalSections: Bool
@@ -35,6 +36,7 @@ struct RulesManagementView: View {
         let needsPermissionRules: [Rule]
         let willCreateRules: [Rule]
         let recentlyTriggeredRules: [Rule]
+        let staleRules: [Rule]
         let stableRules: [Rule]
         let disabledRules: [Rule]
     }
@@ -72,6 +74,7 @@ struct RulesManagementView: View {
 
     @State private var searchText = ""
     @State private var selectedCategoryID: UUID? // nil = "All" tab
+    @AppStorage(FolderHealthAlertSettings.Keys.staleRuleThresholdDays) private var staleRuleThresholdDaysStorage = 0
     @State private var showManageCategories = false
     @State private var filterNeedsPermissionOnly = false
     @State private var pendingDeletionRuleIDs: Set<UUID> = []
@@ -124,7 +127,11 @@ struct RulesManagementView: View {
 
     private func makeContentState() -> ContentState {
         let sortedRules = sortedAllRules
-        let healthByID = ruleHealthService.classify(rules: sortedRules)
+        let healthByID = ruleHealthService.classify(
+            rules: sortedRules,
+            staleRuleThresholdDays: configuredStaleRuleThresholdDays,
+            evaluationDate: Date()
+        )
 
         var filteredRules = sortedRules
 
@@ -150,6 +157,7 @@ struct RulesManagementView: View {
         let recentlyTriggeredRules = filteredRules.filter { rule in
             health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule)
         }
+        let staleRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .stale }
         let stableRules = filteredRules.filter { rule in
             health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule)
         }
@@ -168,6 +176,7 @@ struct RulesManagementView: View {
             recentlyTriggeredCount: sortedRules.filter { rule in
                 health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule)
             }.count,
+            staleRuleCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .stale }.count,
             stableRuleCount: sortedRules.filter { rule in
                 health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule)
             }.count,
@@ -178,6 +187,7 @@ struct RulesManagementView: View {
             needsPermissionRules: needsPermissionRules,
             willCreateRules: willCreateRules,
             recentlyTriggeredRules: recentlyTriggeredRules,
+            staleRules: staleRules,
             stableRules: stableRules,
             disabledRules: disabledRules
         )
@@ -551,6 +561,12 @@ struct RulesManagementView: View {
                     isEmphasized: content.recentlyTriggeredCount > 0
                 )
                 overviewPill(
+                    title: "Stale",
+                    count: content.staleRuleCount,
+                    color: .formaWarmOrange,
+                    isEmphasized: content.staleRuleCount > 0
+                )
+                overviewPill(
                     title: "Stable",
                     count: content.stableRuleCount,
                     color: .formaSage,
@@ -674,6 +690,15 @@ struct RulesManagementView: View {
                         title: "Recently Triggered",
                         subtitle: "Rules Forma has used recently.",
                         rules: content.recentlyTriggeredRules,
+                        healthByID: content.healthByID
+                    )
+                }
+
+                if !content.staleRules.isEmpty {
+                    ruleSection(
+                        title: "Stale",
+                        subtitle: "Enabled rules that have not matched within your configured alert window.",
+                        rules: content.staleRules,
                         healthByID: content.healthByID
                     )
                 }
@@ -898,6 +923,10 @@ struct RulesManagementView: View {
             return false
         }
         return lastTriggeredDate >= cutoff
+    }
+
+    private var configuredStaleRuleThresholdDays: Int? {
+        staleRuleThresholdDaysStorage > 0 ? staleRuleThresholdDaysStorage : nil
     }
 
     private var starterTemplatesSection: some View {
