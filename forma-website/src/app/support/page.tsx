@@ -46,6 +46,7 @@ export default function SupportPage() {
       <div className="site-container mx-auto max-w-5xl">
         <div className="rounded-[2rem] border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] p-5 shadow-[var(--shell-shadow-soft)] md:p-6">
           <header className="border-b border-[var(--shell-border)] pb-8 md:pb-10">
+            <h1 className="sr-only">Support without a ticket maze</h1>
             <FormaShellSectionHeading
               eyebrow="Support"
               title="Support without a ticket maze"
