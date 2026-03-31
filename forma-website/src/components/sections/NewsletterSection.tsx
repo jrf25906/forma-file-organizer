@@ -13,9 +13,83 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type FormState = "idle" | "loading" | "success" | "error";
+export type NewsletterErrorKind = "none" | "validation" | "submit";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+type NewsletterSignupFormProps = {
+  email: string;
+  formState: FormState;
+  errorKind: NewsletterErrorKind;
+  errorMessage: string;
+  onEmailChange: (value: string) => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void | Promise<void>;
+};
+
+export function NewsletterSignupForm({
+  email,
+  formState,
+  errorKind,
+  errorMessage,
+  onEmailChange,
+  onSubmit,
+}: NewsletterSignupFormProps) {
+  const isEmailInvalid = errorKind === "validation";
+
+  return (
+    <>
+      {formState === "success" ? (
+        <div className="flex items-center justify-center gap-2 py-3 text-forma-sage">
+          <CheckCircle2 className="h-4 w-4" />
+          <span className="font-display text-base">You&apos;re in.</span>
+        </div>
+      ) : (
+        <form
+          onSubmit={onSubmit}
+          className="mx-auto flex max-w-sm flex-col gap-2.5 sm:flex-row"
+        >
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => onEmailChange(e.target.value)}
+            placeholder="you@example.com"
+            required
+            disabled={formState === "loading"}
+            aria-label="Email address"
+            aria-invalid={isEmailInvalid}
+            className={cn(
+              "h-11 flex-1 rounded-xl border bg-[var(--shell-surface-muted)] px-4 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-forma-steel-blue focus-visible:ring-2 focus-visible:ring-forma-steel-blue/20 disabled:opacity-50",
+              formState === "error"
+                ? "border-red-400"
+                : "border-[var(--shell-border)]"
+            )}
+          />
+          <Button
+            type="submit"
+            disabled={formState === "loading"}
+            className="h-11 cursor-pointer whitespace-nowrap rounded-xl border border-[var(--shell-cta-border)] bg-[var(--shell-cta-bg)] px-5 text-[14px] font-semibold text-[var(--shell-cta-text)] transition-all duration-200 hover:bg-[var(--shell-cta-bg-hover)] hover:shadow-[var(--shell-shadow-strong)]"
+          >
+            {formState === "loading" ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Subscribing</span>
+              </>
+            ) : (
+              <span>Subscribe</span>
+            )}
+          </Button>
+        </form>
+      )}
+
+      {formState === "error" && errorMessage && (
+        <p role="alert" className="mt-2 text-[13px] text-red-400">
+          {errorMessage}
+        </p>
+      )}
+    </>
+  );
 }
 
 export default function NewsletterSection() {
@@ -24,6 +98,7 @@ export default function NewsletterSection() {
 
   const [email, setEmail] = useState("");
   const [formState, setFormState] = useState<FormState>("idle");
+  const [errorKind, setErrorKind] = useState<NewsletterErrorKind>("none");
   const [errorMessage, setErrorMessage] = useState("");
 
   useGSAP(
@@ -71,10 +146,12 @@ export default function NewsletterSection() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setErrorKind("none");
     setErrorMessage("");
 
     if (!isValidEmail(email)) {
       setFormState("error");
+      setErrorKind("validation");
       setErrorMessage("Please enter a valid email address.");
       return;
     }
@@ -93,10 +170,12 @@ export default function NewsletterSection() {
       }
 
       setFormState("success");
+      setErrorKind("none");
       setEmail("");
       trackEvent("newsletter_submit_success", { location: "newsletter_section" });
     } catch {
       setFormState("error");
+      setErrorKind("submit");
       setErrorMessage("Something went wrong. Try again.");
     }
   }
@@ -118,57 +197,21 @@ export default function NewsletterSection() {
               />
 
               <div className="mt-6">
-                {formState === "success" ? (
-                  <div className="flex items-center justify-center gap-2 py-3 text-forma-sage">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span className="font-display text-base">You&apos;re in.</span>
-                  </div>
-                ) : (
-                  <form
-                    onSubmit={handleSubmit}
-                    className="mx-auto flex max-w-sm flex-col gap-2.5 sm:flex-row"
-                  >
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (formState === "error") setFormState("idle");
-                      }}
-                      placeholder="you@example.com"
-                      required
-                      disabled={formState === "loading"}
-                      aria-label="Email address"
-                      aria-invalid={formState === "error"}
-                      className={cn(
-                        "h-11 flex-1 rounded-xl border bg-[var(--shell-surface-muted)] px-4 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-forma-steel-blue focus-visible:ring-2 focus-visible:ring-forma-steel-blue/20 disabled:opacity-50",
-                        formState === "error"
-                          ? "border-red-400"
-                          : "border-[var(--shell-border)]"
-                      )}
-                    />
-                    <Button
-                      type="submit"
-                      disabled={formState === "loading"}
-                      className="h-11 cursor-pointer whitespace-nowrap rounded-xl border border-[var(--shell-cta-border)] bg-[var(--shell-cta-bg)] px-5 text-[14px] font-semibold text-[var(--shell-cta-text)] transition-all duration-200 hover:bg-[var(--shell-cta-bg-hover)] hover:shadow-[var(--shell-shadow-strong)]"
-                    >
-                      {formState === "loading" ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span>Subscribing</span>
-                        </>
-                      ) : (
-                        <span>Subscribe</span>
-                      )}
-                    </Button>
-                  </form>
-                )}
-
-                {formState === "error" && errorMessage && (
-                  <p role="alert" className="mt-2 text-[13px] text-red-400">
-                    {errorMessage}
-                  </p>
-                )}
+                <NewsletterSignupForm
+                  email={email}
+                  formState={formState}
+                  errorKind={errorKind}
+                  errorMessage={errorMessage}
+                  onEmailChange={(value) => {
+                    setEmail(value);
+                    if (errorKind !== "none") {
+                      setFormState("idle");
+                      setErrorKind("none");
+                      setErrorMessage("");
+                    }
+                  }}
+                  onSubmit={handleSubmit}
+                />
               </div>
             </FormaShellCard>
           </div>
