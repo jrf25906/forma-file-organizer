@@ -38,7 +38,8 @@ export function Header() {
       >
         <div className={`site-container pointer-events-auto ${HEADER_SHELL_LAYOUT.topInsetClassName}`}>
           <FormaShellCard
-            className={`flex items-center justify-between gap-3 px-4 md:px-5 ${HEADER_SHELL_LAYOUT.cardHeightClassName}`}
+            variant="floating"
+            className={`flex items-center justify-between gap-2.5 px-3.5 md:gap-3 md:px-4 ${HEADER_SHELL_LAYOUT.cardHeightClassName}`}
           >
             <Link
               href="/#top"
@@ -53,14 +54,14 @@ export function Header() {
 
             <div className="flex items-center gap-2 sm:gap-3">
               <nav
-                className="hidden items-center gap-1 rounded-full border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] p-1 md:flex"
+                className="hidden items-center gap-1 rounded-full border border-[var(--header-shell-border)] bg-[var(--header-shell-surface-muted)] p-1 md:flex"
                 aria-label="Main navigation"
               >
                 {NAV_LINKS.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="rounded-full px-3.5 py-2 text-[13px] font-medium leading-4 text-[var(--text-secondary)] transition-colors hover:bg-[var(--shell-surface)] hover:text-[var(--text-primary)]"
+                    className="rounded-full px-3 py-2 text-[13px] font-medium leading-4 text-[var(--text-secondary)] transition-colors hover:bg-[var(--header-shell-surface-strong)] hover:text-[var(--text-primary)]"
                   >
                     {link.label}
                   </Link>
@@ -71,7 +72,7 @@ export function Header() {
                 location="header_desktop"
                 className={cn(
                   formaShellCtaVariants({ variant: "primary" }),
-                  "h-11 px-4 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forma-steel-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--shell-surface)] sm:px-5"
+                  "h-10 px-4 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forma-steel-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--header-shell-surface)] sm:px-5"
                 )}
               >
                 Get Forma
@@ -83,7 +84,7 @@ export function Header() {
                   variant="ghost"
                   size="icon"
                   aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-                  className="h-11 w-11 border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] text-[var(--text-primary)] hover:bg-[var(--shell-surface)] md:hidden"
+                  className="h-10 w-10 border border-[var(--header-shell-border)] bg-[var(--header-shell-surface-muted)] text-[var(--text-primary)] hover:bg-[var(--header-shell-surface-strong)] md:hidden"
                 >
                   {mobileOpen ? <XIcon /> : <MenuIcon />}
                 </Button>

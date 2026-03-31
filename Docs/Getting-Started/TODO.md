@@ -1,31 +1,51 @@
 # Forma - Project TODO
 
-**Last Updated:** March 30, 2026
+**Last Updated:** March 31, 2026
 
 Strategic roadmap: [`forma-feature-roadmap.md`](../../forma-feature-roadmap.md). This document is the execution checklist and historical backlog reference.
 
 ---
 
-## Strategic Alignment (March 30, 2026)
+## Roadmap-Ordered Priorities (March 31, 2026)
 
-Current sequencing is intentionally aligned with the preview-first, moat-driven roadmap:
+Current sequencing is intentionally aligned with the preview-first, moat-driven roadmap.
 
-Implementation plan for this wave: [`Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md`](../plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
+Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md`](../plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
 
+### Now (0-8 Weeks)
 - [x] Ship quick-win onboarding and first-run proof before asking users to configure more rules.
 - [x] Add chunked review sessions with `Done for now` semantics so the core workflow feels finite and forgiving.
 - [ ] Build trust infrastructure first: rule simulation, stronger preflight checks, richer explanations, and clearer scoped rollback.
 - [x] Rewrite automation notifications around progress and system health instead of backlog guilt.
+- [ ] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
 - [ ] Convert successful one-time Finder/Spotlight review flows into persistent monitored folders.
+- [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
+
+### Next (2-4 Months)
 - [ ] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.
+- [ ] Plan progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
 - [ ] Plan metadata-backed project spaces and retrieval workflows as the next durable moat.
+
+### Later (4-8+ Months)
+- [ ] Plan workflow chains with simulation, audit history, and rollback across multi-step automations.
+- [ ] Deepen macOS integration beyond current Finder Services, Spotlight, App Intents, and menu bar entry points.
+- [ ] Plan backup, sync, and portability for rules, settings, metadata, and organization memory.
+- [ ] Evaluate collaboration and shared conventions only after the solo local workflow is stronger.
+
+### Not Now
+- Deprioritize generic AI categorization expansion, chat-with-your-files surfaces, cloud AI summaries, and default-on autopilot until the local trust and memory story is stronger.
+
+## Recent Delivered Work
+The dated sections below capture shipped work and execution history. Use the roadmap-ordered section above to decide what comes next.
+
+## Website Header Shell Follow-Up (March 31, 2026)
+- [x] Tighten the floating website header shell with a dedicated glass surface, smaller inset/height contract, and stronger hero clearance so the sticky header no longer reads as a washed-out blocker over homepage copy.
 
 ## Adaptive Window Launch Presentation (March 30, 2026)
 - [x] Default dashboard launch to `twoColumn` at medium window widths and to `threeColumn` only on wide launches with meaningful default inspector content.
 - [x] Persist user-driven inspector visibility across relaunches through `WindowPresentationStore` instead of resetting to an always-open inspector.
 - [x] Add targeted UI coverage for medium-width launch, large-width launch, and inspector visibility persistence across relaunches.
 - [x] Isolate UI-test window-presentation defaults per suite so screenshot and layout coverage stay deterministic.
-- [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ## Preview-First Onboarding Wave (March 30, 2026)
 - [x] Upgrade first-run proof from a generic folder/count prompt into deterministic quick-win candidates (screenshots, archives, stale downloads, invoices, fallback ready batches), reset onboarding completion into the review-first state, and persist per-candidate dismissals across sessions.

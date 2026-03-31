@@ -6,6 +6,8 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 - Website shell primitives (`forma-website/src/components/ui/`)
   - `FormaShellCard`
+    - `variant?: "default" | "floating"`
+    - `data-shell-variant` now marks the rendered surface so the header can opt into a dedicated compact glass treatment without changing the broader shell-card defaults.
   - `FormaShellSectionHeading`
   - `FormaShellCta`
   - `formaShellCtaVariants`
@@ -13,6 +15,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - Website header shell layout (`forma-website/src/lib/header-shell-layout.ts`)
   - `HEADER_SHELL_LAYOUT`
   - Centralizes the floating header shell inset, shell height, hero overlay marker, homepage hero clearance, and non-home route shell clearance shared across `Header.tsx`, the homepage hero, and marketing route shells.
+  - The March 31 follow-up tightens the shell to a smaller inset/height contract and raises homepage hero clearance so the sticky header no longer overlaps the hero copy visually in light mode.
 - File-surface recovery and accessibility helpers
   - `FileRecoveryState`
     - `recoverToReady(_:destination:)`

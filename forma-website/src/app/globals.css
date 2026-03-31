@@ -226,6 +226,11 @@
   --shell-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 36px rgba(0, 0, 0, 0.28);
   --shell-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.18);
   --shell-shadow-strong: 0 22px 48px rgba(0, 0, 0, 0.32);
+  --header-shell-surface: rgba(12, 14, 18, 0.72);
+  --header-shell-surface-muted: rgba(255, 255, 255, 0.055);
+  --header-shell-surface-strong: rgba(255, 255, 255, 0.1);
+  --header-shell-border: rgba(255, 255, 255, 0.14);
+  --header-shell-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 18px 42px rgba(0, 0, 0, 0.34);
   --shell-cta-bg: #F0F0F2;
   --shell-cta-bg-hover: #E0E0E2;
   --shell-cta-text: #0A0A0B;
@@ -444,6 +449,11 @@
   --shell-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset, 0 18px 36px rgba(0, 0, 0, 0.08);
   --shell-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.08);
   --shell-shadow-strong: 0 22px 48px rgba(0, 0, 0, 0.14);
+  --header-shell-surface: rgba(255, 255, 255, 0.8);
+  --header-shell-surface-muted: rgba(255, 255, 255, 0.68);
+  --header-shell-surface-strong: rgba(255, 255, 255, 0.92);
+  --header-shell-border: rgba(39, 46, 58, 0.12);
+  --header-shell-shadow: 0 1px 0 rgba(255, 255, 255, 0.82) inset, 0 16px 30px rgba(16, 24, 40, 0.12);
   --shell-cta-bg: #1A1A1A;
   --shell-cta-bg-hover: #2A2A2A;
   --shell-cta-text: #FAFAF8;

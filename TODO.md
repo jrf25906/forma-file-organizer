@@ -1,22 +1,47 @@
 # Project TODO
 
+**Last Updated:** March 31, 2026
+
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
-## Strategic Roadmap Reset (March 30, 2026)
-Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md](Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
+This file is ordered to match the strategic roadmap. Dated sprint logs and shipped execution history remain below as reference.
 
-- [x] Ship quick-win onboarding and first-run proof so Forma demonstrates value before asking users to configure rules.
-- [x] Add chunked review sessions with `Done for now` semantics to reduce overwhelm in the core preview flow.
+## Roadmap-Ordered Priorities (March 31, 2026)
+Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md](Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
+
+### Now (0-8 Weeks)
+- [x] Quick-win onboarding and first-run proof so Forma demonstrates value before asking users to configure rules.
+- [x] Batch UX that hides overwhelm with chunked review sessions and `Done for now` semantics.
 - [ ] Build trust infrastructure: rule simulation, stronger preflight checks, richer reasoning, and clearer scoped rollback.
-- [x] Reframe automation notifications around progress and system health instead of backlog guilt.
+- [x] Reset automation notification tone around progress and system health instead of backlog guilt.
 - [x] Preserve structured automation error buckets for scan, bookmark, and destination failures so notifications do not fall back to generic scan summaries.
-- [ ] Add a post-review path that converts useful one-time Finder/Spotlight folder requests into persistent monitored folders.
+- [ ] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
+- [ ] Convert successful one-time Finder/Spotlight folder review flows into persistent monitored folders.
+- [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
+
+### Next (2-4 Months)
 - [ ] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
+- [ ] Plan progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
 - [ ] Plan metadata-backed project spaces and workflow memory before broad cloud or chatbot-style AI expansion.
+
+### Later (4-8+ Months)
+- [ ] Plan workflow chains with simulation, audit history, and rollback across multi-step automations.
+- [ ] Deepen macOS integration beyond current Finder Services, Spotlight, App Intents, and menu bar entry points.
+- [ ] Plan backup, sync, and portability for rules, settings, metadata, and organization memory.
+- [ ] Evaluate collaboration and shared conventions only after the solo local workflow is stronger.
+
+### Not Now
+- Deprioritize generic AI categorization expansion, chat-with-your-files surfaces, cloud AI summaries, and default-on autopilot until the local trust and memory story is stronger.
+
+## Historical Delivery Log
+The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
 
 ## Luma Refresh Follow-Ups (March 31, 2026)
 - [x] Honor `accessibilityReduceTransparency` in `SidebarGlassOverlay` so the sidebar sheen falls back cleanly when macOS Reduce Transparency is enabled.
 - [x] Add one browser-level assertion for newsletter success-focus behavior and revisit the regex-based homepage shell-boundary coverage if homepage section nesting changes.
+
+## Website Header Shell Follow-Up (March 31, 2026)
+- [x] Tighten the floating website header shell with a dedicated glass surface, smaller inset/height contract, and stronger hero clearance so the sticky header no longer reads as a washed-out blocker over homepage copy.
 
 ## Stability Fixes (March 31, 2026)
 - [x] Restore lightweight migration for legacy `StorageSnapshot` rows created before `folderBreakdownData` existed so existing installs no longer crash during SwiftData container startup.
@@ -30,7 +55,6 @@ Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-
 - [x] Persist user-driven inspector visibility across relaunches through `WindowPresentationStore` instead of resetting to an always-open inspector.
 - [x] Add targeted UI coverage for medium-width launch, large-width launch, and inspector visibility persistence across relaunches.
 - [x] Isolate UI-test window-presentation defaults per suite so screenshot and layout coverage stay deterministic.
-- [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ## Spotlight + Finder Services Integration (March 25, 2026)
 - [x] Add an `ExternalIngressCoordinator` that normalizes Finder Services and Spotlight/App Intent requests into one resumable ingress flow.
@@ -43,7 +67,6 @@ Wave 1 implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-
 - [x] Rebuild Launch Services plus the `pbs` Services cache during refresh so Finder picks up updated service metadata instead of holding stale pre-fix entries.
 - [x] Surface explicit reauthorization feedback when Finder/Spotlight selections lose security-scoped access instead of silently retrying raw paths.
 - [x] Add targeted coverage for explicit selection scanning, non-reconciling explicit persistence, external review scoping, onboarding resume, and registration refresh state.
-- [ ] Add a post-review affordance to convert a one-time external folder request into a persistent monitored folder when the workflow proves useful.
 
 ## Realtime Filesystem Watching (March 25, 2026)
 - [x] Add an `FSEvents`-backed `FileMonitorService` for enabled bookmark-backed standard folders, with debounced root-level change coalescing.
