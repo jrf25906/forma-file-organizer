@@ -34,6 +34,9 @@ describe("NewsletterSignupForm", () => {
 
     expect(html).toContain("noValidate")
     expect(html).toContain('aria-invalid="true"')
+    expect(html).toContain('aria-describedby="newsletter-error-message"')
+    expect(html).toContain('aria-errormessage="newsletter-error-message"')
+    expect(html).toContain('id="newsletter-error-message"')
     expect(html).toContain("border-red-400")
   })
 
@@ -52,6 +55,7 @@ describe("NewsletterSignupForm", () => {
     expect(html).toContain('role="status"')
     expect(html).toContain('aria-live="polite"')
     expect(html).toContain("tabindex=\"-1\"")
+    expect(html).toContain('aria-hidden="true"')
     expect(html).toContain("You&#x27;re in.")
   })
 })

@@ -37,6 +37,7 @@ export function NewsletterSignupForm({
   onSubmit,
 }: NewsletterSignupFormProps) {
   const isEmailInvalid = errorKind === "validation";
+  const errorMessageId = "newsletter-error-message";
   const successMessageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export function NewsletterSignupForm({
           tabIndex={-1}
           className="flex items-center justify-center gap-2 py-3 text-forma-sage focus:outline-none"
         >
-          <CheckCircle2 className="h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
           <span className="font-display text-base">You&apos;re in.</span>
         </div>
       ) : (
@@ -73,6 +74,8 @@ export function NewsletterSignupForm({
             disabled={formState === "loading"}
             aria-label="Email address"
             aria-invalid={isEmailInvalid}
+            aria-describedby={isEmailInvalid ? errorMessageId : undefined}
+            aria-errormessage={isEmailInvalid ? errorMessageId : undefined}
             className={cn(
               "h-11 flex-1 rounded-xl border bg-[var(--shell-surface-muted)] px-4 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-forma-steel-blue focus-visible:ring-2 focus-visible:ring-forma-steel-blue/20 disabled:opacity-50",
               isEmailInvalid
@@ -98,7 +101,11 @@ export function NewsletterSignupForm({
       )}
 
       {formState === "error" && errorMessage && (
-        <p role="alert" className="mt-2 text-[13px] text-red-400">
+        <p
+          id={errorMessageId}
+          role="alert"
+          className="mt-2 text-[13px] text-red-400"
+        >
           {errorMessage}
         </p>
       )}
