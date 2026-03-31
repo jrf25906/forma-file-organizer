@@ -4,17 +4,15 @@ import { describe, expect, it } from "vitest"
 import Home from "../src/app/page"
 
 function sectionHtml(html: string, id: string) {
-  const start = html.indexOf(`<section id="${id}"`)
-  if (start === -1) {
+  const match = html.match(
+    new RegExp(`<section\\b[^>]*id="${id}"[^>]*>[\\s\\S]*?<\\/section>`)
+  )
+
+  if (!match) {
     throw new Error(`Missing section: ${id}`)
   }
 
-  const end = html.indexOf("</section>", start)
-  if (end === -1) {
-    throw new Error(`Unclosed section: ${id}`)
-  }
-
-  return html.slice(start, end)
+  return match[0]
 }
 
 describe("Home", () => {
@@ -26,7 +24,8 @@ describe("Home", () => {
     expect(heroSection).toContain('<h1 data-hero="headline"')
     expect(heroSection).toContain('data-hero="window"')
     expect(heroSection).toContain("bg-transparent")
-    expect(heroSection).not.toContain("var(--shell-surface)")
+    expect(heroSection).not.toContain("rounded-[2.25rem]")
+    expect(heroSection).not.toContain("shadow-[var(--shell-shadow)]")
 
     expect(pricingSection).toContain("border-y border-[var(--shell-border)]")
     expect(pricingSection).toContain("bg-[var(--bg-secondary)]")

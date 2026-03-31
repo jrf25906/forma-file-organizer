@@ -3,7 +3,6 @@ import Link from "next/link";
 import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
 import { FormaShellCard } from "@/components/ui/forma-shell-card";
 import { formaShellCtaVariants } from "@/components/ui/forma-shell-cta";
-import { FormaShellSectionHeading } from "@/components/ui/forma-shell-section-heading";
 import { SUPPORT_EMAIL } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -46,13 +45,18 @@ export default function SupportPage() {
       <div className="site-container mx-auto max-w-5xl">
         <div className="rounded-[2rem] border border-[var(--shell-border)] bg-[var(--shell-surface-muted)] p-5 shadow-[var(--shell-shadow-soft)] md:p-6">
           <header className="border-b border-[var(--shell-border)] pb-8 md:pb-10">
-            <h1 className="sr-only">Support without a ticket maze</h1>
-            <FormaShellSectionHeading
-              eyebrow="Support"
-              title="Support without a ticket maze"
-              description="Send what happened, what you expected, and your macOS version. We will help you get unstuck without making you fight the website first."
-              className="max-w-3xl"
-            />
+            <div className="max-w-3xl space-y-3">
+              <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-forma-steel-blue">
+                Support
+              </p>
+              <h1 className="font-display text-[1.875rem] leading-[1.1] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem]">
+                Support without a ticket maze
+              </h1>
+              <p className="max-w-2xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                Send what happened, what you expected, and your macOS version. We will help you get
+                unstuck without making you fight the website first.
+              </p>
+            </div>
           </header>
 
           <div className="mt-6 grid gap-5 lg:grid-cols-[0.92fr,1.08fr]">
