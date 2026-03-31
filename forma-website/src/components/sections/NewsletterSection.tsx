@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/animation";
 import { formaReveal, formaDuration } from "@/lib/animation";
@@ -37,17 +37,31 @@ export function NewsletterSignupForm({
   onSubmit,
 }: NewsletterSignupFormProps) {
   const isEmailInvalid = errorKind === "validation";
+  const successMessageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (formState === "success") {
+      successMessageRef.current?.focus();
+    }
+  }, [formState]);
 
   return (
     <>
       {formState === "success" ? (
-        <div className="flex items-center justify-center gap-2 py-3 text-forma-sage">
+        <div
+          ref={successMessageRef}
+          role="status"
+          aria-live="polite"
+          tabIndex={-1}
+          className="flex items-center justify-center gap-2 py-3 text-forma-sage focus:outline-none"
+        >
           <CheckCircle2 className="h-4 w-4" />
           <span className="font-display text-base">You&apos;re in.</span>
         </div>
       ) : (
         <form
           onSubmit={onSubmit}
+          noValidate
           className="mx-auto flex max-w-sm flex-col gap-2.5 sm:flex-row"
         >
           <Input
