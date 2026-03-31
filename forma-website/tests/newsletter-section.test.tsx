@@ -24,6 +24,7 @@ describe("NewsletterSignupForm", () => {
     const html = renderForm("submit")
 
     expect(html).not.toContain('aria-invalid="true"')
+    expect(html).not.toContain("border-red-400")
     expect(html).toContain("Something went wrong. Try again.")
   })
 
@@ -31,5 +32,6 @@ describe("NewsletterSignupForm", () => {
     const html = renderForm("validation")
 
     expect(html).toContain('aria-invalid="true"')
+    expect(html).toContain("border-red-400")
   })
 })

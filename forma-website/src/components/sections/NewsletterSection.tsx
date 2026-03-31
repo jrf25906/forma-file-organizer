@@ -61,7 +61,7 @@ export function NewsletterSignupForm({
             aria-invalid={isEmailInvalid}
             className={cn(
               "h-11 flex-1 rounded-xl border bg-[var(--shell-surface-muted)] px-4 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-forma-steel-blue focus-visible:ring-2 focus-visible:ring-forma-steel-blue/20 disabled:opacity-50",
-              formState === "error"
+              isEmailInvalid
                 ? "border-red-400"
                 : "border-[var(--shell-border)]"
             )}
