@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
 import Home from "../src/app/page"
+import { HEADER_SHELL_LAYOUT } from "../src/lib/header-shell-layout"
 
 function sectionHtml(html: string, id: string) {
   const match = html.match(
@@ -20,12 +21,16 @@ describe("Home", () => {
     const html = renderToStaticMarkup(<Home />)
     const heroSection = sectionHtml(html, "top")
     const pricingSection = sectionHtml(html, "pricing")
+    const clearanceClasses = HEADER_SHELL_LAYOUT.heroClearanceClassName.split(/\s+/).filter(Boolean)
 
     expect(heroSection).toContain('data-hero-layout="header-overlay"')
     expect(heroSection).toContain('data-hero-clearance="floating-header-shell"')
     expect(heroSection).toContain('<h1 data-hero="headline"')
     expect(heroSection).toContain('data-hero="window"')
     expect(heroSection).toContain("bg-transparent")
+    clearanceClasses.forEach((className) => {
+      expect(heroSection).toContain(className)
+    })
     expect(heroSection).not.toContain("rounded-[2.25rem]")
     expect(heroSection).not.toContain("shadow-[var(--shell-shadow)]")
 
