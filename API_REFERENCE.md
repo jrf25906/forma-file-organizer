@@ -4,6 +4,23 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Website shell primitives (`forma-website/src/components/ui/`)
+  - `FormaShellCard`
+  - `FormaShellSectionHeading`
+  - `FormaShellCta`
+  - `formaShellCtaVariants`
+  - Shared across the header/footer shell, pricing, FAQ, newsletter, and support routes while the hero and product demos remain bespoke.
+- File-surface recovery and accessibility helpers
+  - `FileRecoveryState`
+    - `recoverToReady(_:destination:)`
+    - `clearErrorIfRecovered(_:)`
+    - `clearErrorIfRecovered(_:previousDestination:previousStatus:recoveredDestination:)`
+  - `FileRowAccessibilityState.value(view:isSelected:isFocused:status:activity:)`
+  - `FileRowAccessibilityIdentifier.rowIdentifier(fileName:filePath:)`
+  - `FileRowAccessibilityIdentifier.cardStateIdentifier(fileName:filePath:)`
+  - `FileRowAccessibilityIdentifier.listStateIdentifier(fileName:filePath:)`
+  - `FileRowAccessibilityIdentifier.gridStateIdentifier(fileName:filePath:)`
+  - Card/list/grid accessibility probes now expose the shared activity axis, and row/state identifiers remain unique when duplicate filenames are present.
 - External ingress (`Forma File Organizing/Services/ExternalIngressCoordinator.swift`)
   - `ExternalIngressSource`
   - `ExternalIngressItemKind`
