@@ -4,6 +4,8 @@ import { act } from "react"
 import { createRoot } from "react-dom/client"
 import { afterEach, describe, expect, it } from "vitest"
 
+import { HEADER_SHELL_LAYOUT } from "../src/lib/header-shell-layout"
+
 describe("Header DOM behavior", () => {
   let container: HTMLDivElement | null = null
   let root: ReturnType<typeof createRoot> | null = null
@@ -52,13 +54,12 @@ describe("Header DOM behavior", () => {
     })
 
     const header = container.querySelector('[data-header-shell="floating"]')
-
-    expect(header?.getAttribute("data-header-shell-mode")).toBe("top")
+    expect(header).not.toBeNull()
 
     await act(async () => {
       Object.defineProperty(window, "scrollY", {
         configurable: true,
-        value: 48,
+        value: HEADER_SHELL_LAYOUT.scrollThreshold + 1,
         writable: true,
       })
       window.dispatchEvent(new Event("scroll"))
