@@ -8,6 +8,10 @@ import { HEADER_SHELL_LAYOUT } from "../src/lib/header-shell-layout"
 
 const HEADER_SCROLL_THRESHOLD = 24
 
+function classTokens(className: string) {
+  return className.split(/\s+/).filter(Boolean)
+}
+
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true
 
@@ -84,6 +88,15 @@ describe("Header DOM behavior", () => {
       container.querySelector('[data-shell-variant="floating"]')?.getAttribute("data-shell-mode")
     ).toBe("top")
 
+    const topNav = container.querySelector('nav[aria-label="Main navigation"]')
+    expect(topNav).not.toBeNull()
+    const topNavClasses = classTokens(topNav?.className ?? "")
+    expect(topNavClasses).toContain("opacity-0")
+    expect(topNavClasses).toContain("pointer-events-none")
+    expect(topNavClasses).toContain("translate-y-1")
+    expect(topNavClasses).toContain("focus-within:opacity-100")
+    expect(topNavClasses).toContain("focus-within:pointer-events-auto")
+
     await act(async () => {
       Object.defineProperty(window, "scrollY", {
         configurable: true,
@@ -98,5 +111,13 @@ describe("Header DOM behavior", () => {
     expect(
       container.querySelector('[data-shell-variant="floating"]')?.getAttribute("data-shell-mode")
     ).toBe("scrolled")
+
+    const scrolledNav = container.querySelector('nav[aria-label="Main navigation"]')
+    expect(scrolledNav).not.toBeNull()
+    const scrolledNavClasses = classTokens(scrolledNav?.className ?? "")
+    expect(scrolledNavClasses).toContain("opacity-100")
+    expect(scrolledNavClasses).toContain("translate-y-0")
+    expect(scrolledNavClasses).not.toContain("opacity-0")
+    expect(scrolledNavClasses).not.toContain("pointer-events-none")
   })
 })

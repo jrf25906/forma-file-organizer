@@ -76,7 +76,7 @@ export function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="rounded-full px-3 py-2 text-[13px] font-medium leading-4 text-[var(--text-secondary)] transition-colors hover:bg-[var(--header-shell-surface-strong)] hover:text-[var(--text-primary)]"
+                  className="rounded-full px-3 py-2 text-[13px] font-medium leading-4 text-[var(--text-secondary)] transition-colors hover:bg-[var(--header-shell-surface-strong)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forma-steel-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--header-shell-surface)]"
                 >
                   {link.label}
                 </Link>

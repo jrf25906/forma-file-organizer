@@ -13,7 +13,7 @@ export const HEADER_SHELL_LAYOUT = {
   desktopNavClassName:
     "hidden items-center justify-center gap-1 overflow-hidden rounded-full border p-1 transition-all duration-200 ease-out md:flex",
   desktopNavHiddenClassName:
-    "border-transparent bg-transparent opacity-0 pointer-events-none translate-y-1",
+    "border-transparent bg-transparent opacity-0 pointer-events-none translate-y-1 focus-within:border-[var(--header-shell-border)] focus-within:bg-[var(--header-shell-surface-muted)] focus-within:opacity-100 focus-within:pointer-events-auto focus-within:translate-y-0",
   desktopNavVisibleClassName:
     "border-[var(--header-shell-border)] bg-[var(--header-shell-surface-muted)] opacity-100 translate-y-0",
   heroLayout: "header-overlay",
