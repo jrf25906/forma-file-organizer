@@ -9,3 +9,6 @@ export const HEADER_SHELL_LAYOUT = {
   heroClearanceClassName: "pt-36 pb-12 md:pt-40 md:pb-16 lg:pt-44 lg:pb-24",
   routeClearanceClassName: "pt-24 pb-20 md:py-24",
 } as const
+
+export type HeaderShellMode =
+  (typeof HEADER_SHELL_LAYOUT)["topMode" | "scrolledMode"]

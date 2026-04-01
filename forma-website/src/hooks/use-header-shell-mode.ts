@@ -2,13 +2,18 @@
 
 import { useEffect, useState } from "react";
 
-export type HeaderShellMode = "top" | "scrolled";
+import {
+  HEADER_SHELL_LAYOUT,
+  type HeaderShellMode,
+} from "@/lib/header-shell-layout";
 
 export function getHeaderShellMode(
   scrollY: number,
   threshold: number
 ): HeaderShellMode {
-  return scrollY > threshold ? "scrolled" : "top";
+  return scrollY > threshold
+    ? HEADER_SHELL_LAYOUT.scrolledMode
+    : HEADER_SHELL_LAYOUT.topMode;
 }
 
 export function useHeaderShellMode(threshold: number): HeaderShellMode {
@@ -34,5 +39,3 @@ export function useHeaderShellMode(threshold: number): HeaderShellMode {
 
   return mode;
 }
-
-export default useHeaderShellMode;
