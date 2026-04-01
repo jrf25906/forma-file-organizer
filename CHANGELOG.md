@@ -37,6 +37,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- `forma-website` homepage header now uses the approved Hybrid A two-state contract: a quieter top-of-page shell that shows only the Forma brand plus `Get Forma`, a compact split-nav sticky state after scroll, warmer top/scrolled shell tokens, and a focus-reveal path so keyboard users do not tab into invisible desktop-nav links.
 - `forma-website` floating header shell now uses a dedicated compact glass variant with stronger light-mode contrast, a smaller inset/height contract, and a larger homepage hero top offset so the sticky shell no longer reads as a washed-out bar over the hero copy.
 - Native Luma refresh chrome now applies the sidebar glass treatment in the live split-view sidebar, and light-mode toolbar/view-mode selected states use a stronger shared compact segment style for clearer native selection contrast.
 - `SidebarGlassOverlay` now disables its sheen and edge highlight treatment when macOS Reduce Transparency is enabled, so the sidebar falls back cleanly instead of layering decorative glass over the accessibility preference.

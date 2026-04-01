@@ -16,6 +16,12 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `HEADER_SHELL_LAYOUT`
   - Centralizes the floating header shell inset, shell height, hero overlay marker, homepage hero clearance, and non-home route shell clearance shared across `Header.tsx`, the homepage hero, and marketing route shells.
   - The March 31 follow-up tightens the shell to a smaller inset/height contract and raises homepage hero clearance so the sticky header no longer overlaps the hero copy visually in light mode.
+  - The Hybrid A follow-up adds the shared two-state shell contract used by `Header.tsx`: `scrollThreshold`, `topMode`, `scrolledMode`, `baseShellClassName`, `topStateShellClassName`, `scrolledStateShellClassName`, `desktopNavClassName`, `desktopNavHiddenClassName`, and `desktopNavVisibleClassName`.
+- Website header shell mode hook (`forma-website/src/hooks/use-header-shell-mode.ts`)
+  - `HeaderShellMode`
+  - `getHeaderShellMode(scrollY: number, threshold: number): HeaderShellMode`
+  - `useHeaderShellMode(threshold: number): HeaderShellMode`
+  - `Header.tsx` now publishes `data-header-shell-mode` on the outer header and `data-shell-mode` on the floating shell so tests can verify the top vs scrolled contract directly.
 - File-surface recovery and accessibility helpers
   - `FileRecoveryState`
     - `recoverToReady(_:destination:)`

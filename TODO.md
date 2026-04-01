@@ -22,10 +22,11 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 ### Next (2-4 Months)
 - [ ] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
 - [ ] Plan progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
+- [ ] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
 - [ ] Plan metadata-backed project spaces and workflow memory before broad cloud or chatbot-style AI expansion.
 
 ### Later (4-8+ Months)
-- [ ] Plan workflow chains with simulation, audit history, and rollback across multi-step automations.
+- [ ] Plan workflow chains with simulation, audit history, and rollback across multi-step automations, including flows like match -> rename -> tag -> move -> notify -> log.
 - [ ] Deepen macOS integration beyond current Finder Services, Spotlight, App Intents, and menu bar entry points.
 - [ ] Plan backup, sync, and portability for rules, settings, metadata, and organization memory.
 - [ ] Evaluate collaboration and shared conventions only after the solo local workflow is stronger.
@@ -42,6 +43,9 @@ The sections below capture dated implementation slices that have already shipped
 
 ## Website Header Shell Follow-Up (March 31, 2026)
 - [x] Tighten the floating website header shell with a dedicated glass surface, smaller inset/height contract, and stronger hero clearance so the sticky header no longer reads as a washed-out blocker over homepage copy.
+
+## Hybrid A Website Header (March 31, 2026)
+- [x] Convert the website header to the approved Hybrid A behavior: quiet top-of-page brand + CTA state, compact split-nav reveal after scroll, warmer shell tokens, and keyboard-safe desktop-nav reveal on focus.
 
 ## Stability Fixes (March 31, 2026)
 - [x] Restore lightweight migration for legacy `StorageSnapshot` rows created before `folderBreakdownData` existed so existing installs no longer crash during SwiftData container startup.
