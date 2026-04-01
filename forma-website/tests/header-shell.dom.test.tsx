@@ -1,8 +1,17 @@
 // @vitest-environment jsdom
 
 import { act } from "react"
-import { createRoot } from "react-dom/client"
-import { afterEach, describe, expect, it } from "vitest"
+import { createRoot, hydrateRoot } from "react-dom/client"
+import { renderToStaticMarkup } from "react-dom/server"
+import { afterEach, describe, expect, it, vi } from "vitest"
+
+const { mockUsePathname } = vi.hoisted(() => ({
+  mockUsePathname: vi.fn(() => "/"),
+}))
+
+vi.mock("next/navigation", () => ({
+  usePathname: mockUsePathname,
+}))
 
 import { HEADER_SHELL_LAYOUT } from "../src/lib/header-shell-layout"
 
@@ -18,6 +27,7 @@ function classTokens(className: string) {
 describe("Header DOM behavior", () => {
   let container: HTMLDivElement | null = null
   let root: ReturnType<typeof createRoot> | null = null
+  let hydrationRoot: ReturnType<typeof hydrateRoot> | null = null
   let restoreMatchMedia = false
   let restoreScrollY = false
 
@@ -28,8 +38,15 @@ describe("Header DOM behavior", () => {
       })
     }
 
+    if (hydrationRoot && container) {
+      await act(async () => {
+        hydrationRoot?.unmount()
+      })
+    }
+
     container?.remove()
     root = null
+    hydrationRoot = null
     container = null
 
     if (restoreMatchMedia) {
@@ -41,6 +58,9 @@ describe("Header DOM behavior", () => {
       delete (window as typeof window & { scrollY?: number }).scrollY
       restoreScrollY = false
     }
+
+    mockUsePathname.mockReset()
+    mockUsePathname.mockReturnValue("/")
   })
 
   it("uses the shared scroll threshold contract", () => {
@@ -119,5 +139,63 @@ describe("Header DOM behavior", () => {
     expect(scrolledNavClasses).toContain("translate-y-0")
     expect(scrolledNavClasses).not.toContain("opacity-0")
     expect(scrolledNavClasses).not.toContain("pointer-events-none")
+  })
+
+  it("keeps the home route hydration-safe before the post-mount scroll sync", async () => {
+    restoreMatchMedia = true
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: () => ({
+        matches: false,
+        media: "",
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    })
+
+    restoreScrollY = true
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      value: HEADER_SCROLL_THRESHOLD + 1,
+      writable: true,
+    })
+
+    const { Header } = await import("../src/components/Header")
+    const serverHtml = renderToStaticMarkup(<Header />)
+
+    container = document.createElement("div")
+    container.innerHTML = serverHtml
+    document.body.appendChild(container)
+    expect(container.querySelector('[data-header-shell="floating"]')?.getAttribute("data-header-shell-mode")).toBe("top")
+
+    const consoleErrors: string[] = []
+    const consoleError = vi.spyOn(console, "error").mockImplementation((...args) => {
+      consoleErrors.push(args.map(String).join(" "))
+    })
+
+    try {
+      await act(async () => {
+        hydrationRoot = hydrateRoot(container!, <Header />)
+      })
+    } finally {
+      consoleError.mockRestore()
+    }
+
+    expect(
+      consoleErrors.filter((message) =>
+        /hydration|did not match|server rendered html/i.test(message)
+      )
+    ).toHaveLength(0)
+
+    const scrolledHeader = container.querySelector('[data-header-shell="floating"]')
+    expect(scrolledHeader?.getAttribute("data-header-shell-mode")).toBe("scrolled")
+    expect(
+      container.querySelector('[data-shell-variant="floating"]')?.getAttribute("data-shell-mode")
+    ).toBe("scrolled")
   })
 })

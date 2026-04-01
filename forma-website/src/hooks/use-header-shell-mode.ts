@@ -17,11 +17,8 @@ export function getHeaderShellMode(
 }
 
 export function useHeaderShellMode(threshold: number): HeaderShellMode {
-  const [mode, setMode] = useState<HeaderShellMode>(() =>
-    getHeaderShellMode(
-      typeof window === "undefined" ? 0 : window.scrollY,
-      threshold
-    )
+  const [mode, setMode] = useState<HeaderShellMode>(
+    HEADER_SHELL_LAYOUT.topMode
   );
 
   useEffect(() => {

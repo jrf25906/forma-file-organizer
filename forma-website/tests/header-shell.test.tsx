@@ -1,5 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
+
+const { mockUsePathname } = vi.hoisted(() => ({
+  mockUsePathname: vi.fn(() => "/"),
+}))
+
+vi.mock("next/navigation", () => ({
+  usePathname: mockUsePathname,
+}))
 
 import Header from "../src/components/Header"
 import { HEADER_SHELL_LAYOUT } from "../src/lib/header-shell-layout"
@@ -77,6 +85,11 @@ function firstDesktopNavLink(html: string) {
 }
 
 describe("Header", () => {
+  afterEach(() => {
+    mockUsePathname.mockReset()
+    mockUsePathname.mockReturnValue("/")
+  })
+
   it("uses the floating shell contract for the header surface", () => {
     const html = renderToStaticMarkup(<Header />)
     const header = headerHtml(html)
@@ -106,6 +119,23 @@ describe("Header", () => {
     expect(floatingShellClasses).toContain("shadow-[var(--header-shell-shadow)]")
     expect(headerClasses).not.toContain("border-b")
     expect(headerClasses).not.toContain("bg-[var(--bg-primary)]")
+  })
+
+  it("renders non-home routes in the scrolled desktop state", () => {
+    mockUsePathname.mockReturnValue("/blog")
+
+    const html = renderToStaticMarkup(<Header />)
+    const header = headerHtml(html)
+    const headerTag = headerOpenTag(header)
+    const desktopNavClasses = classTokens(firstDesktopNav(header))
+
+    expect(headerTag).toContain('data-header-shell-mode="scrolled"')
+    expect(firstFloatingShell(header)).toContain('data-shell-mode="scrolled"')
+    expect(desktopNavClasses).toContain("opacity-100")
+    expect(desktopNavClasses).toContain("translate-y-0")
+    expect(desktopNavClasses).not.toContain("pointer-events-none")
+    expect(firstDesktopNav(header)).not.toContain('aria-hidden="true"')
+    expect(firstDesktopNavLink(header)).not.toContain("tabindex=")
   })
 
   it("keeps the header shell compact enough to clear the hero copy", () => {

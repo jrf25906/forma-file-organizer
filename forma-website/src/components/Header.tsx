@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { MenuIcon, XIcon } from "lucide-react";
 import { FormaLogoImage } from "@/components/icons";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
@@ -29,7 +30,12 @@ const NAV_LINKS = [
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const shellMode = useHeaderShellMode(HEADER_SHELL_LAYOUT.scrollThreshold);
+  const pathname = usePathname();
+  const homeShellMode = useHeaderShellMode(HEADER_SHELL_LAYOUT.scrollThreshold);
+  const shellMode =
+    pathname === "/"
+      ? homeShellMode
+      : HEADER_SHELL_LAYOUT.scrolledMode;
   const desktopNavVisible = shellMode === HEADER_SHELL_LAYOUT.scrolledMode;
 
   return (
