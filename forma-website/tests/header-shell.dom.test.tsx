@@ -93,7 +93,8 @@ describe("Header DOM behavior", () => {
       window.dispatchEvent(new Event("scroll"))
     })
 
-    expect(header?.getAttribute("data-header-shell-mode")).toBe("scrolled")
+    const scrolledHeader = container.querySelector('[data-header-shell="floating"]')
+    expect(scrolledHeader?.getAttribute("data-header-shell-mode")).toBe("scrolled")
     expect(
       container.querySelector('[data-shell-variant="floating"]')?.getAttribute("data-shell-mode")
     ).toBe("scrolled")
