@@ -64,8 +64,18 @@ describe("Header", () => {
     const floatingShellClasses = classTokens(firstFloatingShell(header))
 
     expect(headerTag).toContain('data-header-shell="floating"')
+    expect(headerTag).toContain('data-header-shell-mode="top"')
     expect(headerClasses).toContain("pointer-events-none")
     expect(shellHostClasses).toContain("pointer-events-auto")
+    expect(firstFloatingShell(header)).toContain('data-shell-mode="top"')
+    expect(floatingShellClasses).toContain("data-[shell-mode=top]:bg-[var(--header-shell-surface-top)]")
+    expect(floatingShellClasses).toContain(
+      "data-[shell-mode=scrolled]:bg-[var(--header-shell-surface-scrolled)]"
+    )
+    expect(floatingShellClasses).toContain("data-[shell-mode=top]:border-[var(--header-shell-surface-top-border)]")
+    expect(floatingShellClasses).toContain(
+      "data-[shell-mode=scrolled]:border-[var(--header-shell-surface-scrolled-border)]"
+    )
     expect(floatingShellClasses).toContain("backdrop-blur-xl")
     expect(floatingShellClasses).toContain("bg-[var(--header-shell-surface)]")
     expect(floatingShellClasses).toContain("border-[var(--header-shell-border)]")
