@@ -1,6 +1,17 @@
 import Foundation
 import SwiftData
 
+enum OrganizationRunOrigin: String, Sendable {
+    case reviewDriven
+    case automation
+}
+
+struct UndoBatchSummary: Equatable, Sendable {
+    let origin: OrganizationRunOrigin
+    let affectedFileCount: Int
+    let timestamp: Date
+}
+
 /// Protocol for undoable file organization commands
 /// Uses the Command pattern to store only essential data (IDs and deltas) instead of full objects
 /// Note: Methods are MainActor-isolated because they work with SwiftData types (ModelContext, FileItem)
@@ -145,12 +156,33 @@ struct SkipFileCommand: UndoableCommand {
 struct BulkMoveCommand: UndoableCommand {
     let id: UUID
     let timestamp: Date
+    let origin: OrganizationRunOrigin
     
     // Array of lightweight move operations
     let operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)]
     
+    init(
+        id: UUID,
+        timestamp: Date,
+        origin: OrganizationRunOrigin = .reviewDriven,
+        operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)]
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.origin = origin
+        self.operations = operations
+    }
+
     var description: String {
         "Move \(operations.count) file\(operations.count == 1 ? "" : "s")"
+    }
+
+    var undoBatchSummary: UndoBatchSummary {
+        UndoBatchSummary(
+            origin: origin,
+            affectedFileCount: operations.count,
+            timestamp: timestamp
+        )
     }
     
     func execute(context: ModelContext?) async throws {

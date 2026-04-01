@@ -26,6 +26,9 @@ final class MockFileScanProvider: FileScanProvider, @unchecked Sendable {
     /// Files to return from getAutoOrganizeEligibleFiles()
     var autoOrganizeEligibleFiles: [FileItem] = []
 
+    /// Files to return from getAutoOrganizeCandidates()
+    var autoOrganizeCandidates: [FileItem] = []
+
     /// Error to throw from getAutoOrganizeEligibleFiles() (if set)
     var autoOrganizeEligibleFilesError: Error?
 
@@ -74,7 +77,31 @@ final class MockFileScanProvider: FileScanProvider, @unchecked Sendable {
             throw error
         }
 
-        return autoOrganizeEligibleFiles
+        if !autoOrganizeEligibleFiles.isEmpty {
+            return autoOrganizeEligibleFiles
+        }
+
+        let candidates = try await getAutoOrganizeCandidates(context: context)
+        return AutomationEngine.buildPreflightSummary(
+            candidates: candidates,
+            confidenceThreshold: confidenceThreshold
+        ).eligibleFiles
+    }
+
+    func getAutoOrganizeCandidates(context: ModelContext) async throws -> [FileItem] {
+        if let error = autoOrganizeEligibleFilesError {
+            throw error
+        }
+
+        if !autoOrganizeCandidates.isEmpty {
+            return autoOrganizeCandidates
+        }
+
+        if !autoOrganizeEligibleFiles.isEmpty {
+            return autoOrganizeEligibleFiles
+        }
+
+        return try context.fetch(FetchDescriptor<FileItem>())
     }
 
     // MARK: - Test Helpers
@@ -87,7 +114,9 @@ final class MockFileScanProvider: FileScanProvider, @unchecked Sendable {
         requestedBaseFolders = []
         requestedConfidenceThresholds = []
         scanError = nil
+        autoOrganizeEligibleFiles = []
         autoOrganizeEligibleFilesError = nil
+        autoOrganizeCandidates = []
     }
 
     /// Configures a successful scan result with specified counts

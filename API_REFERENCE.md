@@ -70,6 +70,11 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `evaluateAndPersistExplicitFiles(...)`
 - `DashboardFileScanProvider`
   - `autoOrganizeEligibleFiles(from:confidenceThreshold:)`
+  - `getAutoOrganizeCandidates(context:)`
+- Rule simulation (`Forma File Organizing/Services/RuleEngine.swift`)
+  - `RuleEngine.RuleSimulationExample`
+  - `RuleEngine.RuleSimulationSummary`
+  - `RuleEngine.simulateRule(_:across:exampleLimit:)`
 - `DashboardViewModel`
   - `applyExternalReviewSession(_:)`
   - `restoreExternalReviewSessionIfNeeded()`
@@ -79,6 +84,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `organizeFirstRunQuickWin(context:)`
   - `dismissFirstRunQuickWin()`
   - `setRightPanelVisible(_:)`
+  - `latestUndoableBatchSummary`
   - First-run quick wins now derive from the current filtered `reviewableFiles` context, are suppressed while an external review session is active, and persist per-candidate dismissals across sessions.
   - External review sessions now clear themselves once scoped files are no longer pending or ready.
 - `ExternalReviewPromotionSuggestion`
@@ -112,6 +118,14 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - `ActivityItem.ActivityType`
   - `toneCategory`
   - Automation activity display names now align with the notification-tone reset (`Review Queue Updated`, `Auto-Organize Progress`, `Automation Needs Attention`).
+- Undo + audit trust surfaces
+  - `OrganizationRunOrigin`
+  - `UndoBatchSummary`
+  - `BulkMoveCommand.undoBatchSummary`
+  - `FileOrganizationCoordinator.latestUndoableBatchSummary`
+  - Activity log payloads for bulk/automation runs now encode origin (`Automatic` vs `Review`) and rollback state (`Undo available` vs `Final`) in persisted details for downstream UI rendering.
+  - Auto-organize activity payloads now enumerate `excluded from automation` preflight holds alongside missing-destination, permission, and confidence skips so persisted totals stay auditable.
+  - Activity feed audit badges treat automation pause/resume entries as manual control events instead of automatic actions.
 - Window presentation policy (`Forma File Organizing/ViewModels/DashboardViewModel.swift`)
   - `WindowPresentationStore`
     - `savedInspectorVisibility`
@@ -153,7 +167,20 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `OrganizeSelectionIntent`
 - Automation status
   - `AutomationState.isWatchingFolders`
+  - `AutomationState.lastPreflightSummary`
   - `AutomationStatus.isWatchingFolders`
+- Automation preflight
+  - `AutomationPreflightSummary`
+    - `eligibleFiles`
+    - `eligibleCount`
+    - `skippedMissingDestination`
+    - `skippedPermissionIssues`
+    - `skippedConfidenceThreshold`
+    - `skippedExcludedFromAutomation`
+    - `exampleFileNames`
+    - `totalSkippedCount`
+  - `AutomationEngine.buildPreflightSummary(candidates:confidenceThreshold:)`
+  - File Inspector trust previews now invalidate from a structured file/rule snapshot token instead of only the scanned-file count, keeping `RuleEngine.simulateRule(...)` output in sync with count-stable rescans.
 - `NotificationService`
   - `autoOrganizeSummaryPayload(successCount:failedCount:skippedCount:)`
   - `backlogReminderPayload(pendingCount:oldestAgeDays:)`

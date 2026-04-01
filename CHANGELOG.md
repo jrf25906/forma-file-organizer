@@ -6,6 +6,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Trust infrastructure for preview-first organization:
+  - `RuleEngine.simulateRule(...)` with read-only `RuleSimulationSummary` / `RuleSimulationExample` output so the inspector can preview how broadly a matching rule would fire without mutating file state.
+  - `AutomationPreflightSummary`, `AutomationEngine.buildPreflightSummary(...)`, and `AutomationState.lastPreflightSummary` so automatic passes can surface eligible counts, permission blockers, missing destinations, low-confidence holds, and example files before the batch runs.
+  - `UndoBatchSummary`, `FileOrganizationCoordinator.latestUndoableBatchSummary`, and `DashboardViewModel.latestUndoableBatchSummary` so the right panel can explicitly surface when the latest automatic batch is still rollback-ready.
 - `ExternalReviewPromotionCandidate`, `ExternalReviewPromotionSuggestion`, and `DashboardViewModel.promoteExternalReviewFolder()` so eligible one-time folder reviews can be promoted into bookmark-backed monitoring directly from the review flow.
 - `FirstRunQuickWinSuggestion` and `DashboardViewModel.firstRunQuickWinSuggestion` so the dashboard can surface a meaningful first-run batch instead of a generic post-onboarding prompt.
 - `DashboardViewModel.dismissFirstRunQuickWin()` so dismissed quick-win candidates can stay suppressed across sessions without hiding unrelated later candidates.
@@ -38,6 +42,9 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Automation activity logging and trust UI now use clearer audit language:
+  - `ActivityLoggingService.logAutoOrganizeBatch(...)`, `logBulkOrganized(...)`, and `logBulkUndone(...)` now distinguish automatic vs review-driven runs, spell out skip reasons, and declare whether the batch is undoable or final.
+  - `FileInspectorView` now shows a read-only rule-preview section inside suggestion reasoning, `DefaultPanelView` now surfaces automation preflight and rollback readiness beneath the status widget, and `ActivityFeed` now renders `Automatic` / `Review` plus `Undo Available` / `Final` audit badges from the persisted activity details.
 - Eligible Finder/Spotlight folder review sessions now preserve a standard-folder promotion candidate across external-review synchronization, and the default panel surfaces a `Keep monitoring <Folder>` card that saves the folder through `BookmarkFolderService` without resetting existing enabled/excluded preferences.
 - `forma-website` homepage header now uses the approved Hybrid A two-state contract: a quieter top-of-page shell that shows only the Forma brand plus `Get Forma`, a compact split-nav sticky state after scroll, warmer top/scrolled shell tokens, and a focus-reveal path so keyboard users do not tab into invisible desktop-nav links.
 - `forma-website` floating header shell now uses a dedicated compact glass variant with stronger light-mode contrast, a smaller inset/height contract, and a larger homepage hero top offset so the sticky shell no longer reads as a washed-out bar over the hero copy.
@@ -175,6 +182,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Unified segmented/toggle chrome across toolbar controls, category tabs, productivity period selector, and inspector automation controls using shared control-shell tokens.
 
 ### Fixed
+- Trust-infrastructure audit badges no longer label manual automation pause/resume events as `Automatic`, auto-organize activity logs now enumerate `excluded from automation` preflight holds so skip totals match their reasons, and File Inspector rule previews now invalidate when the matching rule destination or scanned file snapshot changes without changing the file count.
 - Legacy SwiftData stores with `StorageSnapshot` rows created before `folderBreakdownData` existed now lightweight-migrate with an empty folder breakdown instead of crashing app launch during `ModelContainer` initialization.
 - Sidebar collapse/expand no longer re-runs bookmark refresh work on every reappearance, and guided-tour frame collection now shuts off once the tour has been seen to reduce left-sidebar animation hitching.
 - Dashboard automation refreshes now replace only rescanned roots instead of dropping unaffected in-memory file slices after partial scan persistence updates.

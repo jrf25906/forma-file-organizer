@@ -81,6 +81,14 @@ struct ActivityRow: View {
                     .foregroundColor(Color.formaSecondaryLabel)
                     .lineLimit(2)
 
+                if !auditBadges.isEmpty {
+                    HStack(spacing: FormaSpacing.micro) {
+                        ForEach(auditBadges) { badge in
+                            ActivityAuditBadgeView(badge: badge)
+                        }
+                    }
+                }
+
                 Text(activity.relativeTimestamp)
                     .font(.formaCaption)
                     .foregroundColor(Color.formaTertiaryLabel)
@@ -115,10 +123,18 @@ struct ActivityRow: View {
         // Details
         parts.append(activity.details)
 
+        if !auditBadges.isEmpty {
+            parts.append(auditBadges.map(\.title).joined(separator: ", "))
+        }
+
         // Relative time
         parts.append(activity.relativeTimestamp)
 
         return parts.joined(separator: ". ")
+    }
+
+    private var auditBadges: [ActivityAuditBadge] {
+        ActivityAuditBadgeClassifier.badges(for: activity)
     }
 
     private var iconColor: Color {
@@ -183,6 +199,97 @@ struct ActivityRow: View {
         case .automationResumed:
             return Color.formaSage
         }
+    }
+}
+
+enum ActivityAuditBadgeClassifier {
+    static func titles(for activity: ActivityItem) -> [String] {
+        badges(for: activity).map(\.title)
+    }
+
+    fileprivate static func badges(for activity: ActivityItem) -> [ActivityAuditBadge] {
+        var badges: [ActivityAuditBadge] = []
+
+        if isAutomaticActivity(activity) {
+            badges.append(ActivityAuditBadge(title: "Automatic", tint: Color.formaSteelBlue))
+        } else if isReviewActivity(activity) {
+            badges.append(ActivityAuditBadge(title: "Review", tint: Color.formaSage))
+        }
+
+        if hasUndoAvailable(activity) {
+            badges.append(ActivityAuditBadge(title: "Undo Available", tint: Color.formaSteelBlue))
+        } else if isFinalActivity(activity) {
+            badges.append(ActivityAuditBadge(title: "Final", tint: Color.formaWarmOrange))
+        }
+
+        return badges
+    }
+
+    private static func isAutomaticActivity(_ activity: ActivityItem) -> Bool {
+        switch activity.activityType {
+        case .automationScanCompleted,
+             .automationAutoOrganized,
+             .automationError:
+            return true
+        case .bulkOrganized, .bulkUndone:
+            return containsDetail("automatic", in: activity)
+        default:
+            return false
+        }
+    }
+
+    private static func isReviewActivity(_ activity: ActivityItem) -> Bool {
+        switch activity.activityType {
+        case .bulkOrganized, .bulkUndone, .bulkPartialFailure:
+            return !isAutomaticActivity(activity)
+        default:
+            return containsDetail("review batch", in: activity) || containsDetail("review pass", in: activity)
+        }
+    }
+
+    private static func hasUndoAvailable(_ activity: ActivityItem) -> Bool {
+        switch activity.activityType {
+        case .bulkOrganized, .automationAutoOrganized:
+            return containsDetail("undo available", in: activity)
+        default:
+            return false
+        }
+    }
+
+    private static func isFinalActivity(_ activity: ActivityItem) -> Bool {
+        switch activity.activityType {
+        case .bulkOrganized, .automationAutoOrganized:
+            return containsDetail("final", in: activity)
+        default:
+            return false
+        }
+    }
+
+    private static func containsDetail(_ term: String, in activity: ActivityItem) -> Bool {
+        activity.details.localizedCaseInsensitiveContains(term)
+    }
+}
+
+fileprivate struct ActivityAuditBadge: Identifiable {
+    let title: String
+    let tint: Color
+
+    var id: String { title }
+}
+
+private struct ActivityAuditBadgeView: View {
+    let badge: ActivityAuditBadge
+
+    var body: some View {
+        Text(badge.title)
+            .font(.formaCaptionSemibold)
+            .foregroundStyle(badge.tint)
+            .padding(.horizontal, FormaSpacing.tight)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(badge.tint.opacity(Color.FormaOpacity.light))
+            )
     }
 }
 

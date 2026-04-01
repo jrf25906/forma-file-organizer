@@ -1159,6 +1159,7 @@ class DashboardViewModel: ObservableObject {
         bulkOperationViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         contentSearchController.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         scanRefreshController.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
+        organizationCoordinator.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         panelManager.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         permissionState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
     }
@@ -1313,6 +1314,7 @@ class DashboardViewModel: ObservableObject {
     var scanPhaseStatusText: String? { scanRefreshController.phaseStatusText }
     var contentSearchState: ContentSearchService.SearchState { contentSearchController.state }
     var contentSearchResults: [ContentSearchService.SearchResult] { contentSearchController.results }
+    var latestUndoableBatchSummary: UndoBatchSummary? { organizationCoordinator.latestUndoableBatchSummary }
 
     func getMatchingRules(for file: FileItem) -> [Rule] {
         rules.filter { rule in

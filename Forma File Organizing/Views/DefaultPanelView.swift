@@ -25,6 +25,7 @@ struct DefaultPanelView: View {
 
     private let insightsService = InsightsService.shared
     private let performanceMonitor = PerformanceMonitor.shared
+    private let automationState = AutomationEngine.shared.state
 
     /// Check if any suggestions (Smart Rules or Quick Actions) are available
     private var hasAnySuggestions: Bool {
@@ -584,15 +585,166 @@ struct DefaultPanelView: View {
 
     @ViewBuilder
     private var automationStatusSection: some View {
-        // Only show if at least one automation feature is enabled
-        let showAutomation = FeatureFlagService.shared.isEnabled(.backgroundMonitoring) ||
-                             FeatureFlagService.shared.isEnabled(.autoOrganize)
+        if showsAutomationStatusSection {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                AutomationStatusWidget(
+                    pendingReviewCount: dashboardViewModel.cachedNeedsReviewCount
+                )
 
-        if showAutomation {
-            AutomationStatusWidget(
-                pendingReviewCount: dashboardViewModel.cachedNeedsReviewCount
-            )
+                if let summary = automationState.lastPreflightSummary,
+                   shouldShowAutomationPreflight(summary) {
+                    automationPreflightCard(summary)
+                }
+
+                if let undoSummary = dashboardViewModel.latestUndoableBatchSummary,
+                   undoSummary.origin == .automation {
+                    automationUndoCard(undoSummary)
+                }
+            }
         }
+    }
+
+    private func automationPreflightCard(_ summary: AutomationPreflightSummary) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: "checklist")
+                    .font(.formaCompactSemibold)
+                    .foregroundStyle(Color.formaSteelBlue)
+
+                Text("Next Automatic Pass")
+                    .font(.formaCompactSemibold)
+                    .foregroundStyle(Color.formaLabel)
+            }
+
+            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                automationTrustMetricRow(
+                    icon: "checkmark.circle.fill",
+                    tint: Color.formaSage,
+                    label: "Eligible now",
+                    count: summary.eligibleCount
+                )
+
+                if summary.skippedPermissionIssues > 0 {
+                    automationTrustMetricRow(
+                        icon: "lock.shield",
+                        tint: Color.formaWarmOrange,
+                        label: "Waiting for folder access",
+                        count: summary.skippedPermissionIssues
+                    )
+                }
+
+                if summary.skippedMissingDestination > 0 {
+                    automationTrustMetricRow(
+                        icon: "folder.badge.questionmark",
+                        tint: Color.formaWarmOrange,
+                        label: "Missing destination",
+                        count: summary.skippedMissingDestination
+                    )
+                }
+
+                if summary.skippedConfidenceThreshold > 0 {
+                    automationTrustMetricRow(
+                        icon: "speedometer",
+                        tint: Color.formaSecondaryLabelHigh,
+                        label: "Held for low confidence",
+                        count: summary.skippedConfidenceThreshold
+                    )
+                }
+
+                if summary.skippedExcludedFromAutomation > 0 {
+                    automationTrustMetricRow(
+                        icon: "eye.slash",
+                        tint: Color.formaSecondaryLabelHigh,
+                        label: "Kept for review",
+                        count: summary.skippedExcludedFromAutomation
+                    )
+                }
+            }
+
+            if !summary.exampleFileNames.isEmpty {
+                Text("Eligible next: \(summary.exampleFileNames.prefix(3).joined(separator: ", "))")
+                    .font(.formaCaption)
+                    .foregroundStyle(Color.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(FormaSpacing.standard)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(inspectorSecondaryCardFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(inspectorSecondaryCardBorder, lineWidth: 1)
+        )
+    }
+
+    private func automationUndoCard(_ summary: UndoBatchSummary) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: "arrow.uturn.backward.circle.fill")
+                    .font(.formaCompactSemibold)
+                    .foregroundStyle(Color.formaSteelBlue)
+
+                Text("Rollback Ready")
+                    .font(.formaCompactSemibold)
+                    .foregroundStyle(Color.formaLabel)
+
+                Spacer()
+
+                Text(relativeTimestamp(for: summary.timestamp))
+                    .font(.formaCaption)
+                    .foregroundStyle(Color.formaTertiaryLabel)
+            }
+
+            Text("Use Undo to restore the last automatic batch of \(summary.affectedFileCount) \(summary.affectedFileCount == 1 ? "file" : "files").")
+                .font(.formaSmall)
+                .foregroundStyle(Color.formaSecondaryLabelHigh)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(FormaSpacing.standard)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.14 : Color.FormaOpacity.subtle))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.light), lineWidth: 1)
+        )
+    }
+
+    private func automationTrustMetricRow(
+        icon: String,
+        tint: Color,
+        label: String,
+        count: Int
+    ) -> some View {
+        HStack(spacing: FormaSpacing.tight) {
+            Image(systemName: icon)
+                .font(.formaCompactSemibold)
+                .foregroundStyle(tint)
+                .frame(width: 16)
+
+            Text(label)
+                .font(.formaSmall)
+                .foregroundStyle(Color.formaSecondaryLabelHigh)
+
+            Spacer()
+
+            Text("\(count)")
+                .font(.formaSmallSemibold)
+                .foregroundStyle(Color.formaLabel)
+        }
+    }
+
+    private func shouldShowAutomationPreflight(_ summary: AutomationPreflightSummary) -> Bool {
+        summary.eligibleCount > 0 || summary.totalSkippedCount > 0
+    }
+
+    private func relativeTimestamp(for date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 
     // MARK: - Secondary Actions (deprecated in v1.5)

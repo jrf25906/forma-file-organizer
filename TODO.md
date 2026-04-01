@@ -12,7 +12,8 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 ### Now (0-8 Weeks)
 - [x] Quick-win onboarding and first-run proof so Forma demonstrates value before asking users to configure rules.
 - [x] Batch UX that hides overwhelm with chunked review sessions and `Done for now` semantics.
-- [ ] Build trust infrastructure: rule simulation, stronger preflight checks, richer reasoning, and clearer scoped rollback.
+- [x] Build trust infrastructure: rule simulation, stronger preflight checks, richer reasoning, and clearer scoped rollback.
+- [x] Close the Session 2 review follow-up so trust surfaces stay accurate: manual pause/resume events remain manual in audit badges, inspector rule previews invalidate on real snapshot changes, and auto-organize logs enumerate every preflight skip bucket.
 - [x] Reset automation notification tone around progress and system health instead of backlog guilt.
 - [x] Preserve structured automation error buckets for scan, bookmark, and destination failures so notifications do not fall back to generic scan summaries.
 - [ ] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.

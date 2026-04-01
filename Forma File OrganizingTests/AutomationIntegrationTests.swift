@@ -73,7 +73,65 @@ struct AutomationIntegrationTests {
         let batchActivities = activities.filter { $0.activityType == .automationAutoOrganized }
 
         #expect(batchActivities.count == 1)
-        #expect(batchActivities.first?.details == "Cleared 10 files from the queue. 2 still need attention. 3 are still waiting for review.")
+        #expect(batchActivities.first?.details == "Cleared 10 files from the queue automatically. 2 still need attention. 3 are still waiting for review. Automatic changes are final.")
+    }
+
+    @Test @MainActor
+    func activityLogging_AutoOrganizeBatch_ExplainsWhyAndUndo() throws {
+        guard requireIntegration() else { return }
+
+        let container = try ModelContainer(
+            for: ActivityItem.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        let loggingService = ActivityLoggingService(modelContext: context)
+
+        loggingService.logAutoOrganizeBatch(
+            successCount: 3,
+            failedCount: 1,
+            skippedCount: 2,
+            skippedMissingDestination: 1,
+            skippedPermissionIssues: 1,
+            skippedConfidenceThreshold: 0,
+            undoAvailable: true
+        )
+
+        let activities = try context.fetch(FetchDescriptor<ActivityItem>())
+        let batch = try #require(activities.first { $0.activityType == .automationAutoOrganized })
+        #expect(batch.details.contains("automatic"))
+        #expect(batch.details.contains("Undo available"))
+        #expect(batch.details.contains("missing destination"))
+        #expect(batch.details.contains("permission"))
+    }
+
+    @Test @MainActor
+    func activityLogging_AutoOrganizeBatch_IncludesExcludedFromAutomationReason() throws {
+        guard requireIntegration() else { return }
+
+        let container = try ModelContainer(
+            for: ActivityItem.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        let loggingService = ActivityLoggingService(modelContext: context)
+
+        loggingService.logAutoOrganizeBatch(
+            successCount: 2,
+            failedCount: 0,
+            skippedCount: 2,
+            skippedMissingDestination: 1,
+            skippedPermissionIssues: 0,
+            skippedConfidenceThreshold: 0,
+            skippedExcludedFromAutomation: 1,
+            undoAvailable: false
+        )
+
+        let activities = try context.fetch(FetchDescriptor<ActivityItem>())
+        let batch = try #require(activities.first { $0.activityType == .automationAutoOrganized })
+        #expect(batch.details.contains("held back before the automatic pass"))
+        #expect(batch.details.contains("missing destination"))
+        #expect(batch.details.contains("excluded from automation"))
     }
 
     /// Test: Automation error is logged correctly
@@ -128,6 +186,218 @@ struct AutomationIntegrationTests {
         #expect(pauseActivities.count == 1)
         #expect(resumeActivities.count == 1)
         #expect(pauseActivities.first?.details == "User requested pause")
+    }
+
+    @Test
+    func activityAuditBadges_PauseResumeRemainManual() {
+        let pause = ActivityItem(
+            activityType: .automationPaused,
+            fileName: "Automation",
+            details: "Paused by user"
+        )
+        let resume = ActivityItem(
+            activityType: .automationResumed,
+            fileName: "Automation",
+            details: "Resumed by user"
+        )
+        let automatic = ActivityItem(
+            activityType: .automationAutoOrganized,
+            fileName: "Auto-Organize",
+            details: "Cleared 3 files from the queue automatically. Undo available for the last automatic batch."
+        )
+
+        #expect(ActivityAuditBadgeClassifier.titles(for: pause).contains("Automatic") == false)
+        #expect(ActivityAuditBadgeClassifier.titles(for: resume).contains("Automatic") == false)
+        #expect(ActivityAuditBadgeClassifier.titles(for: automatic) == ["Automatic", "Undo Available"])
+    }
+
+    // MARK: - Trust Infrastructure Tests
+
+    @Test
+    func ruleSimulation_DoesNotMutateOriginalFileState() throws {
+        guard requireIntegration() else { return }
+
+        let engine = RuleEngine()
+        let rule = TestRule(
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            destination: .mockFolder("Finance")
+        )
+        let original = TestFileItem(
+            name: "invoice.pdf",
+            fileExtension: "pdf",
+            path: "/tmp/invoice.pdf",
+            destination: nil,
+            status: .pending,
+            matchReason: nil,
+            confidenceScore: nil
+        )
+
+        let summary = engine.simulateRule(rule, across: [original], exampleLimit: 3)
+
+        #expect(summary.matchCount == 1)
+        #expect(summary.examples.count == 1)
+        #expect(original.destination == nil)
+        #expect(original.status == .pending)
+        #expect(original.matchReason == nil)
+        #expect(original.confidenceScore == nil)
+    }
+
+    @Test
+    func fileInspectorRuleSimulationRefreshToken_ChangesWhenFileSetChangesWithoutCountChange() {
+        let selected = TestFileItem(
+            path: "/tmp/invoice.pdf",
+            destination: .mockFolder("Finance"),
+            status: .pending,
+            confidenceScore: 0.9,
+            sizeInBytes: 10
+        )
+        let unchangedCompanion = TestFileItem(path: "/tmp/notes.txt", sizeInBytes: 20)
+        let changedCompanion = TestFileItem(
+            name: "receipt.pdf",
+            fileExtension: "pdf",
+            path: "/tmp/receipt.pdf",
+            destination: .mockFolder("Finance"),
+            status: .pending,
+            confidenceScore: 0.92,
+            sizeInBytes: 25
+        )
+        let rule = TestRule(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000111") ?? UUID(),
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            destination: .mockFolder("Finance")
+        )
+
+        let first = FileInspectorRuleSimulationRefreshToken(
+            selectedFiles: [selected],
+            matchingRule: rule,
+            allFiles: [selected, unchangedCompanion]
+        )
+        let second = FileInspectorRuleSimulationRefreshToken(
+            selectedFiles: [selected],
+            matchingRule: rule,
+            allFiles: [selected, changedCompanion]
+        )
+
+        #expect(first != second)
+    }
+
+    @Test
+    func fileInspectorRuleSimulationRefreshToken_ChangesWhenRuleDestinationChanges() {
+        let selected = TestFileItem(
+            path: "/tmp/invoice.pdf",
+            destination: .mockFolder("Finance"),
+            status: .pending,
+            confidenceScore: 0.9,
+            sizeInBytes: 10
+        )
+        let companion = TestFileItem(path: "/tmp/receipt.pdf", sizeInBytes: 20)
+        let ruleID = UUID(uuidString: "00000000-0000-0000-0000-000000000222") ?? UUID()
+        let financeRule = TestRule(
+            id: ruleID,
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            destination: .mockFolder("Finance")
+        )
+        let archiveRule = TestRule(
+            id: ruleID,
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            destination: .mockFolder("Archive")
+        )
+
+        let first = FileInspectorRuleSimulationRefreshToken(
+            selectedFiles: [selected],
+            matchingRule: financeRule,
+            allFiles: [selected, companion]
+        )
+        let second = FileInspectorRuleSimulationRefreshToken(
+            selectedFiles: [selected],
+            matchingRule: archiveRule,
+            allFiles: [selected, companion]
+        )
+
+        #expect(first != second)
+    }
+
+    @Test @MainActor
+    func automationPreflight_CategorizesSkippedItems() throws {
+        guard requireIntegration() else { return }
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+        let docsURL = try tempDirectory.createDirectory(name: "Docs")
+        let docsDestination = try Destination.folder(from: docsURL, displayName: "Docs")
+
+        let container = try ModelContainer(
+            for: FileItem.self, Rule.self, ActivityItem.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+
+        let eligible = FileItem(
+            path: "/tmp/eligible.pdf",
+            sizeInBytes: 1_024,
+            creationDate: Date(),
+            destination: docsDestination,
+            status: .ready
+        )
+        eligible.confidenceScore = 0.96
+
+        let missingDestination = FileItem(
+            path: "/tmp/missing.pdf",
+            sizeInBytes: 1_024,
+            creationDate: Date(),
+            destination: nil,
+            status: .ready
+        )
+        missingDestination.confidenceScore = 0.96
+
+        let blocked = FileItem(
+            path: "/tmp/blocked.pdf",
+            sizeInBytes: 1_024,
+            creationDate: Date(),
+            destination: .folder(bookmark: Data(), displayName: "Archive"),
+            status: .ready
+        )
+        blocked.confidenceScore = 0.96
+
+        let lowConfidence = FileItem(
+            path: "/tmp/maybe.pdf",
+            sizeInBytes: 1_024,
+            creationDate: Date(),
+            destination: docsDestination,
+            status: .ready
+        )
+        lowConfidence.confidenceScore = 0.42
+
+        let excluded = FileItem(
+            path: "/tmp/excluded.pdf",
+            sizeInBytes: 1_024,
+            creationDate: Date(),
+            destination: docsDestination,
+            status: .ready
+        )
+        excluded.confidenceScore = 0.96
+        excluded.location = .desktop
+
+        var desktopFolder = BookmarkFolder(folderType: .desktop)
+        let originalDesktopExclusion = desktopFolder.isExcludedFromAutomation
+        desktopFolder.isExcludedFromAutomation = true
+        defer { desktopFolder.isExcludedFromAutomation = originalDesktopExclusion }
+
+        [eligible, missingDestination, blocked, lowConfidence, excluded].forEach(container.mainContext.insert)
+
+        let summary = AutomationEngine.buildPreflightSummary(
+            candidates: [eligible, missingDestination, blocked, lowConfidence, excluded],
+            confidenceThreshold: 0.9
+        )
+
+        #expect(summary.eligibleCount == 1)
+        #expect(summary.skippedMissingDestination == 1)
+        #expect(summary.skippedPermissionIssues == 1)
+        #expect(summary.skippedConfidenceThreshold == 1)
+        #expect(summary.skippedExcludedFromAutomation == 1)
     }
 
     // MARK: - Undo Entry Tests
@@ -387,6 +657,65 @@ struct AutomationIntegrationTests {
         #expect(command.operations[0].originalStatus == .pending)
         #expect(command.operations[1].originalStatus == .ready)
         #expect(command.operations[2].originalStatus == .pending)
+    }
+
+    @Test @MainActor
+    func coordinator_AutomationBulkRun_PublishesUndoableBatchSummaryAndLogsUndo() async throws {
+        guard requireIntegration() else { return }
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+        let sourceURL = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationURL = try tempDirectory.createDirectory(name: "Archive")
+        let fileURL = try tempDirectory.createFile(name: "Inbox/invoice.pdf", contents: "invoice")
+
+        let container = try ModelContainer(
+            for: FileItem.self, Rule.self, ActivityItem.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        let file = FileItem(
+            path: fileURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .custom,
+            scanRootPath: sourceURL.path,
+            destination: try Destination.folder(from: destinationURL, displayName: "Archive"),
+            status: .ready
+        )
+        context.insert(file)
+        try context.save()
+
+        let coordinator = FileOrganizationCoordinator()
+        var successCount = 0
+        var failedCount = 0
+        var completionError: Error?
+
+        await coordinator.organizeMultipleFiles([file], origin: .automation, context: context) { success, failed, _, error in
+            successCount = success
+            failedCount = failed
+            completionError = error
+        }
+
+        #expect(successCount == 1)
+        #expect(failedCount == 0)
+        #expect(completionError == nil)
+        #expect(coordinator.latestUndoableBatchSummary?.origin == .automation)
+        #expect(coordinator.latestUndoableBatchSummary?.affectedFileCount == 1)
+
+        var undoCompleted = false
+        coordinator.undoLastAction(allFiles: [file], context: context) {
+            undoCompleted = true
+        }
+
+        #expect(undoCompleted)
+        #expect(coordinator.latestUndoableBatchSummary == nil)
+
+        let activities = try context.fetch(FetchDescriptor<ActivityItem>())
+        let undone = try #require(activities.first { $0.activityType == .bulkUndone })
+        #expect(undone.details.contains("automatic"))
     }
 
     // MARK: - Feature Flag Tests

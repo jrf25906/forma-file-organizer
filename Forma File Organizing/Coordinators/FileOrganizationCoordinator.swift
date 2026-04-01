@@ -40,6 +40,9 @@ class FileOrganizationCoordinator: ObservableObject {
     
     /// Redo stack (using lightweight command pattern)
     @Published private(set) var redoStack: [any UndoableCommand] = []
+
+    /// Metadata for the most recent bulk batch that is still immediately undoable.
+    @Published private(set) var latestUndoableBatchSummary: UndoBatchSummary?
     
     /// Bulk operation progress (0.0 to 1.0)
     @Published var bulkOperationProgress: Double = 0.0
@@ -227,6 +230,7 @@ class FileOrganizationCoordinator: ObservableObject {
     ///   - onComplete: Callback invoked when all operations complete with success/failure counts
     func organizeMultipleFiles(
         _ files: [FileItem],
+        origin: OrganizationRunOrigin = .reviewDriven,
         context: ModelContext?,
         onComplete: @escaping (Int, Int, [FileItem], Error?) -> Void
     ) async {
@@ -348,6 +352,7 @@ class FileOrganizationCoordinator: ObservableObject {
             let command = BulkMoveCommand(
                 id: UUID(),
                 timestamp: Date(),
+                origin: origin,
                 operations: operations
             )
             pushUndoCommand(command)
@@ -355,7 +360,13 @@ class FileOrganizationCoordinator: ObservableObject {
             // Log bulk organize activity
             if let ctx = context, successCount > 0 {
                 let activityService = ActivityLoggingService(modelContext: ctx)
-                activityService.logBulkOrganized(count: successCount)
+                if origin == .reviewDriven {
+                    activityService.logBulkOrganized(
+                        count: successCount,
+                        origin: origin,
+                        undoAvailable: true
+                    )
+                }
 
                 // Log rule applications for analytics (v1.2.0)
                 if !ruleUsageCounts.isEmpty {
@@ -370,12 +381,14 @@ class FileOrganizationCoordinator: ObservableObject {
 
         // Log bulk partial failure summary if any files failed
         if failedCount > 0, let ctx = context {
-            let activityService = ActivityLoggingService(modelContext: ctx)
-            activityService.logBulkPartialFailure(
-                successCount: successCount,
-                failedCount: failedCount,
-                firstError: firstError?.localizedDescription
-            )
+            if origin == .reviewDriven {
+                let activityService = ActivityLoggingService(modelContext: ctx)
+                activityService.logBulkPartialFailure(
+                    successCount: successCount,
+                    failedCount: failedCount,
+                    firstError: firstError?.localizedDescription
+                )
+            }
         }
 
         isBulkOperationInProgress = false
@@ -420,6 +433,7 @@ class FileOrganizationCoordinator: ObservableObject {
             if redoStack.count > Self.maxRedoActions {
                 redoStack.removeFirst(redoStack.count - Self.maxRedoActions)
             }
+            refreshLatestUndoableBatchSummary()
             
             #if DEBUG
             Log.info("Undo (in-memory skip) successful: \\(skipCommand.description)", category: .undo)
@@ -446,12 +460,21 @@ class FileOrganizationCoordinator: ObservableObject {
             if redoStack.count > Self.maxRedoActions {
                 redoStack.removeFirst(redoStack.count - Self.maxRedoActions)
             }
+            refreshLatestUndoableBatchSummary()
 
             #if DEBUG
             Log.info("Undo successful: \\(command.description)", category: .undo)
             #endif
+
+            if let bulkCommand = command as? BulkMoveCommand {
+                ActivityLoggingService.create(from: context)?.logBulkUndone(
+                    count: bulkCommand.operations.count,
+                    origin: bulkCommand.origin
+                )
+            }
         } catch {
             undoStack.append(command)
+            refreshLatestUndoableBatchSummary()
             #if DEBUG
             Log.error("Undo failed: \\(error.localizedDescription)", category: .undo)
             #endif
@@ -476,6 +499,7 @@ class FileOrganizationCoordinator: ObservableObject {
             if undoStack.count > Self.maxUndoActions {
                 undoStack.removeFirst(undoStack.count - Self.maxUndoActions)
             }
+            refreshLatestUndoableBatchSummary()
             
             #if DEBUG
             Log.info("Redo (in-memory skip) successful: \\(skipCommand.description)", category: .undo)
@@ -502,12 +526,14 @@ class FileOrganizationCoordinator: ObservableObject {
             if undoStack.count > Self.maxUndoActions {
                 undoStack.removeFirst(undoStack.count - Self.maxUndoActions)
             }
+            refreshLatestUndoableBatchSummary()
 
             #if DEBUG
             Log.info("Redo successful: \\(command.description)", category: .undo)
             #endif
         } catch {
             redoStack.append(command)
+            refreshLatestUndoableBatchSummary()
             #if DEBUG
             Log.error("Redo failed: \\(error.localizedDescription)", category: .undo)
             #endif
@@ -525,6 +551,11 @@ class FileOrganizationCoordinator: ObservableObject {
         }
         // Clear redo stack when new action is performed
         redoStack.removeAll(keepingCapacity: false)
+        refreshLatestUndoableBatchSummary()
+    }
+
+    private func refreshLatestUndoableBatchSummary() {
+        latestUndoableBatchSummary = (undoStack.last as? BulkMoveCommand)?.undoBatchSummary
     }
     
     /// Log rule applications for analytics (v1.2.0).

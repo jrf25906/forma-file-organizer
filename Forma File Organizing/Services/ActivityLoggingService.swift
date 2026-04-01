@@ -153,13 +153,24 @@ final class ActivityLoggingService {
 
     // MARK: - Bulk Operations
 
-    func logBulkOrganized(count: Int, destination: String? = nil) {
-        let details = destination.map { "Moved to \($0)" } ?? "Multiple destinations"
+    func logBulkOrganized(
+        count: Int,
+        destination: String? = nil,
+        origin: OrganizationRunOrigin = .reviewDriven,
+        undoAvailable: Bool = true
+    ) {
+        var segments = [destination.map { "Moved to \($0)" } ?? "Multiple destinations"]
+        segments.append(origin == .automation ? "Automatic batch" : "Review batch")
+        segments.append(undoAvailable ? "Undo available" : "Final")
+        let details = segments.joined(separator: ". ")
         log(.bulkOrganized, name: "\(count) files", details: details, affectedFileCount: count)
     }
 
-    func logBulkUndone(count: Int) {
-        log(.bulkUndone, name: "\(count) files", details: "Restored to original locations")
+    func logBulkUndone(count: Int, origin: OrganizationRunOrigin = .reviewDriven) {
+        let details = origin == .automation
+            ? "Restored to original locations from the last automatic batch."
+            : "Restored to original locations from the last review batch."
+        log(.bulkUndone, name: "\(count) files", details: details)
     }
 
     func logBulkPartialFailure(successCount: Int, failedCount: Int, firstError: String?) {
@@ -186,19 +197,41 @@ final class ActivityLoggingService {
     /// - Parameters:
     ///   - successCount: Number of files successfully organized
     ///   - failedCount: Number of files that failed to organize
-    ///   - skippedCount: Number of files skipped (didn't meet confidence threshold)
-    func logAutoOrganizeBatch(successCount: Int, failedCount: Int, skippedCount: Int = 0) {
+    ///   - skippedCount: Number of files skipped during preflight
+    func logAutoOrganizeBatch(
+        successCount: Int,
+        failedCount: Int,
+        skippedCount: Int = 0,
+        skippedMissingDestination: Int = 0,
+        skippedPermissionIssues: Int = 0,
+        skippedConfidenceThreshold: Int = 0,
+        skippedExcludedFromAutomation: Int = 0,
+        undoAvailable: Bool = false
+    ) {
         var segments = [
             successCount > 0
-                ? "Cleared \(successCount) file\(successCount == 1 ? "" : "s") from the queue"
-                : "No files were cleared from the queue"
+                ? "Cleared \(successCount) file\(successCount == 1 ? "" : "s") from the queue automatically"
+                : "No files were cleared from the queue automatically"
         ]
         if failedCount > 0 {
             segments.append("\(failedCount) still need\(failedCount == 1 ? "s" : "") attention")
         }
         if skippedCount > 0 {
-            segments.append("\(skippedCount) \(skippedCount == 1 ? "is" : "are") still waiting for review")
+            let reasons = skipReasonDetails(
+                missingDestination: skippedMissingDestination,
+                permissionIssues: skippedPermissionIssues,
+                confidenceThreshold: skippedConfidenceThreshold,
+                excludedFromAutomation: skippedExcludedFromAutomation
+            )
+            if reasons.isEmpty {
+                segments.append("\(skippedCount) \(skippedCount == 1 ? "is" : "are") still waiting for review")
+            } else {
+                segments.append(
+                    "\(skippedCount) held back before the automatic pass: \(reasons.joined(separator: ", "))"
+                )
+            }
         }
+        segments.append(undoAvailable ? "Undo available for the last automatic batch" : "Automatic changes are final")
         let details = segments.joined(separator: ". ") + "."
         log(.automationAutoOrganized, name: "Auto-Organize", details: details, affectedFileCount: successCount)
     }
@@ -233,6 +266,28 @@ final class ActivityLoggingService {
         } catch {
             Log.error("Failed to save activity: \(error.localizedDescription)", category: .analytics)
         }
+    }
+
+    private func skipReasonDetails(
+        missingDestination: Int,
+        permissionIssues: Int,
+        confidenceThreshold: Int,
+        excludedFromAutomation: Int
+    ) -> [String] {
+        var reasons: [String] = []
+        if missingDestination > 0 {
+            reasons.append("\(missingDestination) missing destination")
+        }
+        if permissionIssues > 0 {
+            reasons.append("\(permissionIssues) permission issue\(permissionIssues == 1 ? "" : "s")")
+        }
+        if confidenceThreshold > 0 {
+            reasons.append("\(confidenceThreshold) below confidence threshold")
+        }
+        if excludedFromAutomation > 0 {
+            reasons.append("\(excludedFromAutomation) excluded from automation")
+        }
+        return reasons
     }
 }
 

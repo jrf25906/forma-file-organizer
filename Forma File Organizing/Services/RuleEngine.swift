@@ -27,6 +27,52 @@ import Foundation
 /// ```
 class RuleEngine {
 
+    struct RuleSimulationExample: Sendable {
+        let fileName: String
+        let filePath: String
+        let suggestedDestination: String?
+        let reason: String?
+        let confidenceScore: Double?
+    }
+
+    struct RuleSimulationSummary: Sendable {
+        let evaluatedCount: Int
+        let matchCount: Int
+        let examples: [RuleSimulationExample]
+    }
+
+    private struct SimulationFileSnapshot: Fileable {
+        var name: String
+        var fileExtension: String
+        var path: String
+        var destination: Destination?
+        var status: FileItem.OrganizationStatus
+        var matchReason: String?
+        var confidenceScore: Double?
+        var matchedRuleID: UUID?
+        var creationDate: Date
+        var modificationDate: Date
+        var lastAccessedDate: Date
+        var sizeInBytes: Int64
+        var location: FileLocationKind
+
+        init<F: Fileable>(copying file: F) {
+            self.name = file.name
+            self.fileExtension = file.fileExtension
+            self.path = file.path
+            self.destination = file.destination
+            self.status = file.status
+            self.matchReason = file.matchReason
+            self.confidenceScore = file.confidenceScore
+            self.matchedRuleID = file.matchedRuleID
+            self.creationDate = file.creationDate
+            self.modificationDate = file.modificationDate
+            self.lastAccessedDate = file.lastAccessedDate
+            self.sizeInBytes = file.sizeInBytes
+            self.location = file.location
+        }
+    }
+
     // MARK: - Dependencies
 
     /// Resolver for converting placeholder destinations to real destinations
@@ -141,6 +187,55 @@ class RuleEngine {
         // Clear per-batch unresolvable cache so we re-check on each scan
         unresolvableDestinationCache.removeAll()
         return files.map { evaluateFile($0, rules: rules) }
+    }
+
+    /// Evaluates a single rule across a set of files without mutating the source files.
+    ///
+    /// This path snapshots each `Fileable` before reusing the normal rule evaluation
+    /// flow, so simulation stays aligned with production matching behavior while
+    /// remaining read-only.
+    func simulateRule<F: Fileable, R: Ruleable>(
+        _ rule: R,
+        across files: [F],
+        exampleLimit: Int = 5
+    ) -> RuleSimulationSummary {
+        let clampedExampleLimit = max(0, exampleLimit)
+        unresolvableDestinationCache.removeAll()
+
+        var matchCount = 0
+        var examples: [RuleSimulationExample] = []
+        examples.reserveCapacity(min(clampedExampleLimit, files.count))
+
+        for file in files {
+            let simulated = evaluateFile(
+                SimulationFileSnapshot(copying: file),
+                rules: [rule]
+            )
+
+            guard simulated.matchedRuleID == rule.id else {
+                continue
+            }
+
+            matchCount += 1
+
+            if examples.count < clampedExampleLimit {
+                examples.append(
+                    RuleSimulationExample(
+                        fileName: simulated.name,
+                        filePath: simulated.path,
+                        suggestedDestination: simulated.destination?.displayName,
+                        reason: simulated.matchReason,
+                        confidenceScore: simulated.confidenceScore
+                    )
+                )
+            }
+        }
+
+        return RuleSimulationSummary(
+            evaluatedCount: files.count,
+            matchCount: matchCount,
+            examples: examples
+        )
     }
     
     /// Public method to check if a file matches a specific rule.

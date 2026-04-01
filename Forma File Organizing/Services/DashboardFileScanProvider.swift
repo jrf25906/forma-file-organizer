@@ -102,6 +102,23 @@ final class DashboardFileScanProvider: FileScanProvider {
     ) async throws -> [FileItem] {
         Log.info("DashboardFileScanProvider: Finding eligible files (threshold: \(confidenceThreshold))", category: .automation)
 
+        let candidates = try await getAutoOrganizeCandidates(context: context)
+        let preflight = AutomationEngine.buildPreflightSummary(
+            candidates: candidates,
+            confidenceThreshold: confidenceThreshold
+        )
+
+        Log.info(
+            "DashboardFileScanProvider: Found \(preflight.eligibleCount) eligible files from \(candidates.count) candidates",
+            category: .automation
+        )
+
+        return preflight.eligibleFiles
+    }
+
+    func getAutoOrganizeCandidates(context: ModelContext) async throws -> [FileItem] {
+        Log.info("DashboardFileScanProvider: Loading auto-organize candidates", category: .automation)
+
         // Fetch all pending/ready files
         // Note: SwiftData predicates can only access stored properties.
         // FileItem stores status as `statusRaw` (String), so we query that directly.
@@ -113,33 +130,22 @@ final class DashboardFileScanProvider: FileScanProvider {
             }
         )
 
-        let candidates: [FileItem]
         do {
-            candidates = try context.fetch(descriptor)
+            return try context.fetch(descriptor)
         } catch {
             Log.error("DashboardFileScanProvider: Failed to fetch auto-organize candidates - \(error.localizedDescription)", category: .automation)
             throw ScanError.candidateFetchFailed(error.localizedDescription)
         }
-
-        let eligible = Self.autoOrganizeEligibleFiles(from: candidates, confidenceThreshold: confidenceThreshold)
-
-        Log.info("DashboardFileScanProvider: Found \(eligible.count) eligible files from \(candidates.count) candidates", category: .automation)
-
-        return eligible
     }
 
     static func autoOrganizeEligibleFiles(
         from candidates: [FileItem],
         confidenceThreshold: Double = 0.9
     ) -> [FileItem] {
-        var destinationValidationCache: [Data: Bool] = [:]
-        return candidates.filter { file in
-            isEligibleForAutoOrganize(
-                file,
-                confidenceThreshold: confidenceThreshold,
-                validationCache: &destinationValidationCache
-            )
-        }
+        AutomationEngine.buildPreflightSummary(
+            candidates: candidates,
+            confidenceThreshold: confidenceThreshold
+        ).eligibleFiles
     }
 
     // MARK: - Private Helpers
@@ -204,85 +210,6 @@ final class DashboardFileScanProvider: FileScanProvider {
             scannedRootPaths: scannedRootPaths
         )
     }
-
-    /// Determines if a file is eligible for automatic organization.
-    ///
-    /// Eligibility requires ALL of the following:
-    /// 1. File has a destination assigned
-    /// 2. Destination is valid and accessible
-    /// 3. If ML-predicted, confidence meets threshold
-    /// 4. Source folder is not excluded from automation
-    ///
-    /// - Parameter validationCache: Cache of bookmark Data -> isUsable to avoid repeated validation calls.
-    ///   This prevents excessive SecCodeCopySelf calls when many files share the same destination.
-    private static func isEligibleForAutoOrganize(
-        _ file: FileItem,
-        confidenceThreshold: Double,
-        validationCache: inout [Data: Bool]
-    ) -> Bool {
-        // Must have a destination
-        guard let destination = file.destination else {
-            return false
-        }
-
-        // Extract bookmark data for cache key
-        let bookmarkData: Data?
-        switch destination {
-        case .folder(let bookmark, _):
-            bookmarkData = bookmark
-        case .trash:
-            bookmarkData = nil // Trash doesn't use bookmarks
-        }
-
-        // Check destination validity with caching
-        let isDestinationUsable: Bool
-        if let bookmark = bookmarkData, let cached = validationCache[bookmark] {
-            // Use cached result
-            isDestinationUsable = cached
-        } else {
-            // Validate and cache the result
-            let result = destination.validate().isUsable
-            if let bookmark = bookmarkData {
-                validationCache[bookmark] = result
-            }
-            isDestinationUsable = result
-        }
-
-        guard isDestinationUsable else {
-            Log.debug("DashboardFileScanProvider: File '\(file.name)' - destination invalid", category: .automation)
-            return false
-        }
-
-        // Check ML confidence if this is an ML prediction
-        if let confidence = file.confidenceScore {
-            if confidence < confidenceThreshold {
-                Log.debug("DashboardFileScanProvider: File '\(file.name)' - confidence \(confidence) < \(confidenceThreshold)", category: .automation)
-                return false
-            }
-        }
-
-        // If there's a matched rule, use the lower rule threshold
-        // (Rule matches are more reliable than pure ML predictions)
-        if file.matchedRuleID != nil {
-            let ruleThreshold = FormaConfig.Automation.mlRuleConfidenceMinimum
-            if let confidence = file.confidenceScore, confidence < ruleThreshold {
-                Log.debug("DashboardFileScanProvider: File '\(file.name)' - rule match confidence \(confidence) < \(ruleThreshold)", category: .automation)
-                return false
-            }
-        }
-
-        // Check if source folder is excluded from automation
-        if let folderType = file.location.bookmarkFolderType {
-            let folder = BookmarkFolder(folderType: folderType)
-            if folder.isExcludedFromAutomation {
-                Log.debug("DashboardFileScanProvider: File '\(file.name)' - source folder excluded from automation", category: .automation)
-                return false
-            }
-        }
-
-        return true
-    }
-
     // MARK: - Errors
 
     enum ScanError: Error, LocalizedError {

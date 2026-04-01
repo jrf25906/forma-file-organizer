@@ -29,6 +29,9 @@ final class AutomationState {
     /// Number of files skipped (didn't meet criteria) in the last run.
     var lastRunSkippedCount: Int = 0
 
+    /// Latest preflight summary for the next automation pass.
+    var lastPreflightSummary: AutomationPreflightSummary?
+
     /// Next scheduled scan time (nil if no scheduled scans).
     var nextScheduledRun: Date?
 
@@ -387,14 +390,11 @@ final class AutomationEngine: ObservableObject {
             return
         }
 
-        // Get eligible files
-        let eligibleFiles: [FileItem]
+        let candidates: [FileItem]
         do {
-            eligibleFiles = try await provider.getAutoOrganizeEligibleFiles(
-                context: context,
-                confidenceThreshold: policy.mlConfidenceThreshold
-            )
+            candidates = try await provider.getAutoOrganizeCandidates(context: context)
         } catch {
+            state.lastPreflightSummary = nil
             let errorType = AutomationErrorType.classify(error: error)
             let message = AutomationErrorType.cleanMessage(from: error)
             Log.error("AutomationEngine: \(message)", category: .automation)
@@ -403,23 +403,55 @@ final class AutomationEngine: ObservableObject {
             return
         }
 
-        guard !eligibleFiles.isEmpty else {
-            Log.info("AutomationEngine: No eligible files for auto-organize", category: .automation)
+        let preflight = Self.buildPreflightSummary(
+            candidates: candidates,
+            confidenceThreshold: policy.mlConfidenceThreshold
+        )
+        state.lastPreflightSummary = preflight
+        state.lastRunSuccessCount = 0
+        state.lastRunFailedCount = 0
+        state.lastRunSkippedCount = preflight.totalSkippedCount
+
+        guard !preflight.eligibleFiles.isEmpty else {
+            Log.info(
+                "AutomationEngine: No eligible files for auto-organize (\(preflight.totalSkippedCount) skipped in preflight)",
+                category: .automation
+            )
             return
         }
 
-        Log.info("AutomationEngine: Auto-organizing \(eligibleFiles.count) files", category: .automation)
+        Log.info("AutomationEngine: Auto-organizing \(preflight.eligibleCount) files", category: .automation)
 
         // Perform bulk organize
-        await coordinator.organizeMultipleFiles(eligibleFiles, context: context) { [weak self] success, failed, failedFiles, error in
+        await coordinator.organizeMultipleFiles(
+            preflight.eligibleFiles,
+            origin: .automation,
+            context: context
+        ) { [weak self] success, failed, failedFiles, error in
             guard let self else { return }
 
             self.state.lastRunSuccessCount = success
             self.state.lastRunFailedCount = failed
+            self.state.lastRunSkippedCount = preflight.totalSkippedCount
+
+            ActivityLoggingService.create(from: context)?.logAutoOrganizeBatch(
+                successCount: success,
+                failedCount: failed,
+                skippedCount: preflight.totalSkippedCount,
+                skippedMissingDestination: preflight.skippedMissingDestination,
+                skippedPermissionIssues: preflight.skippedPermissionIssues,
+                skippedConfidenceThreshold: preflight.skippedConfidenceThreshold,
+                skippedExcludedFromAutomation: preflight.skippedExcludedFromAutomation,
+                undoAvailable: success > 0 && coordinator.latestUndoableBatchSummary?.origin == .automation
+            )
 
             // Send notification
             if success > 0 {
-                self.sendAutoOrganizeSummary(successCount: success, failedCount: failed, skippedCount: 0)
+                self.sendAutoOrganizeSummary(
+                    successCount: success,
+                    failedCount: failed,
+                    skippedCount: preflight.totalSkippedCount
+                )
             }
 
             if let error {
@@ -708,6 +740,23 @@ enum ScanReason: String, Sendable {
     case thresholdExceeded = "threshold_exceeded"
 }
 
+struct AutomationPreflightSummary {
+    let eligibleFiles: [FileItem]
+    let eligibleCount: Int
+    let skippedMissingDestination: Int
+    let skippedPermissionIssues: Int
+    let skippedConfidenceThreshold: Int
+    let skippedExcludedFromAutomation: Int
+    let exampleFileNames: [String]
+
+    var totalSkippedCount: Int {
+        skippedMissingDestination +
+        skippedPermissionIssues +
+        skippedConfidenceThreshold +
+        skippedExcludedFromAutomation
+    }
+}
+
 /// Metrics computed from a scan result.
 struct AutomationMetrics: Sendable {
     let totalScanned: Int
@@ -878,6 +927,9 @@ protocol FileScanProvider: AnyObject {
     /// Performs a file scan and returns the result.
     func scanFiles(context: ModelContext, baseFolders: [FolderLocation]?) async throws -> FileScanResult
 
+    /// Returns pending/ready files that should be classified for automation preflight.
+    func getAutoOrganizeCandidates(context: ModelContext) async throws -> [FileItem]
+
     /// Returns files eligible for auto-organization.
     func getAutoOrganizeEligibleFiles(
         context: ModelContext,
@@ -921,8 +973,122 @@ struct FileScanResult: Sendable {
 }
 
 extension FileScanProvider {
+    func getAutoOrganizeCandidates(context: ModelContext) async throws -> [FileItem] {
+        let pendingRaw = FileItem.OrganizationStatus.pending.rawValue
+        let readyRaw = FileItem.OrganizationStatus.ready.rawValue
+        let descriptor = FetchDescriptor<FileItem>(
+            predicate: #Predicate<FileItem> { file in
+                file.statusRaw == pendingRaw || file.statusRaw == readyRaw
+            }
+        )
+        return try context.fetch(descriptor)
+    }
+
     func scanFiles(context: ModelContext) async throws -> FileScanResult {
         try await scanFiles(context: context, baseFolders: nil)
+    }
+}
+
+private enum AutomationPreflightDisposition {
+    case eligible
+    case missingDestination
+    case permissionIssues
+    case confidenceThreshold
+    case excludedFromAutomation
+}
+
+extension AutomationEngine {
+    static func buildPreflightSummary(
+        candidates: [FileItem],
+        confidenceThreshold: Double
+    ) -> AutomationPreflightSummary {
+        var eligibleFiles: [FileItem] = []
+        var skippedMissingDestination = 0
+        var skippedPermissionIssues = 0
+        var skippedConfidenceThreshold = 0
+        var skippedExcludedFromAutomation = 0
+        var destinationValidationCache: [Data: Bool] = [:]
+
+        for file in candidates {
+            switch preflightDisposition(
+                for: file,
+                confidenceThreshold: confidenceThreshold,
+                validationCache: &destinationValidationCache
+            ) {
+            case .eligible:
+                eligibleFiles.append(file)
+            case .missingDestination:
+                skippedMissingDestination += 1
+            case .permissionIssues:
+                skippedPermissionIssues += 1
+            case .confidenceThreshold:
+                skippedConfidenceThreshold += 1
+            case .excludedFromAutomation:
+                skippedExcludedFromAutomation += 1
+            }
+        }
+
+        return AutomationPreflightSummary(
+            eligibleFiles: eligibleFiles,
+            eligibleCount: eligibleFiles.count,
+            skippedMissingDestination: skippedMissingDestination,
+            skippedPermissionIssues: skippedPermissionIssues,
+            skippedConfidenceThreshold: skippedConfidenceThreshold,
+            skippedExcludedFromAutomation: skippedExcludedFromAutomation,
+            exampleFileNames: Array(eligibleFiles.prefix(3).map(\.name))
+        )
+    }
+
+    private static func preflightDisposition(
+        for file: FileItem,
+        confidenceThreshold: Double,
+        validationCache: inout [Data: Bool]
+    ) -> AutomationPreflightDisposition {
+        guard let destination = file.destination else {
+            return .missingDestination
+        }
+
+        let bookmarkData: Data?
+        switch destination {
+        case .folder(let bookmark, _):
+            bookmarkData = bookmark
+        case .trash:
+            bookmarkData = nil
+        }
+
+        let isDestinationUsable: Bool
+        if let bookmarkData, let cached = validationCache[bookmarkData] {
+            isDestinationUsable = cached
+        } else {
+            let result = destination.validate().isUsable
+            if let bookmarkData {
+                validationCache[bookmarkData] = result
+            }
+            isDestinationUsable = result
+        }
+
+        guard isDestinationUsable else {
+            return .permissionIssues
+        }
+
+        if let confidence = file.confidenceScore, confidence < confidenceThreshold {
+            return .confidenceThreshold
+        }
+
+        if file.matchedRuleID != nil,
+           let confidence = file.confidenceScore,
+           confidence < FormaConfig.Automation.mlRuleConfidenceMinimum {
+            return .confidenceThreshold
+        }
+
+        if let folderType = file.location.bookmarkFolderType {
+            let folder = BookmarkFolder(folderType: folderType)
+            if folder.isExcludedFromAutomation {
+                return .excludedFromAutomation
+            }
+        }
+
+        return .eligible
     }
 }
 

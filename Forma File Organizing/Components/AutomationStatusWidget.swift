@@ -11,7 +11,8 @@ import Combine
 /// Designed to fit within DefaultPanelView's scrolling content area.
 struct AutomationStatusWidget: View {
     let pendingReviewCount: Int
-    @ObservedObject private var engine = AutomationEngine.shared
+    private let engine = AutomationEngine.shared
+    private let automationState = AutomationEngine.shared.state
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered: Bool = false
@@ -32,13 +33,13 @@ struct AutomationStatusWidget: View {
 
     /// Whether the automation is paused (neither running nor scheduled)
     private var isPaused: Bool {
-        engine.state.nextScheduledRun == nil && !engine.state.isRunning
+        automationState.nextScheduledRun == nil && !automationState.isRunning
     }
 
     /// Calculate countdown progress (1.0 = full, depletes to 0.0)
     private var countdownProgress: Double {
-        guard let nextRun = engine.state.nextScheduledRun,
-              let lastRun = engine.state.lastRunDate else {
+        guard let nextRun = automationState.nextScheduledRun,
+              let lastRun = automationState.lastRunDate else {
             return isPaused ? 0.0 : 1.0
         }
 
@@ -53,7 +54,7 @@ struct AutomationStatusWidget: View {
 
     /// Formatted countdown string (e.g., "4:32")
     private var countdownText: String {
-        guard let nextRun = engine.state.nextScheduledRun else {
+        guard let nextRun = automationState.nextScheduledRun else {
             return isPaused ? "—" : "..."
         }
 
@@ -107,7 +108,7 @@ struct AutomationStatusWidget: View {
                             .foregroundStyle(Color.formaLabel)
                             .lineLimit(1)
 
-                        if let lastRun = engine.state.lastRunDate {
+                        if let lastRun = automationState.lastRunDate {
                             Text(lastRun.relativeFormatted)
                                 .font(.formaCaption)
                                 .foregroundStyle(Color.formaSecondaryLabelHigh)
@@ -121,7 +122,7 @@ struct AutomationStatusWidget: View {
                     // Grouped control strip: Scan + Pause/Resume
                     HStack(spacing: 0) {
                         // Scan Now button (hidden when running or paused)
-                        if !isPaused && !engine.state.isRunning {
+                        if !isPaused && !automationState.isRunning {
                             scanNowButtonInline
                                 .transition(.scale.combined(with: .opacity))
 
@@ -151,10 +152,10 @@ struct AutomationStatusWidget: View {
                     .fixedSize()
                 }
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPaused)
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: engine.state.isRunning)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: automationState.isRunning)
 
                 // Last run stats (always visible when available)
-                if engine.state.lastRunDate != nil && !engine.state.isRunning {
+                if automationState.lastRunDate != nil && !automationState.isRunning {
                     lastRunStats
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
@@ -220,7 +221,7 @@ struct AutomationStatusWidget: View {
 
             // Progress ring with gradient (depletes clockwise)
             Circle()
-                .trim(from: 0, to: engine.state.isRunning ? 1.0 : countdownProgress)
+                .trim(from: 0, to: automationState.isRunning ? 1.0 : countdownProgress)
                 .stroke(
                     isPaused ? AnyShapeStyle(Color.formaWarmOrange) : AnyShapeStyle(ringGradient),
                     style: StrokeStyle(lineWidth: 3, lineCap: .round)
@@ -232,7 +233,7 @@ struct AutomationStatusWidget: View {
                 )
 
             // Center content
-            if engine.state.isRunning {
+            if automationState.isRunning {
                 // Scanning indicator
                 ProgressView()
                     .controlSize(.small)
@@ -250,11 +251,11 @@ struct AutomationStatusWidget: View {
     // MARK: - Status Properties
 
     private var statusColor: Color {
-        if engine.state.isRunning {
+        if automationState.isRunning {
             return Color.formaSteelBlue
-        } else if engine.state.isWatchingFolders {
+        } else if automationState.isWatchingFolders {
             return Color.formaSage
-        } else if engine.state.nextScheduledRun != nil {
+        } else if automationState.nextScheduledRun != nil {
             return Color.formaSage
         } else {
             return Color.formaWarmOrange
@@ -262,11 +263,11 @@ struct AutomationStatusWidget: View {
     }
 
     private var statusLabel: String {
-        if engine.state.isRunning {
+        if automationState.isRunning {
             return "Scanning"
-        } else if engine.state.isWatchingFolders {
+        } else if automationState.isWatchingFolders {
             return "Watching"
-        } else if engine.state.nextScheduledRun != nil {
+        } else if automationState.nextScheduledRun != nil {
             return "Scheduled"
         } else {
             return "Paused"
@@ -274,11 +275,11 @@ struct AutomationStatusWidget: View {
     }
 
     private var statusMessage: String {
-        if engine.state.isRunning {
+        if automationState.isRunning {
             return "Scanning files..."
-        } else if engine.state.isWatchingFolders {
+        } else if automationState.isWatchingFolders {
             return "Watching folders"
-        } else if engine.state.nextScheduledRun != nil {
+        } else if automationState.nextScheduledRun != nil {
             return "Next scan"
         } else {
             return "Automation paused"
@@ -315,8 +316,8 @@ struct AutomationStatusWidget: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(engine.state.isRunning)
-        .opacity(engine.state.isRunning ? 0.5 : 1.0)
+        .disabled(automationState.isRunning)
+        .opacity(automationState.isRunning ? 0.5 : 1.0)
         .help("Trigger an immediate scan")
     }
 
@@ -404,8 +405,8 @@ struct AutomationStatusWidget: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(FormaControlPressButtonStyle())
-        .disabled(engine.state.isRunning)
-        .opacity(engine.state.isRunning ? 0.5 : 1.0)
+        .disabled(automationState.isRunning)
+        .opacity(automationState.isRunning ? 0.5 : 1.0)
         .help("Trigger an immediate scan")
         .onHover { hovering in
             if hovering {
@@ -492,36 +493,36 @@ struct AutomationStatusWidget: View {
     private var lastRunStats: some View {
         HStack(spacing: FormaSpacing.standard) {
             // Organized count
-            if engine.state.lastRunSuccessCount > 0 {
+            if automationState.lastRunSuccessCount > 0 {
                 StatPill(
-                    value: engine.state.lastRunSuccessCount,
+                    value: automationState.lastRunSuccessCount,
                     label: "organized",
                     color: Color.formaSage
                 )
             }
 
             // Skipped count (if any)
-            if engine.state.lastRunSkippedCount > 0 {
+            if automationState.lastRunSkippedCount > 0 {
                 StatPill(
-                    value: engine.state.lastRunSkippedCount,
+                    value: automationState.lastRunSkippedCount,
                     label: "skipped",
                     color: Color.formaSecondaryLabel
                 )
             }
 
             // Failed count (if any)
-            if engine.state.lastRunFailedCount > 0 {
+            if automationState.lastRunFailedCount > 0 {
                 StatPill(
-                    value: engine.state.lastRunFailedCount,
+                    value: automationState.lastRunFailedCount,
                     label: "failed",
                     color: Color.formaError
                 )
             }
 
             // Show contextual empty state if nothing happened in the last run
-            if engine.state.lastRunSuccessCount == 0 &&
-               engine.state.lastRunSkippedCount == 0 &&
-               engine.state.lastRunFailedCount == 0 {
+            if automationState.lastRunSuccessCount == 0 &&
+               automationState.lastRunSkippedCount == 0 &&
+               automationState.lastRunFailedCount == 0 {
                 Text(lastRunContextMessage)
                     .font(.formaCaption)
                     .foregroundStyle(Color.formaTertiaryLabelHigh)
