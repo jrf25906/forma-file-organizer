@@ -24,7 +24,13 @@ function NaturalLanguageScene() {
             <span className="font-medium text-forma-warm-orange">{rule.keyword}</span>
             , move to
           </span>
-          <span className="rounded-md bg-[rgba(74,107,136,0.12)] px-2.5 py-1 text-[12px] font-medium text-forma-steel-blue">
+          <span
+            className="rounded-md px-2.5 py-1 text-[12px] font-medium text-forma-steel-blue"
+            style={{
+              backgroundColor:
+                "color-mix(in srgb, var(--forma-steel-blue) 12%, transparent)",
+            }}
+          >
             {rule.dest}
           </span>
         </div>
@@ -50,7 +56,9 @@ function AutoGroupingScene() {
           <div
             key={i}
             className="h-9 w-9 rounded-md"
-            style={{ backgroundColor: `rgba(74,107,136,${opacity})` }}
+            style={{
+              backgroundColor: `color-mix(in srgb, var(--forma-steel-blue) ${Math.round(opacity * 100)}%, transparent)`,
+            }}
           />
         ))}
       </div>
@@ -136,10 +144,13 @@ function UndoScene() {
           <span className="text-[11px] text-[var(--text-muted)]">{row.time}</span>
           <span
             className={`rounded-[5px] px-2.5 py-0.5 text-[11px] font-medium ${
-              row.undone
-                ? "bg-[rgba(107,143,113,0.12)] text-forma-sage"
-                : "bg-[rgba(184,107,82,0.15)] text-forma-warm-orange"
+              row.undone ? "text-forma-sage" : "text-forma-warm-orange"
             }`}
+            style={{
+              backgroundColor: row.undone
+                ? "color-mix(in srgb, var(--forma-sage) 12%, transparent)"
+                : "color-mix(in srgb, var(--forma-warm-orange) 15%, transparent)",
+            }}
           >
             {row.undone ? "Undone" : "Undo"}
           </span>

@@ -159,7 +159,7 @@ All four feature cards in `FeaturesSection` share identical visual treatment: sa
 **[VH-2] The hero screenshot is strong but lacks annotation (Medium Impact)**
 The MacWindowFrame with the app screenshot is the visual anchor of the hero section. However, the screenshot alone requires the user to parse a complex UI to understand what they are looking at. There are no callouts, labels, or highlighted regions.
 
-*Recommendation:* Consider overlaying two or three minimal callout labels (e.g., "Your rules," "Preview before moving," "Undo anything") on or near the screenshot. These reinforce the value proposition while giving the image educational context.
+*Recommendation:* Consider overlaying two or three minimal callout labels (e.g., "Your rules," "Preview before moving," "Undo the batch") on or near the screenshot. These reinforce the value proposition while giving the image educational context.
 
 **[VH-3] Credibility badges are visually lightweight (Low Impact)**
 The three credibility badges (Mac-Native, Privacy-First, Always Reversible) use a subtle rounded-rectangle style with small icons. They are easy to scroll past without registering. These are important trust signals that deserve slightly more visual presence.

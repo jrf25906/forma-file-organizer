@@ -78,8 +78,8 @@ Short-form trust copy for badges, footers, or feature strips:
 For different contexts where the full hero tagline is too long:
 
 - **Short (App Store subtitle, 30 chars)**: Rules you can read. Full undo.
-- **Medium (social, ads)**: Make rules. Preview everything. Undo anything. $29.
-- **Conversational**: You make rules. Forma follows them. Undo anything.
+- **Medium (social, ads)**: Make rules. Preview everything. Undo the recent batch if something was wrong. $29.
+- **Conversational**: You make rules. Forma follows them. Undo the recent batch if something was wrong.
 
 ---
 

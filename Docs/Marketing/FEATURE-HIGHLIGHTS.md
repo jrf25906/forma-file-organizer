@@ -27,16 +27,16 @@ The Preview Queue displays every proposed file move in a clear list. See the sou
 
 ---
 
-## 2. Full Undo History
+## 2. Undo Recent Batches
 
 ### Headline
-**Undo anything. Always.**
+**Undo the recent batch when needed.**
 
 ### Hook
-Made a mistake? Changed your mind? Forma remembers everything.
+Made a mistake? Forma keeps recent move history close at hand.
 
 ### Description
-Every action Forma takes is logged in a complete history. Undo a single move from yesterday. Roll back a batch from last week. The history persists across sessions, so you can always go back. File organization becomes low-stakes experimentation.
+Forma keeps recent move history so you can reverse the batch that was wrong without moving everything back by hand. File organization becomes low-stakes experimentation.
 
 ### Proof Points
 - Complete action log with timestamps

@@ -28,7 +28,7 @@ See every file move before it happens, undo the recent batch if something was wr
 ### Short Version (Email, Newsletter)
 **Forma is here: The file organizer that respects your decisions.**
 
-Forma brings order to your digital workspace without acting on its own. Create rules in plain language. See every proposed move before it happens. Undo anything with one click.
+Forma brings order to your digital workspace without acting on its own. Create rules in plain language. See every proposed move before it happens. Undo the recent batch if something was wrong.
 
 Built natively for macOS. 100% local processing. One-time $29 purchase.
 
@@ -43,11 +43,11 @@ Forma takes a different approach: **propose first, act second.**
 
 Define rules in plain language: "Move screenshots older than 7 days to Archive." Forma finds matching files and shows you exactly where it plans to put them. You review. You approve. Then—and only then—files move.
 
-Changed your mind? Every action is recorded. Undo anything with one click.
+Changed your mind? Recent move history lets you undo the batch that was wrong.
 
 **Why Forma?**
 - **Preview everything**: See proposed moves before execution
-- **Undo anything**: Full action history with instant rollback
+- **Undo the recent batch**: Recent move history when something was wrong
 - **Stay in control**: Nothing moves without your approval
 - **Complete privacy**: 100% local processing on your Mac
 
@@ -82,7 +82,7 @@ Forma is available with a one-time $29 purchase.
 **Tweet 3** (Solution)
 > Forma proposes file moves. You approve them.
 >
-> See exactly where each file will go. Reject what doesn't look right. Undo anything that goes wrong.
+> See exactly where each file will go. Reject what doesn't look right. Undo the recent batch if something was wrong.
 >
 > No surprises. No regrets.
 
@@ -120,11 +120,11 @@ Most automation tools fall into two camps:
 1. **Complex and powerful** (Hazel) — great for power users, intimidating for everyone else
 2. **AI-powered and autonomous** (Sparkle, Sorted) — convenient but opaque
 
-Forma occupies the middle ground. Create rules in plain language. Preview every proposed change. Approve what looks right. Undo anything.
+Forma occupies the middle ground. Create rules in plain language. Preview every proposed change. Approve what looks right. Undo the recent batch if something was wrong.
 
 Key features:
 - Preview Queue: See all proposed moves before execution
-- Full Undo History: Rollback any action, anytime
+- Undo Recent Batches: Reverse the batch that was wrong
 - 100% Local: Files never leave your Mac
 - Native macOS: Fast and lightweight — built natively for macOS
 
@@ -192,7 +192,7 @@ Would love your feedback on the preview workflow—is it the right balance of co
 Forma is now available.
 
 **What is it?**
-A file organizer that proposes changes and waits for your approval. Nothing moves until you say so. Everything can be undone.
+A file organizer that proposes changes and waits for your approval. Nothing moves until you say so. If something was wrong, you can undo the recent batch.
 
 **Why it's different:**
 - See every proposed file move before it happens
@@ -237,7 +237,7 @@ Questions? Reply to this email.
 
 **Headline**: A file organizer for people who gave up on file organizers.
 
-**Subhead**: Make rules. Preview moves. Approve changes. Undo anything. $29 once, forever. macOS native.
+**Subhead**: Make rules. Preview moves. Approve changes. Undo the recent batch if something was wrong. $29 once, forever. macOS native.
 
 **CTA**: Download for Mac
 
@@ -247,7 +247,7 @@ Questions? Reply to this email.
 
 **Your files. Your rules. Your approval.**
 
-Forma shows every proposed change before it happens. Approve what looks right. Reject what doesn't. Undo anything.
+Forma shows every proposed change before it happens. Approve what looks right. Reject what doesn't. Undo the recent batch if something was wrong.
 
 Nothing moves until you decide.
 

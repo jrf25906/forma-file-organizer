@@ -185,7 +185,7 @@ function HeroContent() {
             ref={subtitleRef}
             className="mx-auto mt-5 max-w-[580px] text-lg leading-relaxed text-[var(--text-secondary)] opacity-0 md:text-[1.2rem]"
           >
-            Make rules. Preview everything. Undo anything.
+            Make rules. Preview everything. Undo the recent batch if something was wrong.
           </p>
 
           <div

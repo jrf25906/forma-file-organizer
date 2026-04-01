@@ -19,7 +19,7 @@
 
 ### 3. Undo History Panel
 **State**: Action history showing recent moves with rollback options
-**Why it matters**: Core differentiator — full reversibility
+**Why it matters**: Core differentiator — recent batch undo when something was wrong
 **Ideal content**: 4-6 completed actions, clear "Undo" affordance
 
 ### 4. Preview Queue

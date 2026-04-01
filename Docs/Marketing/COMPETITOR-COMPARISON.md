@@ -12,7 +12,7 @@
 | **Price** | $29 one-time | $42 one-time | Subscription | ~$0.01/sort | Free |
 | **Platform** | macOS | macOS | macOS | macOS | Cross-platform |
 | **Preview Before Move** | Yes | No | No | No | Yes |
-| **Full Undo History** | Yes | Limited | No | No | No |
+| **Undo Recent Batches** | Yes | Limited | No | No | No |
 | **Learning Curve** | Low | High | Low | Low | Medium |
 | **Privacy** | 100% local | 100% local | Filenames to cloud | Filenames to cloud | Configurable |
 | **Native macOS** | Yes | Yes | Yes | Yes | No (Qt) |
@@ -37,7 +37,7 @@
 - No visual organization interface
 - Requires significant setup time
 
-**Forma's Advantage**: Lower barrier to entry, preview-first workflow, visual interface, full undo history
+**Forma's Advantage**: Lower barrier to entry, preview-first workflow, visual interface, recent batch undo when something was wrong
 
 ---
 
@@ -58,7 +58,7 @@
 - Limited user control over folder structure
 - May create unexpected organization
 
-**Forma's Advantage**: Preview before commit, 100% local processing, user remains in control, full reversibility
+**Forma's Advantage**: Preview before commit, 100% local processing, user remains in control, recent batch undo when something was wrong
 
 ---
 
@@ -77,7 +77,7 @@
 - Sends filenames to OpenAI
 - No undo capability
 
-**Forma's Advantage**: Continuous monitoring (optional), no API setup required, complete privacy, full undo history
+**Forma's Advantage**: Continuous monitoring (optional), no API setup required, complete privacy, recent batch undo when something was wrong
 
 ---
 

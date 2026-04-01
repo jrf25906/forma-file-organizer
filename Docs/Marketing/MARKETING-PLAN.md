@@ -117,7 +117,7 @@ This directly addresses:
 | "A file organizer for people who gave up on file organizers." | Empathy / retry |
 | "A file organizer that actually sticks." | Website tagline *(brand tagline "Give your files form" used in-app)* |
 | "$29. Once. Forever." | Anti-subscription |
-| "See before you move. Undo anything. Stay in control." | Safety / trust |
+| "See before you move. Undo recent batches when something was wrong. Stay in control." | Safety / trust |
 
 ### Key Copy Moments
 

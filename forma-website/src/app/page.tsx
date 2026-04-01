@@ -253,7 +253,10 @@ export default function Home() {
             id="pricing"
             aria-labelledby="pricing-heading"
             className="scroll-mt-16 border-y border-[var(--shell-border)] bg-[var(--bg-secondary)] py-20 md:py-28"
-            style={{ backgroundImage: "linear-gradient(135deg, var(--bg-secondary), rgba(184, 107, 82, 0.07), rgba(74, 107, 136, 0.08))" }}
+            style={{
+              backgroundImage:
+                "linear-gradient(135deg, var(--bg-secondary), color-mix(in srgb, var(--forma-warm-orange) 7%, transparent), color-mix(in srgb, var(--forma-steel-blue) 8%, transparent))",
+            }}
           >
             <ScrollReveal direction="up" distance={30} className="site-container">
               <div className="mx-auto max-w-5xl rounded-[2.25rem] border border-[var(--shell-border)] bg-[var(--shell-surface)] p-3 shadow-[var(--shell-shadow)] md:p-4">

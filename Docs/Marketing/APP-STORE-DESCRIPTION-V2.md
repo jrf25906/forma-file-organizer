@@ -43,7 +43,7 @@ Built exclusively for macOS with native file APIs. All processing happens on you
 
 **FEATURES**
 - Preview Queue: See all proposed moves before execution
-- Action History: Full log with instant rollback
+- Recent batch undo when something was wrong
 - 30+ Templates: Ready-made rules for common files
 - Background Monitor: (Coming Soon) Keep folders tidy automatically
 - Rules That Read Like Sentences: Describe intent, not syntax
@@ -94,25 +94,25 @@ Organize your files without surprises. Forma shows every proposed change, waits 
 ### Variant A: Trust-Focused
 **Trust your file organizer again.**
 
-Forma proposes changes. You approve them. Nothing moves without your permission. Everything can be undone.
+Forma proposes changes. You approve them. Nothing moves without your permission. If something was wrong, you can undo the recent batch.
 
-Unlike AI organizers that act on their own, Forma respects your decisions. See every proposed file move before it happens. Reject what doesn't look right. Undo anything that goes wrong.
+Unlike AI organizers that act on their own, Forma respects your decisions. See every proposed file move before it happens. Reject what doesn't look right. Undo the recent batch if something was wrong.
 
-Includes preview queue, full undo history, natural-language rules, and local-only processing.
+Includes preview queue, recent batch undo, natural-language rules, and local-only processing.
 
 ### Variant B: Problem-Focused
 **Your Downloads folder has 847 files. Let's fix that.**
 
 Forma turns folder chaos into organized structure—but only after you approve. No surprises. No autonomous AI. Just clear proposals you can accept, reject, or undo.
 
-Includes preview queue, full undo history, natural-language rules, and local-only processing.
+Includes preview queue, recent batch undo, natural-language rules, and local-only processing.
 
 ### Variant C: Comparison-Focused
 **More approachable than Hazel. More transparent than AI organizers.**
 
-Forma is the file organizer for people who want automation without losing control. Define rules visually. Preview every change. Undo anything.
+Forma is the file organizer for people who want automation without losing control. Define rules visually. Preview every change. Undo the recent batch if something was wrong.
 
-Includes preview queue, full undo history, natural-language rules, and local-only processing.
+Includes preview queue, recent batch undo, natural-language rules, and local-only processing.
 
 ---
 
@@ -133,7 +133,7 @@ Includes preview queue, full undo history, natural-language rules, and local-onl
 
 **Strongest hooks** (based on positioning):
 1. "See before you move" — unique differentiator
-2. "Undo anything" — reduces anxiety
+2. "Undo the recent batch if something was wrong" — reduces anxiety
 3. "No scripting" — accessibility vs. Hazel
 
 **Consider testing**:

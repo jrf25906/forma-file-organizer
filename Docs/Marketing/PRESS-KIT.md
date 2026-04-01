@@ -37,11 +37,11 @@ Forma brings order to your digital workspace without acting on its own. Unlike A
 
 While automation tools like Hazel require scripting expertise and AI organizers like Sparkle act autonomously, Forma occupies the middle ground. Users create declarative rules through a visual interface—"Move screenshots older than 7 days to Archive"—and Forma proposes destinations for matching files. Nothing moves until the user approves.
 
-"People treat their file system like a bank vault," says the Forma team. "They need an organizer they can trust. Forma earns that trust by showing exactly what it plans to do, waiting for approval, and making every action reversible."
+"People treat their file system like a bank vault," says the Forma team. "They need an organizer they can trust. Forma earns that trust by showing exactly what it plans to do, waiting for approval, and keeping recent batch undo close at hand when something was wrong."
 
 **Key Features:**
 - **Preview Queue**: See every proposed change before execution
-- **Full Undo History**: Complete action log with one-click rollback
+- **Undo Recent Batches**: Recent move history when something was wrong
 - **Rules That Read Like Sentences**: Readable condition-based rules without scripting
 - **100% Local**: On-device processing; files never leave your Mac
 - **Native macOS**: Fast and lightweight — built natively for macOS
@@ -56,7 +56,7 @@ Forma is available with a one-time $29 purchase. For current download options an
 > Your files. Your rules. Your approval. Forma proposes changes and waits for you to decide.
 
 ### Trust
-> Nothing moves without preview. Everything can be undone. Your files never leave your Mac.
+> Nothing moves without preview. The recent batch can be undone if something was wrong. Your files never leave your Mac.
 
 ### Positioning
 > More approachable than Hazel. More transparent than AI organizers. Built for people who take their work seriously.

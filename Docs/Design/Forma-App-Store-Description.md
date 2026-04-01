@@ -12,10 +12,10 @@
 
 **Your files. Your rules. Your approval.**
 
-Forma is a beautifully designed file organizer that brings order to your digital workspace — without acting on its own. Nothing moves until you approve it. Everything can be undone.
+Forma is a beautifully designed file organizer that brings order to your digital workspace — without acting on its own. Nothing moves until you approve it. The recent batch can be undone if something was wrong.
 
 **DESIGNED FOR CONTROL**
-Your desktop deserves better than chaos. Forma sits as a layer on top of Finder, proposing changes and waiting for your approval. Preview every move before it happens. Undo any action with one click.
+Your desktop deserves better than chaos. Forma sits as a layer on top of Finder, proposing changes and waiting for your approval. Preview every move before it happens. Undo the recent batch if something was wrong.
 
 **PRECISE ORGANIZATION**
 *   **Declarative Rules**: Create powerful organization logic with a few clicks. "Move all screenshots to a monthly folder," or "Archive old projects after 6 months."

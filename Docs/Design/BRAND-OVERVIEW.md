@@ -84,7 +84,7 @@ Lead with control. Follow with capability.
 
 | Avoid | Use Instead |
 |-------|-------------|
-| "Never lose anything again" | "Full action history with one-click rollback" |
+| "Never lose anything again" | "Recent move history for the batch that was wrong" |
 | "Zero files lost. Ever." | "Preview every change before it happens" |
 | "Always organizes perfectly" | "Suggests destinations based on your rules" |
 
@@ -177,7 +177,7 @@ Forma uses a **layered material design** approach:
 | **Mac-native** | Fast and lightweight — built natively for macOS. |
 | **Private** | On-device processing. Files never leave your Mac. |
 | **Fast** | Launches and previews in milliseconds on Apple Silicon. |
-| **Reversible** | Full action history with one-click rollback. |
+| **Reversible** | Recent move history for undoing the batch that was wrong. |
 | **Transparent** | Preview every change before it happens. |
 
 > **Note (Feb 2026):** "No Electron" was replaced with user-facing benefit language on the website. The technical distinction still matters for developer audiences (HN, technical press) but isn't meaningful to most users. Use "Fast and lightweight — built natively for macOS" for general audiences; reserve "No Electron" for technical contexts only.

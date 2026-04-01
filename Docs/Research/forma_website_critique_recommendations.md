@@ -156,7 +156,7 @@ Add a short, neutral comparison:
 | **Folders** | Manual, brittle, require constant maintenance |
 | **Tags** | Powerful, but depend on perfect human discipline |
 | **Automation tools** | Flexible, but fragile and intimidating |
-| **Forma** | Declarative rules, preview-first execution, full reversibility |
+| **Forma** | Declarative rules, preview-first execution, recent batch undo when something was wrong |
 
 No snark. Just clarity.
 
@@ -167,7 +167,7 @@ Remove unverifiable absolutes like "Zero files lost. Ever."
 Replace with:
 - Works with Desktop, Downloads, and Documents (you choose)
 - Preview every change before it happens
-- Full action history with one-click rollback
+- Recent move history for undoing the batch that was wrong
 
 ### E. Value Pillars With Specifics
 
@@ -220,7 +220,7 @@ Forma is a system layer for macOS files.
 
 It builds a private, on-device index and lets you issue declarative commands.
 Nothing moves without preview.
-Everything can be undone.
+The recent batch can be undone if something was wrong.
 
 Forma does not organize your life.
 **It executes your intent — safely.**

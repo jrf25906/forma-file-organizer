@@ -74,7 +74,7 @@ Never imply opaque AI autonomy.
 
 | Avoid | Use Instead |
 |-------|-------------|
-| "Never lose anything again" | "Full action history with one-click rollback" |
+| "Never lose anything again" | "Recent move history for the batch that was wrong" |
 | "Zero files lost. Ever." | "Preview every change before it happens" |
 | "Always organizes perfectly" | "Suggests destinations based on your rules" |
 
@@ -159,7 +159,7 @@ Position Forma in the "Goldilocks zone" without snark:
 | **Tags** | Powerful, but depend on perfect human discipline |
 | **Hazel / Scripts** | Flexible, but fragile and intimidating |
 | **Raycast** | Powerful launcher, but not persistent organization |
-| **Forma** | Declarative rules, preview-first execution, full reversibility |
+| **Forma** | Declarative rules, preview-first execution, recent batch undo when something was wrong |
 
 No dunking. Just clarity.
 
@@ -174,7 +174,7 @@ Be concrete, not sloganeering:
 | **Mac-native** | Fast and lightweight — built natively for macOS. *(Use "No Electron" only for technical audiences.)* |
 | **Private** | On-device processing. Files never leave your Mac. |
 | **Fast** | Launches and previews in milliseconds on Apple Silicon. |
-| **Reversible** | Full action history with one-click rollback. |
+| **Reversible** | Recent move history for undoing the batch that was wrong. |
 | **Transparent** | Preview every change before it happens. |
 
 ---
@@ -265,7 +265,7 @@ Use this as the foundation for all messaging:
 >
 > It builds a private, on-device index and lets you issue declarative commands.
 > Nothing moves without preview.
-> Everything can be undone.
+> The recent batch can be undone if something was wrong.
 >
 > Forma does not organize your life.
 > **It executes your intent — safely.**

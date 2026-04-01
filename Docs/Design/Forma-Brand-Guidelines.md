@@ -31,7 +31,7 @@
 
 > See [BRAND-POSITIONING.md](BRAND-POSITIONING.md#website-messaging-decisions-february-2026) for the rationale behind the tagline split.
 
-Forma isn't just another file organizer. It's a system layer for macOS files — beautifully designed, but fundamentally structural. Nothing moves without your approval. Everything can be undone.
+Forma isn't just another file organizer. It's a system layer for macOS files — beautifully designed, but fundamentally structural. Nothing moves without your approval. The recent batch can be undone if something was wrong.
 
 Forma is built for people whose files outgrow folders — where screenshots, documents, assets, and ideas pile up faster than folders can handle. It brings order to chaos through declarative rules and preview-first execution.
 
