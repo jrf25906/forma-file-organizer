@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/sheet";
 import { FormaShellCard } from "@/components/ui/forma-shell-card";
 import { formaShellCtaVariants } from "@/components/ui/forma-shell-cta";
+import { useHeaderShellMode } from "@/hooks/use-header-shell-mode";
 import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
 import { cn } from "@/lib/utils";
 
@@ -28,18 +29,28 @@ const NAV_LINKS = [
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const shellMode = useHeaderShellMode(HEADER_SHELL_LAYOUT.scrollThreshold);
+  const desktopNavVisible = shellMode === HEADER_SHELL_LAYOUT.scrolledMode;
 
   return (
     <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
       <header
         role="banner"
         data-header-shell="floating"
+        data-header-shell-mode={shellMode}
         className="fixed inset-x-0 top-0 z-50 pointer-events-none"
       >
         <div className={`site-container pointer-events-auto ${HEADER_SHELL_LAYOUT.topInsetClassName}`}>
           <FormaShellCard
             variant="floating"
-            className={`flex items-center justify-between gap-2.5 px-3.5 md:gap-3 md:px-4 ${HEADER_SHELL_LAYOUT.cardHeightClassName}`}
+            data-shell-mode={shellMode}
+            className={cn(
+              HEADER_SHELL_LAYOUT.baseShellClassName,
+              HEADER_SHELL_LAYOUT.cardHeightClassName,
+              shellMode === HEADER_SHELL_LAYOUT.topMode
+                ? HEADER_SHELL_LAYOUT.topStateShellClassName
+                : HEADER_SHELL_LAYOUT.scrolledStateShellClassName
+            )}
           >
             <Link
               href="/#top"
@@ -52,22 +63,29 @@ export function Header() {
               </span>
             </Link>
 
-            <div className="flex items-center gap-2 sm:gap-3">
-              <nav
-                className="hidden items-center gap-1 rounded-full border border-[var(--header-shell-border)] bg-[var(--header-shell-surface-muted)] p-1 md:flex"
-                aria-label="Main navigation"
-              >
-                {NAV_LINKS.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="rounded-full px-3 py-2 text-[13px] font-medium leading-4 text-[var(--text-secondary)] transition-colors hover:bg-[var(--header-shell-surface-strong)] hover:text-[var(--text-primary)]"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </nav>
+            <nav
+              aria-label="Main navigation"
+              aria-hidden={!desktopNavVisible}
+              className={cn(
+                HEADER_SHELL_LAYOUT.desktopNavClassName,
+                desktopNavVisible
+                  ? HEADER_SHELL_LAYOUT.desktopNavVisibleClassName
+                  : HEADER_SHELL_LAYOUT.desktopNavHiddenClassName
+              )}
+            >
+              {NAV_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  tabIndex={desktopNavVisible ? 0 : -1}
+                  className="rounded-full px-3 py-2 text-[13px] font-medium leading-4 text-[var(--text-secondary)] transition-colors hover:bg-[var(--header-shell-surface-strong)] hover:text-[var(--text-primary)]"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
 
+            <div className="flex items-center justify-end gap-2 sm:gap-3">
               <TrackedAppStoreLink
                 location="header_desktop"
                 className={cn(
