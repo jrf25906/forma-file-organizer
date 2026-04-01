@@ -64,6 +64,18 @@ function firstDesktopNav(html: string) {
   return match[0]
 }
 
+function firstDesktopNavLink(html: string) {
+  const match = html.match(
+    /<nav\b[^>]*aria-label="Main navigation"[^>]*>\s*<a\b[^>]*href="\/#how-it-works"[^>]*>/
+  )
+
+  if (!match) {
+    throw new Error("Missing first desktop navigation link")
+  }
+
+  return match[0]
+}
+
 describe("Header", () => {
   it("uses the floating shell contract for the header surface", () => {
     const html = renderToStaticMarkup(<Header />)
@@ -79,6 +91,8 @@ describe("Header", () => {
     expect(headerClasses).toContain("pointer-events-none")
     expect(shellHostClasses).toContain("pointer-events-auto")
     expect(desktopNavClasses).toContain("hidden")
+    expect(firstDesktopNav(header)).not.toContain('aria-hidden="true"')
+    expect(firstDesktopNavLink(header)).not.toContain("tabindex=")
     expect(firstFloatingShell(header)).toContain('data-shell-mode="top"')
     expect(floatingShellClasses).toContain("data-[shell-mode=top]:bg-[var(--header-shell-surface-top)]")
     expect(floatingShellClasses).toContain(

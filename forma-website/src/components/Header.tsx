@@ -65,7 +65,6 @@ export function Header() {
 
             <nav
               aria-label="Main navigation"
-              aria-hidden={!desktopNavVisible}
               className={cn(
                 HEADER_SHELL_LAYOUT.desktopNavClassName,
                 desktopNavVisible
@@ -77,7 +76,6 @@ export function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  tabIndex={desktopNavVisible ? 0 : -1}
                   className="rounded-full px-3 py-2 text-[13px] font-medium leading-4 text-[var(--text-secondary)] transition-colors hover:bg-[var(--header-shell-surface-strong)] hover:text-[var(--text-primary)]"
                 >
                   {link.label}
