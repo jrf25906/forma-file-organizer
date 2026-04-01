@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { HEADER_SHELL_LAYOUT } from "../src/lib/header-shell-layout"
 
+const HEADER_SCROLL_THRESHOLD = 24
+
 describe("Header DOM behavior", () => {
   let container: HTMLDivElement | null = null
   let root: ReturnType<typeof createRoot> | null = null
@@ -20,6 +22,10 @@ describe("Header DOM behavior", () => {
     container?.remove()
     root = null
     container = null
+  })
+
+  it("uses the shared scroll threshold contract", () => {
+    expect(HEADER_SHELL_LAYOUT.scrollThreshold).toBe(HEADER_SCROLL_THRESHOLD)
   })
 
   it("switches from top mode to scrolled mode after the shell threshold", async () => {
@@ -55,11 +61,12 @@ describe("Header DOM behavior", () => {
 
     const header = container.querySelector('[data-header-shell="floating"]')
     expect(header).not.toBeNull()
+    expect(header?.getAttribute("data-header-shell-mode")).toBe("top")
 
     await act(async () => {
       Object.defineProperty(window, "scrollY", {
         configurable: true,
-        value: HEADER_SHELL_LAYOUT.scrollThreshold + 1,
+        value: HEADER_SCROLL_THRESHOLD + 1,
         writable: true,
       })
       window.dispatchEvent(new Event("scroll"))
