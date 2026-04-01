@@ -60,9 +60,9 @@ const features: FeatureMeta[] = [
   {
     id: "full-undo",
     icon: Undo2,
-    title: "Undo everything. Always.",
+    title: "Undo recent batches when needed.",
     description:
-      "Reverse any move, any time. Every action is tracked in a timeline you can step through and roll back.",
+      "Reverse the recent batch when something was wrong. Recent move history keeps the rollback close at hand.",
     accentText: "text-forma-warm-orange",
     accentBg: "bg-forma-warm-orange/12",
     accentBorder: "bg-forma-warm-orange/50",

@@ -13,13 +13,13 @@
 > *Previous tagline "Give your files form" remains suitable for in-app, packaging, and existing-user contexts. See [BRAND-POSITIONING.md](../Design/BRAND-POSITIONING.md#website-messaging-decisions-february-2026) for the rationale behind the website tagline split.*
 
 ### Positioning Statement
-Forma is the file organizer that proposes changes, waits for your approval, and lets you undo everything.
+Forma is the file organizer that proposes changes, waits for your approval, and lets you undo the recent batch if something was wrong.
 
 ### Trust Line
 Your files. Your rules. Your approval.
 
 ### Value Proposition (One Sentence)
-See every file move before it happens, undo anything, and keep complete control.
+See every file move before it happens, undo the recent batch if something was wrong, and keep complete control.
 
 ---
 
@@ -168,16 +168,16 @@ Download: https://formafiles.com/get-forma
 **Tagline**: The file organizer that asks before it acts
 
 **Description**:
-Forma organizes your files without acting on its own. Create rules in plain language, preview every proposed move, then approve or reject. Every action is reversible.
+Forma organizes your files without acting on its own. Create rules in plain language, preview every proposed move, then approve or reject. If something was wrong, undo the recent batch in Forma.
 
 Unlike AI organizers that decide for you, Forma shows the plan and waits. Unlike traditional automation, Forma doesn't require scripting.
 
-Preview first. Undo always. Stay in control.
+Preview first. Undo recent batches when something was wrong. Stay in control.
 
 **Maker Comment**:
 I built Forma because I was frustrated with the extremes: Hazel requires me to think like a programmer, and AI tools move files without asking.
 
-Forma is the middle path. Visual rules. Transparent suggestions. Full reversibility.
+Forma is the middle path. Visual rules. Transparent suggestions. Recent batch undo when something was wrong.
 
 Would love your feedback on the preview workflow—is it the right balance of control and convenience?
 

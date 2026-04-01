@@ -91,7 +91,7 @@ const scatteredFiles = [
     content: (
       <>
         <rect x="10" y="22" width="28" height="16" rx="3" fill="#E8F5E9" opacity="0.6" />
-        <path d="M14 34L20 27L25 31L31 25L38 34Z" fill="#6B8F71" opacity="0.35" />
+        <path d="M14 34L20 27L25 31L31 25L38 34Z" fill="#7A9D7E" opacity="0.35" />
       </>
     ),
   },
@@ -111,7 +111,7 @@ const scatteredFiles = [
     content: (
       <>
         <rect x="10" y="22" width="28" height="16" rx="3" fill="#E8F5E9" opacity="0.6" />
-        <path d="M15 34L22 26L28 30L36 24" stroke="#6B8F71" strokeWidth="1.5" fill="none" opacity="0.4" strokeLinecap="round" />
+        <path d="M15 34L22 26L28 30L36 24" stroke="#7A9D7E" strokeWidth="1.5" fill="none" opacity="0.4" strokeLinecap="round" />
       </>
     ),
   },
@@ -153,7 +153,7 @@ const scatteredFiles = [
     content: (
       <>
         <rect x="10" y="22" width="28" height="16" rx="3" fill="#E8F5E9" opacity="0.6" />
-        <path d="M14 34L20 27L25 31L31 25L38 34Z" fill="#4A6B88" opacity="0.25" />
+        <path d="M14 34L20 27L25 31L31 25L38 34Z" fill="#5B7C99" opacity="0.25" />
       </>
     ),
   },
@@ -280,12 +280,12 @@ function ScreenshotsScene({ isHovered }: { isHovered: boolean }) {
         >
           <path
             d="M4 8C4 4.686 6.686 2 10 2H28L34 10H70C73.314 10 76 12.686 76 16V58C76 61.314 73.314 64 70 64H10C6.686 64 4 61.314 4 58V8Z"
-            fill="#4A6B88"
+            fill="#5B7C99"
             opacity="0.18"
           />
           <path
             d="M2 16C2 12.686 4.686 10 8 10H26C27.3 10 28.5 10.6 29.3 11.6L33.7 17.4C34.5 18.4 35.7 19 37 19H72C75.314 19 78 21.686 78 25V60C78 63.314 75.314 66 72 66H8C4.686 66 2 63.314 2 60V16Z"
-            fill="#4A6B88"
+            fill="#5B7C99"
             opacity="0.3"
           />
         </svg>
@@ -298,14 +298,14 @@ function ScreenshotsScene({ isHovered }: { isHovered: boolean }) {
         fill="none"
         aria-hidden="true"
       >
-        <path data-sparkle d="M85 4L87 10L93 12L87 14L85 20L83 14L77 12L83 10Z" fill="#4A6B88" opacity="0.45" />
-        <path data-sparkle d="M8 0L9.5 4L13.5 5.5L9.5 7L8 11L6.5 7L2.5 5.5L6.5 4Z" fill="#4A6B88" opacity="0.25" />
-        <path data-sparkle d="M95 40L97 46L103 48L97 50L95 56L93 50L87 48L93 46Z" fill="#6B8F71" opacity="0.35" />
-        <path data-sparkle d="M-5 65L-3 69L1 71L-3 73L-5 77L-7 73L-11 71L-7 69Z" fill="#4A6B88" opacity="0.2" />
-        <circle data-sparkle cx="72" cy="-2" r="2" fill="#4A6B88" opacity="0.3" />
-        <circle data-sparkle cx="100" cy="28" r="1.5" fill="#6B8F71" opacity="0.3" />
-        <circle data-sparkle cx="-8" cy="20" r="1.5" fill="#4A6B88" opacity="0.2" />
-        <circle data-sparkle cx="90" cy="62" r="1.5" fill="#B86B52" opacity="0.2" />
+        <path data-sparkle d="M85 4L87 10L93 12L87 14L85 20L83 14L77 12L83 10Z" fill="#5B7C99" opacity="0.45" />
+        <path data-sparkle d="M8 0L9.5 4L13.5 5.5L9.5 7L8 11L6.5 7L2.5 5.5L6.5 4Z" fill="#5B7C99" opacity="0.25" />
+        <path data-sparkle d="M95 40L97 46L103 48L97 50L95 56L93 50L87 48L93 46Z" fill="#7A9D7E" opacity="0.35" />
+        <path data-sparkle d="M-5 65L-3 69L1 71L-3 73L-5 77L-7 73L-11 71L-7 69Z" fill="#5B7C99" opacity="0.2" />
+        <circle data-sparkle cx="72" cy="-2" r="2" fill="#5B7C99" opacity="0.3" />
+        <circle data-sparkle cx="100" cy="28" r="1.5" fill="#7A9D7E" opacity="0.3" />
+        <circle data-sparkle cx="-8" cy="20" r="1.5" fill="#5B7C99" opacity="0.2" />
+        <circle data-sparkle cx="90" cy="62" r="1.5" fill="#C97E66" opacity="0.2" />
       </svg>
     </div>
   );
@@ -442,7 +442,7 @@ const projectFiles = [
     content: (
       <>
         <rect x="8" y="20" width="32" height="18" rx="2" fill="#E8F5E9" opacity="0.6" />
-        <path d="M12 34L18 27L23 31L29 25L36 34Z" fill="#6B8F71" opacity="0.4" />
+        <path d="M12 34L18 27L23 31L29 25L36 34Z" fill="#7A9D7E" opacity="0.4" />
       </>
     ),
   },
@@ -648,8 +648,8 @@ const trustSignals = [
     title: "Local-only privacy",
     body: "Your files never leave your Mac. No account, no uploads, no \u2018we take privacy seriously\u2019 blog post.",
     color: "text-forma-sage",
-    bgTint: "bg-[rgba(107,143,113,0.14)]",
-    borderTint: "border-[rgba(107,143,113,0.22)]",
+    bgTint: "bg-[rgba(122,157,126,0.14)]",
+    borderTint: "border-[rgba(122,157,126,0.22)]",
     animationClass: "",
   },
   {
@@ -657,8 +657,8 @@ const trustSignals = [
     title: "No background agent",
     body: "Forma runs when you ask, not behind your back. No daemon, no menu bar icon, no silent surprises.",
     color: "text-forma-steel-blue",
-    bgTint: "bg-[rgba(74,107,136,0.14)]",
-    borderTint: "border-[rgba(74,107,136,0.22)]",
+    bgTint: "bg-[rgba(91,124,153,0.14)]",
+    borderTint: "border-[rgba(91,124,153,0.22)]",
     animationClass: "",
   },
   {
@@ -666,8 +666,8 @@ const trustSignals = [
     title: "Sandboxed",
     body: "App Store approved, no full-disk access. Forma only touches the folders you explicitly grant.",
     color: "text-forma-warm-orange",
-    bgTint: "bg-[rgba(184,107,82,0.14)]",
-    borderTint: "border-[rgba(184,107,82,0.22)]",
+    bgTint: "bg-[rgba(201,126,102,0.14)]",
+    borderTint: "border-[rgba(201,126,102,0.22)]",
     animationClass: "",
   },
 ];

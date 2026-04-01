@@ -48,7 +48,7 @@ These are punchy, benefit-first alternatives for feature sections:
 |---|---|---|
 | Rules | If you can say it, you can automate it. | Rules that read like sentences. No regex. No scripts. |
 | Preview | Nothing moves until you say so. | See exactly what will happen before it happens. |
-| Undo | Undo everything. Always. | Reverse any move, any time. Every action is tracked. |
+| Undo | Undo recent batches when needed. | Reverse the recent batch when something was wrong. |
 | Auto-grouping | 200 screenshots. One rule. | Forma groups similar files so one rule handles all of them. |
 
 ---
@@ -59,7 +59,7 @@ Short-form trust copy for badges, footers, or feature strips:
 
 - One-time purchase. No subscription.
 - Files never leave your Mac.
-- Undo everything. Always.
+- Undo recent batches when needed.
 - Built natively for macOS.
 - No account required. Works offline.
 
@@ -108,6 +108,6 @@ Copy that leads with the pain point:
 
 1. **Human-readable rules** — No regex, no scripts, no config files. Conditions and destinations in plain language.
 2. **Preview-first workflow** — See every file move before it happens. Toggle individual files on or off.
-3. **Full undo history** — Every action tracked in a timeline. Step through and roll back anything.
+3. **Undo recent batches** — Recent move history lets you reverse a batch when something was wrong.
 4. **One-time purchase** — $29, no subscription, no account, works offline.
 5. **Local-only privacy** — Files never leave your Mac. No cloud sync, no telemetry.

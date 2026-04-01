@@ -40,7 +40,7 @@ Users treat their file system like a bank vault. Trust is the foundation.
 ### Trust Hierarchy (in messaging order)
 
 1. **You approve. It executes.** — Nothing moves without your explicit approval
-2. **Undo everything. Always.** — Full reversibility, complete action history
+2. **Undo the recent batch when needed.** — Recent move history for when something was wrong
 3. **Declarative rules.** — You define the logic in plain language
 4. **Context awareness.** — Forma infers structure but never assumes
 

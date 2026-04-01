@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    "A file organizer for people who gave up on file organizers. Write rules in plain English, preview every move, undo anytime. $29 once for Mac.",
+    "A file organizer for people who gave up on file organizers. Write rules in plain English, preview every move, and undo recent batches when something was wrong. $29 once for Mac.",
   keywords: [
     "organize mac files",
     "organize downloads folder mac",
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: `${SITE_NAME} — A file organizer for people who gave up on file organizers`,
     description:
-      "Write rules in plain English, preview every move, undo anytime. $29 once for Mac.",
+      "Write rules in plain English, preview every move, and undo recent batches when something was wrong. $29 once for Mac.",
     url: SITE_URL,
     siteName: SITE_NAME,
     locale: "en_US",
@@ -77,7 +77,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: SITE_NAME,
     description:
-      "Write rules in plain English, preview every move, undo anytime.",
+      "Write rules in plain English, preview every move, and undo recent batches when something was wrong.",
   },
   robots: {
     index: true,

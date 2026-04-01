@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - How It Works Step View
 
-/// Three-step timeline teaching the Watch -> Match -> Organize flow.
+/// Three-step timeline teaching the Write rule -> Preview -> Undo flow.
 struct HowItWorksStepView: View {
     let onContinue: () -> Void
     let onBack: () -> Void
@@ -22,22 +22,22 @@ struct HowItWorksStepView: View {
 
     private let items: [TimelineItem] = [
         TimelineItem(
-            icon: "eye.fill",
+            icon: "text.cursor",
             color: .formaSteelBlue,
-            title: "Watch",
-            description: "Point Forma at your Downloads, Desktop, or any folder."
+            title: "Write a rule",
+            description: "'PDFs with invoice in the name go to Finances.' That's a real rule. No twelve-tab settings panel."
         ),
         TimelineItem(
-            icon: "text.badge.checkmark",
+            icon: "eye.fill",
             color: .formaSage,
-            title: "Match",
-            description: "Create rules by file type, name, or date. Forma finds matches."
+            title: "Preview the batch",
+            description: "See every file that matched, where it's going, and why. Uncheck anything that shouldn't move."
         ),
         TimelineItem(
-            icon: "arrow.right.doc.on.clipboard",
+            icon: "arrow.uturn.backward",
             color: .formaWarmOrange,
-            title: "Organize",
-            description: "Move matched files to the right place with one click."
+            title: "Undo the batch",
+            description: "If something was wrong, reverse the recent batch in Forma without moving everything back by hand."
         ),
     ]
 
@@ -49,13 +49,13 @@ struct HowItWorksStepView: View {
 
             // Header
             VStack(spacing: FormaSpacing.tight) {
-                Text("Three steps to tidy")
+                Text("Three steps. No manual.")
                     .font(.formaDisplayHeading)
                     .foregroundColor(.formaLabel)
                     .multilineTextAlignment(.center)
                     .progressiveReveal(isVisible: appeared, index: 0)
 
-                Text("Forma watches your folders, matches files to rules,\nand organizes them for you.")
+                Text("Most file organizers run in the background and hope for the best.\nForma shows you what it's about to do.")
                     .font(.formaBodyLarge)
                     .foregroundColor(.formaSecondaryLabel)
                     .multilineTextAlignment(.center)

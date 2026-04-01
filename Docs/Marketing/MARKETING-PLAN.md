@@ -31,12 +31,12 @@
 
 Forma is a premium macOS application for intelligent file organization. It helps users organize files from Desktop, Downloads, and other folders using rule-based automation combined with AI/ML learning capabilities.
 
-**Core value proposition:** "You make rules. Forma follows them. Preview what happens, approve it, undo anything."
+**Core value proposition:** "You make rules. Forma follows them. Preview what happens, approve it, undo the recent batch if something was wrong."
 
 ### Key Differentiators
 
 1. **Preview-first workflow** — nothing moves without explicit approval
-2. **Full undo history** — every action is reversible
+2. **Recent batch undo** — reverse the recent batch when something was wrong
 3. **Rules that read like sentences** — describe rules as readable conditions, no scripting
 4. **AI pattern learning** — learns from user behavior, suggests destinations
 5. **Personality-based onboarding** — adapts to how users naturally think about organization

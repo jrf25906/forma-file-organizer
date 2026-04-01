@@ -13,7 +13,7 @@ export const faqs: FaqEntry[] = [
     id: "file-safety",
     question: "Will it delete my files?",
     answer:
-      "No. Forma only moves files \u2014 never deletes. You review every move before it happens, and you can undo from history if you change your mind.",
+      "No. Forma only moves files \u2014 never deletes. You review every move before it happens, and you can undo the recent batch if something was wrong.",
     category: "safety",
     lastUpdated: WEBSITE_LAST_UPDATED_ISO,
   },
@@ -37,7 +37,7 @@ export const faqs: FaqEntry[] = [
     id: "undo-history",
     question: "Can I undo moves?",
     answer:
-      "Yes. Every move is tracked. Undo a single file or an entire batch, even weeks later.",
+      "Yes. Forma keeps recent move history available so you can undo a single file or the recent batch when something was wrong.",
     category: "undo",
     lastUpdated: WEBSITE_LAST_UPDATED_ISO,
   },

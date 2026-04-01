@@ -12,11 +12,11 @@
   /* Forma Brand Colors (light-mode-first values) */
   --color-forma-obsidian: #1A1A1A;
   --color-forma-bone: #FAFAF8;
-  --color-forma-steel-blue: #4A6B88;
-  --color-forma-sage: #6B8F71;
-  --color-forma-muted-blue: #6B7FA8;
-  --color-forma-warm-orange: #B86B52;
-  --color-forma-soft-green: #7A9670;
+  --color-forma-steel-blue: #5B7C99;
+  --color-forma-sage: #7A9D7E;
+  --color-forma-muted-blue: #6B8CA8;
+  --color-forma-warm-orange: #C97E66;
+  --color-forma-soft-green: #8BA688;
 
   /* Fonts */
   --font-display: var(--font-inter), system-ui, sans-serif;
@@ -192,11 +192,11 @@
   /* Brand colors (CSS custom properties for non-Tailwind usage) */
   --forma-obsidian: #1A1A1A;
   --forma-bone: #FAFAF8;
-  --forma-steel-blue: #4A6B88;
-  --forma-sage: #6B8F71;
-  --forma-muted-blue: #6B7FA8;
-  --forma-warm-orange: #B86B52;
-  --forma-soft-green: #7A9670;
+  --forma-steel-blue: #5B7C99;
+  --forma-sage: #7A9D7E;
+  --forma-muted-blue: #6B8CA8;
+  --forma-warm-orange: #C97E66;
+  --forma-soft-green: #8BA688;
 
   /* Dark-mode-first semantic tokens */
   --bg-primary: #0A0A0B;
@@ -283,8 +283,8 @@
   --feature-demo-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   /* Gradient background accents */
-  --gradient-accent-blue: rgba(74, 107, 136, 0.15);
-  --gradient-accent-green: rgba(107, 143, 113, 0.12);
+  --gradient-accent-blue: rgba(91, 124, 153, 0.15);
+  --gradient-accent-green: rgba(122, 157, 126, 0.12);
 
   /* Feature demo row tokens */
   --demo-row-bg: rgba(255, 255, 255, 0.04);
@@ -343,13 +343,13 @@
   --hero-window-status-ready: #79A47D;
   --hero-window-status-pending: #E59A62;
   --hero-window-accent: #88A8C2;
-  --hero-window-pending-pill-bg: #B86B52;
+  --hero-window-pending-pill-bg: #C97E66;
   --hero-window-pending-pill-text: #FFFFFF;
-  --hero-window-organize-bg: #B86B52;
+  --hero-window-organize-bg: #C97E66;
   --hero-window-organize-text: #FFFFFF;
   --hero-window-category-documents: #7E9BB5;
   --hero-window-category-images: #D18C73;
-  --hero-window-category-videos: #7B8FB8;
+  --hero-window-category-videos: #88A8C2;
   --hero-window-category-archives: #8EA58B;
   --hero-window-content-gradient: linear-gradient(170deg, #1C1F25 0%, #1A1D23 32%, #171A20 58%, #15181D 80%, #13161B 100%);
   --hero-window-search-bg: rgba(255, 255, 255, 0.05);
@@ -436,7 +436,7 @@
   --text-primary: #1A1A1A;
   --text-secondary: rgba(26, 26, 26, 0.74);
   --text-muted: rgba(26, 26, 26, 0.68);
-  --focus-ring: 0 0 0 2px #FAFAF8, 0 0 0 4px #4A6B88;
+  --focus-ring: 0 0 0 2px #FAFAF8, 0 0 0 4px #5B7C99;
 
   --surface-glass: rgba(0, 0, 0, 0.03);
   --surface-glass-hover: rgba(0, 0, 0, 0.06);
@@ -491,7 +491,7 @@
   --divider-color: rgba(0, 0, 0, 0.15);
 
   --logo-dot: #1A1A1A;
-  --accent-steel-blue: #4A6B88;
+  --accent-steel-blue: #5B7C99;
 
   --input-bg: rgba(0, 0, 0, 0.04);
   --input-border: rgba(0, 0, 0, 0.12);
@@ -504,8 +504,8 @@
   --feature-demo-bg-to: rgba(0, 0, 0, 0.01);
   --feature-demo-inset: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 
-  --gradient-accent-blue: rgba(74, 107, 136, 0.12);
-  --gradient-accent-green: rgba(107, 143, 113, 0.09);
+  --gradient-accent-blue: rgba(91, 124, 153, 0.12);
+  --gradient-accent-green: rgba(122, 157, 126, 0.09);
 
   --demo-row-bg: rgba(0, 0, 0, 0.03);
   --demo-row-bg-strong: rgba(0, 0, 0, 0.05);
@@ -528,11 +528,11 @@
   --file-card-label-primary: rgba(26, 26, 26, 0.88);
   --file-card-label-secondary: rgba(26, 26, 26, 0.60);
   --file-card-label-tertiary: rgba(26, 26, 26, 0.66);
-  --file-card-pill-bg: rgba(74, 107, 136, 0.12);
-  --file-card-pill-border: rgba(74, 107, 136, 0.20);
-  --file-card-pill-text: #4A6B88;
-  --file-card-status-ready: #6B8F71;
-  --file-card-status-pending: #B86B52;
+  --file-card-pill-bg: rgba(91, 124, 153, 0.12);
+  --file-card-pill-border: rgba(91, 124, 153, 0.20);
+  --file-card-pill-text: #5B7C99;
+  --file-card-status-ready: #7A9D7E;
+  --file-card-status-pending: #C97E66;
 
   --hero-window-bg: #FAFAF7;
   --hero-window-titlebar-bg: #F6F5F2;
@@ -545,9 +545,9 @@
   --hero-window-sidebar-border: rgba(0, 0, 0, 0.06);
   --hero-window-sidebar-header: #8E8E93;
   --hero-window-sidebar-item: #3C3C43;
-  --hero-window-sidebar-selected-bg: rgba(74, 107, 136, 0.14);
-  --hero-window-sidebar-selected-text: #4A6B88;
-  --hero-window-sidebar-badge-bg: rgba(74, 107, 136, 0.1);
+  --hero-window-sidebar-selected-bg: rgba(91, 124, 153, 0.14);
+  --hero-window-sidebar-selected-text: #5B7C99;
+  --hero-window-sidebar-badge-bg: rgba(91, 124, 153, 0.1);
   --hero-window-sidebar-badge-text: rgba(60, 60, 67, 0.36);
   --hero-window-inspector-bg: #F4F3F0;
   --hero-window-inspector-border: rgba(0, 0, 0, 0.05);
@@ -559,14 +559,14 @@
   --hero-window-label-tertiary: rgba(60, 60, 67, 0.36);
   --hero-window-status-ready: #5AC466;
   --hero-window-status-pending: #E8744F;
-  --hero-window-accent: #4A6B88;
+  --hero-window-accent: #5B7C99;
   --hero-window-pending-pill-bg: #E8744F;
   --hero-window-pending-pill-text: #FFFFFF;
   --hero-window-organize-bg: #E8744F;
   --hero-window-organize-text: #FFFFFF;
   --hero-window-category-documents: #6B8CA8;
   --hero-window-category-images: #C97E66;
-  --hero-window-category-videos: #6B7FA8;
+  --hero-window-category-videos: #5B7C99;
   --hero-window-category-archives: #8BA688;
   --hero-window-content-gradient: linear-gradient(170deg, #FAFAF7 0%, #F7F5F1 30%, #F4F1EC 55%, #F2EFEA 80%, #EFECEA 100%);
   --hero-window-search-bg: rgba(0, 0, 0, 0.04);
@@ -595,8 +595,8 @@
 
   --workflow-section-bg: rgba(253, 252, 251, 0.5);
   --workflow-step-divider: rgba(0, 0, 0, 0.08);
-  --workflow-step-number: rgba(74, 107, 136, 0.6);
-  --workflow-step-label: #4A6B88;
+  --workflow-step-number: rgba(91, 124, 153, 0.6);
+  --workflow-step-label: #5B7C99;
 }
 
 /* Font loading CLS prevention */
@@ -679,12 +679,12 @@ input, textarea { background-color: var(--input-bg); border-color: var(--input-b
   .btn-primary {
     @apply px-6 py-3 rounded-xl font-medium;
     font-family: var(--font-display);
-    background: linear-gradient(135deg, var(--forma-steel-blue) 0%, #4a6b88 100%);
-    box-shadow: 0 4px 16px rgba(74, 107, 136, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    background: linear-gradient(135deg, var(--forma-steel-blue) 0%, #5B7C99 100%);
+    box-shadow: 0 4px 16px rgba(91, 124, 153, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
     transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, filter 0.2s ease-out;
     will-change: transform;
   }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(74, 107, 136, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(91, 124, 153, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
   .btn-secondary:active { transform: scale(0.97); }
 
   .btn-forma-primary {

@@ -55,7 +55,7 @@ struct AboutSection: View {
                 .font(.formaH1)
                 .foregroundColor(.formaLabel)
 
-            Text("Give your files form.")
+            Text("File organization you can actually trust.")
                 .font(.formaBody)
                 .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
 

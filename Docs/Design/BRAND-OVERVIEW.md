@@ -45,7 +45,7 @@ They ask: "Where does this sit in my system?"
 Lead with control. Follow with capability.
 
 1. **You approve. It executes.** — Nothing moves without explicit approval
-2. **Undo everything. Always.** — Full reversibility, complete action history
+2. **Undo the recent batch when needed.** — Recent move history for when something was wrong
 3. **Declarative rules.** — You define the logic in plain language
 4. **Context awareness.** — Forma infers structure but never assumes
 

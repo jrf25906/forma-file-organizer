@@ -17,15 +17,15 @@
 
 ## Description (Revised)
 
-**See before you move. Undo anything. Stay in control.**
+**See before you move. Undo recent batches when needed. Stay in control.**
 
-Forma organizes your files without acting on its own. It proposes. You approve. Every action is reversible.
+Forma organizes your files without acting on its own. It proposes. You approve. If something was wrong, you can undo the recent batch.
 
 **PREVIEW FIRST**
 Other tools move files immediately or let AI decide for you. Forma shows you every proposed change before it happens. Approve one file or a hundred—nothing moves until you say so.
 
-**UNDO EVERYTHING**
-Made a mistake? Changed your mind? Every action Forma takes is recorded. Roll back any change with one click. Experiment freely.
+**UNDO THE BATCH**
+Made a mistake? Forma keeps recent move history so you can reverse the batch that was wrong. Experiment without moving everything back by hand.
 
 **CREATE RULES, NOT SCRIPTS**
 Define organization logic in plain language:
@@ -75,7 +75,7 @@ file organizer,desktop cleaner,macos utility,productivity,automation,declutter,f
 ### Version 1.0
 Welcome to Forma! Organize your files with confidence.
 - Preview every move before it happens
-- Full undo history
+- Recent batch undo when something was wrong
 - 30+ ready-made templates
 - Human-readable rules
 
@@ -83,7 +83,7 @@ Welcome to Forma! Organize your files with confidence.
 
 ## Promotional Text (170 character limit)
 ```
-Organize your files without surprises. Forma shows every proposed change, waits for your approval, and lets you undo anything. Your files. Your rules. Your control.
+Organize your files without surprises. Forma shows every proposed change, waits for your approval, and lets you undo recent batches when something was wrong.
 ```
 *(166 characters)*
 

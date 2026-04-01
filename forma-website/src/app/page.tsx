@@ -35,8 +35,8 @@ const workflowSteps = [
   {
     number: "3",
     label: "UNDO\u00b7BUILT\u00b7IN",
-    title: "Undo any batch.",
-    body: "Every batch lives in your history. Reverse the whole thing weeks later when you realize past-you was wrong.",
+    title: "Undo the batch.",
+    body: "If something was wrong, reverse the recent batch in Forma without moving everything back by hand.",
   },
 ] as const;
 
@@ -73,11 +73,11 @@ export default function Home() {
         url: `${SITE_URL}/#pricing`,
       },
       description:
-        "A file organizer for people who gave up on file organizers. Write rules in plain English, preview every move, undo anytime. Built for ADHD brains and anyone overwhelmed by file clutter. $29 for Mac.",
+        "A file organizer for people who gave up on file organizers. Write rules in plain English, preview every move, and undo recent batches when something was wrong. Built for ADHD brains and anyone overwhelmed by file clutter. $29 for Mac.",
       featureList: [
         "Plain-language rules",
         "Preview every move before approval",
-        "Full undo history",
+        "Recent batch undo",
         "Local-only privacy",
       ],
       url: SITE_URL,
@@ -146,7 +146,7 @@ export default function Home() {
                 </h1>
                 <p data-hero="subtext" className="mt-6 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
                   Your files are already out of control. Tell Forma where they should go &mdash; in plain English, not regex.
-                  Preview the batch. Undo when you change your mind.
+                  Preview the batch. Undo the recent batch if something was wrong.
                 </p>
 
                 <div data-hero="cta" className="mt-8">

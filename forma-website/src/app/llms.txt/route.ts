@@ -5,7 +5,7 @@ export function GET() {
   const body = [
     "# Forma",
     "",
-    "> Forma is a macOS file organizer built for people who can\u2019t keep up \u2014 plain-English rules, preview before anything moves, full undo history. Especially useful for users with ADHD or executive function challenges who need file organization that works without constant maintenance.",
+    "> Forma is a macOS file organizer built for people who can\u2019t keep up \u2014 plain-English rules, preview before anything moves, and recent batch undo when something was wrong. Especially useful for users with ADHD or executive function challenges who need file organization that works without constant maintenance.",
     "",
     "## Canonical",
     `- ${SITE_URL}`,
@@ -43,4 +43,3 @@ export function GET() {
     },
   });
 }
-

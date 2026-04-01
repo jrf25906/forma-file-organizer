@@ -173,7 +173,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             Apply this workflow with Forma
           </h2>
           <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-            Set rules in plain language, preview every change, and undo anytime.
+            Set rules in plain language, preview every change, and undo the recent batch if something was wrong.
           </p>
           <div className="mt-5">
             <TrackedAppStoreLink

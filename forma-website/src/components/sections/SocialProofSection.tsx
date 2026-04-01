@@ -15,8 +15,8 @@ const principles = [
     body: "Every proposed move appears in a queue before anything happens. See source, destination, and the rule behind it.",
   },
   {
-    heading: "Undo always",
-    body: "Full action history with one-click rollback. Experiment freely — every change is reversible.",
+    heading: "Undo when needed",
+    body: "Recent action history with one-click rollback when a batch was wrong. Experiment without moving everything back by hand.",
   },
   {
     heading: "Private by design",

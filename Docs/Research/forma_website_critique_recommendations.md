@@ -133,7 +133,7 @@ This is proof of necessity.
 
 Reorder sections:
 1. You approve. It executes.
-2. Undo everything. Always.
+2. Undo recent batches when needed.
 3. Natural language rules
 4. Context awareness
 

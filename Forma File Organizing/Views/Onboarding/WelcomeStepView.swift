@@ -27,12 +27,12 @@ struct WelcomeStepView: View {
                     .font(.system(size: 56))
 
                 VStack(spacing: FormaSpacing.tight) {
-                    Text("Preview-first organization")
+                    Text("For the perpetually messy")
                         .font(.formaCaptionSemibold)
                         .tracking(0.6)
                         .foregroundColor(.formaSteelBlue)
 
-                    Text("Set up a cleanup system you can trust.")
+                    Text("A file organizer for people who gave up on file organizers.")
                         .font(.formaDisplayHero)
                         .foregroundColor(.formaLabel)
                         .multilineTextAlignment(.center)
@@ -58,7 +58,7 @@ struct WelcomeStepView: View {
                 )
                 trustSignalRow(
                     icon: "arrow.uturn.backward",
-                    text: "Review first, then undo any batch if it was wrong."
+                    text: "Review first, then undo the recent batch if it was wrong."
                 )
                 trustSignalRow(
                     icon: "eye.slash.fill",
@@ -128,9 +128,9 @@ struct WelcomeStepView: View {
 
     private var subtitleText: String {
         if let count = fileCount, count > 0 {
-            return "\(count) files on your Desktop and Downloads are ready for review. Forma will start with one concrete batch so you can see the payoff before configuring anything else."
+            return "You have \(count) files waiting to be sorted. Tell Forma where they should go — in plain English, not regex. Preview the batch. Undo the recent batch if something was wrong."
         }
-        return "Forma helps you review clutter, apply rules, and organize files without blind automation. The first thing you’ll see is one clear quick win."
+        return "Tell Forma where your files should go — in plain English, not regex. Preview the batch. Undo the recent batch if something was wrong."
     }
 
     // MARK: - Trust Signal Row

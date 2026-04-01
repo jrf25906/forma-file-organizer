@@ -237,8 +237,8 @@ export default function FeaturesBento() {
               <BentoCard
                 className="md:col-span-3"
                 scene={<UndoScene />}
-                title="Full undo history"
-                description="Changed your mind Tuesday about what you did Monday? One click. Every action is tracked and reversible."
+                title="Undo recent batches"
+                description="If a batch was wrong, reverse it in Forma without moving everything back by hand."
               />
             </div>
           </ScrollReveal>

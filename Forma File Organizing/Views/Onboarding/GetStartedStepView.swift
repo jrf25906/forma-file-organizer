@@ -21,19 +21,19 @@ struct GetStartedStepView: View {
 
     private let infoRows: [InfoRow] = [
         InfoRow(
-            icon: "checkmark.shield.fill",
-            color: .formaSage,
-            text: "A macOS folder picker will appear"
+            icon: "folder.badge.plus",
+            color: .formaSteelBlue,
+            text: "A macOS folder picker will appear — pick Downloads"
         ),
         InfoRow(
-            icon: "hand.tap.fill",
-            color: .formaSteelBlue,
-            text: "Select your Downloads folder"
+            icon: "lock.shield.fill",
+            color: .formaSage,
+            text: "Forma only touches the folders you explicitly grant"
         ),
         InfoRow(
             icon: "bolt.fill",
             color: .formaWarmOrange,
-            text: "Forma opens with one safe quick win instead of a generic dashboard"
+            text: "If there are files to review, Forma starts with a visible first pass"
         ),
     ]
 
@@ -52,13 +52,13 @@ struct GetStartedStepView: View {
                     .progressiveReveal(isVisible: appeared, index: 0)
 
                 VStack(spacing: FormaSpacing.tight) {
-                    Text("Let Forma see your files")
+                    Text("One folder to start")
                         .font(.formaDisplayHeading)
                         .foregroundColor(.formaLabel)
                         .multilineTextAlignment(.center)
                         .progressiveReveal(isVisible: appeared, index: 1)
 
-                    Text("We'll ask to access your Downloads folder.\nThis lets Forma scan your files and lead with one clear first batch.")
+                    Text("Start with Downloads. Forma only touches what you explicitly grant,\nand it shows a visible first pass before you configure anything else.")
                         .font(.formaBodyLarge)
                         .foregroundColor(.formaSecondaryLabel)
                         .multilineTextAlignment(.center)
