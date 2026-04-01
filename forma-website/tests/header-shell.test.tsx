@@ -54,6 +54,16 @@ function firstFloatingShell(html: string) {
   return match[0]
 }
 
+function firstDesktopNav(html: string) {
+  const match = html.match(/<nav\b[^>]*aria-label="Main navigation"[^>]*>/)
+
+  if (!match) {
+    throw new Error("Missing desktop navigation")
+  }
+
+  return match[0]
+}
+
 describe("Header", () => {
   it("uses the floating shell contract for the header surface", () => {
     const html = renderToStaticMarkup(<Header />)
@@ -62,11 +72,14 @@ describe("Header", () => {
     const headerClasses = classTokens(headerTag)
     const shellHostClasses = classTokens(firstInnerDiv(header))
     const floatingShellClasses = classTokens(firstFloatingShell(header))
+    const desktopNavClasses = classTokens(firstDesktopNav(header))
 
     expect(headerTag).toContain('data-header-shell="floating"')
     expect(headerTag).toContain('data-header-shell-mode="top"')
     expect(headerClasses).toContain("pointer-events-none")
     expect(shellHostClasses).toContain("pointer-events-auto")
+    expect(desktopNavClasses).toContain("hidden")
+    expect(desktopNavClasses).not.toContain("md:flex")
     expect(firstFloatingShell(header)).toContain('data-shell-mode="top"')
     expect(floatingShellClasses).toContain("data-[shell-mode=top]:bg-[var(--header-shell-surface-top)]")
     expect(floatingShellClasses).toContain(
