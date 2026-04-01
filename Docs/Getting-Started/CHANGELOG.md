@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - External Review Folder Promotion
+- **Standard Folder Promotion Candidates**: Eligible one-time Finder/Spotlight folder reviews now capture bookmark-backed promotion candidates for standard folders (`Desktop`, `Downloads`, `Documents`, `Pictures`, `Music`) so the review flow can hand them off into ongoing monitoring.
+- **In-Flow Monitoring CTA**: The default panel now shows a `Keep monitoring <Folder>` action during eligible external review sessions, allowing the user to save the folder without leaving the review workflow.
+
+### Changed - External Review Monitoring Handoff
+- **Session Sync Preservation**: External review-session pruning now preserves the folder-promotion candidate as requested files leave the pending queue, so the monitoring CTA does not disappear mid-review.
+- **Preference Preservation**: Promoting a reviewed standard folder now saves the bookmark through `BookmarkFolderService` without overwriting any existing enabled-state or automation-exclusion preferences already stored for that folder type.
+
 ### Added - Preview-First Onboarding
 - **Persistent Quick-Win Dismissals**: Dismissing a first-run quick win now suppresses that exact candidate across sessions without hiding unrelated future suggestions.
 

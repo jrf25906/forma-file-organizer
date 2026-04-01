@@ -14,6 +14,8 @@ private final class MockContentSearchService: ContentSearchServing {
 
 @MainActor
 final class DashboardViewModelTests: XCTestCase {
+    private let downloadsEnabledKey = "BookmarkFolder.isEnabled.\(FormaConfig.Security.downloadsBookmarkKey)"
+    private let downloadsExcludedKey = "BookmarkFolder.excludeAutomation.\(FormaConfig.Security.downloadsBookmarkKey)"
 
 	    var viewModel: DashboardViewModel!
 	    var mockService: MockFileSystemService!
@@ -39,9 +41,12 @@ final class DashboardViewModelTests: XCTestCase {
 	            viewModel = nil
 	            mockService = nil
 	            mockPipeline = nil
+                ExternalReviewSessionStore.shared.publish(nil)
 	        }
 	        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
 	        UserDefaults.standard.removeObject(forKey: "dismissedFirstRunQuickWinCandidateKeys")
+            UserDefaults.standard.removeObject(forKey: downloadsEnabledKey)
+            UserDefaults.standard.removeObject(forKey: downloadsExcludedKey)
 	        try await super.tearDown()
 	    }
 
@@ -625,6 +630,153 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertNil(ExternalReviewSessionStore.shared.currentSession)
         XCTAssertEqual(viewModel.visibleFiles.map(\.path), [unrelatedPendingFile.path])
+    }
+
+    func testExternalReviewSessionSynchronizationPreservesPromotionCandidate() {
+        ExternalReviewSessionStore.shared.publish(nil)
+
+        let pendingReviewFile = FileItem(
+            path: "/Users/test/Downloads/keep.txt",
+            sizeInBytes: 1_000,
+            creationDate: Date(),
+            destination: nil,
+            status: .pending
+        )
+        let completedReviewFile = FileItem(
+            path: "/Users/test/Downloads/done.txt",
+            sizeInBytes: 1_000,
+            creationDate: Date(),
+            destination: nil,
+            status: .pending
+        )
+        viewModel._testSetFiles([pendingReviewFile, completedReviewFile])
+
+        let candidate = ExternalReviewPromotionCandidate(
+            folderType: .downloads,
+            bookmarkData: Data([0x01, 0x02, 0x03])
+        )
+        let session = ExternalReviewSession(
+            requestID: UUID(),
+            source: .finderService,
+            reviewPaths: [pendingReviewFile.path, completedReviewFile.path],
+            scannedRootPaths: ["/Users/test/Downloads"],
+            skippedItems: [],
+            statusText: "Review 2 files",
+            promotionCandidate: candidate
+        )
+
+        ExternalReviewSessionStore.shared.publish(session)
+        viewModel.applyExternalReviewSession(session)
+
+        completedReviewFile.status = .completed
+        viewModel._testSetFiles([pendingReviewFile, completedReviewFile])
+
+        XCTAssertEqual(ExternalReviewSessionStore.shared.currentSession?.reviewPaths, [pendingReviewFile.path])
+        XCTAssertEqual(ExternalReviewSessionStore.shared.currentSession?.promotionCandidate?.folderType, .downloads)
+        XCTAssertEqual(
+            ExternalReviewSessionStore.shared.currentSession?.promotionCandidate?.bookmarkData,
+            candidate.bookmarkData
+        )
+    }
+
+    func testExternalReviewPromotionSuggestionIsHiddenWhenFolderIsAlreadyMonitored() throws {
+        let store = InMemoryBookmarkStore()
+        let bookmarkData = Data([0x0A, 0x0B, 0x0C])
+        try store.saveBookmark(bookmarkData, forKey: FormaConfig.Security.downloadsBookmarkKey)
+
+        try BookmarkStoreProvider.$override.withValue(store) {
+            let localViewModel = DashboardViewModel(
+                services: AppServices(),
+                fileSystemService: MockFileSystemService(),
+                fileScanPipeline: MockFileScanPipeline()
+            )
+            let session = ExternalReviewSession(
+                requestID: UUID(),
+                source: .finderService,
+                reviewPaths: ["/Users/test/Downloads/review.txt"],
+                scannedRootPaths: ["/Users/test/Downloads"],
+                skippedItems: [],
+                statusText: "Review 1 file",
+                promotionCandidate: ExternalReviewPromotionCandidate(
+                    folderType: .downloads,
+                    bookmarkData: Data([0x01, 0x02, 0x03])
+                )
+            )
+
+            ExternalReviewSessionStore.shared.publish(session)
+            localViewModel.applyExternalReviewSession(session)
+
+            XCTAssertNil(localViewModel.externalReviewPromotionSuggestion)
+        }
+    }
+
+    func testPromoteExternalReviewFolderSavesBookmarkForPromotionCandidate() throws {
+        let store = InMemoryBookmarkStore()
+        let bookmarkData = Data([0xAA, 0xBB, 0xCC])
+
+        try BookmarkStoreProvider.$override.withValue(store) {
+            let localViewModel = DashboardViewModel(
+                services: AppServices(),
+                fileSystemService: MockFileSystemService(),
+                fileScanPipeline: MockFileScanPipeline()
+            )
+            let session = ExternalReviewSession(
+                requestID: UUID(),
+                source: .finderService,
+                reviewPaths: ["/Users/test/Downloads/review.txt"],
+                scannedRootPaths: ["/Users/test/Downloads"],
+                skippedItems: [],
+                statusText: "Review 1 file",
+                promotionCandidate: ExternalReviewPromotionCandidate(
+                    folderType: .downloads,
+                    bookmarkData: bookmarkData
+                )
+            )
+
+            ExternalReviewSessionStore.shared.publish(session)
+            localViewModel.applyExternalReviewSession(session)
+
+            XCTAssertTrue(localViewModel.promoteExternalReviewFolder())
+            XCTAssertEqual(store.loadBookmark(forKey: FormaConfig.Security.downloadsBookmarkKey), bookmarkData)
+            XCTAssertNil(localViewModel.externalReviewPromotionSuggestion)
+        }
+    }
+
+    func testPromoteExternalReviewFolderEnablesMonitoringWhilePreservingAutomationExclusion() throws {
+        let store = InMemoryBookmarkStore()
+        let bookmarkData = Data([0xAA, 0xBB, 0xCC])
+
+        UserDefaults.standard.set(false, forKey: downloadsEnabledKey)
+        UserDefaults.standard.set(true, forKey: downloadsExcludedKey)
+
+        try BookmarkStoreProvider.$override.withValue(store) {
+            let localViewModel = DashboardViewModel(
+                services: AppServices(),
+                fileSystemService: MockFileSystemService(),
+                fileScanPipeline: MockFileScanPipeline()
+            )
+            let session = ExternalReviewSession(
+                requestID: UUID(),
+                source: .finderService,
+                reviewPaths: ["/Users/test/Downloads/review.txt"],
+                scannedRootPaths: ["/Users/test/Downloads"],
+                skippedItems: [],
+                statusText: "Review 1 file",
+                promotionCandidate: ExternalReviewPromotionCandidate(
+                    folderType: .downloads,
+                    bookmarkData: bookmarkData
+                )
+            )
+
+            ExternalReviewSessionStore.shared.publish(session)
+            localViewModel.applyExternalReviewSession(session)
+
+            XCTAssertTrue(localViewModel.promoteExternalReviewFolder())
+
+            let promotedFolder = try XCTUnwrap(BookmarkFolderService.shared.folder(for: .downloads))
+            XCTAssertTrue(promotedFolder.isEnabled)
+            XCTAssertTrue(promotedFolder.isExcludedFromAutomation)
+        }
     }
 
     func testReviewChunkUsesStableSizeAndSortOrder() {

@@ -41,16 +41,19 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `ExternalIngressItemKind`
   - `ExternalIngressSkipReason`
   - `ExternalIngressSkippedItem`
+  - `ExternalReviewPromotionCandidate`
   - `ExternalIngressRequestItem`
     - `bookmarkCreationFailed: Bool`
   - `ExternalIngressRequest`
   - `ExternalIngressResult`
   - `ExternalIngressDisposition`
   - `ExternalReviewSession`
+    - `promotionCandidate: ExternalReviewPromotionCandidate?`
   - `ExternalReviewSessionStore`
   - `ExternalIngressCoordinator.handleRequest(source:urls:)`
   - `ExternalIngressCoordinator.processPendingRequestIfNeeded()`
   - Reauthorization failures are surfaced as skipped-item feedback instead of falling back to raw file paths.
+  - Single-folder external reviews that map to bookmark-backed standard folders now preserve a promotion candidate for in-flow monitoring handoff.
 - Finder Services registration (`Forma File Organizing/Services/ExternalIngressCoordinator.swift`)
   - `FinderServicesRegistrationController`
   - `FinderServicesRegistrationStatus`
@@ -70,12 +73,23 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - `DashboardViewModel`
   - `applyExternalReviewSession(_:)`
   - `restoreExternalReviewSessionIfNeeded()`
+  - `externalReviewPromotionSuggestion`
+  - `promoteExternalReviewFolder()`
   - `firstRunQuickWinSuggestion`
   - `organizeFirstRunQuickWin(context:)`
   - `dismissFirstRunQuickWin()`
   - `setRightPanelVisible(_:)`
   - First-run quick wins now derive from the current filtered `reviewableFiles` context, are suppressed while an external review session is active, and persist per-candidate dismissals across sessions.
   - External review sessions now clear themselves once scoped files are no longer pending or ready.
+- `ExternalReviewPromotionSuggestion`
+  - `folderType: BookmarkFolder.FolderType`
+  - `bookmarkData: Data`
+  - `iconName` (computed)
+  - `titleText` (computed)
+  - `detailText` (computed)
+  - `primaryActionTitle` (computed)
+- `BookmarkFolderService`
+  - Promoted external-review folders continue to use `saveBookmark(_:for:)`, which refreshes available folders without resetting the existing enabled-state or automation-exclusion preferences stored for that standard folder type.
 - `FirstRunQuickWinSuggestion`
   - `kind: Kind`
   - `folderName: String`

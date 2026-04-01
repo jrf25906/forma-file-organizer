@@ -81,6 +81,18 @@ struct FirstRunQuickWinSuggestion: Equatable {
     }
 }
 
+struct ExternalReviewPromotionSuggestion: Equatable {
+    let folderType: BookmarkFolder.FolderType
+    let bookmarkData: Data
+
+    var iconName: String { folderType.iconName }
+    var titleText: String { "Keep monitoring \(folderType.displayName)" }
+    var detailText: String {
+        "\(folderType.displayName) was a one-time review. Add it to monitored folders so new files from it keep appearing automatically."
+    }
+    var primaryActionTitle: String { "Monitor \(folderType.displayName)" }
+}
+
 @MainActor
 final class WindowPresentationStore {
     private enum Keys {
@@ -889,6 +901,30 @@ class DashboardViewModel: ObservableObject {
         filterViewModel.applyFilterImmediately()
     }
 
+    @discardableResult
+    func promoteExternalReviewFolder() -> Bool {
+        guard let suggestion = externalReviewPromotionSuggestion else { return false }
+
+        BookmarkFolderService.shared.saveBookmark(suggestion.bookmarkData, for: suggestion.folderType)
+
+        let promotedFolder = BookmarkFolder(folderType: suggestion.folderType)
+        let didSaveBookmark = promotedFolder.hasValidBookmark
+
+        if didSaveBookmark && !promotedFolder.isEnabled {
+            BookmarkFolderService.shared.setEnabled(true, for: promotedFolder)
+        }
+
+        objectWillChange.send()
+
+        if didSaveBookmark {
+            showToast(message: "Now monitoring \(suggestion.folderType.displayName).", canUndo: false)
+        } else {
+            showToast(message: "Couldn’t start monitoring \(suggestion.folderType.displayName).", canUndo: false)
+        }
+
+        return didSaveBookmark
+    }
+
     private func showToast(message: String, canUndo: Bool) {
         let context = modelContext
         panelManager.showToast(message: message, canUndo: canUndo, undoAction: canUndo ? { [weak self] in
@@ -1172,7 +1208,8 @@ class DashboardViewModel: ObservableObject {
                 reviewPaths: remainingReviewPaths,
                 scannedRootPaths: session.scannedRootPaths,
                 skippedItems: session.skippedItems,
-                statusText: session.statusText
+                statusText: session.statusText,
+                promotionCandidate: session.promotionCandidate
             )
         )
     }
@@ -1254,6 +1291,20 @@ class DashboardViewModel: ObservableObject {
         return currentReviewChunkFiles
     }
     var firstRunQuickWinSuggestion: FirstRunQuickWinSuggestion? { firstRunQuickWinBatch?.suggestion }
+    var externalReviewPromotionSuggestion: ExternalReviewPromotionSuggestion? {
+        guard let candidate = ExternalReviewSessionStore.shared.currentSession?.promotionCandidate else {
+            return nil
+        }
+
+        guard !BookmarkFolder(folderType: candidate.folderType).hasValidBookmark else {
+            return nil
+        }
+
+        return ExternalReviewPromotionSuggestion(
+            folderType: candidate.folderType,
+            bookmarkData: candidate.bookmarkData
+        )
+    }
     var groupedFiles: [FileGroup] { filterViewModel.groupedFiles }
     var allFiles: [FileItem] { scanViewModel.allFiles }
     var recentFiles: [FileItem] { scanViewModel.recentFiles }

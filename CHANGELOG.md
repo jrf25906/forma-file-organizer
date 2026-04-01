@@ -6,6 +6,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- `ExternalReviewPromotionCandidate`, `ExternalReviewPromotionSuggestion`, and `DashboardViewModel.promoteExternalReviewFolder()` so eligible one-time folder reviews can be promoted into bookmark-backed monitoring directly from the review flow.
 - `FirstRunQuickWinSuggestion` and `DashboardViewModel.firstRunQuickWinSuggestion` so the dashboard can surface a meaningful first-run batch instead of a generic post-onboarding prompt.
 - `DashboardViewModel.dismissFirstRunQuickWin()` so dismissed quick-win candidates can stay suppressed across sessions without hiding unrelated later candidates.
 - Chunked review sessions in the dashboard review flow, including scope-aware `Done for now` deferrals, per-scope resume support, and a dedicated review-mode floating action bar.
@@ -37,6 +38,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Eligible Finder/Spotlight folder review sessions now preserve a standard-folder promotion candidate across external-review synchronization, and the default panel surfaces a `Keep monitoring <Folder>` card that saves the folder through `BookmarkFolderService` without resetting existing enabled/excluded preferences.
 - `forma-website` homepage header now uses the approved Hybrid A two-state contract: a quieter top-of-page shell that shows only the Forma brand plus `Get Forma`, a compact split-nav sticky state after scroll, warmer top/scrolled shell tokens, and a focus-reveal path so keyboard users do not tab into invisible desktop-nav links.
 - `forma-website` floating header shell now uses a dedicated compact glass variant with stronger light-mode contrast, a smaller inset/height contract, and a larger homepage hero top offset so the sticky shell no longer reads as a washed-out bar over the hero copy.
 - Native Luma refresh chrome now applies the sidebar glass treatment in the live split-view sidebar, and light-mode toolbar/view-mode selected states use a stronger shared compact segment style for clearer native selection contrast.

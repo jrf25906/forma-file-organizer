@@ -57,6 +57,30 @@ struct ExternalReviewSession: Codable, Equatable, Sendable {
     let scannedRootPaths: [String]
     let skippedItems: [ExternalIngressSkippedItem]
     let statusText: String
+    let promotionCandidate: ExternalReviewPromotionCandidate?
+
+    init(
+        requestID: UUID,
+        source: ExternalIngressSource,
+        reviewPaths: [String],
+        scannedRootPaths: [String],
+        skippedItems: [ExternalIngressSkippedItem],
+        statusText: String,
+        promotionCandidate: ExternalReviewPromotionCandidate? = nil
+    ) {
+        self.requestID = requestID
+        self.source = source
+        self.reviewPaths = reviewPaths
+        self.scannedRootPaths = scannedRootPaths
+        self.skippedItems = skippedItems
+        self.statusText = statusText
+        self.promotionCandidate = promotionCandidate
+    }
+}
+
+struct ExternalReviewPromotionCandidate: Codable, Equatable, Sendable {
+    let folderType: BookmarkFolder.FolderType
+    let bookmarkData: Data
 }
 
 struct ExternalIngressResult: Equatable, Sendable {
@@ -497,12 +521,40 @@ final class ExternalIngressCoordinator {
                     reviewPaths: result.needsReviewPaths,
                     scannedRootPaths: result.scannedRootPaths,
                     skippedItems: result.skippedItems,
-                    statusText: result.statusText
+                    statusText: result.statusText,
+                    promotionCandidate: makePromotionCandidate(for: request, scannedRootPaths: result.scannedRootPaths)
                 )
             )
         } else {
             publishReviewSession(nil)
         }
+    }
+
+    private func makePromotionCandidate(
+        for request: ExternalIngressRequest,
+        scannedRootPaths: [String]
+    ) -> ExternalReviewPromotionCandidate? {
+        guard request.items.count == 1,
+              let folderItem = request.items.first,
+              folderItem.kind == .folderURL,
+              !folderItem.bookmarkCreationFailed,
+              let bookmarkData = folderItem.bookmarkData else {
+            return nil
+        }
+
+        let normalizedRootPaths = Set(
+            scannedRootPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+        )
+        let normalizedFolderPath = URL(fileURLWithPath: folderItem.path).standardizedFileURL.path
+        guard normalizedRootPaths.contains(normalizedFolderPath),
+              let folderType = BookmarkFolder.FolderType.inferredFromRootPath(normalizedFolderPath) else {
+            return nil
+        }
+
+        return ExternalReviewPromotionCandidate(
+            folderType: folderType,
+            bookmarkData: bookmarkData
+        )
     }
 
     private func makeStatusText(

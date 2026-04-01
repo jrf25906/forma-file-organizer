@@ -30,7 +30,8 @@ struct DefaultPanelView: View {
     private var hasAnySuggestions: Bool {
         let hasSuggestablePatterns = allPatterns.contains { $0.shouldSuggest }
         let hasVisibleInsights = !visibleInsights.isEmpty
-        return hasSuggestablePatterns || hasVisibleInsights
+        let hasExternalReviewPromotion = dashboardViewModel.externalReviewPromotionSuggestion != nil
+        return hasSuggestablePatterns || hasVisibleInsights || hasExternalReviewPromotion
     }
 
     /// Primary-action ownership for the current dashboard state.
@@ -611,6 +612,10 @@ struct DefaultPanelView: View {
                     .tracking(0.5)
                     .foregroundStyle(Color.formaSecondaryLabelHigh)
 
+                if let promotionSuggestion = dashboardViewModel.externalReviewPromotionSuggestion {
+                    externalReviewPromotionCard(suggestion: promotionSuggestion)
+                }
+
                 // Smart Rules (learned patterns) - self-hides when empty
                 smartRulesSection
 
@@ -620,6 +625,66 @@ struct DefaultPanelView: View {
                 }
             }
         }
+    }
+
+    private func externalReviewPromotionCard(suggestion: ExternalReviewPromotionSuggestion) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                ZStack {
+                    Circle()
+                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle))
+                        .frame(width: 38, height: 38)
+
+                    Image(systemName: suggestion.iconName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.formaSteelBlue)
+                }
+
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    Text(suggestion.titleText)
+                        .font(.formaBodySemibold)
+                        .foregroundStyle(Color.formaLabel)
+
+                    Text(suggestion.detailText)
+                        .font(.formaBodyMedium)
+                        .foregroundStyle(Color.formaSecondaryLabelHigh)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Button(action: {
+                _ = dashboardViewModel.promoteExternalReviewFolder()
+            }) {
+                HStack(spacing: FormaSpacing.tight) {
+                    Image(systemName: "eye.fill")
+                        .font(.system(size: 11, weight: .semibold))
+
+                    Text(suggestion.primaryActionTitle)
+                        .font(.formaSmallSemibold)
+
+                    Spacer()
+                }
+                .foregroundStyle(Color.formaBoneWhite)
+                .padding(FormaSpacing.standard)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                        .fill(Color.formaSteelBlue)
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(FormaSpacing.standard)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.light), lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("defaultPanelMonitorFolderSuggestion")
     }
 
     // MARK: - Smart Rules Section (Learned Patterns)

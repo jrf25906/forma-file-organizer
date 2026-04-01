@@ -1,12 +1,12 @@
 # Project TODO
 
-**Last Updated:** March 31, 2026
+**Last Updated:** April 1, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
 This file is ordered to match the strategic roadmap. Dated sprint logs and shipped execution history remain below as reference.
 
-## Roadmap-Ordered Priorities (March 31, 2026)
+## Roadmap-Ordered Priorities (April 1, 2026)
 Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md](Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
 
 ### Now (0-8 Weeks)
@@ -16,7 +16,7 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 - [x] Reset automation notification tone around progress and system health instead of backlog guilt.
 - [x] Preserve structured automation error buckets for scan, bookmark, and destination failures so notifications do not fall back to generic scan summaries.
 - [ ] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
-- [ ] Convert successful one-time Finder/Spotlight folder review flows into persistent monitored folders.
+- [x] Convert successful one-time Finder/Spotlight folder review flows into persistent monitored folders.
 - [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ### Next (2-4 Months)
@@ -36,6 +36,11 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
+
+## External Review Folder Promotion (April 1, 2026)
+- [x] Detect eligible one-time Finder/Spotlight folder reviews that map to standard bookmark-backed folders (`Desktop`, `Downloads`, `Documents`, `Pictures`, `Music`) and carry a promotion candidate through the external review session.
+- [x] Surface a default-panel `Keep monitoring <Folder>` affordance during eligible external review sessions so users can promote a one-time folder review into ongoing monitoring without leaving the workflow.
+- [x] Persist promoted standard folders through `BookmarkFolderService` without resetting existing enabled or automation-exclusion preferences, and cover the path with targeted coordinator, dashboard, and bookmark-service tests.
 
 ## Luma Refresh Follow-Ups (March 31, 2026)
 - [x] Honor `accessibilityReduceTransparency` in `SidebarGlassOverlay` so the sidebar sheen falls back cleanly when macOS Reduce Transparency is enabled.

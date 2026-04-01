@@ -1,12 +1,12 @@
 # Forma - Project TODO
 
-**Last Updated:** March 31, 2026
+**Last Updated:** April 1, 2026
 
 Strategic roadmap: [`forma-feature-roadmap.md`](../../forma-feature-roadmap.md). This document is the execution checklist and historical backlog reference.
 
 ---
 
-## Roadmap-Ordered Priorities (March 31, 2026)
+## Roadmap-Ordered Priorities (April 1, 2026)
 
 Current sequencing is intentionally aligned with the preview-first, moat-driven roadmap.
 
@@ -18,7 +18,7 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 - [ ] Build trust infrastructure first: rule simulation, stronger preflight checks, richer explanations, and clearer scoped rollback.
 - [x] Rewrite automation notifications around progress and system health instead of backlog guilt.
 - [ ] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
-- [ ] Convert successful one-time Finder/Spotlight review flows into persistent monitored folders.
+- [x] Convert successful one-time Finder/Spotlight review flows into persistent monitored folders.
 - [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ### Next (2-4 Months)
@@ -38,6 +38,11 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 
 ## Recent Delivered Work
 The dated sections below capture shipped work and execution history. Use the roadmap-ordered section above to decide what comes next.
+
+## External Review Folder Promotion (April 1, 2026)
+- [x] Detect one-time Finder/Spotlight folder reviews that map cleanly onto bookmark-backed standard folders and carry a promotion candidate through the external review session.
+- [x] Show a right-panel/default-panel `Keep monitoring <Folder>` affordance during eligible external review sessions so users can convert the one-time pass into ongoing monitoring in place.
+- [x] Persist promoted standard folders through `BookmarkFolderService` without overwriting existing enabled or automation-exclusion preferences, and cover the loop with focused coordinator, dashboard, and service tests.
 
 ## Website Header Shell Follow-Up (March 31, 2026)
 - [x] Tighten the floating website header shell with a dedicated glass surface, smaller inset/height contract, and stronger hero clearance so the sticky header no longer reads as a washed-out blocker over homepage copy.

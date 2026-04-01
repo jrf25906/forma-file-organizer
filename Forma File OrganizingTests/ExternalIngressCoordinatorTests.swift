@@ -1,3 +1,4 @@
+import Darwin
 import XCTest
 import SwiftData
 @testable import Forma_File_Organizing
@@ -175,6 +176,195 @@ final class ExternalIngressCoordinatorTests: XCTestCase {
         XCTAssertNil(coordinator.pendingRequest)
     }
 
+    func testProcessPendingRequestPublishesPromotionCandidateForSingleStandardFolderSelection() async throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let downloadsURL = actualUserHomeDirectory().appendingPathComponent("Downloads", isDirectory: true)
+        let childURL = downloadsURL.appendingPathComponent("to-review.pdf")
+        let createdAt = Date(timeIntervalSince1970: 2_000)
+        let bookmarkSourceURL = try tempDir.createDirectory(name: "bookmark-source")
+        let bookmarkData = try bookmarkSourceURL.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+
+        let childMetadata = FileMetadata(
+            path: childURL.path,
+            sizeInBytes: 18,
+            creationDate: createdAt,
+            modificationDate: createdAt,
+            lastAccessedDate: createdAt,
+            location: .custom,
+            scanRootPath: downloadsURL.path
+        )
+
+        let reviewItem = FileItem.from(childMetadata)
+        reviewItem.status = .pending
+
+        fileSystemService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [childMetadata],
+            skippedItems: [],
+            scannedRootPaths: [downloadsURL.path]
+        )
+
+        pipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [reviewItem],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [downloadsURL.path]
+        )
+
+        var publishedSession: ExternalReviewSession?
+        let coordinator = makeCoordinator(
+            onboardingCompleted: true,
+            publishReviewSession: { session in publishedSession = session },
+            createBookmarkData: { url in
+                XCTAssertEqual(url.standardizedFileURL.path, downloadsURL.standardizedFileURL.path)
+                return bookmarkData
+            }
+        )
+
+        _ = try coordinator.queueRequest(source: .finderService, urls: [downloadsURL])
+
+        let disposition = await coordinator.processPendingRequestIfPossible()
+
+        guard case .processed(let result) = disposition else {
+            return XCTFail("Expected coordinator to process queued folder request")
+        }
+
+        XCTAssertEqual(result.needsReviewPaths, [childURL.path])
+        XCTAssertEqual(publishedSession?.promotionCandidate?.folderType, .downloads)
+        XCTAssertEqual(publishedSession?.promotionCandidate?.bookmarkData, bookmarkData)
+    }
+
+    func testProcessPendingRequestDoesNotPromoteArbitraryFolderNamedLikeStandardFolder() async throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let fauxDownloadsURL = try tempDir.createDirectory(name: "Downloads")
+        let childURL = try tempDir.createFile(name: "Downloads/to-review.pdf")
+        let createdAt = Date(timeIntervalSince1970: 2_500)
+        let bookmarkData = try fauxDownloadsURL.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+
+        let childMetadata = FileMetadata(
+            path: childURL.path,
+            sizeInBytes: 18,
+            creationDate: createdAt,
+            modificationDate: createdAt,
+            lastAccessedDate: createdAt,
+            location: .custom,
+            scanRootPath: fauxDownloadsURL.path
+        )
+
+        let reviewItem = FileItem.from(childMetadata)
+        reviewItem.status = .pending
+
+        fileSystemService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [childMetadata],
+            skippedItems: [],
+            scannedRootPaths: [fauxDownloadsURL.path]
+        )
+
+        pipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [reviewItem],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [fauxDownloadsURL.path]
+        )
+
+        var publishedSession: ExternalReviewSession?
+        let coordinator = makeCoordinator(
+            onboardingCompleted: true,
+            publishReviewSession: { session in publishedSession = session },
+            createBookmarkData: { url in
+                XCTAssertEqual(url.standardizedFileURL.path, fauxDownloadsURL.standardizedFileURL.path)
+                return bookmarkData
+            }
+        )
+
+        _ = try coordinator.queueRequest(source: .finderService, urls: [fauxDownloadsURL])
+
+        let disposition = await coordinator.processPendingRequestIfPossible()
+
+        guard case .processed(let result) = disposition else {
+            return XCTFail("Expected coordinator to process queued folder request")
+        }
+
+        XCTAssertEqual(result.needsReviewPaths, [childURL.path])
+        XCTAssertNil(publishedSession?.promotionCandidate)
+    }
+
+    func testProcessPendingRequestDoesNotPromoteMixedFolderAndFileSelection() async throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let downloadsURL = actualUserHomeDirectory().appendingPathComponent("Downloads", isDirectory: true)
+        let selectedFileURL = try tempDir.createFile(name: "extra.txt")
+        let childURL = downloadsURL.appendingPathComponent("to-review.pdf")
+        let createdAt = Date(timeIntervalSince1970: 2_750)
+        let bookmarkSourceURL = try tempDir.createDirectory(name: "bookmark-source")
+        let bookmarkData = try bookmarkSourceURL.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+
+        let childMetadata = FileMetadata(
+            path: childURL.path,
+            sizeInBytes: 18,
+            creationDate: createdAt,
+            modificationDate: createdAt,
+            lastAccessedDate: createdAt,
+            location: .custom,
+            scanRootPath: downloadsURL.path
+        )
+
+        let reviewItem = FileItem.from(childMetadata)
+        reviewItem.status = .pending
+
+        fileSystemService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [childMetadata],
+            skippedItems: [],
+            scannedRootPaths: [downloadsURL.path]
+        )
+
+        pipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [reviewItem],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [downloadsURL.path]
+        )
+
+        var publishedSession: ExternalReviewSession?
+        let coordinator = makeCoordinator(
+            onboardingCompleted: true,
+            publishReviewSession: { session in publishedSession = session },
+            createBookmarkData: { url in
+                if url.standardizedFileURL.path == downloadsURL.standardizedFileURL.path {
+                    return bookmarkData
+                }
+                return nil
+            }
+        )
+
+        _ = try coordinator.queueRequest(source: .finderService, urls: [downloadsURL, selectedFileURL])
+
+        let disposition = await coordinator.processPendingRequestIfPossible()
+
+        guard case .processed(let result) = disposition else {
+            return XCTFail("Expected coordinator to process queued mixed selection")
+        }
+
+        XCTAssertEqual(result.needsReviewPaths, [childURL.path])
+        XCTAssertNil(publishedSession?.promotionCandidate)
+    }
+
     func testProcessPendingRequestSkippedOnlySelectionActivatesAppAndPublishesFeedbackSession() async throws {
         let tempDir = try TemporaryDirectory()
         defer { tempDir.cleanup() }
@@ -336,5 +526,13 @@ final class ExternalIngressCoordinatorTests: XCTestCase {
             ruleEngine: RuleEngine()
         )
         return coordinator
+    }
+
+    private func actualUserHomeDirectory() -> URL {
+        if let pw = getpwuid(getuid()) {
+            return URL(fileURLWithPath: String(cString: pw.pointee.pw_dir))
+        }
+
+        return FileManager.default.homeDirectoryForCurrentUser
     }
 }

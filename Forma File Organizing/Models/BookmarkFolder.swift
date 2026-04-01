@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Represents a folder that can be scanned for file organization.
@@ -243,6 +244,29 @@ extension BookmarkFolder {
 }
 
 extension BookmarkFolder.FolderType {
+    private func actualUserHomeDirectory() -> URL {
+        if let pw = getpwuid(getuid()) {
+            return URL(fileURLWithPath: String(cString: pw.pointee.pw_dir))
+        }
+
+        return FileManager.default.homeDirectoryForCurrentUser
+    }
+
+    func standardRootPath() -> String {
+        actualUserHomeDirectory()
+            .appendingPathComponent(displayName, isDirectory: true)
+            .standardizedFileURL
+            .path
+    }
+
+    static func inferredFromRootPath(_ path: String) -> BookmarkFolder.FolderType? {
+        let normalizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+
+        return allCases.first { folderType in
+            folderType.standardRootPath() == normalizedPath
+        }
+    }
+
     static func accessibleTypes() -> Set<BookmarkFolder.FolderType> {
         Set(BookmarkFolder.alertEligibleFolders().map(\.folderType))
     }

@@ -1,7 +1,7 @@
 # Forma - API Reference
 
 **Version:** 2.2
-**Last Updated:** March 2026
+**Last Updated:** April 2026
 **Status:** Current Implementation
 
 ---
@@ -66,6 +66,11 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 
 ### Recent API Updates (March 2026)
 
+- `ExternalReviewPromotionCandidate` now lets eligible one-time Finder/Spotlight folder reviews carry a bookmark-backed standard-folder promotion target through `ExternalReviewSession`.
+- `ExternalReviewSession.promotionCandidate` now survives review-session synchronization as requested files leave the pending queue.
+- `ExternalReviewPromotionSuggestion` and `DashboardViewModel.externalReviewPromotionSuggestion` now drive the in-flow `Keep monitoring <Folder>` affordance shown during eligible external review sessions.
+- `DashboardViewModel.promoteExternalReviewFolder()` now persists the promoted standard folder through `BookmarkFolderService.saveBookmark(_:for:)`.
+- `BookmarkFolderService.saveBookmark(_:for:)` remains the persistence path for promoted standard folders and preserves any preexisting enabled-state or automation-exclusion preferences for that folder type.
 - `WindowPresentationStore` now encapsulates persisted inspector-visibility defaults with `savedInspectorVisibility`, `setInspectorVisible(_:)`, and `resetInspectorVisibility()`.
 - `DashboardLaunchPresentation` now carries launch-width-derived inspector defaults so `DashboardViewModel` can choose between two-column and three-column startup without reading AppKit window state directly.
 - `DashboardViewModel.setRightPanelVisible(_:)` now persists user-driven inspector visibility changes instead of mutating the published flag only in-memory.

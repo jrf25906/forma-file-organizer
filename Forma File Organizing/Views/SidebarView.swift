@@ -458,15 +458,7 @@ struct SidebarView: View {
 
     /// Determines the BookmarkFolder.FolderType based on the folder path
     private func determineFolderType(from url: URL) -> BookmarkFolder.FolderType? {
-        let path = url.path.lowercased()
-
-        if path.hasSuffix("/desktop") { return .desktop }
-        if path.hasSuffix("/downloads") { return .downloads }
-        if path.hasSuffix("/documents") { return .documents }
-        if path.hasSuffix("/pictures") { return .pictures }
-        if path.hasSuffix("/music") { return .music }
-
-        return nil
+        BookmarkFolder.FolderType.inferredFromRootPath(url.standardizedFileURL.path)
     }
 
     private func removeFolder(_ folder: BookmarkFolder) {
