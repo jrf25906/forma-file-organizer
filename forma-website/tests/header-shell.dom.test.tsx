@@ -8,6 +8,9 @@ import { HEADER_SHELL_LAYOUT } from "../src/lib/header-shell-layout"
 
 const HEADER_SCROLL_THRESHOLD = 24
 
+;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
+  .IS_REACT_ACT_ENVIRONMENT = true
+
 describe("Header DOM behavior", () => {
   let container: HTMLDivElement | null = null
   let root: ReturnType<typeof createRoot> | null = null

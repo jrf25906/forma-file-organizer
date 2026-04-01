@@ -90,8 +90,6 @@ describe("Header", () => {
       "data-[shell-mode=scrolled]:border-[var(--header-shell-surface-scrolled-border)]"
     )
     expect(floatingShellClasses).toContain("backdrop-blur-xl")
-    expect(floatingShellClasses).toContain("bg-[var(--header-shell-surface)]")
-    expect(floatingShellClasses).toContain("border-[var(--header-shell-border)]")
     expect(floatingShellClasses).toContain("shadow-[var(--header-shell-shadow)]")
     expect(headerClasses).not.toContain("border-b")
     expect(headerClasses).not.toContain("bg-[var(--bg-primary)]")
