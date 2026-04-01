@@ -94,5 +94,8 @@ describe("Header DOM behavior", () => {
     })
 
     expect(header?.getAttribute("data-header-shell-mode")).toBe("scrolled")
+    expect(
+      container.querySelector('[data-shell-variant="floating"]')?.getAttribute("data-shell-mode")
+    ).toBe("scrolled")
   })
 })
