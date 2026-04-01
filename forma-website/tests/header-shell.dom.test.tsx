@@ -14,6 +14,8 @@ const HEADER_SCROLL_THRESHOLD = 24
 describe("Header DOM behavior", () => {
   let container: HTMLDivElement | null = null
   let root: ReturnType<typeof createRoot> | null = null
+  let restoreMatchMedia = false
+  let restoreScrollY = false
 
   afterEach(async () => {
     if (root && container) {
@@ -25,6 +27,16 @@ describe("Header DOM behavior", () => {
     container?.remove()
     root = null
     container = null
+
+    if (restoreMatchMedia) {
+      delete (window as typeof window & { matchMedia?: typeof window.matchMedia }).matchMedia
+      restoreMatchMedia = false
+    }
+
+    if (restoreScrollY) {
+      delete (window as typeof window & { scrollY?: number }).scrollY
+      restoreScrollY = false
+    }
   })
 
   it("uses the shared scroll threshold contract", () => {
@@ -32,7 +44,9 @@ describe("Header DOM behavior", () => {
   })
 
   it("switches from top mode to scrolled mode after the shell threshold", async () => {
+    restoreMatchMedia = true
     Object.defineProperty(window, "matchMedia", {
+      configurable: true,
       writable: true,
       value: () => ({
         matches: false,
@@ -46,6 +60,7 @@ describe("Header DOM behavior", () => {
       }),
     })
 
+    restoreScrollY = true
     Object.defineProperty(window, "scrollY", {
       configurable: true,
       value: 0,
@@ -65,6 +80,9 @@ describe("Header DOM behavior", () => {
     const header = container.querySelector('[data-header-shell="floating"]')
     expect(header).not.toBeNull()
     expect(header?.getAttribute("data-header-shell-mode")).toBe("top")
+    expect(
+      container.querySelector('[data-shell-variant="floating"]')?.getAttribute("data-shell-mode")
+    ).toBe("top")
 
     await act(async () => {
       Object.defineProperty(window, "scrollY", {

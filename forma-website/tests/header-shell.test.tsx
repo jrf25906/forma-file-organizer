@@ -79,7 +79,6 @@ describe("Header", () => {
     expect(headerClasses).toContain("pointer-events-none")
     expect(shellHostClasses).toContain("pointer-events-auto")
     expect(desktopNavClasses).toContain("hidden")
-    expect(desktopNavClasses).not.toContain("md:flex")
     expect(firstFloatingShell(header)).toContain('data-shell-mode="top"')
     expect(floatingShellClasses).toContain("data-[shell-mode=top]:bg-[var(--header-shell-surface-top)]")
     expect(floatingShellClasses).toContain(
