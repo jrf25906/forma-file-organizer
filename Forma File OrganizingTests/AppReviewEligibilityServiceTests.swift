@@ -138,7 +138,7 @@ final class AppReviewEligibilityServiceTests: XCTestCase {
 
 // MARK: - Mock
 
-final class MockAppReviewEligibilityService: AppReviewEligibilityProviding, @unchecked Sendable {
+final class MockAppReviewEligibilityService: AppReviewEligibilityProviding {
     var recordedOperationCounts: [Int] = []
     var shouldRequestReviewResult = false
     var markReviewRequestedCallCount = 0

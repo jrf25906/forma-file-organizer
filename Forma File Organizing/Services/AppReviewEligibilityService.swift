@@ -1,7 +1,7 @@
 import Foundation
 
 /// Determines when to prompt the user for an App Store review.
-protocol AppReviewEligibilityProviding: Sendable {
+protocol AppReviewEligibilityProviding {
     /// Record that files were successfully organized.
     func recordSuccessfulOperation(count: Int)
     /// Whether all eligibility conditions are met for a review request.
