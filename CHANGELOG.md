@@ -42,6 +42,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Permission grants from dashboard/JIT recovery no longer re-open onboarding just because `hasCompletedOnboarding` is still false, and granted folders now refresh visible availability immediately while using a shorter follow-up scan debounce so the unlock flow feels faster.
 - Automation activity logging and trust UI now use clearer audit language:
   - `ActivityLoggingService.logAutoOrganizeBatch(...)`, `logBulkOrganized(...)`, and `logBulkUndone(...)` now distinguish automatic vs review-driven runs, spell out skip reasons, and declare whether the batch is undoable or final.
   - `FileInspectorView` now shows a read-only rule-preview section inside suggestion reasoning, `DefaultPanelView` now surfaces automation preflight and rollback readiness beneath the status widget, and `ActivityFeed` now renders `Automatic` / `Review` plus `Undo Available` / `Final` audit badges from the persisted activity details.

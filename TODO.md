@@ -38,6 +38,10 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
 
+## Permission Grant Recovery Fixes (April 1, 2026)
+- [x] Stop dashboard/JIT folder permission grants from re-showing onboarding when the sheet was already dismissed.
+- [x] Refresh newly granted folder availability immediately and reduce the delayed rescan debounce so permission unlocks feel more responsive.
+
 ## External Review Folder Promotion (April 1, 2026)
 - [x] Detect eligible one-time Finder/Spotlight folder reviews that map to standard bookmark-backed folders (`Desktop`, `Downloads`, `Documents`, `Pictures`, `Music`) and carry a promotion candidate through the external review session.
 - [x] Surface a default-panel `Keep monitoring <Folder>` affordance during eligible external review sessions so users can promote a one-time folder review into ongoing monitoring without leaving the workflow.

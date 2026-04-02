@@ -78,7 +78,6 @@ final class DashboardPermissionState: ObservableObject {
 
             if granted {
                 markAccessGranted(for: folderType)
-                updateOnboardingVisibility()
                 return .granted
             }
 
@@ -87,10 +86,6 @@ final class DashboardPermissionState: ObservableObject {
         } catch {
             return .error(error.localizedDescription)
         }
-    }
-
-    func updateOnboardingVisibility(defaults: UserDefaults = .standard) {
-        showOnboarding = !defaults.bool(forKey: "hasCompletedOnboarding")
     }
 
     func completeOnboarding(defaults: UserDefaults = .standard) {

@@ -87,6 +87,9 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `latestUndoableBatchSummary`
   - First-run quick wins now derive from the current filtered `reviewableFiles` context, are suppressed while an external review session is active, and persist per-candidate dismissals across sessions.
   - External review sessions now clear themselves once scoped files are no longer pending or ready.
+  - Folder permission grants now refresh `BookmarkFolderService` availability immediately and only schedule the follow-up dashboard rescan when onboarding is not currently being shown.
+- `DashboardPermissionState`
+  - Granting a folder updates the per-folder access booleans without re-deriving `showOnboarding` from `hasCompletedOnboarding`, so dismissed onboarding sheets stay dismissed during JIT permission recovery.
 - `ExternalReviewPromotionSuggestion`
   - `folderType: BookmarkFolder.FolderType`
   - `bookmarkData: Data`

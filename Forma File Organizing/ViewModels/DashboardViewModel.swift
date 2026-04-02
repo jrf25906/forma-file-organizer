@@ -142,6 +142,8 @@ struct DashboardLaunchPresentation {
 /// - BulkOperationViewModel: Batch operations and progress
 @MainActor
 class DashboardViewModel: ObservableObject {
+    private static let permissionRefreshDebounceDelay: Duration = .milliseconds(100)
+
     private enum FirstRunQuickWinDefaultsKeys {
         static let dismissedCandidateKeys = "dismissedFirstRunQuickWinCandidateKeys"
     }
@@ -1078,6 +1080,7 @@ class DashboardViewModel: ObservableObject {
 
         switch result {
         case .granted:
+            refreshAvailableFolders()
             schedulePermissionRefreshIfNeeded()
         case .error(let details):
             errorMessage = "Failed to access \(folderType.displayName) folder: \(details)"
@@ -1086,10 +1089,6 @@ class DashboardViewModel: ObservableObject {
         }
 
         return result
-    }
-
-    private func updateOnboardingVisibility() {
-        permissionState.updateOnboardingVisibility()
     }
 
     private func schedulePermissionRefreshIfNeeded() {
@@ -1102,8 +1101,9 @@ class DashboardViewModel: ObservableObject {
             guard let self else { return }
 
             do {
-                // Coalesce rapid permission grants into a single scan/refresh.
-                try await Task.sleep(for: .milliseconds(350))
+                // Keep the delay short so unlocked folders feel immediate while
+                // still collapsing truly back-to-back grants into one scan.
+                try await Task.sleep(for: Self.permissionRefreshDebounceDelay)
             } catch {
                 return
             }

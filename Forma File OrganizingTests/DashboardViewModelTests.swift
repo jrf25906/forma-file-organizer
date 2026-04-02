@@ -136,6 +136,52 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(localPipeline.scanCallCount, 0, "Onboarding flow should defer refresh until dismissal")
     }
 
+    func testPermissionGrantDoesNotReopenDismissedOnboarding() async throws {
+        // Given
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        let localService = MockFileSystemService()
+        let localPipeline = MockFileScanPipeline()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: localPipeline
+        )
+
+        localViewModel.showOnboarding = false
+
+        // When
+        _ = await localViewModel.requestDownloadsAccess()
+
+        // Then
+        XCTAssertFalse(localViewModel.showOnboarding, "Granting a folder from the dashboard should not re-open onboarding")
+    }
+
+    func testPermissionGrantRefreshesIfOnboardingWasAlreadyDismissed() async throws {
+        // Given
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        let localService = MockFileSystemService()
+        let localPipeline = MockFileScanPipeline()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: localPipeline
+        )
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        localViewModel.setModelContext(container.mainContext)
+        localViewModel.showOnboarding = false
+
+        // When
+        _ = await localViewModel.requestDownloadsAccess()
+        try? await Task.sleep(for: .milliseconds(700))
+
+        // Then
+        XCTAssertEqual(localPipeline.scanCallCount, 1, "Granting access after dismissing onboarding should refresh the dashboard")
+    }
+    
     func testFirstRunQuickWinPrefersLargestReadyFolderBatch() {
         let now = Date()
         let downloadsRoot = "/Users/test/Downloads"
