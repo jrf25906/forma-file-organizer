@@ -37,6 +37,9 @@ struct FeatureFlagService: Sendable {
         case automationReminders = "feature.automationReminders"
         case menuBarFileReview = "feature.menuBarFileReview"
 
+        // App Store
+        case appStoreReviewPrompt = "feature.appStoreReviewPrompt"
+
         var id: String { rawValue }
 
         /// Default value for this feature
@@ -59,6 +62,8 @@ struct FeatureFlagService: Sendable {
             case .autoOrganize: return false  // Opt-in for initial release
             case .automationReminders: return true
             case .menuBarFileReview: return true
+            // App Store
+            case .appStoreReviewPrompt: return true
             }
         }
 
@@ -82,6 +87,8 @@ struct FeatureFlagService: Sendable {
             case .autoOrganize: return "Auto-organize files"
             case .automationReminders: return "Smart reminders"
             case .menuBarFileReview: return "Menu bar file review"
+            // App Store
+            case .appStoreReviewPrompt: return "App Store review prompts"
             }
         }
 
@@ -121,6 +128,9 @@ struct FeatureFlagService: Sendable {
                 return "Get notified when files need attention or automation takes action."
             case .menuBarFileReview:
                 return "Review and organize files directly from the menu bar dropdown."
+            // App Store
+            case .appStoreReviewPrompt:
+                return "Occasionally ask if you'd like to rate Forma on the App Store after successful organizing sessions."
             }
         }
 
@@ -144,6 +154,8 @@ struct FeatureFlagService: Sendable {
             case .autoOrganize: return "bolt.circle"
             case .automationReminders: return "bell.badge"
             case .menuBarFileReview: return "menubar.rectangle"
+            // App Store
+            case .appStoreReviewPrompt: return "star.bubble"
             }
         }
 
@@ -174,6 +186,9 @@ struct FeatureFlagService: Sendable {
             case .automationReminders:
                 return [.backgroundMonitoring]  // Needs monitoring for context
             case .menuBarFileReview:
+                return []  // Independent feature
+            // App Store
+            case .appStoreReviewPrompt:
                 return []  // Independent feature
             }
         }

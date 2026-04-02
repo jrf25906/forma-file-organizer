@@ -34,6 +34,7 @@ class BulkOperationViewModel: ObservableObject {
     private let organizationCoordinator: FileOrganizationCoordinator
     private let fileOperationsService: FileOperationsService
     private let notificationService: NotificationService
+    private let appReviewEligibility: AppReviewEligibilityProviding
 
     // MARK: - Callbacks
 
@@ -52,6 +53,9 @@ class BulkOperationViewModel: ObservableObject {
     /// Callback when toast should be shown
     var onShowToast: ((String, Bool) -> Void)?
 
+    /// Callback when app review should be requested
+    var onShouldRequestReview: (() -> Void)?
+
     // MARK: - Private State
 
     private var cancelRequested = false
@@ -61,17 +65,20 @@ class BulkOperationViewModel: ObservableObject {
     init(
         organizationCoordinator: FileOrganizationCoordinator = FileOrganizationCoordinator(),
         fileOperationsService: FileOperationsService = FileOperationsService(),
-        notificationService: NotificationService
+        notificationService: NotificationService,
+        appReviewEligibility: AppReviewEligibilityProviding = AppReviewEligibilityService()
     ) {
         self.organizationCoordinator = organizationCoordinator
         self.fileOperationsService = fileOperationsService
         self.notificationService = notificationService
+        self.appReviewEligibility = appReviewEligibility
         setupCoordinatorForwarding()
     }
 
     convenience init(services: AppServices) {
         self.init(
-            notificationService: services.notificationService
+            notificationService: services.notificationService,
+            appReviewEligibility: services.appReviewEligibility
         )
     }
 
@@ -296,6 +303,13 @@ class BulkOperationViewModel: ObservableObject {
     private func showOrganizeFeedback(successCount: Int, totalCount: Int, failedCount: Int, failedFiles: [FileItem]) {
         if !failedFiles.isEmpty {
             lastBatchFailedFiles = failedFiles
+        }
+
+        if successCount > 0 {
+            appReviewEligibility.recordSuccessfulOperation(count: successCount)
+            if appReviewEligibility.shouldRequestReview() {
+                onShouldRequestReview?()
+            }
         }
 
         if successCount == totalCount {

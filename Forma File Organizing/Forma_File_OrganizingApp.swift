@@ -271,6 +271,13 @@ struct Forma_File_OrganizingApp: App {
             )
             .environmentObject(services)
             .environmentObject(dashboardViewModel)
+            .appReviewPrompt(
+                shouldRequest: Binding(
+                    get: { dashboardViewModel.shouldRequestAppReview },
+                    set: { dashboardViewModel.shouldRequestAppReview = $0 }
+                ),
+                eligibilityService: services.appReviewEligibility
+            )
             .background(WindowChromeConfiguratorView())
             .automationLifecycle()  // v1.4: Automation engine lifecycle management
     }
