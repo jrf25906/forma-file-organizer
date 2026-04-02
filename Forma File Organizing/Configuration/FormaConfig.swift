@@ -133,6 +133,21 @@ enum FormaConfig {
         static let destinationBookmarkPrefix = "DestinationFolderBookmark_"
     }
     
+    // MARK: - Review Prompt
+
+    enum ReviewPrompt {
+        /// Minimum number of successfully organized files before prompting
+        static let minSuccessfulOperations = 15
+        /// Minimum days since first use before prompting
+        static let minDaysSinceFirstUse = 3
+        /// Minimum days between review prompts
+        static let minDaysBetweenRequests = 120
+        /// Maximum lifetime review requests
+        static let maxLifetimeRequests = 3
+        /// Delay after celebration before showing review prompt
+        static let delayAfterCelebration: Duration = .seconds(2)
+    }
+
     // MARK: - Performance
 
     enum Performance: Sendable {

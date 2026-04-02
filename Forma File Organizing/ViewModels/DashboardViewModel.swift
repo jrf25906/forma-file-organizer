@@ -214,6 +214,7 @@ class DashboardViewModel: ObservableObject {
     // MARK: - UI State
     @Published var isRightPanelVisible: Bool = true
     @Published var errorMessage: String?
+    @Published var shouldRequestAppReview: Bool = false
 
     // MARK: - Organization Progress State
     /// Baseline count of actionable files captured at the start of the current scan session.
@@ -808,6 +809,9 @@ class DashboardViewModel: ObservableObject {
         controller.onShowError = { [weak self] error in
             self?.errorMessage = error
         }
+        controller.onShouldRequestReview = { [weak self] in
+            self?.scheduleAppReviewRequest()
+        }
         return controller
     }()
 
@@ -1231,6 +1235,18 @@ class DashboardViewModel: ObservableObject {
 
         bulkOperationViewModel.onOperationComplete = { [weak self] _, _ in
             self?.filterViewModel.applyFilterImmediately()
+        }
+
+        bulkOperationViewModel.onShouldRequestReview = { [weak self] in
+            self?.scheduleAppReviewRequest()
+        }
+    }
+
+    /// Delays the review prompt so it appears after the celebration animation.
+    private func scheduleAppReviewRequest() {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: FormaConfig.ReviewPrompt.delayAfterCelebration)
+            self?.shouldRequestAppReview = true
         }
     }
 

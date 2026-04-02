@@ -11,22 +11,26 @@ final class DashboardOrganizationController {
     private let filterViewModel: FilterViewModel
     private let selectionViewModel: SelectionViewModel
     private let panelManager: PanelStateManager
+    private let appReviewEligibility: AppReviewEligibilityProviding
 
     var onShowToast: ((String, Bool) -> Void)?
     var onShowError: ((String) -> Void)?
+    var onShouldRequestReview: (() -> Void)?
 
     init(
         coordinator: FileOrganizationCoordinator,
         scanViewModel: FileScanViewModel,
         filterViewModel: FilterViewModel,
         selectionViewModel: SelectionViewModel,
-        panelManager: PanelStateManager
+        panelManager: PanelStateManager,
+        appReviewEligibility: AppReviewEligibilityProviding = AppReviewEligibilityService()
     ) {
         self.coordinator = coordinator
         self.scanViewModel = scanViewModel
         self.filterViewModel = filterViewModel
         self.selectionViewModel = selectionViewModel
         self.panelManager = panelManager
+        self.appReviewEligibility = appReviewEligibility
     }
 
     // MARK: - Organization Status
@@ -66,6 +70,10 @@ final class DashboardOrganizationController {
                     guard let self else { return }
                     if let displayName = file.destination?.displayName {
                         self.panelManager.showCelebrationPanel(message: "Organized to \(displayName)")
+                    }
+                    self.appReviewEligibility.recordSuccessfulOperation(count: 1)
+                    if self.appReviewEligibility.shouldRequestReview() {
+                        self.onShouldRequestReview?()
                     }
                 },
                 onError: { [weak self] error in

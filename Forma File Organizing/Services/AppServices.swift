@@ -21,6 +21,7 @@ final class AppServices: ObservableObject {
     lazy var analyticsService: AnalyticsService = .shared
     lazy var reportService: ReportService = .shared
     lazy var insightsService: InsightsService = .shared
+    lazy var appReviewEligibility: AppReviewEligibilityProviding = AppReviewEligibilityService()
     lazy var fileSystemService: FileSystemServiceProtocol = FileSystemService()
     lazy var fileScanPipeline: FileScanPipelineProtocol = FileScanPipeline()
     lazy var dashboardScanProvider = DashboardFileScanProvider(

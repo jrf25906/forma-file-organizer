@@ -36,6 +36,7 @@ enum Log: Sendable {
         case ui
         case analytics
         case automation
+        case review
     }
 
     // MARK: - Public API
