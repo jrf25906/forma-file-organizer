@@ -19,7 +19,7 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 - [x] Rewrite automation notifications around progress and system health instead of backlog guilt.
 - [x] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
 - [x] Convert successful one-time Finder/Spotlight review flows into persistent monitored folders.
-- [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
+- [x] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ### Next (2-4 Months)
 - [ ] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.

@@ -324,11 +324,19 @@ struct Forma_File_OrganizingApp: App {
 }
 
 private struct WindowChromeConfiguratorView: NSViewRepresentable {
+    final class Coordinator {
+        var configuredWindows: Set<ObjectIdentifier> = []
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
             if let window = view.window {
-                configure(window)
+                configure(window, coordinator: context.coordinator)
             }
         }
         return view
@@ -336,11 +344,50 @@ private struct WindowChromeConfiguratorView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         if let window = nsView.window {
-            configure(window)
+            configure(window, coordinator: context.coordinator)
         }
     }
 
-    private func configure(_ window: NSWindow) {
+    private func configure(_ window: NSWindow, coordinator: Coordinator) {
         MainWindowPresentation.applyChrome(to: window)
+
+        let identifier = ObjectIdentifier(window)
+        guard coordinator.configuredWindows.insert(identifier).inserted else { return }
+
+        if let restoredFrameOverride = uiTestRestoredWindowFrameOverride() {
+            window.setFrame(restoredFrameOverride, display: false)
+        }
+
+        let validatedFrame = MainWindowFrameValidator.validatedFrame(
+            window.frame,
+            visibleFrames: NSScreen.screens.map(\.visibleFrame),
+            minimumSize: MainWindowPresentation.minimumSize
+        )
+
+        guard validatedFrame != window.frame else { return }
+        window.setFrame(validatedFrame, display: true, animate: false)
+    }
+
+    private func uiTestRestoredWindowFrameOverride() -> CGRect? {
+        guard ProcessInfo.processInfo.arguments.contains("--uitesting") else { return nil }
+        guard let rawValue = ProcessInfo.processInfo.environment["FORMA_RESTORED_WINDOW_FRAME"] else { return nil }
+
+        let components = rawValue
+            .split(separator: ",", omittingEmptySubsequences: false)
+            .map(String.init)
+
+        guard components.count == 4 else { return nil }
+        guard
+            let x = Double(components[0]),
+            let y = Double(components[1]),
+            let width = Double(components[2]),
+            let height = Double(components[3]),
+            width > 0,
+            height > 0
+        else {
+            return nil
+        }
+
+        return CGRect(x: x, y: y, width: width, height: height)
     }
 }

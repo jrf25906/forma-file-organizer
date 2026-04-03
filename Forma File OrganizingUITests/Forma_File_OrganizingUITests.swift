@@ -136,6 +136,43 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForMainContent()
         harness.waitForSplitLayout("twoColumn", timeout: 4)
     }
+
+    @MainActor
+    func testRestoredWindowFrameIsBroughtBackOntoVisibleDisplay() throws {
+        let suiteName = "\(defaultWindowPresentationSuiteName).restoredFrameValidation"
+        let screenFrames = NSScreen.screens.map(\.frame)
+        guard let furthestVisibleEdge = screenFrames.map(\.maxX).max(),
+              let largestScreenFrame = screenFrames.max(by: {
+                  ($0.width * $0.height) < ($1.width * $1.height)
+              }) else {
+            XCTFail("Expected at least one visible screen frame")
+            return
+        }
+
+        let restoredFrame = CGRect(
+            x: furthestVisibleEdge + 1200,
+            y: 120,
+            width: largestScreenFrame.width + 400,
+            height: largestScreenFrame.height + 260
+        )
+
+        launchApp(
+            windowSize: "1340x900",
+            suiteName: suiteName,
+            resetWindowPresentation: true,
+            restoredFrame: "\(restoredFrame.origin.x),\(restoredFrame.origin.y),\(restoredFrame.width),\(restoredFrame.height)"
+        )
+        harness.waitForMainContent()
+
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 4), "Expected a restored main window")
+
+        let frame = window.frame
+        XCTAssertTrue(
+            screenFrames.contains(where: { containsWindowFrame($0, windowFrame: frame) }),
+            "Expected restored frame \(frame) to fit inside one physical screen frame \(screenFrames)"
+        )
+    }
     
     @MainActor
     func testKeyboardNavigationDownAndJ() throws {
@@ -563,7 +600,8 @@ private extension Forma_File_OrganizingUITests {
     func launchApp(
         windowSize: String,
         suiteName: String? = nil,
-        resetWindowPresentation: Bool = true
+        resetWindowPresentation: Bool = true,
+        restoredFrame: String? = nil
     ) {
         app?.terminate()
         terminateRunningAppIfNeeded()
@@ -571,6 +609,9 @@ private extension Forma_File_OrganizingUITests {
         let launchedApp = XCUIApplication()
         launchedApp.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
         launchedApp.launchEnvironment["FORMA_WINDOW_SIZE"] = windowSize
+        if let restoredFrame {
+            launchedApp.launchEnvironment["FORMA_RESTORED_WINDOW_FRAME"] = restoredFrame
+        }
         configureWindowPresentationIsolation(
             for: launchedApp,
             suiteName: suiteName ?? defaultWindowPresentationSuiteName,
@@ -601,5 +642,12 @@ private extension Forma_File_OrganizingUITests {
             return "_"
         }
         return "FormaUITests.\(String(sanitized))"
+    }
+
+    private func containsWindowFrame(_ visibleFrame: CGRect, windowFrame: CGRect, tolerance: CGFloat = 4) -> Bool {
+        windowFrame.minX >= visibleFrame.minX - tolerance &&
+        windowFrame.maxX <= visibleFrame.maxX + tolerance &&
+        windowFrame.minY >= visibleFrame.minY - tolerance &&
+        windowFrame.maxY <= visibleFrame.maxY + tolerance
     }
 }

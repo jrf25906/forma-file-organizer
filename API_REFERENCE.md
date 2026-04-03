@@ -4,6 +4,10 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Main-window frame restoration (`Forma File Organizing/Utilities/MainWindowFrameValidator.swift`)
+  - `MainWindowFrameValidator.validatedFrame(_:visibleFrames:minimumSize:)`
+  - Restored main-window geometry now gets a one-shot validation pass after native autosave restoration: oversized frames are clamped to the active visible display, and frames that reopen fully off-screen are recentered onto the nearest available screen.
+  - `WindowChromeConfiguratorView` also honors the UI-test-only `FORMA_RESTORED_WINDOW_FRAME` launch environment so macOS window-restoration regressions can be exercised deterministically.
 - Website shell primitives (`forma-website/src/components/ui/`)
   - `FormaShellCard`
     - `variant?: "default" | "floating"`

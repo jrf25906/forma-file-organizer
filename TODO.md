@@ -18,7 +18,7 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 - [x] Preserve structured automation error buckets for scan, bookmark, and destination failures so notifications do not fall back to generic scan summaries.
 - [x] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
 - [x] Convert successful one-time Finder/Spotlight folder review flows into persistent monitored folders.
-- [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
+- [x] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ### Next (2-4 Months)
 - [ ] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.

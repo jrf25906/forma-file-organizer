@@ -6,6 +6,9 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Main-window frame restoration validation:
+  - `MainWindowFrameValidator` now clamps restored window geometry into the current visible display, shrinking oversized frames and recentering fully off-screen frames onto the nearest available screen.
+  - `Forma_File_OrganizingUITests` now covers the bad-restored-frame launch path with a UI-test-only `FORMA_RESTORED_WINDOW_FRAME` override so display-topology regressions stay reproducible.
 - Shared rule-draft workflow state for preview-first editing:
   - `RuleDraftSession`, `RuleDraftPresentation`, `RuleDraftReturnTarget`, and `RuleDraftSource` now let `NavigationViewModel` own in-progress rule context across the inline builder and modal rule editor.
   - `NavigationViewModel.beginRuleDraft(...)`, `presentRuleDraftModal()`, `presentRuleDraftPanel()`, and `updateRuleDraftFormState(_:)` keep typed rule edits, file context, and launch intent intact during panel/modal handoffs.
