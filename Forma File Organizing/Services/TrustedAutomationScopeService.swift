@@ -5,11 +5,14 @@ import SwiftData
 final class TrustedAutomationScopeService {
     enum ServiceError: LocalizedError {
         case scopeNotFound(UUID)
+        case invalidTransition(id: UUID, from: TrustedAutomationScopeStatus, to: TrustedAutomationScopeStatus)
 
         var errorDescription: String? {
             switch self {
             case .scopeNotFound(let id):
                 return "Trusted automation scope \(id.uuidString) was not found."
+            case .invalidTransition(let id, let from, let to):
+                return "Trusted automation scope \(id.uuidString) cannot transition from \(from.rawValue) to \(to.rawValue)."
             }
         }
     }
@@ -75,6 +78,9 @@ final class TrustedAutomationScopeService {
 
     func pauseScope(id: UUID, at timestamp: Date = Date()) throws {
         let scope = try requireScope(id: id)
+        guard scope.status == .active else {
+            throw ServiceError.invalidTransition(id: id, from: scope.status, to: .paused)
+        }
         scope.status = .paused
         scope.updatedAt = timestamp
         try modelContext.save()
@@ -82,6 +88,9 @@ final class TrustedAutomationScopeService {
 
     func resumeScope(id: UUID, at timestamp: Date = Date()) throws {
         let scope = try requireScope(id: id)
+        guard scope.status == .paused else {
+            throw ServiceError.invalidTransition(id: id, from: scope.status, to: .active)
+        }
         scope.status = .active
         scope.revokedAt = nil
         scope.updatedAt = timestamp

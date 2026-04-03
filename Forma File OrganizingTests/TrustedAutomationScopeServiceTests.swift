@@ -118,4 +118,30 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
             XCTAssertEqual(try context.fetch(FetchDescriptor<TrustedAutomationScope>()).count, 1)
         }
     }
+
+    func testResumeScope_WhenRevoked_ThrowsAndPreservesRevokedStatus() throws {
+        try withService { context, service in
+            let scope = try service.createOrReactivateScope(
+                scopeType: .rule,
+                scopeKey: "rule:receipts",
+                displayName: "Receipts rule",
+                promotionSource: .reviewFlow,
+                recommendationSource: .explicitRule,
+                acceptedEvidenceCount: 5,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.96,
+                rationaleSummary: "Repeated clean review approvals.",
+                allowedActions: [.move]
+            )
+
+            try service.removeScope(id: scope.id)
+
+            XCTAssertThrowsError(try service.resumeScope(id: scope.id))
+
+            let removed = try XCTUnwrap(context.fetch(FetchDescriptor<TrustedAutomationScope>()).first)
+            XCTAssertEqual(removed.status, .revoked)
+            XCTAssertNotNil(removed.revokedAt)
+        }
+    }
 }
