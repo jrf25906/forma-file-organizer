@@ -73,6 +73,7 @@ struct SidebarView: View {
                 sectionHeader("ACTIONS")
 
                 SidebarActionRow(title: "New Rule", icon: "plus") {
+                    nav.openRuleBuilderPanel(returnTarget: .defaultPanel)
                     dashboardViewModel.showRuleBuilderPanel()
                 }
                 .help("Create a new organization rule (R)")

@@ -189,11 +189,12 @@ final class ProductivityReportViewModel: ObservableObject {
             navigateToFolder(.downloads, searchText: nil, secondaryFilter: .none, reviewMode: .needsReview)
         case .createRule(let pattern):
             Log.info("ProductivityReportViewModel: Suggesting rule pattern - \(pattern)", category: .analytics)
-            navigation.ruleEditorSuggestedText = pattern
-            navigation.editingRule = nil
-            navigation.ruleEditorFileContext = nil
             withAnimation(.easeInOut(duration: 0.2)) {
-                navigation.isShowingRuleEditor = true
+                navigation.beginRuleDraft(
+                    suggestedNaturalLanguageText: pattern,
+                    presentation: .modal,
+                    returnTarget: .none
+                )
             }
         case .enableAutomation:
             Log.info("ProductivityReportViewModel: Enable automation action is handled by SettingsLink", category: .analytics)
@@ -224,11 +225,12 @@ final class ProductivityReportViewModel: ObservableObject {
     }
 
     func openRuleBuilder() {
-        navigation.ruleEditorSuggestedText = "Move files older than 30 days to Archive"
-        navigation.editingRule = nil
-        navigation.ruleEditorFileContext = nil
         withAnimation(.easeInOut(duration: 0.2)) {
-            navigation.isShowingRuleEditor = true
+            navigation.beginRuleDraft(
+                suggestedNaturalLanguageText: "Move files older than 30 days to Archive",
+                presentation: .modal,
+                returnTarget: .none
+            )
         }
     }
 

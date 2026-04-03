@@ -85,9 +85,59 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `dismissFirstRunQuickWin()`
   - `setRightPanelVisible(_:)`
   - `latestUndoableBatchSummary`
+  - `showRuleBuilderPanelForInspector(_:editingRule:)`
+  - `restorePanel(afterRuleDraftReturnTarget:)`
+  - `showRuleWorkflowCelebration(message:returnTarget:)`
+  - `dismissCelebrationPanel()`
+  - `shouldShowDefaultPanelPrimaryAction(for:hasActiveRuleDraft:)`
+  - `celebrationShowsUndo`
+  - `celebrationShowsNextActionSuggestion`
   - First-run quick wins now derive from the current filtered `reviewableFiles` context, are suppressed while an external review session is active, and persist per-candidate dismissals across sessions.
   - External review sessions now clear themselves once scoped files are no longer pending or ready.
   - Folder permission grants now refresh `BookmarkFolderService` availability immediately and only schedule the follow-up dashboard rescan when onboarding is not currently being shown.
+  - Inspector-origin rule workflows now preserve the selected file and reopen the inspector after draft dismissal or save instead of falling back to the generic default panel.
+  - Rule-workflow celebrations now carry their own presentation style so success feedback can hide the unrelated batch-undo CTA and send both auto-dismiss and `Continue` through the same return-target restoration path.
+  - The default-panel primary CTA now steps back whenever review or shared rule-draft state already owns the next action, keeping the right panel from competing with the active workflow.
+- `PanelStateManager`
+  - `CelebrationStyle`
+    - `.batchUndo`
+    - `.ruleWorkflow`
+  - `celebrationStyle`
+  - `showCelebrationPanel(message:style:onDismiss:)`
+  - `dismissCelebration()`
+- Rule-draft workflow state
+  - `RuleDraftSession`
+    - `formState: RuleFormState`
+    - `editingRule: Rule?`
+    - `fileContext: FileItem?`
+    - `suggestedNaturalLanguageText: String?`
+    - `presentation: RuleDraftPresentation`
+    - `returnTarget: RuleDraftReturnTarget`
+    - `source: RuleDraftSource`
+  - `RuleDraftPresentation`
+    - `.panel`
+    - `.modal`
+  - `RuleDraftReturnTarget`
+    - `.none`
+    - `.defaultPanel`
+    - `.inspector(filePath: String)`
+  - `RuleDraftSource`
+    - `.genericNew`
+    - `.newFromFile`
+    - `.editExisting`
+    - `.suggestedPrompt`
+- `NavigationViewModel`
+  - `ruleDraftSession`
+  - `hasActiveRuleDraft`
+  - `beginRuleDraft(...)`
+  - `presentRuleDraftModal()`
+  - `presentRuleDraftPanel()`
+  - `updateRuleDraftFormState(_:)`
+  - `clearRuleDraft()`
+  - `discardRuleDraft()`
+  - Inline and modal rule editors now share one draft payload so typed rule changes survive panel/modal transitions without reconstructing state from only `editingRule` and `fileContext`.
+- Rule composition workflow
+  - `RuleEditorView` and `InlineRuleBuilderView` now share the same staged `When` / `Then` / `Impact` framing, primary save affordance, and live impact-preview model so panel and modal editing feel like one workflow instead of separate forms.
 - `DashboardPermissionState`
   - Granting a folder updates the per-folder access booleans without re-deriving `showOnboarding` from `hasCompletedOnboarding`, so dismissed onboarding sheets stay dismissed during JIT permission recovery.
 - `ExternalReviewPromotionSuggestion`

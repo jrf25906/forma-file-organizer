@@ -223,8 +223,10 @@ struct CommandPaletteView: View {
             ) {
                 if let focusedPath = dashboardViewModel.focusedFilePath,
                    let focused = dashboardViewModel.visibleFiles.first(where: { $0.path == focusedPath }) {
-                    nav.ruleEditorFileContext = focused
-                    nav.isShowingRuleEditor = true
+                    nav.openRuleEditor(
+                        fileContext: focused,
+                        returnTarget: .defaultPanel
+                    )
                 }
             },
             Command(

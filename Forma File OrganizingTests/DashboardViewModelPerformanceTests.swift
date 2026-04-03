@@ -73,6 +73,8 @@ final class DashboardViewModelPerformanceTests: XCTestCase {
 
         viewModel._testSetFiles(files)
         viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .all
+        viewModel.selectCategory(.all)
         viewModel.selectAll()
 
         // When: Skip all

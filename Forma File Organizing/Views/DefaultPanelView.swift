@@ -7,11 +7,6 @@ import SwiftData
 // Features: Circular progress ring, refined insights, clear hierarchy
 
 struct DefaultPanelView: View {
-    private enum PrimaryActionSource {
-        case floatingActionBar
-        case rightPanelPinned
-    }
-
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
@@ -35,31 +30,13 @@ struct DefaultPanelView: View {
         return hasSuggestablePatterns || hasVisibleInsights || hasExternalReviewPromotion
     }
 
-    /// Primary-action ownership for the current dashboard state.
-    private var primaryActionSource: PrimaryActionSource {
-        if dashboardViewModel.isSelectionMode {
-            return .floatingActionBar
-        }
-
-        if dashboardViewModel.reviewFilterMode == .needsReview,
-           dashboardViewModel.currentReviewChunkCount > 0 {
-            return .floatingActionBar
-        }
-
-        return .rightPanelPinned
-    }
-
     /// Hide right-panel primary CTA when another surface owns primary action or
     /// when the center view is in a non-file workflow.
     private var shouldShowPinnedPrimaryAction: Bool {
-        guard primaryActionSource == .rightPanelPinned else { return false }
-
-        switch nav.selection {
-        case .rules, .analytics:
-            return false
-        default:
-            return true
-        }
+        dashboardViewModel.shouldShowDefaultPanelPrimaryAction(
+            for: nav.selection,
+            hasActiveRuleDraft: nav.hasActiveRuleDraft
+        )
     }
 
     // MARK: - Debouncing for Insights Generation
@@ -686,7 +663,7 @@ struct DefaultPanelView: View {
                     .font(.formaCompactSemibold)
                     .foregroundStyle(Color.formaSteelBlue)
 
-                Text("Rollback Ready")
+                Text("Undo Available")
                     .font(.formaCompactSemibold)
                     .foregroundStyle(Color.formaLabel)
 
@@ -697,7 +674,9 @@ struct DefaultPanelView: View {
                     .foregroundStyle(Color.formaTertiaryLabel)
             }
 
-            Text("Use Undo to restore the last automatic batch of \(summary.affectedFileCount) \(summary.affectedFileCount == 1 ? "file" : "files").")
+            Text(
+                "Last automatic pass: \(summary.affectedFileCount) \(summary.affectedFileCount == 1 ? "file" : "files"). Undo restores them to their original locations."
+            )
                 .font(.formaSmall)
                 .foregroundStyle(Color.formaSecondaryLabelHigh)
                 .fixedSize(horizontal: false, vertical: true)
@@ -711,6 +690,7 @@ struct DefaultPanelView: View {
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.light), lineWidth: 1)
         )
+        .accessibilityIdentifier("defaultPanelAutomationUndoCard")
     }
 
     private func automationTrustMetricRow(
@@ -882,19 +862,25 @@ struct DefaultPanelView: View {
 
             // Single prominent insight card (first visible)
             if let topInsight = visible.first {
-                QuickActionCard(
-                    insight: topInsight,
-                    action: { dashboardViewModel.showRuleBuilderPanel() },
-                    onDismiss: { dismissedInsightIDs.insert(topInsight.id) }
-                )
-            }
+                    QuickActionCard(
+                        insight: topInsight,
+                        action: {
+                            nav.openRuleBuilderPanel(returnTarget: .defaultPanel)
+                            dashboardViewModel.showRuleBuilderPanel()
+                        },
+                        onDismiss: { dismissedInsightIDs.insert(topInsight.id) }
+                    )
+                }
 
             // Additional insights (if expanded)
             if showAllInsights {
                 ForEach(visible.dropFirst()) { visibleInsight in
                     QuickActionCard(
                         insight: visibleInsight,
-                        action: { dashboardViewModel.showRuleBuilderPanel() },
+                        action: {
+                            nav.openRuleBuilderPanel(returnTarget: .defaultPanel)
+                            dashboardViewModel.showRuleBuilderPanel()
+                        },
                         onDismiss: { dismissedInsightIDs.insert(visibleInsight.id) }
                     )
                 }

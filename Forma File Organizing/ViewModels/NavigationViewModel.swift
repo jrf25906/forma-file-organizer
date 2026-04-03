@@ -70,12 +70,21 @@ final class NavigationViewModel: ObservableObject {
     @Published var ruleEditorFileContext: FileItem?
     @Published var editingRule: Rule?
     @Published var ruleEditorSuggestedText: String?
+    @Published var ruleDraftSession: RuleDraftSession? {
+        didSet {
+            syncLegacyRuleEditorState(with: ruleDraftSession)
+        }
+    }
     
     var selectedCategory: FileTypeCategory? {
         if case .category(let cat) = selection {
             return cat
         }
         return nil
+    }
+
+    var hasActiveRuleDraft: Bool {
+        ruleDraftSession != nil
     }
     
     // Helpers for view updates
@@ -86,5 +95,103 @@ final class NavigationViewModel: ObservableObject {
     func select(_ item: NavigationSelection) {
         selection = item
         searchText = ""
+    }
+
+    func beginRuleDraft(
+        editingRule: Rule? = nil,
+        fileContext: FileItem? = nil,
+        suggestedNaturalLanguageText: String? = nil,
+        presentation: RuleDraftPresentation,
+        returnTarget: RuleDraftReturnTarget = .none
+    ) {
+        let source: RuleDraftSource
+        let formState: RuleFormState
+
+        if let editingRule {
+            source = .editExisting
+            formState = RuleFormState(from: editingRule)
+        } else if let fileContext {
+            source = .newFromFile
+            formState = RuleFormState(from: fileContext)
+        } else if let suggestedNaturalLanguageText, !suggestedNaturalLanguageText.isEmpty {
+            source = .suggestedPrompt
+            formState = RuleFormState()
+        } else {
+            source = .genericNew
+            formState = RuleFormState()
+        }
+
+        ruleDraftSession = RuleDraftSession(
+            formState: formState,
+            editingRule: editingRule,
+            fileContext: fileContext,
+            suggestedNaturalLanguageText: suggestedNaturalLanguageText,
+            presentation: presentation,
+            returnTarget: returnTarget,
+            source: source
+        )
+    }
+
+    func openRuleEditor(
+        editingRule: Rule? = nil,
+        fileContext: FileItem? = nil,
+        suggestedNaturalLanguageText: String? = nil,
+        returnTarget: RuleDraftReturnTarget = .none
+    ) {
+        beginRuleDraft(
+            editingRule: editingRule,
+            fileContext: fileContext,
+            suggestedNaturalLanguageText: suggestedNaturalLanguageText,
+            presentation: .modal,
+            returnTarget: returnTarget
+        )
+    }
+
+    func openRuleBuilderPanel(
+        editingRule: Rule? = nil,
+        fileContext: FileItem? = nil,
+        suggestedNaturalLanguageText: String? = nil,
+        returnTarget: RuleDraftReturnTarget = .defaultPanel
+    ) {
+        beginRuleDraft(
+            editingRule: editingRule,
+            fileContext: fileContext,
+            suggestedNaturalLanguageText: suggestedNaturalLanguageText,
+            presentation: .panel,
+            returnTarget: returnTarget
+        )
+    }
+
+    func presentRuleDraftModal() {
+        guard var session = ruleDraftSession else { return }
+        session.presentation = .modal
+        ruleDraftSession = session
+    }
+
+    func presentRuleDraftPanel() {
+        guard var session = ruleDraftSession else { return }
+        session.presentation = .panel
+        ruleDraftSession = session
+    }
+
+    func clearRuleDraft() {
+        ruleDraftSession = nil
+    }
+
+    func discardRuleDraft() {
+        clearRuleDraft()
+    }
+
+    func updateRuleDraftFormState(_ formState: RuleFormState) {
+        guard var session = ruleDraftSession else { return }
+        session.formState = formState
+        ruleDraftSession = session
+    }
+
+    private func syncLegacyRuleEditorState(with session: RuleDraftSession?) {
+        editingRule = session?.editingRule
+        ruleEditorFileContext = session?.fileContext
+        ruleEditorSuggestedText = session?.suggestedNaturalLanguageText
+        isShowingRuleEditor = session?.presentation == .modal
     }
 }

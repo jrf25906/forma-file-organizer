@@ -1,12 +1,12 @@
 # Forma - Project TODO
 
-**Last Updated:** April 1, 2026
+**Last Updated:** April 2, 2026
 
 Strategic roadmap: [`forma-feature-roadmap.md`](../../forma-feature-roadmap.md). This document is the execution checklist and historical backlog reference.
 
 ---
 
-## Roadmap-Ordered Priorities (April 1, 2026)
+## Roadmap-Ordered Priorities (April 2, 2026)
 
 Current sequencing is intentionally aligned with the preview-first, moat-driven roadmap.
 
@@ -15,9 +15,9 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 ### Now (0-8 Weeks)
 - [x] Ship quick-win onboarding and first-run proof before asking users to configure more rules.
 - [x] Add chunked review sessions with `Done for now` semantics so the core workflow feels finite and forgiving.
-- [ ] Build trust infrastructure first: rule simulation, stronger preflight checks, richer explanations, and clearer scoped rollback.
+- [x] Build trust infrastructure first: rule simulation, stronger preflight checks, richer explanations, and clearer scoped rollback.
 - [x] Rewrite automation notifications around progress and system health instead of backlog guilt.
-- [ ] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
+- [x] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
 - [x] Convert successful one-time Finder/Spotlight review flows into persistent monitored folders.
 - [ ] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 

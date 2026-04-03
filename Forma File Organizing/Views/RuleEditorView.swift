@@ -8,6 +8,7 @@ struct RuleEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
+    private let isUITesting = CommandLine.arguments.contains("--uitesting")
 
     @Query private var existingRules: [Rule]
 
@@ -40,6 +41,10 @@ struct RuleEditorView: View {
     @State private var validationError: String?
     @State private var triggerValidationShake: Bool = false
     @State private var isChoosingDestination = false
+    @State private var matchedFilesCount: Int = 0
+    @State private var impactPreviewFiles: [FileItem] = []
+    @State private var isLoadingImpactPreview: Bool = false
+    @State private var impactPreviewTask: Task<Void, Never>?
     
     // Natural language rule creation
     @StateObject private var naturalLanguageViewModel = NaturalLanguageRuleViewModel()
@@ -117,6 +122,109 @@ struct RuleEditorView: View {
         return sortedCategories.first { $0.isDefault }
     }
 
+    private var trimmedRuleName: String {
+        formState.name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var hasValidConditionInput: Bool {
+        if formState.useCompoundConditions {
+            return !formState.conditions.isEmpty &&
+                formState.conditions.allSatisfy { !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        }
+        return !formState.conditionValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var destinationIsRequired: Bool {
+        formState.actionType != .delete
+    }
+
+    private var hasValidDestinationInput: Bool {
+        !formState.destinationDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var whenValidationMessage: String? {
+        hasValidConditionInput ? nil : "Add at least one condition value so Forma can match files."
+    }
+
+    private var thenValidationMessage: String? {
+        if destinationIsRequired && !hasValidDestinationInput {
+            return "Select a destination folder for move/copy actions."
+        }
+        if case .unresolvable(let reason) = destinationResolvability {
+            return reason
+        }
+        return nil
+    }
+
+    private var canSubmitRule: Bool {
+        !trimmedRuleName.isEmpty &&
+            whenValidationMessage == nil &&
+            thenValidationMessage == nil
+    }
+
+    private var impactTone: (title: String, message: String, color: Color, icon: String) {
+        if let validationMessage = whenValidationMessage ?? thenValidationMessage {
+            return (
+                title: "Needs attention",
+                message: validationMessage,
+                color: .formaWarmOrange,
+                icon: "exclamationmark.triangle.fill"
+            )
+        }
+
+        if formState.actionType == .delete && matchedFilesCount > 0 {
+            return (
+                title: "High impact",
+                message: "This rule will automatically send matching files to Trash.",
+                color: .formaWarmOrange,
+                icon: "trash.fill"
+            )
+        }
+
+        if case .resolvable(let parentFolder) = destinationResolvability {
+            return (
+                title: "Will create folder",
+                message: "Forma can create this destination inside \(parentFolder) as soon as you save.",
+                color: .formaSteelBlue,
+                icon: "folder.badge.plus"
+            )
+        }
+
+        if matchedFilesCount == 0 {
+            return (
+                title: "Ready, no matches yet",
+                message: "The rule is valid, but nothing in the current file set matches it right now.",
+                color: .formaSteelBlue,
+                icon: "sparkles"
+            )
+        }
+
+        return (
+            title: "Ready to save",
+            message: "Previewed files below show what this rule will affect first.",
+            color: .formaSage,
+            icon: "checkmark.circle.fill"
+        )
+    }
+
+    private var impactSummaryText: String {
+        let countText = "\(matchedFilesCount) file\(matchedFilesCount == 1 ? "" : "s")"
+        switch formState.actionType {
+        case .delete:
+            return "Would send \(countText) to Trash."
+        case .copy:
+            if hasValidDestinationInput {
+                return "Would copy \(countText) to \(formState.destinationDisplayPath)."
+            }
+            return "Would copy \(countText) after a destination is selected."
+        case .move:
+            if hasValidDestinationInput {
+                return "Would move \(countText) to \(formState.destinationDisplayPath)."
+            }
+            return "Would move \(countText) after a destination is selected."
+        }
+    }
+
     private var ruleSourceForSave: RuleService.RuleSource {
         let nlText = naturalLanguageViewModel.text.trimmingCharacters(in: .whitespacesAndNewlines)
         if editingRule == nil, !nlText.isEmpty, naturalLanguageViewModel.parsedRule != nil {
@@ -159,14 +267,11 @@ struct RuleEditorView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Collapse to Panel")
+                .accessibilityIdentifier("collapseRuleEditorButton")
                 .help("Collapse to Side Panel")
 
                 Button(action: {
-                    if let onDismiss = onDismiss {
-                        onDismiss()
-                    } else {
-                        dismiss()
-                    }
+                    dismissDraft()
                 }) {
                     Image(systemName: "xmark")
                         .font(.formaBodySemibold)
@@ -189,6 +294,9 @@ struct RuleEditorView: View {
                             .foregroundColor(Color.formaSecondaryLabel)
                         TextField("e.g., Screenshot Sweeper", text: $formState.name)
                             .textFieldStyle(.plain)
+                            .accessibilityLabel("Rule Name")
+                            .accessibilityIdentifier("modalRuleNameField")
+                            .accessibilityValue(formState.name)
                             .padding(FormaSpacing.tight + (FormaSpacing.micro / 2))
                             .background(Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle))
                             .cornerRadius(FormaRadius.control)
@@ -213,36 +321,63 @@ struct RuleEditorView: View {
                         )
                     }
 
-                    // Main Form Card (Sentence Builder Style)
-                    VStack(alignment: .leading, spacing: 20) {
-                        
-                        // Category picker (integrated into the card flow or just above/below - Inline has it inside the card if I recall, but let's check. 
-                        // Actually in Inline it was outside, then Matches inside. 
-                        // Let's keep Category separate if it needs to be, but the request says match Inline. 
-                        // InlineView puts Matches | Then inside a white card. Category is separate.
-                        // So let's start the card here for Matches and Then.
-                        
+                    composerSectionCard(
+                        title: "When",
+                        subtitle: "Choose which files this rule should target."
+                    ) {
                         RuleConditionBuilder(formState: $formState)
+                        composerValidationMessage(whenValidationMessage)
+                    }
+                    .overlay(alignment: .topLeading) {
+                        if isUITesting {
+                            Color.clear
+                                .frame(width: 1, height: 1)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityIdentifier("ruleComposerWhenSection")
+                        }
+                    }
 
-                        Divider().padding(.vertical, 4)
-
+                    composerSectionCard(
+                        title: "Then",
+                        subtitle: "Define what happens to matched files."
+                    ) {
                         RuleDestinationPicker(
                             formState: $formState,
                             onChooseFolder: requestDestinationAccess,
                             onPreviewDeleteMatches: previewDeleteRuleMatches
                         )
-                    }
-                    .padding(20)
-                    .background(Color.formaBoneWhite)
-                    .cornerRadius(12)
-                    .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
 
-                    destinationStatusBanner
+                        destinationStatusBanner
+                        composerValidationMessage(thenValidationMessage)
+                    }
+                    .overlay(alignment: .topLeading) {
+                        if isUITesting {
+                            Color.clear
+                                .frame(width: 1, height: 1)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityIdentifier("ruleComposerThenSection")
+                        }
+                    }
 
                     // Category picker
                     if !sortedCategories.isEmpty {
-                        categoryPickerSection
+                        composerSectionCard(
+                            title: "Category",
+                            subtitle: "Group this rule with related organization behavior."
+                        ) {
+                            categoryPickerSection
+                        }
                     }
+
+                    impactPreviewCard
+                        .overlay(alignment: .topLeading) {
+                            if isUITesting {
+                                Color.clear
+                                    .frame(width: 1, height: 1)
+                                    .accessibilityElement(children: .ignore)
+                                    .accessibilityIdentifier("ruleComposerImpactSection")
+                            }
+                        }
 
                     
                     // Validation error
@@ -266,12 +401,8 @@ struct RuleEditorView: View {
 
             // Footer
             HStack(spacing: FormaSpacing.standard) {
-                SecondaryButton("Cancel") {
-                    if let onDismiss = onDismiss {
-                        onDismiss()
-                    } else {
-                        dismiss()
-                    }
+                SecondaryButton(editingRule == nil ? "Discard Draft" : "Cancel") {
+                    dismissDraft()
                 }
 
                 // Enable toggle (re-added in footer)
@@ -281,26 +412,28 @@ struct RuleEditorView: View {
                     .controlSize(.small)
                     .help("Enable or disable this rule")
 
-	            Button(action: {
-	                    saveRule()
-	                }) {
-	                    MorphingButtonContent(
-	                        state: saveButtonState,
-	                        title: editingRule == nil ? "Create Rule" : "Save Changes",
-	                        iconColor: .formaBoneWhite
-	                    )
-	                    .padding(.horizontal, FormaSpacing.large)
-	                    .padding(.vertical, FormaSpacing.tight + (FormaSpacing.micro / 2))
-	                }
-	                .background(
-	                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-	                        .fill(Color.formaSteelBlue)
-	                )
-	                .shadow(color: Color.formaSteelBlue.opacity(Color.FormaOpacity.medium), radius: 4, x: 0, y: 2)
-	                .disabled(saveButtonState != .normal)
-	            }
-	            .padding(FormaSpacing.generous)
-	        }
+                Button(action: {
+                    saveRule()
+                }) {
+                    MorphingButtonContent(
+                        state: saveButtonState,
+                        title: editingRule == nil ? "Save Rule" : "Save Changes",
+                        iconColor: .formaBoneWhite
+                    )
+                    .padding(.horizontal, FormaSpacing.large)
+                    .padding(.vertical, FormaSpacing.tight + (FormaSpacing.micro / 2))
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                        .fill(Color.formaSteelBlue)
+                )
+                .shadow(color: Color.formaSteelBlue.opacity(Color.FormaOpacity.medium), radius: 4, x: 0, y: 2)
+                .disabled(saveButtonState != .normal || !canSubmitRule)
+                .opacity(saveButtonState == .normal && canSubmitRule ? 1 : 0.6)
+                .accessibilityIdentifier("ruleComposerSaveButton")
+            }
+            .padding(FormaSpacing.generous)
+        }
         .frame(width: 500, height: 550)
         .background(
             ZStack {
@@ -314,18 +447,20 @@ struct RuleEditorView: View {
 	        )
 	        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
 	        .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.overlay), radius: 24, x: 0, y: 12)
-	        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: .contain)
 	        .accessibilityIdentifier("ruleEditorView")
         .onAppear {
-            // Initialize form state from editing context
-            if let rule = editingRule {
+            if let draftSession = nav.ruleDraftSession {
+                formState = draftSession.formState
+            } else if let rule = editingRule {
                 formState = RuleFormState(from: rule)
             } else if let file = fileContext {
                 formState = RuleFormState(from: file)
             }
 
+            let seedSuggestedText = nav.ruleDraftSession?.suggestedNaturalLanguageText ?? suggestedNaturalLanguageText
             if editingRule == nil,
-               let suggestedText = suggestedNaturalLanguageText?.trimmingCharacters(in: .whitespacesAndNewlines),
+               let suggestedText = seedSuggestedText?.trimmingCharacters(in: .whitespacesAndNewlines),
                !suggestedText.isEmpty,
                naturalLanguageViewModel.text.isEmpty {
                 naturalLanguageViewModel.onTextChanged(suggestedText)
@@ -336,6 +471,17 @@ struct RuleEditorView: View {
             if formState.categoryID == nil, let defaultCategory = sortedCategories.first(where: { $0.isDefault }) {
                 formState.categoryID = defaultCategory.id
             }
+
+            nav.updateRuleDraftFormState(formState)
+            updateImpactPreview()
+        }
+        .onChange(of: formState) { _, newValue in
+            nav.updateRuleDraftFormState(newValue)
+            updateImpactPreview()
+        }
+        .onDisappear {
+            impactPreviewTask?.cancel()
+            impactPreviewTask = nil
         }
         .sheet(isPresented: $showDeletePreviewSheet) {
             DeleteRulePreviewSheet(files: deletePreviewFiles)
@@ -367,18 +513,130 @@ struct RuleEditorView: View {
 
     // MARK: - View Components
 
+    private func composerSectionCard<Content: View>(
+        title: String,
+        subtitle: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            composerSectionHeader(title: title, subtitle: subtitle)
+            content()
+        }
+        .padding(20)
+        .background(Color.formaBoneWhite)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+    }
+
+    private func composerSectionHeader(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+            Text(title)
+                .font(.formaBodyBold)
+                .foregroundColor(.formaLabel)
+            Text(subtitle)
+                .font(.formaSmall)
+                .foregroundColor(.formaSecondaryLabel)
+        }
+    }
+
+    @ViewBuilder
+    private func composerValidationMessage(_ message: String?) -> some View {
+        if let message {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.formaCompact)
+                    .foregroundColor(.formaWarmOrange)
+                Text(message)
+                    .font(.formaSmall)
+                    .foregroundColor(.formaWarmOrange)
+            }
+            .padding(.horizontal, FormaSpacing.tight)
+            .padding(.vertical, FormaSpacing.micro + 2)
+            .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light))
+            .cornerRadius(FormaRadius.control)
+        }
+    }
+
+    private var impactPreviewCard: some View {
+        composerSectionCard(
+            title: "Impact",
+            subtitle: "Preview what this rule will affect before you save it."
+        ) {
+            HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: impactTone.icon)
+                            .foregroundColor(impactTone.color)
+                        Text(impactTone.title)
+                            .font(.formaBodySemibold)
+                            .foregroundColor(.formaLabel)
+                    }
+
+                    Text(impactTone.message)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaSecondaryLabel)
+                }
+
+                Spacer()
+
+                FormaBadge(
+                    text: "\(matchedFilesCount) match\(matchedFilesCount == 1 ? "" : "es")",
+                    color: impactTone.color,
+                    size: .small,
+                    style: .subtle
+                )
+            }
+
+            if !hasValidConditionInput {
+                Text("Complete the \"When\" section to preview impact.")
+                    .font(.formaSmall)
+                    .foregroundColor(.formaSecondaryLabel)
+            } else if isLoadingImpactPreview {
+                HStack(spacing: FormaSpacing.tight) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Matching files...")
+                        .font(.formaSmall)
+                        .foregroundColor(.formaSecondaryLabel)
+                }
+            } else {
+                Text(impactSummaryText)
+                    .font(.formaSmall)
+                    .foregroundColor(.formaSecondaryLabel)
+
+                if !impactPreviewFiles.isEmpty {
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        ForEach(impactPreviewFiles) { file in
+                            HStack(spacing: FormaSpacing.tight) {
+                                Image(systemName: file.category.iconName)
+                                    .foregroundColor(file.category.color)
+                                    .font(.formaCompact)
+
+                                Text(file.name)
+                                    .font(.formaCaption)
+                                    .foregroundColor(.formaLabel)
+                                    .lineLimit(1)
+
+                                Spacer()
+                            }
+                            .padding(.horizontal, FormaSpacing.tight)
+                            .padding(.vertical, FormaSpacing.tight - 2)
+                            .background(Color.formaControlBackground.opacity(Color.FormaOpacity.light))
+                            .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Category picker allowing users to assign the rule to an organizational category.
     /// Uses compact pill-style selection with category colors.
-	    private var categoryPickerSection: some View {
+    private var categoryPickerSection: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-            Text("Category")
-                .font(.formaBodySemibold)
-                .tracking(0.5)
-                .foregroundColor(Color.formaSecondaryLabel)
-
             // Horizontal scroll of category pills with create button
-	            ScrollView(.horizontal, showsIndicators: false) {
-	                HStack(spacing: FormaSpacing.tight) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: FormaSpacing.tight) {
                     ForEach(sortedCategories) { category in
                         CategoryPill(
                             category: category,
@@ -401,26 +659,26 @@ struct RuleEditorView: View {
                         )
                     }
 
-	                    // Create Category button - perfect circle, same height as pills
-	                    createCategoryButton
-	                }
-	                .padding(.vertical, FormaSpacing.micro / 2)
-	            }
+                    // Create Category button - perfect circle, same height as pills
+                    createCategoryButton
+                }
+                .padding(.vertical, FormaSpacing.micro / 2)
+            }
 
             // Show scope hint if a scoped category is selected
-	            if let selectedCategory = sortedCategories.first(where: { $0.id == formState.categoryID }),
-	               case .folders = selectedCategory.scope {
-	                HStack(spacing: 4) {
-	                    Image(systemName: "folder.badge.gearshape")
-	                        .font(.formaCaption)
-	                    Text("This category only applies to files from specific folders")
-	                        .font(.formaCaption)
-	                }
-	                .foregroundColor(selectedCategory.color.opacity(Color.FormaOpacity.prominent))
-	                .padding(.top, FormaSpacing.micro / 2)
-	            }
-	        }
-	    }
+            if let selectedCategory = sortedCategories.first(where: { $0.id == formState.categoryID }),
+               case .folders = selectedCategory.scope {
+                HStack(spacing: 4) {
+                    Image(systemName: "folder.badge.gearshape")
+                        .font(.formaCaption)
+                    Text("This category only applies to files from specific folders")
+                        .font(.formaCaption)
+                }
+                .foregroundColor(selectedCategory.color.opacity(Color.FormaOpacity.prominent))
+                .padding(.top, FormaSpacing.micro / 2)
+            }
+        }
+    }
 
     @ViewBuilder
     private var destinationStatusBanner: some View {
@@ -547,19 +805,50 @@ struct RuleEditorView: View {
     // MARK: - Helper Functions
 
     /// Collapses the modal editor back to the right panel
-    /// Transfers current state (editingRule and fileContext) to the panel
     private func collapseToPanel() {
-        // Close the modal
-        if let onDismiss = onDismiss {
-            onDismiss()
-        } else {
-            dismiss()
+        if nav.ruleDraftSession == nil {
+            nav.beginRuleDraft(
+                editingRule: editingRule,
+                fileContext: fileContext,
+                suggestedNaturalLanguageText: suggestedNaturalLanguageText,
+                presentation: .modal,
+                returnTarget: draftReturnTarget
+            )
         }
+
+        nav.updateRuleDraftFormState(formState)
+        nav.presentRuleDraftPanel()
 
         // Open the panel with the current rule context
         // Small delay to ensure modal dismissal animation starts first
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            dashboardViewModel.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
+            let draftSession = nav.ruleDraftSession
+            dashboardViewModel.showRuleBuilderPanel(
+                editingRule: draftSession?.editingRule ?? editingRule,
+                fileContext: draftSession?.fileContext ?? fileContext
+            )
+        }
+    }
+
+    private var draftReturnTarget: RuleDraftReturnTarget {
+        if let fileContext {
+            return .inspector(filePath: fileContext.path)
+        }
+        return .defaultPanel
+    }
+
+    private func dismissDraft() {
+        if nav.ruleDraftSession != nil {
+            let returnTarget = nav.ruleDraftSession?.returnTarget ?? draftReturnTarget
+            nav.discardRuleDraft()
+            dashboardViewModel.restorePanel(afterRuleDraftReturnTarget: returnTarget)
+            return
+        }
+
+        if let onDismiss = onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
         }
     }
 
@@ -596,6 +885,60 @@ struct RuleEditorView: View {
             let trimmed = parsed.originalText.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 formState.name = trimmed
+            }
+        }
+    }
+
+    private func updateImpactPreview() {
+        impactPreviewTask?.cancel()
+
+        guard hasValidConditionInput else {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                impactPreviewFiles = []
+                matchedFilesCount = 0
+                isLoadingImpactPreview = false
+            }
+            return
+        }
+
+        isLoadingImpactPreview = true
+
+        impactPreviewTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled else { return }
+
+            let previewConditions: [RuleCondition]
+            let previewConditionType: Rule.ConditionType
+            let previewConditionValue: String
+            let previewLogicalOperator: Rule.LogicalOperator
+
+            if formState.useCompoundConditions {
+                previewConditions = formState.conditions
+                previewConditionType = formState.conditions.first?.type ?? formState.conditionType
+                previewConditionValue = formState.conditions.first?.value ?? formState.conditionValue
+                previewLogicalOperator = formState.logicalOperator
+            } else {
+                previewConditions = []
+                previewConditionType = formState.conditionType
+                previewConditionValue = formState.conditionValue
+                previewLogicalOperator = .single
+            }
+
+            let matches = dashboardViewModel.matchingFilesForRulePreview(
+                conditions: previewConditions,
+                conditionType: previewConditionType,
+                conditionValue: previewConditionValue,
+                logicalOperator: previewLogicalOperator,
+                actionType: formState.actionType,
+                destination: formState.buildDestination()
+            )
+
+            guard !Task.isCancelled else { return }
+
+            withAnimation(.easeInOut(duration: 0.15)) {
+                impactPreviewFiles = Array(matches.prefix(3))
+                matchedFilesCount = matches.count
+                isLoadingImpactPreview = false
             }
         }
     }
@@ -691,6 +1034,8 @@ struct RuleEditorView: View {
 
     private func commitSave(rule: Rule) {
         saveButtonState = .loading
+        let isWorkflowDraft = nav.ruleDraftSession != nil
+        let workflowReturnTarget = nav.ruleDraftSession?.returnTarget ?? draftReturnTarget
 
         let ruleService = RuleService(modelContext: modelContext)
 
@@ -722,7 +1067,10 @@ struct RuleEditorView: View {
             saveButtonState = .success
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                if let onDismiss = onDismiss {
+                if isWorkflowDraft {
+                    nav.clearRuleDraft()
+                    dashboardViewModel.restorePanel(afterRuleDraftReturnTarget: workflowReturnTarget)
+                } else if let onDismiss = onDismiss {
                     onDismiss()
                 } else {
                     dismiss()

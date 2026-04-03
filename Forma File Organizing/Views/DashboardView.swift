@@ -67,13 +67,13 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var ruleEditorOverlay: some View {
-        if nav.isShowingRuleEditor {
+        if let draftSession = nav.ruleDraftSession, draftSession.presentation == .modal {
             // Dimmed background overlay
             Color.formaObsidian.opacity(Color.FormaOpacity.overlay)
                 .ignoresSafeArea()
                 .onTapGesture {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        nav.isShowingRuleEditor = false
+                        dismissRuleDraft()
                     }
                 }
                 .transition(.opacity)
@@ -85,17 +85,15 @@ struct DashboardView: View {
                 HStack {
                     Spacer()
                     RuleEditorView(
-                        rule: nav.editingRule,
-                        fileContext: nav.ruleEditorFileContext,
-                        suggestedNaturalLanguageText: nav.ruleEditorSuggestedText,
+                        rule: draftSession.editingRule,
+                        fileContext: draftSession.fileContext,
+                        suggestedNaturalLanguageText: draftSession.suggestedNaturalLanguageText,
                         onDismiss: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            nav.isShowingRuleEditor = false
-                            nav.ruleEditorFileContext = nil
-                            nav.editingRule = nil
-                            nav.ruleEditorSuggestedText = nil
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                dismissRuleDraft()
+                            }
                         }
-                    })
+                    )
                     .accessibilityIdentifier("ruleEditorView")
                     Spacer()
                 }
@@ -104,6 +102,12 @@ struct DashboardView: View {
             .transition(.scale(scale: 0.95).combined(with: .opacity))
             .zIndex(100)
         }
+    }
+
+    private func dismissRuleDraft() {
+        let returnTarget = nav.ruleDraftSession?.returnTarget ?? .none
+        nav.discardRuleDraft()
+        dashboardViewModel.restorePanel(afterRuleDraftReturnTarget: returnTarget)
     }
 
     /// Hidden command bridge for ⌘F so the search focus shortcut does not affect toolbar layout.

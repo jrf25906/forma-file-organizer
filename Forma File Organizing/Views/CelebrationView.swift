@@ -5,6 +5,7 @@ import SwiftData
 struct CelebrationView: View {
     let message: String
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
@@ -24,11 +25,11 @@ struct CelebrationView: View {
                 // Message Display
                 messageSection
                 
-                // Undo Button with Timer
-                undoButton
+                actionSection
                 
                 // Next Action Suggestion
-                if let suggestion = nextActionSuggestion {
+                if dashboardViewModel.celebrationShowsNextActionSuggestion,
+                   let suggestion = nextActionSuggestion {
                     nextActionSection(suggestion)
                 }
                 
@@ -103,44 +104,46 @@ struct CelebrationView: View {
         .padding(.top, FormaSpacing.standard)
     }
     
-    // MARK: - Undo Button
+    // MARK: - Actions
     
-    private var undoButton: some View {
+    private var actionSection: some View {
         VStack(spacing: FormaSpacing.standard) {
-            Button(action: {
-                timerActive = false
-                dashboardViewModel.undoLastAction(context: modelContext)
-            }) {
-                HStack(spacing: FormaSpacing.tight) {
-                    Image(systemName: "arrow.uturn.backward.circle.fill")
-                        .font(.formaH3)
-                    Text("Undo")
-                        .font(.formaH3)
+            if dashboardViewModel.celebrationShowsUndo {
+                Button(action: {
+                    timerActive = false
+                    dashboardViewModel.undoLastAction(context: modelContext)
+                }) {
+                    HStack(spacing: FormaSpacing.tight) {
+                        Image(systemName: "arrow.uturn.backward.circle.fill")
+                            .font(.formaH3)
+                        Text("Undo")
+                            .font(.formaH3)
 
-                    if timerActive {
-                        Text("(\(undoCountdown)s)")
-                            .font(.formaBodyMedium)
-                            .foregroundColor(.formaBoneWhite.opacity(Color.FormaOpacity.prominent))
+                        if timerActive {
+                            Text("(\(undoCountdown)s)")
+                                .font(.formaBodyMedium)
+                                .foregroundColor(.formaBoneWhite.opacity(Color.FormaOpacity.prominent))
+                        }
                     }
+                    .foregroundStyle(Color.formaBoneWhite)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, FormaSpacing.large)
+                    .background(
+                        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                            .fill(Color.formaSage)
+                    )
+                    .shadow(color: Color.formaSage.opacity(Color.FormaOpacity.light + Color.FormaOpacity.subtle), radius: 4, x: 0, y: 2)
                 }
-                .foregroundStyle(Color.formaBoneWhite)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, FormaSpacing.large)
-                .background(
-                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                        .fill(Color.formaSage)
-                )
-                .shadow(color: Color.formaSage.opacity(Color.FormaOpacity.light + Color.FormaOpacity.subtle), radius: 4, x: 0, y: 2)
+                .buttonStyle(.plain)
+                .pressAnimation()
+                .disabled(!dashboardViewModel.canUndo())
+                .opacity(dashboardViewModel.canUndo() ? 1.0 : Color.FormaOpacity.strong)
             }
-            .buttonStyle(.plain)
-            .pressAnimation()
-            .disabled(!dashboardViewModel.canUndo())
-            .opacity(dashboardViewModel.canUndo() ? 1.0 : Color.FormaOpacity.strong)
             
             // Manual dismiss button
             Button(action: {
                 timerActive = false
-                dashboardViewModel.returnToDefaultPanel()
+                dashboardViewModel.dismissCelebrationPanel()
             }) {
                 Text("Continue")
                     .font(.formaBody)
@@ -173,6 +176,7 @@ struct CelebrationView: View {
             
             Button(action: {
                 timerActive = false
+                nav.openRuleBuilderPanel(returnTarget: .defaultPanel)
                 dashboardViewModel.showRuleBuilderPanel()
             }) {
                 HStack(spacing: FormaSpacing.micro) {

@@ -296,13 +296,13 @@ struct FileInspectorView: View {
                     HStack(spacing: FormaSpacing.micro) {
                         Image(systemName: "info.circle")
                             .font(.formaCompact)
-                        Text("Based on rule: \"\(matchingRule.name)\"")
+                        Text("Why this matched: \"\(matchingRule.name)\"")
                             .font(.formaCaption)
                     }
                     .foregroundColor(.formaSteelBlue)
                 }
                 .buttonStyle(.plain)
-                .help("Open rule details")
+                .help("Open the rule behind this match")
             }
         }
         .padding(FormaSpacing.large)
@@ -315,7 +315,7 @@ struct FileInspectorView: View {
     }
     
     private func matchReasoningCard(_ file: FileItem, matchingRule: Rule?) -> some View {
-        CollapsibleSection(title: "Why This Suggestion?", icon: "lightbulb", storageKey: "inspector.matchReasoning") {
+        CollapsibleSection(title: "Why This Matched", icon: "lightbulb", storageKey: "inspector.matchReasoning") {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 // Confidence indicator
                 if let confidence = file.confidenceScore {
@@ -353,7 +353,7 @@ struct FileInspectorView: View {
                                 .font(.formaCompact)
                                 .foregroundColor(.formaSteelBlue.opacity(Color.FormaOpacity.high))
 
-                            Text("Match Details")
+                            Text("Why it matched")
                                 .font(.formaCaption)
                                 .foregroundColor(inspectorSecondaryTextColor)
                         }
@@ -388,12 +388,12 @@ struct FileInspectorView: View {
                     .font(.formaCompact)
                     .foregroundColor(.formaSteelBlue.opacity(Color.FormaOpacity.high))
 
-                Text("Read-Only Rule Preview")
+                Text("What will happen")
                     .font(.formaCaption)
                     .foregroundColor(inspectorSecondaryTextColor)
             }
 
-            Text("\"\(matchingRule.name)\" would catch \(summary.matchCount) of \(summary.evaluatedCount) scanned \(summary.evaluatedCount == 1 ? "file" : "files").")
+            Text("Rule \"\(matchingRule.name)\" would catch \(summary.matchCount) of \(summary.evaluatedCount) scanned \(summary.evaluatedCount == 1 ? "file" : "files").")
                 .font(.formaSmall)
                 .foregroundColor(.formaLabel)
 
@@ -405,7 +405,7 @@ struct FileInspectorView: View {
                 }
             }
 
-            Text("Preview only. It does not change file status until you organize a batch.")
+            Text("Preview only. Rule-driven suggestions do not move anything until you run a review pass or automatic pass.")
                 .font(.formaCaption)
                 .foregroundColor(inspectorSecondaryTextColor)
         }
@@ -441,17 +441,20 @@ struct FileInspectorView: View {
             HStack {
                 Image(systemName: "questionmark.circle")
                     .foregroundColor(.formaWarmOrange)
-                Text("No organization rule matches this file")
+                Text("No rule matches this file yet")
                     .font(.formaSmall)
                     .foregroundColor(.formaLabel)
             }
             
             Button(action: {
-                dashboardViewModel.showRuleBuilderPanel(fileContext: file)
+                openRuleBuilderPanel(
+                    fileContext: file,
+                    returnTarget: .inspector(filePath: file.path)
+                )
             }) {
                 HStack {
                     Image(systemName: "plus.circle")
-                    Text("Create Rule for This File")
+                    Text("Create Rule for Future Matches")
                         .font(.formaSmall)
                 }
                 .foregroundColor(.formaSteelBlue)
@@ -471,7 +474,10 @@ struct FileInspectorView: View {
         )
     }
     
+    @ViewBuilder
     private func actionButtons(_ file: FileItem) -> some View {
+        let matchingRule = matchingRule(for: file)
+
         VStack(spacing: FormaSpacing.standard) {
             // Primary action: Organize
             if file.destination != nil {
@@ -505,27 +511,31 @@ struct FileInspectorView: View {
                     .help("Delete File")
             }
             
-            // Tertiary: Create rule from this
-            Button(action: {
-                dashboardViewModel.showRuleBuilderPanel(fileContext: file)
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "wand.and.stars")
-                        .font(.formaBodySemibold)
-                    Text("Create Rule from This")
-                        .font(.formaBodyLarge)
-                        .fontWeight(.semibold)
+            if file.destination != nil {
+                Button(action: {
+                    openRuleBuilderPanel(
+                        fileContext: file,
+                        returnTarget: .inspector(filePath: file.path)
+                    )
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: matchingRule == nil ? "wand.and.stars" : "slider.horizontal.3")
+                            .font(.formaBodySemibold)
+                        Text(matchingRule == nil ? "Create Rule from This" : "Adjust This Rule")
+                            .font(.formaBodyLarge)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.formaSteelBlue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, FormaSpacing.standard - FormaSpacing.micro)
+                    .background(Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                            .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                    )
                 }
-                .foregroundColor(.formaSteelBlue)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, FormaSpacing.standard - FormaSpacing.micro)
-                .background(Color.clear)
-                .overlay(
-                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                        .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: 1)
-                )
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -708,7 +718,7 @@ struct FileInspectorView: View {
             }
             
             Button(action: {
-                dashboardViewModel.showRuleBuilderPanel()
+                openRuleBuilderPanel(returnTarget: .defaultPanel)
             }) {
                 HStack(spacing: 8) {
                     Image(systemName: "wand.and.stars")
@@ -893,11 +903,31 @@ struct FileInspectorView: View {
     }
 
     private func openRuleEditor(for rule: Rule, file: FileItem) {
-        nav.editingRule = rule
-        nav.ruleEditorFileContext = file
-        nav.ruleEditorSuggestedText = nil
         withAnimation(.easeInOut(duration: 0.2)) {
-            nav.isShowingRuleEditor = true
+            nav.beginRuleDraft(
+                editingRule: rule,
+                fileContext: file,
+                presentation: .modal,
+                returnTarget: .inspector(filePath: file.path)
+            )
+        }
+    }
+
+    private func openRuleBuilderPanel(
+        editingRule: Rule? = nil,
+        fileContext: FileItem? = nil,
+        returnTarget: RuleDraftReturnTarget
+    ) {
+        nav.beginRuleDraft(
+            editingRule: editingRule,
+            fileContext: fileContext,
+            presentation: .panel,
+            returnTarget: returnTarget
+        )
+        if case .inspector = returnTarget, let fileContext {
+            dashboardViewModel.showRuleBuilderPanelForInspector(fileContext, editingRule: editingRule)
+        } else {
+            dashboardViewModel.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
         }
     }
 

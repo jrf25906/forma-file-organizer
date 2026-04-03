@@ -33,4 +33,38 @@ final class ActivityLoggingTests: XCTestCase {
         XCTAssertEqual(viewModel.recentActivities.first?.activityType, .ruleCreated)
         XCTAssertEqual(viewModel.recentActivities.first?.fileName, "NL Rule")
     }
+
+    func testLogBulkOrganizedUsesPassLanguageForReviewDrivenRuns() throws {
+        let schema = Schema([ActivityItem.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = container.mainContext
+        let service = ActivityLoggingService(modelContext: context)
+
+        service.logBulkOrganized(
+            count: 3,
+            destination: "Documents/Sorted",
+            origin: .reviewDriven,
+            undoAvailable: true
+        )
+
+        let activities = try context.fetch(FetchDescriptor<ActivityItem>())
+        XCTAssertEqual(activities.last?.details, "Moved to Documents/Sorted. Review pass. Undo available")
+    }
+
+    func testLogBulkUndoneUsesAutomaticPassLanguage() throws {
+        let schema = Schema([ActivityItem.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = container.mainContext
+        let service = ActivityLoggingService(modelContext: context)
+
+        service.logBulkUndone(count: 2, origin: .automation)
+
+        let activities = try context.fetch(FetchDescriptor<ActivityItem>())
+        XCTAssertEqual(
+            activities.last?.details,
+            "Restored to original locations from the last automatic pass."
+        )
+    }
 }

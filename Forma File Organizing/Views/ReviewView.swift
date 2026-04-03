@@ -123,7 +123,7 @@ struct ReviewView: View {
                     // Add Rule Button
                     Button(action: { 
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            nav.isShowingRuleEditor = true 
+                            nav.openRuleEditor(returnTarget: .none)
                         }
                     }) {
                         HStack(spacing: FormaSpacing.micro) {

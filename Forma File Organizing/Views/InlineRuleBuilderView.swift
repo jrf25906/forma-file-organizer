@@ -9,6 +9,7 @@ struct InlineRuleBuilderView: View {
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    private let isUITesting = CommandLine.arguments.contains("--uitesting")
 
     // Query existing rules for overlap detection
     @Query private var existingRules: [Rule]
@@ -242,11 +243,12 @@ struct InlineRuleBuilderView: View {
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityIdentifier("expandRuleEditorButton")
                 .help("Expand to Full Editor")
                 .allowsHitTesting(true)
 
                 Button(action: {
-                    dashboardViewModel.returnToDefaultPanel()
+                    discardDraft()
                 }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.formaSecondaryLabelHigh)
@@ -254,6 +256,7 @@ struct InlineRuleBuilderView: View {
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityIdentifier("closeRuleBuilderButton")
                 .allowsHitTesting(true)
             }
             .padding(.horizontal, FormaSpacing.generous)
@@ -276,6 +279,9 @@ struct InlineRuleBuilderView: View {
                         TextField("Name your rule...", text: $formState.name)
                             .font(.formaH3)
                             .textFieldStyle(.plain)
+                            .accessibilityLabel("Rule Name")
+                            .accessibilityIdentifier("inlineRuleNameField")
+                            .accessibilityValue(formState.name)
                             .padding(.bottom, 8)
                             .overlay(Rectangle().frame(height: 1).foregroundColor(Color.formaSeparator).padding(.top, 32), alignment: .bottom)
                             .id("name-section")
@@ -302,9 +308,22 @@ struct InlineRuleBuilderView: View {
 
             persistentActionBar
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("inlineRuleBuilderView")
+        .overlay(alignment: .topLeading) {
+            if isUITesting {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("inlineRuleBuilderView")
+            }
+        }
         .onAppear {
-            initializeFields()
+            hydrateDraftState()
             updatePreview()
+        }
+        .onChange(of: formState) { _, newValue in
+            nav.updateRuleDraftFormState(newValue)
         }
         .alert(
             "Confirm Delete Rule",
@@ -370,24 +389,32 @@ struct InlineRuleBuilderView: View {
                 }
             }
 
-            Button(action: {
-                if formState.actionType == .delete && matchedFilesCount > 0 {
-                    showDeleteConfirmation = true
-                } else {
-                    saveRule()
+            HStack(spacing: FormaSpacing.standard) {
+                SecondaryButton(editingRule == nil ? "Discard Draft" : "Cancel") {
+                    discardDraft()
                 }
-            }) {
-                Text(editingRule == nil ? "Create Rule" : "Save Changes")
-                    .font(.formaBodyBold)
-                    .foregroundColor(.formaBoneWhite)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(Color.formaSteelBlue)
-                    .cornerRadius(10)
+                .accessibilityIdentifier("ruleComposerDiscardButton")
+
+                Button(action: {
+                    if formState.actionType == .delete && matchedFilesCount > 0 {
+                        showDeleteConfirmation = true
+                    } else {
+                        saveRule()
+                    }
+                }) {
+                    Text(editingRule == nil ? "Save Rule" : "Save Changes")
+                        .font(.formaBodyBold)
+                        .foregroundColor(.formaBoneWhite)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Color.formaSteelBlue)
+                        .cornerRadius(10)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSubmitRule)
+                .opacity(canSubmitRule ? 1 : 0.6)
+                .accessibilityIdentifier("ruleComposerSaveButton")
             }
-            .buttonStyle(.plain)
-            .disabled(!canSubmitRule)
-            .opacity(canSubmitRule ? 1 : 0.6)
         }
         .padding(.horizontal, FormaSpacing.generous)
         .padding(.top, 10)
@@ -588,6 +615,14 @@ struct InlineRuleBuilderView: View {
                 sectionValidationMessage(whenValidationMessage)
             }
         }
+        .overlay(alignment: .topLeading) {
+            if isUITesting {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("ruleComposerWhenSection")
+            }
+        }
     }
 
     private var thenSectionCard: some View {
@@ -685,6 +720,14 @@ struct InlineRuleBuilderView: View {
                 }
 
                 sectionValidationMessage(thenValidationMessage)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if isUITesting {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("ruleComposerThenSection")
             }
         }
     }
@@ -911,23 +954,37 @@ struct InlineRuleBuilderView: View {
                 }
             }
         }
+        .overlay(alignment: .topLeading) {
+            if isUITesting {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("ruleComposerImpactSection")
+            }
+        }
     }
     
     // MARK: - Helpers
 
     /// Expands the panel rule builder to the full modal editor
-    /// Transfers current state (editingRule and fileContext) to the modal
     private func expandToModal() {
-        // Transfer state to NavigationViewModel for the modal
-        nav.editingRule = editingRule
-        nav.ruleEditorFileContext = fileContext
+        if nav.ruleDraftSession == nil {
+            nav.beginRuleDraft(
+                editingRule: editingRule,
+                fileContext: fileContext,
+                presentation: .panel,
+                returnTarget: draftReturnTarget
+            )
+        }
+
+        nav.updateRuleDraftFormState(formState)
 
         // Close the panel first
         dashboardViewModel.returnToDefaultPanel()
 
         // Open the modal with a slight delay for smooth transition
         withAnimation(.easeInOut(duration: 0.2)) {
-            nav.isShowingRuleEditor = true
+            nav.presentRuleDraftModal()
         }
     }
 
@@ -965,19 +1022,34 @@ struct InlineRuleBuilderView: View {
         updatePreview()
     }
     
-    private func initializeFields() {
-        // Initialize form state from editing context using struct initializers
-        if let rule = editingRule {
+    private var draftReturnTarget: RuleDraftReturnTarget {
+        if let fileContext {
+            return .inspector(filePath: fileContext.path)
+        }
+        return .defaultPanel
+    }
+
+    private func discardDraft() {
+        let returnTarget = nav.ruleDraftSession?.returnTarget ?? draftReturnTarget
+        nav.discardRuleDraft()
+        dashboardViewModel.restorePanel(afterRuleDraftReturnTarget: returnTarget)
+    }
+
+    private func hydrateDraftState() {
+        if let draftSession = nav.ruleDraftSession {
+            formState = draftSession.formState
+        } else if let rule = editingRule {
             formState = RuleFormState(from: rule)
         } else if let file = fileContext {
             formState = RuleFormState(from: file)
         }
-        // Default formState already initialized for new rules
 
         // Auto-select default category if none is selected yet
         if formState.categoryID == nil, let defaultCategory = sortedCategories.first(where: { $0.isDefault }) {
             formState.categoryID = defaultCategory.id
         }
+
+        nav.updateRuleDraftFormState(formState)
     }
     
     private func updatePreview() {
@@ -1157,6 +1229,7 @@ struct InlineRuleBuilderView: View {
     /// Called either directly (no overlaps) or after user confirms in overlap dialog.
     private func commitSave(rule: Rule) {
         let ruleService = RuleService(modelContext: modelContext)
+        let returnTarget = nav.ruleDraftSession?.returnTarget ?? draftReturnTarget
 
         do {
             let materializedDestination = try destinationResolver.materializeForExplicitSave(rule.destination)
@@ -1182,7 +1255,11 @@ struct InlineRuleBuilderView: View {
 
             dashboardViewModel.loadRules(from: modelContext)
             dashboardViewModel.reEvaluateFilesAgainstRules(context: modelContext)
-            dashboardViewModel.showCelebrationPanel(message: editingRule == nil ? "Rule created!" : "Rule updated!")
+            nav.clearRuleDraft()
+            dashboardViewModel.showRuleWorkflowCelebration(
+                message: editingRule == nil ? "Rule created!" : "Rule updated!",
+                returnTarget: returnTarget
+            )
 
             // Clear pending state
             pendingRuleForSave = nil

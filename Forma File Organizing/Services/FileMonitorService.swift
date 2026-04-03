@@ -116,6 +116,17 @@ final class FileMonitorService: FileMonitoring {
     private let dependencies: Dependencies
     private let eventDispatchQueue = DispatchQueue(label: "com.forma.file-monitor", qos: .utility)
 
+    private static let retainStreamContext: CFAllocatorRetainCallBack = { info in
+        guard let info else { return nil }
+        _ = Unmanaged<FileMonitorService>.fromOpaque(info).retain()
+        return UnsafeRawPointer(info)
+    }
+
+    private static let releaseStreamContext: CFAllocatorReleaseCallBack = { info in
+        guard let info else { return }
+        Unmanaged<FileMonitorService>.fromOpaque(info).release()
+    }
+
     private var currentFolders: [WatchedFolderDescriptor] = []
     private var foldersByRootPath: [String: WatchedFolderDescriptor] = [:]
     private var callback: (@MainActor (Set<FolderLocation>) -> Void)?
@@ -187,8 +198,8 @@ final class FileMonitorService: FileMonitoring {
         var context = FSEventStreamContext(
             version: 0,
             info: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()),
-            retain: nil,
-            release: nil,
+            retain: Self.retainStreamContext,
+            release: Self.releaseStreamContext,
             copyDescription: nil
         )
 

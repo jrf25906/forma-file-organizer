@@ -6,6 +6,9 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Shared rule-draft workflow state for preview-first editing:
+  - `RuleDraftSession`, `RuleDraftPresentation`, `RuleDraftReturnTarget`, and `RuleDraftSource` now let `NavigationViewModel` own in-progress rule context across the inline builder and modal rule editor.
+  - `NavigationViewModel.beginRuleDraft(...)`, `presentRuleDraftModal()`, `presentRuleDraftPanel()`, and `updateRuleDraftFormState(_:)` keep typed rule edits, file context, and launch intent intact during panel/modal handoffs.
 - Trust infrastructure for preview-first organization:
   - `RuleEngine.simulateRule(...)` with read-only `RuleSimulationSummary` / `RuleSimulationExample` output so the inspector can preview how broadly a matching rule would fire without mutating file state.
   - `AutomationPreflightSummary`, `AutomationEngine.buildPreflightSummary(...)`, and `AutomationState.lastPreflightSummary` so automatic passes can surface eligible counts, permission blockers, missing destinations, low-confidence holds, and example files before the batch runs.
@@ -42,6 +45,19 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Preview-first rule editing now restores the right surface after save/discard:
+  - `DashboardViewModel.showRuleBuilderPanelForInspector(_:)`, `restorePanel(afterRuleDraftReturnTarget:)`, and `showRuleWorkflowCelebration(message:returnTarget:)` preserve review selection and reopen the inspector when a rule draft originated there instead of dumping the user back into the default panel.
+  - `PanelStateManager.showCelebrationPanel(message:onDismiss:)`, `InlineRuleBuilderView`, `RuleEditorView`, `FileInspectorView`, and `DashboardView` now route dismiss/save paths through the shared return-target logic.
+  - Rule-workflow success celebrations now suppress the unrelated batch Undo affordance, and the visible `Continue` action uses the same return-target dismissal path as the auto-dismiss timer.
+- CTA ownership now stays singular while rule work is active:
+  - `DefaultPanelView` now defers its pinned primary CTA whenever review mode already owns the next action or a shared rule draft is in progress, instead of competing with the floating review bar or inline rule builder.
+  - `FileInspectorView` no longer duplicates the create-rule CTA when the no-suggestion state already owns that decision, and matching-rule files now offer a clearer `Adjust This Rule` follow-up.
+- Modal and inline rule composition now use the same staged framing:
+  - `RuleEditorView` now mirrors the inline builder's `When` / `Then` / `Category` / `Impact` structure, including live impact previews, validation messaging, and aligned save/discard actions.
+  - `RuleEditingWorkflowUITests` now covers draft persistence, collapse-dismiss behavior, and staged composer landmarks across both the modal editor and the inline builder.
+- Inspector, undo, and activity wording now uses a tighter preview-first vocabulary:
+  - `FileInspectorView` now frames rule context as `Why this matched` / `What will happen`, and unmatched files invite users to create a rule for future matches.
+  - `DefaultPanelView` now surfaces the latest automatic rollback state as `Undo Available`, and bulk/automation activity details now refer to `review pass` / `automatic pass` instead of mixed batch terminology.
 - Permission grants from dashboard/JIT recovery no longer re-open onboarding just because `hasCompletedOnboarding` is still false, and granted folders now refresh visible availability immediately while using a shorter follow-up scan debounce so the unlock flow feels faster.
 - Automation activity logging and trust UI now use clearer audit language:
   - `ActivityLoggingService.logAutoOrganizeBatch(...)`, `logBulkOrganized(...)`, and `logBulkUndone(...)` now distinguish automatic vs review-driven runs, spell out skip reasons, and declare whether the batch is undoable or final.

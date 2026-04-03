@@ -23,7 +23,7 @@ import SwiftUI
 /// // Initialize from file context (quick rule)
 /// formState = RuleFormState(from: selectedFile)
 /// ```
-struct RuleFormState {
+struct RuleFormState: Equatable {
     var name: String = ""
     var conditionType: Rule.ConditionType = .fileExtension
     var conditionValue: String = ""

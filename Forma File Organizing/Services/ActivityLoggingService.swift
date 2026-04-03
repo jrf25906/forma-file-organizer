@@ -160,7 +160,7 @@ final class ActivityLoggingService {
         undoAvailable: Bool = true
     ) {
         var segments = [destination.map { "Moved to \($0)" } ?? "Multiple destinations"]
-        segments.append(origin == .automation ? "Automatic batch" : "Review batch")
+        segments.append(origin == .automation ? "Automatic pass" : "Review pass")
         segments.append(undoAvailable ? "Undo available" : "Final")
         let details = segments.joined(separator: ". ")
         log(.bulkOrganized, name: "\(count) files", details: details, affectedFileCount: count)
@@ -168,8 +168,8 @@ final class ActivityLoggingService {
 
     func logBulkUndone(count: Int, origin: OrganizationRunOrigin = .reviewDriven) {
         let details = origin == .automation
-            ? "Restored to original locations from the last automatic batch."
-            : "Restored to original locations from the last review batch."
+            ? "Restored to original locations from the last automatic pass."
+            : "Restored to original locations from the last review pass."
         log(.bulkUndone, name: "\(count) files", details: details)
     }
 
@@ -231,7 +231,7 @@ final class ActivityLoggingService {
                 )
             }
         }
-        segments.append(undoAvailable ? "Undo available for the last automatic batch" : "Automatic changes are final")
+        segments.append(undoAvailable ? "Undo available for the last automatic pass" : "Automatic changes are final")
         let details = segments.joined(separator: ". ") + "."
         log(.automationAutoOrganized, name: "Auto-Organize", details: details, affectedFileCount: successCount)
     }

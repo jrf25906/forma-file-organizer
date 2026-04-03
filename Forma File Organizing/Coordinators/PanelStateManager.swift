@@ -45,6 +45,29 @@ import Combine
 @MainActor
 class PanelStateManager: ObservableObject {
     // MARK: - Types
+
+    enum CelebrationStyle: Equatable {
+        case batchUndo
+        case ruleWorkflow
+
+        var showsUndo: Bool {
+            switch self {
+            case .batchUndo:
+                return true
+            case .ruleWorkflow:
+                return false
+            }
+        }
+
+        var showsNextActionSuggestion: Bool {
+            switch self {
+            case .batchUndo:
+                return true
+            case .ruleWorkflow:
+                return false
+            }
+        }
+    }
     
     enum RightPanelMode: Equatable {
         case `default`
@@ -100,6 +123,9 @@ class PanelStateManager: ObservableObject {
     
     /// Toast notification state
     @Published var toastState: ToastState?
+
+    /// Presentation details for celebration content.
+    @Published private(set) var celebrationStyle: CelebrationStyle = .batchUndo
     
     /// File currently being edited for destination
     @Published var editingDestinationFile: FileItem?
@@ -137,19 +163,26 @@ class PanelStateManager: ObservableObject {
     
     /// Show rule builder panel
     func showRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {
+        clearCelebrationState()
         rightPanelMode = .ruleBuilder(editingRule: editingRule, fileContext: fileContext)
     }
     
     /// Show celebration panel with auto-dismiss
-    func showCelebrationPanel(message: String) {
+    func showCelebrationPanel(
+        message: String,
+        style: CelebrationStyle = .batchUndo,
+        onDismiss: (() -> Void)? = nil
+    ) {
         rightPanelMode = .celebration(message)
+        celebrationStyle = style
+        celebrationDismissAction = onDismiss
 
         // Auto-dismiss after configured delay
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: Self.celebrationDismissDelay)
             guard let self else { return }
             if case .celebration(let msg) = self.rightPanelMode, msg == message {
-                self.rightPanelMode = .default
+                self.dismissCelebration()
             }
         }
     }
@@ -157,6 +190,7 @@ class PanelStateManager: ObservableObject {
     /// Show completion celebration panel (special celebration when ALL files are cleared)
     /// This uses a longer dismiss delay since it's a bigger accomplishment
     func showCompletionCelebrationPanel(filesOrganized: Int) {
+        clearCelebrationState()
         rightPanelMode = .completionCelebration(filesOrganized: filesOrganized)
 
         // Auto-dismiss after longer delay (this is a bigger accomplishment!)
@@ -172,7 +206,20 @@ class PanelStateManager: ObservableObject {
     
     /// Return to default panel
     func returnToDefaultPanel() {
+        clearCelebrationState()
         rightPanelMode = .default
+    }
+
+    func dismissCelebration() {
+        guard case .celebration = rightPanelMode else { return }
+
+        let dismissAction = celebrationDismissAction
+        clearCelebrationState()
+        rightPanelMode = .default
+
+        if let dismissAction {
+            dismissAction()
+        }
     }
     
     // MARK: - Toast Management
@@ -201,6 +248,13 @@ class PanelStateManager: ObservableObject {
     /// Dismiss current toast
     func dismissToast() {
         toastState = nil
+    }
+
+    private var celebrationDismissAction: (() -> Void)?
+
+    private func clearCelebrationState() {
+        celebrationStyle = .batchUndo
+        celebrationDismissAction = nil
     }
     
     // MARK: - QuickLook Management

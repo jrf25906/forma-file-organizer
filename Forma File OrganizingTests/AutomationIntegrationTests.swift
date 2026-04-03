@@ -203,7 +203,7 @@ struct AutomationIntegrationTests {
         let automatic = ActivityItem(
             activityType: .automationAutoOrganized,
             fileName: "Auto-Organize",
-            details: "Cleared 3 files from the queue automatically. Undo available for the last automatic batch."
+            details: "Cleared 3 files from the queue automatically. Undo available for the last automatic pass."
         )
 
         #expect(ActivityAuditBadgeClassifier.titles(for: pause).contains("Automatic") == false)

@@ -838,11 +838,62 @@ class DashboardViewModel: ObservableObject {
     }
 
     func showRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {
+        isRightPanelVisible = true
         panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
+    }
+
+    func showRuleBuilderPanelForInspector(_ file: FileItem, editingRule: Rule? = nil) {
+        isRightPanelVisible = true
+        selectionViewModel.selectedFileIDs = [file.path]
+        selectionViewModel.focusedFilePath = file.path
+        panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: file)
+    }
+
+    func restorePanel(afterRuleDraftReturnTarget returnTarget: RuleDraftReturnTarget) {
+        switch returnTarget {
+        case .none:
+            panelManager.returnToDefaultPanel()
+        case .defaultPanel:
+            panelManager.returnToDefaultPanel()
+        case .inspector(let filePath):
+            guard let file = scanViewModel.allFiles.first(where: { $0.path == filePath }) else {
+                if selectedFiles.isEmpty {
+                    panelManager.returnToDefaultPanel()
+                } else {
+                    updateRightPanelMode()
+                }
+                return
+            }
+
+            isRightPanelVisible = true
+            selectionViewModel.selectedFileIDs = [file.path]
+            selectionViewModel.focusedFilePath = file.path
+            panelManager.updateRightPanelForSelection([file])
+        }
     }
 
     func returnToDefaultPanel() {
         panelManager.returnToDefaultPanel()
+    }
+
+    func shouldShowDefaultPanelPrimaryAction(
+        for selection: NavigationSelection,
+        hasActiveRuleDraft: Bool
+    ) -> Bool {
+        guard !hasActiveRuleDraft else { return false }
+        guard !isSelectionMode else { return false }
+
+        if reviewFilterMode == .needsReview,
+           currentReviewChunkCount > 0 {
+            return false
+        }
+
+        switch selection {
+        case .rules, .analytics:
+            return false
+        default:
+            return true
+        }
     }
 
     func setRightPanelVisible(_ isVisible: Bool) {
@@ -853,6 +904,14 @@ class DashboardViewModel: ObservableObject {
     var rightPanelMode: PanelStateManager.RightPanelMode {
         get { panelManager.rightPanelMode }
         set { panelManager.rightPanelMode = newValue }
+    }
+
+    var celebrationShowsUndo: Bool {
+        panelManager.celebrationStyle.showsUndo
+    }
+
+    var celebrationShowsNextActionSuggestion: Bool {
+        panelManager.celebrationStyle.showsNextActionSuggestion
     }
 
     // MARK: - Panel State Delegation (Required for Views)
@@ -1168,8 +1227,29 @@ class DashboardViewModel: ObservableObject {
         permissionState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
     }
 
-    func showCelebrationPanel(message: String) {
-        panelManager.showCelebrationPanel(message: message)
+    func showCelebrationPanel(
+        message: String,
+        style: PanelStateManager.CelebrationStyle = .batchUndo,
+        onDismiss: (() -> Void)? = nil
+    ) {
+        panelManager.showCelebrationPanel(message: message, style: style, onDismiss: onDismiss)
+    }
+
+    func dismissCelebrationPanel() {
+        panelManager.dismissCelebration()
+    }
+
+    func showRuleWorkflowCelebration(message: String, returnTarget: RuleDraftReturnTarget) {
+        showCelebrationPanel(message: message, style: .ruleWorkflow) { [weak self] in
+            guard let self else { return }
+
+            switch returnTarget {
+            case .none:
+                self.returnToDefaultPanel()
+            default:
+                self.restorePanel(afterRuleDraftReturnTarget: returnTarget)
+            }
+        }
     }
 
     private func exitExternalReviewSession() {

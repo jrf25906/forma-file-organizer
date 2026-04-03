@@ -148,4 +148,44 @@ final class FileMonitorServiceTests: XCTestCase {
         XCTAssertEqual(stopped, [rootURL.standardizedFileURL])
         XCTAssertFalse(service.isMonitoring)
     }
+
+    func testStreamContextRetainsServiceUntilRelease() {
+        let desktop = WatchedFolderDescriptor(
+            location: .desktop,
+            rootURL: URL(fileURLWithPath: "/Users/test/Desktop")
+        )
+        let stream = MockEventStream(startResult: true)
+        var capturedContext: FSEventStreamContext?
+
+        var service: FileMonitorService? = FileMonitorService(
+            debounceInterval: 0.05,
+            dependencies: .init(
+                makeStream: { _, _, _, context in
+                    capturedContext = context.pointee
+                    return stream
+                },
+                startSecurityScopedAccess: { _ in true },
+                stopSecurityScopedAccess: { _ in }
+            )
+        )
+        weak var weakService = service
+
+        service?.startMonitoring(folders: [desktop]) { _ in }
+
+        guard let context = capturedContext else {
+            return XCTFail("Expected stream context")
+        }
+        guard let info = context.info else {
+            return XCTFail("Expected context info")
+        }
+        guard let retainedInfo = context.retain?(info) else {
+            return XCTFail("Expected retain callback to keep the service alive")
+        }
+
+        service = nil
+        XCTAssertNotNil(weakService)
+
+        context.release?(retainedInfo)
+        XCTAssertNil(weakService)
+    }
 }

@@ -840,6 +840,17 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.currentReviewChunkCount, viewModel.reviewChunkSize)
     }
 
+    func testSelectAllInNeedsReviewModeSelectsCurrentChunkOnly() {
+        let files = makeReviewFiles(count: 12)
+
+        viewModel._testSetFiles(files)
+
+        viewModel.selectAll()
+
+        XCTAssertEqual(viewModel.selectedFileIDs.count, viewModel.reviewChunkSize)
+        XCTAssertEqual(Set(viewModel.selectedFileIDs), Set(viewModel.currentReviewChunkPaths))
+    }
+
     func testDoneForNowDefersCurrentChunkWithoutMutatingFileStatus() {
         let files = makeReviewFiles(count: 10)
         let originalStatuses = Dictionary(uniqueKeysWithValues: files.map { ($0.path, $0.status) })
@@ -1686,6 +1697,7 @@ final class DashboardViewModelTests: XCTestCase {
     func testShowRuleBuilderPanel() {
         // Given
         let file = FileItem(path: "/f/test.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        viewModel.setRightPanelVisible(false)
 
         // When
         viewModel.showRuleBuilderPanel(fileContext: file)
@@ -1697,9 +1709,12 @@ final class DashboardViewModelTests: XCTestCase {
         } else {
             XCTFail("Right panel mode should switch to .ruleBuilder")
         }
+        XCTAssertTrue(viewModel.isRightPanelVisible, "Opening the inline rule builder should reveal the right panel")
     }
 
     func testShowRuleBuilderPanelWithoutFile() {
+        viewModel.setRightPanelVisible(false)
+
         // When
         viewModel.showRuleBuilderPanel()
 
@@ -1710,6 +1725,130 @@ final class DashboardViewModelTests: XCTestCase {
         } else {
             XCTFail("Right panel mode should switch to .ruleBuilder even without file")
         }
+        XCTAssertTrue(viewModel.isRightPanelVisible, "Opening the inline rule builder should reveal the right panel")
+    }
+
+    func testDefaultPanelPrimaryActionHidesWhileRuleDraftWorkflowIsActive() {
+        XCTAssertFalse(
+            viewModel.shouldShowDefaultPanelPrimaryAction(for: .home, hasActiveRuleDraft: true),
+            "The default panel CTA should step back while a rule draft owns the workflow"
+        )
+    }
+
+    func testDefaultPanelPrimaryActionShowsWhenHomeIsIdle() {
+        XCTAssertTrue(
+            viewModel.shouldShowDefaultPanelPrimaryAction(for: .home, hasActiveRuleDraft: false),
+            "The default panel CTA should appear when no review or rule-draft workflow owns the next action"
+        )
+    }
+
+    func testShowRuleBuilderPanelForInspectorKeepsSelectionAndReviewChunk() {
+        let files = makeReviewFiles(count: 12)
+        let targetFile = files
+            .sorted { $0.creationDate > $1.creationDate }
+            .first!
+
+        viewModel._testSetFiles(files)
+        viewModel.setRightPanelVisible(false)
+        let originalChunkPaths = viewModel.currentReviewChunkPaths
+
+        viewModel.showRuleBuilderPanelForInspector(targetFile)
+
+        if case .ruleBuilder(let editingRule, let contextFile) = viewModel.rightPanelMode {
+            XCTAssertNil(editingRule)
+            XCTAssertEqual(contextFile?.path, targetFile.path)
+        } else {
+            XCTFail("Inspector workflow should switch the panel into rule builder mode")
+        }
+
+        XCTAssertEqual(viewModel.selectedFileIDs, [targetFile.path])
+        XCTAssertEqual(viewModel.focusedFilePath, targetFile.path)
+        XCTAssertEqual(viewModel.currentReviewChunkPaths, originalChunkPaths)
+        XCTAssertTrue(viewModel.isRightPanelVisible, "Inspector rule builder flow should reveal the right panel")
+    }
+
+    func testRestorePanelAfterInspectorRuleDraftReopensInspectorWithoutResettingReviewChunk() {
+        let files = makeReviewFiles(count: 12)
+        let targetFile = files
+            .sorted { $0.creationDate > $1.creationDate }
+            .first!
+
+        viewModel._testSetFiles(files)
+        let originalChunkPaths = viewModel.currentReviewChunkPaths
+        viewModel.showRuleBuilderPanelForInspector(targetFile)
+        viewModel.returnToDefaultPanel()
+
+        viewModel.restorePanel(afterRuleDraftReturnTarget: .inspector(filePath: targetFile.path))
+
+        if case .inspector(let inspectorFiles) = viewModel.rightPanelMode {
+            XCTAssertEqual(inspectorFiles.map(\.path), [targetFile.path])
+        } else {
+            XCTFail("Inspector return target should restore the file inspector")
+        }
+
+        XCTAssertEqual(viewModel.selectedFileIDs, [targetFile.path])
+        XCTAssertEqual(viewModel.focusedFilePath, targetFile.path)
+        XCTAssertEqual(viewModel.currentReviewChunkPaths, originalChunkPaths)
+    }
+
+    func testRestorePanelFallsBackToDefaultWhenInspectorFileIsGone() {
+        let file = FileItem(path: "/review/file-1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        viewModel._testSetFiles([file])
+        viewModel.showRuleBuilderPanelForInspector(file)
+        viewModel._testSetFiles([])
+        viewModel.returnToDefaultPanel()
+
+        viewModel.restorePanel(afterRuleDraftReturnTarget: .inspector(filePath: file.path))
+
+        if case .default = viewModel.rightPanelMode {
+            // Success
+        } else {
+            XCTFail("Missing inspector file should fall back to the default panel")
+        }
+    }
+
+    func testRestorePanelWithNoReturnTargetFallsBackToDefaultPanel() {
+        let file = FileItem(path: "/review/file-1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        viewModel._testSetFiles([file])
+        viewModel.showRuleBuilderPanel(fileContext: file)
+
+        viewModel.restorePanel(afterRuleDraftReturnTarget: .none)
+
+        if case .default = viewModel.rightPanelMode {
+            // Success
+        } else {
+            XCTFail("No return target should fall back to the default panel when dismissing a rule draft")
+        }
+    }
+
+    func testShowRuleWorkflowCelebrationDisablesUndoAffordance() {
+        viewModel.showRuleWorkflowCelebration(message: "Rule created!", returnTarget: .defaultPanel)
+
+        if case .celebration(let message) = viewModel.rightPanelMode {
+            XCTAssertEqual(message, "Rule created!")
+        } else {
+            XCTFail("Rule workflow should present a celebration panel")
+        }
+
+        XCTAssertFalse(viewModel.celebrationShowsUndo)
+        XCTAssertFalse(viewModel.celebrationShowsNextActionSuggestion)
+    }
+
+    func testDismissRuleWorkflowCelebrationRestoresInspectorReturnTarget() {
+        let file = FileItem(path: "/review/file-1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        viewModel._testSetFiles([file])
+        viewModel.showRuleWorkflowCelebration(message: "Rule created!", returnTarget: .inspector(filePath: file.path))
+
+        viewModel.dismissCelebrationPanel()
+
+        if case .inspector(let inspectorFiles) = viewModel.rightPanelMode {
+            XCTAssertEqual(inspectorFiles.map(\.path), [file.path])
+        } else {
+            XCTFail("Dismissing a rule workflow celebration should restore the inspector")
+        }
+
+        XCTAssertEqual(viewModel.selectedFileIDs, [file.path])
+        XCTAssertEqual(viewModel.focusedFilePath, file.path)
     }
     
     func testShowCelebrationPanel() {

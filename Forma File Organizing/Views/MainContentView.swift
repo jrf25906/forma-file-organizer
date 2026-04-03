@@ -243,7 +243,7 @@ struct MainContentView: View {
                         Color.clear
                             .accessibilityIdentifier("editDestinationSheet")
                     }
-                    if nav.isShowingRuleEditor {
+                    if nav.ruleDraftSession?.presentation == .modal {
                         Color.clear
                             .accessibilityIdentifier("ruleEditorView")
                     }
@@ -530,10 +530,7 @@ struct MainContentView: View {
                     .flatMap { path in dashboardViewModel.visibleFiles.first(where: { $0.path == path }) }
                     ?? dashboardViewModel.visibleFiles.first
                 if let focused {
-                    nav.ruleEditorFileContext = focused
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        nav.isShowingRuleEditor = true
-                    }
+                    presentRuleEditor(for: focused)
                 }
             }
             return true
@@ -637,10 +634,7 @@ struct MainContentView: View {
                     .flatMap { path in dashboardViewModel.visibleFiles.first(where: { $0.path == path }) }
                     ?? dashboardViewModel.visibleFiles.first
                 if let focused {
-                    nav.ruleEditorFileContext = focused
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        nav.isShowingRuleEditor = true
-                    }
+                    presentRuleEditor(for: focused)
                 }
             }
             .keyboardShortcut("r", modifiers: [])
@@ -686,6 +680,15 @@ struct MainContentView: View {
         // The ViewModel handles everything - marking as organizing, file operation, etc.
         // The animation is driven by dashboardViewModel.organizingFilePaths
         dashboardViewModel.organizeFile(file, context: modelContext)
+    }
+
+    private func presentRuleEditor(for file: FileItem) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            nav.openRuleEditor(
+                fileContext: file,
+                returnTarget: .defaultPanel
+            )
+        }
     }
     
     // MARK: - View Mode Implementations (Phase 3)
@@ -867,10 +870,7 @@ struct MainContentView: View {
                                     dashboardViewModel.beginEditingDestination(for: item)
                                 },
                                 onCreateRule: { item in
-                                    nav.ruleEditorFileContext = item
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        nav.isShowingRuleEditor = true
-                                    }
+                                    presentRuleEditor(for: item)
                                 },
                                 onViewRule: nil,
                                 matchingRules: dashboardViewModel.getMatchingRules(for: file),
@@ -974,10 +974,7 @@ struct MainContentView: View {
             },
             matchingRules: dashboardViewModel.getMatchingRules(for: file),
             onCreateRule: {
-                nav.ruleEditorFileContext = file
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    nav.isShowingRuleEditor = true
-                }
+                presentRuleEditor(for: file)
             },
             onApplyRule: { rule in
                 applyRuleRecovery(rule, to: file)
@@ -1044,10 +1041,7 @@ struct MainContentView: View {
                             },
                             matchingRules: dashboardViewModel.getMatchingRules(for: file),
                             onCreateRule: {
-                                nav.ruleEditorFileContext = file
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    nav.isShowingRuleEditor = true
-                                }
+                                presentRuleEditor(for: file)
                             },
                             onApplyRule: { rule in
                                 applyRuleRecovery(rule, to: file)

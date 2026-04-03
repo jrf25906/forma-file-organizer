@@ -217,8 +217,7 @@ struct RulesManagementView: View {
 
                     if !content.isInitialEmptyState {
                         PrimaryButton("New", icon: "plus") {
-                            // Primary flow: open rule builder in right panel
-                            dashboardViewModel.showRuleBuilderPanel()
+                            openRuleBuilderPanel()
                         }
                         .frame(width: 100)
                         .hoverLift(scale: 1.03, shadowRadius: 8)
@@ -302,8 +301,7 @@ struct RulesManagementView: View {
                             message: "Create your first rule to automatically organize files.",
                             actionTitle: "Create Rule",
                             action: {
-                                // Primary flow: open rule builder in right panel
-                                dashboardViewModel.showRuleBuilderPanel()
+                                openRuleBuilderPanel()
                             }
                         )
 
@@ -821,7 +819,7 @@ struct RulesManagementView: View {
             snapshot: snapshot,
             onEdit: {
                 guard let liveRule = liveRule(withID: snapshot.id) else { return }
-                dashboardViewModel.showRuleBuilderPanel(editingRule: liveRule)
+                openRuleBuilderPanel(editingRule: liveRule)
             },
             onDelete: {
                 deleteRule(id: snapshot.id, fallbackName: snapshot.name)
@@ -1017,12 +1015,23 @@ struct RulesManagementView: View {
     }
 
     private func openStarterTemplate(_ template: StarterTemplate) {
-        nav.editingRule = nil
-        nav.ruleEditorFileContext = nil
-        nav.ruleEditorSuggestedText = template.prompt
         withAnimation(.easeInOut(duration: 0.2)) {
-            nav.isShowingRuleEditor = true
+            nav.beginRuleDraft(
+                suggestedNaturalLanguageText: template.prompt,
+                presentation: .modal,
+                returnTarget: .none
+            )
         }
+    }
+
+    private func openRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {
+        nav.beginRuleDraft(
+            editingRule: editingRule,
+            fileContext: fileContext,
+            presentation: .panel,
+            returnTarget: .defaultPanel
+        )
+        dashboardViewModel.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
     }
     
     private func liveRule(withID id: UUID) -> Rule? {
