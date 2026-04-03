@@ -20,6 +20,7 @@ struct AutomationIntegrationTests {
 
     @Test
     func automationActivityType_ClassifiesToneBuckets() {
+        guard requireIntegration() else { return }
         #expect(ActivityItem.ActivityType.automationAutoOrganized.toneCategory == .progressWin)
         #expect(ActivityItem.ActivityType.automationScanCompleted.toneCategory == .reminder)
         #expect(ActivityItem.ActivityType.automationError.toneCategory == .errorOrPermission)
@@ -190,6 +191,7 @@ struct AutomationIntegrationTests {
 
     @Test
     func activityAuditBadges_PauseResumeRemainManual() {
+        guard requireIntegration() else { return }
         let pause = ActivityItem(
             activityType: .automationPaused,
             fileName: "Automation",
@@ -245,6 +247,7 @@ struct AutomationIntegrationTests {
 
     @Test
     func fileInspectorRuleSimulationRefreshToken_ChangesWhenFileSetChangesWithoutCountChange() {
+        guard requireIntegration() else { return }
         let selected = TestFileItem(
             path: "/tmp/invoice.pdf",
             destination: .mockFolder("Finance"),
@@ -285,6 +288,7 @@ struct AutomationIntegrationTests {
 
     @Test
     func fileInspectorRuleSimulationRefreshToken_ChangesWhenRuleDestinationChanges() {
+        guard requireIntegration() else { return }
         let selected = TestFileItem(
             path: "/tmp/invoice.pdf",
             destination: .mockFolder("Finance"),

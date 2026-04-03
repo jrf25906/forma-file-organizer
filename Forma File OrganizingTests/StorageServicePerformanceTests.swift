@@ -5,14 +5,15 @@ final class StorageServicePerformanceTests: XCTestCase {
 
     private var storageService: StorageService!
 
-    override func setUp() {
-        super.setUp()
+    override func setUpWithError() throws {
+        try TestGating.requirePerformance()
+        try super.setUpWithError()
         storageService = StorageService.shared
         storageService.invalidateCache()
     }
 
     override func tearDown() {
-        storageService.invalidateCache()
+        storageService?.invalidateCache()
         storageService = nil
         super.tearDown()
     }
@@ -33,4 +34,3 @@ final class StorageServicePerformanceTests: XCTestCase {
         }
     }
 }
-

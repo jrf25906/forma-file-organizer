@@ -33,6 +33,7 @@ final class OptimizationBenchmarksTests: XCTestCase {
     }
 
     func testCaptureOptimizationBenchmarks() async throws {
+        try TestGating.requirePerformance()
         let searchResult = benchmarkSearchLookupPath()
         let scanResult = try benchmarkDirectoryScanPath()
         let duplicateResult = try benchmarkDuplicateDetectionPath()

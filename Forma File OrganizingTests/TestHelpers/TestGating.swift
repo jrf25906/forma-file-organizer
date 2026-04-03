@@ -1,18 +1,27 @@
 import XCTest
 
 enum TestGating {
-    static var isIntegrationEnabled: Bool { true }
-    static var isPerformanceEnabled: Bool { true }
+    static var isIntegrationEnabled: Bool {
+        isEnabled("RUN_INTEGRATION_TESTS")
+    }
+
+    static var isPerformanceEnabled: Bool {
+        isEnabled("RUN_PERFORMANCE_TESTS")
+    }
 
     static func requireIntegration() throws {
-        // Integration tests are selected via dedicated `.xctestplan` files.
-        // Avoid environment-variable gating here so `xcodebuild test -testPlan ...`
-        // runs deterministically.
+        if !isIntegrationEnabled {
+            throw XCTSkip("Integration tests disabled. Use the dedicated integration test plan to enable them.")
+        }
     }
 
     static func requirePerformance() throws {
-        // Performance tests are selected via dedicated `.xctestplan` files.
-        // Avoid environment-variable gating here so `xcodebuild test -testPlan ...`
-        // runs deterministically.
+        if !isPerformanceEnabled {
+            throw XCTSkip("Performance tests disabled. Use the dedicated performance test plan to enable them.")
+        }
+    }
+
+    private static func isEnabled(_ key: String) -> Bool {
+        ProcessInfo.processInfo.environment[key] == "1"
     }
 }

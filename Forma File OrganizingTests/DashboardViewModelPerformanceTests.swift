@@ -9,6 +9,7 @@ final class DashboardViewModelPerformanceTests: XCTestCase {
     private var mockPipeline: MockFileScanPipeline!
 
     override func setUp() async throws {
+        try TestGating.requirePerformance()
         try await super.setUp()
 
         await MainActor.run {

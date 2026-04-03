@@ -53,7 +53,8 @@
         "RuleConditionTypeSafetyTests",
         "RuleEngineTests",
         "RuleServiceTests",
-        "StorageServiceTests"
+        "StorageServiceTests",
+        "TestGatingTests"
       ]
     }
   ],

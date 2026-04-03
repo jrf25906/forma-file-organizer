@@ -48,6 +48,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Test plan boundaries are enforced again in `TestGating`, so the default `All Tests` run no longer executes integration/performance-only suites unless their dedicated Xcode test plans set the corresponding `RUN_INTEGRATION_TESTS` or `RUN_PERFORMANCE_TESTS` flag; `TestGatingTests` now guards that contract in the unit plan.
 - Preview-first rule editing now restores the right surface after save/discard:
   - `DashboardViewModel.showRuleBuilderPanelForInspector(_:)`, `restorePanel(afterRuleDraftReturnTarget:)`, and `showRuleWorkflowCelebration(message:returnTarget:)` preserve review selection and reopen the inspector when a rule draft originated there instead of dumping the user back into the default panel.
   - `PanelStateManager.showCelebrationPanel(message:onDismiss:)`, `InlineRuleBuilderView`, `RuleEditorView`, `FileInspectorView`, and `DashboardView` now route dismiss/save paths through the shared return-target logic.
