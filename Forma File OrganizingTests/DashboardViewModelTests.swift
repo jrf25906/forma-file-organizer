@@ -1326,6 +1326,27 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.undoStack.count, 0)
         XCTAssertEqual(viewModel.redoStack.count, 1) // Should move to redo stack
     }
+
+    func testUndoLastAction_ClearsTrustedScopeRecommendation() {
+        let file = FileItem(path: "/f/1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        viewModel._testSetFiles([file])
+        viewModel.selectedFolder = .home
+        viewModel.toggleSelection(for: file)
+        viewModel.skipSelectedFiles()
+
+        let panelManager = panelStateManager()
+        panelManager.showCelebrationPanel(message: "Organized to Exports")
+        panelManager.stageTrustedScopeRecommendation(makeTrustedScopeRecommendation())
+        panelManager.presentTrustedScopeRecommendation()
+
+        XCTAssertNotNil(viewModel.trustedScopeRecommendation)
+        XCTAssertTrue(viewModel.isTrustedScopeRecommendationPresented)
+
+        viewModel.undoLastAction()
+
+        XCTAssertNil(viewModel.trustedScopeRecommendation)
+        XCTAssertFalse(viewModel.isTrustedScopeRecommendationPresented)
+    }
     
     func testRedoSkipOperation() {
         // Given
@@ -1598,6 +1619,45 @@ final class DashboardViewModelTests: XCTestCase {
         // Then: Can redo but not undo
         XCTAssertFalse(viewModel.canUndo())
         XCTAssertTrue(viewModel.canRedo())
+    }
+
+    private func panelStateManager() -> PanelStateManager {
+        viewModel._testPanelManager
+    }
+
+    private func makeTrustedScopeRecommendation() -> TrustedAutomationScopeRecommendation {
+        let destination = Destination.mockFolder("Documents/Exports")
+        let snapshot = OrganizationMemorySnapshot(
+            fileName: "Report.csv",
+            fileExtension: "csv",
+            fileTypeCategory: .documents,
+            sourceLocation: .downloads,
+            scanRootPath: "/Users/example/Downloads",
+            relativeParentPath: "Exports",
+            suggestionSource: .personalMemory,
+            suggestedDestination: destination,
+            chosenDestination: destination,
+            confidenceScore: 0.94,
+            matchedRuleID: nil
+        )
+
+        let option = TrustedAutomationScopeRecommendationOption(
+            scopeType: .folder,
+            scopeKey: "/Users/example/Downloads/Exports",
+            displayName: "Exports",
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.94,
+            rationaleSummary: "You’ve approved this folder pattern 6 times with no recent undo in Exports."
+        )
+
+        return TrustedAutomationScopeRecommendation(
+            recommendedScope: option,
+            alternativeScopes: [],
+            snapshot: snapshot
+        )
     }
     
     // MARK: - Rule Preview Tests

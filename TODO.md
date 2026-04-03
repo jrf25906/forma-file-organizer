@@ -48,6 +48,7 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Persist shared trusted automation scopes for rule, folder, and category trust boundaries with lifecycle controls and a feature-flagged app entry point.
 - [x] Derive review-earned trusted-scope recommendations from personal-memory evidence, preferring rule, then folder, then category scope candidates when confidence is high and recent undo/correction signals stay low.
 - [x] Surface `Trust this automatically` in the review celebration flow with a recommended-scope sheet that can promote the selected scope into immediate move-only autopilot behavior.
+- [x] Tighten trust-scope promotion so only review-earned evidence unlocks trust, folder scopes stay bound to the reviewed subtree, stale rule destinations are not silently rearmed even when folders share a label, derived rules use the confirmed bookmark from review instead of same-name preference history, and undo/celebration state invalidates staged recommendations without resetting the success timer.
 
 ## Permission Grant Recovery Fixes (April 1, 2026)
 - [x] Stop dashboard/JIT folder permission grants from re-showing onboarding when the sheet was already dismissed.

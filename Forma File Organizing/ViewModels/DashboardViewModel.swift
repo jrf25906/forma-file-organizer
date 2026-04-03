@@ -1024,6 +1024,7 @@ class DashboardViewModel: ObservableObject {
 
     func undoLastAction(context: ModelContext? = nil) {
         let resolvedContext = context ?? modelContext
+        panelManager.dismissTrustedScopeRecommendation(clearRecommendation: true)
         undoRedoController.undoLastAction(
             allFiles: scanViewModel.allFiles,
             context: resolvedContext,
@@ -1541,6 +1542,10 @@ class DashboardViewModel: ObservableObject {
     /// Test helper to push an undo action without file operations
     func _testPushUndoAction(_ action: OrganizationAction) {
         organizationCoordinator._testPushUndoAction(action)
+    }
+
+    var _testPanelManager: PanelStateManager {
+        panelManager
     }
     #endif
 

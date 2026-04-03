@@ -89,6 +89,13 @@ final class TrustedAutomationScopeService {
         }
     }
 
+    private struct EvidencePolicy {
+        let countsOverridesAsCorrection: Bool
+
+        static let destinationScope = EvidencePolicy(countsOverridesAsCorrection: false)
+        static let explicitRule = EvidencePolicy(countsOverridesAsCorrection: true)
+    }
+
     private struct DerivedRuleCandidate {
         let pattern: LearnedPattern
         let scopeKey: String
@@ -285,16 +292,22 @@ final class TrustedAutomationScopeService {
             return nil
         }
 
+        let ruleService = RuleService(modelContext: modelContext)
+        guard let rule = try ruleService.fetchRule(id: ruleID),
+              matchesRuleDestination(rule, destination: destination) else {
+            return nil
+        }
+
         guard let evidence = try evidence(
             matching: { event in
                 event.matchedRuleID == ruleID && self.matchesDestination(event, destination: destination)
-            }
+            },
+            policy: .explicitRule
         ) else {
             return nil
         }
 
-        let rule = try RuleService(modelContext: modelContext).fetchRule(id: ruleID)
-        let displayName = rule?.name ?? derivedRuleName(for: snapshot)
+        let displayName = rule.name
 
         return TrustedAutomationScopeRecommendationOption(
             scopeType: .rule,
@@ -313,18 +326,22 @@ final class TrustedAutomationScopeService {
         for snapshot: OrganizationMemorySnapshot,
         destination: Destination
     ) throws -> TrustedAutomationScopeRecommendationOption? {
-        guard let derivedCandidate = try derivedRuleCandidate(for: snapshot, destination: destination) else {
-            return nil
-        }
-
-        guard let evidence = try evidence(
+        let events = try eligibleEvents(
             matching: { event in
                 event.fileExtension == snapshot.fileExtension.lowercased() &&
                 event.sourceLocation == snapshot.sourceLocation &&
                 self.normalizedRelativeParentPath(event.relativeParentPath) == nil &&
                 self.matchesDestination(event, destination: destination)
-            }
-        ) else {
+            },
+        )
+
+        guard let evidence = evidence(from: events, policy: .destinationScope),
+              let derivedCandidate = derivedRuleCandidate(
+                for: snapshot,
+                destination: destination,
+                evidence: evidence,
+                events: events
+              ) else {
             return nil
         }
 
@@ -356,7 +373,8 @@ final class TrustedAutomationScopeService {
             matching: { event in
                 self.matchesFolderContext(event, snapshot: snapshot) &&
                 self.matchesDestination(event, destination: destination)
-            }
+            },
+            policy: .destinationScope
         ) else {
             return nil
         }
@@ -387,7 +405,8 @@ final class TrustedAutomationScopeService {
             matching: { event in
                 event.fileTypeCategory == snapshot.fileTypeCategory &&
                 self.matchesDestination(event, destination: destination)
-            }
+            },
+            policy: .destinationScope
         ) else {
             return nil
         }
@@ -406,14 +425,29 @@ final class TrustedAutomationScopeService {
     }
 
     private func evidence(
-        matching predicate: (PersonalMemoryEvent) -> Bool
+        matching predicate: (PersonalMemoryEvent) -> Bool,
+        policy: EvidencePolicy
     ) throws -> ScopeEvidence? {
-        let events = try modelContext.fetch(
+        try evidence(from: eligibleEvents(matching: predicate), policy: policy)
+    }
+
+    private func eligibleEvents(
+        matching predicate: (PersonalMemoryEvent) -> Bool
+    ) throws -> [PersonalMemoryEvent] {
+        let eligibleSurfaces: Set<PersonalMemorySourceSurface> = [.reviewFlow, .undoSurface]
+        return try modelContext.fetch(
             FetchDescriptor<PersonalMemoryEvent>(
                 sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
             )
-        ).filter(predicate)
+        ).filter { event in
+            eligibleSurfaces.contains(event.sourceSurface) && predicate(event)
+        }
+    }
 
+    private func evidence(
+        from events: [PersonalMemoryEvent],
+        policy: EvidencePolicy
+    ) -> ScopeEvidence? {
         guard !events.isEmpty else {
             return nil
         }
@@ -424,7 +458,7 @@ final class TrustedAutomationScopeService {
         let correctionCount = events.filter { $0.eventKind == .manualCorrection }.count
         let undoCount = events.filter { $0.eventKind == .undoRecovery }.count
         let recentUndoCount = events.prefix(5).filter { $0.eventKind == .undoRecovery }.count
-        let noisyEventCount = overrideCount + correctionCount
+        let noisyEventCount = correctionCount + (policy.countsOverridesAsCorrection ? overrideCount : 0)
         let noisyRate = Double(noisyEventCount) / Double(max(events.count, 1))
 
         guard acceptedCount >= 3 else {
@@ -447,39 +481,56 @@ final class TrustedAutomationScopeService {
     }
 
     private func matchesDestination(_ event: PersonalMemoryEvent, destination: Destination) -> Bool {
-        let destinationIdentity = PersonalMemoryEvent.destinationIdentity(for: destination)
-        return event.chosenDestinationIdentity == destinationIdentity || event.priorDestinationIdentity == destinationIdentity
+        [event.chosenDestination, event.priorDestination]
+            .compactMap { $0 }
+            .contains { eventDestination in
+                destinationsMatch(eventDestination, destination)
+            }
     }
 
     private func matchesFolderContext(_ event: PersonalMemoryEvent, snapshot: OrganizationMemorySnapshot) -> Bool {
         if let snapshotRoot = normalizedPath(snapshot.scanRootPath) {
-            return normalizedPath(event.scanRootPath) == snapshotRoot
+            guard normalizedPath(event.scanRootPath) == snapshotRoot else {
+                return false
+            }
+        } else {
+            guard event.sourceLocation == snapshot.sourceLocation else {
+                return false
+            }
         }
 
-        return event.scanRootPath == nil && event.sourceLocation == snapshot.sourceLocation
+        return relativePath(event.relativeParentPath, isWithin: snapshot.relativeParentPath)
     }
 
     private func derivedRuleCandidate(
         for snapshot: OrganizationMemorySnapshot,
-        destination: Destination
-    ) throws -> DerivedRuleCandidate? {
+        destination: Destination,
+        evidence: ScopeEvidence,
+        events: [PersonalMemoryEvent]
+    ) -> DerivedRuleCandidate? {
         guard snapshot.matchedRuleID == nil,
               snapshot.sourceLocation != .unknown,
               normalizedRelativeParentPath(snapshot.relativeParentPath) == nil else {
             return nil
         }
 
-        let patterns = try PersonalMemoryService(modelContext: modelContext).suggestedPatterns()
-        let destinationDisplayName = destination.displayName
-
-        guard let matchingPattern = patterns.first(where: { pattern in
-            pattern.source == .personalMemory &&
-            pattern.destinationPath == destinationDisplayName &&
-            pattern.fileExtension == snapshot.fileExtension.lowercased() &&
-            pattern.conditions.contains(.sourceLocation(snapshot.sourceLocation))
-        }) else {
-            return nil
-        }
+        let ruleConditions = derivedRuleConditions(for: snapshot)
+        let patternConditions = derivedPatternConditions(for: snapshot)
+        let logicalOperator: Rule.LogicalOperator = ruleConditions.count > 1 ? .and : .single
+        let lastSeenDate = events.first?.timestamp ?? Date()
+        let patternDescription = "\(snapshot.fileExtension.uppercased()) files from \(snapshot.sourceLocation.displayName) usually go to \(destination.displayName)"
+        let matchingPattern = LearnedPattern(
+            patternDescription: patternDescription,
+            fileExtension: snapshot.fileExtension.lowercased(),
+            destinationPath: destination.displayName,
+            destinationBookmarkData: destination.bookmarkData,
+            occurrenceCount: evidence.acceptedCount,
+            source: .personalMemory,
+            confidenceScore: evidence.confidenceSnapshot,
+            lastSeenDate: lastSeenDate,
+            conditions: patternConditions,
+            logicalOperator: logicalOperator
+        )
 
         return DerivedRuleCandidate(
             pattern: matchingPattern,
@@ -518,22 +569,45 @@ final class TrustedAutomationScopeService {
         let ruleService = RuleService(modelContext: modelContext)
 
         if let matchedRuleID = snapshot.matchedRuleID,
-           let existingRule = try ruleService.fetchRule(id: matchedRuleID) {
-            return try ensureRuleEnabled(existingRule, ruleService: ruleService)
+           let matchedRule = try ruleService.fetchRule(id: matchedRuleID) {
+            if matchesRuleDestination(matchedRule, destination: snapshot.chosenDestination) {
+                return try ensureRuleEnabled(matchedRule, ruleService: ruleService)
+            }
+
+            if let existingRule = try matchingMoveRule(
+                conditions: matchedRule.conditions,
+                logicalOperator: matchedRule.logicalOperator,
+                destination: snapshot.chosenDestination,
+                ruleService: ruleService
+            ) {
+                return try ensureRuleEnabled(existingRule, ruleService: ruleService)
+            }
         }
 
         let conditions = derivedRuleConditions(for: snapshot)
         let logicalOperator: Rule.LogicalOperator = conditions.count > 1 ? .and : .single
-        if let existingRule = try ruleService.findMatchingMoveRule(
+        if let existingRule = try matchingMoveRule(
             conditions: conditions,
             logicalOperator: logicalOperator,
-            destination: snapshot.chosenDestination
+            destination: snapshot.chosenDestination,
+            ruleService: ruleService
         ) {
             return try ensureRuleEnabled(existingRule, ruleService: ruleService)
         }
 
         if let destination = snapshot.chosenDestination,
-           let derivedCandidate = try derivedRuleCandidate(for: snapshot, destination: destination) {
+           let derivedCandidate = derivedRuleCandidate(
+            for: snapshot,
+            destination: destination,
+            evidence: ScopeEvidence(
+                acceptedCount: 1,
+                overrideCount: 0,
+                correctionCount: 0,
+                undoCount: 0,
+                totalCount: 1
+            ),
+            events: []
+           ) {
             let rule = LearningService().convertPatternToRule(derivedCandidate.pattern)
             rule.name = derivedCandidate.displayName
             try ruleService.createRule(rule, source: .learnedPattern)
@@ -561,6 +635,20 @@ final class TrustedAutomationScopeService {
         return rule
     }
 
+    private func matchingMoveRule(
+        conditions: [RuleCondition],
+        logicalOperator: Rule.LogicalOperator,
+        destination: Destination?,
+        ruleService: RuleService
+    ) throws -> Rule? {
+        try ruleService.fetchRules().first { rule in
+            rule.actionType == .move &&
+            rule.conditions == conditions &&
+            rule.logicalOperator == logicalOperator &&
+            matchesRuleDestination(rule, destination: destination)
+        }
+    }
+
     private func derivedRuleConditions(for snapshot: OrganizationMemorySnapshot) -> [RuleCondition] {
         var conditions: [RuleCondition] = [.fileExtension(snapshot.fileExtension.lowercased())]
         if snapshot.sourceLocation != .unknown {
@@ -577,14 +665,28 @@ final class TrustedAutomationScopeService {
         return "\(extensionLabel) from \(snapshot.sourceLocation.displayName)"
     }
 
+    private func derivedPatternConditions(for snapshot: OrganizationMemorySnapshot) -> [PatternCondition] {
+        var conditions: [PatternCondition] = [.fileExtension(snapshot.fileExtension.lowercased())]
+        if snapshot.sourceLocation != .unknown {
+            conditions.append(.sourceLocation(snapshot.sourceLocation))
+        }
+        return conditions
+    }
+
     private func folderScopeKey(for snapshot: OrganizationMemorySnapshot) -> String {
-        if let scanRootPath = normalizedPath(snapshot.scanRootPath) {
-            return scanRootPath
+        if let folderPath = folderScopePath(for: snapshot) {
+            return folderPath
+        }
+        if let relativeParentPath = normalizedRelativeParentPath(snapshot.relativeParentPath) {
+            return "location:\(snapshot.sourceLocation.rawValue)|\(relativeParentPath)"
         }
         return "location:\(snapshot.sourceLocation.rawValue)"
     }
 
     private func folderDisplayName(for snapshot: OrganizationMemorySnapshot) -> String {
+        if let relativeParentPath = normalizedRelativeParentPath(snapshot.relativeParentPath) {
+            return relativeParentPath.split(separator: "/").last.map(String.init) ?? snapshot.sourceLocation.displayName
+        }
         if let scanRootPath = normalizedPath(snapshot.scanRootPath), !scanRootPath.isEmpty {
             return URL(fileURLWithPath: scanRootPath).lastPathComponent
         }
@@ -603,9 +705,72 @@ final class TrustedAutomationScopeService {
 
     private func normalizedRelativeParentPath(_ value: String?) -> String? {
         guard let value, !value.isEmpty else { return nil }
-        return value
+        let components = value
             .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "\\\\", with: "/")
+            .split(whereSeparator: { $0 == "/" || $0 == "\\" })
+            .map(String.init)
+            .filter { !$0.isEmpty && $0 != "." }
+        guard !components.isEmpty else { return nil }
+        return components.joined(separator: "/")
+    }
+
+    private func folderScopePath(for snapshot: OrganizationMemorySnapshot) -> String? {
+        guard let scanRootPath = normalizedPath(snapshot.scanRootPath) else {
+            return nil
+        }
+
+        guard let relativeParentPath = normalizedRelativeParentPath(snapshot.relativeParentPath) else {
+            return scanRootPath
+        }
+
+        return URL(fileURLWithPath: scanRootPath)
+            .appendingPathComponent(relativeParentPath)
+            .standardizedFileURL
+            .path
+    }
+
+    private func relativePath(_ candidate: String?, isWithin scope: String?) -> Bool {
+        guard let scope = normalizedRelativeParentPath(scope) else {
+            return true
+        }
+        guard let candidate = normalizedRelativeParentPath(candidate) else {
+            return false
+        }
+        return candidate == scope || candidate.hasPrefix("\(scope)/")
+    }
+
+    private func matchesRuleDestination(_ rule: Rule, destination: Destination?) -> Bool {
+        destinationsMatch(rule.destination, destination)
+    }
+
+    private func destinationsMatch(_ lhs: Destination?, _ rhs: Destination?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case (.none, .some), (.some, .none):
+            return false
+        case let (.some(lhsDestination), .some(rhsDestination)):
+            if lhsDestination == rhsDestination {
+                return true
+            }
+
+            switch (lhsDestination, rhsDestination) {
+            case (.trash, .trash):
+                return true
+            case (.folder(let lhsBookmark, _), .folder(let rhsBookmark, _)):
+                if lhsBookmark == rhsBookmark {
+                    return true
+                }
+
+                guard let lhsURL = lhsDestination.resolve()?.url.standardizedFileURL,
+                      let rhsURL = rhsDestination.resolve()?.url.standardizedFileURL else {
+                    return false
+                }
+                return lhsURL == rhsURL
+            default:
+                return false
+            }
+        }
     }
 
     private func scopePriority(_ scopeType: TrustedAutomationScopeType) -> Int {

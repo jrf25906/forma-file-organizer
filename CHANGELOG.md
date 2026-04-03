@@ -52,6 +52,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Trusted-scope promotion now preserves narrower, review-earned trust boundaries:
+  - `TrustedAutomationScopeService.recommendedScope(for:)` now limits positive evidence to review-earned history, keeps folder scopes bound to the reviewed subtree instead of the whole scan root, and refuses explicit-rule promotion when the current chosen destination no longer matches the matched rule's bookmark-backed destination, even if two folders share the same display name.
+  - `TrustedAutomationScopeService.promoteFromReviewDecision(...)` now reuses an already-correct sibling rule before creating a new one and seeds derived rules from the confirmed review destination instead of display-name-collapsed personal-memory preferences, so same-named bookmarks from inspector history no longer bleed into promoted rules.
+  - `PanelStateManager` now pauses celebration auto-dismiss while the trusted-scope sheet is open and resumes the original remaining countdown when the sheet closes instead of restarting a fresh delay, and `DashboardViewModel.undoLastAction(...)` clears any staged trust recommendation before rollback.
 - Test plan boundaries are enforced again in `TestGating`, so the default `All Tests` run no longer executes integration/performance-only suites unless their dedicated Xcode test plans set the corresponding `RUN_INTEGRATION_TESTS` or `RUN_PERFORMANCE_TESTS` flag; `TestGatingTests` now guards that contract in the unit plan.
 - Preview-first rule editing now restores the right surface after save/discard:
   - `DashboardViewModel.showRuleBuilderPanelForInspector(_:)`, `restorePanel(afterRuleDraftReturnTarget:)`, and `showRuleWorkflowCelebration(message:returnTarget:)` preserve review selection and reopen the inspector when a rule draft originated there instead of dumping the user back into the default panel.

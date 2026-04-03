@@ -14,7 +14,9 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `option(for:)`
   - `TrustedAutomationScopeService.recommendedScope(for:)`
   - `TrustedAutomationScopeService.promoteFromReviewDecision(recommendation:selectedScopeType:promotedAt:)`
-  - Review-earned trust suggestions now derive narrow rule, folder, and category candidates from personal-memory evidence and can promote the selected scope into persisted move-only autopilot eligibility.
+  - Review-earned trust suggestions now derive narrow rule, folder, and category candidates from review/undo history only, bind folder scopes to the reviewed subtree, and can promote the selected scope into persisted move-only autopilot eligibility.
+  - Explicit-rule promotion now reuses a matched rule only when that rule still points at the confirmed bookmark-backed destination, otherwise it searches for another rule with the same conditions that already targets the confirmed bookmark before creating a new one.
+  - Derived rule promotion now seeds new rules from the confirmed review destination and review/undo evidence instead of shared personal-memory preferences, so same-named bookmarks from inspector history cannot leak into the promoted rule.
 - Rule lookup helpers (`Forma File Organizing/Services/RuleService.swift`)
   - `fetchRule(id:)`
   - `findMatchingMoveRule(conditions:logicalOperator:destination:)`
@@ -30,6 +32,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `DashboardViewModel.dismissTrustedScopeRecommendation(clearRecommendation:)`
   - `DashboardViewModel.confirmTrustedScopeRecommendation(selectedScopeType:context:)`
   - `TrustedAutomationScopeRecommendationSheet`
+  - Presenting the trusted-scope sheet now suspends celebration auto-dismiss until the sheet closes, then resumes the original remaining countdown instead of starting a fresh full delay; `DashboardViewModel.undoLastAction(...)` also clears staged recommendations before undoing the just-approved action.
 - Main-window frame restoration (`Forma File Organizing/Utilities/MainWindowFrameValidator.swift`)
   - `MainWindowFrameValidator.validatedFrame(_:visibleFrames:minimumSize:)`
   - Restored main-window geometry now gets a one-shot validation pass after native autosave restoration: oversized frames are clamped to the active visible display, and frames that reopen fully off-screen are recentered onto the nearest available screen.

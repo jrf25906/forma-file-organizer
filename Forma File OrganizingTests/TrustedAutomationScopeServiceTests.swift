@@ -240,6 +240,8 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
 
             let folderRecommendation = try service.recommendedScope(for: folderSnapshot)
             XCTAssertEqual(folderRecommendation?.recommendedScope.scopeType, .folder)
+            XCTAssertEqual(folderRecommendation?.recommendedScope.scopeKey, "/Users/example/Downloads/Exports")
+            XCTAssertEqual(folderRecommendation?.recommendedScope.displayName, "Exports")
         }
 
         try withRecommendationServices { _, service, memoryService, _ in
@@ -265,6 +267,52 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
 
             let categoryRecommendation = try service.recommendedScope(for: categorySnapshot)
             XCTAssertEqual(categoryRecommendation?.recommendedScope.scopeType, .category)
+        }
+    }
+
+    func testRecommendedScope_FolderEvidenceStaysBoundToReviewedSubtree() throws {
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Exports")
+            let exportsSnapshot = makeSnapshot(
+                fileName: "Report.csv",
+                fileExtension: "csv",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Exports",
+                destination: destination
+            )
+            let receiptsSnapshot = makeSnapshot(
+                fileName: "Receipt.csv",
+                fileExtension: "csv",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                destination: destination
+            )
+
+            for dayOffset in 0..<2 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: exportsSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: receiptsSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset + 10))
+                )
+            }
+
+            let recommendation = try XCTUnwrap(service.recommendedScope(for: exportsSnapshot))
+            XCTAssertEqual(recommendation.recommendedScope.scopeType, .category)
+            XCTAssertFalse(
+                recommendation.allScopeChoices.contains(where: { $0.scopeType == .folder }),
+                "Evidence from sibling subfolders should not pool into one trusted folder recommendation."
+            )
         }
     }
 
@@ -348,12 +396,346 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
             try recordDecision(
                 memoryService: memoryService,
                 snapshot: noisySnapshot,
-                eventKind: .acceptedWithOverride,
+                eventKind: .manualCorrection,
                 suggestedDestination: Destination.mockFolder("Desktop/Hold"),
                 timestamp: Date().addingTimeInterval(10)
             )
 
             XCTAssertNil(try service.recommendedScope(for: noisySnapshot))
+        }
+    }
+
+    func testRecommendedScope_IgnoresNonReviewEvidenceSurfaces() throws {
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let snapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                destination: destination
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .manualSelection,
+                    sourceSurface: .inspector,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            XCTAssertNil(
+                try service.recommendedScope(for: snapshot),
+                "Only review-earned evidence should unlock trusted-scope recommendations."
+            )
+        }
+    }
+
+    func testRecommendedScope_DoesNotPromoteRuleWhenReviewOverridesItsDestination() throws {
+        try withRecommendationServices { _, service, memoryService, ruleService in
+            let suggestedDestination = Destination.mockFolder("Documents/Receipts")
+            let chosenDestination = Destination.mockFolder("Desktop/Hold")
+            let ruleID = UUID()
+            let explicitRule = Rule(
+                name: "Receipt Rule",
+                conditionType: .fileExtension,
+                conditionValue: "pdf",
+                actionType: .move,
+                destination: suggestedDestination
+            )
+            explicitRule.id = ruleID
+            try ruleService.createRule(explicitRule, source: .ruleEditor)
+
+            let snapshot = OrganizationMemorySnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                suggestionSource: .rule,
+                suggestedDestination: suggestedDestination,
+                chosenDestination: chosenDestination,
+                confidenceScore: 0.91,
+                matchedRuleID: ruleID
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .acceptedWithOverride,
+                    chosenDestination: chosenDestination,
+                    suggestedDestination: suggestedDestination,
+                    sourceSurface: .reviewFlow,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            let recommendation = try XCTUnwrap(service.recommendedScope(for: snapshot))
+            XCTAssertEqual(recommendation.recommendedScope.scopeType, .folder)
+            XCTAssertFalse(recommendation.allScopeChoices.contains(where: { $0.scopeType == .rule }))
+        }
+    }
+
+    func testRecommendedScope_DoesNotPromoteRuleWhenDistinctBookmarksShareDisplayName() throws {
+        let originalRoot = try TemporaryDirectory()
+        let overrideRoot = try TemporaryDirectory()
+        let suggestedDestination = try Destination.folder(from: try originalRoot.createDirectory(name: "Shared"))
+        let chosenDestination = try Destination.folder(from: try overrideRoot.createDirectory(name: "Shared"))
+
+        XCTAssertNotEqual(suggestedDestination, chosenDestination)
+
+        try withRecommendationServices { _, service, memoryService, ruleService in
+            let ruleID = UUID()
+            let explicitRule = Rule(
+                name: "Shared Folder Rule",
+                conditionType: .fileExtension,
+                conditionValue: "pdf",
+                actionType: .move,
+                destination: suggestedDestination
+            )
+            explicitRule.id = ruleID
+            try ruleService.createRule(explicitRule, source: .ruleEditor)
+
+            let snapshot = OrganizationMemorySnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                suggestionSource: .rule,
+                suggestedDestination: suggestedDestination,
+                chosenDestination: chosenDestination,
+                confidenceScore: 0.91,
+                matchedRuleID: ruleID
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .acceptedWithOverride,
+                    chosenDestination: chosenDestination,
+                    suggestedDestination: suggestedDestination,
+                    sourceSurface: .reviewFlow,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            let recommendation = try XCTUnwrap(service.recommendedScope(for: snapshot))
+            XCTAssertEqual(recommendation.recommendedScope.scopeType, .folder)
+            XCTAssertFalse(recommendation.allScopeChoices.contains(where: { $0.scopeType == .rule }))
+        }
+    }
+
+    func testPromoteFromReviewDecision_DoesNotReuseMatchedRuleWhenDistinctBookmarksShareDisplayName() throws {
+        let originalRoot = try TemporaryDirectory()
+        let overrideRoot = try TemporaryDirectory()
+        let suggestedDestination = try Destination.folder(from: try originalRoot.createDirectory(name: "Shared"))
+        let chosenDestination = try Destination.folder(from: try overrideRoot.createDirectory(name: "Shared"))
+
+        XCTAssertNotEqual(suggestedDestination, chosenDestination)
+
+        try withRecommendationServices { _, service, _, ruleService in
+            let staleRuleID = UUID()
+            let staleRule = Rule(
+                name: "Shared Folder Rule",
+                conditionType: .fileExtension,
+                conditionValue: "pdf",
+                actionType: .move,
+                destination: suggestedDestination
+            )
+            staleRule.id = staleRuleID
+            staleRule.isEnabled = false
+            try ruleService.createRule(staleRule, source: .ruleEditor)
+
+            let snapshot = OrganizationMemorySnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                suggestionSource: .rule,
+                suggestedDestination: suggestedDestination,
+                chosenDestination: chosenDestination,
+                confidenceScore: 0.91,
+                matchedRuleID: staleRuleID
+            )
+
+            let requestedOption = TrustedAutomationScopeRecommendationOption(
+                scopeType: .rule,
+                scopeKey: "rule:\(staleRuleID.uuidString)",
+                displayName: staleRule.name,
+                recommendationSource: .explicitRule,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.91,
+                rationaleSummary: "Pinned for promotion from review."
+            )
+
+            let recommendation = TrustedAutomationScopeRecommendation(
+                recommendedScope: requestedOption,
+                alternativeScopes: [],
+                snapshot: snapshot
+            )
+
+            let promotedScope = try service.promoteFromReviewDecision(
+                recommendation: recommendation,
+                selectedScopeType: .rule
+            )
+
+            let rules = try ruleService.fetchRules()
+            let stalePersistedRule = try XCTUnwrap(rules.first(where: { $0.id == staleRuleID }))
+            let promotedRule = try XCTUnwrap(rules.first(where: { $0.id.uuidString == promotedScope.scopeKey.replacingOccurrences(of: "rule:", with: "") }))
+
+            XCTAssertFalse(stalePersistedRule.isEnabled)
+            XCTAssertEqual(stalePersistedRule.destination, suggestedDestination)
+            XCTAssertNotEqual(promotedScope.scopeKey, "rule:\(staleRuleID.uuidString)")
+            XCTAssertEqual(promotedRule.destination, chosenDestination)
+            XCTAssertTrue(promotedRule.isEnabled)
+        }
+    }
+
+    func testPromoteFromReviewDecision_ReusesExistingExactRuleWhenStaleRuleSharesDisplayName() throws {
+        let originalRoot = try TemporaryDirectory()
+        let correctRoot = try TemporaryDirectory()
+        let staleDestination = try Destination.folder(from: try originalRoot.createDirectory(name: "Shared"))
+        let correctDestination = try Destination.folder(from: try correctRoot.createDirectory(name: "Shared"))
+
+        XCTAssertNotEqual(staleDestination, correctDestination)
+
+        try withRecommendationServices { _, service, _, ruleService in
+            let staleRuleID = UUID()
+            let staleRule = Rule(
+                name: "Shared Folder Rule",
+                conditionType: .fileExtension,
+                conditionValue: "pdf",
+                actionType: .move,
+                destination: staleDestination
+            )
+            staleRule.id = staleRuleID
+            try ruleService.createRule(staleRule, source: .ruleEditor)
+
+            let correctRuleID = UUID()
+            let correctRule = Rule(
+                name: "Shared Folder Rule",
+                conditionType: .fileExtension,
+                conditionValue: "pdf",
+                actionType: .move,
+                destination: correctDestination
+            )
+            correctRule.id = correctRuleID
+            correctRule.isEnabled = false
+            try ruleService.createRule(correctRule, source: .ruleEditor)
+
+            let snapshot = OrganizationMemorySnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                suggestionSource: .rule,
+                suggestedDestination: staleDestination,
+                chosenDestination: correctDestination,
+                confidenceScore: 0.91,
+                matchedRuleID: staleRuleID
+            )
+
+            let requestedOption = TrustedAutomationScopeRecommendationOption(
+                scopeType: .rule,
+                scopeKey: "rule:\(staleRuleID.uuidString)",
+                displayName: staleRule.name,
+                recommendationSource: .explicitRule,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.91,
+                rationaleSummary: "Pinned for promotion from review."
+            )
+
+            let recommendation = TrustedAutomationScopeRecommendation(
+                recommendedScope: requestedOption,
+                alternativeScopes: [],
+                snapshot: snapshot
+            )
+
+            let promotedScope = try service.promoteFromReviewDecision(
+                recommendation: recommendation,
+                selectedScopeType: .rule
+            )
+
+            let rules = try ruleService.fetchRules()
+            XCTAssertEqual(rules.count, 2)
+            XCTAssertEqual(promotedScope.scopeKey, "rule:\(correctRuleID.uuidString)")
+            XCTAssertEqual(try XCTUnwrap(rules.first(where: { $0.id == staleRuleID })).destination, staleDestination)
+            XCTAssertTrue(try XCTUnwrap(rules.first(where: { $0.id == correctRuleID })).isEnabled)
+        }
+    }
+
+    func testPromoteFromReviewDecision_DerivedRuleUsesReviewedBookmarkWhenSameNameInspectorHistoryExists() throws {
+        let inspectorRoot = try TemporaryDirectory()
+        let reviewRoot = try TemporaryDirectory()
+        let inspectorDestination = try Destination.folder(from: try inspectorRoot.createDirectory(name: "Shared"))
+        let reviewDestination = try Destination.folder(from: try reviewRoot.createDirectory(name: "Shared"))
+
+        XCTAssertNotEqual(inspectorDestination, reviewDestination)
+
+        try withRecommendationServices { _, service, memoryService, ruleService in
+            let snapshot = OrganizationMemorySnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: nil,
+                suggestionSource: .personalMemory,
+                suggestedDestination: reviewDestination,
+                chosenDestination: reviewDestination,
+                confidenceScore: 0.91,
+                matchedRuleID: nil
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .manualSelection,
+                    chosenDestination: inspectorDestination,
+                    suggestedDestination: inspectorDestination,
+                    sourceSurface: .inspector,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .acceptedSuggestion,
+                    chosenDestination: reviewDestination,
+                    suggestedDestination: reviewDestination,
+                    sourceSurface: .reviewFlow,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset + 10))
+                )
+            }
+
+            let recommendation = try XCTUnwrap(service.recommendedScope(for: snapshot))
+            XCTAssertEqual(recommendation.recommendedScope.scopeType, .rule)
+
+            let promotedScope = try service.promoteFromReviewDecision(recommendation: recommendation)
+            let promotedRule = try XCTUnwrap(
+                try ruleService.fetchRules().first(where: { $0.id.uuidString == promotedScope.scopeKey.replacingOccurrences(of: "rule:", with: "") })
+            )
+
+            XCTAssertEqual(promotedRule.destination, reviewDestination)
+            XCTAssertNotEqual(promotedRule.destination, inspectorDestination)
         }
     }
 
@@ -420,11 +802,13 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         memoryService: PersonalMemoryService,
         snapshot: OrganizationMemorySnapshot,
         eventKind: PersonalMemoryEventKind,
+        chosenDestination: Destination? = nil,
         suggestedDestination: Destination? = nil,
+        sourceSurface: PersonalMemorySourceSurface? = nil,
         timestamp: Date
     ) throws {
-        let chosenDestination = eventKind == .undoRecovery ? nil : snapshot.chosenDestination
-        let priorDestination = eventKind == .undoRecovery ? snapshot.chosenDestination : nil
+        let resolvedChosenDestination = eventKind == .undoRecovery ? nil : (chosenDestination ?? snapshot.chosenDestination)
+        let priorDestination = eventKind == .undoRecovery ? (chosenDestination ?? snapshot.chosenDestination) : nil
 
         _ = try memoryService.recordDecision(
             fileName: snapshot.fileName,
@@ -433,10 +817,10 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
             sourceLocation: snapshot.sourceLocation,
             scanRootPath: snapshot.scanRootPath,
             relativeParentPath: snapshot.relativeParentPath,
-            sourceSurface: eventKind == .undoRecovery ? .undoSurface : .reviewFlow,
+            sourceSurface: sourceSurface ?? (eventKind == .undoRecovery ? .undoSurface : .reviewFlow),
             suggestionSource: snapshot.suggestionSource,
             suggestedDestination: suggestedDestination ?? snapshot.suggestedDestination,
-            chosenDestination: chosenDestination,
+            chosenDestination: resolvedChosenDestination,
             confidenceScore: snapshot.confidenceScore,
             matchedRuleID: snapshot.matchedRuleID,
             eventKind: eventKind,

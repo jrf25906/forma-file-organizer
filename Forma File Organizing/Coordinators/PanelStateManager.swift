@@ -144,6 +144,8 @@ class PanelStateManager: ObservableObject {
     // MARK: - Configuration
     
     private static let celebrationDismissDelay = FormaConfig.Timing.celebrationDurationSec
+    private var celebrationDismissTask: Task<Void, Never>?
+    private var celebrationDismissDeadline: Date?
     
     // MARK: - Right Panel Management
     
@@ -183,15 +185,7 @@ class PanelStateManager: ObservableObject {
         rightPanelMode = .celebration(message)
         celebrationStyle = style
         celebrationDismissAction = onDismiss
-
-        // Auto-dismiss after configured delay
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(for: Self.celebrationDismissDelay)
-            guard let self else { return }
-            if case .celebration(let msg) = self.rightPanelMode, msg == message {
-                self.dismissCelebration()
-            }
-        }
+        scheduleCelebrationDismiss(for: message, delay: Self.celebrationDismissDelay)
     }
 
     /// Show completion celebration panel (special celebration when ALL files are cleared)
@@ -202,8 +196,12 @@ class PanelStateManager: ObservableObject {
 
         // Auto-dismiss after longer delay (this is a bigger accomplishment!)
         let completionDelay = Self.celebrationDismissDelay * 2  // Double the standard duration
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(for: completionDelay)
+        celebrationDismissTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: completionDelay)
+            } catch {
+                return
+            }
             guard let self else { return }
             if case .completionCelebration = self.rightPanelMode {
                 self.rightPanelMode = .default
@@ -237,6 +235,8 @@ class PanelStateManager: ObservableObject {
     func presentTrustedScopeRecommendation() {
         guard trustedScopeRecommendation != nil else { return }
         isTrustedScopeRecommendationPresented = true
+        celebrationDismissTask?.cancel()
+        celebrationDismissTask = nil
     }
 
     func dismissTrustedScopeRecommendation(clearRecommendation: Bool = false) {
@@ -244,6 +244,8 @@ class PanelStateManager: ObservableObject {
         if clearRecommendation {
             trustedScopeRecommendation = nil
         }
+
+        resumeCelebrationDismissIfNeeded()
     }
     
     // MARK: - Toast Management
@@ -277,10 +279,72 @@ class PanelStateManager: ObservableObject {
     private var celebrationDismissAction: (() -> Void)?
 
     private func clearCelebrationState() {
+        celebrationDismissTask?.cancel()
+        celebrationDismissTask = nil
+        celebrationDismissDeadline = nil
         celebrationStyle = .batchUndo
         celebrationDismissAction = nil
         trustedScopeRecommendation = nil
         isTrustedScopeRecommendationPresented = false
+    }
+
+    private func scheduleCelebrationDismiss(
+        for message: String,
+        delay: Duration
+    ) {
+        let deadline = Date().addingTimeInterval(Self.timeInterval(for: delay))
+        scheduleCelebrationDismiss(for: message, deadline: deadline)
+    }
+
+    private func scheduleCelebrationDismiss(
+        for message: String,
+        deadline: Date
+    ) {
+        celebrationDismissTask?.cancel()
+        celebrationDismissDeadline = deadline
+        let remainingInterval = max(deadline.timeIntervalSinceNow, 0)
+
+        guard remainingInterval > 0 else {
+            guard !isTrustedScopeRecommendationPresented else { return }
+            if case .celebration(let currentMessage) = rightPanelMode, currentMessage == message {
+                dismissCelebration()
+            }
+            return
+        }
+
+        let remainingDuration = Self.duration(from: remainingInterval)
+        celebrationDismissTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: remainingDuration)
+            } catch {
+                return
+            }
+            guard let self else { return }
+            guard !self.isTrustedScopeRecommendationPresented else { return }
+            guard self.celebrationDismissDeadline == deadline else { return }
+            if case .celebration(let currentMessage) = self.rightPanelMode, currentMessage == message {
+                self.dismissCelebration()
+            }
+        }
+    }
+
+    private func resumeCelebrationDismissIfNeeded() {
+        guard case .celebration(let message) = rightPanelMode else { return }
+
+        if let celebrationDismissDeadline {
+            scheduleCelebrationDismiss(for: message, deadline: celebrationDismissDeadline)
+        } else {
+            scheduleCelebrationDismiss(for: message, delay: Self.celebrationDismissDelay)
+        }
+    }
+
+    private static func timeInterval(for duration: Duration) -> TimeInterval {
+        let components = duration.components
+        return TimeInterval(components.seconds) + (TimeInterval(components.attoseconds) / 1_000_000_000_000_000_000)
+    }
+
+    private static func duration(from interval: TimeInterval) -> Duration {
+        .milliseconds(Int64((max(interval, 0) * 1_000).rounded(.up)))
     }
     
     // MARK: - QuickLook Management
