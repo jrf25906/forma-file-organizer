@@ -407,10 +407,10 @@ struct AutomationIntegrationTests {
     func undoEntry_BulkMoveCommand_StoresRequiredData()  throws {
         guard requireIntegration() else { return }
         // Given: Multiple file move operations
-        let operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)] = [
-            (fileID: "/Desktop/doc1.pdf", fromPath: "/Desktop/doc1.pdf", toPath: "/Documents/doc1.pdf", originalStatus: .ready),
-            (fileID: "/Desktop/doc2.pdf", fromPath: "/Desktop/doc2.pdf", toPath: "/Documents/doc2.pdf", originalStatus: .ready),
-            (fileID: "/Desktop/doc3.pdf", fromPath: "/Desktop/doc3.pdf", toPath: "/Documents/doc3.pdf", originalStatus: .pending)
+        let operations: [BulkMoveOperation] = [
+            BulkMoveOperation(fileID: "/Desktop/doc1.pdf", fromPath: "/Desktop/doc1.pdf", toPath: "/Documents/doc1.pdf", originalStatus: .ready, memorySnapshot: nil),
+            BulkMoveOperation(fileID: "/Desktop/doc2.pdf", fromPath: "/Desktop/doc2.pdf", toPath: "/Documents/doc2.pdf", originalStatus: .ready, memorySnapshot: nil),
+            BulkMoveOperation(fileID: "/Desktop/doc3.pdf", fromPath: "/Desktop/doc3.pdf", toPath: "/Documents/doc3.pdf", originalStatus: .pending, memorySnapshot: nil)
         ]
 
         // When: Creating a BulkMoveCommand
@@ -443,7 +443,8 @@ struct AutomationIntegrationTests {
             fromPath: "/Desktop/report.pdf",
             toPath: "/Documents/Work/report.pdf",
             originalStatus: .ready,
-            originalDestination: originalDestination
+            originalDestination: originalDestination,
+            memorySnapshot: nil
         )
 
         // Then: Command should preserve all original state
@@ -606,11 +607,14 @@ struct AutomationIntegrationTests {
     func bulkMove_CreatesSingleUndoEntry_ForMultipleFiles()  throws {
         guard requireIntegration() else { return }
         // Given: A bulk move with 5 file operations
-        let operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)] = (1...5).map { i in
-            (fileID: "/Desktop/file\(i).pdf",
-             fromPath: "/Desktop/file\(i).pdf",
-             toPath: "/Documents/file\(i).pdf",
-             originalStatus: .ready)
+        let operations: [BulkMoveOperation] = (1...5).map { i in
+            BulkMoveOperation(
+                fileID: "/Desktop/file\(i).pdf",
+                fromPath: "/Desktop/file\(i).pdf",
+                toPath: "/Documents/file\(i).pdf",
+                originalStatus: .ready,
+                memorySnapshot: nil
+            )
         }
 
         // When: Creating a single BulkMoveCommand
@@ -640,10 +644,10 @@ struct AutomationIntegrationTests {
     func bulkMove_PreservesMixedOriginalStatuses()  throws {
         guard requireIntegration() else { return }
         // Given: Files with different original statuses
-        let operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)] = [
-            ("/Desktop/pending.pdf", "/Desktop/pending.pdf", "/Docs/pending.pdf", .pending),
-            ("/Desktop/ready.pdf", "/Desktop/ready.pdf", "/Docs/ready.pdf", .ready),
-            ("/Desktop/another.pdf", "/Desktop/another.pdf", "/Docs/another.pdf", .pending)
+        let operations: [BulkMoveOperation] = [
+            BulkMoveOperation(fileID: "/Desktop/pending.pdf", fromPath: "/Desktop/pending.pdf", toPath: "/Docs/pending.pdf", originalStatus: .pending, memorySnapshot: nil),
+            BulkMoveOperation(fileID: "/Desktop/ready.pdf", fromPath: "/Desktop/ready.pdf", toPath: "/Docs/ready.pdf", originalStatus: .ready, memorySnapshot: nil),
+            BulkMoveOperation(fileID: "/Desktop/another.pdf", fromPath: "/Desktop/another.pdf", toPath: "/Docs/another.pdf", originalStatus: .pending, memorySnapshot: nil)
         ]
 
         // When: Creating bulk move command

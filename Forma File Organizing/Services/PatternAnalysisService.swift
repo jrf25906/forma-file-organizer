@@ -85,6 +85,8 @@ enum PatternAnalysisService {
             switch patternCondition {
             case .fileExtension(let ext):
                 return .fileExtension(ext)
+            case .sourceLocation(let locationKind):
+                return .sourceLocation(locationKind)
             case .nameContains(let text):
                 return .nameContains(text)
             case .nameStartsWith(let text):

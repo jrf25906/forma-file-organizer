@@ -218,6 +218,7 @@ final class FileScanPipelineTests: XCTestCase {
             creationDate: Date(),
             location: .desktop,
             destination: .mockFolder("Documents"),
+            originalSuggestedDestination: .mockFolder("Documents"),
             status: .ready
         )
         context.insert(existing)
@@ -249,6 +250,7 @@ final class FileScanPipelineTests: XCTestCase {
         let refreshed = try XCTUnwrap(context.fetch(FetchDescriptor<FileItem>(predicate: #Predicate { $0.path == path })).first)
         XCTAssertEqual(refreshed.status, .ready)
         XCTAssertEqual(refreshed.destination?.displayName, "Documents")
+        XCTAssertEqual(refreshed.originalSuggestedDestination?.displayName, "Documents")
         XCTAssertEqual(refreshed.sizeInBytes, 200, "Metadata fields should still refresh during rescan")
     }
 

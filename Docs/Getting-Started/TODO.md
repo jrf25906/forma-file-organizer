@@ -22,7 +22,7 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 - [x] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ### Next (2-4 Months)
-- [ ] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.
+- [x] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.
 - [ ] Plan progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
 - [ ] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
 - [ ] Plan metadata-backed project spaces and retrieval workflows as the next durable moat.
@@ -38,6 +38,12 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 
 ## Recent Delivered Work
 The dated sections below capture shipped work and execution history. Use the roadmap-ordered section above to decide what comes next.
+
+## Personal Organization Memory v1 (April 2, 2026)
+- [x] Capture structured decision memory across review-flow organizes, inspector organizes, bulk organize actions, rule-suggestion responses, and undo recoveries.
+- [x] Build personal-memory preferences keyed by file extension, file category, source location, and relative parent path so user-specific habits can outrank generic learned-pattern and ML suggestions.
+- [x] Preserve the original suggestion on each file, surface a dedicated `Personal Memory` suggestion source in the UI, and keep memory-backed rule suggestions synchronized with analytics pattern detection.
+- [x] Add Smart Features summary/reset controls for learned memory and cover the core behavior with targeted personal-memory, precedence, and suggestion-source persistence tests.
 
 ## External Review Folder Promotion (April 1, 2026)
 - [x] Detect one-time Finder/Spotlight folder reviews that map cleanly onto bookmark-backed standard folders and carry a promotion candidate through the external review session.

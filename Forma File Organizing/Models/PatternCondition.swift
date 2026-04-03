@@ -8,6 +8,7 @@ import Foundation
 enum PatternCondition: Codable, Hashable, Sendable {
     // Note: Equatable is implemented manually below to ensure nonisolated access
     case fileExtension(String)
+    case sourceLocation(FileLocationKind)
     case nameContains(String)
     case nameStartsWith(String)
     case nameEndsWith(String)
@@ -27,6 +28,7 @@ enum PatternCondition: Codable, Hashable, Sendable {
 
     private enum ConditionTypeCode: String, Codable {
         case fileExtension
+        case sourceLocation
         case nameContains
         case nameStartsWith
         case nameEndsWith
@@ -43,6 +45,10 @@ enum PatternCondition: Codable, Hashable, Sendable {
         case .fileExtension:
             let value = try container.decode(String.self, forKey: .stringValue)
             self = .fileExtension(value)
+        case .sourceLocation:
+            let rawValue = try container.decode(String.self, forKey: .stringValue)
+            let value = FileLocationKind(rawValue: rawValue) ?? .unknown
+            self = .sourceLocation(value)
         case .nameContains:
             let value = try container.decode(String.self, forKey: .stringValue)
             self = .nameContains(value)
@@ -73,6 +79,9 @@ enum PatternCondition: Codable, Hashable, Sendable {
         case .fileExtension(let value):
             try container.encode(ConditionTypeCode.fileExtension, forKey: .type)
             try container.encode(value, forKey: .stringValue)
+        case .sourceLocation(let value):
+            try container.encode(ConditionTypeCode.sourceLocation, forKey: .type)
+            try container.encode(value.rawValue, forKey: .stringValue)
         case .nameContains(let value):
             try container.encode(ConditionTypeCode.nameContains, forKey: .type)
             try container.encode(value, forKey: .stringValue)
@@ -102,6 +111,8 @@ enum PatternCondition: Codable, Hashable, Sendable {
         switch self {
         case .fileExtension(let ext):
             return ".\(ext) files"
+        case .sourceLocation(let location):
+            return "from \(location.displayName)"
         case .nameContains(let text):
             return "name contains '\(text)'"
         case .nameStartsWith(let text):
@@ -132,6 +143,8 @@ extension PatternCondition: Equatable {
     nonisolated static func == (lhs: PatternCondition, rhs: PatternCondition) -> Bool {
         switch (lhs, rhs) {
         case let (.fileExtension(l), .fileExtension(r)):
+            return l == r
+        case let (.sourceLocation(l), .sourceLocation(r)):
             return l == r
         case let (.nameContains(l), .nameContains(r)):
             return l == r

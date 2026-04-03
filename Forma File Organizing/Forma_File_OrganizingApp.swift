@@ -99,6 +99,8 @@ struct Forma_File_OrganizingApp: App {
         FileItem.self,
         ActivityItem.self,
         StorageSnapshot.self,
+        PersonalMemoryEvent.self,
+        PersonalMemoryPreference.self,
         LearnedPattern.self,
         ProjectCluster.self,
         MLTrainingHistory.self

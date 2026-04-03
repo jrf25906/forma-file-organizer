@@ -14,6 +14,7 @@ class FileOrganizationCoordinator: ObservableObject {
         let originalStatus: FileItem.OrganizationStatus
         let originalSuggestedDestination: String?
         let destinationPath: String? // Actual path after move (for undo/redo)
+        let memorySnapshot: OrganizationMemorySnapshot?
     }
     
     enum ActionType {
@@ -82,6 +83,7 @@ class FileOrganizationCoordinator: ObservableObject {
     func organizeFile(
         _ file: FileItem,
         context: ModelContext?,
+        sourceSurface: PersonalMemorySourceSurface = .reviewFlow,
         onSuccess: @escaping (FileActionData) -> Void,
         onError: @escaping (Error) -> Void
     ) async {
@@ -92,6 +94,8 @@ class FileOrganizationCoordinator: ObservableObject {
         // Mark as organizing (triggers animation)
         organizingFilePaths.insert(originalPath)
         
+        let memorySnapshot = makeMemorySnapshot(for: file)
+
         do {
             // Use coordinator to prevent race conditions
             try await operationCoordinator.beginOperation(fileID: originalPath)
@@ -144,9 +148,18 @@ class FileOrganizationCoordinator: ObservableObject {
                     fromPath: result.originalPath,
                     toPath: result.destinationPath ?? result.originalPath,
                     originalStatus: .pending,
-                    originalDestination: file.destination
+                    originalDestination: file.destination,
+                    memorySnapshot: memorySnapshot
                 )
                 pushUndoCommand(command)
+
+                if let ctx = context, let memorySnapshot {
+                    recordPersonalMemoryDecision(
+                        snapshot: memorySnapshot,
+                        sourceSurface: sourceSurface,
+                        memoryService: PersonalMemoryService(modelContext: ctx)
+                    )
+                }
 
                 // Notify success
                 if let displayName = file.destination?.displayName {
@@ -158,8 +171,9 @@ class FileOrganizationCoordinator: ObservableObject {
                     filePath: result.originalPath,
                     originalPath: result.originalPath,
                     originalStatus: .pending,
-                    originalSuggestedDestination: file.destination?.displayName,
-                    destinationPath: result.destinationPath
+                    originalSuggestedDestination: file.originalSuggestedDestination?.displayName,
+                    destinationPath: result.destinationPath,
+                    memorySnapshot: memorySnapshot
                 )
                 onSuccess(fileAction)
             }
@@ -255,9 +269,9 @@ class FileOrganizationCoordinator: ObservableObject {
         var firstError: Error?
         var wasCancelled = false
         var fileActions: [FileActionData] = []
-        var destinations: [String: String] = [:]
         /// Track rule usage for analytics: [ruleID: count of files matched]
         var ruleUsageCounts: [UUID: Int] = [:]
+        let memoryService = context.map { PersonalMemoryService(modelContext: $0) }
         
         for (index, file) in files.enumerated() {
             // Check for task cancellation
@@ -267,6 +281,7 @@ class FileOrganizationCoordinator: ObservableObject {
             }
             
             do {
+                let memorySnapshot = makeMemorySnapshot(for: file)
                 let result = try await fileOperationsService.moveFile(file, modelContext: context)
                 if result.success {
                     // Clear any previous error on success
@@ -293,15 +308,21 @@ class FileOrganizationCoordinator: ObservableObject {
                         filePath: result.originalPath,
                         originalPath: result.originalPath,
                         originalStatus: .pending,
-                        originalSuggestedDestination: file.destination?.displayName,
-                        destinationPath: result.destinationPath
+                        originalSuggestedDestination: file.originalSuggestedDestination?.displayName,
+                        destinationPath: result.destinationPath,
+                        memorySnapshot: memorySnapshot
                     )
                     fileActions.append(fileAction)
-                    if let dest = result.destinationPath {
-                        destinations[file.path] = dest
-                    }
 
                     successCount += 1
+
+                    if let memoryService, let memorySnapshot {
+                        recordPersonalMemoryDecision(
+                            snapshot: memorySnapshot,
+                            sourceSurface: .bulkOrganize,
+                            memoryService: memoryService
+                        )
+                    }
 
                     // Track rule usage for analytics (v1.2.0)
                     if let ruleID = file.matchedRuleID {
@@ -344,10 +365,13 @@ class FileOrganizationCoordinator: ObservableObject {
         // Record lightweight bulk command for undo
         if !fileActions.isEmpty {
             let operations = fileActions.map { action in
-                (fileID: action.filePath,
-                 fromPath: action.originalPath,
-                 toPath: action.destinationPath ?? action.originalPath,
-                 originalStatus: action.originalStatus)
+                BulkMoveOperation(
+                    fileID: action.filePath,
+                    fromPath: action.originalPath,
+                    toPath: action.destinationPath ?? action.originalPath,
+                    originalStatus: action.originalStatus,
+                    memorySnapshot: action.memorySnapshot
+                )
             }
             let command = BulkMoveCommand(
                 id: UUID(),
@@ -472,6 +496,7 @@ class FileOrganizationCoordinator: ObservableObject {
                     origin: bulkCommand.origin
                 )
             }
+            recordUndoMemory(for: command, context: context)
         } catch {
             undoStack.append(command)
             refreshLatestUndoableBatchSummary()
@@ -607,9 +632,105 @@ class FileOrganizationCoordinator: ObservableObject {
             fromPath: action.files.first?.originalPath ?? "",
             toPath: action.files.first?.destinationPath ?? "",
             originalStatus: action.files.first?.originalStatus ?? .pending,
-            originalDestination: placeholderDestination
+            originalDestination: placeholderDestination,
+            memorySnapshot: action.files.first?.memorySnapshot
         )
         pushUndoCommand(command)
     }
     #endif
+
+    private func makeMemorySnapshot(for file: FileItem) -> OrganizationMemorySnapshot? {
+        guard FeatureFlagService.shared.isEnabled(.patternLearning),
+              let chosenDestination = file.destination else {
+            return nil
+        }
+
+        return OrganizationMemorySnapshot(
+            fileName: file.name,
+            fileExtension: file.fileExtension,
+            fileTypeCategory: FileTypeCategory.category(for: file.fileExtension),
+            sourceLocation: file.location,
+            scanRootPath: file.scanRootPath,
+            relativeParentPath: file.relativeParentPath,
+            suggestionSource: explicitSuggestionSource(for: file),
+            suggestedDestination: file.originalSuggestedDestination,
+            chosenDestination: chosenDestination,
+            confidenceScore: file.confidenceScore,
+            matchedRuleID: file.matchedRuleID
+        )
+    }
+
+    private func explicitSuggestionSource(for file: FileItem) -> SuggestionSource? {
+        if file.matchedRuleID != nil {
+            return .rule
+        }
+        guard let raw = file.suggestionSourceRaw else {
+            return nil
+        }
+        return SuggestionSource(rawValue: raw)
+    }
+
+    private func recordPersonalMemoryDecision(
+        snapshot: OrganizationMemorySnapshot,
+        sourceSurface: PersonalMemorySourceSurface,
+        memoryService: PersonalMemoryService
+    ) {
+        do {
+            _ = try memoryService.recordDecision(
+                fileName: snapshot.fileName,
+                fileExtension: snapshot.fileExtension,
+                fileTypeCategory: snapshot.fileTypeCategory,
+                sourceLocation: snapshot.sourceLocation,
+                scanRootPath: snapshot.scanRootPath,
+                relativeParentPath: snapshot.relativeParentPath,
+                sourceSurface: sourceSurface,
+                suggestionSource: snapshot.suggestionSource,
+                suggestedDestination: snapshot.suggestedDestination,
+                chosenDestination: snapshot.chosenDestination,
+                confidenceScore: snapshot.confidenceScore,
+                matchedRuleID: snapshot.matchedRuleID
+            )
+        } catch {
+            Log.error("Failed to record personal memory decision: \(error.localizedDescription)", category: .analytics)
+        }
+    }
+
+    private func recordUndoMemory(for command: any UndoableCommand, context: ModelContext) {
+        guard FeatureFlagService.shared.isEnabled(.patternLearning) else { return }
+
+        let memoryService = PersonalMemoryService(modelContext: context)
+
+        let snapshots: [OrganizationMemorySnapshot]
+        switch command {
+        case let moveCommand as MoveFileCommand:
+            snapshots = moveCommand.memorySnapshot.map { [$0] } ?? []
+        case let bulkCommand as BulkMoveCommand:
+            snapshots = bulkCommand.operations.compactMap(\.memorySnapshot)
+        default:
+            snapshots = []
+        }
+
+        for snapshot in snapshots {
+            do {
+                _ = try memoryService.recordDecision(
+                    fileName: snapshot.fileName,
+                    fileExtension: snapshot.fileExtension,
+                    fileTypeCategory: snapshot.fileTypeCategory,
+                    sourceLocation: snapshot.sourceLocation,
+                    scanRootPath: snapshot.scanRootPath,
+                    relativeParentPath: snapshot.relativeParentPath,
+                    sourceSurface: .undoSurface,
+                    suggestionSource: snapshot.suggestionSource,
+                    suggestedDestination: snapshot.suggestedDestination,
+                    chosenDestination: nil,
+                    confidenceScore: snapshot.confidenceScore,
+                    matchedRuleID: snapshot.matchedRuleID,
+                    eventKind: .undoRecovery,
+                    priorDestination: snapshot.chosenDestination
+                )
+            } catch {
+                Log.error("Failed to record personal memory undo: \(error.localizedDescription)", category: .analytics)
+            }
+        }
+    }
 }

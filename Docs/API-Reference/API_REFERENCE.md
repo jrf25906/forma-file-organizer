@@ -1,6 +1,6 @@
 # Forma - API Reference
 
-**Version:** 2.2
+**Version:** 2.3
 **Last Updated:** April 2026
 **Status:** Current Implementation
 
@@ -15,34 +15,35 @@
 4. [FileOperationsService](#fileoperationsservice)
 5. [ContextDetectionService](#contextdetectionservice)
 6. [LearningService](#learningservice)
-7. [InsightsService](#insightsservice)
-8. [CustomFolderManager](#customfoldermanager)
-9. [SecureBookmarkStore](#securebookmarkstore)
-10. [NotificationService](#notificationservice)
-11. [RuleService](#ruleservice)
-12. [ThumbnailService](#thumbnailservice)
-13. [UndoCommand](#undocommand)
-14. [AutomationEngine](#automationengine)
+7. [PersonalMemoryService](#personalmemoryservice)
+8. [InsightsService](#insightsservice)
+9. [CustomFolderManager](#customfoldermanager)
+10. [SecureBookmarkStore](#securebookmarkstore)
+11. [NotificationService](#notificationservice)
+12. [RuleService](#ruleservice)
+13. [ThumbnailService](#thumbnailservice)
+14. [UndoCommand](#undocommand)
+15. [AutomationEngine](#automationengine)
 
 ### ViewModels
-15. [ReviewViewModel](#reviewviewmodel)
+16. [ReviewViewModel](#reviewviewmodel)
 
 ### Models
-16. [FileItem](#fileitem)
-17. [Rule](#rule)
-18. [OrganizationTemplate](#organizationtemplate)
-19. [OrganizationPersonality](#organizationpersonality)
-20. [ProjectCluster](#projectcluster)
-21. [LearnedPattern](#learnedpattern)
-22. [ActivityItem](#activityitem)
-23. [CustomFolder](#customfolder)
+17. [FileItem](#fileitem)
+18. [Rule](#rule)
+19. [OrganizationTemplate](#organizationtemplate)
+20. [OrganizationPersonality](#organizationpersonality)
+21. [ProjectCluster](#projectcluster)
+22. [LearnedPattern](#learnedpattern)
+23. [ActivityItem](#activityitem)
+24. [CustomFolder](#customfolder)
 
 ### Website Public API
-24. [Website Public API (forma-website)](#website-public-api-forma-website)
+25. [Website Public API (forma-website)](#website-public-api-forma-website)
 
 ### Reference
-25. [Error Types](#error-types)
-26. [Usage Examples](#usage-examples)
+26. [Error Types](#error-types)
+27. [Usage Examples](#usage-examples)
 
 ---
 
@@ -64,8 +65,14 @@ import SwiftData
 
 All service methods are thread-safe and use `async/await` for concurrency. ViewModel methods must be called on `@MainActor`.
 
-### Recent API Updates (March 2026)
+### Recent API Updates (April 2026)
 
+- `PersonalMemoryService` now records local organization decisions, surfaces personal-memory destination predictions, derives memory-backed rule suggestions, and supports summary/reset flows for the learned-memory layer.
+- `PersonalMemoryEvent` and `PersonalMemoryPreference` now persist structured organization-memory history separately from generic activity-derived `LearnedPattern` rows.
+- `SuggestionSource` now includes `.personalMemory` so persisted file suggestions can distinguish user-specific memory from rules, learned patterns, and ML predictions.
+- `FileMetadata` and `FileItem` now carry `originalSuggestedDestination`, preserving the first recommendation shown to the user for later override and undo learning.
+- `LearnedPattern` now includes `source: LearnedPatternSource` so analytics can distinguish activity-history patterns from personal-memory-derived suggestions.
+- `OrganizationMemorySnapshot`, `BulkMoveOperation`, and `MoveFileCommand.memorySnapshot` now preserve decision context for undo recovery and replay-safe feedback loops.
 - `ExternalReviewPromotionCandidate` now lets eligible one-time Finder/Spotlight folder reviews carry a bookmark-backed standard-folder promotion target through `ExternalReviewSession`.
 - `ExternalReviewSession.promotionCandidate` now survives review-session synchronization as requested files leave the pending queue.
 - `ExternalReviewPromotionSuggestion` and `DashboardViewModel.externalReviewPromotionSuggestion` now drive the in-flow `Keep monitoring <Folder>` affordance shown during eligible external review sessions.
@@ -977,6 +984,150 @@ private func extractDestination(from details: String) -> String
 **Patterns Recognized:**
 - "Moved to Documents/Finance" → "Documents/Finance"
 - "Organized to ~/Pictures/Screenshots" → "~/Pictures/Screenshots"
+
+---
+
+## PersonalMemoryService
+
+Service for building user-specific organization memory from accepted, corrected, deferred, and undone file decisions.
+
+### Class Declaration
+
+```swift
+@MainActor
+final class PersonalMemoryService
+```
+
+### Overview
+
+PersonalMemoryService persists structured decision history in `PersonalMemoryEvent` rows and rolls those events up into `PersonalMemoryPreference` records. The resulting preferences power three flows:
+
+- personal-memory destination suggestions during scanning
+- reusable rule suggestions derived from stable preferences
+- summary and reset controls in Smart Features
+
+The service is designed to compound from user behavior rather than generic classification alone. Feature entry points gate this layer behind `FeatureFlagService.shared.isEnabled(.patternLearning)`.
+
+### Primary Methods
+
+#### recordDecision(...)
+
+Records a single organization decision and updates the matching personal-memory preference.
+
+**Signature:**
+```swift
+func recordDecision(
+    fileName: String,
+    fileExtension: String,
+    fileTypeCategory: FileTypeCategory,
+    sourceLocation: FileLocationKind,
+    scanRootPath: String?,
+    relativeParentPath: String?,
+    sourceSurface: PersonalMemorySourceSurface,
+    suggestionSource: SuggestionSource? = nil,
+    suggestedDestination: Destination?,
+    chosenDestination: Destination?,
+    confidenceScore: Double?,
+    matchedRuleID: UUID?,
+    eventKind: PersonalMemoryEventKind? = nil,
+    priorDestination: Destination? = nil,
+    relatedDecisionID: UUID? = nil,
+    timestamp: Date = Date()
+) throws -> PersonalMemoryEvent
+```
+
+**Behavior:**
+- infers accepted, override, manual-selection, or deferred events when `eventKind` is omitted
+- increments the chosen destination preference
+- penalizes a suggested destination when the user overrides it
+- penalizes the reverted destination on undo recovery without double-penalizing the original suggestion
+- persists enough context for later analytics and replay-safe learning
+
+#### suggestion(for:)
+
+Returns the best user-specific destination suggestion for a scanned file.
+
+**Signature:**
+```swift
+func suggestion(for file: FileMetadata) throws -> PredictedDestination?
+```
+
+**Returns:** `PredictedDestination` with `source == .personalMemory` when a stable preference exists; otherwise `nil`.
+
+#### suggestedPatterns(minimumEvidence:)
+
+Builds reusable rule suggestions from stable personal-memory preferences.
+
+**Signature:**
+```swift
+func suggestedPatterns(minimumEvidence: Int = 3) throws -> [LearnedPattern]
+```
+
+**Behavior:**
+- only returns stable, unsuppressed preferences
+- only returns rule-convertible preferences whose context can be preserved as a rule condition
+- preserves source-location context in derived patterns
+- tags resulting patterns with `source == .personalMemory`
+- keeps destination bookmark data when available
+
+#### upsertSuggestedPatterns(minimumEvidence:)
+
+Synchronizes the derived personal-memory pattern suggestions with persisted `LearnedPattern` rows.
+
+**Signature:**
+```swift
+@discardableResult
+func upsertSuggestedPatterns(minimumEvidence: Int = 3) throws -> Int
+```
+
+**Returns:** Count of active personal-memory-backed rule suggestions after the sync.
+
+#### summary()
+
+Returns the current memory summary shown in Smart Features.
+
+**Signature:**
+```swift
+func summary() throws -> PersonalMemorySummary
+```
+
+#### resetAll()
+
+Deletes all personal-memory events, preferences, and derived personal-memory pattern suggestions.
+
+**Signature:**
+```swift
+func resetAll() throws
+```
+
+### Related Types
+
+```swift
+enum PersonalMemoryEventKind: String, Codable, Sendable {
+    case acceptedSuggestion
+    case acceptedWithOverride
+    case manualSelection
+    case suggestionDeferred
+    case undoRecovery
+    case manualCorrection
+    case ruleSuggestionAccepted
+    case ruleSuggestionDismissed
+}
+
+enum PersonalMemorySourceSurface: String, Codable, Sendable {
+    case reviewFlow
+    case inspector
+    case bulkOrganize
+    case ruleSuggestion
+    case undoSurface
+}
+
+struct PersonalMemorySummary: Equatable, Sendable {
+    let learnedDestinationCount: Int
+    let reusablePatternCount: Int
+    let lastUpdatedAt: Date?
+}
+```
 
 ---
 
@@ -2793,11 +2944,12 @@ Command for moving a single file.
 struct MoveFileCommand: UndoableCommand {
     let id: UUID
     let timestamp: Date
-    let fileID: String              // File path identifier
-    let fromPath: String            // Original location
-    let toPath: String              // Destination location
+    let fileID: String
+    let fromPath: String
+    let toPath: String
     let originalStatus: FileItem.OrganizationStatus
-    let suggestedDestination: String?
+    let originalDestination: Destination?
+    let memorySnapshot: OrganizationMemorySnapshot?
 }
 ```
 
@@ -2812,7 +2964,8 @@ let moveCmd = MoveFileCommand(
     fromPath: "/Users/user/Desktop/file.pdf",
     toPath: "/Users/user/Documents/file.pdf",
     originalStatus: .pending,
-    suggestedDestination: "Documents"
+    originalDestination: .folder(bookmark: Data(), displayName: "Documents"),
+    memorySnapshot: nil
 )
 
 // Execute: Moves file to destination
@@ -2833,9 +2986,9 @@ Command for marking a file as skipped.
 struct SkipFileCommand: UndoableCommand {
     let id: UUID
     let timestamp: Date
-    let fileID: String                              // File path
+    let fileID: String
     let previousStatus: FileItem.OrganizationStatus
-    let previousSuggestedDestination: String?
+    let previousDestination: Destination?
 }
 ```
 
@@ -2846,7 +2999,7 @@ let skipCmd = SkipFileCommand(
     timestamp: Date(),
     fileID: "/Users/user/Desktop/temp.txt",
     previousStatus: .pending,
-    previousSuggestedDestination: "Inbox"
+    previousDestination: .folder(bookmark: Data(), displayName: "Inbox")
 )
 
 // Execute: Marks file as skipped
@@ -2854,6 +3007,42 @@ try await skipCmd.execute(context: modelContext)
 
 // Undo: Restores previous status
 try skipCmd.undo(context: modelContext)
+```
+
+---
+
+#### OrganizationMemorySnapshot
+
+Lightweight context captured at organize time so undo recovery can feed accurate signals back into the personal-memory layer.
+
+```swift
+struct OrganizationMemorySnapshot: Sendable {
+    let fileName: String
+    let fileExtension: String
+    let fileTypeCategory: FileTypeCategory
+    let sourceLocation: FileLocationKind
+    let scanRootPath: String?
+    let relativeParentPath: String?
+    let suggestionSource: SuggestionSource?
+    let suggestedDestination: Destination?
+    let chosenDestination: Destination?
+    let confidenceScore: Double?
+    let matchedRuleID: UUID?
+}
+```
+
+#### BulkMoveOperation
+
+Per-file payload stored inside `BulkMoveCommand`.
+
+```swift
+struct BulkMoveOperation: Sendable {
+    let fileID: String
+    let fromPath: String
+    let toPath: String
+    let originalStatus: FileItem.OrganizationStatus
+    let memorySnapshot: OrganizationMemorySnapshot?
+}
 ```
 
 ---
@@ -2867,12 +3056,8 @@ Command for moving multiple files in a single operation.
 struct BulkMoveCommand: UndoableCommand {
     let id: UUID
     let timestamp: Date
-    let operations: [(
-        fileID: String,
-        fromPath: String,
-        toPath: String,
-        originalStatus: FileItem.OrganizationStatus
-    )]
+    let origin: OrganizationRunOrigin
+    let operations: [BulkMoveOperation]
 }
 ```
 
@@ -2881,10 +3066,22 @@ struct BulkMoveCommand: UndoableCommand {
 let bulkCmd = BulkMoveCommand(
     id: UUID(),
     timestamp: Date(),
+    origin: .reviewDriven,
     operations: [
-        ("file1.pdf", "/Desktop/file1.pdf", "/Docs/file1.pdf", .pending),
-        ("file2.jpg", "/Desktop/file2.jpg", "/Images/file2.jpg", .pending),
-        ("file3.zip", "/Desktop/file3.zip", "/Archives/file3.zip", .pending)
+        BulkMoveOperation(
+            fileID: "file1.pdf",
+            fromPath: "/Desktop/file1.pdf",
+            toPath: "/Docs/file1.pdf",
+            originalStatus: .pending,
+            memorySnapshot: nil
+        ),
+        BulkMoveOperation(
+            fileID: "file2.jpg",
+            fromPath: "/Desktop/file2.jpg",
+            toPath: "/Images/file2.jpg",
+            originalStatus: .pending,
+            memorySnapshot: nil
+        )
     ]
 )
 
@@ -4212,6 +4409,7 @@ final class LearnedPattern {
     private(set) var fileExtension: String
     private(set) var destinationPath: String
     private(set) var occurrenceCount: Int
+    private(set) var sourceRaw: String
     private(set) var confidenceScore: Double     // 0.0-1.0
     private(set) var lastObserved: Date
     private(set) var rejectionCount: Int
@@ -4225,6 +4423,17 @@ final class LearnedPattern {
 - Requires minimum 3 occurrences to create pattern
 - Confidence increases with more observations
 - Decreases with rejections
+
+### Source Tracking
+
+```swift
+enum LearnedPatternSource: String, Codable, Sendable {
+    case activityHistory
+    case personalMemory
+}
+```
+
+`LearnedPattern.source` distinguishes patterns inferred from generic activity history from rule-suggestion candidates derived from the personal-memory layer.
 
 ### Methods
 

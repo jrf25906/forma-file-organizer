@@ -1,6 +1,11 @@
 import Foundation
 import SwiftData
 
+enum LearnedPatternSource: String, Codable, Sendable {
+    case activityHistory
+    case personalMemory
+}
+
 // Note: PatternCondition and TemporalContext are defined in PatternCondition.swift
 // to avoid MainActor isolation issues with the @Model macro.
 
@@ -46,6 +51,9 @@ final class LearnedPattern {
 
     /// How many times this pattern has been observed
     var occurrenceCount: Int
+
+    /// Where this pattern was derived from.
+    private var sourceRaw: String?
 
     /// Confidence score (0.0-1.0) calculated from frequency
     /// - 0.7+ (High): Pattern occurs >70% of the time
@@ -123,6 +131,11 @@ final class LearnedPattern {
         set { timeCategoryRaw = newValue.rawValue }
     }
 
+    var source: LearnedPatternSource {
+        get { sourceRaw.flatMap(LearnedPatternSource.init(rawValue:)) ?? .activityHistory }
+        set { sourceRaw = newValue.rawValue }
+    }
+
     /// Time-based categorization for patterns
     enum TimeCategory: String, Codable {
         case workHours      // 9am-5pm weekdays
@@ -153,6 +166,7 @@ final class LearnedPattern {
         destinationPath: String,
         destinationBookmarkData: Data? = nil,
         occurrenceCount: Int,
+        source: LearnedPatternSource = .activityHistory,
         confidenceScore: Double,
         lastSeenDate: Date = Date(),
         rejectionCount: Int = 0,
@@ -169,6 +183,7 @@ final class LearnedPattern {
             displayName: destinationPath
         )
         self.occurrenceCount = occurrenceCount
+        self.sourceRaw = source.rawValue
         self.confidenceScore = confidenceScore
         self.lastSeenDate = lastSeenDate
         self.rejectionCount = rejectionCount
@@ -198,6 +213,7 @@ final class LearnedPattern {
         destinationPath: String,
         destinationBookmarkData: Data? = nil,
         occurrenceCount: Int,
+        source: LearnedPatternSource = .activityHistory,
         confidenceScore: Double,
         lastSeenDate: Date = Date(),
         rejectionCount: Int = 0,
@@ -221,6 +237,7 @@ final class LearnedPattern {
             displayName: destinationPath
         )
         self.occurrenceCount = occurrenceCount
+        self.sourceRaw = source.rawValue
         self.confidenceScore = confidenceScore
         self.lastSeenDate = lastSeenDate
         self.rejectionCount = rejectionCount

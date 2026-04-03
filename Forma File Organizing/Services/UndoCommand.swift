@@ -12,6 +12,28 @@ struct UndoBatchSummary: Equatable, Sendable {
     let timestamp: Date
 }
 
+struct OrganizationMemorySnapshot: Sendable {
+    let fileName: String
+    let fileExtension: String
+    let fileTypeCategory: FileTypeCategory
+    let sourceLocation: FileLocationKind
+    let scanRootPath: String?
+    let relativeParentPath: String?
+    let suggestionSource: SuggestionSource?
+    let suggestedDestination: Destination?
+    let chosenDestination: Destination?
+    let confidenceScore: Double?
+    let matchedRuleID: UUID?
+}
+
+struct BulkMoveOperation: Sendable {
+    let fileID: String
+    let fromPath: String
+    let toPath: String
+    let originalStatus: FileItem.OrganizationStatus
+    let memorySnapshot: OrganizationMemorySnapshot?
+}
+
 /// Protocol for undoable file organization commands
 /// Uses the Command pattern to store only essential data (IDs and deltas) instead of full objects
 /// Note: Methods are MainActor-isolated because they work with SwiftData types (ModelContext, FileItem)
@@ -47,6 +69,7 @@ struct MoveFileCommand: UndoableCommand {
     let toPath: String
     let originalStatus: FileItem.OrganizationStatus
     let originalDestination: Destination?
+    let memorySnapshot: OrganizationMemorySnapshot?
 
     var description: String {
         "Move \(URL(fileURLWithPath: fromPath).lastPathComponent) to \(originalDestination?.displayName ?? "destination")"
@@ -159,13 +182,13 @@ struct BulkMoveCommand: UndoableCommand {
     let origin: OrganizationRunOrigin
     
     // Array of lightweight move operations
-    let operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)]
+    let operations: [BulkMoveOperation]
     
     init(
         id: UUID,
         timestamp: Date,
         origin: OrganizationRunOrigin = .reviewDriven,
-        operations: [(fileID: String, fromPath: String, toPath: String, originalStatus: FileItem.OrganizationStatus)]
+        operations: [BulkMoveOperation]
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -192,7 +215,6 @@ struct BulkMoveCommand: UndoableCommand {
         
         let ops = FileOperationsService()
         for op in operations {
-            // Extract tuple values to avoid predicate macro issues
             let fileID = op.fileID
             let fromPath = op.fromPath
             
@@ -218,7 +240,6 @@ struct BulkMoveCommand: UndoableCommand {
         
         let ops = FileOperationsService()
         for op in operations {
-            // Extract tuple values to avoid predicate macro issues
             let toPath = op.toPath
             let fromPath = op.fromPath
             

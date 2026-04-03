@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Personal Organization Memory
+- **PersonalMemoryService**: Added a structured local memory layer that records organize, override, defer, undo, and rule-suggestion decisions and turns them into destination preferences keyed by file extension, file category, source location, and relative parent path.
+- **Personal Memory Models**: Added `PersonalMemoryEvent` and `PersonalMemoryPreference` SwiftData models so Forma can persist decision history separately from generic activity-derived learned patterns.
+- **Memory-Sourced Suggestions**: Added `SuggestionSource.personalMemory` and UI labeling so review surfaces can distinguish personal-memory recommendations from rules, learned patterns, and ML predictions.
+- **Memory Summary & Reset**: Added a Smart Features settings section that shows learned-destination and reusable-pattern counts and can reset personal-memory history plus derived memory-backed rule suggestions.
+
+### Changed - Suggestion Precedence & Undo Context
+- **Suggestion Ordering**: File scanning now applies personal-memory predictions before learned patterns and ML predictions, allowing repeated user behavior to outrank generic classification.
+- **Original Suggestion Preservation**: `FileMetadata` and `FileItem` now persist the first suggested destination so later organize, override, and undo actions can learn from the exact recommendation that was shown.
+- **Undo Payloads**: `MoveFileCommand` and `BulkMoveCommand` now carry organization-memory snapshots so undo recovery penalizes the actual reverted destination without double-penalizing the original suggestion during override flows.
+- **Rule Suggestion Sync**: Analytics pattern refresh now derives source-scoped memory-backed `LearnedPattern` suggestions only for rule-convertible contexts, and removes stale derived suggestions during reset.
+
 ### Added - External Review Folder Promotion
 - **Standard Folder Promotion Candidates**: Eligible one-time Finder/Spotlight folder reviews now capture bookmark-backed promotion candidates for standard folders (`Desktop`, `Downloads`, `Documents`, `Pictures`, `Music`) so the review flow can hand them off into ongoing monitoring.
 - **In-Flow Monitoring CTA**: The default panel now shows a `Keep monitoring <Folder>` action during eligible external review sessions, allowing the user to save the folder without leaving the review workflow.

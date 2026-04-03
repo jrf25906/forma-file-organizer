@@ -21,7 +21,7 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 - [x] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ### Next (2-4 Months)
-- [ ] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
+- [x] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
 - [ ] Plan progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
 - [ ] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
 - [ ] Plan metadata-backed project spaces and workflow memory before broad cloud or chatbot-style AI expansion.
@@ -37,6 +37,12 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
+
+## Personal Organization Memory v1 (April 2, 2026)
+- [x] Record structured personal-memory events from review-flow organizes, inspector organizes, bulk organizes, undo recoveries, and rule-suggestion accept/dismiss loops.
+- [x] Persist destination preferences by file extension, file category, source location, and relative parent path so repeated choices can outrank generic pattern and ML suggestions.
+- [x] Feed personal-memory predictions into the scan pipeline ahead of learned patterns, preserve each file's original suggestion for later correction/undo learning, and label memory-sourced suggestions in the UI.
+- [x] Derive reusable rule suggestions from stable personal-memory preferences, expose a memory summary/reset surface in Smart Features, and cover the loop with targeted personal-memory and precedence tests.
 
 ## Permission Grant Recovery Fixes (April 1, 2026)
 - [x] Stop dashboard/JIT folder permission grants from re-showing onboarding when the sheet was already dismissed.

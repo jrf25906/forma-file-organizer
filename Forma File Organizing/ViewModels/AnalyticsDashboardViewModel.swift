@@ -174,6 +174,17 @@ class AnalyticsDashboardViewModel: ObservableObject {
 
     /// Detect patterns from activities and persist to SwiftData
     private func detectAndPersistPatterns(from activities: [ActivityItem], context: ModelContext) {
+        guard FeatureFlagService.shared.isEnabled(.patternLearning) else { return }
+
+        do {
+            let memoryPatternCount = try PersonalMemoryService(modelContext: context).upsertSuggestedPatterns()
+            if memoryPatternCount > 0 {
+                Log.info("Upserted \(memoryPatternCount) personal-memory pattern suggestion(s)", category: .analytics)
+            }
+        } catch {
+            Log.error("Failed to upsert personal-memory patterns: \(error.localizedDescription)", category: .analytics)
+        }
+
         guard activities.count >= 3 else { return }
 
         let detectedPatterns = learningService.detectPatterns(from: activities)
@@ -233,12 +244,41 @@ class AnalyticsDashboardViewModel: ObservableObject {
             let ruleService = RuleService(modelContext: context)
             try ruleService.createRule(rule, source: .learnedPattern)
             pattern.markAsConverted(ruleId: rule.id)
+            recordRuleSuggestionEvent(.ruleSuggestionAccepted, for: pattern, context: context)
             try context.save()
             Log.info("Created rule from pattern: \(pattern.patternDescription)", category: .pipeline)
             return true
         } catch {
             Log.error("Failed to save rule from pattern: \(error.localizedDescription)", category: .pipeline)
             return false
+        }
+    }
+
+    private func recordRuleSuggestionEvent(
+        _ eventKind: PersonalMemoryEventKind,
+        for pattern: LearnedPattern,
+        context: ModelContext
+    ) {
+        guard FeatureFlagService.shared.isEnabled(.patternLearning) else { return }
+
+        do {
+            _ = try PersonalMemoryService(modelContext: context).recordDecision(
+                fileName: pattern.patternDescription,
+                fileExtension: pattern.fileExtension,
+                fileTypeCategory: FileTypeCategory.category(for: pattern.fileExtension),
+                sourceLocation: .unknown,
+                scanRootPath: nil,
+                relativeParentPath: nil,
+                sourceSurface: .ruleSuggestion,
+                suggestionSource: pattern.source == .personalMemory ? .personalMemory : .pattern,
+                suggestedDestination: pattern.destination,
+                chosenDestination: eventKind == .ruleSuggestionAccepted ? pattern.destination : nil,
+                confidenceScore: pattern.confidenceScore,
+                matchedRuleID: pattern.convertedRuleId,
+                eventKind: eventKind
+            )
+        } catch {
+            Log.error("Failed to record rule suggestion event: \(error.localizedDescription)", category: .analytics)
         }
     }
 }

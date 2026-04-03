@@ -482,7 +482,7 @@ struct FileInspectorView: View {
             // Primary action: Organize
             if file.destination != nil {
                 PrimaryButton("Organize", icon: "checkmark.circle.fill") {
-                    dashboardViewModel.organizeFile(file, context: modelContext)
+                    dashboardViewModel.organizeFile(file, context: modelContext, sourceSurface: .inspector)
                 }
             }
             
@@ -933,7 +933,7 @@ struct FileInspectorView: View {
 
     private func moveToTrash(_ file: FileItem) {
         dashboardViewModel.updateDestination(for: file, to: .trash)
-        dashboardViewModel.organizeFile(file, context: modelContext)
+        dashboardViewModel.organizeFile(file, context: modelContext, sourceSurface: .inspector)
     }
     
     private func formatDate(_ date: Date) -> String {

@@ -18,6 +18,8 @@ struct FileMetadata: Fileable, Sendable, Identifiable {
     let relativeParentPath: String?
     /// The unified destination for this file
     var destination: Destination?
+    /// The first destination suggested by Forma before any user edits.
+    var originalSuggestedDestination: Destination?
     var status: FileItem.OrganizationStatus
     var matchReason: String?
     var confidenceScore: Double?
@@ -54,6 +56,7 @@ struct FileMetadata: Fileable, Sendable, Identifiable {
         scanRootPath: String? = nil,
         relativeParentPath: String? = nil,
         destination: Destination? = nil,
+        originalSuggestedDestination: Destination? = nil,
         status: FileItem.OrganizationStatus = .pending,
         matchReason: String? = nil,
         confidenceScore: Double? = nil,
@@ -91,6 +94,7 @@ struct FileMetadata: Fileable, Sendable, Identifiable {
         self.scanRootPath = scanRootPath
         self.relativeParentPath = relativeParentPath
         self.destination = destination
+        self.originalSuggestedDestination = originalSuggestedDestination
         self.status = status
         self.matchReason = matchReason
         self.suggestionSourceRaw = suggestionSourceRaw

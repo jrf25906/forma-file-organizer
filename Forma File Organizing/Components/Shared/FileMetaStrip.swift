@@ -321,6 +321,8 @@ struct FileProvenancePresentation {
         switch source {
         case .rule:
             return "Rule"
+        case .personalMemory:
+            return "Memory"
         case .pattern:
             return "Learned"
         case .mlPrediction:
@@ -332,6 +334,8 @@ struct FileProvenancePresentation {
         switch source {
         case .rule:
             return "arrow.triangle.branch"
+        case .personalMemory:
+            return "brain.head.profile"
         case .pattern:
             return "sparkles"
         case .mlPrediction:

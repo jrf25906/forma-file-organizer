@@ -84,6 +84,7 @@ enum SuggestionSource: String, Codable, Sendable {
     // Persisted raw values are part of stored-model compatibility.
     // Do not rename or remove without an explicit data migration.
     case rule           // From RuleEngine match
+    case personalMemory // From structured personal organization memory
     case pattern        // From LearnedPattern
     case mlPrediction   // From ML model
 }

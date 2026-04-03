@@ -57,6 +57,7 @@ struct RuleSuggestionView: View {
                         onCreateRule(pattern)
                     },
                     onDismiss: {
+                        recordRuleSuggestionDismissal(for: pattern)
                         pattern.recordRejection()
                         onDismiss(pattern)
                         do {
@@ -91,6 +92,30 @@ struct RuleSuggestionView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, FormaSpacing.huge)
+    }
+
+    private func recordRuleSuggestionDismissal(for pattern: LearnedPattern) {
+        guard FeatureFlagService.shared.isEnabled(.patternLearning) else { return }
+
+        do {
+            _ = try PersonalMemoryService(modelContext: modelContext).recordDecision(
+                fileName: pattern.patternDescription,
+                fileExtension: pattern.fileExtension,
+                fileTypeCategory: FileTypeCategory.category(for: pattern.fileExtension),
+                sourceLocation: .unknown,
+                scanRootPath: nil,
+                relativeParentPath: nil,
+                sourceSurface: .ruleSuggestion,
+                suggestionSource: pattern.source == .personalMemory ? .personalMemory : .pattern,
+                suggestedDestination: pattern.destination,
+                chosenDestination: nil,
+                confidenceScore: pattern.confidenceScore,
+                matchedRuleID: nil,
+                eventKind: .ruleSuggestionDismissed
+            )
+        } catch {
+            Log.error("Failed to record rule suggestion dismissal: \(error.localizedDescription)", category: .analytics)
+        }
     }
 }
 

@@ -14,6 +14,7 @@ import SwiftData
 @MainActor
 final class FileScanPipelinePrecedenceTests: XCTestCase {
     
+    var container: ModelContainer!
     var modelContext: ModelContext!
     var pipeline: FileScanPipeline!
     var ruleEngine: RuleEngine!
@@ -26,8 +27,9 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         
         // Create in-memory model container
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(
+        container = try ModelContainer(
             for: FileItem.self, Rule.self, ActivityItem.self,
+                 PersonalMemoryEvent.self, PersonalMemoryPreference.self,
                  LearnedPattern.self, MLTrainingHistory.self,
             configurations: config
         )
@@ -51,6 +53,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
             ruleEngine = nil
             mockFileSystem = nil
             modelContext = nil
+            container = nil
         }
         try await super.tearDown()
     }
@@ -137,6 +140,92 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         let file = result.files.first!
         XCTAssertEqual(file.destination?.displayName, "Pictures/Screenshots", "Pattern should apply")
         XCTAssertEqual(file.suggestionSource, .pattern, "Source should be pattern")
+    }
+
+    /// Test: Personal memory takes precedence over learned patterns.
+    func testPrecedence_PersonalMemoryOverPatterns() async throws {
+        let memoryService = PersonalMemoryService(modelContext: modelContext)
+        let memoryDestination = Destination.mockFolder("Documents/Invoices")
+
+        for index in 0..<2 {
+            _ = try memoryService.recordDecision(
+                fileName: "Invoice-\(index).pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: nil,
+                sourceSurface: .reviewFlow,
+                suggestionSource: .personalMemory,
+                suggestedDestination: memoryDestination,
+                chosenDestination: memoryDestination,
+                confidenceScore: 0.84,
+                matchedRuleID: nil
+            )
+        }
+
+        let pattern = LearnedPattern(
+            patternDescription: "PDFs → Archive",
+            fileExtension: "pdf",
+            destinationPath: "Archive",
+            occurrenceCount: 8,
+            confidenceScore: 0.9
+        )
+        modelContext.insert(pattern)
+        try modelContext.save()
+
+        mockFileSystem.mockFiles = [
+            createMockMetadata(name: "invoice.pdf", ext: "pdf", location: .downloads)
+        ]
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.downloads],
+            scanOptions: .defaults,
+            fileSystemService: mockFileSystem,
+            ruleEngine: ruleEngine,
+            rules: [],
+            context: modelContext
+        )
+
+        let file = try XCTUnwrap(result.files.first)
+        XCTAssertEqual(file.destination?.displayName, "Documents/Invoices", "Personal memory should win over learned pattern")
+        XCTAssertEqual(file.originalSuggestedDestination?.displayName, "Documents/Invoices")
+        XCTAssertEqual(file.suggestionSource, .personalMemory)
+    }
+
+    func testPrecedence_DerivedPersonalMemoryPatternsDoNotApplyAsGenericPatterns() async throws {
+        let featureFlags = FeatureFlagService.shared
+        featureFlags.resetToDefaults()
+        defer { featureFlags.resetToDefaults() }
+        featureFlags.setEnabled(.destinationPrediction, false)
+
+        let pattern = LearnedPattern(
+            patternDescription: "PDFs from Downloads usually go to Documents/Invoices",
+            fileExtension: "pdf",
+            destinationPath: "Documents/Invoices",
+            occurrenceCount: 8,
+            source: .personalMemory,
+            confidenceScore: 0.9
+        )
+        modelContext.insert(pattern)
+        try modelContext.save()
+
+        mockFileSystem.mockFiles = [
+            createMockMetadata(name: "invoice.pdf", ext: "pdf", location: .downloads)
+        ]
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.downloads],
+            scanOptions: .defaults,
+            fileSystemService: mockFileSystem,
+            ruleEngine: ruleEngine,
+            rules: [],
+            context: modelContext
+        )
+
+        let file = try XCTUnwrap(result.files.first)
+        XCTAssertEqual(file.status, .pending)
+        XCTAssertNil(file.destination)
     }
     
     /// Test: ML predictions only apply when no rules or patterns match

@@ -1,7 +1,9 @@
 import SwiftUI
+import SwiftData
 
 struct SmartFeaturesSection: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var modelContext
     @ObservedObject private var bookmarkFolderService = BookmarkFolderService.shared
     @AppStorage("feature.masterAI") private var masterAIEnabled = true
     @AppStorage(FeatureFlagService.Feature.patternLearning.rawValue) private var patternLearning = FeatureFlagService.Feature.patternLearning.defaultValue
@@ -22,6 +24,13 @@ struct SmartFeaturesSection: View {
 
     // Organization Style
     @State private var showPersonalityQuiz = false
+    @State private var personalMemorySummary = PersonalMemorySummary(
+        learnedDestinationCount: 0,
+        reusablePatternCount: 0,
+        lastUpdatedAt: nil
+    )
+    @State private var personalMemoryLoadError: String?
+    @State private var showResetMemoryConfirmation = false
 
     // Automation user settings
     @AppStorage(AutomationUserSettings.Keys.mode) private var automationModeRaw = AutomationMode.scanOnly.rawValue
@@ -107,6 +116,46 @@ struct SmartFeaturesSection: View {
                             masterEnabled: masterAIEnabled,
                             showPerformanceWarning: true
                         )
+                    }
+                }
+
+                if masterAIEnabled && patternLearning {
+                    SettingsSection("Personal Memory") {
+                        VStack(spacing: 0) {
+                            SettingsRow(
+                                "Learned destinations",
+                                subtitle: personalMemoryLastUpdatedText
+                            ) {
+                                Text("\(personalMemorySummary.learnedDestinationCount)")
+                                    .font(.formaBodySemibold)
+                                    .foregroundColor(.formaLabel)
+                            }
+
+                            Divider().padding(.leading, FormaSpacing.standard)
+
+                            SettingsRow(
+                                "Reusable rule suggestions",
+                                subtitle: "Stable habits that are ready to become reusable rules"
+                            ) {
+                                Text("\(personalMemorySummary.reusablePatternCount)")
+                                    .font(.formaBodySemibold)
+                                    .foregroundColor(.formaLabel)
+                            }
+
+                            Divider().padding(.leading, FormaSpacing.standard)
+
+                            SettingsRow(
+                                "Reset learned memory",
+                                subtitle: personalMemoryLoadError ?? "Clears memory events, preferences, and memory-backed rule suggestions."
+                            ) {
+                                Button("Reset") {
+                                    showResetMemoryConfirmation = true
+                                }
+                                .buttonStyle(.plain)
+                                .font(.formaBodySemibold)
+                                .foregroundColor(.red)
+                            }
+                        }
                     }
                 }
 
@@ -354,6 +403,10 @@ struct SmartFeaturesSection: View {
         }
         .background(Color.clear)
         .frame(minWidth: 400)
+        .onAppear(perform: loadPersonalMemorySummary)
+        .onChange(of: patternLearning) { _, _ in
+            loadPersonalMemorySummary()
+        }
         .sheet(isPresented: $showPersonalityQuiz) {
             PersonalityQuizView(
                 onComplete: { personality in
@@ -364,6 +417,12 @@ struct SmartFeaturesSection: View {
                 showStepIndicator: false
             )
             .frame(width: 600, height: 520)
+        }
+        .alert("Reset learned memory?", isPresented: $showResetMemoryConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Reset", role: .destructive, action: resetPersonalMemory)
+        } message: {
+            Text("Forma will forget stored organization decisions and remove memory-backed rule suggestions.")
         }
     }
 
@@ -471,6 +530,45 @@ struct SmartFeaturesSection: View {
 
     private var bytesPerGigabyte: Int64 {
         1024 * 1024 * 1024
+    }
+
+    private var personalMemoryLastUpdatedText: String {
+        guard let lastUpdatedAt = personalMemorySummary.lastUpdatedAt else {
+            return "Forma has not stored any memory events yet."
+        }
+
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return "Last updated \(formatter.localizedString(for: lastUpdatedAt, relativeTo: Date()))."
+    }
+
+    private func loadPersonalMemorySummary() {
+        guard FeatureFlagService.shared.isEnabled(.patternLearning) else {
+            personalMemorySummary = PersonalMemorySummary(
+                learnedDestinationCount: 0,
+                reusablePatternCount: 0,
+                lastUpdatedAt: nil
+            )
+            personalMemoryLoadError = nil
+            return
+        }
+
+        do {
+            personalMemorySummary = try PersonalMemoryService(modelContext: modelContext).summary()
+            personalMemoryLoadError = nil
+        } catch {
+            personalMemoryLoadError = "Couldn’t load learned memory right now."
+        }
+    }
+
+    private func resetPersonalMemory() {
+        do {
+            try PersonalMemoryService(modelContext: modelContext).resetAll()
+            personalMemoryLoadError = nil
+            loadPersonalMemorySummary()
+        } catch {
+            personalMemoryLoadError = "Couldn’t reset learned memory right now."
+        }
     }
 }
 

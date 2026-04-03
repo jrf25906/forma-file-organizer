@@ -163,7 +163,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         let (patterns, negativePatterns, hasTrainedModel) = fetchDataForComputation(context: context)
 
         // PHASE 2: Compute evaluation
-        let ruleEvaluated = ruleEngine.evaluateFiles(files, rules: rules)
+        let ruleEvaluated = preserveOriginalSuggestions(in: ruleEngine.evaluateFiles(files, rules: rules))
 
         // Stamp lastTriggeredDate on rules that matched at least one file
         let matchedRuleIDs = Set(ruleEvaluated.compactMap(\.matchedRuleID))
@@ -172,8 +172,10 @@ struct FileScanPipeline: FileScanPipelineProtocol {
             rule.lastTriggeredDate = now
         }
 
-        let positivePatterns = patterns.filter { !$0.isNegativePattern }
-        let patternEvaluated = applyLearnedPatterns(to: ruleEvaluated, patterns: positivePatterns)
+        let memoryEvaluated = applyPersonalMemorySuggestions(to: ruleEvaluated, context: context)
+
+        let positivePatterns = patterns.filter { !$0.isNegativePattern && $0.source != .personalMemory }
+        let patternEvaluated = applyLearnedPatterns(to: memoryEvaluated, patterns: positivePatterns)
 
         // ML predictions only if model exists
         let evaluated: [FileMetadata]
@@ -302,6 +304,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                 let shouldOverwriteSuggestionData = existing.status == .pending || meta.destination != nil || meta.status == .completed
                 if shouldOverwriteSuggestionData {
                     existing.destination = meta.destination
+                    existing.originalSuggestedDestination = meta.originalSuggestedDestination
                     existing.matchReason = meta.matchReason
                     existing.confidenceScore = meta.confidenceScore
                     existing.suggestionSourceRaw = meta.suggestionSourceRaw
@@ -470,6 +473,53 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     /// Note: Learned patterns currently store path strings, not bookmarks.
     /// Until LearnedPattern is updated to use Destination type, this will only
     /// set match metadata without a destination.
+    private func preserveOriginalSuggestions(in files: [FileMetadata]) -> [FileMetadata] {
+        files.map { file in
+            guard file.originalSuggestedDestination == nil,
+                  file.status == .ready,
+                  let destination = file.destination else {
+                return file
+            }
+
+            var modified = file
+            modified.originalSuggestedDestination = destination
+            return modified
+        }
+    }
+
+    private func applyPersonalMemorySuggestions(
+        to files: [FileMetadata],
+        context: ModelContext
+    ) -> [FileMetadata] {
+        guard FeatureFlagService.shared.isEnabled(.patternLearning),
+              FeatureFlagService.shared.isEnabled(.destinationPrediction) else {
+            return files
+        }
+
+        let memoryService = PersonalMemoryService(modelContext: context)
+        var mutableFiles = files
+
+        for (index, file) in mutableFiles.enumerated() {
+            guard file.status == .pending else { continue }
+            guard let prediction = try? memoryService.suggestion(for: file) else { continue }
+
+            var modified = file
+            if let destination = prediction.destination {
+                modified.destination = destination
+            } else if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+                modified.destination = .folder(bookmark: Data(), displayName: prediction.path)
+            }
+            modified.originalSuggestedDestination = modified.destination
+            modified.status = .ready
+            modified.matchReason = prediction.explanation.summary
+            modified.confidenceScore = prediction.confidence
+            modified.suggestionSourceRaw = prediction.source.rawValue
+            mutableFiles[index] = modified
+        }
+
+        return mutableFiles
+    }
+
     private func applyLearnedPatterns(to files: [FileMetadata], patterns: [LearnedPattern]) -> [FileMetadata] {
         guard !patterns.isEmpty else { return files }
 
@@ -492,6 +542,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                         modified.destination = .folder(bookmark: Data(), displayName: matchedPattern.destinationPath)
                     }
                 }
+                modified.originalSuggestedDestination = modified.destination
                 modified.status = .ready
                 modified.matchReason = "Based on learned pattern: \(matchedPattern.patternDescription)"
                 modified.confidenceScore = matchedPattern.confidenceScore
@@ -552,6 +603,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                 if let destination = prediction.destination {
                     modified.destination = destination
                 }
+                modified.originalSuggestedDestination = modified.destination
                 modified.status = .ready
                 modified.matchReason = prediction.explanation.summary
                 modified.confidenceScore = prediction.confidence

@@ -45,7 +45,11 @@ final class DashboardOrganizationController {
 
     // MARK: - Actions
 
-    func organizeFile(_ file: FileItem, context: ModelContext?) {
+    func organizeFile(
+        _ file: FileItem,
+        context: ModelContext?,
+        sourceSurface: PersonalMemorySourceSurface = .reviewFlow
+    ) {
         guard file.destination != nil else { return }
         selectionViewModel.deselectAll()
 
@@ -66,6 +70,7 @@ final class DashboardOrganizationController {
             await self.coordinator.organizeFile(
                 file,
                 context: context,
+                sourceSurface: sourceSurface,
                 onSuccess: { [weak self] _ in
                     guard let self else { return }
                     if let displayName = file.destination?.displayName {

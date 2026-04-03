@@ -55,6 +55,11 @@ final class FileItem: Fileable {
     /// Display name for folder destinations (e.g., "Documents/Finance").
     private var _destinationDisplayName: String?
 
+    /// Stored copy of the first destination Forma suggested for this file.
+    private var _originalSuggestedDestinationIsTrash: Bool = false
+    private var _originalSuggestedDestinationBookmarkData: Data?
+    private var _originalSuggestedDestinationDisplayName: String?
+
     /// The unified destination for this file.
     ///
     /// This computed property reconstructs the `Destination` enum from the underlying
@@ -89,6 +94,35 @@ final class FileItem: Fileable {
                 _destinationIsTrash = false
                 _destinationBookmarkData = nil
                 _destinationDisplayName = nil
+            }
+        }
+    }
+
+    var originalSuggestedDestination: Destination? {
+        get {
+            if _originalSuggestedDestinationIsTrash {
+                return .trash
+            }
+            guard let bookmark = _originalSuggestedDestinationBookmarkData,
+                  let displayName = _originalSuggestedDestinationDisplayName else {
+                return nil
+            }
+            return .folder(bookmark: bookmark, displayName: displayName)
+        }
+        set {
+            switch newValue {
+            case .trash:
+                _originalSuggestedDestinationIsTrash = true
+                _originalSuggestedDestinationBookmarkData = nil
+                _originalSuggestedDestinationDisplayName = nil
+            case .folder(let bookmark, let displayName):
+                _originalSuggestedDestinationIsTrash = false
+                _originalSuggestedDestinationBookmarkData = bookmark
+                _originalSuggestedDestinationDisplayName = displayName
+            case nil:
+                _originalSuggestedDestinationIsTrash = false
+                _originalSuggestedDestinationBookmarkData = nil
+                _originalSuggestedDestinationDisplayName = nil
             }
         }
     }
@@ -250,6 +284,7 @@ final class FileItem: Fileable {
         scanRootPath: String? = nil,
         relativeParentPath: String? = nil,
         destination: Destination? = nil,
+        originalSuggestedDestination: Destination? = nil,
         status: OrganizationStatus = .pending
     ) {
         // Validate inputs - use guards instead of preconditions to avoid production crashes
@@ -304,6 +339,21 @@ final class FileItem: Fileable {
             self._destinationIsTrash = false
             self._destinationBookmarkData = nil
             self._destinationDisplayName = nil
+        }
+
+        switch originalSuggestedDestination {
+        case .trash:
+            self._originalSuggestedDestinationIsTrash = true
+            self._originalSuggestedDestinationBookmarkData = nil
+            self._originalSuggestedDestinationDisplayName = nil
+        case .folder(let bookmark, let displayName):
+            self._originalSuggestedDestinationIsTrash = false
+            self._originalSuggestedDestinationBookmarkData = bookmark
+            self._originalSuggestedDestinationDisplayName = displayName
+        case nil:
+            self._originalSuggestedDestinationIsTrash = false
+            self._originalSuggestedDestinationBookmarkData = nil
+            self._originalSuggestedDestinationDisplayName = nil
         }
 
         // Validate derived values (now safe to access self)
@@ -459,6 +509,7 @@ extension FileItem {
             scanRootPath: metadata.scanRootPath,
             relativeParentPath: metadata.relativeParentPath,
             destination: metadata.destination,
+            originalSuggestedDestination: metadata.originalSuggestedDestination,
             status: metadata.status
         )
         item.matchReason = metadata.matchReason

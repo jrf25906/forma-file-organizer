@@ -723,6 +723,9 @@ class LearningService {
                 switch condition {
                 case .fileExtension(let ext):
                     return file.fileExtension.lowercased() == ext.lowercased()
+
+                case .sourceLocation(let locationKind):
+                    return file.location == locationKind
                     
                 case .nameContains(let substring):
                     return file.name.lowercased().contains(substring.lowercased())

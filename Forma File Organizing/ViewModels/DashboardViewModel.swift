@@ -819,8 +819,12 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - File Operations
 
-    func organizeFile(_ file: FileItem, context: ModelContext? = nil) {
-        organizationController.organizeFile(file, context: context)
+    func organizeFile(
+        _ file: FileItem,
+        context: ModelContext? = nil,
+        sourceSurface: PersonalMemorySourceSurface = .reviewFlow
+    ) {
+        organizationController.organizeFile(file, context: context, sourceSurface: sourceSurface)
     }
 
     func skipFile(_ file: FileItem) {
