@@ -34,6 +34,7 @@ struct FeatureFlagService: Sendable {
         // Automation (v1.4)
         case backgroundMonitoring = "feature.backgroundMonitoring"
         case autoOrganize = "feature.autoOrganize"
+        case trustedAutomationScopes = "feature.trustedAutomationScopes"
         case automationReminders = "feature.automationReminders"
         case menuBarFileReview = "feature.menuBarFileReview"
 
@@ -60,6 +61,7 @@ struct FeatureFlagService: Sendable {
             // Automation (v1.4)
             case .backgroundMonitoring: return true
             case .autoOrganize: return false  // Opt-in for initial release
+            case .trustedAutomationScopes: return false
             case .automationReminders: return true
             case .menuBarFileReview: return true
             // App Store
@@ -85,6 +87,7 @@ struct FeatureFlagService: Sendable {
             // Automation (v1.4)
             case .backgroundMonitoring: return "Background monitoring"
             case .autoOrganize: return "Auto-organize files"
+            case .trustedAutomationScopes: return "Trusted automation scopes"
             case .automationReminders: return "Smart reminders"
             case .menuBarFileReview: return "Menu bar file review"
             // App Store
@@ -124,6 +127,8 @@ struct FeatureFlagService: Sendable {
                 return "Live-watch folders while the app is running, with scheduled sweeps as a fallback."
             case .autoOrganize:
                 return "Automatically move files that match rules with high confidence."
+            case .trustedAutomationScopes:
+                return "Only allow automatic moves inside trusted rule, folder, or category scopes earned from review."
             case .automationReminders:
                 return "Get notified when files need attention or automation takes action."
             case .menuBarFileReview:
@@ -152,6 +157,7 @@ struct FeatureFlagService: Sendable {
             // Automation (v1.4)
             case .backgroundMonitoring: return "eye.circle"
             case .autoOrganize: return "bolt.circle"
+            case .trustedAutomationScopes: return "checkmark.shield"
             case .automationReminders: return "bell.badge"
             case .menuBarFileReview: return "menubar.rectangle"
             // App Store
@@ -183,6 +189,8 @@ struct FeatureFlagService: Sendable {
                 return []  // Base automation feature
             case .autoOrganize:
                 return [.backgroundMonitoring]  // Needs monitoring to auto-organize
+            case .trustedAutomationScopes:
+                return [.patternLearning, .backgroundMonitoring, .autoOrganize]
             case .automationReminders:
                 return [.backgroundMonitoring]  // Needs monitoring for context
             case .menuBarFileReview:

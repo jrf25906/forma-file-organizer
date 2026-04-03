@@ -98,6 +98,7 @@ struct Forma_File_OrganizingApp: App {
         RuleCategory.self,
         FileItem.self,
         ActivityItem.self,
+        TrustedAutomationScope.self,
         StorageSnapshot.self,
         PersonalMemoryEvent.self,
         PersonalMemoryPreference.self,
