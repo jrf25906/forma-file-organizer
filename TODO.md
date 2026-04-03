@@ -1,6 +1,6 @@
 # Project TODO
 
-**Last Updated:** April 2, 2026
+**Last Updated:** April 3, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
@@ -22,7 +22,7 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 
 ### Next (2-4 Months)
 - [x] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
-- [ ] Plan progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
+- [ ] Complete progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
 - [ ] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
 - [ ] Plan metadata-backed project spaces and workflow memory before broad cloud or chatbot-style AI expansion.
 
@@ -43,6 +43,11 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Persist destination preferences by file extension, file category, source location, and relative parent path so repeated choices can outrank generic pattern and ML suggestions.
 - [x] Feed personal-memory predictions into the scan pipeline ahead of learned patterns, preserve each file's original suggestion for later correction/undo learning, and label memory-sourced suggestions in the UI.
 - [x] Derive reusable rule suggestions from stable personal-memory preferences, expose a memory summary/reset surface in Smart Features, and cover the loop with targeted personal-memory and precedence tests.
+
+## Trusted Automation Scope Promotion Foundations (April 3, 2026)
+- [x] Persist shared trusted automation scopes for rule, folder, and category trust boundaries with lifecycle controls and a feature-flagged app entry point.
+- [x] Derive review-earned trusted-scope recommendations from personal-memory evidence, preferring rule, then folder, then category scope candidates when confidence is high and recent undo/correction signals stay low.
+- [x] Surface `Trust this automatically` in the review celebration flow with a recommended-scope sheet that can promote the selected scope into immediate move-only autopilot behavior.
 
 ## Permission Grant Recovery Fixes (April 1, 2026)
 - [x] Stop dashboard/JIT folder permission grants from re-showing onboarding when the sheet was already dismissed.

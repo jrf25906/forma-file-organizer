@@ -12,10 +12,12 @@ final class DashboardOrganizationController {
     private let selectionViewModel: SelectionViewModel
     private let panelManager: PanelStateManager
     private let appReviewEligibility: AppReviewEligibilityProviding
+    private let usesTestingFastPath: Bool
 
     var onShowToast: ((String, Bool) -> Void)?
     var onShowError: ((String) -> Void)?
     var onShouldRequestReview: (() -> Void)?
+    var onShowTrustedScopeRecommendation: ((TrustedAutomationScopeRecommendation) -> Void)?
 
     init(
         coordinator: FileOrganizationCoordinator,
@@ -23,7 +25,8 @@ final class DashboardOrganizationController {
         filterViewModel: FilterViewModel,
         selectionViewModel: SelectionViewModel,
         panelManager: PanelStateManager,
-        appReviewEligibility: AppReviewEligibilityProviding = AppReviewEligibilityService()
+        appReviewEligibility: AppReviewEligibilityProviding = AppReviewEligibilityService(),
+        usesTestingFastPath: Bool = DashboardOrganizationController.defaultUsesTestingFastPath()
     ) {
         self.coordinator = coordinator
         self.scanViewModel = scanViewModel
@@ -31,6 +34,7 @@ final class DashboardOrganizationController {
         self.selectionViewModel = selectionViewModel
         self.panelManager = panelManager
         self.appReviewEligibility = appReviewEligibility
+        self.usesTestingFastPath = usesTestingFastPath
     }
 
     // MARK: - Organization Status
@@ -54,9 +58,7 @@ final class DashboardOrganizationController {
         selectionViewModel.deselectAll()
 
         #if DEBUG
-        let isTesting = CommandLine.arguments.contains("--uitesting") ||
-            ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        if isTesting {
+        if usesTestingFastPath {
             file.status = .completed
             scanViewModel.removeFile(at: file.path)
             filterViewModel.updateSourceFiles(scanViewModel.allFiles)
@@ -71,15 +73,14 @@ final class DashboardOrganizationController {
                 file,
                 context: context,
                 sourceSurface: sourceSurface,
-                onSuccess: { [weak self] _ in
+                onSuccess: { [weak self] action in
                     guard let self else { return }
-                    if let displayName = file.destination?.displayName {
-                        self.panelManager.showCelebrationPanel(message: "Organized to \(displayName)")
-                    }
-                    self.appReviewEligibility.recordSuccessfulOperation(count: 1)
-                    if self.appReviewEligibility.shouldRequestReview() {
-                        self.onShouldRequestReview?()
-                    }
+                    self.handleSuccessfulOrganization(
+                        file: file,
+                        action: action,
+                        context: context,
+                        sourceSurface: sourceSurface
+                    )
                 },
                 onError: { [weak self] error in
                     guard let self else { return }
@@ -93,6 +94,39 @@ final class DashboardOrganizationController {
             self.filterViewModel.updateSourceFiles(self.scanViewModel.allFiles)
         }
     }
+
+    private func handleSuccessfulOrganization(
+        file: FileItem,
+        action: FileOrganizationCoordinator.FileActionData,
+        context: ModelContext?,
+        sourceSurface: PersonalMemorySourceSurface
+    ) {
+        if let displayName = file.destination?.displayName {
+            panelManager.showCelebrationPanel(message: "Organized to \(displayName)")
+        }
+
+        if sourceSurface == .reviewFlow,
+           FeatureFlagService.shared.isEnabled(.trustedAutomationScopes),
+           let context,
+           let snapshot = action.memorySnapshot,
+           let recommendation = try? TrustedAutomationScopeService(modelContext: context).recommendedScope(for: snapshot) {
+            onShowTrustedScopeRecommendation?(recommendation)
+        }
+
+        appReviewEligibility.recordSuccessfulOperation(count: 1)
+        if appReviewEligibility.shouldRequestReview() {
+            onShouldRequestReview?()
+        }
+    }
+
+    #if DEBUG
+    private static func defaultUsesTestingFastPath() -> Bool {
+        CommandLine.arguments.contains("--uitesting") ||
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+    #else
+    private static func defaultUsesTestingFastPath() -> Bool { false }
+    #endif
 
     func skipFile(_ file: FileItem) {
         file.status = .skipped

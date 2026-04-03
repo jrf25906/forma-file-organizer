@@ -100,6 +100,28 @@ class RuleService: ObservableObject {
         return try modelContext.fetch(descriptor)
     }
 
+    func fetchRule(id: UUID) throws -> Rule? {
+        let descriptor = FetchDescriptor<Rule>(
+            predicate: #Predicate<Rule> { $0.id == id }
+        )
+        return try modelContext.fetch(descriptor).first
+    }
+
+    func findMatchingMoveRule(
+        conditions: [RuleCondition],
+        logicalOperator: Rule.LogicalOperator,
+        destination: Destination?
+    ) throws -> Rule? {
+        let destinationIdentity = PersonalMemoryEvent.destinationIdentity(for: destination)
+        let descriptor = FetchDescriptor<Rule>()
+        return try modelContext.fetch(descriptor).first { rule in
+            rule.actionType == .move &&
+            rule.conditions == conditions &&
+            rule.logicalOperator == logicalOperator &&
+            PersonalMemoryEvent.destinationIdentity(for: rule.destination) == destinationIdentity
+        }
+    }
+
     /// Fetches rules sorted by priority for rule engine evaluation.
     ///
     /// Rules are sorted by `sortOrder` (ascending) so that lower values are

@@ -126,6 +126,12 @@ class PanelStateManager: ObservableObject {
 
     /// Presentation details for celebration content.
     @Published private(set) var celebrationStyle: CelebrationStyle = .batchUndo
+
+    /// Trusted automation scope recommendation sourced from review success.
+    @Published private(set) var trustedScopeRecommendation: TrustedAutomationScopeRecommendation?
+
+    /// Whether the trusted scope recommendation sheet is presented.
+    @Published private(set) var isTrustedScopeRecommendationPresented: Bool = false
     
     /// File currently being edited for destination
     @Published var editingDestinationFile: FileItem?
@@ -173,6 +179,7 @@ class PanelStateManager: ObservableObject {
         style: CelebrationStyle = .batchUndo,
         onDismiss: (() -> Void)? = nil
     ) {
+        clearCelebrationState()
         rightPanelMode = .celebration(message)
         celebrationStyle = style
         celebrationDismissAction = onDismiss
@@ -221,6 +228,23 @@ class PanelStateManager: ObservableObject {
             dismissAction()
         }
     }
+
+    func stageTrustedScopeRecommendation(_ recommendation: TrustedAutomationScopeRecommendation?) {
+        trustedScopeRecommendation = recommendation
+        isTrustedScopeRecommendationPresented = false
+    }
+
+    func presentTrustedScopeRecommendation() {
+        guard trustedScopeRecommendation != nil else { return }
+        isTrustedScopeRecommendationPresented = true
+    }
+
+    func dismissTrustedScopeRecommendation(clearRecommendation: Bool = false) {
+        isTrustedScopeRecommendationPresented = false
+        if clearRecommendation {
+            trustedScopeRecommendation = nil
+        }
+    }
     
     // MARK: - Toast Management
     
@@ -255,6 +279,8 @@ class PanelStateManager: ObservableObject {
     private func clearCelebrationState() {
         celebrationStyle = .batchUndo
         celebrationDismissAction = nil
+        trustedScopeRecommendation = nil
+        isTrustedScopeRecommendationPresented = false
     }
     
     // MARK: - QuickLook Management

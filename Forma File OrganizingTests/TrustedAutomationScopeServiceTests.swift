@@ -22,6 +22,35 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         }
     }
 
+    private func makeRecommendationServices() throws -> (ModelContainer, ModelContext, TrustedAutomationScopeService, PersonalMemoryService, RuleService) {
+        let schema = Schema([
+            TrustedAutomationScope.self,
+            PersonalMemoryEvent.self,
+            PersonalMemoryPreference.self,
+            Rule.self,
+            ActivityItem.self
+        ])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+        return (
+            container,
+            context,
+            TrustedAutomationScopeService(modelContext: context),
+            PersonalMemoryService(modelContext: context),
+            RuleService(modelContext: context)
+        )
+    }
+
+    private func withRecommendationServices(
+        _ body: (_ context: ModelContext, _ scopeService: TrustedAutomationScopeService, _ memoryService: PersonalMemoryService, _ ruleService: RuleService) throws -> Void
+    ) throws {
+        let (container, context, scopeService, memoryService, ruleService) = try makeRecommendationServices()
+        try withExtendedLifetime(container) {
+            try body(context, scopeService, memoryService, ruleService)
+        }
+    }
+
     func testCreateOrReactivateScope_DeduplicatesByScopeTypeAndKey() throws {
         try withService { context, service in
             let created = try service.createOrReactivateScope(
@@ -143,5 +172,276 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
             XCTAssertEqual(removed.status, .revoked)
             XCTAssertNotNil(removed.revokedAt)
         }
+    }
+
+    func testRecommendedScope_PrefersRuleThenFolderThenCategory() throws {
+        try withRecommendationServices { _, service, memoryService, ruleService in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let ruleID = UUID()
+            let explicitRule = Rule(
+                name: "Receipt Rule",
+                conditionType: .fileExtension,
+                conditionValue: "pdf",
+                actionType: .move,
+                destination: destination
+            )
+            explicitRule.id = ruleID
+            try ruleService.createRule(explicitRule, source: .ruleEditor)
+
+            let ruleSnapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: nil,
+                destination: destination,
+                matchedRuleID: ruleID
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: ruleSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            let explicitRecommendation = try service.recommendedScope(for: ruleSnapshot)
+            XCTAssertEqual(explicitRecommendation?.recommendedScope.scopeType, .rule)
+            XCTAssertEqual(explicitRecommendation?.recommendedScope.displayName, "Receipt Rule")
+            XCTAssertEqual(
+                Set(explicitRecommendation?.allScopeChoices.map(\.scopeType) ?? []),
+                Set([.rule, .folder, .category])
+            )
+        }
+
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Exports")
+            let folderSnapshot = makeSnapshot(
+                fileName: "Report.csv",
+                fileExtension: "csv",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Exports",
+                destination: destination
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: folderSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            let folderRecommendation = try service.recommendedScope(for: folderSnapshot)
+            XCTAssertEqual(folderRecommendation?.recommendedScope.scopeType, .folder)
+        }
+
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Pictures/Screenshots")
+            let categorySnapshot = makeSnapshot(
+                fileName: "Screen Shot.png",
+                fileExtension: "png",
+                fileTypeCategory: .images,
+                sourceLocation: .unknown,
+                scanRootPath: nil,
+                relativeParentPath: nil,
+                destination: destination
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: categorySnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            let categoryRecommendation = try service.recommendedScope(for: categorySnapshot)
+            XCTAssertEqual(categoryRecommendation?.recommendedScope.scopeType, .category)
+        }
+    }
+
+    func testRecommendedScope_RequiresEvidenceThresholdAndLowUndoSignal() throws {
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let lowEvidenceSnapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                destination: destination
+            )
+
+            for dayOffset in 0..<2 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: lowEvidenceSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            XCTAssertNil(try service.recommendedScope(for: lowEvidenceSnapshot))
+        }
+
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let undoSnapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                destination: destination
+            )
+
+            for dayOffset in 0..<4 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: undoSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            try recordDecision(
+                memoryService: memoryService,
+                snapshot: undoSnapshot,
+                eventKind: .undoRecovery,
+                timestamp: Date().addingTimeInterval(10)
+            )
+
+            XCTAssertNil(try service.recommendedScope(for: undoSnapshot))
+        }
+
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let noisySnapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                destination: destination
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: noisySnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            try recordDecision(
+                memoryService: memoryService,
+                snapshot: noisySnapshot,
+                eventKind: .acceptedWithOverride,
+                suggestedDestination: Destination.mockFolder("Desktop/Hold"),
+                timestamp: Date().addingTimeInterval(10)
+            )
+
+            XCTAssertNil(try service.recommendedScope(for: noisySnapshot))
+        }
+    }
+
+    func testPromoteFromReviewDecision_CreatesRuleBackedScopeForDerivedRecommendation() throws {
+        try withRecommendationServices { _, service, memoryService, ruleService in
+            let destination = Destination.mockFolder("Pictures/Screenshots")
+            let snapshot = makeSnapshot(
+                fileName: "Screen Shot 2026-04-03.png",
+                fileExtension: "png",
+                fileTypeCategory: .images,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: nil,
+                destination: destination
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            let recommendation = try XCTUnwrap(service.recommendedScope(for: snapshot))
+            XCTAssertEqual(recommendation.recommendedScope.scopeType, .rule)
+
+            let promotedScope = try service.promoteFromReviewDecision(recommendation: recommendation)
+
+            XCTAssertEqual(promotedScope.scopeType, .rule)
+            XCTAssertTrue(promotedScope.scopeKey.hasPrefix("rule:"))
+            XCTAssertEqual(try service.activeScopes().count, 1)
+            XCTAssertEqual(try ruleService.fetchRules().count, 1)
+        }
+    }
+
+    private func makeSnapshot(
+        fileName: String,
+        fileExtension: String,
+        fileTypeCategory: FileTypeCategory,
+        sourceLocation: FileLocationKind,
+        scanRootPath: String?,
+        relativeParentPath: String?,
+        destination: Destination,
+        matchedRuleID: UUID? = nil
+    ) -> OrganizationMemorySnapshot {
+        OrganizationMemorySnapshot(
+            fileName: fileName,
+            fileExtension: fileExtension,
+            fileTypeCategory: fileTypeCategory,
+            sourceLocation: sourceLocation,
+            scanRootPath: scanRootPath,
+            relativeParentPath: relativeParentPath,
+            suggestionSource: matchedRuleID == nil ? .personalMemory : .rule,
+            suggestedDestination: destination,
+            chosenDestination: destination,
+            confidenceScore: 0.91,
+            matchedRuleID: matchedRuleID
+        )
+    }
+
+    private func recordDecision(
+        memoryService: PersonalMemoryService,
+        snapshot: OrganizationMemorySnapshot,
+        eventKind: PersonalMemoryEventKind,
+        suggestedDestination: Destination? = nil,
+        timestamp: Date
+    ) throws {
+        let chosenDestination = eventKind == .undoRecovery ? nil : snapshot.chosenDestination
+        let priorDestination = eventKind == .undoRecovery ? snapshot.chosenDestination : nil
+
+        _ = try memoryService.recordDecision(
+            fileName: snapshot.fileName,
+            fileExtension: snapshot.fileExtension,
+            fileTypeCategory: snapshot.fileTypeCategory,
+            sourceLocation: snapshot.sourceLocation,
+            scanRootPath: snapshot.scanRootPath,
+            relativeParentPath: snapshot.relativeParentPath,
+            sourceSurface: eventKind == .undoRecovery ? .undoSurface : .reviewFlow,
+            suggestionSource: snapshot.suggestionSource,
+            suggestedDestination: suggestedDestination ?? snapshot.suggestedDestination,
+            chosenDestination: chosenDestination,
+            confidenceScore: snapshot.confidenceScore,
+            matchedRuleID: snapshot.matchedRuleID,
+            eventKind: eventKind,
+            priorDestination: priorDestination,
+            timestamp: timestamp
+        )
     }
 }

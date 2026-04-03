@@ -4,6 +4,32 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Trusted automation scopes (`Forma File Organizing/Models/TrustedAutomationScope.swift`, `Forma File Organizing/Services/TrustedAutomationScopeService.swift`)
+  - `TrustedAutomationScopeType.displayName`
+  - `TrustedAutomationScopeRecommendationOption`
+  - `TrustedAutomationScopeRecommendation`
+    - `recommendedScope`
+    - `alternativeScopes`
+    - `allScopeChoices`
+    - `option(for:)`
+  - `TrustedAutomationScopeService.recommendedScope(for:)`
+  - `TrustedAutomationScopeService.promoteFromReviewDecision(recommendation:selectedScopeType:promotedAt:)`
+  - Review-earned trust suggestions now derive narrow rule, folder, and category candidates from personal-memory evidence and can promote the selected scope into persisted move-only autopilot eligibility.
+- Rule lookup helpers (`Forma File Organizing/Services/RuleService.swift`)
+  - `fetchRule(id:)`
+  - `findMatchingMoveRule(conditions:logicalOperator:destination:)`
+- Review celebration trust-promotion flow
+  - `PanelStateManager.trustedScopeRecommendation`
+  - `PanelStateManager.isTrustedScopeRecommendationPresented`
+  - `PanelStateManager.stageTrustedScopeRecommendation(_:)`
+  - `PanelStateManager.presentTrustedScopeRecommendation()`
+  - `PanelStateManager.dismissTrustedScopeRecommendation(clearRecommendation:)`
+  - `DashboardViewModel.trustedScopeRecommendation`
+  - `DashboardViewModel.isTrustedScopeRecommendationPresented`
+  - `DashboardViewModel.presentTrustedScopeRecommendation()`
+  - `DashboardViewModel.dismissTrustedScopeRecommendation(clearRecommendation:)`
+  - `DashboardViewModel.confirmTrustedScopeRecommendation(selectedScopeType:context:)`
+  - `TrustedAutomationScopeRecommendationSheet`
 - Main-window frame restoration (`Forma File Organizing/Utilities/MainWindowFrameValidator.swift`)
   - `MainWindowFrameValidator.validatedFrame(_:visibleFrames:minimumSize:)`
   - Restored main-window geometry now gets a one-shot validation pass after native autosave restoration: oversized frames are clamped to the active visible display, and frames that reopen fully off-screen are recentered onto the nearest available screen.

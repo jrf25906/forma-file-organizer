@@ -814,6 +814,9 @@ class DashboardViewModel: ObservableObject {
         controller.onShouldRequestReview = { [weak self] in
             self?.scheduleAppReviewRequest()
         }
+        controller.onShowTrustedScopeRecommendation = { [weak self] recommendation in
+            self?.panelManager.stageTrustedScopeRecommendation(recommendation)
+        }
         return controller
     }()
 
@@ -916,6 +919,14 @@ class DashboardViewModel: ObservableObject {
 
     var celebrationShowsNextActionSuggestion: Bool {
         panelManager.celebrationStyle.showsNextActionSuggestion
+    }
+
+    var trustedScopeRecommendation: TrustedAutomationScopeRecommendation? {
+        panelManager.trustedScopeRecommendation
+    }
+
+    var isTrustedScopeRecommendationPresented: Bool {
+        panelManager.isTrustedScopeRecommendationPresented
     }
 
     // MARK: - Panel State Delegation (Required for Views)
@@ -1241,6 +1252,36 @@ class DashboardViewModel: ObservableObject {
 
     func dismissCelebrationPanel() {
         panelManager.dismissCelebration()
+    }
+
+    func presentTrustedScopeRecommendation() {
+        panelManager.presentTrustedScopeRecommendation()
+    }
+
+    func dismissTrustedScopeRecommendation(clearRecommendation: Bool = false) {
+        panelManager.dismissTrustedScopeRecommendation(clearRecommendation: clearRecommendation)
+    }
+
+    func confirmTrustedScopeRecommendation(
+        selectedScopeType: TrustedAutomationScopeType,
+        context: ModelContext
+    ) {
+        guard let recommendation = panelManager.trustedScopeRecommendation else { return }
+
+        do {
+            let trustedScope = try TrustedAutomationScopeService(modelContext: context).promoteFromReviewDecision(
+                recommendation: recommendation,
+                selectedScopeType: selectedScopeType
+            )
+            panelManager.dismissTrustedScopeRecommendation(clearRecommendation: true)
+            showToast(
+                message: "Autopilot enabled for \(trustedScope.displayName)",
+                canUndo: false
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+        }
     }
 
     func showRuleWorkflowCelebration(message: String, returnTarget: RuleDraftReturnTarget) {

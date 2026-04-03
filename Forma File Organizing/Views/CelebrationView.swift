@@ -26,6 +26,10 @@ struct CelebrationView: View {
                 messageSection
                 
                 actionSection
+
+                if let recommendation = dashboardViewModel.trustedScopeRecommendation {
+                    trustAutomationSection(recommendation)
+                }
                 
                 // Next Action Suggestion
                 if dashboardViewModel.celebrationShowsNextActionSuggestion,
@@ -42,6 +46,22 @@ struct CelebrationView: View {
         .onAppear {
             startAnimation()
             startUndoTimer()
+        }
+        .sheet(isPresented: trustedScopeRecommendationSheetBinding) {
+            if let recommendation = dashboardViewModel.trustedScopeRecommendation {
+                TrustedAutomationScopeRecommendationSheet(
+                    recommendation: recommendation,
+                    onConfirm: { scopeType in
+                        dashboardViewModel.confirmTrustedScopeRecommendation(
+                            selectedScopeType: scopeType,
+                            context: modelContext
+                        )
+                    },
+                    onCancel: {
+                        dashboardViewModel.dismissTrustedScopeRecommendation()
+                    }
+                )
+            }
         }
         .onDisappear {
             undoTimerTask?.cancel()
@@ -197,6 +217,46 @@ struct CelebrationView: View {
                 .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
         )
     }
+
+    private func trustAutomationSection(_ recommendation: TrustedAutomationScopeRecommendation) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: "checkmark.shield")
+                    .font(.formaBodyMedium)
+                    .foregroundColor(.formaSteelBlue)
+
+                Text("Trust this automatically")
+                    .font(.formaBodySemibold)
+                    .foregroundColor(.formaLabel)
+            }
+
+            Text(recommendation.recommendedScope.rationaleSummary)
+                .font(.formaSmall)
+                .foregroundColor(.formaSecondaryLabel)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: {
+                timerActive = false
+                dashboardViewModel.presentTrustedScopeRecommendation()
+            }) {
+                HStack(spacing: FormaSpacing.micro) {
+                    Text("Trust this automatically")
+                        .font(.formaSmallSemibold)
+                    Image(systemName: "arrow.right")
+                        .font(.formaCaptionBold)
+                }
+                .foregroundColor(.formaSteelBlue)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(FormaSpacing.large)
+        .background(Color.formaCardBackground)
+        .formaCornerRadius(FormaRadius.card)
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+        )
+    }
     
     // MARK: - Computed Properties
     
@@ -209,8 +269,19 @@ struct CelebrationView: View {
         if recentFiles.count >= 3 {
             return "You've organized several files. Create a rule to automate this in the future?"
         }
-        
+
         return nil
+    }
+
+    private var trustedScopeRecommendationSheetBinding: Binding<Bool> {
+        Binding(
+            get: { dashboardViewModel.isTrustedScopeRecommendationPresented },
+            set: { isPresented in
+                if !isPresented {
+                    dashboardViewModel.dismissTrustedScopeRecommendation()
+                }
+            }
+        )
     }
     
     // MARK: - Animation Helpers

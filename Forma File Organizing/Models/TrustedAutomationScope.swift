@@ -5,6 +5,17 @@ enum TrustedAutomationScopeType: String, Codable, Sendable, CaseIterable {
     case rule
     case folder
     case category
+
+    var displayName: String {
+        switch self {
+        case .rule:
+            return "Rule"
+        case .folder:
+            return "Folder"
+        case .category:
+            return "Category"
+        }
+    }
 }
 
 enum TrustedAutomationScopeStatus: String, Codable, Sendable {

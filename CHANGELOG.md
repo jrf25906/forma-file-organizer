@@ -6,6 +6,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Trusted-scope promotion foundations for progressive automation:
+  - `TrustedAutomationScopeRecommendationOption`, `TrustedAutomationScopeRecommendation`, and `TrustedAutomationScopeService.recommendedScope(for:)` now derive rule, folder, and category trust candidates from review-flow personal-memory evidence.
+  - `TrustedAutomationScopeService.promoteFromReviewDecision(...)` now turns review-earned trust decisions into persisted trusted scopes and resolves rule-backed promotions to an existing or learned move rule.
+  - Review-flow celebration UX can now surface a `Trust this automatically` CTA with a recommended-scope sheet so narrow autopilot scopes can be promoted without leaving the workflow.
 - Main-window frame restoration validation:
   - `MainWindowFrameValidator` now clamps restored window geometry into the current visible display, shrinking oversized frames and recentering fully off-screen frames onto the nearest available screen.
   - `Forma_File_OrganizingUITests` now covers the bad-restored-frame launch path with a UI-test-only `FORMA_RESTORED_WINDOW_FRAME` override so display-topology regressions stay reproducible.
