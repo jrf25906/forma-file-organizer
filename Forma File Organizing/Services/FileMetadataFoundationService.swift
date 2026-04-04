@@ -269,6 +269,12 @@ final class FileMetadataFoundationService {
                 )
             }
 
+        let projectAssociationSummary = FileMetadataRecord.normalizedOptionalText(record.projectAssociation) ?? ""
+        let tagsSummary = record.tags
+            .map(FileMetadataRecord.normalizedTag)
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
+
         let lastOrganizedSummary: String = {
             guard let lastOrganizedAt = record.lastOrganizedAt else {
                 return "Last organized: never"
@@ -280,8 +286,8 @@ final class FileMetadataFoundationService {
             firstSeenSummary: "First seen: \(Self.inspectorFormatter.string(from: record.firstSeenAt))",
             lastOrganizedSummary: lastOrganizedSummary,
             organizationCountSummary: Self.organizationCountSummary(for: record.organizationCount),
-            tagsSummary: record.tags.isEmpty ? "" : record.tags.joined(separator: ", "),
-            projectAssociationSummary: record.projectAssociation ?? "",
+            tagsSummary: tagsSummary,
+            projectAssociationSummary: projectAssociationSummary,
             recentHistoryRows: historyRows
         )
     }

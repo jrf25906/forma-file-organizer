@@ -108,6 +108,10 @@ struct FileInspectorView: View {
         
         // Action Buttons
         actionButtons(file)
+
+        if let summary = metadataFoundationSummary(for: file) {
+            metadataFoundationProofSection(summary)
+        }
         
         // Similar Files
         if let similarFiles = findSimilarFiles(to: file), !similarFiles.isEmpty {
@@ -535,6 +539,92 @@ struct FileInspectorView: View {
                     )
                 }
                 .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func metadataFoundationSummary(for file: FileItem) -> FileMetadataInspectorSummary? {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else {
+            return nil
+        }
+
+        return FileMetadataFoundationService(modelContext: modelContext).inspectorSummary(for: file.path)
+    }
+
+    private func metadataFoundationProofSection(_ summary: FileMetadataInspectorSummary) -> some View {
+        let historyRows = Array(summary.recentHistoryRows.prefix(3))
+
+        return CollapsibleSection(
+            title: "Metadata foundation",
+            icon: "archivebox",
+            storageKey: "inspector.metadataFoundation",
+            defaultExpanded: false
+        ) {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                    Text("Durable organization summary")
+                        .font(.formaCaptionSemibold)
+                        .foregroundColor(inspectorSecondaryTextColor)
+
+                    ForEach(summary.durableSummaryLines, id: \.self) { line in
+                        Text(line)
+                            .font(.formaSmall)
+                            .foregroundColor(.formaLabel)
+                    }
+                }
+
+                if summary.hasProjectAssociationSummary {
+                    metadataRow(label: "Project", value: summary.projectAssociationSummary)
+                }
+
+                if summary.hasTagsSummary {
+                    metadataRow(label: "Tags", value: summary.tagsSummary)
+                }
+
+                if summary.hasRecentHistoryRows {
+                    Divider()
+                        .background(Color.formaSeparator)
+
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        Text("Recent history")
+                            .font(.formaCaptionSemibold)
+                            .foregroundColor(inspectorSecondaryTextColor)
+
+                        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                            ForEach(historyRows.indices, id: \.self) { index in
+                                metadataFoundationHistoryRow(historyRows[index])
+
+                                if index < historyRows.count - 1 {
+                                    Divider()
+                                        .background(Color.formaSeparator)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func metadataFoundationHistoryRow(_ row: FileMetadataInspectorSummary.HistoryRow) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(row.timestampSummary) • \(row.eventKind.capitalized) • \(row.sourceSurface.capitalized)")
+                .font(.formaCaption)
+                .foregroundColor(.formaLabel)
+                .lineLimit(2)
+
+            if let destination = row.destinationDisplayName, !destination.isEmpty {
+                Text("Destination: \(destination)")
+                    .font(.formaCaption)
+                    .foregroundColor(inspectorSecondaryTextColor)
+                    .lineLimit(1)
+            }
+
+            if let details = row.detailsSummary, !details.isEmpty {
+                Text(details)
+                    .font(.formaCaption)
+                    .foregroundColor(inspectorSecondaryTextColor)
+                    .lineSpacing(1)
             }
         }
     }

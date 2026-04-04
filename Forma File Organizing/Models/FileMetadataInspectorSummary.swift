@@ -19,4 +19,24 @@ struct FileMetadataInspectorSummary: Sendable, Equatable {
     let tagsSummary: String
     let projectAssociationSummary: String
     let recentHistoryRows: [HistoryRow]
+
+    var durableSummaryLines: [String] {
+        [
+            firstSeenSummary,
+            lastOrganizedSummary,
+            organizationCountSummary
+        ]
+    }
+
+    var hasProjectAssociationSummary: Bool {
+        !projectAssociationSummary.isEmpty
+    }
+
+    var hasTagsSummary: Bool {
+        !tagsSummary.isEmpty
+    }
+
+    var hasRecentHistoryRows: Bool {
+        !recentHistoryRows.isEmpty
+    }
 }

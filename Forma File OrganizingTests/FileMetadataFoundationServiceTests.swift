@@ -248,6 +248,92 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testInspectorSummary_IncludesHistoryAndReservedMetadataWhenAvailable() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "archive/proof.txt", contents: "proof")
+            let firstSeen = Date(timeIntervalSince1970: 10)
+            let scannedAt = Date(timeIntervalSince1970: 20)
+            let organizedAt = Date(timeIntervalSince1970: 30)
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "proof.txt",
+                    fileExtension: "txt",
+                    timestamp: firstSeen
+                )
+            )
+
+            record.projectAssociation = "  Finance Vault  "
+            record.tags = ["  Priority  ", "  Archived  "]
+            try context.save()
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .scanned,
+                    sourceSurface: .scan,
+                    fromPath: nil,
+                    toPath: fileURL.path,
+                    destinationDisplayName: nil,
+                    matchedRuleID: nil,
+                    detailsSummary: "Scanned into metadata foundation.",
+                    timestamp: scannedAt
+                )
+            )
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: fileURL.path,
+                    toPath: "/Users/example/Documents/proof.txt",
+                    destinationDisplayName: "Documents",
+                    matchedRuleID: UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"),
+                    detailsSummary: "Moved into the durable archive.",
+                    timestamp: organizedAt
+                )
+            )
+
+            let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
+            XCTAssertEqual(summary.firstSeenSummary, "First seen: 1970-01-01 00:00:10 UTC")
+            XCTAssertEqual(summary.lastOrganizedSummary, "Last organized: 1970-01-01 00:00:30 UTC")
+            XCTAssertEqual(summary.organizationCountSummary, "1 organization")
+            XCTAssertEqual(summary.projectAssociationSummary, "Finance Vault")
+            XCTAssertEqual(summary.tagsSummary, "Priority, Archived")
+            XCTAssertEqual(summary.recentHistoryRows.count, 2)
+            XCTAssertEqual(summary.recentHistoryRows.map(\.eventKind), ["organized", "scanned"])
+            XCTAssertEqual(summary.recentHistoryRows.map(\.detailsSummary), [
+                "Moved into the durable archive.",
+                "Scanned into metadata foundation."
+            ])
+        }
+    }
+
+    func testInspectorSummary_ReturnsNilWhenFeatureDisabledOrRecordMissing() throws {
+        try withService { _, service in
+            let tempDir = try TemporaryDirectory()
+            let trackedURL = try tempDir.createFile(name: "vault/tracked.txt", contents: "tracked")
+
+            _ = try XCTUnwrap(
+                service.upsertRecord(
+                    for: trackedURL.path,
+                    displayName: "tracked.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 100)
+                )
+            )
+
+            FeatureFlagService.shared.setEnabled(.metadataFoundation, false)
+            XCTAssertNil(service.inspectorSummary(for: trackedURL.path))
+
+            FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+            XCTAssertNil(service.inspectorSummary(for: "/Users/example/does-not-exist.txt"))
+        }
+    }
+
     func testRekeyPathFallbackRecord_WhenDestinationCollisionExists_MergesIntoExistingRecord() throws {
         try withService { context, service in
             let oldPath = "/Users/example/Downloads/Legacy/invoice.txt"
