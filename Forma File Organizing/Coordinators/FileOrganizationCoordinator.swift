@@ -51,6 +51,10 @@ class FileOrganizationCoordinator: ObservableObject {
     /// Whether a bulk operation is currently in progress
     @Published var isBulkOperationInProgress: Bool = false
 
+    /// Test hook that can force an undo metadata transition to fail for a specific snapshot.
+    /// Defaults to nil in production.
+    var metadataUndoTransitionHook: ((MetadataIdentitySnapshot) throws -> Void)?
+
     // MARK: - Cancellation
 
     private var cancelBulkOperationRequested = false
@@ -691,9 +695,9 @@ class FileOrganizationCoordinator: ObservableObject {
 
         let metadataService = FileMetadataFoundationService(modelContext: context)
 
-        do {
-            switch command {
-            case let moveCommand as MoveFileCommand:
+        switch command {
+        case let moveCommand as MoveFileCommand:
+            do {
                 let snapshot = moveCommand.metadataSnapshot ?? MetadataIdentitySnapshot(
                     sourcePath: moveCommand.fromPath,
                     destinationPath: moveCommand.toPath,
@@ -701,6 +705,10 @@ class FileOrganizationCoordinator: ObservableObject {
                     fileExtension: URL(fileURLWithPath: moveCommand.fromPath).pathExtension,
                     destinationDisplayName: moveCommand.originalDestination?.displayName
                 )
+
+                if let metadataUndoTransitionHook {
+                    try metadataUndoTransitionHook(snapshot)
+                }
 
                 _ = try metadataService.recordTransition(
                     from: snapshot.destinationPath,
@@ -712,9 +720,16 @@ class FileOrganizationCoordinator: ObservableObject {
                     destinationDisplayName: snapshot.destinationDisplayName,
                     timestamp: Date()
                 )
+            } catch {
+                Log.error(
+                    "Failed to persist undo metadata for \(command.description): \(error.localizedDescription)",
+                    category: .fileOperations
+                )
+            }
 
-            case let bulkCommand as BulkMoveCommand:
-                for operation in bulkCommand.operations {
+        case let bulkCommand as BulkMoveCommand:
+            for operation in bulkCommand.operations {
+                do {
                     let snapshot = operation.metadataSnapshot ?? MetadataIdentitySnapshot(
                         sourcePath: operation.fromPath,
                         destinationPath: operation.toPath,
@@ -722,6 +737,10 @@ class FileOrganizationCoordinator: ObservableObject {
                         fileExtension: URL(fileURLWithPath: operation.fromPath).pathExtension,
                         destinationDisplayName: nil
                     )
+
+                    if let metadataUndoTransitionHook {
+                        try metadataUndoTransitionHook(snapshot)
+                    }
 
                     _ = try metadataService.recordTransition(
                         from: snapshot.destinationPath,
@@ -733,16 +752,16 @@ class FileOrganizationCoordinator: ObservableObject {
                         destinationDisplayName: snapshot.destinationDisplayName,
                         timestamp: Date()
                     )
+                } catch {
+                    Log.error(
+                        "Failed to persist undo metadata for \(bulkCommand.description): \(error.localizedDescription)",
+                        category: .fileOperations
+                    )
                 }
-
-            default:
-                break
             }
-        } catch {
-            Log.error(
-                "Failed to persist undo metadata for \(command.description): \(error.localizedDescription)",
-                category: .fileOperations
-            )
+
+        default:
+            break
         }
     }
     

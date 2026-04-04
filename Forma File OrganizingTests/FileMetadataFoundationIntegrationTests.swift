@@ -4,6 +4,9 @@ import SwiftData
 
 @MainActor
 final class FileMetadataFoundationIntegrationTests: XCTestCase {
+    private enum InjectedMetadataFailure: Error {
+        case bulkUndoFirstItem
+    }
     override func setUp() {
         super.setUp()
         FeatureFlagService.shared.resetToDefaults()
@@ -21,6 +24,17 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         coordinator: FileOrganizationCoordinator,
         metadataService: FileMetadataFoundationService
     ) {
+        try makeEnvironment(metadataUndoTransitionHook: nil)
+    }
+
+    private func makeEnvironment(
+        metadataUndoTransitionHook: ((MetadataIdentitySnapshot) throws -> Void)?
+    ) throws -> (
+        container: ModelContainer,
+        context: ModelContext,
+        coordinator: FileOrganizationCoordinator,
+        metadataService: FileMetadataFoundationService
+    ) {
         let schema = Schema([
             FileItem.self,
             ActivityItem.self,
@@ -30,10 +44,12 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = container.mainContext
+        let coordinator = FileOrganizationCoordinator()
+        coordinator.metadataUndoTransitionHook = metadataUndoTransitionHook
         return (
             container: container,
             context: context,
-            coordinator: FileOrganizationCoordinator(),
+            coordinator: coordinator,
             metadataService: FileMetadataFoundationService(modelContext: context)
         )
     }
@@ -216,6 +232,107 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(undoEntry.sourceSurface, .undo)
         XCTAssertEqual(undoEntry.fromPath, destinationURL.path)
         XCTAssertEqual(undoEntry.toPath, sourceURL.path)
+    }
+
+    func testUndoLastAction_BulkUndoContinuesAfterMetadataWriteFailure() async throws {
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let firstSourceURL = sourceFolder.appendingPathComponent("first.pdf")
+        let secondSourceURL = sourceFolder.appendingPathComponent("second.pdf")
+        let firstDestinationURL = destinationFolder.appendingPathComponent("first.pdf")
+        let timestamp = Date(timeIntervalSince1970: 2_500)
+        var attemptedUndoMetadataPaths: [String] = []
+
+        let environment = try makeEnvironment { snapshot in
+            attemptedUndoMetadataPaths.append(snapshot.sourcePath)
+            if snapshot.sourcePath == firstSourceURL.path {
+                throw InjectedMetadataFailure.bulkUndoFirstItem
+            }
+        }
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: firstSourceURL.path,
+            displayName: "first.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: secondSourceURL.path,
+            displayName: "second.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/first.pdf", contents: "first")
+        _ = try tempDirectory.createFile(name: "Inbox/second.pdf", contents: "second")
+
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Archive")
+        let firstFile = FileItem(
+            path: firstSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        let secondFile = FileItem(
+            path: secondSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(firstFile)
+        environment.context.insert(secondFile)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "bulk organize success")
+        await environment.coordinator.organizeMultipleFiles(
+            [firstFile, secondFile],
+            origin: .automation,
+            context: environment.context
+        ) { success, failed, _, error in
+            XCTAssertEqual(success, 2)
+            XCTAssertEqual(failed, 0)
+            XCTAssertNil(error)
+            organizeExpectation.fulfill()
+        }
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        XCTAssertEqual(attemptedUndoMetadataPaths, [firstSourceURL.path, secondSourceURL.path])
+
+        let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(records.count, 2)
+
+        let firstRecord = try XCTUnwrap(records.first(where: { $0.canonicalIdentity == FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: firstDestinationURL.path) }))
+        let secondRecord = try XCTUnwrap(records.first(where: { $0.canonicalIdentity == FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: secondSourceURL.path) }))
+
+        XCTAssertEqual(firstRecord.lastKnownPath, firstDestinationURL.path)
+        XCTAssertEqual(firstRecord.historyEntries.count, 1)
+        XCTAssertEqual(firstRecord.latestOrganizationStatus, .organized)
+
+        XCTAssertEqual(secondRecord.lastKnownPath, secondSourceURL.path)
+        XCTAssertEqual(secondRecord.historyEntries.count, 2)
+        XCTAssertEqual(secondRecord.latestOrganizationStatus, .undone)
+        XCTAssertEqual(secondRecord.historyEntries.sorted(by: { $0.timestamp < $1.timestamp }).last?.eventKind, .undone)
     }
 
     func testOrganizeMultipleFiles_AppendsOneHistoryEntryPerFileWithoutDuplicateRecords() async throws {
