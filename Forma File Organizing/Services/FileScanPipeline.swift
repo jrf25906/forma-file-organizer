@@ -34,6 +34,7 @@ protocol FileScanPipelineProtocol {
 
 struct FileScanPipeline: FileScanPipelineProtocol {
     typealias MetadataFoundationServiceFactory = (ModelContext) -> any FileMetadataFoundationServiceProtocol
+    typealias PrimaryPersistenceSaveErrorProvider = () -> Error?
 
     struct ScanResult {
         let files: [FileItem]
@@ -65,13 +66,16 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     // Services for prediction pipeline
     private let learningService = LearningService()
     private let metadataFoundationServiceFactory: MetadataFoundationServiceFactory
+    private let primaryPersistenceSaveErrorProvider: PrimaryPersistenceSaveErrorProvider?
 
     init(
         metadataFoundationServiceFactory: @escaping MetadataFoundationServiceFactory = { context in
             FileMetadataFoundationService(modelContext: context)
-        }
+        },
+        primaryPersistenceSaveErrorProvider: PrimaryPersistenceSaveErrorProvider? = nil
     ) {
         self.metadataFoundationServiceFactory = metadataFoundationServiceFactory
+        self.primaryPersistenceSaveErrorProvider = primaryPersistenceSaveErrorProvider
     }
 
     func scanAndPersist(
@@ -213,16 +217,21 @@ struct FileScanPipeline: FileScanPipelineProtocol {
             shouldReconcileMissingFiles: reconcileMissingFiles,
             context: context
         )
+        let primaryPersistenceSaveError = primaryPersistenceSaveErrorProvider?() ?? persistence.saveError
 
-        persistMetadataRecords(for: normalized, context: context)
+        persistMetadataRecords(
+            for: normalized,
+            context: context,
+            shouldPersist: primaryPersistenceSaveError == nil
+        )
 
         var rawErrors = scanMeta.rawErrors
-        if let saveError = persistence.saveError {
+        if let saveError = primaryPersistenceSaveError {
             rawErrors["SwiftData Save"] = saveError
         }
         let errorSummary = combinedErrorSummary(
             scanErrorSummary: scanMeta.errorSummary,
-            persistenceError: persistence.saveError
+            persistenceError: primaryPersistenceSaveError
         )
 
         PerformanceMonitor.shared.end(.ruleEvaluation, id: persistId, metadata: "\(persistence.files.count) persisted")
@@ -358,8 +367,13 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     }
 
     @MainActor
-    private func persistMetadataRecords(for files: [FileMetadata], context: ModelContext) {
-        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
+    private func persistMetadataRecords(
+        for files: [FileMetadata],
+        context: ModelContext,
+        shouldPersist: Bool
+    ) {
+        guard shouldPersist,
+              FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
 
         let metadataContext = ModelContext(context.container)
         let metadataService = metadataFoundationServiceFactory(metadataContext)
@@ -367,7 +381,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
 
         for file in files {
             do {
-                _ = try metadataService.upsertRecord(
+                _ = try metadataService.upsertRecordWithoutSaving(
                     for: file.path,
                     displayName: file.name,
                     fileExtension: file.fileExtension,
@@ -379,6 +393,15 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                     category: .pipeline
                 )
             }
+        }
+
+        do {
+            try metadataContext.save()
+        } catch {
+            Log.error(
+                "FileScanPipeline: Failed to save metadata records: \(error.localizedDescription)",
+                category: .pipeline
+            )
         }
     }
 

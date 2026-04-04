@@ -4,7 +4,7 @@ import SwiftData
 @MainActor
 protocol FileMetadataFoundationServiceProtocol {
     @discardableResult
-    func upsertRecord(
+    func upsertRecordWithoutSaving(
         for path: String,
         displayName: String,
         fileExtension: String,
@@ -67,6 +67,23 @@ final class FileMetadataFoundationService {
         fileExtension: String,
         timestamp: Date
     ) throws -> FileMetadataRecord? {
+        let record = try upsertRecordWithoutSaving(
+            for: path,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            timestamp: timestamp
+        )
+        try modelContext.save()
+        return record
+    }
+
+    @discardableResult
+    func upsertRecordWithoutSaving(
+        for path: String,
+        displayName: String,
+        fileExtension: String,
+        timestamp: Date
+    ) throws -> FileMetadataRecord? {
         guard isEnabled else { return nil }
 
         let identity = resolveIdentity(for: path)
@@ -75,7 +92,6 @@ final class FileMetadataFoundationService {
             existing.displayName = FileMetadataRecord.normalizedDisplayName(displayName)
             existing.fileExtension = fileExtension.lowercased()
             existing.lastSeenAt = timestamp
-            try modelContext.save()
             return existing
         }
 
@@ -89,7 +105,6 @@ final class FileMetadataFoundationService {
             lastSeenAt: timestamp
         )
         modelContext.insert(record)
-        try modelContext.save()
         return record
     }
 

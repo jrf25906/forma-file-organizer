@@ -88,7 +88,7 @@ final class FileScanPipelineTests: XCTestCase {
             }
         }
 
-        func upsertRecord(
+        func upsertRecordWithoutSaving(
             for path: String,
             displayName: String,
             fileExtension: String,
@@ -99,6 +99,24 @@ final class FileScanPipelineTests: XCTestCase {
             _ = fileExtension
             _ = timestamp
             throw TestError.failedToPersist
+        }
+    }
+
+    private final class TrackingMetadataFoundationService: FileMetadataFoundationServiceProtocol {
+        private(set) var upsertCalls: Int = 0
+
+        func upsertRecordWithoutSaving(
+            for path: String,
+            displayName: String,
+            fileExtension: String,
+            timestamp: Date
+        ) throws -> FileMetadataRecord? {
+            _ = path
+            _ = displayName
+            _ = fileExtension
+            _ = timestamp
+            upsertCalls += 1
+            return nil
         }
     }
 
@@ -190,6 +208,39 @@ final class FileScanPipelineTests: XCTestCase {
         XCTAssertEqual(records.first?.canonicalIdentity, FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: path))
     }
 
+    func testScanAndPersist_MetadataFoundationDisabledSkipsMetadataWrites() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, false)
+
+        let now = Date()
+        let metadata = FileMetadata(
+            path: "/Users/test/Desktop/disabled-guard.txt",
+            sizeInBytes: 256,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: "/Users/test/Desktop"
+        )
+
+        let trackingService = TrackingMetadataFoundationService()
+        let pipeline = FileScanPipeline(metadataFoundationServiceFactory: { _ in
+            trackingService
+        })
+
+        _ = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: StubFileSystemService(metadata: [metadata], scannedRootPaths: ["/Users/test/Desktop"]),
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let records = try context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(records.count, 0, "Disabled metadata foundation should not write metadata rows")
+        XCTAssertEqual(trackingService.upsertCalls, 0, "Factory should not be invoked when the feature flag is disabled")
+    }
+
     func testEvaluateAndPersistExplicitFiles_UpsertsMetadataRecordWhenFeatureEnabled() async throws {
         FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
 
@@ -255,6 +306,50 @@ final class FileScanPipelineTests: XCTestCase {
         XCTAssertEqual(result.files.count, 1, "Metadata failures should not block file-item persistence")
         let persistedFiles = try context.fetch(FetchDescriptor<FileItem>())
         XCTAssertEqual(persistedFiles.count, 1, "FileItem persistence should still succeed when metadata upserts fail")
+    }
+
+    func testScanAndPersist_SkipsMetadataWritesWhenPrimaryPersistenceFails() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+
+        let now = Date()
+        let metadata = FileMetadata(
+            path: "/Users/test/Desktop/primary-failure.txt",
+            sizeInBytes: 128,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: "/Users/test/Desktop"
+        )
+
+        let trackingService = TrackingMetadataFoundationService()
+        enum ForcedSaveError: LocalizedError {
+            case failed
+
+            var errorDescription: String? {
+                "primary save failed"
+            }
+        }
+        let pipeline = FileScanPipeline(
+            metadataFoundationServiceFactory: { _ in trackingService },
+            primaryPersistenceSaveErrorProvider: { ForcedSaveError.failed }
+        )
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: StubFileSystemService(metadata: [metadata], scannedRootPaths: ["/Users/test/Desktop"]),
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        XCTAssertEqual(result.files.count, 1, "Primary persistence should still report the discovered file even when save fails")
+        XCTAssertNotNil(result.errorSummary, "Primary persistence failure should surface in the scan result")
+        XCTAssertEqual(trackingService.upsertCalls, 0, "Metadata writes should be skipped when primary persistence fails")
+
+        let records = try context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(records.count, 0, "No metadata rows should be written after a failed primary save")
     }
 
     func testScanAndPersist_StoresScanRootAndRelativeParentPath() async throws {
