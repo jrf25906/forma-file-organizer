@@ -2,6 +2,17 @@ import Foundation
 import SwiftData
 
 @MainActor
+protocol FileMetadataFoundationServiceProtocol {
+    @discardableResult
+    func upsertRecord(
+        for path: String,
+        displayName: String,
+        fileExtension: String,
+        timestamp: Date
+    ) throws -> FileMetadataRecord?
+}
+
+@MainActor
 final class FileMetadataFoundationService {
     private let modelContext: ModelContext
     private let featureFlags: FeatureFlagService
@@ -300,3 +311,5 @@ final class FileMetadataFoundationService {
         }
     }
 }
+
+extension FileMetadataFoundationService: FileMetadataFoundationServiceProtocol {}

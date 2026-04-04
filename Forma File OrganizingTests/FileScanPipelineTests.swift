@@ -10,13 +10,15 @@ final class FileScanPipelineTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        let schema = Schema([FileItem.self, Rule.self])
+        FeatureFlagService.shared.resetToDefaults()
+        let schema = Schema([FileItem.self, Rule.self, FileMetadataRecord.self, FileOrganizationHistoryEntry.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         container = try ModelContainer(for: schema, configurations: [config])
         context = container.mainContext
     }
 
     override func tearDown() async throws {
+        FeatureFlagService.shared.resetToDefaults()
         // Allow async TaskGroup/TaskLocal cleanup to complete before deallocating
         // to prevent memory corruption during Swift Concurrency internal cleanup.
         try await Task.sleep(for: .milliseconds(50))
@@ -77,6 +79,29 @@ final class FileScanPipelineTests: XCTestCase {
         func resetDesktopAccess() {}
     }
 
+    private final class FailingMetadataFoundationService: FileMetadataFoundationServiceProtocol {
+        enum TestError: LocalizedError {
+            case failedToPersist
+
+            var errorDescription: String? {
+                "metadata persistence failed"
+            }
+        }
+
+        func upsertRecord(
+            for path: String,
+            displayName: String,
+            fileExtension: String,
+            timestamp: Date
+        ) throws -> FileMetadataRecord? {
+            _ = path
+            _ = displayName
+            _ = fileExtension
+            _ = timestamp
+            throw TestError.failedToPersist
+        }
+    }
+
     func testScanAndPersist_PreservesLocationKind() async throws {
         // Given: two files from different logical locations
         let now = Date()
@@ -118,6 +143,118 @@ final class FileScanPipelineTests: XCTestCase {
         let byPath = Dictionary(uniqueKeysWithValues: result.files.map { ($0.path, $0) })
         XCTAssertEqual(byPath[desktopMeta.path]?.location, .desktop)
         XCTAssertEqual(byPath[downloadsMeta.path]?.location, .downloads)
+    }
+
+    func testScanAndPersist_ReusesMetadataRecordForRescan() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+
+        let now = Date()
+        let path = "/Users/test/Desktop/report.txt"
+        let metadata = FileMetadata(
+            path: path,
+            sizeInBytes: 1024,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: "/Users/test/Desktop"
+        )
+
+        let stubFS = StubFileSystemService(metadata: [metadata], scannedRootPaths: ["/Users/test/Desktop"])
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        let firstResult = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: stubFS,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let secondResult = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: stubFS,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        XCTAssertEqual(firstResult.files.count, 1)
+        XCTAssertEqual(secondResult.files.count, 1)
+
+        let verificationContext = ModelContext(container)
+        let records = try verificationContext.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(records.count, 1, "Rescanning the same file should reuse the existing metadata row")
+        XCTAssertEqual(records.first?.canonicalIdentity, FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: path))
+    }
+
+    func testEvaluateAndPersistExplicitFiles_UpsertsMetadataRecordWhenFeatureEnabled() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+
+        let now = Date()
+        let rootPath = "/Users/test/Downloads"
+        let explicitMetadata = FileMetadata(
+            path: "\(rootPath)/invoice.pdf",
+            sizeInBytes: 4096,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .downloads,
+            scanRootPath: rootPath
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        let result = await pipeline.evaluateAndPersistExplicitFiles(
+            files: [explicitMetadata],
+            scannedRootPaths: [rootPath],
+            reconcileMissingFiles: false,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        XCTAssertEqual(result.files.count, 1)
+
+        let verificationContext = ModelContext(container)
+        let records = try verificationContext.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(records.count, 1, "Explicit-file evaluation should upsert a metadata record when the feature is enabled")
+        XCTAssertEqual(records.first?.canonicalIdentity, FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: explicitMetadata.path))
+    }
+
+    func testScanAndPersist_MetadataUpsertFailureStillPersistsFileItems() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+
+        let now = Date()
+        let metadata = FileMetadata(
+            path: "/Users/test/Desktop/failure-case.txt",
+            sizeInBytes: 512,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: "/Users/test/Desktop"
+        )
+
+        let stubFS = StubFileSystemService(metadata: [metadata], scannedRootPaths: ["/Users/test/Desktop"])
+        let pipeline = FileScanPipeline(metadataFoundationServiceFactory: { _ in
+            FailingMetadataFoundationService()
+        })
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: stubFS,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        XCTAssertEqual(result.files.count, 1, "Metadata failures should not block file-item persistence")
+        let persistedFiles = try context.fetch(FetchDescriptor<FileItem>())
+        XCTAssertEqual(persistedFiles.count, 1, "FileItem persistence should still succeed when metadata upserts fail")
     }
 
     func testScanAndPersist_StoresScanRootAndRelativeParentPath() async throws {

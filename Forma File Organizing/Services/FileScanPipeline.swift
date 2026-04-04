@@ -33,6 +33,8 @@ protocol FileScanPipelineProtocol {
 }
 
 struct FileScanPipeline: FileScanPipelineProtocol {
+    typealias MetadataFoundationServiceFactory = (ModelContext) -> any FileMetadataFoundationServiceProtocol
+
     struct ScanResult {
         let files: [FileItem]
         let errorSummary: String?
@@ -62,6 +64,15 @@ struct FileScanPipeline: FileScanPipelineProtocol {
 
     // Services for prediction pipeline
     private let learningService = LearningService()
+    private let metadataFoundationServiceFactory: MetadataFoundationServiceFactory
+
+    init(
+        metadataFoundationServiceFactory: @escaping MetadataFoundationServiceFactory = { context in
+            FileMetadataFoundationService(modelContext: context)
+        }
+    ) {
+        self.metadataFoundationServiceFactory = metadataFoundationServiceFactory
+    }
 
     func scanAndPersist(
         baseFolders: [FolderLocation],
@@ -203,6 +214,8 @@ struct FileScanPipeline: FileScanPipelineProtocol {
             context: context
         )
 
+        persistMetadataRecords(for: normalized, context: context)
+
         var rawErrors = scanMeta.rawErrors
         if let saveError = persistence.saveError {
             rawErrors["SwiftData Save"] = saveError
@@ -342,6 +355,31 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         }
 
         return PersistenceResult(files: persisted, saveError: saveError)
+    }
+
+    @MainActor
+    private func persistMetadataRecords(for files: [FileMetadata], context: ModelContext) {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
+
+        let metadataContext = ModelContext(context.container)
+        let metadataService = metadataFoundationServiceFactory(metadataContext)
+        let timestamp = Date()
+
+        for file in files {
+            do {
+                _ = try metadataService.upsertRecord(
+                    for: file.path,
+                    displayName: file.name,
+                    fileExtension: file.fileExtension,
+                    timestamp: timestamp
+                )
+            } catch {
+                Log.error(
+                    "FileScanPipeline: Failed to upsert metadata record for '\(file.path)': \(error.localizedDescription)",
+                    category: .pipeline
+                )
+            }
+        }
     }
 
     private func combinedErrorSummary(scanErrorSummary: String?, persistenceError: Error?) -> String? {
