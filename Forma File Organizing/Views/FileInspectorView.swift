@@ -109,8 +109,8 @@ struct FileInspectorView: View {
         // Action Buttons
         actionButtons(file)
 
-        if let summary = metadataFoundationSummary(for: file) {
-            metadataFoundationProofSection(summary)
+        if FeatureFlagService.shared.isEnabled(.metadataFoundation) {
+            MetadataFoundationProofSection(filePath: file.path)
         }
         
         // Similar Files
@@ -543,92 +543,6 @@ struct FileInspectorView: View {
         }
     }
 
-    private func metadataFoundationSummary(for file: FileItem) -> FileMetadataInspectorSummary? {
-        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else {
-            return nil
-        }
-
-        return FileMetadataFoundationService(modelContext: modelContext).inspectorSummary(for: file.path)
-    }
-
-    private func metadataFoundationProofSection(_ summary: FileMetadataInspectorSummary) -> some View {
-        let historyRows = Array(summary.recentHistoryRows.prefix(3))
-
-        return CollapsibleSection(
-            title: "Metadata foundation",
-            icon: "archivebox",
-            storageKey: "inspector.metadataFoundation",
-            defaultExpanded: false
-        ) {
-            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-                    Text("Durable organization summary")
-                        .font(.formaCaptionSemibold)
-                        .foregroundColor(inspectorSecondaryTextColor)
-
-                    ForEach(summary.durableSummaryLines, id: \.self) { line in
-                        Text(line)
-                            .font(.formaSmall)
-                            .foregroundColor(.formaLabel)
-                    }
-                }
-
-                if summary.hasProjectAssociationSummary {
-                    metadataRow(label: "Project", value: summary.projectAssociationSummary)
-                }
-
-                if summary.hasTagsSummary {
-                    metadataRow(label: "Tags", value: summary.tagsSummary)
-                }
-
-                if summary.hasRecentHistoryRows {
-                    Divider()
-                        .background(Color.formaSeparator)
-
-                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                        Text("Recent history")
-                            .font(.formaCaptionSemibold)
-                            .foregroundColor(inspectorSecondaryTextColor)
-
-                        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                            ForEach(historyRows.indices, id: \.self) { index in
-                                metadataFoundationHistoryRow(historyRows[index])
-
-                                if index < historyRows.count - 1 {
-                                    Divider()
-                                        .background(Color.formaSeparator)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func metadataFoundationHistoryRow(_ row: FileMetadataInspectorSummary.HistoryRow) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("\(row.timestampSummary) • \(row.eventKind.capitalized) • \(row.sourceSurface.capitalized)")
-                .font(.formaCaption)
-                .foregroundColor(.formaLabel)
-                .lineLimit(2)
-
-            if let destination = row.destinationDisplayName, !destination.isEmpty {
-                Text("Destination: \(destination)")
-                    .font(.formaCaption)
-                    .foregroundColor(inspectorSecondaryTextColor)
-                    .lineLimit(1)
-            }
-
-            if let details = row.detailsSummary, !details.isEmpty {
-                Text(details)
-                    .font(.formaCaption)
-                    .foregroundColor(inspectorSecondaryTextColor)
-                    .lineSpacing(1)
-            }
-        }
-    }
-
     private func similarFilesSection(_ similarFiles: [FileItem]) -> some View {
         CollapsibleSection(title: "Similar Files", icon: "doc.on.doc", storageKey: "inspector.similarFiles", defaultExpanded: false) {
             VStack(spacing: FormaSpacing.tight) {
@@ -1038,6 +952,133 @@ struct FileInspectorView: View {
             return "~" + path.dropFirst(homeDir.count)
         }
         return path
+    }
+}
+
+private struct MetadataFoundationProofSection: View {
+    let filePath: String
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var summary: FileMetadataInspectorSummary?
+
+    var body: some View {
+        Group {
+            if let summary {
+                metadataProofSection(summary)
+            }
+        }
+        .task(id: filePath) {
+            await loadSummary()
+        }
+    }
+
+    private func loadSummary() async {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else {
+            summary = nil
+            return
+        }
+
+        summary = nil
+        summary = FileMetadataFoundationService(modelContext: modelContext).inspectorSummary(for: filePath)
+    }
+
+    private func metadataProofSection(_ summary: FileMetadataInspectorSummary) -> some View {
+        let historyRows = Array(summary.recentHistoryRows.prefix(3))
+
+        return CollapsibleSection(
+            title: "Metadata foundation",
+            icon: "archivebox",
+            storageKey: "inspector.metadataFoundation",
+            defaultExpanded: false
+        ) {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                    Text("Durable organization summary")
+                        .font(.formaCaptionSemibold)
+                        .foregroundColor(inspectorSecondaryTextColor)
+
+                    ForEach(summary.durableSummaryLines, id: \.self) { line in
+                        Text(line)
+                            .font(.formaSmall)
+                            .foregroundColor(.formaLabel)
+                    }
+                }
+
+                if summary.hasProjectAssociationSummary {
+                    metadataRow(label: "Project", value: summary.projectAssociationSummary)
+                }
+
+                if summary.hasTagsSummary {
+                    metadataRow(label: "Tags", value: summary.tagsSummary)
+                }
+
+                if summary.hasRecentHistoryRows {
+                    Divider()
+                        .background(Color.formaSeparator)
+
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        Text("Recent history")
+                            .font(.formaCaptionSemibold)
+                            .foregroundColor(inspectorSecondaryTextColor)
+
+                        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                            ForEach(historyRows.indices, id: \.self) { index in
+                                metadataFoundationHistoryRow(historyRows[index])
+
+                                if index < historyRows.count - 1 {
+                                    Divider()
+                                        .background(Color.formaSeparator)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func metadataRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: FormaSpacing.standard) {
+            Text(label)
+                .font(.formaSmall)
+                .foregroundColor(inspectorSecondaryTextColor)
+                .frame(minWidth: 60, alignment: .leading)
+
+            Text(value)
+                .font(.formaSmall)
+                .foregroundColor(.formaLabel)
+                .lineLimit(2)
+
+            Spacer()
+        }
+    }
+
+    private func metadataFoundationHistoryRow(_ row: FileMetadataInspectorSummary.HistoryRow) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(row.timestampSummary) • \(row.eventKind.capitalized) • \(row.sourceSurface.capitalized)")
+                .font(.formaCaption)
+                .foregroundColor(.formaLabel)
+                .lineLimit(2)
+
+            if let destination = row.destinationDisplayName, !destination.isEmpty {
+                Text("Destination: \(destination)")
+                    .font(.formaCaption)
+                    .foregroundColor(inspectorSecondaryTextColor)
+                    .lineLimit(1)
+            }
+
+            if let details = row.detailsSummary, !details.isEmpty {
+                Text(details)
+                    .font(.formaCaption)
+                    .foregroundColor(inspectorSecondaryTextColor)
+                    .lineSpacing(1)
+            }
+        }
+    }
+
+    private var inspectorSecondaryTextColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.82) : .formaSecondaryLabel
     }
 }
 
