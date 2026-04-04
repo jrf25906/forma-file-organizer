@@ -6,6 +6,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Metadata foundation v1 for progressive automation:
+  - `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService` now provide a durable local metadata ledger for scan, organize, undo, redo, and inspector proof surfaces.
+  - `FeatureFlagService.Feature.metadataFoundation` is exposed in Settings so the slice stays explicitly gated while it rolls out.
+  - The inspector now surfaces a read-only metadata foundation proof/history section when the feature is enabled and metadata exists.
 - Trusted-scope promotion foundations for progressive automation:
   - `TrustedAutomationScopeRecommendationOption`, `TrustedAutomationScopeRecommendation`, and `TrustedAutomationScopeService.recommendedScope(for:)` now derive rule, folder, and category trust candidates from review-flow personal-memory evidence.
   - `TrustedAutomationScopeService.promoteFromReviewDecision(...)` now turns review-earned trust decisions into persisted trusted scopes and resolves rule-backed promotions to an existing or learned move rule.
@@ -52,6 +56,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - `forma-website` before/after section now shows the triggering rule (`"Screenshots → ~/Screenshots"`) alongside the visual transformation.
 
 ### Changed
+- Metadata foundation v1 now keeps durable identity and history in sync across file operations:
+  - scan and explicit-selection paths best-effort upsert metadata rows during file discovery,
+  - organize, bulk organize, undo, and redo preserve metadata identity while appending structured history,
+  - undo no longer counts as a fresh organization event in metadata history.
 - Trusted-scope promotion now preserves narrower, review-earned trust boundaries:
   - `TrustedAutomationScopeService.recommendedScope(for:)` now limits positive evidence to review-earned history, keeps folder scopes bound to the reviewed subtree instead of the whole scan root, and refuses explicit-rule promotion when the current chosen destination no longer matches the matched rule's bookmark-backed destination, even if two folders share the same display name.
   - `TrustedAutomationScopeService.promoteFromReviewDecision(...)` now reuses an already-correct sibling rule before creating a new one and seeds derived rules from the confirmed review destination instead of display-name-collapsed personal-memory preferences, so same-named bookmarks from inspector history no longer bleed into promoted rules.

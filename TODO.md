@@ -50,6 +50,10 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Surface `Trust this automatically` in the review celebration flow with a recommended-scope sheet that can promote the selected scope into immediate move-only autopilot behavior.
 - [x] Tighten trust-scope promotion so only review-earned evidence unlocks trust, folder scopes stay bound to the reviewed subtree, stale rule destinations are not silently rearmed even when folders share a label, derived rules use the confirmed bookmark from review instead of same-name preference history, and undo/celebration state invalidates staged recommendations without resetting the success timer.
 
+## Metadata Foundation v1 (April 3, 2026)
+- [x] Ship the durable local metadata foundation for scan, organize, undo, redo, and inspector proof surfaces with `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService`.
+- [x] Keep the broader metadata roadmap open while the v1 foundation ships as a feature-flagged, read-only proof with best-effort scan upserts and structured history.
+
 ## Permission Grant Recovery Fixes (April 1, 2026)
 - [x] Stop dashboard/JIT folder permission grants from re-showing onboarding when the sheet was already dismissed.
 - [x] Refresh newly granted folder availability immediately and reduce the delayed rescan debounce so permission unlocks feel more responsive.

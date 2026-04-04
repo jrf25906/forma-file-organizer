@@ -4,6 +4,18 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Metadata foundation v1 (`Forma File Organizing/Models/FileMetadataRecord.swift`, `Forma File Organizing/Models/FileOrganizationHistoryEntry.swift`, `Forma File Organizing/Models/FileMetadataInspectorSummary.swift`, `Forma File Organizing/Services/FileMetadataFoundationService.swift`)
+  - `FileMetadataRecord`
+  - `FileOrganizationHistoryEntry`
+  - `FileMetadataInspectorSummary`
+  - `FileMetadataFoundationService.upsertRecord(for:displayName:fileExtension:timestamp:)`
+  - `FileMetadataFoundationService.upsertRecordWithoutSaving(for:displayName:fileExtension:timestamp:)`
+  - `FileMetadataFoundationService.rekeyPathFallbackRecord(oldPath:newPath:timestamp:)`
+  - `FileMetadataFoundationService.appendHistoryEntry(for:eventKind:sourceSurface:fromPath:toPath:destinationDisplayName:matchedRuleID:detailsSummary:timestamp:)`
+  - `FileMetadataFoundationService.recordTransition(from:to:displayName:fileExtension:eventKind:sourceSurface:destinationDisplayName:matchedRuleID:detailsSummary:timestamp:)`
+  - `FileMetadataFoundationService.inspectorSummary(for:)`
+  - `FeatureFlagService.Feature.metadataFoundation`
+  - Durable metadata now persists best-effort during scan and explicit-selection evaluation, survives organize/undo/redo transitions, and powers a read-only inspector proof/history section without exposing metadata authoring UI yet.
 - Trusted automation scopes (`Forma File Organizing/Models/TrustedAutomationScope.swift`, `Forma File Organizing/Services/TrustedAutomationScopeService.swift`)
   - `TrustedAutomationScopeType.displayName`
   - `TrustedAutomationScopeRecommendationOption`
