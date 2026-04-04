@@ -165,18 +165,27 @@ Recommended fields:
 - `lastOrganizedAt`
 - `organizationCount`
 - `latestOrganizationStatus`
-  - reserved durable status summary, distinct from live `FileItem.status`
+  - optional durable summary, distinct from live `FileItem.status`
+  - v1 only needs `organized` and `undoRecovered`
+  - non-user-visible outside the read-only inspector proof
 - `tags`
-  - empty in v1 is fine; keep the shape ready
+  - concrete v1 shape: `[String]`
+  - default empty; read-only in this slice
+  - reserved storage field; v1 does not populate it automatically
 - `projectAssociation`
-  - optional string or lightweight typed value
+  - concrete v1 shape: `String?`
+  - read-only in this slice
+  - reserved storage field; v1 does not auto-derive or edit it
 - `notesSummary`
   - optional reserved field for later metadata-backed retrieval
+  - reserved storage field; v1 leaves it empty
 
 This ledger is the product truth for durable per-file metadata. It should not be folded into `FileItem`, because `FileItem` already has a different job:
 
 - `FileItem` = current scan/review state
 - `FileMetadataRecord` = durable local memory about the file across moves and rescans
+
+V1 should not introduce a paused, revoked, or soft-deleted lifecycle for metadata rows. Records are simply created or upserted by identity.
 
 ### 2. Add Structured Organization History
 
@@ -187,10 +196,12 @@ V1 should add a second SwiftData model:
 Recommended fields:
 
 - `id`
-- `fileIdentity`
-  - copy of the metadata record identity for stable queries
+- `fileIdentitySnapshot`
+  - copy of the identity value at the time the event was written
+  - audit context only, not the primary join key
 - `metadataRecord`
   - optional relationship back to `FileMetadataRecord`
+  - primary query path for per-file history
 - `eventKind`
   - `organized`
   - `undoRecovery`
@@ -201,6 +212,8 @@ Recommended fields:
   - `bulkOrganize`
   - `automation`
   - `undoSurface`
+  - v1 intentionally collapses source surfaces to the paths that will actually write history in this slice
+  - `inspector` and `ruleSuggestion` can be added later when they begin writing through the same ledger
 - `fromPath`
 - `toPath`
 - `destinationDisplayName`
@@ -214,6 +227,12 @@ This model is intentionally smaller and more structured than `ActivityItem`.
 
 `ActivityItem` remains the user-facing feed.
 `FileOrganizationHistoryEntry` becomes the durable per-file history source for later metadata UX and workflow audit.
+
+Important constraint:
+
+- history lookup should prefer the `metadataRecord` relationship
+- `fileIdentitySnapshot` exists to preserve what identity value was current when the event was recorded
+- path-fallback re-keying must not require cascading updates across historical rows
 
 ### 3. Resolve Canonical Local File Identity
 
@@ -238,7 +257,9 @@ The ledger should store:
 Behavior:
 
 - when resource-based identity is available, moving the file should preserve the same metadata row
-- when only path fallback is available, the system should still function, but the record is marked as degraded through `identityKind == pathFallback`
+- when only path fallback is available, the metadata service should treat `lastKnownPath` as the lookup key and re-key `canonicalIdentity` to the normalized new path after a Forma-managed organize or undo succeeds
+- external moves that happen outside Forma may break continuity for `pathFallback` rows in v1; that degraded behavior is acceptable for this slice
+- every fallback-backed record should still be marked as degraded through `identityKind == pathFallback`
 
 This keeps the slice resilient:
 
@@ -262,6 +283,12 @@ Responsibilities:
 
 This service should be the only place that understands how the metadata ledger works. Other systems should call it rather than duplicating identity logic.
 
+Failure policy:
+
+- metadata foundation writes are best-effort in v1
+- successful organize and undo operations remain successful even if metadata writes fail afterward
+- failures should be logged and surfaced only through diagnostics, not by rolling back the file operation purely because ledger persistence failed
+
 ### 5. Integrate at the Existing Seams
 
 The existing architecture already has the right seams for this foundation.
@@ -271,6 +298,7 @@ The existing architecture already has the right seams for this foundation.
 Update [`FileScanPipeline`](../../../../Forma%20File%20Organizing/Services/FileScanPipeline.swift):
 
 - after scan evaluation and before or during `FileItem` persistence, upsert `FileMetadataRecord`
+- include the explicit-file path through `evaluateAndPersistExplicitFiles(...)`, not only full folder scans
 - refresh `lastKnownPath`, `displayName`, `fileExtension`, and `lastSeenAt`
 - do not block scan or review if metadata upsert fails; log and continue
 
@@ -284,6 +312,7 @@ Update [`FileOrganizationCoordinator`](../../../../Forma%20File%20Organizing/Coo
 - set `lastKnownPath` to the new path
 - update `lastOrganizedAt`, increment `organizationCount`, and refresh durable status
 - append an `organized` history entry
+- treat metadata persistence as best-effort after the file move has already succeeded
 
 This keeps the durable ledger aligned with the actual move result instead of only with scan state.
 
@@ -294,6 +323,7 @@ Update [`UndoCommand`](../../../../Forma%20File%20Organizing/Services/UndoComman
 - retain the file identity snapshot needed to find the metadata record during undo
 - after undo succeeds, update `lastKnownPath` back to the restored path
 - append an `undoRecovery` history entry
+- treat metadata persistence as best-effort after the undo has already succeeded
 
 This is critical. Without it, the metadata layer will drift the first time a user uses the app exactly as designed.
 
@@ -351,7 +381,7 @@ Behavior:
 
 Feature rollout:
 
-- gate the metadata-ledger integration behind a dedicated entry-point flag
+- gate both metadata-ledger reads/writes and the read-only inspector proof behind a dedicated entry-point flag
 - when disabled, existing scan and organize behavior remains unchanged
 - when enabled, the ledger runs in parallel with current review-state persistence
 
@@ -361,9 +391,10 @@ This keeps rollout safe while the storage shape settles.
 
 ### Model and Service Coverage
 
-- create or reactivate metadata records by canonical identity without duplicates
+- create or upsert metadata records by canonical identity without duplicates
 - resolve resource-identifier-based identities deterministically
 - fall back to normalized path identity when resource identity is unavailable
+- re-key fallback identities correctly after Forma-managed organize and undo operations
 - append organize and undo history entries to the correct metadata record
 
 ### Scan and Persistence Coverage
