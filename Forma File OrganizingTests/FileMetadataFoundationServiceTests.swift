@@ -237,13 +237,84 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
             let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
             XCTAssertEqual(summary.firstSeenSummary, "First seen: 1970-01-01 00:00:00 UTC")
             XCTAssertEqual(summary.lastOrganizedSummary, "Last organized: 1970-01-01 00:03:00 UTC")
-            XCTAssertEqual(summary.organizationCountSummary, "3 organizations")
+            XCTAssertEqual(summary.organizationCountSummary, "1 organization")
             XCTAssertEqual(summary.tagsSummary, "")
             XCTAssertEqual(summary.projectAssociationSummary, "")
             XCTAssertEqual(summary.recentHistoryRows.map(\.detailsSummary), [
                 "Moved into Documents.",
                 "Initial metadata capture.",
                 "Inspector note."
+            ])
+        }
+    }
+
+    func testRekeyPathFallbackRecord_WhenDestinationCollisionExists_MergesIntoExistingRecord() throws {
+        try withService { context, service in
+            let oldPath = "/Users/example/Downloads/Legacy/invoice.txt"
+            let newPath = "/Users/example/Documents/Invoices/invoice.txt"
+
+            let sourceRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: oldPath,
+                    displayName: "invoice.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 7_000)
+                )
+            )
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: sourceRecord,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: oldPath,
+                    toPath: oldPath,
+                    destinationDisplayName: "Legacy",
+                    matchedRuleID: nil,
+                    detailsSummary: "Old path organization.",
+                    timestamp: Date(timeIntervalSince1970: 7_100)
+                )
+            )
+
+            let targetRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: newPath,
+                    displayName: "invoice.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 7_200)
+                )
+            )
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: targetRecord,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: newPath,
+                    toPath: newPath,
+                    destinationDisplayName: "Invoices",
+                    matchedRuleID: nil,
+                    detailsSummary: "Destination already had a record.",
+                    timestamp: Date(timeIntervalSince1970: 7_300)
+                )
+            )
+
+            let mergedRecord = try XCTUnwrap(
+                service.rekeyPathFallbackRecord(
+                    oldPath: oldPath,
+                    newPath: newPath,
+                    timestamp: Date(timeIntervalSince1970: 7_400)
+                )
+            )
+
+            let records = try context.fetch(FetchDescriptor<FileMetadataRecord>())
+            XCTAssertEqual(records.count, 1)
+            XCTAssertEqual(mergedRecord.canonicalIdentity, FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: newPath))
+            XCTAssertEqual(mergedRecord.firstSeenAt, Date(timeIntervalSince1970: 7_000))
+            XCTAssertEqual(mergedRecord.lastSeenAt, Date(timeIntervalSince1970: 7_400))
+            XCTAssertEqual(mergedRecord.organizationCount, 2)
+            XCTAssertEqual(mergedRecord.historyEntries.count, 2)
+            XCTAssertEqual(mergedRecord.historyEntries.compactMap(\.detailsSummary).sorted(), [
+                "Destination already had a record.",
+                "Old path organization."
             ])
         }
     }

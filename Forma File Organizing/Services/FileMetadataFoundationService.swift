@@ -91,18 +91,25 @@ final class FileMetadataFoundationService {
         guard isEnabled else { return nil }
 
         let oldIdentity = FileMetadataRecord.Identity.pathFallback(path: oldPath)
-        guard let record = try record(matching: oldIdentity.canonicalIdentity),
-              record.identityKind == .pathFallback else {
+        guard let sourceRecord = try record(matching: oldIdentity.canonicalIdentity),
+              sourceRecord.identityKind == .pathFallback else {
             return nil
         }
 
         let newIdentity = FileMetadataRecord.Identity.pathFallback(path: newPath)
-        record.canonicalIdentity = newIdentity.canonicalIdentity
-        record.lastKnownPath = newIdentity.normalizedPath
-        record.lastSeenAt = timestamp
-        record.latestOrganizationStatus = .rekeyed
+        if let destinationRecord = try record(matching: newIdentity.canonicalIdentity),
+           destinationRecord !== sourceRecord {
+            mergePathFallbackRecord(sourceRecord, into: destinationRecord, timestamp: timestamp)
+            try modelContext.save()
+            return destinationRecord
+        }
+
+        sourceRecord.canonicalIdentity = newIdentity.canonicalIdentity
+        sourceRecord.lastKnownPath = newIdentity.normalizedPath
+        sourceRecord.lastSeenAt = timestamp
+        sourceRecord.latestOrganizationStatus = .rekeyed
         try modelContext.save()
-        return record
+        return sourceRecord
     }
 
     @discardableResult
@@ -133,8 +140,8 @@ final class FileMetadataFoundationService {
         )
         modelContext.insert(entry)
 
-        metadataRecord.organizationCount += 1
-        if eventKind == .organized || eventKind == .undone {
+        if Self.isOrganizationLifecycleEvent(eventKind) {
+            metadataRecord.organizationCount += 1
             metadataRecord.lastOrganizedAt = timestamp
         }
         switch eventKind {
@@ -168,8 +175,13 @@ final class FileMetadataFoundationService {
     }
 
     private func record(matching canonicalIdentity: String) throws -> FileMetadataRecord? {
-        let descriptor = FetchDescriptor<FileMetadataRecord>()
-        return try modelContext.fetch(descriptor).first(where: { $0.canonicalIdentity == canonicalIdentity })
+        var descriptor = FetchDescriptor<FileMetadataRecord>(
+            predicate: #Predicate<FileMetadataRecord> { record in
+                record.canonicalIdentity == canonicalIdentity
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 
     private func makeInspectorSummary(for record: FileMetadataRecord) -> FileMetadataInspectorSummary {
@@ -208,6 +220,67 @@ final class FileMetadataFoundationService {
 
     private static func organizationCountSummary(for count: Int) -> String {
         "\(count) organization\(count == 1 ? "" : "s")"
+    }
+
+    private static func isOrganizationLifecycleEvent(_ eventKind: FileOrganizationHistoryEntry.EventKind) -> Bool {
+        switch eventKind {
+        case .organized, .undone:
+            return true
+        case .scanned, .rekeyed, .noted:
+            return false
+        }
+    }
+
+    private func mergePathFallbackRecord(
+        _ sourceRecord: FileMetadataRecord,
+        into destinationRecord: FileMetadataRecord,
+        timestamp: Date
+    ) {
+        let sourceHistoryEntries = sourceRecord.historyEntries
+        for entry in sourceHistoryEntries {
+            entry.metadataRecord = destinationRecord
+        }
+
+        destinationRecord.firstSeenAt = min(destinationRecord.firstSeenAt, sourceRecord.firstSeenAt)
+        destinationRecord.lastSeenAt = max(destinationRecord.lastSeenAt, sourceRecord.lastSeenAt, timestamp)
+        destinationRecord.lastKnownPath = FileMetadataRecord.normalizedPath(destinationRecord.lastKnownPath)
+        destinationRecord.organizationCount += sourceRecord.organizationCount
+        destinationRecord.lastOrganizedAt = Self.latestDate(
+            destinationRecord.lastOrganizedAt,
+            sourceRecord.lastOrganizedAt
+        )
+        destinationRecord.latestOrganizationStatus = .rekeyed
+
+        if destinationRecord.displayName.isEmpty, !sourceRecord.displayName.isEmpty {
+            destinationRecord.displayName = sourceRecord.displayName
+        }
+        if destinationRecord.fileExtension.isEmpty, !sourceRecord.fileExtension.isEmpty {
+            destinationRecord.fileExtension = sourceRecord.fileExtension
+        }
+        if destinationRecord.tags.isEmpty, !sourceRecord.tags.isEmpty {
+            destinationRecord.tags = sourceRecord.tags
+        }
+        if destinationRecord.projectAssociation == nil {
+            destinationRecord.projectAssociation = sourceRecord.projectAssociation
+        }
+        if destinationRecord.notesSummary == nil {
+            destinationRecord.notesSummary = sourceRecord.notesSummary
+        }
+
+        modelContext.delete(sourceRecord)
+    }
+
+    private static func latestDate(_ lhs: Date?, _ rhs: Date?) -> Date? {
+        switch (lhs, rhs) {
+        case let (lhs?, rhs?):
+            return max(lhs, rhs)
+        case let (lhs?, nil):
+            return lhs
+        case let (nil, rhs?):
+            return rhs
+        case (nil, nil):
+            return nil
+        }
     }
 
     private static func stringRepresentation(for value: Any) -> String {
