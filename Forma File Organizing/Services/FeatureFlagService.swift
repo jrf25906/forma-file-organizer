@@ -30,6 +30,7 @@ struct FeatureFlagService: Sendable {
         case optimizationRecommendations = "feature.optimizationRecommendations"
         case analyticsReports = "feature.analyticsReports"
         case recursiveScanning = "feature.recursiveScanning"
+        case metadataFoundation = "feature.metadataFoundation"
 
         // Automation (v1.4)
         case backgroundMonitoring = "feature.backgroundMonitoring"
@@ -58,6 +59,7 @@ struct FeatureFlagService: Sendable {
             case .optimizationRecommendations: return true
             case .analyticsReports: return true
             case .recursiveScanning: return true
+            case .metadataFoundation: return false
             // Automation (v1.4)
             case .backgroundMonitoring: return true
             case .autoOrganize: return false  // Opt-in for initial release
@@ -84,6 +86,7 @@ struct FeatureFlagService: Sendable {
             case .optimizationRecommendations: return "Optimization recommendations"
             case .analyticsReports: return "Analytics reports"
             case .recursiveScanning: return "Recursive scanning"
+            case .metadataFoundation: return "Metadata foundation"
             // Automation (v1.4)
             case .backgroundMonitoring: return "Background monitoring"
             case .autoOrganize: return "Auto-organize files"
@@ -122,6 +125,8 @@ struct FeatureFlagService: Sendable {
                 return "Generate weekly analytics reports with PDF export."
             case .recursiveScanning:
                 return "Scan files inside subfolders of monitored folders."
+            case .metadataFoundation:
+                return "Persist a local metadata ledger and per-file organization history."
             // Automation (v1.4)
             case .backgroundMonitoring:
                 return "Live-watch folders while the app is running, with scheduled sweeps as a fallback."
@@ -154,6 +159,7 @@ struct FeatureFlagService: Sendable {
             case .optimizationRecommendations: return "lightbulb.2.fill"
             case .analyticsReports: return "doc.richtext"
             case .recursiveScanning: return "folder.badge.gearshape"
+            case .metadataFoundation: return "archivebox"
             // Automation (v1.4)
             case .backgroundMonitoring: return "eye.circle"
             case .autoOrganize: return "bolt.circle"
@@ -183,6 +189,8 @@ struct FeatureFlagService: Sendable {
             case .storageTrends, .usageStats, .storageHealthScore, .optimizationRecommendations, .analyticsReports:
                 return [.analyticsAndInsights]
             case .recursiveScanning:
+                return []
+            case .metadataFoundation:
                 return []
             // Automation (v1.4)
             case .backgroundMonitoring:

@@ -97,6 +97,8 @@ struct Forma_File_OrganizingApp: App {
         Rule.self,
         RuleCategory.self,
         FileItem.self,
+        FileMetadataRecord.self,
+        FileOrganizationHistoryEntry.self,
         ActivityItem.self,
         TrustedAutomationScope.self,
         StorageSnapshot.self,
