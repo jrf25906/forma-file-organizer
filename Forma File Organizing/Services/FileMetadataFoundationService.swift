@@ -116,26 +116,13 @@ final class FileMetadataFoundationService {
     ) throws -> FileMetadataRecord? {
         guard isEnabled else { return nil }
 
-        let oldIdentity = FileMetadataRecord.Identity.pathFallback(path: oldPath)
-        guard let sourceRecord = try record(matching: oldIdentity.canonicalIdentity),
-              sourceRecord.identityKind == .pathFallback else {
-            return nil
-        }
-
-        let newIdentity = FileMetadataRecord.Identity.pathFallback(path: newPath)
-        if let destinationRecord = try record(matching: newIdentity.canonicalIdentity),
-           destinationRecord !== sourceRecord {
-            mergePathFallbackRecord(sourceRecord, into: destinationRecord, timestamp: timestamp)
-            try modelContext.save()
-            return destinationRecord
-        }
-
-        sourceRecord.canonicalIdentity = newIdentity.canonicalIdentity
-        sourceRecord.lastKnownPath = newIdentity.normalizedPath
-        sourceRecord.lastSeenAt = timestamp
-        sourceRecord.latestOrganizationStatus = .rekeyed
+        let record = try rekeyPathFallbackRecordWithoutSaving(
+            oldPath: oldPath,
+            newPath: newPath,
+            timestamp: timestamp
+        )
         try modelContext.save()
-        return sourceRecord
+        return record
     }
 
     @discardableResult
@@ -152,35 +139,17 @@ final class FileMetadataFoundationService {
     ) throws -> FileOrganizationHistoryEntry? {
         guard isEnabled else { return nil }
 
-        let entry = FileOrganizationHistoryEntry(
-            timestamp: timestamp,
-            metadataRecord: metadataRecord,
-            fileIdentitySnapshot: metadataRecord.canonicalIdentity,
+        let entry = try appendHistoryEntryWithoutSaving(
+            for: metadataRecord,
             eventKind: eventKind,
             sourceSurface: sourceSurface,
             fromPath: fromPath,
             toPath: toPath,
             destinationDisplayName: destinationDisplayName,
             matchedRuleID: matchedRuleID,
-            detailsSummary: detailsSummary
+            detailsSummary: detailsSummary,
+            timestamp: timestamp
         )
-        modelContext.insert(entry)
-
-        if Self.isOrganizationLifecycleEvent(eventKind) {
-            metadataRecord.organizationCount += 1
-            metadataRecord.lastOrganizedAt = timestamp
-        }
-        switch eventKind {
-        case .organized:
-            metadataRecord.latestOrganizationStatus = .organized
-        case .undone:
-            metadataRecord.latestOrganizationStatus = .undone
-        case .rekeyed:
-            metadataRecord.latestOrganizationStatus = .rekeyed
-        case .scanned, .noted:
-            break
-        }
-
         try modelContext.save()
         return entry
     }
@@ -200,46 +169,52 @@ final class FileMetadataFoundationService {
     ) throws -> FileMetadataRecord? {
         guard isEnabled else { return nil }
 
-        let normalizedSourcePath = FileMetadataRecord.normalizedPath(sourcePath)
-        let normalizedDestinationPath = FileMetadataRecord.normalizedPath(destinationPath)
+        do {
+            let normalizedSourcePath = FileMetadataRecord.normalizedPath(sourcePath)
+            let normalizedDestinationPath = FileMetadataRecord.normalizedPath(destinationPath)
 
-        let rekeyedRecord = try rekeyPathFallbackRecord(
-            oldPath: normalizedSourcePath,
-            newPath: normalizedDestinationPath,
-            timestamp: timestamp
-        )
+            let rekeyedRecord = try rekeyPathFallbackRecordWithoutSaving(
+                oldPath: normalizedSourcePath,
+                newPath: normalizedDestinationPath,
+                timestamp: timestamp
+            )
 
-        let finalRecord: FileMetadataRecord
-        if let rekeyedRecord {
-            rekeyedRecord.lastKnownPath = normalizedDestinationPath
-            rekeyedRecord.displayName = FileMetadataRecord.normalizedDisplayName(displayName)
-            rekeyedRecord.fileExtension = fileExtension.lowercased()
-            rekeyedRecord.lastSeenAt = timestamp
-            finalRecord = rekeyedRecord
-        } else if let destinationRecord = try upsertRecordWithoutSaving(
-            for: normalizedDestinationPath,
-            displayName: displayName,
-            fileExtension: fileExtension,
-            timestamp: timestamp
-        ) {
-            finalRecord = destinationRecord
-        } else {
-            return nil
+            let finalRecord: FileMetadataRecord
+            if let rekeyedRecord {
+                rekeyedRecord.lastKnownPath = normalizedDestinationPath
+                rekeyedRecord.displayName = FileMetadataRecord.normalizedDisplayName(displayName)
+                rekeyedRecord.fileExtension = fileExtension.lowercased()
+                rekeyedRecord.lastSeenAt = timestamp
+                finalRecord = rekeyedRecord
+            } else if let destinationRecord = try upsertRecordWithoutSaving(
+                for: normalizedDestinationPath,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                timestamp: timestamp
+            ) {
+                finalRecord = destinationRecord
+            } else {
+                return nil
+            }
+
+            _ = try appendHistoryEntryWithoutSaving(
+                for: finalRecord,
+                eventKind: eventKind,
+                sourceSurface: sourceSurface,
+                fromPath: normalizedSourcePath,
+                toPath: normalizedDestinationPath,
+                destinationDisplayName: destinationDisplayName,
+                matchedRuleID: matchedRuleID,
+                detailsSummary: detailsSummary,
+                timestamp: timestamp
+            )
+
+            try modelContext.save()
+            return finalRecord
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-
-        _ = try appendHistoryEntry(
-            for: finalRecord,
-            eventKind: eventKind,
-            sourceSurface: sourceSurface,
-            fromPath: normalizedSourcePath,
-            toPath: normalizedDestinationPath,
-            destinationDisplayName: destinationDisplayName,
-            matchedRuleID: matchedRuleID,
-            detailsSummary: detailsSummary,
-            timestamp: timestamp
-        )
-
-        return finalRecord
     }
 
     func inspectorSummary(for path: String) -> FileMetadataInspectorSummary? {
@@ -314,7 +289,85 @@ final class FileMetadataFoundationService {
         }
     }
 
+    @discardableResult
+    private func rekeyPathFallbackRecordWithoutSaving(
+        oldPath: String,
+        newPath: String,
+        timestamp: Date
+    ) throws -> FileMetadataRecord? {
+        let oldIdentity = FileMetadataRecord.Identity.pathFallback(path: oldPath)
+        guard let sourceRecord = try record(matching: oldIdentity.canonicalIdentity),
+              sourceRecord.identityKind == .pathFallback else {
+            return nil
+        }
+
+        let newIdentity = FileMetadataRecord.Identity.pathFallback(path: newPath)
+        if let destinationRecord = try record(matching: newIdentity.canonicalIdentity),
+           destinationRecord !== sourceRecord {
+            mergePathFallbackRecordWithoutSaving(sourceRecord, into: destinationRecord, timestamp: timestamp)
+            return destinationRecord
+        }
+
+        sourceRecord.canonicalIdentity = newIdentity.canonicalIdentity
+        sourceRecord.lastKnownPath = newIdentity.normalizedPath
+        sourceRecord.lastSeenAt = timestamp
+        sourceRecord.latestOrganizationStatus = .rekeyed
+        return sourceRecord
+    }
+
+    @discardableResult
+    private func appendHistoryEntryWithoutSaving(
+        for metadataRecord: FileMetadataRecord,
+        eventKind: FileOrganizationHistoryEntry.EventKind,
+        sourceSurface: FileOrganizationHistoryEntry.SourceSurface,
+        fromPath: String?,
+        toPath: String?,
+        destinationDisplayName: String?,
+        matchedRuleID: UUID?,
+        detailsSummary: String?,
+        timestamp: Date
+    ) throws -> FileOrganizationHistoryEntry? {
+        let entry = FileOrganizationHistoryEntry(
+            timestamp: timestamp,
+            metadataRecord: metadataRecord,
+            fileIdentitySnapshot: metadataRecord.canonicalIdentity,
+            eventKind: eventKind,
+            sourceSurface: sourceSurface,
+            fromPath: fromPath,
+            toPath: toPath,
+            destinationDisplayName: destinationDisplayName,
+            matchedRuleID: matchedRuleID,
+            detailsSummary: detailsSummary
+        )
+        modelContext.insert(entry)
+
+        if Self.isOrganizationLifecycleEvent(eventKind) {
+            metadataRecord.organizationCount += 1
+            metadataRecord.lastOrganizedAt = timestamp
+        }
+        switch eventKind {
+        case .organized:
+            metadataRecord.latestOrganizationStatus = .organized
+        case .undone:
+            metadataRecord.latestOrganizationStatus = .undone
+        case .rekeyed:
+            metadataRecord.latestOrganizationStatus = .rekeyed
+        case .scanned, .noted:
+            break
+        }
+
+        return entry
+    }
+
     private func mergePathFallbackRecord(
+        _ sourceRecord: FileMetadataRecord,
+        into destinationRecord: FileMetadataRecord,
+        timestamp: Date
+    ) {
+        mergePathFallbackRecordWithoutSaving(sourceRecord, into: destinationRecord, timestamp: timestamp)
+    }
+
+    private func mergePathFallbackRecordWithoutSaving(
         _ sourceRecord: FileMetadataRecord,
         into destinationRecord: FileMetadataRecord,
         timestamp: Date

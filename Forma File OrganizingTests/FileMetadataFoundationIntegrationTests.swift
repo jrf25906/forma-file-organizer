@@ -234,6 +234,86 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(undoEntry.toPath, sourceURL.path)
     }
 
+    func testRedoLastAction_UpdatesMetadataRecordAfterUndoForSingleMove() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let sourceURL = sourceFolder.appendingPathComponent("redo.pdf")
+        let destinationURL = destinationFolder.appendingPathComponent("redo.pdf")
+        let initialTimestamp = Date(timeIntervalSince1970: 2_100)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sourceURL.path,
+            displayName: "redo.pdf",
+            fileExtension: "pdf",
+            timestamp: initialTimestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/redo.pdf", contents: "redo")
+
+        let destination = try Destination.folder(from: destinationURL.deletingLastPathComponent(), displayName: "Archive")
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: initialTimestamp,
+            modificationDate: initialTimestamp,
+            lastAccessedDate: initialTimestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "organize success")
+        await environment.coordinator.organizeFile(
+            file,
+            context: environment.context,
+            sourceSurface: .reviewFlow,
+            onSuccess: { _ in
+                organizeExpectation.fulfill()
+            },
+            onError: { error in
+                XCTFail("Organize should succeed: \(error)")
+            }
+        )
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [file], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        var redoCompleted = false
+        await environment.coordinator.redoLastAction(allFiles: [file], context: environment.context) {
+            redoCompleted = true
+        }
+        XCTAssertTrue(redoCompleted)
+
+        let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(records.count, 1)
+
+        let record = try XCTUnwrap(records.first)
+        XCTAssertEqual(record.lastKnownPath, destinationURL.path)
+        XCTAssertEqual(record.latestOrganizationStatus, .organized)
+        XCTAssertEqual(record.organizationCount, 2)
+        XCTAssertEqual(record.historyEntries.count, 3)
+
+        let orderedHistory = record.historyEntries.sorted { $0.timestamp < $1.timestamp }
+        XCTAssertEqual(orderedHistory.map(\.eventKind), [.organized, .undone, .organized])
+        XCTAssertEqual(orderedHistory.map(\.sourceSurface), [.organize, .undo, .organize])
+        XCTAssertEqual(orderedHistory.first?.fromPath, sourceURL.path)
+        XCTAssertEqual(orderedHistory.first?.toPath, destinationURL.path)
+        XCTAssertEqual(orderedHistory.last?.fromPath, sourceURL.path)
+        XCTAssertEqual(orderedHistory.last?.toPath, destinationURL.path)
+    }
+
     func testUndoLastAction_BulkUndoContinuesAfterMetadataWriteFailure() async throws {
         let tempDirectory = try TemporaryDirectory()
         defer { tempDirectory.cleanup() }
@@ -333,6 +413,108 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(secondRecord.historyEntries.count, 2)
         XCTAssertEqual(secondRecord.latestOrganizationStatus, .undone)
         XCTAssertEqual(secondRecord.historyEntries.sorted(by: { $0.timestamp < $1.timestamp }).last?.eventKind, .undone)
+    }
+
+    func testRedoLastAction_UpdatesMetadataRecordsAfterUndoForBulkMove() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let firstSourceURL = sourceFolder.appendingPathComponent("bulk-first.pdf")
+        let secondSourceURL = sourceFolder.appendingPathComponent("bulk-second.pdf")
+        let firstDestinationURL = destinationFolder.appendingPathComponent("bulk-first.pdf")
+        let secondDestinationURL = destinationFolder.appendingPathComponent("bulk-second.pdf")
+        let timestamp = Date(timeIntervalSince1970: 2_600)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: firstSourceURL.path,
+            displayName: "bulk-first.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: secondSourceURL.path,
+            displayName: "bulk-second.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/bulk-first.pdf", contents: "bulk-first")
+        _ = try tempDirectory.createFile(name: "Inbox/bulk-second.pdf", contents: "bulk-second")
+
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Archive")
+        let firstFile = FileItem(
+            path: firstSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        let secondFile = FileItem(
+            path: secondSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(firstFile)
+        environment.context.insert(secondFile)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "bulk organize success")
+        await environment.coordinator.organizeMultipleFiles(
+            [firstFile, secondFile],
+            origin: .automation,
+            context: environment.context
+        ) { success, failed, _, error in
+            XCTAssertEqual(success, 2)
+            XCTAssertEqual(failed, 0)
+            XCTAssertNil(error)
+            organizeExpectation.fulfill()
+        }
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        var redoCompleted = false
+        await environment.coordinator.redoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            redoCompleted = true
+        }
+        XCTAssertTrue(redoCompleted)
+
+        let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(records.count, 2)
+
+        let firstRecord = try XCTUnwrap(records.first(where: { $0.canonicalIdentity == FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: firstDestinationURL.path) }))
+        let secondRecord = try XCTUnwrap(records.first(where: { $0.canonicalIdentity == FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: secondDestinationURL.path) }))
+
+        XCTAssertEqual(firstRecord.lastKnownPath, firstDestinationURL.path)
+        XCTAssertEqual(firstRecord.latestOrganizationStatus, .organized)
+        XCTAssertEqual(firstRecord.organizationCount, 2)
+        XCTAssertEqual(firstRecord.historyEntries.count, 3)
+        XCTAssertEqual(firstRecord.historyEntries.sorted(by: { $0.timestamp < $1.timestamp }).map(\.eventKind), [.organized, .undone, .organized])
+
+        XCTAssertEqual(secondRecord.lastKnownPath, secondDestinationURL.path)
+        XCTAssertEqual(secondRecord.latestOrganizationStatus, .organized)
+        XCTAssertEqual(secondRecord.organizationCount, 2)
+        XCTAssertEqual(secondRecord.historyEntries.count, 3)
+        XCTAssertEqual(secondRecord.historyEntries.sorted(by: { $0.timestamp < $1.timestamp }).map(\.eventKind), [.organized, .undone, .organized])
     }
 
     func testOrganizeMultipleFiles_AppendsOneHistoryEntryPerFileWithoutDuplicateRecords() async throws {

@@ -51,9 +51,11 @@ class FileOrganizationCoordinator: ObservableObject {
     /// Whether a bulk operation is currently in progress
     @Published var isBulkOperationInProgress: Bool = false
 
+    #if DEBUG
     /// Test hook that can force an undo metadata transition to fail for a specific snapshot.
-    /// Defaults to nil in production.
+    /// Defaults to nil in debug builds.
     var metadataUndoTransitionHook: ((MetadataIdentitySnapshot) throws -> Void)?
+    #endif
 
     // MARK: - Cancellation
 
@@ -603,6 +605,8 @@ class FileOrganizationCoordinator: ObservableObject {
         do {
             try await command.execute(context: context)
 
+            persistRedoMetadata(for: command, context: context)
+
             // Push back to undo stack
             undoStack.append(command)
             if undoStack.count > Self.maxUndoActions {
@@ -706,9 +710,11 @@ class FileOrganizationCoordinator: ObservableObject {
                     destinationDisplayName: moveCommand.originalDestination?.displayName
                 )
 
+                #if DEBUG
                 if let metadataUndoTransitionHook {
                     try metadataUndoTransitionHook(snapshot)
                 }
+                #endif
 
                 _ = try metadataService.recordTransition(
                     from: snapshot.destinationPath,
@@ -738,9 +744,11 @@ class FileOrganizationCoordinator: ObservableObject {
                         destinationDisplayName: nil
                     )
 
+                    #if DEBUG
                     if let metadataUndoTransitionHook {
                         try metadataUndoTransitionHook(snapshot)
                     }
+                    #endif
 
                     _ = try metadataService.recordTransition(
                         from: snapshot.destinationPath,
@@ -758,6 +766,59 @@ class FileOrganizationCoordinator: ObservableObject {
                         category: .fileOperations
                     )
                 }
+            }
+
+        default:
+            break
+        }
+    }
+
+    private func persistRedoMetadata(for command: any UndoableCommand, context: ModelContext) {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
+
+        switch command {
+        case let moveCommand as MoveFileCommand:
+            let snapshot = moveCommand.metadataSnapshot ?? MetadataIdentitySnapshot(
+                sourcePath: moveCommand.fromPath,
+                destinationPath: moveCommand.toPath,
+                displayName: URL(fileURLWithPath: moveCommand.fromPath).lastPathComponent,
+                fileExtension: URL(fileURLWithPath: moveCommand.fromPath).pathExtension,
+                destinationDisplayName: moveCommand.originalDestination?.displayName
+            )
+
+            persistMetadataTransition(
+                from: snapshot.sourcePath,
+                to: snapshot.destinationPath,
+                displayName: snapshot.displayName,
+                fileExtension: snapshot.fileExtension,
+                destinationDisplayName: snapshot.destinationDisplayName,
+                eventKind: .organized,
+                sourceSurface: .organize,
+                matchedRuleID: nil,
+                context: context
+            )
+
+        case let bulkCommand as BulkMoveCommand:
+            for operation in bulkCommand.operations {
+                let snapshot = operation.metadataSnapshot ?? MetadataIdentitySnapshot(
+                    sourcePath: operation.fromPath,
+                    destinationPath: operation.toPath,
+                    displayName: URL(fileURLWithPath: operation.fromPath).lastPathComponent,
+                    fileExtension: URL(fileURLWithPath: operation.fromPath).pathExtension,
+                    destinationDisplayName: nil
+                )
+
+                persistMetadataTransition(
+                    from: snapshot.sourcePath,
+                    to: snapshot.destinationPath,
+                    displayName: snapshot.displayName,
+                    fileExtension: snapshot.fileExtension,
+                    destinationDisplayName: snapshot.destinationDisplayName,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    matchedRuleID: nil,
+                    context: context
+                )
             }
 
         default:
