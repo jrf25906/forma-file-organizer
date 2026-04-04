@@ -307,9 +307,9 @@ final class FileMetadataFoundationService {
 
     private static func isOrganizationLifecycleEvent(_ eventKind: FileOrganizationHistoryEntry.EventKind) -> Bool {
         switch eventKind {
-        case .organized, .undone:
+        case .organized:
             return true
-        case .scanned, .rekeyed, .noted:
+        case .scanned, .rekeyed, .undone, .noted:
             return false
         }
     }

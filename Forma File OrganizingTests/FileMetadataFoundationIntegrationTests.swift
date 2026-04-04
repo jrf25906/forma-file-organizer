@@ -184,6 +184,11 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         )
         await fulfillment(of: [organizeExpectation], timeout: 2.0)
 
+        let organizedRecords = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        let organizedRecord = try XCTUnwrap(organizedRecords.first)
+        let lastOrganizedAtBeforeUndo = try XCTUnwrap(organizedRecord.lastOrganizedAt)
+        XCTAssertEqual(organizedRecord.organizationCount, 1)
+
         var undoCompleted = false
         environment.coordinator.undoLastAction(allFiles: [file], context: environment.context) {
             undoCompleted = true
@@ -197,6 +202,8 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(record.lastKnownPath, sourceURL.path)
         XCTAssertEqual(record.latestOrganizationStatus, .undone)
         XCTAssertEqual(record.canonicalIdentity, FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: sourceURL.path))
+        XCTAssertEqual(record.organizationCount, 1)
+        XCTAssertEqual(record.lastOrganizedAt, lastOrganizedAtBeforeUndo)
         XCTAssertEqual(record.historyEntries.count, 2)
 
         let orderedHistory = record.historyEntries.sorted { $0.timestamp < $1.timestamp }
