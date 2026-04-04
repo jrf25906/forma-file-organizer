@@ -673,7 +673,8 @@ class FileOrganizationCoordinator: ObservableObject {
     ) {
         guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
 
-        let metadataService = FileMetadataFoundationService(modelContext: context)
+        let metadataContext = ModelContext(context.container)
+        let metadataService = FileMetadataFoundationService(modelContext: metadataContext)
         do {
             _ = try metadataService.recordTransition(
                 from: sourcePath,
@@ -697,8 +698,6 @@ class FileOrganizationCoordinator: ObservableObject {
     private func persistUndoMetadata(for command: any UndoableCommand, context: ModelContext) {
         guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
 
-        let metadataService = FileMetadataFoundationService(modelContext: context)
-
         switch command {
         case let moveCommand as MoveFileCommand:
             do {
@@ -716,15 +715,16 @@ class FileOrganizationCoordinator: ObservableObject {
                 }
                 #endif
 
-                _ = try metadataService.recordTransition(
+                persistMetadataTransition(
                     from: snapshot.destinationPath,
                     to: snapshot.sourcePath,
                     displayName: snapshot.displayName,
                     fileExtension: snapshot.fileExtension,
+                    destinationDisplayName: snapshot.destinationDisplayName,
                     eventKind: .undone,
                     sourceSurface: .undo,
-                    destinationDisplayName: snapshot.destinationDisplayName,
-                    timestamp: Date()
+                    matchedRuleID: nil,
+                    context: context
                 )
             } catch {
                 Log.error(
@@ -750,15 +750,16 @@ class FileOrganizationCoordinator: ObservableObject {
                     }
                     #endif
 
-                    _ = try metadataService.recordTransition(
+                    persistMetadataTransition(
                         from: snapshot.destinationPath,
                         to: snapshot.sourcePath,
                         displayName: snapshot.displayName,
                         fileExtension: snapshot.fileExtension,
+                        destinationDisplayName: snapshot.destinationDisplayName,
                         eventKind: .undone,
                         sourceSurface: .undo,
-                        destinationDisplayName: snapshot.destinationDisplayName,
-                        timestamp: Date()
+                        matchedRuleID: nil,
+                        context: context
                     )
                 } catch {
                     Log.error(

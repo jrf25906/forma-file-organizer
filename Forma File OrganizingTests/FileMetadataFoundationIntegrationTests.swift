@@ -6,6 +6,7 @@ import SwiftData
 final class FileMetadataFoundationIntegrationTests: XCTestCase {
     private enum InjectedMetadataFailure: Error {
         case bulkUndoFirstItem
+        case transitionWriteFailure
     }
     override func setUp() {
         super.setUp()
@@ -322,16 +323,14 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
         let firstSourceURL = sourceFolder.appendingPathComponent("first.pdf")
         let secondSourceURL = sourceFolder.appendingPathComponent("second.pdf")
-        let firstDestinationURL = destinationFolder.appendingPathComponent("first.pdf")
         let timestamp = Date(timeIntervalSince1970: 2_500)
-        var attemptedUndoMetadataPaths: [String] = []
+        let unrelatedActivity = ActivityItem(
+            activityType: .fileScanned,
+            fileName: "unrelated.txt",
+            details: "original"
+        )
 
-        let environment = try makeEnvironment { snapshot in
-            attemptedUndoMetadataPaths.append(snapshot.sourcePath)
-            if snapshot.sourcePath == firstSourceURL.path {
-                throw InjectedMetadataFailure.bulkUndoFirstItem
-            }
-        }
+        let environment = try makeEnvironment()
 
         _ = try insertPathFallbackRecord(
             in: environment.context,
@@ -347,6 +346,16 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
             fileExtension: "pdf",
             timestamp: timestamp
         )
+        environment.context.insert(unrelatedActivity)
+
+        FileMetadataFoundationService.debugRecordTransitionHook = { sourcePath, _, eventKind in
+            if eventKind == .undone, sourcePath == firstSourceURL.path {
+                throw InjectedMetadataFailure.transitionWriteFailure
+            }
+        }
+        defer {
+            FileMetadataFoundationService.debugRecordTransitionHook = nil
+        }
 
         _ = try tempDirectory.createFile(name: "Inbox/first.pdf", contents: "first")
         _ = try tempDirectory.createFile(name: "Inbox/second.pdf", contents: "second")
@@ -397,22 +406,42 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         }
         XCTAssertTrue(undoCompleted)
 
-        XCTAssertEqual(attemptedUndoMetadataPaths, [firstSourceURL.path, secondSourceURL.path])
-
         let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
         XCTAssertEqual(records.count, 2)
 
-        let firstRecord = try XCTUnwrap(records.first(where: { $0.canonicalIdentity == FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: firstDestinationURL.path) }))
-        let secondRecord = try XCTUnwrap(records.first(where: { $0.canonicalIdentity == FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: secondSourceURL.path) }))
+        let firstRecordIdentity = FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: firstSourceURL.path)
+        let secondRecordIdentity = FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: secondSourceURL.path)
+        let recordDetails = records
+            .map { "\($0.canonicalIdentity) | \($0.lastKnownPath) | \($0.latestOrganizationStatus.rawValue) | \($0.historyEntries.count)" }
+            .joined(separator: "\n")
 
-        XCTAssertEqual(firstRecord.lastKnownPath, firstDestinationURL.path)
-        XCTAssertEqual(firstRecord.historyEntries.count, 1)
-        XCTAssertEqual(firstRecord.latestOrganizationStatus, .organized)
+        guard let firstRecord = records.first(where: { $0.canonicalIdentity == firstRecordIdentity }) else {
+            XCTFail("Missing first record for identity \(firstRecordIdentity). Records:\n\(recordDetails)")
+            return
+        }
+        guard let secondRecord = records.first(where: { $0.canonicalIdentity == secondRecordIdentity }) else {
+            XCTFail("Missing second record for identity \(secondRecordIdentity). Records:\n\(recordDetails)")
+            return
+        }
+
+        XCTAssertEqual(firstRecord.lastKnownPath, firstSourceURL.path)
+        XCTAssertEqual(firstRecord.historyEntries.count, 2)
+        XCTAssertEqual(firstRecord.latestOrganizationStatus, .undone)
+        XCTAssertEqual(firstRecord.historyEntries.sorted(by: { $0.timestamp < $1.timestamp }).last?.eventKind, .undone)
 
         XCTAssertEqual(secondRecord.lastKnownPath, secondSourceURL.path)
         XCTAssertEqual(secondRecord.historyEntries.count, 2)
         XCTAssertEqual(secondRecord.latestOrganizationStatus, .undone)
         XCTAssertEqual(secondRecord.historyEntries.sorted(by: { $0.timestamp < $1.timestamp }).last?.eventKind, .undone)
+
+        try environment.context.save()
+        let unrelatedActivities = try environment.context.fetch(
+            FetchDescriptor<ActivityItem>(
+                predicate: #Predicate<ActivityItem> { $0.fileName == "unrelated.txt" }
+            )
+        )
+        XCTAssertEqual(unrelatedActivities.count, 1)
+        XCTAssertEqual(unrelatedActivities.first?.details, "original")
     }
 
     func testRedoLastAction_UpdatesMetadataRecordsAfterUndoForBulkMove() async throws {

@@ -17,6 +17,10 @@ final class FileMetadataFoundationService {
     private let modelContext: ModelContext
     private let featureFlags: FeatureFlagService
 
+    #if DEBUG
+    static var debugRecordTransitionHook: ((String, String, FileOrganizationHistoryEntry.EventKind) throws -> Void)?
+    #endif
+
     private static let inspectorFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
@@ -208,6 +212,12 @@ final class FileMetadataFoundationService {
                 detailsSummary: detailsSummary,
                 timestamp: timestamp
             )
+
+            #if DEBUG
+            if let debugRecordTransitionHook = Self.debugRecordTransitionHook {
+                try debugRecordTransitionHook(normalizedSourcePath, normalizedDestinationPath, eventKind)
+            }
+            #endif
 
             try modelContext.save()
             return finalRecord
