@@ -26,12 +26,37 @@ struct OrganizationMemorySnapshot: Sendable {
     let matchedRuleID: UUID?
 }
 
+struct MetadataIdentitySnapshot: Sendable {
+    let sourcePath: String
+    let destinationPath: String
+    let displayName: String
+    let fileExtension: String
+    let destinationDisplayName: String?
+}
+
 struct BulkMoveOperation: Sendable {
     let fileID: String
     let fromPath: String
     let toPath: String
     let originalStatus: FileItem.OrganizationStatus
     let memorySnapshot: OrganizationMemorySnapshot?
+    let metadataSnapshot: MetadataIdentitySnapshot?
+
+    init(
+        fileID: String,
+        fromPath: String,
+        toPath: String,
+        originalStatus: FileItem.OrganizationStatus,
+        memorySnapshot: OrganizationMemorySnapshot?,
+        metadataSnapshot: MetadataIdentitySnapshot? = nil
+    ) {
+        self.fileID = fileID
+        self.fromPath = fromPath
+        self.toPath = toPath
+        self.originalStatus = originalStatus
+        self.memorySnapshot = memorySnapshot
+        self.metadataSnapshot = metadataSnapshot
+    }
 }
 
 /// Protocol for undoable file organization commands
@@ -70,6 +95,29 @@ struct MoveFileCommand: UndoableCommand {
     let originalStatus: FileItem.OrganizationStatus
     let originalDestination: Destination?
     let memorySnapshot: OrganizationMemorySnapshot?
+    let metadataSnapshot: MetadataIdentitySnapshot?
+
+    init(
+        id: UUID,
+        timestamp: Date,
+        fileID: String,
+        fromPath: String,
+        toPath: String,
+        originalStatus: FileItem.OrganizationStatus,
+        originalDestination: Destination?,
+        memorySnapshot: OrganizationMemorySnapshot?,
+        metadataSnapshot: MetadataIdentitySnapshot? = nil
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.fileID = fileID
+        self.fromPath = fromPath
+        self.toPath = toPath
+        self.originalStatus = originalStatus
+        self.originalDestination = originalDestination
+        self.memorySnapshot = memorySnapshot
+        self.metadataSnapshot = metadataSnapshot
+    }
 
     var description: String {
         "Move \(URL(fileURLWithPath: fromPath).lastPathComponent) to \(originalDestination?.displayName ?? "destination")"

@@ -110,6 +110,9 @@ class FileOrganizationCoordinator: ObservableObject {
             if result.success {
                 // Clear any previous error on success
                 file.lastOrganizeError = nil
+                let destinationPathForMetadata = fileOperationsService.getDestinationPath(for: file)
+                    ?? result.destinationPath
+                    ?? originalPath
 
                 // Update file state atomically with transaction-based rollback
                 let previousStatus = file.status
@@ -141,6 +144,13 @@ class FileOrganizationCoordinator: ObservableObject {
                 }
                 
                 // Create lightweight command for undo (~70% memory reduction)
+                let metadataSnapshot = MetadataIdentitySnapshot(
+                    sourcePath: originalPath,
+                    destinationPath: destinationPathForMetadata,
+                    displayName: file.name,
+                    fileExtension: file.fileExtension,
+                    destinationDisplayName: file.destination?.displayName
+                )
                 let command = MoveFileCommand(
                     id: UUID(),
                     timestamp: Date(),
@@ -149,9 +159,24 @@ class FileOrganizationCoordinator: ObservableObject {
                     toPath: result.destinationPath ?? result.originalPath,
                     originalStatus: .pending,
                     originalDestination: file.destination,
-                    memorySnapshot: memorySnapshot
+                    memorySnapshot: memorySnapshot,
+                    metadataSnapshot: metadataSnapshot
                 )
                 pushUndoCommand(command)
+
+                if let ctx = context {
+                    persistMetadataTransition(
+                        from: metadataSnapshot.sourcePath,
+                        to: metadataSnapshot.destinationPath,
+                        displayName: metadataSnapshot.displayName,
+                        fileExtension: metadataSnapshot.fileExtension,
+                        destinationDisplayName: metadataSnapshot.destinationDisplayName,
+                        eventKind: .organized,
+                        sourceSurface: historySourceSurface(for: sourceSurface),
+                        matchedRuleID: file.matchedRuleID,
+                        context: ctx
+                    )
+                }
 
                 if let ctx = context, let memorySnapshot {
                     recordPersonalMemoryDecision(
@@ -269,6 +294,7 @@ class FileOrganizationCoordinator: ObservableObject {
         var firstError: Error?
         var wasCancelled = false
         var fileActions: [FileActionData] = []
+        var bulkMoveOperations: [BulkMoveOperation] = []
         /// Track rule usage for analytics: [ruleID: count of files matched]
         var ruleUsageCounts: [UUID: Int] = [:]
         let memoryService = context.map { PersonalMemoryService(modelContext: $0) }
@@ -302,6 +328,17 @@ class FileOrganizationCoordinator: ObservableObject {
                             try ctx.save()
                         }
                     }
+
+                    let destinationPathForMetadata = fileOperationsService.getDestinationPath(for: file)
+                        ?? result.destinationPath
+                        ?? result.originalPath
+                    let metadataSnapshot = MetadataIdentitySnapshot(
+                        sourcePath: result.originalPath,
+                        destinationPath: destinationPathForMetadata,
+                        displayName: file.name,
+                        fileExtension: file.fileExtension,
+                        destinationDisplayName: file.destination?.displayName
+                    )
                     
                     // Record action
                     let fileAction = FileActionData(
@@ -313,6 +350,30 @@ class FileOrganizationCoordinator: ObservableObject {
                         memorySnapshot: memorySnapshot
                     )
                     fileActions.append(fileAction)
+                    bulkMoveOperations.append(
+                        BulkMoveOperation(
+                            fileID: result.originalPath,
+                            fromPath: result.originalPath,
+                            toPath: result.destinationPath ?? result.originalPath,
+                            originalStatus: .pending,
+                            memorySnapshot: memorySnapshot,
+                            metadataSnapshot: metadataSnapshot
+                        )
+                    )
+
+                    if let ctx = context {
+                        persistMetadataTransition(
+                            from: metadataSnapshot.sourcePath,
+                            to: metadataSnapshot.destinationPath,
+                            displayName: metadataSnapshot.displayName,
+                            fileExtension: metadataSnapshot.fileExtension,
+                            destinationDisplayName: metadataSnapshot.destinationDisplayName,
+                            eventKind: .organized,
+                            sourceSurface: historySourceSurface(for: origin),
+                            matchedRuleID: file.matchedRuleID,
+                            context: ctx
+                        )
+                    }
 
                     successCount += 1
 
@@ -364,20 +425,11 @@ class FileOrganizationCoordinator: ObservableObject {
         
         // Record lightweight bulk command for undo
         if !fileActions.isEmpty {
-            let operations = fileActions.map { action in
-                BulkMoveOperation(
-                    fileID: action.filePath,
-                    fromPath: action.originalPath,
-                    toPath: action.destinationPath ?? action.originalPath,
-                    originalStatus: action.originalStatus,
-                    memorySnapshot: action.memorySnapshot
-                )
-            }
             let command = BulkMoveCommand(
                 id: UUID(),
                 timestamp: Date(),
                 origin: origin,
-                operations: operations
+                operations: bulkMoveOperations
             )
             pushUndoCommand(command)
 
@@ -496,6 +548,7 @@ class FileOrganizationCoordinator: ObservableObject {
                     origin: bulkCommand.origin
                 )
             }
+            persistUndoMetadata(for: command, context: context)
             recordUndoMemory(for: command, context: context)
         } catch {
             undoStack.append(command)
@@ -581,6 +634,116 @@ class FileOrganizationCoordinator: ObservableObject {
 
     private func refreshLatestUndoableBatchSummary() {
         latestUndoableBatchSummary = (undoStack.last as? BulkMoveCommand)?.undoBatchSummary
+    }
+
+    private func historySourceSurface(for sourceSurface: PersonalMemorySourceSurface) -> FileOrganizationHistoryEntry.SourceSurface {
+        switch sourceSurface {
+        case .undoSurface:
+            return .undo
+        case .reviewFlow, .inspector, .bulkOrganize, .ruleSuggestion:
+            return .organize
+        }
+    }
+
+    private func historySourceSurface(for origin: OrganizationRunOrigin) -> FileOrganizationHistoryEntry.SourceSurface {
+        switch origin {
+        case .reviewDriven, .automation:
+            return .organize
+        }
+    }
+
+    private func persistMetadataTransition(
+        from sourcePath: String,
+        to destinationPath: String,
+        displayName: String,
+        fileExtension: String,
+        destinationDisplayName: String?,
+        eventKind: FileOrganizationHistoryEntry.EventKind,
+        sourceSurface: FileOrganizationHistoryEntry.SourceSurface,
+        matchedRuleID: UUID?,
+        context: ModelContext
+    ) {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
+
+        let metadataService = FileMetadataFoundationService(modelContext: context)
+        do {
+            _ = try metadataService.recordTransition(
+                from: sourcePath,
+                to: destinationPath,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                eventKind: eventKind,
+                sourceSurface: sourceSurface,
+                destinationDisplayName: destinationDisplayName,
+                matchedRuleID: matchedRuleID,
+                timestamp: Date()
+            )
+        } catch {
+            Log.error(
+                "Failed to persist metadata transition from '\(sourcePath)' to '\(destinationPath)': \(error.localizedDescription)",
+                category: .fileOperations
+            )
+        }
+    }
+
+    private func persistUndoMetadata(for command: any UndoableCommand, context: ModelContext) {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
+
+        let metadataService = FileMetadataFoundationService(modelContext: context)
+
+        do {
+            switch command {
+            case let moveCommand as MoveFileCommand:
+                let snapshot = moveCommand.metadataSnapshot ?? MetadataIdentitySnapshot(
+                    sourcePath: moveCommand.fromPath,
+                    destinationPath: moveCommand.toPath,
+                    displayName: URL(fileURLWithPath: moveCommand.fromPath).lastPathComponent,
+                    fileExtension: URL(fileURLWithPath: moveCommand.fromPath).pathExtension,
+                    destinationDisplayName: moveCommand.originalDestination?.displayName
+                )
+
+                _ = try metadataService.recordTransition(
+                    from: snapshot.destinationPath,
+                    to: snapshot.sourcePath,
+                    displayName: snapshot.displayName,
+                    fileExtension: snapshot.fileExtension,
+                    eventKind: .undone,
+                    sourceSurface: .undo,
+                    destinationDisplayName: snapshot.destinationDisplayName,
+                    timestamp: Date()
+                )
+
+            case let bulkCommand as BulkMoveCommand:
+                for operation in bulkCommand.operations {
+                    let snapshot = operation.metadataSnapshot ?? MetadataIdentitySnapshot(
+                        sourcePath: operation.fromPath,
+                        destinationPath: operation.toPath,
+                        displayName: URL(fileURLWithPath: operation.fromPath).lastPathComponent,
+                        fileExtension: URL(fileURLWithPath: operation.fromPath).pathExtension,
+                        destinationDisplayName: nil
+                    )
+
+                    _ = try metadataService.recordTransition(
+                        from: snapshot.destinationPath,
+                        to: snapshot.sourcePath,
+                        displayName: snapshot.displayName,
+                        fileExtension: snapshot.fileExtension,
+                        eventKind: .undone,
+                        sourceSurface: .undo,
+                        destinationDisplayName: snapshot.destinationDisplayName,
+                        timestamp: Date()
+                    )
+                }
+
+            default:
+                break
+            }
+        } catch {
+            Log.error(
+                "Failed to persist undo metadata for \(command.description): \(error.localizedDescription)",
+                category: .fileOperations
+            )
+        }
     }
     
     /// Log rule applications for analytics (v1.2.0).

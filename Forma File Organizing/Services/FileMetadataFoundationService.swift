@@ -185,6 +185,63 @@ final class FileMetadataFoundationService {
         return entry
     }
 
+    @discardableResult
+    func recordTransition(
+        from sourcePath: String,
+        to destinationPath: String,
+        displayName: String,
+        fileExtension: String,
+        eventKind: FileOrganizationHistoryEntry.EventKind,
+        sourceSurface: FileOrganizationHistoryEntry.SourceSurface,
+        destinationDisplayName: String? = nil,
+        matchedRuleID: UUID? = nil,
+        detailsSummary: String? = nil,
+        timestamp: Date
+    ) throws -> FileMetadataRecord? {
+        guard isEnabled else { return nil }
+
+        let normalizedSourcePath = FileMetadataRecord.normalizedPath(sourcePath)
+        let normalizedDestinationPath = FileMetadataRecord.normalizedPath(destinationPath)
+
+        let rekeyedRecord = try rekeyPathFallbackRecord(
+            oldPath: normalizedSourcePath,
+            newPath: normalizedDestinationPath,
+            timestamp: timestamp
+        )
+
+        let finalRecord: FileMetadataRecord
+        if let rekeyedRecord {
+            rekeyedRecord.lastKnownPath = normalizedDestinationPath
+            rekeyedRecord.displayName = FileMetadataRecord.normalizedDisplayName(displayName)
+            rekeyedRecord.fileExtension = fileExtension.lowercased()
+            rekeyedRecord.lastSeenAt = timestamp
+            finalRecord = rekeyedRecord
+        } else if let destinationRecord = try upsertRecordWithoutSaving(
+            for: normalizedDestinationPath,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            timestamp: timestamp
+        ) {
+            finalRecord = destinationRecord
+        } else {
+            return nil
+        }
+
+        _ = try appendHistoryEntry(
+            for: finalRecord,
+            eventKind: eventKind,
+            sourceSurface: sourceSurface,
+            fromPath: normalizedSourcePath,
+            toPath: normalizedDestinationPath,
+            destinationDisplayName: destinationDisplayName,
+            matchedRuleID: matchedRuleID,
+            detailsSummary: detailsSummary,
+            timestamp: timestamp
+        )
+
+        return finalRecord
+    }
+
     func inspectorSummary(for path: String) -> FileMetadataInspectorSummary? {
         guard isEnabled else { return nil }
 
