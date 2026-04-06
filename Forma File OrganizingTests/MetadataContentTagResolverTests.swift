@@ -79,6 +79,17 @@ final class MetadataContentTagResolverTests: XCTestCase {
         XCTAssertFalse(tags.contains(.invoice))
     }
 
+    func testResolveNewTags_NormalizesStoredBuiltInValuesBeforeSuppressingDuplicates() {
+        let tags = resolver.resolveNewTags(
+            existingRawValues: ["Invoice", " invoice ", "legacy-custom"],
+            explicitCandidates: [.invoice, .screenshot],
+            inferredCandidates: [.receipt]
+        )
+
+        XCTAssertEqual(tags, [.screenshot, .receipt])
+        XCTAssertFalse(tags.contains(.invoice))
+    }
+
     func testResolveNewTags_CapsAppendListAtThreeAndPrefersExplicitCandidates() {
         let tags = resolver.resolveNewTags(
             existingRawValues: [MetadataContentTag.invoice.rawValue, "legacy-custom"],

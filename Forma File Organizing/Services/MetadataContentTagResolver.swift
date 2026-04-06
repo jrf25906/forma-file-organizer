@@ -72,7 +72,9 @@ struct MetadataContentTagResolver: Sendable {
         explicitCandidates: [MetadataContentTag],
         inferredCandidates: [MetadataContentTag]
     ) -> [MetadataContentTag] {
-        let storedRawValues = Set(existingRawValues)
+        let storedRawValues = Set(existingRawValues.compactMap { rawValue in
+            MetadataContentTag(rawValue: normalized(rawValue))?.rawValue
+        })
         var newCandidates: [MetadataContentTag] = []
         var seen = Set<String>()
 
