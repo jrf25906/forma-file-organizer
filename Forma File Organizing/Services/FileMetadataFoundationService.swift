@@ -293,7 +293,7 @@ final class FileMetadataFoundationService {
             fileCategory: FileTypeCategory.category(for: fileExtension)
         )
         let newTags = resolver.resolveNewTags(
-            existingRawValues: record.tags,
+            existingRawValues: record.storedTagValuesForDuplicateSuppression(),
             explicitCandidates: explicitCandidates,
             inferredCandidates: inferredCandidates
         )
@@ -643,9 +643,7 @@ final class FileMetadataFoundationService {
         if destinationRecord.fileExtension.isEmpty, !sourceRecord.fileExtension.isEmpty {
             destinationRecord.fileExtension = sourceRecord.fileExtension
         }
-        if destinationRecord.tags.isEmpty, !sourceRecord.tags.isEmpty {
-            destinationRecord.tags = sourceRecord.tags
-        }
+        destinationRecord.appendStoredTagsPreservingExistingOrder(sourceRecord.tags)
         if destinationRecord.projectAssociation == nil {
             destinationRecord.projectAssociation = sourceRecord.projectAssociation
         }

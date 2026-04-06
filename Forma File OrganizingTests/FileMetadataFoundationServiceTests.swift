@@ -731,6 +731,33 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testApplyContentTags_RecognizesAliasShapedStoredTagsWhenSuppressingDuplicates() throws {
+        try withService { _, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/invoice.pdf", contents: "invoice")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "invoice.pdf",
+                    fileExtension: "pdf",
+                    timestamp: Date(timeIntervalSince1970: 8_721)
+                )
+            )
+            record.tags = ["Invoices"]
+
+            let appendedTags = service.applyContentTagsWithoutSaving(
+                for: record,
+                displayName: "invoice.pdf",
+                fileExtension: "pdf",
+                destinationDisplayName: "Invoices",
+                matchedRuleID: nil
+            )
+
+            XCTAssertEqual(appendedTags, [])
+            XCTAssertEqual(record.tags, ["Invoices"])
+        }
+    }
+
     func testRecordTransition_DoesNotApplyContentTagsUntilTask3Integration() throws {
         try withService { _, service in
             let tempDir = try TemporaryDirectory()
@@ -770,7 +797,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                     timestamp: Date(timeIntervalSince1970: 8_730)
                 )
             )
-            invoiceRecord.tags = ["invoice", "legacy-custom"]
+            invoiceRecord.tags = ["Invoices", "legacy-custom"]
 
             let receiptRecord = try XCTUnwrap(
                 service.upsertRecord(
@@ -780,7 +807,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                     timestamp: Date(timeIntervalSince1970: 8_731)
                 )
             )
-            receiptRecord.tags = ["receipt"]
+            receiptRecord.tags = ["Receipts"]
 
             let deckRecord = try XCTUnwrap(
                 service.upsertRecord(
@@ -790,7 +817,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                     timestamp: Date(timeIntervalSince1970: 8_732)
                 )
             )
-            deckRecord.tags = ["presentation"]
+            deckRecord.tags = ["Slides"]
 
             let index = service.contentTagIndex(for: [invoiceURL.path, receiptURL.path])
 
@@ -890,6 +917,46 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                 "Destination already had a record.",
                 "Old path organization."
             ])
+        }
+    }
+
+    func testRekeyPathFallbackRecord_WhenDestinationCollisionExists_PreservesSourceAndDestinationTags() throws {
+        try withService { _, service in
+            let oldPath = "/Users/example/Downloads/Legacy/invoice.txt"
+            let newPath = "/Users/example/Documents/Invoices/invoice.txt"
+
+            let sourceRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: oldPath,
+                    displayName: "invoice.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 7_500)
+                )
+            )
+            sourceRecord.tags = ["Invoices", "legacy-source"]
+
+            let targetRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: newPath,
+                    displayName: "invoice.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 7_600)
+                )
+            )
+            targetRecord.tags = ["receipt", "legacy-target"]
+
+            let mergedRecord = try XCTUnwrap(
+                service.rekeyPathFallbackRecord(
+                    oldPath: oldPath,
+                    newPath: newPath,
+                    timestamp: Date(timeIntervalSince1970: 7_700)
+                )
+            )
+
+            XCTAssertEqual(
+                mergedRecord.tags,
+                ["receipt", "legacy-target", "Invoices", "legacy-source"]
+            )
         }
     }
 }

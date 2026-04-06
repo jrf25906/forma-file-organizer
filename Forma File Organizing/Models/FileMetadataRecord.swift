@@ -129,13 +129,48 @@ final class FileMetadataRecord {
     }
 
     var builtInContentTags: Set<MetadataContentTag> {
-        Set(tags.compactMap { rawValue in
-            MetadataContentTag(rawValue: Self.normalizedTag(rawValue).lowercased())
+        let resolver = MetadataContentTagResolver()
+        return Set(tags.compactMap { rawValue in
+            let normalized = Self.normalizedTag(rawValue)
+            if let builtIn = MetadataContentTag(rawValue: normalized.lowercased()) {
+                return builtIn
+            }
+            return resolver.resolveExplicitTag(forAlias: normalized)
         })
     }
 
     func appendContentTags(_ newTags: [MetadataContentTag]) {
         guard !newTags.isEmpty else { return }
         tags.append(contentsOf: newTags.map(\.rawValue))
+    }
+
+    func storedTagValuesForDuplicateSuppression() -> [String] {
+        tags + builtInContentTags.map(\.rawValue)
+    }
+
+    func appendStoredTagsPreservingExistingOrder(_ incomingTags: [String]) {
+        let resolver = MetadataContentTagResolver()
+        var seenNormalizedValues = Set(tags.map { Self.normalizedTag($0).lowercased() })
+        var seenBuiltInTags = builtInContentTags
+
+        for rawValue in incomingTags {
+            let normalized = Self.normalizedTag(rawValue)
+            guard !normalized.isEmpty else { continue }
+
+            let normalizedKey = normalized.lowercased()
+            if seenNormalizedValues.contains(normalizedKey) {
+                continue
+            }
+
+            if let builtInTag = MetadataContentTag(rawValue: normalizedKey) ?? resolver.resolveExplicitTag(forAlias: normalized) {
+                guard !seenBuiltInTags.contains(builtInTag) else {
+                    continue
+                }
+                seenBuiltInTags.insert(builtInTag)
+            }
+
+            tags.append(normalized)
+            seenNormalizedValues.insert(normalizedKey)
+        }
     }
 }
