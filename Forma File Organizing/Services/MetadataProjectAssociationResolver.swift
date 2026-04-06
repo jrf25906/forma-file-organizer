@@ -30,7 +30,7 @@ struct MetadataProjectAssociationResolver: Sendable {
         }
 
         return ResolvedCandidate(
-            projectAssociation: inferred.suggestedFolderName,
+            projectAssociation: inferred.normalizedLabel,
             normalizedLabel: inferred.normalizedLabel,
             confidence: inferred.confidence,
             sourceSummaryCategory: .relatedFilePattern
@@ -63,7 +63,7 @@ struct MetadataProjectAssociationResolver: Sendable {
         }
 
         return ResolvedCandidate(
-            projectAssociation: terminalFolderName,
+            projectAssociation: normalizedLabel,
             normalizedLabel: normalizedLabel,
             confidence: 1.0,
             sourceSummaryCategory: .destinationFolder

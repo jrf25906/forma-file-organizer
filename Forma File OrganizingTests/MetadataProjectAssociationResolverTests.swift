@@ -101,7 +101,27 @@ final class MetadataProjectAssociationResolverTests: XCTestCase {
 
         let resolved = resolver.resolveCandidate(from: strongWinnerContext)
 
-        XCTAssertEqual(resolved?.projectAssociation, "  Alpha  ")
+        XCTAssertEqual(resolved?.projectAssociation, "Alpha")
+        XCTAssertEqual(resolved?.normalizedLabel, "Alpha")
+        XCTAssertEqual(resolved?.sourceSummaryCategory, .relatedFilePattern)
+    }
+
+    func testResolveCandidate_CollapsesDuplicateNormalizedCandidatesBeforeWinnerMargin() throws {
+        let resolver = MetadataProjectAssociationResolver()
+
+        let context = ProjectAssociationWriteContext(
+            resolvedExplicitDestinationFolderPath: nil,
+            explicitSourceMode: false,
+            inferredCandidates: [
+                .init(suggestedFolderName: "Alpha", normalizedLabel: "Alpha", confidence: 0.90),
+                .init(suggestedFolderName: "  Alpha  ", normalizedLabel: "Alpha", confidence: 0.84),
+                .init(suggestedFolderName: "Beta", normalizedLabel: "Beta", confidence: 0.70)
+            ]
+        )
+
+        let resolved = resolver.resolveCandidate(from: context)
+
+        XCTAssertEqual(resolved?.projectAssociation, "Alpha")
         XCTAssertEqual(resolved?.normalizedLabel, "Alpha")
         XCTAssertEqual(resolved?.sourceSummaryCategory, .relatedFilePattern)
     }
