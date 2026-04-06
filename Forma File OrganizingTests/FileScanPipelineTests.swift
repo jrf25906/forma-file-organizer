@@ -462,6 +462,62 @@ final class FileScanPipelineTests: XCTestCase {
         XCTAssertEqual(record.projectAssociation, "Alpha")
     }
 
+    func testEvaluateAndPersistExplicitFiles_CurrentExplicitDestinationWinsOverStalePersistedDestination() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+
+        let temp = try TemporaryDirectory()
+        defer { temp.cleanup() }
+
+        let projectsFolder = try temp.createDirectory(name: "Projects/Alpha")
+        let destination = try Destination.folder(from: projectsFolder)
+        let explicitPath = temp.url.appendingPathComponent("Inbox/report.pdf").path
+        let staleExisting = FileItem(
+            path: explicitPath,
+            sizeInBytes: 4096,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .downloads,
+            scanRootPath: temp.url.appendingPathComponent("Inbox").path,
+            destination: .mockFolder("Documents"),
+            originalSuggestedDestination: .mockFolder("Documents"),
+            status: .ready
+        )
+        context.insert(staleExisting)
+        try context.save()
+
+        let explicitMetadata = FileMetadata(
+            path: explicitPath,
+            sizeInBytes: 4096,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .downloads,
+            scanRootPath: temp.url.appendingPathComponent("Inbox").path,
+            destination: destination
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.evaluateAndPersistExplicitFiles(
+            files: [explicitMetadata],
+            scannedRootPaths: [temp.url.path],
+            reconcileMissingFiles: false,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let verificationContext = ModelContext(container)
+        let record = try XCTUnwrap(
+            verificationContext
+                .fetch(FetchDescriptor<FileMetadataRecord>(predicate: #Predicate { $0.lastKnownPath == explicitPath }))
+                .first
+        )
+        XCTAssertEqual(record.projectAssociation, "Alpha")
+    }
+
     func testEvaluateAndPersistExplicitFiles_NonProjectDestinationDoesNotWriteAssociation() async throws {
         FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
         FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)

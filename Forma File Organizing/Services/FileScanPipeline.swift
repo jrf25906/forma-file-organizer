@@ -446,34 +446,32 @@ struct FileScanPipeline: FileScanPipelineProtocol {
     ) -> [String: [ProjectAssociationWriteContext.InferredCandidate]] {
         guard !persistedPaths.isEmpty else { return [:] }
 
-        let descriptor = FetchDescriptor<ProjectCluster>(
-            predicate: #Predicate<ProjectCluster> { !$0.isDismissed && !$0.isOrganized }
-        )
-        let clusters: [ProjectCluster]
-        do {
-            clusters = try context.fetch(descriptor)
-        } catch {
-            Log.error(
-                "FileScanPipeline: Failed to fetch project clusters for metadata writes: \(error.localizedDescription)",
-                category: .pipeline
-            )
-            return [:]
-        }
-
-        let persistedPathSet = Set(persistedPaths)
         var lookup: [String: [ProjectAssociationWriteContext.InferredCandidate]] = [:]
 
-        for cluster in clusters {
-            let matchedPaths = Set(cluster.filePaths).intersection(persistedPathSet)
-            guard !matchedPaths.isEmpty else { continue }
-
-            let candidate = ProjectAssociationWriteContext.InferredCandidate(
-                suggestedFolderName: cluster.suggestedFolderName,
-                confidence: cluster.confidenceScore
+        for path in Set(persistedPaths) {
+            let descriptor = FetchDescriptor<ProjectCluster>(
+                predicate: #Predicate<ProjectCluster> { cluster in
+                    !cluster.isDismissed && !cluster.isOrganized && cluster.filePaths.contains(path)
+                }
             )
+            let clusters: [ProjectCluster]
+            do {
+                clusters = try context.fetch(descriptor)
+            } catch {
+                Log.error(
+                    "FileScanPipeline: Failed to fetch project clusters for metadata writes: \(error.localizedDescription)",
+                    category: .pipeline
+                )
+                return [:]
+            }
 
-            for path in matchedPaths {
-                lookup[path, default: []].append(candidate)
+            guard !clusters.isEmpty else { continue }
+
+            lookup[path] = clusters.map { cluster in
+                ProjectAssociationWriteContext.InferredCandidate(
+                    suggestedFolderName: cluster.suggestedFolderName,
+                    confidence: cluster.confidenceScore
+                )
             }
         }
 
@@ -486,12 +484,11 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         sourceFilesByPath: [String: FileMetadata]
     ) -> FileMetadata {
         let persistedMetadata = makeSourceMetadata(from: file)
-        guard persistedMetadata.destination == nil,
-              let originalMetadata = sourceFilesByPath[file.path] else {
+        guard let originalMetadata = sourceFilesByPath[file.path] else {
             return persistedMetadata
         }
 
-        return originalMetadata
+        return originalMetadata.destination != nil ? originalMetadata : persistedMetadata
     }
 
     @MainActor
