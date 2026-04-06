@@ -32,6 +32,20 @@ final class MetadataContentTagResolverTests: XCTestCase {
         )
         XCTAssertEqual(presentationTags, [.presentation])
 
+        let agreementTags = resolver.inferTags(
+            fileName: "Services Agreement.pdf",
+            fileExtension: "pdf",
+            fileCategory: .documents
+        )
+        XCTAssertEqual(agreementTags, [.contract])
+
+        let ndaTags = resolver.inferTags(
+            fileName: "Mutual NDA.pdf",
+            fileExtension: "pdf",
+            fileCategory: .documents
+        )
+        XCTAssertEqual(ndaTags, [.contract])
+
         let ambiguousTags = resolver.inferTags(
             fileName: "IMG_1042.png",
             fileExtension: "png",

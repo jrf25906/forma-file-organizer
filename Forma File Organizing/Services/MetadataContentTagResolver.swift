@@ -26,6 +26,12 @@ struct MetadataContentTagResolver: Sendable {
         "decks": .presentation
     ]
 
+    private static let contractFilenameTokens: [String] = [
+        "contract",
+        "agreement",
+        "nda"
+    ]
+
     func resolveExplicitTag(forAlias alias: String) -> MetadataContentTag? {
         Self.aliasTable[normalized(alias)]
     }
@@ -43,7 +49,9 @@ struct MetadataContentTagResolver: Sendable {
         if fileCategory == .documents {
             if normalizedFileName.contains("invoice") { appendIfNeeded(.invoice, to: &tags) }
             if normalizedFileName.contains("receipt") { appendIfNeeded(.receipt, to: &tags) }
-            if normalizedFileName.contains("contract") { appendIfNeeded(.contract, to: &tags) }
+            if Self.contractFilenameTokens.contains(where: normalizedFileName.contains) {
+                appendIfNeeded(.contract, to: &tags)
+            }
             if normalizedFileName.contains("statement") { appendIfNeeded(.statement, to: &tags) }
         }
 
