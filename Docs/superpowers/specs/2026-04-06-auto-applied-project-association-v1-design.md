@@ -165,6 +165,17 @@ Do not introduce:
 
 The durable value is just a normalized project label string.
 
+Normalization contract:
+
+- extract the candidate label before normalization
+  - explicit writes extract the destination folder name first
+  - inferred writes use the cluster `suggestedFolderName` directly
+- normalize with the same trim-only text policy already used for optional metadata text
+- preserve user-visible casing
+- do not lowercase, slugify, or strip punctuation
+- if normalization produces an empty string, treat it as no candidate
+- all equality and overwrite comparisons in this slice should use the normalized label
+
 This choice is intentional. The product question for this slice is whether Forma can conservatively auto-attach one useful durable project label to a file. That question does not require a graph of projects or a richer metadata schema.
 
 ### 2. Add a Dedicated Entry-Point Flag
@@ -205,13 +216,24 @@ In v1, explicit destination-backed association should only write when the destin
 Approved v1 cases:
 
 - a destination chosen while organizing a [`ProjectCluster`](../../../../Forma%20File%20Organizing/Models/ProjectCluster.swift)
-- a rule-backed destination whose resolved path sits under a narrow project-container allowlist, starting with `Projects`
+- a rule-backed destination whose resolved path has an immediate parent directory exactly named `Projects`
 
 Write behavior:
 
 - the stored `projectAssociation` is the terminal destination folder name
 - example:
   - destination `/Users/.../Projects/Alpha` writes `Alpha`
+
+Exact matching rule for rule-backed destinations:
+
+- match the parent path component by exact value: `Projects`
+- do not match prefixes such as `Projects Archive`
+- do not treat deeper descendants as project labels in this slice
+- positive example:
+  - `/Users/.../Projects/Alpha` writes `Alpha`
+- negative examples:
+  - `/Users/.../Projects Archive/Alpha` does not qualify
+  - `/Users/.../Projects/Alpha/Assets` does not qualify
 
 Non-project examples should not write:
 
@@ -327,6 +349,12 @@ The proof copy should be best-effort and derived by the metadata layer.
 Recommended summary addition:
 
 - extend [`FileMetadataInspectorSummary`](../../../../Forma%20File%20Organizing/Models/FileMetadataInspectorSummary.swift) with an optional `projectAssociationSourceSummary`
+
+Allowed source-summary categories in v1:
+
+- `Derived from destination folder`
+- `Derived from related-file pattern`
+- omit the line when neither summary can be derived confidently
 
 The UI remains read-only:
 
