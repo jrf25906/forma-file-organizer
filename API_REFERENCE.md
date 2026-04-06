@@ -4,6 +4,24 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Auto-applied project association v1
+  - `FeatureFlagService.Feature.autoProjectAssociation`
+  - `ProjectAssociationWriteContext`
+    - `resolvedExplicitDestinationFolderPath`
+    - `explicitSourceMode`
+    - `inferredCandidates`
+    - `SourceSummaryCategory`
+    - `InferredCandidate`
+  - `MetadataProjectAssociationResolver`
+    - `normalizeLabel(_:)`
+    - `resolveCandidate(from:)`
+    - `hasExactProjectsParentMatch(for:)`
+  - `FileMetadataInspectorSummary.projectAssociationSourceSummary`
+  - `FileMetadataFoundationService.applyProjectAssociationWithoutSaving(for:writeContext:)`
+  - `FileMetadataFoundationService.recordTransition(from:to:displayName:fileExtension:eventKind:sourceSurface:destinationDisplayName:projectAssociationWriteContext:matchedRuleID:detailsSummary:timestamp:)`
+  - `MetadataIdentitySnapshot.projectAssociationWriteContext`
+  - `FileOrganizationCoordinator.organizeMultipleFiles(_:origin:projectAssociationWriteContext:context:onComplete:)`
+  - Auto-applied project association now writes one durable project label from exact `Projects/...` destinations, cluster-organize explicit opt-ins, or strong related-file inference, reconstructs best-effort inspector source text when the source can still be derived, and preserves the stored label through organize, bulk organize, redo, and undo without introducing a separate project entity or persisted provenance fields.
 - Metadata foundation v1 (`Forma File Organizing/Models/FileMetadataRecord.swift`, `Forma File Organizing/Models/FileOrganizationHistoryEntry.swift`, `Forma File Organizing/Models/FileMetadataInspectorSummary.swift`, `Forma File Organizing/Services/FileMetadataFoundationService.swift`)
   - `FileMetadataRecord`
   - `FileOrganizationHistoryEntry`

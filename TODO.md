@@ -1,6 +1,6 @@
 # Project TODO
 
-**Last Updated:** April 3, 2026
+**Last Updated:** April 6, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
@@ -53,6 +53,12 @@ The sections below capture dated implementation slices that have already shipped
 ## Metadata Foundation v1 (April 3, 2026)
 - [x] Ship the durable local metadata foundation for scan, organize, undo, redo, and inspector proof surfaces with `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService`.
 - [x] Keep the broader metadata roadmap open while the v1 foundation ships as a feature-flagged, read-only proof with best-effort scan upserts and structured history.
+
+## Auto-Applied Project Association v1 (April 6, 2026)
+- [x] Add the feature-gated `autoProjectAssociation` resolver layer with `ProjectAssociationWriteContext`, `MetadataProjectAssociationResolver`, exact `Projects/...` explicit qualification, cluster-organize explicit opt-in, and strong-winner inferred fallback.
+- [x] Write durable `projectAssociation` labels during scan and explicit-file evaluation using stored active `ProjectCluster` rows plus exact `Projects/...` destinations, while keeping metadata writes best-effort and provenance label-only.
+- [x] Persist explicit project association through single-file organize, cluster-driven bulk organize, redo, and undo by carrying project-association context in metadata snapshots and preserving the stored label on undo.
+- [x] Keep the broader metadata roadmap open: this slice remains inspector-only, label-only, and auto-applied, without manual metadata editing, project spaces, or workflow-chain expansion yet.
 
 ## Permission Grant Recovery Fixes (April 1, 2026)
 - [x] Stop dashboard/JIT folder permission grants from re-showing onboarding when the sheet was already dismissed.

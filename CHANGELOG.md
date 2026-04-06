@@ -6,6 +6,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Auto-applied project association v1 for the metadata foundation:
+  - `FeatureFlagService.Feature.autoProjectAssociation`, `ProjectAssociationWriteContext`, and `MetadataProjectAssociationResolver` now gate and resolve one durable `projectAssociation` label per file using exact `Projects/...` destinations and cluster-organize explicit opt-ins first, then strong-winner related-file inference.
+  - `FileMetadataFoundationService` now applies project association during scan, explicit-file evaluation, and metadata transition writes, while inspector proof stays read-only and reconstructs best-effort bounded source copy instead of persisting extra provenance fields.
+  - Organize flows now carry explicit project-association context through single-file organize, cluster-driven bulk organize, redo, and undo so durable project labels survive move history without recomputing on undo.
 - Metadata foundation v1 for progressive automation:
   - `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService` now provide a durable local metadata ledger for scan, organize, undo, redo, and inspector proof surfaces.
   - `FeatureFlagService.Feature.metadataFoundation` is exposed in Settings so the slice stays explicitly gated while it rolls out.
