@@ -159,7 +159,7 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         defer { tempDirectory.cleanup() }
 
         let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
-        let projectsFolder = try tempDirectory.createDirectory(name: "Projects")
+        _ = try tempDirectory.createDirectory(name: "Projects")
         let alphaFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
         let sourceURL = sourceFolder.appendingPathComponent("brief.pdf")
         let initialTimestamp = Date(timeIntervalSince1970: 1_500)
@@ -208,6 +208,61 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
             $0.lastKnownPath == alphaFolder.appendingPathComponent("brief.pdf").path
         }))
         XCTAssertEqual(record.projectAssociation, "Alpha")
+    }
+
+    func testOrganizeFile_DestinationAliasAppendsContentTag() async throws {
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let sourceURL = sourceFolder.appendingPathComponent("report.pdf")
+        let initialTimestamp = Date(timeIntervalSince1970: 1_550)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sourceURL.path,
+            displayName: "report.pdf",
+            fileExtension: "pdf",
+            timestamp: initialTimestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/report.pdf", contents: "report")
+
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Invoices")
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: initialTimestamp,
+            modificationDate: initialTimestamp,
+            lastAccessedDate: initialTimestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "organize success")
+        await environment.coordinator.organizeFile(
+            file,
+            context: environment.context,
+            sourceSurface: .reviewFlow,
+            onSuccess: { _ in
+                organizeExpectation.fulfill()
+            },
+            onError: { error in
+                XCTFail("Organize should succeed: \(error)")
+            }
+        )
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        let record = try XCTUnwrap(try environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertEqual(record.tags, ["invoice"])
     }
 
     func testUndoLastAction_RekeysPathFallbackRecordAndAppendsUndoHistory() async throws {
@@ -356,6 +411,72 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         let record = try XCTUnwrap(records.first)
         XCTAssertEqual(record.lastKnownPath, sourceURL.path)
         XCTAssertEqual(record.projectAssociation, "Beta")
+    }
+
+    func testUndoLastAction_PreservesContentTags() async throws {
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let sourceURL = sourceFolder.appendingPathComponent("report.pdf")
+        let initialTimestamp = Date(timeIntervalSince1970: 2_060)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sourceURL.path,
+            displayName: "report.pdf",
+            fileExtension: "pdf",
+            timestamp: initialTimestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/report.pdf", contents: "report")
+
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Invoices")
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: initialTimestamp,
+            modificationDate: initialTimestamp,
+            lastAccessedDate: initialTimestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "organize success")
+        await environment.coordinator.organizeFile(
+            file,
+            context: environment.context,
+            sourceSurface: .reviewFlow,
+            onSuccess: { _ in
+                organizeExpectation.fulfill()
+            },
+            onError: { error in
+                XCTFail("Organize should succeed: \(error)")
+            }
+        )
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        let tagsBeforeUndo = try XCTUnwrap(
+            try environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first?.tags
+        )
+        XCTAssertEqual(tagsBeforeUndo, ["invoice"])
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [file], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        let record = try XCTUnwrap(try environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertEqual(record.tags, tagsBeforeUndo)
     }
 
     func testRedoLastAction_UpdatesMetadataRecordAfterUndoForSingleMove() async throws {

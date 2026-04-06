@@ -409,6 +409,13 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                     for: record,
                     writeContext: writeContext
                 )
+                _ = metadataService.applyContentTagsWithoutSaving(
+                    for: record,
+                    displayName: file.name,
+                    fileExtension: file.fileExtension,
+                    destinationDisplayName: sourceMetadata.destination?.displayName ?? file.destination?.displayName,
+                    matchedRuleID: sourceMetadata.matchedRuleID ?? file.matchedRuleID
+                )
             } catch {
                 Log.error(
                     "FileScanPipeline: Failed to upsert metadata record for '\(file.path)': \(error.localizedDescription)",

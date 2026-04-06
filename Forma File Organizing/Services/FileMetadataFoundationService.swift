@@ -16,6 +16,15 @@ protocol FileMetadataFoundationServiceProtocol {
         for metadataRecord: FileMetadataRecord,
         writeContext: ProjectAssociationWriteContext
     ) -> ProjectAssociationWriteContext.SourceSummaryCategory?
+
+    @discardableResult
+    func applyContentTagsWithoutSaving(
+        for record: FileMetadataRecord,
+        displayName: String,
+        fileExtension: String,
+        destinationDisplayName: String?,
+        matchedRuleID: UUID?
+    ) -> [MetadataContentTag]
 }
 
 @MainActor
@@ -214,6 +223,14 @@ final class FileMetadataFoundationService {
                     writeContext: projectAssociationWriteContext
                 )
             }
+
+            _ = applyContentTagsWithoutSaving(
+                for: finalRecord,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                destinationDisplayName: destinationDisplayName,
+                matchedRuleID: matchedRuleID
+            )
 
             _ = try appendHistoryEntryWithoutSaving(
                 for: finalRecord,

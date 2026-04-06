@@ -115,6 +115,21 @@ final class FileScanPipelineTests: XCTestCase {
             _ = writeContext
             return nil
         }
+
+        func applyContentTagsWithoutSaving(
+            for record: FileMetadataRecord,
+            displayName: String,
+            fileExtension: String,
+            destinationDisplayName: String?,
+            matchedRuleID: UUID?
+        ) -> [MetadataContentTag] {
+            _ = record
+            _ = displayName
+            _ = fileExtension
+            _ = destinationDisplayName
+            _ = matchedRuleID
+            return []
+        }
     }
 
     private final class TrackingMetadataFoundationService: FileMetadataFoundationServiceProtocol {
@@ -141,6 +156,21 @@ final class FileScanPipelineTests: XCTestCase {
             _ = metadataRecord
             _ = writeContext
             return nil
+        }
+
+        func applyContentTagsWithoutSaving(
+            for record: FileMetadataRecord,
+            displayName: String,
+            fileExtension: String,
+            destinationDisplayName: String?,
+            matchedRuleID: UUID?
+        ) -> [MetadataContentTag] {
+            _ = record
+            _ = displayName
+            _ = fileExtension
+            _ = destinationDisplayName
+            _ = matchedRuleID
+            return []
         }
     }
 
@@ -352,6 +382,43 @@ final class FileScanPipelineTests: XCTestCase {
                 .first
         )
         XCTAssertNil(record.projectAssociation)
+    }
+
+    func testScanAndPersist_ScreenshotFilenameWritesScreenshotTag() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let now = Date()
+        let rootPath = "/Users/test/Desktop"
+        let screenshotMetadata = FileMetadata(
+            path: "\(rootPath)/Screenshot 2026-04-06 at 09.15.00.png",
+            sizeInBytes: 2_048,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: rootPath
+        )
+        let screenshotPath = screenshotMetadata.path
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: StubFileSystemService(metadata: [screenshotMetadata], scannedRootPaths: [rootPath]),
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let verificationContext = ModelContext(container)
+        let record = try XCTUnwrap(
+            verificationContext
+                .fetch(FetchDescriptor<FileMetadataRecord>(predicate: #Predicate { $0.lastKnownPath == screenshotPath }))
+                .first
+        )
+        XCTAssertEqual(record.tags, ["screenshot"])
     }
 
     func testScanAndPersist_MetadataFoundationDisabledSkipsMetadataWrites() async throws {
@@ -603,6 +670,88 @@ final class FileScanPipelineTests: XCTestCase {
                 .first
         )
         XCTAssertNil(record.projectAssociation)
+    }
+
+    func testEvaluateAndPersistExplicitFiles_DestinationAliasWritesInvoiceTag() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let temp = try TemporaryDirectory()
+        defer { temp.cleanup() }
+
+        let invoicesFolder = try temp.createDirectory(name: "Documents/Financial")
+        let destination = try Destination.folder(from: invoicesFolder, displayName: "Invoices")
+        let explicitPath = temp.url.appendingPathComponent("Inbox/report.pdf").path
+        let explicitMetadata = FileMetadata(
+            path: explicitPath,
+            sizeInBytes: 4_096,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .downloads,
+            scanRootPath: temp.url.appendingPathComponent("Inbox").path,
+            destination: destination
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.evaluateAndPersistExplicitFiles(
+            files: [explicitMetadata],
+            scannedRootPaths: [temp.url.path],
+            reconcileMissingFiles: false,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let verificationContext = ModelContext(container)
+        let record = try XCTUnwrap(
+            verificationContext
+                .fetch(FetchDescriptor<FileMetadataRecord>(predicate: #Predicate { $0.lastKnownPath == explicitPath }))
+                .first
+        )
+        XCTAssertEqual(record.tags, ["invoice"])
+    }
+
+    func testEvaluateAndPersistExplicitFiles_WeakSignalWritesNoTags() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let temp = try TemporaryDirectory()
+        defer { temp.cleanup() }
+
+        let archiveFolder = try temp.createDirectory(name: "Archive")
+        let destination = try Destination.folder(from: archiveFolder, displayName: "Archive")
+        let explicitPath = temp.url.appendingPathComponent("Inbox/notes.pdf").path
+        let explicitMetadata = FileMetadata(
+            path: explicitPath,
+            sizeInBytes: 2_048,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .downloads,
+            scanRootPath: temp.url.appendingPathComponent("Inbox").path,
+            destination: destination
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.evaluateAndPersistExplicitFiles(
+            files: [explicitMetadata],
+            scannedRootPaths: [temp.url.path],
+            reconcileMissingFiles: false,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let verificationContext = ModelContext(container)
+        let record = try XCTUnwrap(
+            verificationContext
+                .fetch(FetchDescriptor<FileMetadataRecord>(predicate: #Predicate { $0.lastKnownPath == explicitPath }))
+                .first
+        )
+        XCTAssertEqual(record.tags, [])
     }
 
     func testScanAndPersist_MetadataUpsertFailureStillPersistsFileItems() async throws {
