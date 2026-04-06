@@ -60,6 +60,11 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Persist explicit project association through single-file organize, cluster-driven bulk organize, redo, and undo by carrying project-association context in metadata snapshots and preserving the stored label on undo.
 - [x] Keep the broader metadata roadmap open: this slice remains inspector-only, label-only, and auto-applied, without manual metadata editing, project spaces, or workflow-chain expansion yet.
 
+## Auto-Applied Content Tags v1 (April 6, 2026)
+- [x] Add the feature-gated durable content-tag layer with a small built-in vocabulary, explicit-signal-first resolution, and conservative inference through `MetadataContentTag`, `MetadataContentTagResolver`, and metadata-foundation write paths.
+- [x] Expose metadata-backed content-tag quick filters in the dashboard with `FileFilterManager`, `DashboardViewModel`, `MainContentView`, and `ActiveFiltersBar`, while keeping the slice read-only and avoiding manual tag editing or Finder tag sync.
+- [x] Tighten quick-filter behavior so selected tags remain stable when the base scope changes, active-filter chips can remove one tag at a time, deferred review state stays isolated by selected content-tag scope, and filter caching invalidates when selected tags or the durable tag index changes.
+
 ## Permission Grant Recovery Fixes (April 1, 2026)
 - [x] Stop dashboard/JIT folder permission grants from re-showing onboarding when the sheet was already dismissed.
 - [x] Refresh newly granted folder availability immediately and reduce the delayed rescan debounce so permission unlocks feel more responsive.

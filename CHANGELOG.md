@@ -6,6 +6,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Auto-applied content tags v1 for the metadata foundation:
+  - `FeatureFlagService.Feature.autoContentTags`, `MetadataContentTag`, and `MetadataContentTagResolver` now write a small durable built-in tag vocabulary from explicit signals first and conservative inference second during scan, explicit-file evaluation, organize, redo, and undo.
+  - The dashboard now exposes metadata-backed content-tag quick filters through `FileFilterManager`, `DashboardViewModel`, `MainContentView`, and `ActiveFiltersBar`, including tag-chip removal, AND/OR-safe cache invalidation, and read-only retrieval without introducing manual tag editing.
+  - Content-tag quick-filter follow-up behavior now keeps selected tags stable when the base file scope changes, isolates deferred review chunks by selected tag scope, and avoids redundant metadata index recomputation on every tag-toggle interaction.
 - Auto-applied project association v1 for the metadata foundation:
   - `FeatureFlagService.Feature.autoProjectAssociation`, `ProjectAssociationWriteContext`, and `MetadataProjectAssociationResolver` now gate and resolve one durable `projectAssociation` label per file using exact `Projects/...` destinations and cluster-organize explicit opt-ins first, then strong-winner related-file inference.
   - `FileMetadataFoundationService` now applies project association during scan, explicit-file evaluation, and metadata transition writes, while inspector proof stays read-only and reconstructs best-effort bounded source copy instead of persisting extra provenance fields.

@@ -4,6 +4,28 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Auto-applied content tags v1
+  - `FeatureFlagService.Feature.autoContentTags`
+  - `MetadataContentTag`
+    - `displayName`
+  - `MetadataContentTagResolver`
+    - `resolveTags(for:matchedRule:)`
+  - `FileMetadataFoundationService.applyContentTagsWithoutSaving(for:matchedRule:fileTypeCategory:)`
+  - `FileMetadataFoundationService.contentTagIndex(for:)`
+  - `FileFilterManager.selectedContentTags`
+  - `FileFilterManager.availableContentTags`
+  - `FilterViewModel.setContentTagIndex(_:)`
+  - `FilterViewModel.toggleContentTag(_:)`
+  - `FilterViewModel.clearContentTagFilters()`
+  - `FilterViewModel.removeContentTag(_:)`
+  - `DashboardViewModel.availableContentTags`
+  - `DashboardViewModel.selectedContentTags`
+  - `DashboardViewModel.showsContentTagQuickFilters`
+  - `DashboardViewModel.toggleContentTagQuickFilter(_:)`
+  - `DashboardViewModel.clearContentTagQuickFilters()`
+  - `DashboardViewModel.removeContentTagQuickFilter(_:)`
+  - `ContentTagQuickFilters`
+  - Durable content tags now drive dashboard quick-filter retrieval, keep selected tags stable across base-scope changes, invalidate cached filter results when either the selected tags or metadata-backed tag index changes, and isolate deferred review chunks by the active content-tag scope.
 - Auto-applied project association v1
   - `FeatureFlagService.Feature.autoProjectAssociation`
   - `ProjectAssociationWriteContext`
