@@ -155,7 +155,10 @@ class FileOrganizationCoordinator: ObservableObject {
                     destinationPath: destinationPathForMetadata,
                     displayName: file.name,
                     fileExtension: file.fileExtension,
-                    destinationDisplayName: file.destination?.displayName
+                    destinationDisplayName: file.destination?.displayName,
+                    projectAssociationWriteContext: projectAssociationWriteContext(
+                        destinationPath: destinationPathForMetadata
+                    )
                 )
                 let command = MoveFileCommand(
                     id: UUID(),
@@ -177,6 +180,7 @@ class FileOrganizationCoordinator: ObservableObject {
                         displayName: metadataSnapshot.displayName,
                         fileExtension: metadataSnapshot.fileExtension,
                         destinationDisplayName: metadataSnapshot.destinationDisplayName,
+                        projectAssociationWriteContext: metadataSnapshot.projectAssociationWriteContext,
                         eventKind: .organized,
                         sourceSurface: historySourceSurface(for: sourceSurface),
                         matchedRuleID: file.matchedRuleID,
@@ -276,6 +280,7 @@ class FileOrganizationCoordinator: ObservableObject {
     func organizeMultipleFiles(
         _ files: [FileItem],
         origin: OrganizationRunOrigin = .reviewDriven,
+        projectAssociationWriteContext explicitProjectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
         context: ModelContext?,
         onComplete: @escaping (Int, Int, [FileItem], Error?) -> Void
     ) async {
@@ -343,7 +348,10 @@ class FileOrganizationCoordinator: ObservableObject {
                         destinationPath: destinationPathForMetadata,
                         displayName: file.name,
                         fileExtension: file.fileExtension,
-                        destinationDisplayName: file.destination?.displayName
+                        destinationDisplayName: file.destination?.displayName,
+                        projectAssociationWriteContext: explicitProjectAssociationWriteContext ?? projectAssociationWriteContext(
+                            destinationPath: destinationPathForMetadata
+                        )
                     )
                     
                     // Record action
@@ -374,6 +382,7 @@ class FileOrganizationCoordinator: ObservableObject {
                             displayName: metadataSnapshot.displayName,
                             fileExtension: metadataSnapshot.fileExtension,
                             destinationDisplayName: metadataSnapshot.destinationDisplayName,
+                            projectAssociationWriteContext: metadataSnapshot.projectAssociationWriteContext,
                             eventKind: .organized,
                             sourceSurface: historySourceSurface(for: origin),
                             matchedRuleID: file.matchedRuleID,
@@ -666,6 +675,7 @@ class FileOrganizationCoordinator: ObservableObject {
         displayName: String,
         fileExtension: String,
         destinationDisplayName: String?,
+        projectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
         eventKind: FileOrganizationHistoryEntry.EventKind,
         sourceSurface: FileOrganizationHistoryEntry.SourceSurface,
         matchedRuleID: UUID?,
@@ -684,6 +694,7 @@ class FileOrganizationCoordinator: ObservableObject {
                 eventKind: eventKind,
                 sourceSurface: sourceSurface,
                 destinationDisplayName: destinationDisplayName,
+                projectAssociationWriteContext: projectAssociationWriteContext,
                 matchedRuleID: matchedRuleID,
                 timestamp: Date()
             )
@@ -793,6 +804,7 @@ class FileOrganizationCoordinator: ObservableObject {
                 displayName: snapshot.displayName,
                 fileExtension: snapshot.fileExtension,
                 destinationDisplayName: snapshot.destinationDisplayName,
+                projectAssociationWriteContext: snapshot.projectAssociationWriteContext,
                 eventKind: .organized,
                 sourceSurface: .organize,
                 matchedRuleID: nil,
@@ -815,6 +827,7 @@ class FileOrganizationCoordinator: ObservableObject {
                     displayName: snapshot.displayName,
                     fileExtension: snapshot.fileExtension,
                     destinationDisplayName: snapshot.destinationDisplayName,
+                    projectAssociationWriteContext: snapshot.projectAssociationWriteContext,
                     eventKind: .organized,
                     sourceSurface: .organize,
                     matchedRuleID: nil,
@@ -901,6 +914,22 @@ class FileOrganizationCoordinator: ObservableObject {
             chosenDestination: chosenDestination,
             confidenceScore: file.confidenceScore,
             matchedRuleID: file.matchedRuleID
+        )
+    }
+
+    private func projectAssociationWriteContext(
+        destinationPath: String,
+        explicitSourceMode: Bool = false
+    ) -> ProjectAssociationWriteContext {
+        let destinationFolderPath = URL(fileURLWithPath: destinationPath)
+            .standardizedFileURL
+            .deletingLastPathComponent()
+            .path
+
+        return ProjectAssociationWriteContext(
+            resolvedExplicitDestinationFolderPath: destinationFolderPath,
+            explicitSourceMode: explicitSourceMode,
+            inferredCandidates: []
         )
     }
 

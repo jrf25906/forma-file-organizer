@@ -206,7 +206,24 @@ class BulkOperationViewModel: ObservableObject {
         }
 
         let clusterDestination = (destinationBase as NSString).appendingPathComponent(cluster.suggestedFolderName)
-        let bulkDestination = Destination.folder(bookmark: Data(), displayName: clusterDestination)
+        let clusterDestinationURL = URL(fileURLWithPath: clusterDestination, isDirectory: true)
+        let bulkDestination: Destination
+        do {
+            try FileManager.default.createDirectory(
+                at: clusterDestinationURL,
+                withIntermediateDirectories: true
+            )
+            bulkDestination = try Destination.folder(from: clusterDestinationURL, displayName: clusterDestination)
+        } catch {
+            Log.error("Failed to create cluster destination bookmark: \(error.localizedDescription)", category: .analytics)
+            onShowErrorToast?("Failed to access cluster destination.")
+            return
+        }
+        let projectAssociationWriteContext = ProjectAssociationWriteContext(
+            resolvedExplicitDestinationFolderPath: clusterDestinationURL.standardizedFileURL.path,
+            explicitSourceMode: true,
+            inferredCandidates: []
+        )
 
         for file in clusterFiles {
             file.destination = bulkDestination
@@ -214,6 +231,7 @@ class BulkOperationViewModel: ObservableObject {
 
         await organizationCoordinator.organizeMultipleFiles(
             clusterFiles,
+            projectAssociationWriteContext: projectAssociationWriteContext,
             context: context
         ) { [weak self] successCount, failedCount, failedFiles, error in
             guard let self else { return }
@@ -277,10 +295,16 @@ class BulkOperationViewModel: ObservableObject {
     // MARK: - Private Helpers
 
     /// Organize multiple files and track progress
-    private func organizeMultipleFiles(_ files: [FileItem], context: ModelContext?, totalCount: Int) async {
+    private func organizeMultipleFiles(
+        _ files: [FileItem],
+        projectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
+        context: ModelContext?,
+        totalCount: Int
+    ) async {
         cancelRequested = false
         await organizationCoordinator.organizeMultipleFiles(
             files,
+            projectAssociationWriteContext: projectAssociationWriteContext,
             context: context
         ) { [weak self] successCount, failedCount, failedFiles, firstError in
             guard let self else { return }

@@ -173,6 +173,7 @@ final class FileMetadataFoundationService {
         eventKind: FileOrganizationHistoryEntry.EventKind,
         sourceSurface: FileOrganizationHistoryEntry.SourceSurface,
         destinationDisplayName: String? = nil,
+        projectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
         matchedRuleID: UUID? = nil,
         detailsSummary: String? = nil,
         timestamp: Date
@@ -205,6 +206,13 @@ final class FileMetadataFoundationService {
                 finalRecord = destinationRecord
             } else {
                 return nil
+            }
+
+            if let projectAssociationWriteContext {
+                _ = applyProjectAssociationWithoutSaving(
+                    for: finalRecord,
+                    writeContext: projectAssociationWriteContext
+                )
             }
 
             _ = try appendHistoryEntryWithoutSaving(

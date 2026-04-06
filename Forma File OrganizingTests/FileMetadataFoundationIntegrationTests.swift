@@ -151,6 +151,65 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(historyEntry.toPath, destinationURL.path)
     }
 
+    func testOrganizeFile_ProjectLikeRuleDestinationWritesProjectAssociation() async throws {
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let projectsFolder = try tempDirectory.createDirectory(name: "Projects")
+        let alphaFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
+        let sourceURL = sourceFolder.appendingPathComponent("brief.pdf")
+        let initialTimestamp = Date(timeIntervalSince1970: 1_500)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sourceURL.path,
+            displayName: "brief.pdf",
+            fileExtension: "pdf",
+            timestamp: initialTimestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/brief.pdf", contents: "brief")
+
+        let destination = try Destination.folder(from: alphaFolder, displayName: alphaFolder.path)
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: initialTimestamp,
+            modificationDate: initialTimestamp,
+            lastAccessedDate: initialTimestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "organize success")
+        await environment.coordinator.organizeFile(
+            file,
+            context: environment.context,
+            sourceSurface: .reviewFlow,
+            onSuccess: { _ in
+                organizeExpectation.fulfill()
+            },
+            onError: { error in
+                XCTFail("Organize should succeed: \(error)")
+            }
+        )
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        let record = try XCTUnwrap(records.first(where: {
+            $0.lastKnownPath == alphaFolder.appendingPathComponent("brief.pdf").path
+        }))
+        XCTAssertEqual(record.projectAssociation, "Alpha")
+    }
+
     func testUndoLastAction_RekeysPathFallbackRecordAndAppendsUndoHistory() async throws {
         let environment = try makeEnvironment()
         let tempDirectory = try TemporaryDirectory()
@@ -233,6 +292,70 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(undoEntry.sourceSurface, .undo)
         XCTAssertEqual(undoEntry.fromPath, destinationURL.path)
         XCTAssertEqual(undoEntry.toPath, sourceURL.path)
+    }
+
+    func testUndoLastAction_PreservesProjectAssociationAfterProjectMove() async throws {
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        _ = try tempDirectory.createDirectory(name: "Projects")
+        let betaFolder = try tempDirectory.createDirectory(name: "Projects/Beta")
+        let sourceURL = sourceFolder.appendingPathComponent("proposal.pdf")
+        let initialTimestamp = Date(timeIntervalSince1970: 2_050)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sourceURL.path,
+            displayName: "proposal.pdf",
+            fileExtension: "pdf",
+            timestamp: initialTimestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/proposal.pdf", contents: "proposal")
+
+        let destination = try Destination.folder(from: betaFolder, displayName: betaFolder.path)
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: initialTimestamp,
+            modificationDate: initialTimestamp,
+            lastAccessedDate: initialTimestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "organize success")
+        await environment.coordinator.organizeFile(
+            file,
+            context: environment.context,
+            sourceSurface: .reviewFlow,
+            onSuccess: { _ in
+                organizeExpectation.fulfill()
+            },
+            onError: { error in
+                XCTFail("Organize should succeed: \(error)")
+            }
+        )
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [file], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        let record = try XCTUnwrap(records.first)
+        XCTAssertEqual(record.lastKnownPath, sourceURL.path)
+        XCTAssertEqual(record.projectAssociation, "Beta")
     }
 
     func testRedoLastAction_UpdatesMetadataRecordAfterUndoForSingleMove() async throws {
@@ -544,6 +667,106 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(secondRecord.organizationCount, 2)
         XCTAssertEqual(secondRecord.historyEntries.count, 3)
         XCTAssertEqual(secondRecord.historyEntries.sorted(by: { $0.timestamp < $1.timestamp }).map(\.eventKind), [.organized, .undone, .organized])
+    }
+
+    func testOrganizeCluster_RedoReplaysExplicitProjectAssociationContext() async throws {
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationBase = try tempDirectory.createDirectory(name: "Workspace")
+        let clusterFolder = destinationBase.appendingPathComponent("Client Alpha", isDirectory: true)
+        let firstSourceURL = sourceFolder.appendingPathComponent("alpha-notes.txt")
+        let secondSourceURL = sourceFolder.appendingPathComponent("alpha-assets.txt")
+        let firstDestinationURL = clusterFolder.appendingPathComponent("alpha-notes.txt")
+        let secondDestinationURL = clusterFolder.appendingPathComponent("alpha-assets.txt")
+        let timestamp = Date(timeIntervalSince1970: 2_550)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: firstSourceURL.path,
+            displayName: "alpha-notes.txt",
+            fileExtension: "txt",
+            timestamp: timestamp
+        )
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: secondSourceURL.path,
+            displayName: "alpha-assets.txt",
+            fileExtension: "txt",
+            timestamp: timestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/alpha-notes.txt", contents: "notes")
+        _ = try tempDirectory.createFile(name: "Inbox/alpha-assets.txt", contents: "assets")
+
+        let firstFile = FileItem(
+            path: firstSourceURL.path,
+            sizeInBytes: 512,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            status: .ready
+        )
+        let secondFile = FileItem(
+            path: secondSourceURL.path,
+            sizeInBytes: 512,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            status: .ready
+        )
+        environment.context.insert(firstFile)
+        environment.context.insert(secondFile)
+        try environment.context.save()
+
+        let cluster = ProjectCluster(
+            clusterType: .nameSimilarity,
+            filePaths: [firstSourceURL.path, secondSourceURL.path],
+            confidenceScore: 0.95,
+            suggestedFolderName: "Client Alpha"
+        )
+        let viewModel = BulkOperationViewModel(
+            organizationCoordinator: environment.coordinator,
+            notificationService: .shared
+        )
+
+        await viewModel.organizeCluster(
+            cluster,
+            destinationBase: destinationBase.path,
+            allFiles: [firstFile, secondFile],
+            context: environment.context
+        )
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        var redoCompleted = false
+        await environment.coordinator.redoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            redoCompleted = true
+        }
+        XCTAssertTrue(redoCompleted)
+
+        let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        let firstRecord = try XCTUnwrap(records.first(where: {
+            $0.canonicalIdentity == FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: firstDestinationURL.path)
+        }))
+        let secondRecord = try XCTUnwrap(records.first(where: {
+            $0.canonicalIdentity == FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: secondDestinationURL.path)
+        }))
+
+        XCTAssertEqual(firstRecord.projectAssociation, "Client Alpha")
+        XCTAssertEqual(secondRecord.projectAssociation, "Client Alpha")
     }
 
     func testOrganizeMultipleFiles_AppendsOneHistoryEntryPerFileWithoutDuplicateRecords() async throws {

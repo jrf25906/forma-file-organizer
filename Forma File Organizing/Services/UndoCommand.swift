@@ -32,6 +32,23 @@ struct MetadataIdentitySnapshot: Sendable {
     let displayName: String
     let fileExtension: String
     let destinationDisplayName: String?
+    let projectAssociationWriteContext: ProjectAssociationWriteContext?
+
+    init(
+        sourcePath: String,
+        destinationPath: String,
+        displayName: String,
+        fileExtension: String,
+        destinationDisplayName: String?,
+        projectAssociationWriteContext: ProjectAssociationWriteContext? = nil
+    ) {
+        self.sourcePath = sourcePath
+        self.destinationPath = destinationPath
+        self.displayName = displayName
+        self.fileExtension = fileExtension
+        self.destinationDisplayName = destinationDisplayName
+        self.projectAssociationWriteContext = projectAssociationWriteContext
+    }
 }
 
 struct BulkMoveOperation: Sendable {
