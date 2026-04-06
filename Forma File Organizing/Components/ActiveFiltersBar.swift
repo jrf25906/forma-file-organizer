@@ -11,7 +11,7 @@ struct ActiveFiltersBar: View {
     let onClearSearch: () -> Void
     let onClearCategory: () -> Void
     let onClearSecondary: () -> Void
-    let onClearContentTags: () -> Void
+    let onRemoveContentTag: (MetadataContentTag) -> Void
     let onClearAll: () -> Void
 
     private var hasActiveFilters: Bool {
@@ -53,14 +53,16 @@ struct ActiveFiltersBar: View {
                         )
                     }
 
-                    if !selectedContentTags.isEmpty {
+                    ForEach(
+                        selectedContentTags.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending },
+                        id: \.self
+                    ) { tag in
                         FilterChip(
-                            label: selectedContentTags
-                                .map(\.displayName)
-                                .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-                                .joined(separator: ", "),
+                            label: tag.displayName,
                             icon: "tag.fill",
-                            onDismiss: onClearContentTags
+                            onDismiss: {
+                                onRemoveContentTag(tag)
+                            }
                         )
                     }
                 }
@@ -69,7 +71,7 @@ struct ActiveFiltersBar: View {
                 let filterCount = (searchText.isEmpty ? 0 : 1)
                     + (category == .all ? 0 : 1)
                     + (secondaryFilter == .none ? 0 : 1)
-                    + (selectedContentTags.isEmpty ? 0 : 1)
+                    + selectedContentTags.count
                 if filterCount > 1 {
                     Button(action: onClearAll) {
                         Text("Clear All Filters")

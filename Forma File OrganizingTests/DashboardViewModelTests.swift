@@ -312,6 +312,140 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedContentTags, [])
         XCTAssertEqual(Set(viewModel.visibleFiles.map(\.path)), Set([invoice.path, receipt.path]))
     }
+
+    func testRemoveContentTagQuickFilter_RemovesOnlyRequestedTag() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let now = Date()
+        let invoice = FileItem(
+            path: "/Users/test/Documents/invoice.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let receipt = FileItem(
+            path: "/Users/test/Documents/receipt.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now.addingTimeInterval(1),
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+
+        let invoiceRecord = try XCTUnwrap(
+            service.upsertRecord(
+                for: invoice.path,
+                displayName: "invoice.pdf",
+                fileExtension: "pdf",
+                timestamp: now
+            )
+        )
+        invoiceRecord.tags = ["invoice"]
+
+        let receiptRecord = try XCTUnwrap(
+            service.upsertRecord(
+                for: receipt.path,
+                displayName: "receipt.pdf",
+                fileExtension: "pdf",
+                timestamp: now.addingTimeInterval(1)
+            )
+        )
+        receiptRecord.tags = ["receipt"]
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([invoice, receipt])
+
+        viewModel.toggleContentTagQuickFilter(.invoice)
+        viewModel.toggleContentTagQuickFilter(.receipt)
+
+        XCTAssertEqual(viewModel.selectedContentTags, Set([.invoice, .receipt]))
+
+        viewModel.removeContentTagQuickFilter(.invoice)
+
+        XCTAssertEqual(viewModel.selectedContentTags, [.receipt])
+        XCTAssertEqual(viewModel.visibleFiles.map(\.path), [receipt.path])
+    }
+
+    func testDeferredReviewScope_IsolatedBySelectedContentTags() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let now = Date()
+        let dualTaggedFiles = (0..<8).map { index in
+            FileItem(
+                path: "/Users/test/Documents/shared-\(index).pdf",
+                sizeInBytes: 1_000,
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                location: .documents,
+                destination: nil,
+                status: .pending
+            )
+        }
+        let receiptOnlyFiles = (0..<2).map { index in
+            FileItem(
+                path: "/Users/test/Documents/receipt-only-\(index).pdf",
+                sizeInBytes: 1_000,
+                creationDate: now.addingTimeInterval(TimeInterval(index + 8)),
+                location: .documents,
+                destination: nil,
+                status: .pending
+            )
+        }
+        let allFiles = dualTaggedFiles + receiptOnlyFiles
+
+        for (offset, file) in dualTaggedFiles.enumerated() {
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: file.path,
+                    displayName: URL(fileURLWithPath: file.path).lastPathComponent,
+                    fileExtension: "pdf",
+                    timestamp: now.addingTimeInterval(TimeInterval(offset))
+                )
+            )
+            record.tags = ["invoice", "receipt"]
+        }
+
+        for (offset, file) in receiptOnlyFiles.enumerated() {
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: file.path,
+                    displayName: URL(fileURLWithPath: file.path).lastPathComponent,
+                    fileExtension: "pdf",
+                    timestamp: now.addingTimeInterval(TimeInterval(offset + 8))
+                )
+            )
+            record.tags = ["receipt"]
+        }
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles(allFiles)
+
+        viewModel.toggleContentTagQuickFilter(.invoice)
+        XCTAssertEqual(viewModel.currentReviewChunkCount, viewModel.reviewChunkSize)
+
+        viewModel.doneForNow()
+        XCTAssertEqual(viewModel.deferredReviewFileCount, viewModel.reviewChunkSize)
+
+        viewModel.clearContentTagQuickFilters()
+        viewModel.toggleContentTagQuickFilter(.receipt)
+
+        XCTAssertEqual(viewModel.selectedContentTags, [.receipt])
+        XCTAssertEqual(viewModel.deferredReviewFileCount, 0)
+        XCTAssertEqual(viewModel.currentReviewChunkCount, viewModel.reviewChunkSize)
+    }
     
     func testFirstRunQuickWinPrefersLargestReadyFolderBatch() {
         let now = Date()

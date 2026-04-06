@@ -174,6 +174,7 @@ class DashboardViewModel: ObservableObject {
         let includeNestedSubfolders: Bool
         let searchText: String
         let selectedSecondaryFilter: SecondaryFilter
+        let selectedContentTags: Set<MetadataContentTag>
         let sortMode: SortMode
         let externalReviewRequestID: UUID?
     }
@@ -532,17 +533,14 @@ class DashboardViewModel: ObservableObject {
         }
 
         filterViewModel.toggleContentTag(tag)
-        refreshContentTagQuickFilters(for: scanViewModel.allFiles)
     }
 
     func clearContentTagQuickFilters() {
         filterViewModel.clearContentTagFilters()
-        refreshContentTagQuickFilters(for: scanViewModel.allFiles)
     }
 
     func removeContentTagQuickFilter(_ tag: MetadataContentTag) {
         filterViewModel.removeContentTag(tag)
-        refreshContentTagQuickFilters(for: scanViewModel.allFiles)
     }
 
     func clearAllFilters() {
@@ -1785,6 +1783,7 @@ class DashboardViewModel: ObservableObject {
             includeNestedSubfolders: includeNestedSubfolders,
             searchText: searchText,
             selectedSecondaryFilter: selectedSecondaryFilter,
+            selectedContentTags: selectedContentTags,
             sortMode: sortMode,
             externalReviewRequestID: filterViewModel.hasExternalReviewScope
                 ? ExternalReviewSessionStore.shared.currentSession?.requestID

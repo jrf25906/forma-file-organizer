@@ -13,9 +13,20 @@ class FileFilterManager: ObservableObject {
     @Published var includeNestedSubfolders: Bool = false
     @Published var searchText: String = ""
     @Published var selectedSecondaryFilter: SecondaryFilter = .none
-    @Published var selectedContentTags: Set<MetadataContentTag> = []
+    @Published var selectedContentTags: Set<MetadataContentTag> = [] {
+        didSet {
+            guard selectedContentTags != oldValue else { return }
+            hasCachedFilterResult = false
+        }
+    }
     @Published private(set) var availableContentTags: [MetadataContentTag] = []
-    var contentTagIndex: [String: Set<MetadataContentTag>] = [:]
+    var contentTagIndex: [String: Set<MetadataContentTag>] = [:] {
+        didSet {
+            guard contentTagIndex != oldValue else { return }
+            contentTagIndexGeneration &+= 1
+            hasCachedFilterResult = false
+        }
+    }
 
     /// File paths that matched content search (set by DashboardViewModel after content search completes).
     /// Track generation so cached filter results are invalidated when content matches change.
@@ -44,6 +55,7 @@ class FileFilterManager: ObservableObject {
     private var lastFilterHash: Int = 0
     private var fileListGeneration: Int = 0
     private var contentMatchGeneration: UInt64 = 0
+    private var contentTagIndexGeneration: UInt64 = 0
     private var hasCachedFilterResult = false
     // MARK: - Services
 
@@ -131,6 +143,10 @@ class FileFilterManager: ObservableObject {
         hasher.combine(selectedSecondaryFilter)
         hasher.combine(groupingMode)
         hasher.combine(sortMode)
+        hasher.combine(contentTagIndexGeneration)
+        for tag in selectedContentTags.sorted(by: { $0.rawValue < $1.rawValue }) {
+            hasher.combine(tag.rawValue)
+        }
         for path in externalReviewPaths.sorted() {
             hasher.combine(path)
         }
@@ -374,17 +390,12 @@ class FileFilterManager: ObservableObject {
         )
         .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
 
-        let effectiveSelectedContentTags = selectedContentTags.intersection(Set(availableContentTags))
-        if effectiveSelectedContentTags != selectedContentTags {
-            selectedContentTags = effectiveSelectedContentTags
-        }
-
-        if !effectiveSelectedContentTags.isEmpty {
+        if !selectedContentTags.isEmpty {
             files = files.filter { file in
                 guard let fileTags = contentTagIndex[file.path], !fileTags.isEmpty else {
                     return false
                 }
-                return !fileTags.isDisjoint(with: effectiveSelectedContentTags)
+                return !fileTags.isDisjoint(with: selectedContentTags)
             }
         }
 

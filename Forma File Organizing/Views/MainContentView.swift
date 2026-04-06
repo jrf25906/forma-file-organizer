@@ -171,8 +171,8 @@ struct MainContentView: View {
                                     onClearSecondary: {
                                         dashboardViewModel.setSecondaryFilter(.none)
                                     },
-                                    onClearContentTags: {
-                                        dashboardViewModel.clearContentTagQuickFilters()
+                                    onRemoveContentTag: { tag in
+                                        dashboardViewModel.removeContentTagQuickFilter(tag)
                                     },
                                     onClearAll: {
                                         dashboardViewModel.clearAllFilters()

@@ -3,6 +3,9 @@ import XCTest
 
 @MainActor
 final class FileFilterManagerTests: XCTestCase {
+    private func lastFilterHash(of manager: FileFilterManager) -> Int? {
+        Mirror(reflecting: manager).descendant("lastFilterHash") as? Int
+    }
 
     func testDesktopFilter_UsesLocationKindWhenAvailable() {
         // Given: one desktop file with explicit location and one downloads file
@@ -209,6 +212,119 @@ final class FileFilterManagerTests: XCTestCase {
             Set(manager.availableContentTags),
             Set<MetadataContentTag>([.invoice, .receipt])
         )
+    }
+
+    func testContentTagQuickFilters_FilterHashChangesWhenSelectedTagsChange() throws {
+        let now = Date()
+        let invoice = FileItem(
+            path: "/Users/test/Documents/invoice.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let receipt = FileItem(
+            path: "/Users/test/Documents/receipt.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now.addingTimeInterval(1),
+            modificationDate: now.addingTimeInterval(1),
+            lastAccessedDate: now.addingTimeInterval(1),
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+
+        let manager = FileFilterManager()
+        manager.contentTagIndex = [
+            invoice.path: [.invoice],
+            receipt.path: [.receipt]
+        ]
+        manager.selectedContentTags = [.invoice]
+        manager.applyFilterImmediately(to: [invoice, receipt])
+
+        let initialHash = try XCTUnwrap(lastFilterHash(of: manager))
+
+        manager.selectedContentTags = [.receipt]
+        manager.applyFilterImmediately(to: [invoice, receipt])
+
+        let updatedHash = try XCTUnwrap(lastFilterHash(of: manager))
+
+        XCTAssertNotEqual(initialHash, updatedHash)
+        XCTAssertEqual(manager.visibleFiles.map(\.path), [receipt.path])
+    }
+
+    func testContentTagQuickFilters_FilterHashChangesWhenContentTagIndexChanges() throws {
+        let now = Date()
+        let invoice = FileItem(
+            path: "/Users/test/Documents/invoice.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+
+        let manager = FileFilterManager()
+        manager.selectedContentTags = [.invoice]
+        manager.contentTagIndex = [
+            invoice.path: [.invoice]
+        ]
+        manager.applyFilterImmediately(to: [invoice])
+
+        let initialHash = try XCTUnwrap(lastFilterHash(of: manager))
+
+        manager.contentTagIndex = [
+            invoice.path: [.receipt]
+        ]
+        manager.applyFilterImmediately(to: [invoice])
+
+        let updatedHash = try XCTUnwrap(lastFilterHash(of: manager))
+
+        XCTAssertNotEqual(initialHash, updatedHash)
+    }
+
+    func testContentTagQuickFilters_SelectedTagsPersistWhenBaseScopeChanges() {
+        let now = Date()
+        let invoice = FileItem(
+            path: "/Users/test/Documents/invoice.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let screenshot = FileItem(
+            path: "/Users/test/Pictures/screenshot.png",
+            sizeInBytes: 1_000,
+            creationDate: now.addingTimeInterval(1),
+            modificationDate: now.addingTimeInterval(1),
+            lastAccessedDate: now.addingTimeInterval(1),
+            location: .pictures,
+            destination: nil,
+            status: .pending
+        )
+
+        let manager = FileFilterManager()
+        manager.contentTagIndex = [
+            invoice.path: [.invoice],
+            screenshot.path: [.screenshot]
+        ]
+        manager.selectedContentTags = [.invoice]
+        manager.updateSourceFiles([invoice, screenshot])
+
+        manager.selectedCategory = .images
+        manager.applyFilterImmediately(to: [invoice, screenshot])
+
+        XCTAssertEqual(manager.selectedContentTags, [.invoice])
+        XCTAssertTrue(manager.visibleFiles.isEmpty)
+        XCTAssertEqual(manager.availableContentTags, [.screenshot])
     }
 
     func testExternalReviewScope_FiltersToRequestedPathsOnly() {
