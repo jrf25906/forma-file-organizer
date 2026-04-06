@@ -215,6 +215,14 @@ final class FileMetadataFoundationService {
                 )
             }
 
+            _ = applyContentTagsWithoutSaving(
+                for: finalRecord,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                destinationDisplayName: destinationDisplayName,
+                matchedRuleID: matchedRuleID
+            )
+
             _ = try appendHistoryEntryWithoutSaving(
                 for: finalRecord,
                 eventKind: eventKind,
@@ -266,6 +274,58 @@ final class FileMetadataFoundationService {
         }
 
         return resolvedCandidate.sourceSummaryCategory
+    }
+
+    @discardableResult
+    func applyContentTagsWithoutSaving(
+        for record: FileMetadataRecord,
+        displayName: String,
+        fileExtension: String,
+        destinationDisplayName: String?,
+        matchedRuleID: UUID?
+    ) -> [MetadataContentTag] {
+        guard featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.autoContentTags) else {
+            return []
+        }
+
+        let resolver = MetadataContentTagResolver()
+        let explicitCandidates = explicitContentTagCandidates(
+            destinationDisplayName: destinationDisplayName,
+            matchedRuleID: matchedRuleID,
+            resolver: resolver
+        )
+        let inferredCandidates = resolver.inferTags(
+            fileName: displayName,
+            fileExtension: fileExtension,
+            fileCategory: FileTypeCategory.category(for: fileExtension)
+        )
+        let newTags = resolver.resolveNewTags(
+            existingRawValues: record.tags,
+            explicitCandidates: explicitCandidates,
+            inferredCandidates: inferredCandidates
+        )
+
+        record.appendContentTags(newTags)
+        return newTags
+    }
+
+    func contentTagIndex(for paths: [String]) -> [String: Set<MetadataContentTag>] {
+        guard isEnabled else { return [:] }
+
+        var index: [String: Set<MetadataContentTag>] = [:]
+        for normalizedPath in Set(paths.map(FileMetadataRecord.normalizedPath)) {
+            let identity = resolveIdentity(for: normalizedPath)
+            guard let record = try? record(matching: identity.canonicalIdentity) else {
+                continue
+            }
+
+            let tags = record.builtInContentTags
+            guard !tags.isEmpty else { continue }
+            index[normalizedPath] = tags
+        }
+
+        return index
     }
 
     func inspectorSummary(for path: String) -> FileMetadataInspectorSummary? {
@@ -441,6 +501,47 @@ final class FileMetadataFoundationService {
             inferredCandidates: inferredCandidates
         )
         return MetadataProjectAssociationResolver().resolveCandidate(from: writeContext)
+    }
+
+    private func explicitContentTagCandidates(
+        destinationDisplayName: String?,
+        matchedRuleID: UUID?,
+        resolver: MetadataContentTagResolver
+    ) -> [MetadataContentTag] {
+        var candidates: [MetadataContentTag] = []
+
+        if let destinationDisplayName,
+           let tag = resolver.resolveExplicitTag(forAlias: destinationDisplayName) {
+            candidates.append(tag)
+        }
+
+        guard let matchedRule = matchedRule(for: matchedRuleID) else {
+            return candidates
+        }
+
+        if let categoryName = matchedRule.category?.name,
+           let tag = resolver.resolveExplicitTag(forAlias: categoryName) {
+            candidates.append(tag)
+        }
+
+        if let destinationAlias = matchedRule.destination?.displayName,
+           let tag = resolver.resolveExplicitTag(forAlias: destinationAlias) {
+            candidates.append(tag)
+        }
+
+        return candidates
+    }
+
+    private func matchedRule(for id: UUID?) -> Rule? {
+        guard let id else { return nil }
+
+        var descriptor = FetchDescriptor<Rule>(
+            predicate: #Predicate<Rule> { rule in
+                rule.id == id
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
     }
 
     @discardableResult

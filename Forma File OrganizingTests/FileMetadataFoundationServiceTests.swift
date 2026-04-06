@@ -8,6 +8,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         super.setUp()
         FeatureFlagService.shared.resetToDefaults()
         FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
         FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
     }
 
@@ -20,7 +21,9 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         let schema = Schema([
             FileMetadataRecord.self,
             FileOrganizationHistoryEntry.self,
-            ProjectCluster.self
+            ProjectCluster.self,
+            Rule.self,
+            RuleCategory.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
@@ -52,6 +55,39 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         context.insert(cluster)
         try context.save()
         return cluster
+    }
+
+    private func insertRule(
+        in context: ModelContext,
+        categoryName: String? = nil,
+        destinationDisplayName: String? = nil
+    ) throws -> Rule {
+        let category = categoryName.map { name in
+            RuleCategory(name: name)
+        }
+
+        if let category {
+            context.insert(category)
+        }
+
+        let destination: Destination?
+        if let destinationDisplayName {
+            destination = .folder(bookmark: Data(), displayName: destinationDisplayName)
+        } else {
+            destination = nil
+        }
+
+        let rule = Rule(
+            name: "Tagging Rule",
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            actionType: .move,
+            destination: destination,
+            category: category
+        )
+        context.insert(rule)
+        try context.save()
+        return rule
     }
 
     func testUpsertRecord_DeduplicatesByCanonicalIdentity() throws {
@@ -605,6 +641,139 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
 
             FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
             XCTAssertNil(service.inspectorSummary(for: "/Users/example/does-not-exist.txt"))
+        }
+    }
+
+    func testApplyContentTags_AppendsExplicitAndInferredTagsWithoutDuplicates() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/invoice-contract.pdf", contents: "invoice")
+            let rule = try insertRule(in: context, categoryName: "Invoices")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "invoice-contract.pdf",
+                    fileExtension: "pdf",
+                    timestamp: Date(timeIntervalSince1970: 8_700)
+                )
+            )
+            record.tags = ["legacy-custom"]
+
+            let appendedTags = service.applyContentTagsWithoutSaving(
+                for: record,
+                displayName: "invoice-contract.pdf",
+                fileExtension: "pdf",
+                destinationDisplayName: "Contracts",
+                matchedRuleID: rule.id
+            )
+
+            XCTAssertEqual(appendedTags, [.contract, .invoice])
+            XCTAssertEqual(record.tags, ["legacy-custom", "contract", "invoice"])
+        }
+    }
+
+    func testApplyContentTags_FeatureFlagDisabledSkipsWrites() throws {
+        try withService { context, service in
+            FeatureFlagService.shared.setEnabled(.autoContentTags, false)
+
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/invoice.pdf", contents: "invoice")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "invoice.pdf",
+                    fileExtension: "pdf",
+                    timestamp: Date(timeIntervalSince1970: 8_710)
+                )
+            )
+
+            let appendedTags = service.applyContentTagsWithoutSaving(
+                for: record,
+                displayName: "invoice.pdf",
+                fileExtension: "pdf",
+                destinationDisplayName: "Invoices",
+                matchedRuleID: nil
+            )
+
+            XCTAssertEqual(appendedTags, [])
+            XCTAssertEqual(record.tags, [])
+            XCTAssertEqual(try context.fetch(FetchDescriptor<FileMetadataRecord>()).count, 1)
+        }
+    }
+
+    func testApplyContentTags_DoesNotEvictStoredTagsWhenRecordIsAlreadyAtCap() throws {
+        try withService { _, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/board-deck.pptx", contents: "deck")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "board-deck.pptx",
+                    fileExtension: "pptx",
+                    timestamp: Date(timeIntervalSince1970: 8_720)
+                )
+            )
+            record.tags = ["invoice", "receipt", "contract"]
+
+            let appendedTags = service.applyContentTagsWithoutSaving(
+                for: record,
+                displayName: "board-deck.pptx",
+                fileExtension: "pptx",
+                destinationDisplayName: "Statements",
+                matchedRuleID: nil
+            )
+
+            XCTAssertEqual(appendedTags, [.statement, .presentation])
+            XCTAssertEqual(
+                record.tags,
+                ["invoice", "receipt", "contract", "statement", "presentation"]
+            )
+        }
+    }
+
+    func testContentTagIndex_ReturnsBuiltInTagsForRequestedPathsOnly() throws {
+        try withService { _, service in
+            let tempDir = try TemporaryDirectory()
+            let invoiceURL = try tempDir.createFile(name: "Inbox/invoice.pdf", contents: "invoice")
+            let receiptURL = try tempDir.createFile(name: "Inbox/receipt.pdf", contents: "receipt")
+            let deckURL = try tempDir.createFile(name: "Inbox/deck.pptx", contents: "deck")
+
+            let invoiceRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: invoiceURL.path,
+                    displayName: "invoice.pdf",
+                    fileExtension: "pdf",
+                    timestamp: Date(timeIntervalSince1970: 8_730)
+                )
+            )
+            invoiceRecord.tags = ["invoice", "legacy-custom"]
+
+            let receiptRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: receiptURL.path,
+                    displayName: "receipt.pdf",
+                    fileExtension: "pdf",
+                    timestamp: Date(timeIntervalSince1970: 8_731)
+                )
+            )
+            receiptRecord.tags = ["receipt"]
+
+            let deckRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: deckURL.path,
+                    displayName: "deck.pptx",
+                    fileExtension: "pptx",
+                    timestamp: Date(timeIntervalSince1970: 8_732)
+                )
+            )
+            deckRecord.tags = ["presentation"]
+
+            let index = service.contentTagIndex(for: [invoiceURL.path, receiptURL.path])
+
+            XCTAssertEqual(index.count, 2)
+            XCTAssertEqual(index[invoiceURL.path], [.invoice])
+            XCTAssertEqual(index[receiptURL.path], [.receipt])
+            XCTAssertNil(index[deckURL.path])
         }
     }
 

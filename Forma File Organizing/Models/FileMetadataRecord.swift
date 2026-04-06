@@ -127,4 +127,15 @@ final class FileMetadataRecord {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+
+    var builtInContentTags: Set<MetadataContentTag> {
+        Set(tags.compactMap { rawValue in
+            MetadataContentTag(rawValue: Self.normalizedTag(rawValue).lowercased())
+        })
+    }
+
+    func appendContentTags(_ newTags: [MetadataContentTag]) {
+        guard !newTags.isEmpty else { return }
+        tags.append(contentsOf: newTags.map(\.rawValue))
+    }
 }
