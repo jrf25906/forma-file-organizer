@@ -75,8 +75,8 @@ final class MetadataContentTagResolverTests: XCTestCase {
             inferredCandidates: [.receipt, .statement]
         )
 
-        XCTAssertEqual(tags, [.invoice, .screenshot, .receipt])
-        XCTAssertFalse(tags.contains(.statement))
+        XCTAssertEqual(tags, [.screenshot, .receipt, .statement])
+        XCTAssertFalse(tags.contains(.invoice))
     }
 
     func testResolveNewTags_DoesNotReturnDuplicateBuiltInTags() {

@@ -72,12 +72,13 @@ struct MetadataContentTagResolver: Sendable {
         explicitCandidates: [MetadataContentTag],
         inferredCandidates: [MetadataContentTag]
     ) -> [MetadataContentTag] {
-        _ = existingRawValues
+        let storedRawValues = Set(existingRawValues)
         var newCandidates: [MetadataContentTag] = []
         var seen = Set<String>()
 
         for candidate in explicitCandidates + inferredCandidates {
             guard newCandidates.count < 3 else { break }
+            guard !storedRawValues.contains(candidate.rawValue) else { continue }
             guard seen.insert(candidate.rawValue).inserted else { continue }
             newCandidates.append(candidate)
         }
