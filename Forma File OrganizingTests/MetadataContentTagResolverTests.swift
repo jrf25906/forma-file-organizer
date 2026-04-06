@@ -46,6 +46,20 @@ final class MetadataContentTagResolverTests: XCTestCase {
         )
         XCTAssertEqual(ndaTags, [.contract])
 
+        let agendaTags = resolver.inferTags(
+            fileName: "Team Agenda.pdf",
+            fileExtension: "pdf",
+            fileCategory: .documents
+        )
+        XCTAssertTrue(agendaTags.isEmpty)
+
+        let disagreementTags = resolver.inferTags(
+            fileName: "Disagreement Notes.docx",
+            fileExtension: "docx",
+            fileCategory: .documents
+        )
+        XCTAssertTrue(disagreementTags.isEmpty)
+
         let ambiguousTags = resolver.inferTags(
             fileName: "IMG_1042.png",
             fileExtension: "png",
@@ -54,19 +68,20 @@ final class MetadataContentTagResolverTests: XCTestCase {
         XCTAssertTrue(ambiguousTags.isEmpty)
     }
 
-    func testResolveNewTags_UnionWithCapPrefersExplicitCandidates() {
+    func testResolveNewTags_ReturnsOnlyNewTagsToAppendWithoutRewritingExistingValues() {
         let tags = resolver.resolveNewTags(
-            existingRawValues: [],
+            existingRawValues: [MetadataContentTag.invoice.rawValue, "legacy-custom"],
             explicitCandidates: [.invoice, .screenshot],
             inferredCandidates: [.receipt, .statement]
         )
 
         XCTAssertEqual(tags, [.invoice, .screenshot, .receipt])
+        XCTAssertFalse(tags.contains(.statement))
     }
 
     func testResolveNewTags_DoesNotReturnDuplicateBuiltInTags() {
         let tags = resolver.resolveNewTags(
-            existingRawValues: [MetadataContentTag.invoice.rawValue],
+            existingRawValues: [],
             explicitCandidates: [.invoice, .receipt, .invoice],
             inferredCandidates: [.receipt, .presentation, .presentation]
         )

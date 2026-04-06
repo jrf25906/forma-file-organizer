@@ -38,6 +38,7 @@ struct MetadataContentTagResolver: Sendable {
 
     func inferTags(fileName: String, fileExtension: String, fileCategory: FileTypeCategory?) -> [MetadataContentTag] {
         let normalizedFileName = normalized(fileName)
+        let filenameTokens = tokenized(normalizedFileName)
         let extensionLowercased = fileExtension.lowercased()
         var tags: [MetadataContentTag] = []
 
@@ -49,7 +50,7 @@ struct MetadataContentTagResolver: Sendable {
         if fileCategory == .documents {
             if normalizedFileName.contains("invoice") { appendIfNeeded(.invoice, to: &tags) }
             if normalizedFileName.contains("receipt") { appendIfNeeded(.receipt, to: &tags) }
-            if Self.contractFilenameTokens.contains(where: normalizedFileName.contains) {
+            if Self.contractFilenameTokens.contains(where: filenameTokens.contains) {
                 appendIfNeeded(.contract, to: &tags)
             }
             if normalizedFileName.contains("statement") { appendIfNeeded(.statement, to: &tags) }
@@ -71,9 +72,9 @@ struct MetadataContentTagResolver: Sendable {
         explicitCandidates: [MetadataContentTag],
         inferredCandidates: [MetadataContentTag]
     ) -> [MetadataContentTag] {
-        var resolved = normalize(existingRawValues)
-        var seen = Set(resolved.map(\.rawValue))
+        _ = existingRawValues
         var newCandidates: [MetadataContentTag] = []
+        var seen = Set<String>()
 
         for candidate in explicitCandidates + inferredCandidates {
             guard newCandidates.count < 3 else { break }
@@ -81,27 +82,17 @@ struct MetadataContentTagResolver: Sendable {
             newCandidates.append(candidate)
         }
 
-        resolved.append(contentsOf: newCandidates)
-        return resolved
-    }
-
-    private func normalize(_ rawValues: [String]) -> [MetadataContentTag] {
-        var tags: [MetadataContentTag] = []
-        var seen = Set<String>()
-
-        for rawValue in rawValues {
-            guard let tag = MetadataContentTag(rawValue: rawValue),
-                  seen.insert(tag.rawValue).inserted else {
-                continue
-            }
-            tags.append(tag)
-        }
-
-        return tags
+        return newCandidates
     }
 
     private func normalized(_ string: String) -> String {
         string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func tokenized(_ string: String) -> [String] {
+        string
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
     }
 
     private func appendIfNeeded(_ tag: MetadataContentTag, to tags: inout [MetadataContentTag]) {
