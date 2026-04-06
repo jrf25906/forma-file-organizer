@@ -51,7 +51,7 @@ struct MetadataProjectAssociationResolver: Sendable {
             return nil
         }
 
-        guard hasExactProjectsParentMatch(for: standardizedDestinationFolderPath) else {
+        guard context.explicitSourceMode || hasExactProjectsParentMatch(for: standardizedDestinationFolderPath) else {
             return nil
         }
 

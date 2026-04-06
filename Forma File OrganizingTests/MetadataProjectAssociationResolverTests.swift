@@ -37,6 +37,18 @@ final class MetadataProjectAssociationResolverTests: XCTestCase {
             inferredCandidates: []
         )
         XCTAssertNil(resolver.resolveCandidate(from: nonQualifyingDescendantContext))
+
+        let explicitSourceModeContext = ProjectAssociationWriteContext(
+            resolvedExplicitDestinationFolderPath: "/Users/jane/Documents/Archive/Alpha",
+            explicitSourceMode: true,
+            inferredCandidates: []
+        )
+
+        let explicitSourceModeResolved = resolver.resolveCandidate(from: explicitSourceModeContext)
+
+        XCTAssertEqual(explicitSourceModeResolved?.projectAssociation, "Alpha")
+        XCTAssertEqual(explicitSourceModeResolved?.normalizedLabel, "Alpha")
+        XCTAssertEqual(explicitSourceModeResolved?.sourceSummaryCategory, .destinationFolder)
     }
 
     func testResolveCandidate_PrefersExplicitDestinationOverInference() throws {
