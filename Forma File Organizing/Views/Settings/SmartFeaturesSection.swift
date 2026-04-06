@@ -19,6 +19,7 @@ struct SmartFeaturesSection: View {
     @AppStorage(FeatureFlagService.Feature.analyticsReports.rawValue) private var analyticsReports = FeatureFlagService.Feature.analyticsReports.defaultValue
     @AppStorage(FeatureFlagService.Feature.recursiveScanning.rawValue) private var recursiveScanning = FeatureFlagService.Feature.recursiveScanning.defaultValue
     @AppStorage(FeatureFlagService.Feature.metadataFoundation.rawValue) private var metadataFoundation = FeatureFlagService.Feature.metadataFoundation.defaultValue
+    @AppStorage(FeatureFlagService.Feature.autoProjectAssociation.rawValue) private var autoProjectAssociation = FeatureFlagService.Feature.autoProjectAssociation.defaultValue
     @AppStorage(FeatureFlagService.Feature.backgroundMonitoring.rawValue) private var backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
     @AppStorage(FeatureFlagService.Feature.autoOrganize.rawValue) private var autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
     @AppStorage(FeatureFlagService.Feature.automationReminders.rawValue) private var automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue
@@ -226,6 +227,16 @@ struct SmartFeaturesSection: View {
                             feature: .metadataFoundation,
                             isEnabled: $metadataFoundation,
                             masterEnabled: masterAIEnabled
+                        )
+
+                        Divider().padding(.leading, FormaSpacing.extraLarge + FormaSpacing.tight)
+
+                        SmartFeatureRow(
+                            feature: .autoProjectAssociation,
+                            isEnabled: $autoProjectAssociation,
+                            masterEnabled: masterAIEnabled,
+                            dependencyMet: metadataFoundation,
+                            requiresFeature: .metadataFoundation
                         )
                     }
                 }
@@ -452,6 +463,7 @@ struct SmartFeaturesSection: View {
         analyticsReports = FeatureFlagService.Feature.analyticsReports.defaultValue
         recursiveScanning = FeatureFlagService.Feature.recursiveScanning.defaultValue
         metadataFoundation = FeatureFlagService.Feature.metadataFoundation.defaultValue
+        autoProjectAssociation = FeatureFlagService.Feature.autoProjectAssociation.defaultValue
         backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
         autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
         automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue
