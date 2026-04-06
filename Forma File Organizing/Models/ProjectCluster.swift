@@ -22,7 +22,14 @@ final class ProjectCluster {
     }
 
     /// The file paths of all files in this cluster
-    var filePaths: [String]
+    var filePaths: [String] {
+        didSet {
+            filePathsSearchBlob = Self.makeFilePathsSearchBlob(from: filePaths)
+        }
+    }
+
+    /// Searchable representation of stored file paths for path-scoped fetches.
+    private(set) var filePathsSearchBlob: String
     
     /// Confidence score (0.0-1.0) indicating how certain we are these files are related
     /// - 0.8+ (High): Strong signals (explicit project codes, tight temporal grouping)
@@ -65,6 +72,7 @@ final class ProjectCluster {
         self.id = UUID()
         self.clusterTypeRaw = clusterType.rawValue
         self.filePaths = filePaths
+        self.filePathsSearchBlob = Self.makeFilePathsSearchBlob(from: filePaths)
         self.confidenceScore = confidenceScore
         self.suggestedFolderName = suggestedFolderName
         self.detectedPattern = detectedPattern
@@ -233,6 +241,47 @@ final class ProjectCluster {
     /// Mark this cluster as organized
     func markAsOrganized() {
         isOrganized = true
+    }
+}
+
+extension ProjectCluster {
+    func containsStoredFilePath(_ path: String) -> Bool {
+        let token = Self.filePathSearchToken(for: path)
+        if !filePathsSearchBlob.isEmpty {
+            return filePathsSearchBlob.contains(token)
+        }
+
+        let normalizedPath = Self.normalizeStoredFilePath(path)
+        return filePaths.contains { Self.normalizeStoredFilePath($0) == normalizedPath }
+    }
+
+    @discardableResult
+    func rebuildFilePathsSearchBlobIfNeeded() -> Bool {
+        let expected = Self.makeFilePathsSearchBlob(from: filePaths)
+        guard filePathsSearchBlob != expected else {
+            return false
+        }
+
+        filePathsSearchBlob = expected
+        return true
+    }
+
+    static func filePathSearchToken(for path: String) -> String {
+        "\n\(normalizeStoredFilePath(path))\n"
+    }
+
+    private static func makeFilePathsSearchBlob(from filePaths: [String]) -> String {
+        guard !filePaths.isEmpty else {
+            return ""
+        }
+
+        return "\n" + filePaths
+            .map(normalizeStoredFilePath)
+            .joined(separator: "\n") + "\n"
+    }
+
+    private static func normalizeStoredFilePath(_ path: String) -> String {
+        URL(fileURLWithPath: path).standardizedFileURL.path
     }
 }
 
