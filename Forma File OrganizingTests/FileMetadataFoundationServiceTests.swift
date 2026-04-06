@@ -428,7 +428,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                 ]
             )
 
-            _ = try service.applyProjectAssociationWithoutSaving(
+            _ = service.applyProjectAssociationWithoutSaving(
                 for: existingRecord,
                 writeContext: existingWriteContext
             )
@@ -470,6 +470,42 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
             let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
             XCTAssertEqual(summary.projectAssociationSummary, "Finance Vault")
             XCTAssertEqual(summary.projectAssociationSourceSummary, "Derived from destination folder")
+        }
+    }
+
+    func testInspectorSummary_DoesNotExposeDestinationFolderSourceSummaryForGenericDestination() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/screenshot.png", contents: "shot")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "screenshot.png",
+                    fileExtension: "png",
+                    timestamp: Date(timeIntervalSince1970: 8_450)
+                )
+            )
+            record.projectAssociation = "Screenshots"
+            try context.save()
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: fileURL.path,
+                    toPath: "/Users/example/Pictures/Screenshots/screenshot.png",
+                    destinationDisplayName: "Screenshots",
+                    matchedRuleID: nil,
+                    detailsSummary: "Moved into a generic destination folder.",
+                    timestamp: Date(timeIntervalSince1970: 8_460)
+                )
+            )
+
+            let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
+            XCTAssertEqual(summary.projectAssociationSummary, "Screenshots")
+            XCTAssertNil(summary.projectAssociationSourceSummary)
         }
     }
 

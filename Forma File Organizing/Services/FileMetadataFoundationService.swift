@@ -352,13 +352,30 @@ final class FileMetadataFoundationService {
     private func explicitProjectAssociationSourceSummary(
         for record: FileMetadataRecord
     ) -> ProjectAssociationWriteContext.SourceSummaryCategory? {
-        guard let storedAssociation = FileMetadataRecord.normalizedOptionalText(record.projectAssociation),
-              let latestDestinationLabel = latestDestinationBackedProjectAssociationLabel(for: record),
-              latestDestinationLabel == storedAssociation else {
+        guard let storedAssociation = FileMetadataRecord.normalizedOptionalText(record.projectAssociation) else {
             return nil
         }
 
-        return .destinationFolder
+        let resolver = MetadataProjectAssociationResolver()
+        for entry in record.historyEntries.sorted(by: { $0.timestamp > $1.timestamp }) {
+            guard let explicitDestinationFolderPath = standardizedDestinationFolderPath(for: entry) else {
+                continue
+            }
+
+            let writeContext = ProjectAssociationWriteContext(
+                resolvedExplicitDestinationFolderPath: explicitDestinationFolderPath,
+                explicitSourceMode: false,
+                inferredCandidates: []
+            )
+            guard let resolvedCandidate = resolver.resolveCandidate(from: writeContext),
+                  resolvedCandidate.sourceSummaryCategory == .destinationFolder else {
+                continue
+            }
+
+            return resolvedCandidate.projectAssociation == storedAssociation ? .destinationFolder : nil
+        }
+
+        return nil
     }
 
     private func inferredProjectAssociationSourceSummary(
@@ -373,35 +390,12 @@ final class FileMetadataFoundationService {
         return resolvedCandidate.sourceSummaryCategory
     }
 
-    private func latestDestinationBackedProjectAssociationLabel(
-        for record: FileMetadataRecord
-    ) -> String? {
-        let sortedHistoryEntries = record.historyEntries.sorted(by: { $0.timestamp > $1.timestamp })
-        for entry in sortedHistoryEntries {
-            guard let label = destinationBackedProjectAssociationLabel(for: entry) else {
-                continue
-            }
-            return label
-        }
-
-        return nil
-    }
-
-    private func destinationBackedProjectAssociationLabel(
-        for entry: FileOrganizationHistoryEntry
-    ) -> String? {
-        if let destinationDisplayName = FileMetadataRecord.normalizedOptionalText(entry.destinationDisplayName) {
-            return destinationDisplayName
-        }
-
+    private func standardizedDestinationFolderPath(for entry: FileOrganizationHistoryEntry) -> String? {
         guard let toPath = entry.toPath else {
             return nil
         }
 
-        let destinationURL = URL(fileURLWithPath: toPath).standardizedFileURL
-        let destinationFolderName = destinationURL.deletingLastPathComponent().lastPathComponent
-        let normalizedLabel = MetadataProjectAssociationResolver().normalizeLabel(destinationFolderName)
-        return normalizedLabel.isEmpty ? nil : normalizedLabel
+        return URL(fileURLWithPath: toPath).standardizedFileURL.deletingLastPathComponent().path
     }
 
     private func resolveRelatedProjectAssociationCandidate(
