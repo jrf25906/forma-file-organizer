@@ -31,6 +31,7 @@ struct FeatureFlagService: Sendable {
         case analyticsReports = "feature.analyticsReports"
         case recursiveScanning = "feature.recursiveScanning"
         case metadataFoundation = "feature.metadataFoundation"
+        case autoContentTags = "feature.autoContentTags"
         case autoProjectAssociation = "feature.autoProjectAssociation"
 
         // Automation (v1.4)
@@ -61,6 +62,7 @@ struct FeatureFlagService: Sendable {
             case .analyticsReports: return true
             case .recursiveScanning: return true
             case .metadataFoundation: return false
+            case .autoContentTags: return false
             case .autoProjectAssociation: return false
             // Automation (v1.4)
             case .backgroundMonitoring: return true
@@ -89,6 +91,7 @@ struct FeatureFlagService: Sendable {
             case .analyticsReports: return "Analytics reports"
             case .recursiveScanning: return "Recursive scanning"
             case .metadataFoundation: return "Metadata foundation"
+            case .autoContentTags: return "Auto content tags"
             case .autoProjectAssociation: return "Auto project association"
             // Automation (v1.4)
             case .backgroundMonitoring: return "Background monitoring"
@@ -130,6 +133,8 @@ struct FeatureFlagService: Sendable {
                 return "Scan files inside subfolders of monitored folders."
             case .metadataFoundation:
                 return "Persist a local metadata ledger and per-file organization history."
+            case .autoContentTags:
+                return "Assign built-in content tags from obvious names, extensions, and file categories."
             case .autoProjectAssociation:
                 return "Write project association labels from explicit project-like destinations and strong related-file inference."
             // Automation (v1.4)
@@ -165,6 +170,7 @@ struct FeatureFlagService: Sendable {
             case .analyticsReports: return "doc.richtext"
             case .recursiveScanning: return "folder.badge.gearshape"
             case .metadataFoundation: return "archivebox"
+            case .autoContentTags: return "tag.fill"
             case .autoProjectAssociation: return "folder.badge.gearshape"
             // Automation (v1.4)
             case .backgroundMonitoring: return "eye.circle"
@@ -198,6 +204,8 @@ struct FeatureFlagService: Sendable {
                 return []
             case .metadataFoundation:
                 return []
+            case .autoContentTags:
+                return [.metadataFoundation]
             case .autoProjectAssociation:
                 return [.metadataFoundation]
             // Automation (v1.4)
