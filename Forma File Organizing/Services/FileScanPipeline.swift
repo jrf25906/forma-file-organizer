@@ -444,19 +444,23 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         for persistedPaths: [String],
         context: ModelContext
     ) -> [String: [ProjectAssociationWriteContext.InferredCandidate]] {
-        guard !persistedPaths.isEmpty else { return [:] }
+        let uniquePaths = Array(Set(persistedPaths))
+        guard !uniquePaths.isEmpty else { return [:] }
 
-        var lookup: [String: [ProjectAssociationWriteContext.InferredCandidate]] = [:]
+        var clustersByPath: [String: [ProjectCluster]] = [:]
+        clustersByPath.reserveCapacity(uniquePaths.count)
 
-        for path in Set(persistedPaths) {
+        for path in uniquePaths {
+            let token = ProjectCluster.filePathSearchToken(for: path)
             let descriptor = FetchDescriptor<ProjectCluster>(
                 predicate: #Predicate<ProjectCluster> { cluster in
-                    !cluster.isDismissed && !cluster.isOrganized && cluster.filePaths.contains(path)
+                    !cluster.isDismissed && !cluster.isOrganized && cluster.filePathsSearchBlob.contains(token)
                 }
             )
-            let clusters: [ProjectCluster]
             do {
-                clusters = try context.fetch(descriptor)
+                let clusters = try context.fetch(descriptor)
+                guard !clusters.isEmpty else { continue }
+                clustersByPath[path] = clusters
             } catch {
                 Log.error(
                     "FileScanPipeline: Failed to fetch project clusters for metadata writes: \(error.localizedDescription)",
@@ -464,18 +468,43 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                 )
                 return [:]
             }
+        }
 
-            guard !clusters.isEmpty else { continue }
+        let legacyDescriptor = FetchDescriptor<ProjectCluster>(
+            predicate: #Predicate<ProjectCluster> { cluster in
+                !cluster.isDismissed && !cluster.isOrganized && cluster.filePathsSearchBlob.isEmpty
+            }
+        )
+        let legacyClusters: [ProjectCluster]
+        do {
+            legacyClusters = try context.fetch(legacyDescriptor)
+        } catch {
+            Log.error(
+                "FileScanPipeline: Failed to fetch legacy project clusters for metadata writes: \(error.localizedDescription)",
+                category: .pipeline
+            )
+            return [:]
+        }
 
-            lookup[path] = clusters.map { cluster in
+        if !legacyClusters.isEmpty {
+            let requestedPaths = Set(uniquePaths)
+            for cluster in legacyClusters {
+                _ = cluster.rebuildFilePathsSearchBlobIfNeeded()
+
+                for path in requestedPaths where cluster.containsStoredFilePath(path) {
+                    clustersByPath[path, default: []].append(cluster)
+                }
+            }
+        }
+
+        return clustersByPath.mapValues { clusters in
+            clusters.map { cluster in
                 ProjectAssociationWriteContext.InferredCandidate(
                     suggestedFolderName: cluster.suggestedFolderName,
                     confidence: cluster.confidenceScore
                 )
             }
         }
-
-        return lookup
     }
 
     @MainActor

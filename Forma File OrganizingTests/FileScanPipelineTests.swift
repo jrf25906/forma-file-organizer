@@ -278,6 +278,11 @@ final class FileScanPipelineTests: XCTestCase {
             suggestedFolderName: "Beta",
             confidenceScore: 0.70
         )
+        try insertProjectCluster(
+            filePath: "\(rootPath)/unrelated-note.txt",
+            suggestedFolderName: "Gamma",
+            confidenceScore: 0.99
+        )
 
         let pipeline: FileScanPipelineProtocol = FileScanPipeline()
 
