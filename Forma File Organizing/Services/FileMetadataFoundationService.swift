@@ -10,6 +10,12 @@ protocol FileMetadataFoundationServiceProtocol {
         fileExtension: String,
         timestamp: Date
     ) throws -> FileMetadataRecord?
+
+    @discardableResult
+    func applyProjectAssociationWithoutSaving(
+        for metadataRecord: FileMetadataRecord,
+        writeContext: ProjectAssociationWriteContext
+    ) -> ProjectAssociationWriteContext.SourceSummaryCategory?
 }
 
 @MainActor

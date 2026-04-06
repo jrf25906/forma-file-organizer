@@ -11,7 +11,13 @@ final class FileScanPipelineTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         FeatureFlagService.shared.resetToDefaults()
-        let schema = Schema([FileItem.self, Rule.self, FileMetadataRecord.self, FileOrganizationHistoryEntry.self])
+        let schema = Schema([
+            FileItem.self,
+            Rule.self,
+            FileMetadataRecord.self,
+            FileOrganizationHistoryEntry.self,
+            ProjectCluster.self
+        ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         container = try ModelContainer(for: schema, configurations: [config])
         context = container.mainContext
@@ -100,6 +106,15 @@ final class FileScanPipelineTests: XCTestCase {
             _ = timestamp
             throw TestError.failedToPersist
         }
+
+        func applyProjectAssociationWithoutSaving(
+            for metadataRecord: FileMetadataRecord,
+            writeContext: ProjectAssociationWriteContext
+        ) -> ProjectAssociationWriteContext.SourceSummaryCategory? {
+            _ = metadataRecord
+            _ = writeContext
+            return nil
+        }
     }
 
     private final class TrackingMetadataFoundationService: FileMetadataFoundationServiceProtocol {
@@ -118,6 +133,34 @@ final class FileScanPipelineTests: XCTestCase {
             upsertCalls += 1
             return nil
         }
+
+        func applyProjectAssociationWithoutSaving(
+            for metadataRecord: FileMetadataRecord,
+            writeContext: ProjectAssociationWriteContext
+        ) -> ProjectAssociationWriteContext.SourceSummaryCategory? {
+            _ = metadataRecord
+            _ = writeContext
+            return nil
+        }
+    }
+
+    private func insertProjectCluster(
+        filePath: String,
+        suggestedFolderName: String,
+        confidenceScore: Double,
+        isDismissed: Bool = false,
+        isOrganized: Bool = false
+    ) throws {
+        let cluster = ProjectCluster(
+            clusterType: .nameSimilarity,
+            filePaths: [filePath],
+            confidenceScore: confidenceScore,
+            suggestedFolderName: suggestedFolderName,
+            isDismissed: isDismissed,
+            isOrganized: isOrganized
+        )
+        context.insert(cluster)
+        try context.save()
     }
 
     func testScanAndPersist_PreservesLocationKind() async throws {
@@ -208,6 +251,104 @@ final class FileScanPipelineTests: XCTestCase {
         XCTAssertEqual(records.first?.canonicalIdentity, FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: path))
     }
 
+    func testScanAndPersist_StrongProjectInferencePopulatesMetadataAssociation() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+
+        let now = Date()
+        let rootPath = "/Users/test/Desktop"
+        let filePath = "\(rootPath)/project-note.txt"
+        let metadata = FileMetadata(
+            path: filePath,
+            sizeInBytes: 128,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: rootPath
+        )
+
+        try insertProjectCluster(
+            filePath: filePath,
+            suggestedFolderName: "Alpha",
+            confidenceScore: 0.92
+        )
+        try insertProjectCluster(
+            filePath: filePath,
+            suggestedFolderName: "Beta",
+            confidenceScore: 0.70
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: StubFileSystemService(metadata: [metadata], scannedRootPaths: [rootPath]),
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        XCTAssertEqual(result.files.count, 1)
+
+        let verificationContext = ModelContext(container)
+        let record = try XCTUnwrap(
+            verificationContext
+                .fetch(FetchDescriptor<FileMetadataRecord>(predicate: #Predicate { $0.lastKnownPath == filePath }))
+                .first
+        )
+        XCTAssertEqual(record.projectAssociation, "Alpha")
+    }
+
+    func testScanAndPersist_WeakProjectInferenceDoesNotWriteAssociation() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+
+        let now = Date()
+        let rootPath = "/Users/test/Desktop"
+        let filePath = "\(rootPath)/conflicting-note.txt"
+        let metadata = FileMetadata(
+            path: filePath,
+            sizeInBytes: 128,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: rootPath
+        )
+
+        try insertProjectCluster(
+            filePath: filePath,
+            suggestedFolderName: "Alpha",
+            confidenceScore: 0.90
+        )
+        try insertProjectCluster(
+            filePath: filePath,
+            suggestedFolderName: "Beta",
+            confidenceScore: 0.80
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: StubFileSystemService(metadata: [metadata], scannedRootPaths: [rootPath]),
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let verificationContext = ModelContext(container)
+        let record = try XCTUnwrap(
+            verificationContext
+                .fetch(FetchDescriptor<FileMetadataRecord>(predicate: #Predicate { $0.lastKnownPath == filePath }))
+                .first
+        )
+        XCTAssertNil(record.projectAssociation)
+    }
+
     func testScanAndPersist_MetadataFoundationDisabledSkipsMetadataWrites() async throws {
         FeatureFlagService.shared.setEnabled(.metadataFoundation, false)
 
@@ -273,6 +414,134 @@ final class FileScanPipelineTests: XCTestCase {
         let records = try verificationContext.fetch(FetchDescriptor<FileMetadataRecord>())
         XCTAssertEqual(records.count, 1, "Explicit-file evaluation should upsert a metadata record when the feature is enabled")
         XCTAssertEqual(records.first?.canonicalIdentity, FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: explicitMetadata.path))
+    }
+
+    func testEvaluateAndPersistExplicitFiles_ProjectLikeDestinationWritesAssociation() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+
+        let temp = try TemporaryDirectory()
+        defer { temp.cleanup() }
+
+        let projectsFolder = try temp.createDirectory(name: "Projects/Alpha")
+        let destination = try Destination.folder(from: projectsFolder)
+        let resolvedDestinationURL = try XCTUnwrap(destination.resolve()?.url)
+        XCTAssertEqual(
+            resolvedDestinationURL.standardizedFileURL.path,
+            projectsFolder.standardizedFileURL.path
+        )
+        let explicitPath = temp.url.appendingPathComponent("Inbox/report.pdf").path
+        let explicitMetadata = FileMetadata(
+            path: explicitPath,
+            sizeInBytes: 4096,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .downloads,
+            scanRootPath: temp.url.appendingPathComponent("Inbox").path,
+            destination: destination
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.evaluateAndPersistExplicitFiles(
+            files: [explicitMetadata],
+            scannedRootPaths: [temp.url.path],
+            reconcileMissingFiles: false,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let verificationContext = ModelContext(container)
+        let record = try XCTUnwrap(
+            verificationContext
+                .fetch(FetchDescriptor<FileMetadataRecord>(predicate: #Predicate { $0.lastKnownPath == explicitPath }))
+                .first
+        )
+        XCTAssertEqual(record.projectAssociation, "Alpha")
+    }
+
+    func testEvaluateAndPersistExplicitFiles_NonProjectDestinationDoesNotWriteAssociation() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+
+        let temp = try TemporaryDirectory()
+        defer { temp.cleanup() }
+
+        let screenshotsFolder = try temp.createDirectory(name: "Pictures/Screenshots")
+        let destination = try Destination.folder(from: screenshotsFolder)
+        let explicitPath = temp.url.appendingPathComponent("Inbox/screen.png").path
+        let explicitMetadata = FileMetadata(
+            path: explicitPath,
+            sizeInBytes: 1024,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .pictures,
+            scanRootPath: temp.url.appendingPathComponent("Inbox").path,
+            destination: destination
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.evaluateAndPersistExplicitFiles(
+            files: [explicitMetadata],
+            scannedRootPaths: [temp.url.path],
+            reconcileMissingFiles: false,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let verificationContext = ModelContext(container)
+        let record = try XCTUnwrap(
+            verificationContext
+                .fetch(FetchDescriptor<FileMetadataRecord>(predicate: #Predicate { $0.lastKnownPath == explicitPath }))
+                .first
+        )
+        XCTAssertNil(record.projectAssociation)
+    }
+
+    func testEvaluateAndPersistExplicitFiles_SkipsProjectAssociationWhenFeatureDisabled() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, false)
+
+        let temp = try TemporaryDirectory()
+        defer { temp.cleanup() }
+
+        let projectsFolder = try temp.createDirectory(name: "Projects/Atlas")
+        let destination = try Destination.folder(from: projectsFolder)
+        let explicitPath = temp.url.appendingPathComponent("Inbox/atlas.pdf").path
+        let explicitMetadata = FileMetadata(
+            path: explicitPath,
+            sizeInBytes: 2048,
+            creationDate: Date(),
+            modificationDate: Date(),
+            lastAccessedDate: Date(),
+            location: .downloads,
+            scanRootPath: temp.url.appendingPathComponent("Inbox").path,
+            destination: destination
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.evaluateAndPersistExplicitFiles(
+            files: [explicitMetadata],
+            scannedRootPaths: [temp.url.path],
+            reconcileMissingFiles: false,
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let verificationContext = ModelContext(container)
+        let record = try XCTUnwrap(
+            verificationContext
+                .fetch(FetchDescriptor<FileMetadataRecord>(predicate: #Predicate { $0.lastKnownPath == explicitPath }))
+                .first
+        )
+        XCTAssertNil(record.projectAssociation)
     }
 
     func testScanAndPersist_MetadataUpsertFailureStillPersistsFileItems() async throws {

@@ -218,9 +218,11 @@ struct FileScanPipeline: FileScanPipelineProtocol {
             context: context
         )
         let primaryPersistenceSaveError = primaryPersistenceSaveErrorProvider?() ?? persistence.saveError
+        let sourceFilesByPath = sourceFilesByPath(from: files)
 
         persistMetadataRecords(
-            for: normalized,
+            for: persistence.files,
+            sourceFilesByPath: sourceFilesByPath,
             context: context,
             shouldPersist: primaryPersistenceSaveError == nil
         )
@@ -368,24 +370,44 @@ struct FileScanPipeline: FileScanPipelineProtocol {
 
     @MainActor
     private func persistMetadataRecords(
-        for files: [FileMetadata],
+        for files: [FileItem],
+        sourceFilesByPath: [String: FileMetadata],
         context: ModelContext,
         shouldPersist: Bool
     ) {
         guard shouldPersist,
               FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
 
-        let metadataContext = ModelContext(context.container)
+        let metadataContext = context
         let metadataService = metadataFoundationServiceFactory(metadataContext)
         let timestamp = Date()
+        let inferredCandidatesByPath = inferredProjectAssociationCandidatesByPath(
+            for: files.map(\.path),
+            context: metadataContext
+        )
 
         for file in files {
+            let sourceMetadata = sourceMetadata(
+                for: file,
+                sourceFilesByPath: sourceFilesByPath
+            )
             do {
-                _ = try metadataService.upsertRecordWithoutSaving(
-                    for: file.path,
+                guard let record = try metadataService.upsertRecordWithoutSaving(
+                    for: sourceMetadata.path,
                     displayName: file.name,
                     fileExtension: file.fileExtension,
                     timestamp: timestamp
+                ) else {
+                    continue
+                }
+
+                let writeContext = projectAssociationWriteContext(
+                    for: sourceMetadata,
+                    inferredCandidates: inferredCandidatesByPath[file.path] ?? []
+                )
+                _ = metadataService.applyProjectAssociationWithoutSaving(
+                    for: record,
+                    writeContext: writeContext
                 )
             } catch {
                 Log.error(
@@ -403,6 +425,110 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                 category: .pipeline
             )
         }
+    }
+
+    @MainActor
+    private func sourceFilesByPath(from files: [FileMetadata]) -> [String: FileMetadata] {
+        var lookup: [String: FileMetadata] = [:]
+        lookup.reserveCapacity(files.count)
+
+        for file in files {
+            lookup[file.path] = file
+        }
+
+        return lookup
+    }
+
+    @MainActor
+    private func inferredProjectAssociationCandidatesByPath(
+        for persistedPaths: [String],
+        context: ModelContext
+    ) -> [String: [ProjectAssociationWriteContext.InferredCandidate]] {
+        guard !persistedPaths.isEmpty else { return [:] }
+
+        let descriptor = FetchDescriptor<ProjectCluster>(
+            predicate: #Predicate<ProjectCluster> { !$0.isDismissed && !$0.isOrganized }
+        )
+        let clusters: [ProjectCluster]
+        do {
+            clusters = try context.fetch(descriptor)
+        } catch {
+            Log.error(
+                "FileScanPipeline: Failed to fetch project clusters for metadata writes: \(error.localizedDescription)",
+                category: .pipeline
+            )
+            return [:]
+        }
+
+        let persistedPathSet = Set(persistedPaths)
+        var lookup: [String: [ProjectAssociationWriteContext.InferredCandidate]] = [:]
+
+        for cluster in clusters {
+            let matchedPaths = Set(cluster.filePaths).intersection(persistedPathSet)
+            guard !matchedPaths.isEmpty else { continue }
+
+            let candidate = ProjectAssociationWriteContext.InferredCandidate(
+                suggestedFolderName: cluster.suggestedFolderName,
+                confidence: cluster.confidenceScore
+            )
+
+            for path in matchedPaths {
+                lookup[path, default: []].append(candidate)
+            }
+        }
+
+        return lookup
+    }
+
+    @MainActor
+    private func sourceMetadata(
+        for file: FileItem,
+        sourceFilesByPath: [String: FileMetadata]
+    ) -> FileMetadata {
+        let persistedMetadata = makeSourceMetadata(from: file)
+        guard persistedMetadata.destination == nil,
+              let originalMetadata = sourceFilesByPath[file.path] else {
+            return persistedMetadata
+        }
+
+        return originalMetadata
+    }
+
+    @MainActor
+    private func makeSourceMetadata(from file: FileItem) -> FileMetadata {
+        FileMetadata(
+            path: file.path,
+            sizeInBytes: file.sizeInBytes,
+            creationDate: file.creationDate,
+            modificationDate: file.modificationDate,
+            lastAccessedDate: file.lastAccessedDate,
+            location: file.location,
+            scanRootPath: file.scanRootPath,
+            relativeParentPath: file.relativeParentPath,
+            destination: file.destination,
+            originalSuggestedDestination: file.originalSuggestedDestination,
+            status: file.status,
+            matchReason: file.matchReason,
+            confidenceScore: file.confidenceScore,
+            suggestionSourceRaw: file.suggestionSourceRaw,
+            matchedRuleID: file.matchedRuleID
+        )
+    }
+
+    @MainActor
+    private func projectAssociationWriteContext(
+        for sourceMetadata: FileMetadata,
+        inferredCandidates: [ProjectAssociationWriteContext.InferredCandidate]
+    ) -> ProjectAssociationWriteContext {
+        let explicitDestinationFolderPath = sourceMetadata.destination?.resolve()?.url.standardizedFileURL.path
+        let explicitSourceMode = explicitDestinationFolderPath.map {
+            MetadataProjectAssociationResolver().hasExactProjectsParentMatch(for: $0)
+        } ?? false
+        return ProjectAssociationWriteContext(
+            resolvedExplicitDestinationFolderPath: explicitDestinationFolderPath,
+            explicitSourceMode: explicitSourceMode,
+            inferredCandidates: inferredCandidates
+        )
     }
 
     private func combinedErrorSummary(scanErrorSummary: String?, persistenceError: Error?) -> String? {
