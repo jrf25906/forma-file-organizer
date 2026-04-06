@@ -731,6 +731,30 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testRecordTransition_DoesNotApplyContentTagsUntilTask3Integration() throws {
+        try withService { _, service in
+            let tempDir = try TemporaryDirectory()
+            let sourceURL = try tempDir.createFile(name: "Inbox/invoice.pdf", contents: "invoice")
+            let destinationURL = tempDir.url.appendingPathComponent("Archive/invoice.pdf")
+
+            let record = try XCTUnwrap(
+                service.recordTransition(
+                    from: sourceURL.path,
+                    to: destinationURL.path,
+                    displayName: "invoice.pdf",
+                    fileExtension: "pdf",
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    destinationDisplayName: "Invoices",
+                    matchedRuleID: nil,
+                    timestamp: Date(timeIntervalSince1970: 8_725)
+                )
+            )
+
+            XCTAssertEqual(record.tags, [])
+        }
+    }
+
     func testContentTagIndex_ReturnsBuiltInTagsForRequestedPathsOnly() throws {
         try withService { _, service in
             let tempDir = try TemporaryDirectory()
@@ -774,6 +798,27 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
             XCTAssertEqual(index[invoiceURL.path], [.invoice])
             XCTAssertEqual(index[receiptURL.path], [.receipt])
             XCTAssertNil(index[deckURL.path])
+        }
+    }
+
+    func testContentTagIndex_AutoContentTagsDisabledReturnsEmptyIndex() throws {
+        try withService { _, service in
+            let tempDir = try TemporaryDirectory()
+            let invoiceURL = try tempDir.createFile(name: "Inbox/invoice.pdf", contents: "invoice")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: invoiceURL.path,
+                    displayName: "invoice.pdf",
+                    fileExtension: "pdf",
+                    timestamp: Date(timeIntervalSince1970: 8_733)
+                )
+            )
+            record.tags = ["invoice"]
+
+            FeatureFlagService.shared.setEnabled(.autoContentTags, false)
+
+            XCTAssertEqual(service.contentTagIndex(for: [invoiceURL.path]), [:])
         }
     }
 

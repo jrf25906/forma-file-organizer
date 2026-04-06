@@ -215,14 +215,6 @@ final class FileMetadataFoundationService {
                 )
             }
 
-            _ = applyContentTagsWithoutSaving(
-                for: finalRecord,
-                displayName: displayName,
-                fileExtension: fileExtension,
-                destinationDisplayName: destinationDisplayName,
-                matchedRuleID: matchedRuleID
-            )
-
             _ = try appendHistoryEntryWithoutSaving(
                 for: finalRecord,
                 eventKind: eventKind,
@@ -311,7 +303,10 @@ final class FileMetadataFoundationService {
     }
 
     func contentTagIndex(for paths: [String]) -> [String: Set<MetadataContentTag>] {
-        guard isEnabled else { return [:] }
+        guard featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.autoContentTags) else {
+            return [:]
+        }
 
         var index: [String: Set<MetadataContentTag>] = [:]
         for normalizedPath in Set(paths.map(FileMetadataRecord.normalizedPath)) {
