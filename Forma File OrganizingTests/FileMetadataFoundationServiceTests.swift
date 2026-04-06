@@ -782,6 +782,64 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testRecordTransition_RuleCategoryTagSurvivesUndoAndRedoWithoutMatchedRuleID() throws {
+        try withService { context, service in
+            let rule = try insertRule(
+                in: context,
+                categoryName: "Contracts",
+                destinationDisplayName: "Reference"
+            )
+            let tempDir = try TemporaryDirectory()
+            let sourceURL = try tempDir.createFile(name: "Inbox/q1-summary.pdf", contents: "summary")
+            let destinationURL = tempDir.url.appendingPathComponent("Archive/q1-summary.pdf")
+
+            let organizedRecord = try XCTUnwrap(
+                service.recordTransition(
+                    from: sourceURL.path,
+                    to: destinationURL.path,
+                    displayName: "q1-summary.pdf",
+                    fileExtension: "pdf",
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    destinationDisplayName: "Reference",
+                    matchedRuleID: rule.id,
+                    timestamp: Date(timeIntervalSince1970: 8_726)
+                )
+            )
+            XCTAssertEqual(organizedRecord.tags, ["contract"])
+
+            let undoneRecord = try XCTUnwrap(
+                service.recordTransition(
+                    from: destinationURL.path,
+                    to: sourceURL.path,
+                    displayName: "q1-summary.pdf",
+                    fileExtension: "pdf",
+                    eventKind: .undone,
+                    sourceSurface: .undo,
+                    destinationDisplayName: "Reference",
+                    matchedRuleID: nil,
+                    timestamp: Date(timeIntervalSince1970: 8_727)
+                )
+            )
+            XCTAssertEqual(undoneRecord.tags, ["contract"])
+
+            let redoneRecord = try XCTUnwrap(
+                service.recordTransition(
+                    from: sourceURL.path,
+                    to: destinationURL.path,
+                    displayName: "q1-summary.pdf",
+                    fileExtension: "pdf",
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    destinationDisplayName: "Reference",
+                    matchedRuleID: nil,
+                    timestamp: Date(timeIntervalSince1970: 8_728)
+                )
+            )
+            XCTAssertEqual(redoneRecord.tags, ["contract"])
+        }
+    }
+
     func testContentTagIndex_ReturnsBuiltInTagsForRequestedPathsOnly() throws {
         try withService { _, service in
             let tempDir = try TemporaryDirectory()
