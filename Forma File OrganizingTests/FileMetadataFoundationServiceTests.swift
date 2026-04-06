@@ -758,7 +758,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
-    func testRecordTransition_DoesNotApplyContentTagsUntilTask3Integration() throws {
+    func testRecordTransition_AppliesContentTagsWhenFeatureEnabled() throws {
         try withService { _, service in
             let tempDir = try TemporaryDirectory()
             let sourceURL = try tempDir.createFile(name: "Inbox/invoice.pdf", contents: "invoice")
@@ -778,7 +778,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                 )
             )
 
-            XCTAssertEqual(record.tags, [])
+            XCTAssertEqual(record.tags, ["invoice"])
         }
     }
 
