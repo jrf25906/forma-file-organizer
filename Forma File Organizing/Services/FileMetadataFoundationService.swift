@@ -358,6 +358,10 @@ final class FileMetadataFoundationService {
 
         let resolver = MetadataProjectAssociationResolver()
         for entry in record.historyEntries.sorted(by: { $0.timestamp > $1.timestamp }) {
+            guard entry.eventKind == .organized else {
+                continue
+            }
+
             guard let explicitDestinationFolderPath = standardizedDestinationFolderPath(for: entry) else {
                 continue
             }

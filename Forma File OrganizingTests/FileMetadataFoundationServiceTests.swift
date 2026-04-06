@@ -473,6 +473,42 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testInspectorSummary_DoesNotTreatScannedRowsAsDestinationFolderProof() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/scanned-project.txt", contents: "scan")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "scanned-project.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 8_420)
+                )
+            )
+            record.projectAssociation = "Finance Vault"
+            try context.save()
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .scanned,
+                    sourceSurface: .scan,
+                    fromPath: nil,
+                    toPath: "/Users/example/Documents/Projects/Finance Vault/scanned-project.txt",
+                    destinationDisplayName: "Finance Vault",
+                    matchedRuleID: nil,
+                    detailsSummary: "Scan row with a project-like destination path.",
+                    timestamp: Date(timeIntervalSince1970: 8_421)
+                )
+            )
+
+            let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
+            XCTAssertEqual(summary.projectAssociationSummary, "Finance Vault")
+            XCTAssertNil(summary.projectAssociationSourceSummary)
+        }
+    }
+
     func testInspectorSummary_DoesNotExposeDestinationFolderSourceSummaryForGenericDestination() throws {
         try withService { context, service in
             let tempDir = try TemporaryDirectory()
