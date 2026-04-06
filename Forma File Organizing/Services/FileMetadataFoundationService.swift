@@ -227,6 +227,33 @@ final class FileMetadataFoundationService {
         }
     }
 
+    @discardableResult
+    func applyProjectAssociationWithoutSaving(
+        for metadataRecord: FileMetadataRecord,
+        writeContext: ProjectAssociationWriteContext
+    ) -> ProjectAssociationWriteContext.SourceSummaryCategory? {
+        guard featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.autoProjectAssociation) else {
+            return nil
+        }
+
+        let resolver = MetadataProjectAssociationResolver()
+        guard let resolvedCandidate = resolver.resolveCandidate(from: writeContext) else {
+            return nil
+        }
+
+        switch resolvedCandidate.sourceSummaryCategory {
+        case .destinationFolder:
+            metadataRecord.projectAssociation = resolvedCandidate.projectAssociation
+        case .relatedFilePattern:
+            if FileMetadataRecord.normalizedOptionalText(metadataRecord.projectAssociation) == nil {
+                metadataRecord.projectAssociation = resolvedCandidate.projectAssociation
+            }
+        }
+
+        return resolvedCandidate.sourceSummaryCategory
+    }
+
     func inspectorSummary(for path: String) -> FileMetadataInspectorSummary? {
         guard isEnabled else { return nil }
 
@@ -269,7 +296,13 @@ final class FileMetadataFoundationService {
                 )
             }
 
-        let projectAssociationSummary = FileMetadataRecord.normalizedOptionalText(record.projectAssociation) ?? ""
+        let shouldExposeProjectAssociation = featureFlags.isEnabled(.autoProjectAssociation)
+        let projectAssociationSummary = shouldExposeProjectAssociation
+            ? (FileMetadataRecord.normalizedOptionalText(record.projectAssociation) ?? "")
+            : ""
+        let projectAssociationSourceSummary = shouldExposeProjectAssociation
+            ? projectAssociationSourceSummary(for: record)?.inspectorCopy
+            : nil
         let tagsSummary = record.tags
             .map(FileMetadataRecord.normalizedTag)
             .filter { !$0.isEmpty }
@@ -288,6 +321,7 @@ final class FileMetadataFoundationService {
             organizationCountSummary: Self.organizationCountSummary(for: record.organizationCount),
             tagsSummary: tagsSummary,
             projectAssociationSummary: projectAssociationSummary,
+            projectAssociationSourceSummary: projectAssociationSourceSummary,
             recentHistoryRows: historyRows
         )
     }
@@ -303,6 +337,98 @@ final class FileMetadataFoundationService {
         case .scanned, .rekeyed, .undone, .noted:
             return false
         }
+    }
+
+    private func projectAssociationSourceSummary(
+        for record: FileMetadataRecord
+    ) -> ProjectAssociationWriteContext.SourceSummaryCategory? {
+        if let explicit = explicitProjectAssociationSourceSummary(for: record) {
+            return explicit
+        }
+
+        return inferredProjectAssociationSourceSummary(for: record)
+    }
+
+    private func explicitProjectAssociationSourceSummary(
+        for record: FileMetadataRecord
+    ) -> ProjectAssociationWriteContext.SourceSummaryCategory? {
+        guard let storedAssociation = FileMetadataRecord.normalizedOptionalText(record.projectAssociation),
+              let latestDestinationLabel = latestDestinationBackedProjectAssociationLabel(for: record),
+              latestDestinationLabel == storedAssociation else {
+            return nil
+        }
+
+        return .destinationFolder
+    }
+
+    private func inferredProjectAssociationSourceSummary(
+        for record: FileMetadataRecord
+    ) -> ProjectAssociationWriteContext.SourceSummaryCategory? {
+        guard let storedAssociation = FileMetadataRecord.normalizedOptionalText(record.projectAssociation),
+              let resolvedCandidate = resolveRelatedProjectAssociationCandidate(for: record),
+              resolvedCandidate.projectAssociation == storedAssociation else {
+            return nil
+        }
+
+        return resolvedCandidate.sourceSummaryCategory
+    }
+
+    private func latestDestinationBackedProjectAssociationLabel(
+        for record: FileMetadataRecord
+    ) -> String? {
+        let sortedHistoryEntries = record.historyEntries.sorted(by: { $0.timestamp > $1.timestamp })
+        for entry in sortedHistoryEntries {
+            guard let label = destinationBackedProjectAssociationLabel(for: entry) else {
+                continue
+            }
+            return label
+        }
+
+        return nil
+    }
+
+    private func destinationBackedProjectAssociationLabel(
+        for entry: FileOrganizationHistoryEntry
+    ) -> String? {
+        if let destinationDisplayName = FileMetadataRecord.normalizedOptionalText(entry.destinationDisplayName) {
+            return destinationDisplayName
+        }
+
+        guard let toPath = entry.toPath else {
+            return nil
+        }
+
+        let destinationURL = URL(fileURLWithPath: toPath).standardizedFileURL
+        let destinationFolderName = destinationURL.deletingLastPathComponent().lastPathComponent
+        let normalizedLabel = MetadataProjectAssociationResolver().normalizeLabel(destinationFolderName)
+        return normalizedLabel.isEmpty ? nil : normalizedLabel
+    }
+
+    private func resolveRelatedProjectAssociationCandidate(
+        for record: FileMetadataRecord
+    ) -> MetadataProjectAssociationResolver.ResolvedCandidate? {
+        let descriptor = FetchDescriptor<ProjectCluster>(
+            predicate: #Predicate<ProjectCluster> { !$0.isDismissed && !$0.isOrganized }
+        )
+        let clusters = (try? modelContext.fetch(descriptor)) ?? []
+        let inferredCandidates = clusters.compactMap { cluster -> ProjectAssociationWriteContext.InferredCandidate? in
+            guard cluster.filePaths.contains(record.lastKnownPath) else {
+                return nil
+            }
+
+            return ProjectAssociationWriteContext.InferredCandidate(
+                suggestedFolderName: cluster.suggestedFolderName,
+                normalizedLabel: cluster.suggestedFolderName,
+                confidence: cluster.confidenceScore
+            )
+        }
+
+        let writeContext = ProjectAssociationWriteContext(
+            resolvedExplicitDestinationFolderPath: nil,
+            explicitSourceMode: false,
+            inferredCandidates: inferredCandidates
+        )
+        return MetadataProjectAssociationResolver().resolveCandidate(from: writeContext)
     }
 
     @discardableResult

@@ -1009,6 +1009,10 @@ private struct MetadataFoundationProofSection: View {
                     metadataRow(label: "Project", value: summary.projectAssociationSummary)
                 }
 
+                if let sourceSummary = summary.projectAssociationSourceSummary, !sourceSummary.isEmpty {
+                    metadataRow(label: "Source", value: sourceSummary)
+                }
+
                 if summary.hasTagsSummary {
                     metadataRow(label: "Tags", value: summary.tagsSummary)
                 }

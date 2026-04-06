@@ -8,6 +8,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         super.setUp()
         FeatureFlagService.shared.resetToDefaults()
         FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
     }
 
     override func tearDown() {
@@ -18,7 +19,8 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
     private func makeService() throws -> (ModelContainer, ModelContext, FileMetadataFoundationService) {
         let schema = Schema([
             FileMetadataRecord.self,
-            FileOrganizationHistoryEntry.self
+            FileOrganizationHistoryEntry.self,
+            ProjectCluster.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
@@ -33,6 +35,23 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         try withExtendedLifetime(container) {
             try body(context, service)
         }
+    }
+
+    private func insertProjectCluster(
+        in context: ModelContext,
+        filePath: String,
+        suggestedFolderName: String,
+        confidenceScore: Double
+    ) throws -> ProjectCluster {
+        let cluster = ProjectCluster(
+            clusterType: .nameSimilarity,
+            filePaths: [filePath],
+            confidenceScore: confidenceScore,
+            suggestedFolderName: suggestedFolderName
+        )
+        context.insert(cluster)
+        try context.save()
+        return cluster
     }
 
     func testUpsertRecord_DeduplicatesByCanonicalIdentity() throws {
@@ -309,6 +328,189 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                 "Moved into the durable archive.",
                 "Scanned into metadata foundation."
             ])
+        }
+    }
+
+    func testApplyProjectAssociation_ExplicitProjectLikeDestinationWritesNormalizedLabel() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/report.txt", contents: "report")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "report.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 8_000)
+                )
+            )
+
+            let writeContext = ProjectAssociationWriteContext(
+                resolvedExplicitDestinationFolderPath: "/Users/example/Documents/Projects/  Alpha  ",
+                explicitSourceMode: false,
+                inferredCandidates: []
+            )
+
+            let sourceCategory = try XCTUnwrap(
+                service.applyProjectAssociationWithoutSaving(
+                    for: record,
+                    writeContext: writeContext
+                )
+            )
+
+            XCTAssertEqual(sourceCategory, .destinationFolder)
+            XCTAssertEqual(record.projectAssociation, "Alpha")
+            XCTAssertEqual(try context.fetch(FetchDescriptor<FileMetadataRecord>()).first?.projectAssociation, "Alpha")
+        }
+    }
+
+    func testApplyProjectAssociation_InferencePopulatesEmptyRecordOnly() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let sourceURL = try tempDir.createFile(name: "Inbox/alpha-note.txt", contents: "alpha")
+            let candidate = try insertProjectCluster(
+                in: context,
+                filePath: sourceURL.path,
+                suggestedFolderName: "Alpha",
+                confidenceScore: 0.91
+            )
+
+            let emptyRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: sourceURL.path,
+                    displayName: "alpha-note.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 8_100)
+                )
+            )
+
+            let emptyWriteContext = ProjectAssociationWriteContext(
+                resolvedExplicitDestinationFolderPath: nil,
+                explicitSourceMode: false,
+                inferredCandidates: [
+                    .init(
+                        suggestedFolderName: candidate.suggestedFolderName,
+                        normalizedLabel: candidate.suggestedFolderName,
+                        confidence: candidate.confidenceScore
+                    )
+                ]
+            )
+
+            let sourceCategory = try XCTUnwrap(
+                service.applyProjectAssociationWithoutSaving(
+                    for: emptyRecord,
+                    writeContext: emptyWriteContext
+                )
+            )
+
+            XCTAssertEqual(sourceCategory, .relatedFilePattern)
+            XCTAssertEqual(emptyRecord.projectAssociation, "Alpha")
+
+            let existingRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: tempDir.url.appendingPathComponent("Inbox/existing-alpha-note.txt").path,
+                    displayName: "existing-alpha-note.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 8_200)
+                )
+            )
+            existingRecord.projectAssociation = "Existing Label"
+            try context.save()
+
+            let existingWriteContext = ProjectAssociationWriteContext(
+                resolvedExplicitDestinationFolderPath: nil,
+                explicitSourceMode: false,
+                inferredCandidates: [
+                    .init(
+                        suggestedFolderName: candidate.suggestedFolderName,
+                        normalizedLabel: candidate.suggestedFolderName,
+                        confidence: candidate.confidenceScore
+                    )
+                ]
+            )
+
+            _ = try service.applyProjectAssociationWithoutSaving(
+                for: existingRecord,
+                writeContext: existingWriteContext
+            )
+
+            XCTAssertEqual(existingRecord.projectAssociation, "Existing Label")
+        }
+    }
+
+    func testInspectorSummary_IncludesProjectAssociationSourceSummary() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/finance-report.txt", contents: "finance")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "finance-report.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 8_300)
+                )
+            )
+            record.projectAssociation = "Finance Vault"
+            try context.save()
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: fileURL.path,
+                    toPath: "/Users/example/Documents/Projects/Finance Vault/finance-report.txt",
+                    destinationDisplayName: "Finance Vault",
+                    matchedRuleID: nil,
+                    detailsSummary: "Moved into a project folder.",
+                    timestamp: Date(timeIntervalSince1970: 8_400)
+                )
+            )
+
+            let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
+            XCTAssertEqual(summary.projectAssociationSummary, "Finance Vault")
+            XCTAssertEqual(summary.projectAssociationSourceSummary, "Derived from destination folder")
+        }
+    }
+
+    func testInspectorSummary_HidesProjectAssociationRowWhenAutoProjectAssociationDisabled() throws {
+        try withService { context, service in
+            FeatureFlagService.shared.setEnabled(.autoProjectAssociation, false)
+
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/project-note.txt", contents: "project")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "project-note.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 8_500)
+                )
+            )
+            record.projectAssociation = "Project Atlas"
+            try context.save()
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: fileURL.path,
+                    toPath: "/Users/example/Documents/Projects/Project Atlas/project-note.txt",
+                    destinationDisplayName: "Project Atlas",
+                    matchedRuleID: nil,
+                    detailsSummary: "Moved into a project folder.",
+                    timestamp: Date(timeIntervalSince1970: 8_600)
+                )
+            )
+
+            let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
+            XCTAssertEqual(summary.firstSeenSummary, "First seen: 1970-01-01 02:21:40 UTC")
+            XCTAssertEqual(summary.lastOrganizedSummary, "Last organized: 1970-01-01 02:23:20 UTC")
+            XCTAssertEqual(summary.organizationCountSummary, "1 organization")
+            XCTAssertEqual(summary.projectAssociationSummary, "")
+            XCTAssertNil(summary.projectAssociationSourceSummary)
         }
     }
 
