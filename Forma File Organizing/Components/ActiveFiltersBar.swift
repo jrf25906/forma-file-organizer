@@ -6,14 +6,16 @@ struct ActiveFiltersBar: View {
     let searchText: String
     let category: FileTypeCategory
     let secondaryFilter: SecondaryFilter
+    let selectedContentTags: Set<MetadataContentTag>
 
     let onClearSearch: () -> Void
     let onClearCategory: () -> Void
     let onClearSecondary: () -> Void
+    let onClearContentTags: () -> Void
     let onClearAll: () -> Void
 
     private var hasActiveFilters: Bool {
-        !searchText.isEmpty || category != .all || secondaryFilter != .none
+        !searchText.isEmpty || category != .all || secondaryFilter != .none || !selectedContentTags.isEmpty
     }
 
     var body: some View {
@@ -50,10 +52,24 @@ struct ActiveFiltersBar: View {
                             onDismiss: onClearSecondary
                         )
                     }
+
+                    if !selectedContentTags.isEmpty {
+                        FilterChip(
+                            label: selectedContentTags
+                                .map(\.displayName)
+                                .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+                                .joined(separator: ", "),
+                            icon: "tag.fill",
+                            onDismiss: onClearContentTags
+                        )
+                    }
                 }
 
                 // Clear all button (only show if multiple filters)
-                let filterCount = (searchText.isEmpty ? 0 : 1) + (category == .all ? 0 : 1) + (secondaryFilter == .none ? 0 : 1)
+                let filterCount = (searchText.isEmpty ? 0 : 1)
+                    + (category == .all ? 0 : 1)
+                    + (secondaryFilter == .none ? 0 : 1)
+                    + (selectedContentTags.isEmpty ? 0 : 1)
                 if filterCount > 1 {
                     Button(action: onClearAll) {
                         Text("Clear All Filters")

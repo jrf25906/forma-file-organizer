@@ -24,6 +24,7 @@ final class DashboardViewModelTests: XCTestCase {
 	    override func setUp() async throws {
 	        try await super.setUp()
 	        UserDefaults.standard.removeObject(forKey: "dismissedFirstRunQuickWinCandidateKeys")
+            FeatureFlagService.shared.resetToDefaults()
 	
 	        await MainActor.run {
 	            mockService = MockFileSystemService()
@@ -47,8 +48,24 @@ final class DashboardViewModelTests: XCTestCase {
 	        UserDefaults.standard.removeObject(forKey: "dismissedFirstRunQuickWinCandidateKeys")
             UserDefaults.standard.removeObject(forKey: downloadsEnabledKey)
             UserDefaults.standard.removeObject(forKey: downloadsExcludedKey)
+            FeatureFlagService.shared.resetToDefaults()
 	        try await super.tearDown()
 	    }
+
+    private func makeMetadataService() throws -> (ModelContainer, ModelContext, FileMetadataFoundationService) {
+        let schema = Schema([
+            FileItem.self,
+            Rule.self,
+            RuleCategory.self,
+            FileMetadataRecord.self,
+            FileOrganizationHistoryEntry.self,
+            ProjectCluster.self
+        ])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+        return (container, context, FileMetadataFoundationService(modelContext: context))
+    }
 
     func testInitialPermissionsCheck() {
         // Given - onboarding not yet completed
@@ -180,6 +197,120 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Then
         XCTAssertEqual(localPipeline.scanCallCount, 1, "Granting access after dismissing onboarding should refresh the dashboard")
+    }
+
+    func testContentTagQuickFilters_HiddenWhenFlagsDisabledOrNoDurableTagsExist() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let invoice = FileItem(
+            path: "/Users/test/Documents/invoice.pdf",
+            sizeInBytes: 1_000,
+            creationDate: Date(),
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+
+        let record = try XCTUnwrap(
+            service.upsertRecord(
+                for: invoice.path,
+                displayName: "invoice.pdf",
+                fileExtension: "pdf",
+                timestamp: Date(timeIntervalSince1970: 1_000)
+            )
+        )
+        record.tags = ["invoice"]
+        try context.save()
+
+        FeatureFlagService.shared.resetToDefaults()
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([invoice])
+
+        XCTAssertFalse(viewModel.showsContentTagQuickFilters)
+        XCTAssertEqual(viewModel.availableContentTags, [])
+
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let plainText = FileItem(
+            path: "/Users/test/Documents/notes.txt",
+            sizeInBytes: 500,
+            creationDate: Date().addingTimeInterval(1),
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        viewModel._testSetFiles([plainText])
+
+        XCTAssertFalse(viewModel.showsContentTagQuickFilters)
+        XCTAssertEqual(viewModel.availableContentTags, [])
+    }
+
+    func testClearAllFilters_ClearsSelectedContentTags() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoContentTags, true)
+
+        let now = Date()
+        let invoice = FileItem(
+            path: "/Users/test/Documents/invoice.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let receipt = FileItem(
+            path: "/Users/test/Documents/receipt.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now.addingTimeInterval(1),
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+
+        let invoiceRecord = try XCTUnwrap(
+            service.upsertRecord(
+                for: invoice.path,
+                displayName: "invoice.pdf",
+                fileExtension: "pdf",
+                timestamp: now
+            )
+        )
+        invoiceRecord.tags = ["invoice"]
+
+        let receiptRecord = try XCTUnwrap(
+            service.upsertRecord(
+                for: receipt.path,
+                displayName: "receipt.pdf",
+                fileExtension: "pdf",
+                timestamp: now.addingTimeInterval(1)
+            )
+        )
+        receiptRecord.tags = ["receipt"]
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([invoice, receipt])
+
+        XCTAssertTrue(viewModel.showsContentTagQuickFilters)
+        XCTAssertEqual(Set(viewModel.availableContentTags), Set([.invoice, .receipt]))
+
+        viewModel.toggleContentTagQuickFilter(.invoice)
+        XCTAssertEqual(viewModel.selectedContentTags, [.invoice])
+        XCTAssertEqual(viewModel.visibleFiles.map(\.path), [invoice.path])
+
+        viewModel.clearAllFilters()
+
+        XCTAssertEqual(viewModel.selectedContentTags, [])
+        XCTAssertEqual(Set(viewModel.visibleFiles.map(\.path)), Set([invoice.path, receipt.path]))
     }
     
     func testFirstRunQuickWinPrefersLargestReadyFolderBatch() {

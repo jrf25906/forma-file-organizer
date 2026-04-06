@@ -231,6 +231,7 @@ class DashboardViewModel: ObservableObject {
     private let quickLookService: QuickLookService
     private let insightsService: InsightsService
     private let userDefaults: UserDefaults
+    private let featureFlags = FeatureFlagService.shared
     // MARK: - Private State
     private var modelContext: ModelContext?
     private var rules: [Rule] = []
@@ -354,6 +355,7 @@ class DashboardViewModel: ObservableObject {
 
     func setModelContext(_ context: ModelContext) {
         modelContext = context
+        refreshContentTagQuickFilters()
 
         #if DEBUG
         if CommandLine.arguments.contains("--uitesting") {
@@ -478,6 +480,25 @@ class DashboardViewModel: ObservableObject {
         get { filterViewModel.sortMode }
         set { filterViewModel.sortMode = newValue }
     }
+    var availableContentTags: [MetadataContentTag] {
+        guard featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.autoContentTags) else {
+            return []
+        }
+        return filterViewModel.availableContentTags
+    }
+    var selectedContentTags: Set<MetadataContentTag> {
+        guard featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.autoContentTags) else {
+            return []
+        }
+        return filterViewModel.selectedContentTags
+    }
+    var showsContentTagQuickFilters: Bool {
+        featureFlags.isEnabled(.metadataFoundation) &&
+        featureFlags.isEnabled(.autoContentTags) &&
+        !filterViewModel.availableContentTags.isEmpty
+    }
 
     func selectCategory(_ category: FileTypeCategory) {
         filterViewModel.selectedCategory = category
@@ -502,6 +523,26 @@ class DashboardViewModel: ObservableObject {
 
     func updateSearchText(_ text: String) {
         searchText = text
+    }
+
+    func toggleContentTagQuickFilter(_ tag: MetadataContentTag) {
+        guard featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.autoContentTags) else {
+            return
+        }
+
+        filterViewModel.toggleContentTag(tag)
+        refreshContentTagQuickFilters(for: scanViewModel.allFiles)
+    }
+
+    func clearContentTagQuickFilters() {
+        filterViewModel.clearContentTagFilters()
+        refreshContentTagQuickFilters(for: scanViewModel.allFiles)
+    }
+
+    func removeContentTagQuickFilter(_ tag: MetadataContentTag) {
+        filterViewModel.removeContentTag(tag)
+        refreshContentTagQuickFilters(for: scanViewModel.allFiles)
     }
 
     func clearAllFilters() {
@@ -1218,6 +1259,7 @@ class DashboardViewModel: ObservableObject {
                 guard let self else { return }
                 self.synchronizeOrganizationProgressTotal(with: files)
                 self.filterViewModel.updateSourceFiles(files)
+                self.refreshContentTagQuickFilters(for: files)
                 self.synchronizeExternalReviewSession(with: files)
                 self.analyticsViewModel.updateAnalytics(from: files)
             }
@@ -1536,6 +1578,7 @@ class DashboardViewModel: ObservableObject {
     func _testSetFiles(_ files: [FileItem]) {
         scanViewModel._testSetFiles(files)
         filterViewModel.updateSourceFiles(files)
+        refreshContentTagQuickFilters(for: files)
         resetOrganizationProgress(with: files)
     }
 
@@ -1621,6 +1664,21 @@ class DashboardViewModel: ObservableObject {
 
     private func resetOrganizationProgress(with files: [FileItem]) {
         organizationProgressTotalCount = files.filter { $0.status != .completed }.count
+    }
+
+    private func refreshContentTagQuickFilters(for files: [FileItem]? = nil) {
+        guard featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.autoContentTags),
+              let modelContext else {
+            filterViewModel.clearContentTagFilters()
+            filterViewModel.setContentTagIndex([:])
+            return
+        }
+
+        let sourceFiles = files ?? scanViewModel.allFiles
+        let metadataService = FileMetadataFoundationService(modelContext: modelContext)
+        let index = metadataService.contentTagIndex(for: sourceFiles.map(\.path))
+        filterViewModel.setContentTagIndex(index)
     }
 
     private func synchronizeOrganizationProgressTotal(with files: [FileItem]) {

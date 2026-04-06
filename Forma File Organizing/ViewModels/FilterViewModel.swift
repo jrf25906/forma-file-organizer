@@ -60,6 +60,12 @@ class FilterViewModel: ObservableObject {
         }
     }
 
+    /// Selected read-only content-tag quick filters.
+    @Published private(set) var selectedContentTags: Set<MetadataContentTag> = []
+
+    /// Available durable tags for the current non-tag base scope.
+    @Published private(set) var availableContentTags: [MetadataContentTag] = []
+
     /// Review filter mode (Needs Review vs All)
     @Published var reviewFilterMode: ReviewFilterMode = .needsReview {
         didSet {
@@ -154,6 +160,7 @@ class FilterViewModel: ObservableObject {
         selectedRelativeFolderPath = nil
         includeNestedSubfolders = false
         selectedSecondaryFilter = .none
+        selectedContentTags = []
         filterManager.clearExternalReviewPaths()
         applyFilterImmediately()
     }
@@ -222,6 +229,32 @@ class FilterViewModel: ObservableObject {
         applyFilterDebounced()
     }
 
+    func setContentTagIndex(_ index: [String: Set<MetadataContentTag>]) {
+        filterManager.contentTagIndex = index
+        applyFilterImmediately()
+    }
+
+    func toggleContentTag(_ tag: MetadataContentTag) {
+        if selectedContentTags.contains(tag) {
+            selectedContentTags.remove(tag)
+        } else {
+            selectedContentTags.insert(tag)
+        }
+        applyFilterImmediately()
+    }
+
+    func clearContentTagFilters() {
+        guard !selectedContentTags.isEmpty else { return }
+        selectedContentTags = []
+        applyFilterImmediately()
+    }
+
+    func removeContentTag(_ tag: MetadataContentTag) {
+        guard selectedContentTags.contains(tag) else { return }
+        selectedContentTags.remove(tag)
+        applyFilterImmediately()
+    }
+
     // MARK: - Private Helpers
 
     /// Apply filter with debouncing
@@ -261,6 +294,8 @@ class FilterViewModel: ObservableObject {
         cachedGroupedFiles = filterManager.cachedGroupedFiles
         cachedNeedsReviewCount = filterManager.cachedNeedsReviewCount
         cachedReviewableFiles = filterManager.cachedReviewableFiles
+        availableContentTags = filterManager.availableContentTags
+        selectedContentTags = filterManager.selectedContentTags
     }
 
     /// Update cached groups when grouping mode changes
@@ -281,12 +316,15 @@ class FilterViewModel: ObservableObject {
     }
 
     private func syncFilterStateToManager() {
+        let selectedContentTags = selectedContentTags
+
         filterManager.searchText = searchText
         filterManager.selectedCategory = selectedCategory
         filterManager.selectedFolder = selectedFolder
         filterManager.selectedRelativeFolderPath = selectedRelativeFolderPath
         filterManager.includeNestedSubfolders = includeNestedSubfolders
         filterManager.selectedSecondaryFilter = selectedSecondaryFilter
+        filterManager.selectedContentTags = selectedContentTags
         filterManager.reviewFilterMode = reviewFilterMode
         filterManager.groupingMode = groupingMode
         filterManager.sortMode = sortMode

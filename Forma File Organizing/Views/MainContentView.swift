@@ -160,6 +160,7 @@ struct MainContentView: View {
                                     searchText: dashboardViewModel.searchText,
                                     category: dashboardViewModel.selectedCategory,
                                     secondaryFilter: dashboardViewModel.selectedSecondaryFilter,
+                                    selectedContentTags: dashboardViewModel.selectedContentTags,
                                     onClearSearch: {
                                         dashboardViewModel.updateSearchText("")
                                         nav.searchText = ""
@@ -169,6 +170,9 @@ struct MainContentView: View {
                                     },
                                     onClearSecondary: {
                                         dashboardViewModel.setSecondaryFilter(.none)
+                                    },
+                                    onClearContentTags: {
+                                        dashboardViewModel.clearContentTagQuickFilters()
                                     },
                                     onClearAll: {
                                         dashboardViewModel.clearAllFilters()
@@ -211,18 +215,30 @@ struct MainContentView: View {
                 }
 
                 contentContainer {
-                    UnifiedToolbar(availableWidth: contentMaxWidth)
-                        .padding(.top, toolbarTopOffset)
-                        .padding(.bottom, dashboardToolbarBottomSpacing)
-                        .background(
-                            GeometryReader { proxy in
-                                Color.clear
-                                    .preference(key: UnifiedToolbarHeightKey.self, value: proxy.size.height)
-                            }
-                        )
-                        .onPreferenceChange(UnifiedToolbarHeightKey.self) { newHeight in
-                            unifiedToolbarHeight = newHeight
+                    VStack(alignment: .leading, spacing: 0) {
+                        UnifiedToolbar(availableWidth: contentMaxWidth)
+                            .padding(.top, toolbarTopOffset)
+                            .padding(.bottom, dashboardToolbarBottomSpacing)
+
+                        if dashboardViewModel.showsContentTagQuickFilters {
+                            ContentTagQuickFilters(
+                                availableTags: dashboardViewModel.availableContentTags,
+                                selectedTags: dashboardViewModel.selectedContentTags,
+                                onToggle: { tag in
+                                    dashboardViewModel.toggleContentTagQuickFilter(tag)
+                                }
+                            )
                         }
+                    }
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear
+                                .preference(key: UnifiedToolbarHeightKey.self, value: proxy.size.height)
+                        }
+                    )
+                    .onPreferenceChange(UnifiedToolbarHeightKey.self) { newHeight in
+                        unifiedToolbarHeight = newHeight
+                    }
                 }
                 .zIndex(10)
             }

@@ -111,6 +111,106 @@ final class FileFilterManagerTests: XCTestCase {
         XCTAssertTrue(manager.filteredFiles.isEmpty)
     }
 
+    func testContentTagQuickFilters_UsesAnyMatchSemanticsAcrossSelectedTags() {
+        let now = Date()
+        let invoice = FileItem(
+            path: "/Users/test/Documents/invoice.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let receipt = FileItem(
+            path: "/Users/test/Documents/receipt.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now.addingTimeInterval(1),
+            modificationDate: now.addingTimeInterval(1),
+            lastAccessedDate: now.addingTimeInterval(1),
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let deck = FileItem(
+            path: "/Users/test/Documents/deck.pptx",
+            sizeInBytes: 1_000,
+            creationDate: now.addingTimeInterval(2),
+            modificationDate: now.addingTimeInterval(2),
+            lastAccessedDate: now.addingTimeInterval(2),
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+
+        let manager = FileFilterManager()
+        manager.contentTagIndex = [
+            invoice.path: [.invoice],
+            receipt.path: [.receipt],
+            deck.path: [.presentation]
+        ]
+        manager.selectedContentTags = [.invoice, .receipt]
+
+        manager.updateSourceFiles([invoice, receipt, deck])
+
+        XCTAssertEqual(
+            Set(manager.visibleFiles.map(\.path)),
+            Set([invoice.path, receipt.path])
+        )
+    }
+
+    func testContentTagQuickFilters_AvailableTagsDeriveFromBaseScopeBeforeTagFiltering() {
+        let now = Date()
+        let invoice = FileItem(
+            path: "/Users/test/Documents/invoice.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let receipt = FileItem(
+            path: "/Users/test/Documents/receipt.pdf",
+            sizeInBytes: 1_000,
+            creationDate: now.addingTimeInterval(1),
+            modificationDate: now.addingTimeInterval(1),
+            lastAccessedDate: now.addingTimeInterval(1),
+            location: .documents,
+            destination: nil,
+            status: .pending
+        )
+        let screenshot = FileItem(
+            path: "/Users/test/Pictures/screenshot.png",
+            sizeInBytes: 1_000,
+            creationDate: now.addingTimeInterval(2),
+            modificationDate: now.addingTimeInterval(2),
+            lastAccessedDate: now.addingTimeInterval(2),
+            location: .pictures,
+            destination: nil,
+            status: .pending
+        )
+
+        let manager = FileFilterManager()
+        manager.selectedCategory = .documents
+        manager.contentTagIndex = [
+            invoice.path: [.invoice],
+            receipt.path: [.receipt],
+            screenshot.path: [.screenshot]
+        ]
+        manager.selectedContentTags = [.invoice]
+
+        manager.updateSourceFiles([invoice, receipt, screenshot])
+
+        XCTAssertEqual(manager.visibleFiles.map(\.path), [invoice.path])
+        XCTAssertEqual(
+            Set(manager.availableContentTags),
+            Set<MetadataContentTag>([.invoice, .receipt])
+        )
+    }
+
     func testExternalReviewScope_FiltersToRequestedPathsOnly() {
         let now = Date()
         let requestedA = FileItem(

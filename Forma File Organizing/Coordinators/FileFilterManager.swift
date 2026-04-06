@@ -13,6 +13,9 @@ class FileFilterManager: ObservableObject {
     @Published var includeNestedSubfolders: Bool = false
     @Published var searchText: String = ""
     @Published var selectedSecondaryFilter: SecondaryFilter = .none
+    @Published var selectedContentTags: Set<MetadataContentTag> = []
+    @Published private(set) var availableContentTags: [MetadataContentTag] = []
+    var contentTagIndex: [String: Set<MetadataContentTag>] = [:]
 
     /// File paths that matched content search (set by DashboardViewModel after content search completes).
     /// Track generation so cached filter results are invalidated when content matches change.
@@ -362,6 +365,27 @@ class FileFilterManager: ObservableObject {
         case .flagged:
             // Placeholder: until we support a flagged property, leave files unchanged
             break
+        }
+
+        availableContentTags = Array(
+            Set(files.flatMap { file in
+                contentTagIndex[file.path] ?? []
+            })
+        )
+        .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+
+        let effectiveSelectedContentTags = selectedContentTags.intersection(Set(availableContentTags))
+        if effectiveSelectedContentTags != selectedContentTags {
+            selectedContentTags = effectiveSelectedContentTags
+        }
+
+        if !effectiveSelectedContentTags.isEmpty {
+            files = files.filter { file in
+                guard let fileTags = contentTagIndex[file.path], !fileTags.isEmpty else {
+                    return false
+                }
+                return !fileTags.isDisjoint(with: effectiveSelectedContentTags)
+            }
         }
 
         // Apply user-selected sort mode
