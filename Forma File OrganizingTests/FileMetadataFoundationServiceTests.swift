@@ -604,6 +604,54 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testProjectSpaceSummaries_ExcludeMalformedRelativePaths() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let validURL = try tempDir.createFile(name: "Inbox/valid.txt", contents: "alpha")
+            let malformedAbsoluteURL = try tempDir.createFile(name: "malformed.txt", contents: "beta")
+
+            let valid = try XCTUnwrap(
+                service.upsertRecord(
+                    for: validURL.path,
+                    displayName: validURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            valid.projectAssociation = "Alpha"
+
+            let malformed = FileMetadataRecord(
+                canonicalIdentity: "relative-path-record",
+                identityKind: .pathFallback,
+                lastKnownPath: malformedAbsoluteURL.path,
+                displayName: "malformed.txt",
+                fileExtension: "txt",
+                firstSeenAt: Date(timeIntervalSince1970: 2_000),
+                lastSeenAt: Date(timeIntervalSince1970: 2_000)
+            )
+            malformed.projectAssociation = "Alpha"
+            malformed.lastKnownPath = " malformed.txt "
+            context.insert(malformed)
+
+            try context.save()
+
+            let originalDirectoryPath = FileManager.default.currentDirectoryPath
+            XCTAssertTrue(FileManager.default.changeCurrentDirectoryPath(tempDir.url.path))
+            defer {
+                XCTAssertTrue(FileManager.default.changeCurrentDirectoryPath(originalDirectoryPath))
+            }
+
+            let summaries = service.fetchProjectSpaceSummaries()
+            let detail = service.fetchProjectSpaceDetail(for: "Alpha")
+
+            XCTAssertEqual(summaries.map(\.normalizedLabel), ["Alpha"])
+            XCTAssertEqual(summaries.first?.fileCount, 1)
+            XCTAssertEqual(detail?.files.map(\.displayName), ["valid.txt"])
+        }
+    }
+
     func testProjectSpaceSummaries_LastActivityPrefersDurableHistoryEntry() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 

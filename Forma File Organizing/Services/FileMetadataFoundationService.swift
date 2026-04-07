@@ -745,6 +745,10 @@ final class FileMetadataFoundationService {
             return nil
         }
 
+        guard (storedPath as NSString).isAbsolutePath else {
+            return nil
+        }
+
         let normalizedPath = FileMetadataRecord.normalizedPath(storedPath)
         if isProjectSpacePathReachable(
             normalizedPath,
