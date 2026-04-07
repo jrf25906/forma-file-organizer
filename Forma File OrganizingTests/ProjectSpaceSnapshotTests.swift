@@ -85,6 +85,44 @@ final class ProjectSpaceSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.files.first?.tagsText, "notes, client")
     }
 
+    func testProjectSpaceDetailSnapshot_PreservesCanonicalIdentityTieBreakOrder() {
+        let now = Date(timeIntervalSince1970: 1_710_000_000)
+        let sharedActivityAt = now.addingTimeInterval(-900)
+        let detail = ProjectSpaceDetail(
+            summary: ProjectSpaceSummary(
+                projectLabel: "Alpha",
+                fileCount: 2,
+                lastActivityAt: sharedActivityAt,
+                sourceFolderHints: ["Desktop"]
+            ),
+            files: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: "identity-zeta",
+                    path: "/Users/test/Desktop/Brief.pdf",
+                    displayName: "Brief.pdf",
+                    fileExtension: "pdf",
+                    lastActivityAt: sharedActivityAt
+                ),
+                ProjectSpaceFileRow(
+                    canonicalIdentity: "identity-alpha",
+                    path: "/Users/test/Desktop/Brief.pdf",
+                    displayName: "Brief.pdf",
+                    fileExtension: "pdf",
+                    lastActivityAt: sharedActivityAt
+                )
+            ]
+        )
+
+        let snapshot = ProjectSpaceDetailView.Snapshot(
+            detail: detail,
+            now: now,
+            recencyTextProvider: { _, _ in "15 minutes ago" },
+            fileRecencyTextProvider: { _, _ in "15 minutes ago" }
+        )
+
+        XCTAssertEqual(snapshot.files.map(\.fileRow.canonicalIdentity), ["identity-alpha", "identity-zeta"])
+    }
+
     func testProjectSpaceDetailSnapshot_RemainsUsableAfterSourceDetailChanges() {
         let now = Date(timeIntervalSince1970: 1_710_000_000)
         var detail = ProjectSpaceDetail(

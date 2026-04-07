@@ -76,7 +76,12 @@ struct ProjectSpaceDetailView: View {
                 return lhs.lastActivityAt > rhs.lastActivityAt
             }
 
-            return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+            let displayNameComparison = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
+            if displayNameComparison != .orderedSame {
+                return displayNameComparison == .orderedAscending
+            }
+
+            return lhs.canonicalIdentity < rhs.canonicalIdentity
         }
 
         private static func sourceFolderSummary(for hints: [String]) -> String {
@@ -177,6 +182,8 @@ struct ProjectSpaceDetailView: View {
             }
             .buttonStyle(.plain)
             .help(snapshot.closeButtonTitle)
+            .accessibilityLabel(snapshot.closeButtonTitle)
+            .accessibilityIdentifier("projectSpaceDetailCloseButton")
         }
     }
 
