@@ -289,7 +289,7 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
             timestamp: initialTimestamp
         )
         let seededRecordID = seededRecord.persistentModelID
-        seededRecord.projectAssociation = "Legacy Alpha"
+        seededRecord.projectAssociation = "Alpha"
         seededRecord.tags = ["invoice"]
         try environment.context.save()
 
