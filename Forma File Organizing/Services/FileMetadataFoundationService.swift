@@ -656,12 +656,12 @@ final class FileMetadataFoundationService {
             return durableHistoryAt
         }
 
-        if let lastOrganizedAt = record.lastOrganizedAt {
-            return lastOrganizedAt
-        }
-
         if record.lastSeenAt >= record.firstSeenAt {
             return record.lastSeenAt
+        }
+
+        if let lastOrganizedAt = record.lastOrganizedAt {
+            return lastOrganizedAt
         }
 
         return record.firstSeenAt
@@ -741,7 +741,9 @@ final class FileMetadataFoundationService {
         for record: FileMetadataRecord,
         bookmarkBackedRootURLs: [URL]
     ) -> String? {
-        guard let storedPath = FileMetadataRecord.normalizedOptionalText(record.lastKnownPath) else {
+        let rawStoredPath = record.lastKnownPath
+        guard rawStoredPath == rawStoredPath.trimmingCharacters(in: .whitespacesAndNewlines),
+              let storedPath = FileMetadataRecord.normalizedOptionalText(rawStoredPath) else {
             return nil
         }
 
