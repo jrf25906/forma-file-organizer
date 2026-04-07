@@ -480,7 +480,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.currentReviewChunkCount, viewModel.reviewChunkSize)
     }
 
-    func testProjectSpaces_HiddenWhenFeatureDisabled() throws {
+    func testProjectSpaces_HiddenWhenFeatureDisabled() async throws {
         let (container, context, service) = try makeMetadataService()
         _ = container
 
@@ -507,7 +507,8 @@ final class DashboardViewModelTests: XCTestCase {
         viewModel.selectProjectSpace(alphaSummary)
 
         FeatureFlagService.shared.setEnabled(.projectSpaces, false)
-        viewModel.refreshProjectSpaces()
+        NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: UserDefaults.standard)
+        await Task.yield()
 
         XCTAssertEqual(viewModel.projectSpaces, [])
         XCTAssertNil(viewModel.selectedProjectSpace)
@@ -634,6 +635,43 @@ final class DashboardViewModelTests: XCTestCase {
         try context.save()
 
         viewModel.refreshProjectSpaces()
+
+        XCTAssertEqual(viewModel.projectSpaces, [])
+        XCTAssertNil(viewModel.selectedProjectSpace)
+        XCTAssertNil(viewModel.selectedProjectSpaceDetail)
+        XCTAssertFalse(viewModel.isShowingProjectSpaceDetail)
+    }
+
+    func testProjectSpaces_RefreshAfterMetadataMutationCompletionPath() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let alphaRecord = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        viewModel.selectProjectSpace(alphaSummary)
+
+        alphaRecord.projectAssociation = nil
+        try context.save()
+
+        viewModel._testSimulateBulkOperationCompletion()
 
         XCTAssertEqual(viewModel.projectSpaces, [])
         XCTAssertNil(viewModel.selectedProjectSpace)

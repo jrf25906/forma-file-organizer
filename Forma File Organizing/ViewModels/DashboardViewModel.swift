@@ -241,6 +241,7 @@ class DashboardViewModel: ObservableObject {
     private var modelContext: ModelContext?
     private var rules: [Rule] = []
     private var cancellables = Set<AnyCancellable>()
+    private var lastObservedProjectSpaceFeatureState: (metadataFoundation: Bool, projectSpaces: Bool)
     private var bulkOperationTask: Task<Void, Never>?
     private var permissionRefreshTask: Task<Void, Never>?
     private var lastPresentedExternalSessionID: UUID?
@@ -271,6 +272,10 @@ class DashboardViewModel: ObservableObject {
         self.quickLookService = services.quickLookService
         self.insightsService = services.insightsService
         self.userDefaults = userDefaults
+        self.lastObservedProjectSpaceFeatureState = (
+            featureFlags.isEnabled(.metadataFoundation),
+            featureFlags.isEnabled(.projectSpaces)
+        )
         self.contentSearchController = DashboardContentSearchController(
             contentSearchService: contentSearchService
         )
@@ -304,6 +309,7 @@ class DashboardViewModel: ObservableObject {
 
         // Setup inter-ViewModel communication
         setupViewModelForwarding()
+        setupFeatureFlagObservation()
         setupBulkOperationCallbacks()
 
         #if DEBUG
@@ -551,9 +557,12 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Project Spaces
 
     func refreshProjectSpaces() {
+        let featureState = currentProjectSpaceFeatureState()
+        lastObservedProjectSpaceFeatureState = featureState
+
         guard let modelContext,
-              featureFlags.isEnabled(.metadataFoundation),
-              featureFlags.isEnabled(.projectSpaces) else {
+              featureState.metadataFoundation,
+              featureState.projectSpaces else {
             clearProjectSpaceState()
             return
         }
@@ -1149,7 +1158,7 @@ class DashboardViewModel: ObservableObject {
                 self?.showToast(message: "Undo unavailable. Please try again after reopening Forma.", canUndo: false)
             },
             onComplete: { [weak self] in
-                self?.filterViewModel.applyFilterImmediately()
+                self?.handleMetadataMutationCompletion()
             }
         )
     }
@@ -1165,7 +1174,7 @@ class DashboardViewModel: ObservableObject {
                     self?.showToast(message: "Redo unavailable. Please try again after reopening Forma.", canUndo: false)
                 },
                 onComplete: { [weak self] in
-                    self?.filterViewModel.applyFilterImmediately()
+                    self?.handleMetadataMutationCompletion()
                 }
             )
         }
@@ -1362,6 +1371,15 @@ class DashboardViewModel: ObservableObject {
         permissionState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
     }
 
+    private func setupFeatureFlagObservation() {
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleProjectSpaceFeatureFlagChange()
+            }
+            .store(in: &cancellables)
+    }
+
     func showCelebrationPanel(
         message: String,
         style: PanelStateManager.CelebrationStyle = .batchUndo,
@@ -1479,7 +1497,7 @@ class DashboardViewModel: ObservableObject {
         }
 
         bulkOperationViewModel.onOperationComplete = { [weak self] _, _ in
-            self?.filterViewModel.applyFilterImmediately()
+            self?.handleMetadataMutationCompletion()
         }
 
         bulkOperationViewModel.onShouldRequestReview = { [weak self] in
@@ -1660,6 +1678,10 @@ class DashboardViewModel: ObservableObject {
         resetOrganizationProgress(with: files)
     }
 
+    func _testSimulateBulkOperationCompletion(successCount: Int = 0, failedCount: Int = 0) {
+        bulkOperationViewModel.onOperationComplete?(successCount, failedCount)
+    }
+
     /// Test helper to push an undo action without file operations
     func _testPushUndoAction(_ action: OrganizationAction) {
         organizationCoordinator._testPushUndoAction(action)
@@ -1762,6 +1784,32 @@ class DashboardViewModel: ObservableObject {
     private func clearProjectSpaceState() {
         projectSpaces = []
         closeProjectSpaceDetail()
+    }
+
+    private func currentProjectSpaceFeatureState() -> (metadataFoundation: Bool, projectSpaces: Bool) {
+        (
+            featureFlags.isEnabled(.metadataFoundation),
+            featureFlags.isEnabled(.projectSpaces)
+        )
+    }
+
+    private func handleProjectSpaceFeatureFlagChange() {
+        let currentState = currentProjectSpaceFeatureState()
+        guard currentState != lastObservedProjectSpaceFeatureState else { return }
+
+        lastObservedProjectSpaceFeatureState = currentState
+
+        guard currentState.metadataFoundation, currentState.projectSpaces else {
+            clearProjectSpaceState()
+            return
+        }
+
+        refreshProjectSpaces()
+    }
+
+    private func handleMetadataMutationCompletion() {
+        filterViewModel.applyFilterImmediately()
+        refreshProjectSpaces()
     }
 
     private func synchronizeOrganizationProgressTotal(with files: [FileItem]) {
