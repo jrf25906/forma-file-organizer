@@ -213,7 +213,7 @@ final class FileMetadataFoundationService {
         detailsSummary: String?,
         timestamp: Date
     ) throws -> FileOrganizationHistoryEntry? {
-        guard isEnabled else { return nil }
+        guard isWorkflowStatusWriteEnabled else { return nil }
 
         do {
             let entry = try appendHistoryEntryWithoutSaving(
@@ -797,17 +797,3 @@ final class FileMetadataFoundationService {
 }
 
 extension FileMetadataFoundationService: FileMetadataFoundationServiceProtocol {}
-
-extension FileMetadataFoundationServiceProtocol {
-    @discardableResult
-    func applyWorkflowStatusForDiscoveryWithoutSaving(
-        to record: FileMetadataRecord,
-        wasCreated: Bool,
-        timestamp: Date
-    ) throws -> Bool {
-        _ = record
-        _ = wasCreated
-        _ = timestamp
-        return false
-    }
-}

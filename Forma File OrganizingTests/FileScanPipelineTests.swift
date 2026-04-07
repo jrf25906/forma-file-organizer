@@ -130,6 +130,17 @@ final class FileScanPipelineTests: XCTestCase {
             _ = matchedRuleID
             return []
         }
+
+        func applyWorkflowStatusForDiscoveryWithoutSaving(
+            to record: FileMetadataRecord,
+            wasCreated: Bool,
+            timestamp: Date
+        ) throws -> Bool {
+            _ = record
+            _ = wasCreated
+            _ = timestamp
+            return false
+        }
     }
 
     private final class TrackingMetadataFoundationService: FileMetadataFoundationServiceProtocol {
@@ -171,6 +182,17 @@ final class FileScanPipelineTests: XCTestCase {
             _ = destinationDisplayName
             _ = matchedRuleID
             return []
+        }
+
+        func applyWorkflowStatusForDiscoveryWithoutSaving(
+            to record: FileMetadataRecord,
+            wasCreated: Bool,
+            timestamp: Date
+        ) throws -> Bool {
+            _ = record
+            _ = wasCreated
+            _ = timestamp
+            return false
         }
     }
 

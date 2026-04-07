@@ -784,6 +784,34 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testAppendIgnoredHistory_ReturnsNilWhenDurableWorkflowStatusDisabled() throws {
+        try withService { context, service in
+            FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, false)
+
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/ignored-disabled.txt", contents: "ignored")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "ignored-disabled.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 9_472)
+                )
+            )
+
+            let entry = try service.appendIgnoredHistory(
+                for: record,
+                detailsSummary: "Should not persist.",
+                timestamp: Date(timeIntervalSince1970: 9_473)
+            )
+            try context.save()
+
+            XCTAssertNil(entry)
+            XCTAssertNil(record.workflowStatus)
+            XCTAssertTrue(record.historyEntries.isEmpty)
+        }
+    }
+
     func testInspectorSummary_IncludesWorkflowStatusWhenFeatureEnabled() throws {
         try withService { context, service in
             FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
