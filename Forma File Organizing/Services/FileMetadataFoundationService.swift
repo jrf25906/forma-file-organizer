@@ -469,6 +469,33 @@ final class FileMetadataFoundationService {
         return index
     }
 
+    func fetchProjectSpaceSummaries() -> [ProjectSpaceSummary] {
+        guard isEnabled else { return [] }
+
+        let descriptor = FetchDescriptor<FileMetadataRecord>()
+        guard let records = try? modelContext.fetch(descriptor) else {
+            return []
+        }
+
+        var recordsByLabel: [String: [FileMetadataRecord]] = [:]
+        for record in records {
+            guard let normalizedLabel = FileMetadataRecord.normalizedOptionalText(record.projectAssociation) else {
+                continue
+            }
+            recordsByLabel[normalizedLabel, default: []].append(record)
+        }
+
+        return recordsByLabel
+            .map { label, groupedRecords in
+                ProjectSpaceSummary(
+                    normalizedLabel: label,
+                    fileCount: groupedRecords.count,
+                    lastActivityAt: lastActivityAt(for: groupedRecords)
+                )
+            }
+            .sorted(by: projectSpaceSummarySortOrder(_:_:))
+    }
+
     func inspectorSummary(for path: String) -> FileMetadataInspectorSummary? {
         guard isEnabled else { return nil }
 
@@ -549,6 +576,46 @@ final class FileMetadataFoundationService {
             projectAssociationSourceSummary: projectAssociationSourceSummary,
             recentHistoryRows: historyRows
         )
+    }
+
+    private func lastActivityAt(for records: [FileMetadataRecord]) -> Date {
+        records
+            .map(lastActivityAt(for:))
+            .max() ?? .distantPast
+    }
+
+    private func lastActivityAt(for record: FileMetadataRecord) -> Date {
+        var candidates: [Date] = [record.firstSeenAt, record.lastSeenAt]
+
+        if let lastOrganizedAt = record.lastOrganizedAt {
+            candidates.append(lastOrganizedAt)
+        }
+
+        candidates.append(contentsOf: record.historyEntries.compactMap { entry in
+            switch entry.eventKind {
+            case .organized, .rekeyed, .undone:
+                return entry.timestamp
+            case .scanned, .ignored, .noted:
+                return nil
+            }
+        })
+
+        return candidates.max() ?? record.firstSeenAt
+    }
+
+    private func projectSpaceSummarySortOrder(
+        _ lhs: ProjectSpaceSummary,
+        _ rhs: ProjectSpaceSummary
+    ) -> Bool {
+        if lhs.lastActivityAt != rhs.lastActivityAt {
+            return lhs.lastActivityAt > rhs.lastActivityAt
+        }
+
+        if lhs.fileCount != rhs.fileCount {
+            return lhs.fileCount > rhs.fileCount
+        }
+
+        return lhs.normalizedLabel.localizedCaseInsensitiveCompare(rhs.normalizedLabel) == .orderedAscending
     }
 
     private static func organizationCountSummary(for count: Int) -> String {

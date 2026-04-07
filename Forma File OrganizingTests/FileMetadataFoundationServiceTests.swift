@@ -90,6 +90,60 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         return rule
     }
 
+    func testProjectSpaceSummaries_GroupByAssociationAndSortByRecentActivity() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let alphaOlderURL = try tempDir.createFile(name: "Inbox/alpha-older.txt", contents: "alpha")
+            let alphaNewerURL = try tempDir.createFile(name: "Inbox/alpha-newer.txt", contents: "alpha")
+            let betaURL = try tempDir.createFile(name: "Inbox/beta.txt", contents: "beta")
+
+            let alphaOlder = try XCTUnwrap(
+                service.upsertRecord(
+                    for: alphaOlderURL.path,
+                    displayName: "alpha-older.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            alphaOlder.projectAssociation = "Alpha"
+            alphaOlder.lastSeenAt = Date(timeIntervalSince1970: 1_500)
+
+            let alphaNewer = try XCTUnwrap(
+                service.upsertRecord(
+                    for: alphaNewerURL.path,
+                    displayName: "alpha-newer.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 2_000)
+                )
+            )
+            alphaNewer.projectAssociation = "Alpha"
+            alphaNewer.lastSeenAt = Date(timeIntervalSince1970: 3_000)
+
+            let beta = try XCTUnwrap(
+                service.upsertRecord(
+                    for: betaURL.path,
+                    displayName: "beta.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 2_500)
+                )
+            )
+            beta.projectAssociation = "Beta"
+            beta.lastSeenAt = Date(timeIntervalSince1970: 2_700)
+
+            try context.save()
+
+            let summaries = service.fetchProjectSpaceSummaries()
+
+            XCTAssertEqual(summaries.count, 2)
+            XCTAssertEqual(summaries.first?.normalizedLabel, "Alpha")
+            XCTAssertEqual(summaries.first?.fileCount, 2)
+            XCTAssertEqual(summaries.first?.lastActivityAt, Date(timeIntervalSince1970: 3_000))
+            XCTAssertEqual(summaries.last?.normalizedLabel, "Beta")
+            XCTAssertEqual(summaries.last?.fileCount, 1)
+            XCTAssertEqual(summaries.last?.lastActivityAt, Date(timeIntervalSince1970: 2_700))
+        }
+    }
+
     func testUpsertRecord_DeduplicatesByCanonicalIdentity() throws {
         try withService { context, service in
             let tempDir = try TemporaryDirectory()
