@@ -251,6 +251,7 @@ Recommended responsibility:
 
 - add one narrow helper that updates durable workflow status from approved transitions
 - keep the write-through logic near the existing metadata upsert, transition, and history code
+- expose the new helper through [`FileMetadataFoundationServiceProtocol`](../../../../Forma%20File%20Organizing/Services/FileMetadataFoundationService.swift), because [`FileScanPipeline`](../../../../Forma%20File%20Organizing/Services/FileScanPipeline.swift) already depends on the protocol rather than the concrete service
 
 Why this boundary:
 
@@ -269,7 +270,10 @@ When a metadata-backed file is first brought into Forma's reviewable system thro
 Rules:
 
 - new records can be initialized to `queued`
-- existing records with `workflowStatus == nil` can be upgraded to `queued`
+- existing records can only be upgraded to `queued` when all of the following are true:
+  - `workflowStatus == nil`
+  - `latestOrganizationStatus == .unknown`
+  - the record has no prior lifecycle history beyond possible scan-note noise
 - when the durable status actually changes to `queued`, append one `scanned` history row from the scan write path
 - rescans must not clear `queued`
 - rescans that leave the file in `queued` must not append repeated `scanned` history rows
@@ -282,6 +286,7 @@ Important behavior:
 Recommended ownership:
 
 - the existing metadata upsert path in [`FileScanPipeline.persistMetadataRecords(...)`](../../../../Forma%20File%20Organizing/Services/FileScanPipeline.swift) should own this write-through behavior by calling into the metadata service
+- that scan-facing helper should be added to `FileMetadataFoundationServiceProtocol`, not only the concrete service
 - the metadata service should decide whether this discovery is a first-write transition or a no-op rescan
 
 This is the explicit approved posture for the slice. Durable status should reflect the last meaningful lifecycle transition, not current scan visibility.
@@ -421,6 +426,14 @@ Migration posture should stay conservative:
 - keep the new field optional
 - if a record has no durable workflow status yet, existing app behavior must still work unchanged
 - read paths must tolerate `nil`
+
+Explicit legacy-row rule:
+
+- do not seed `workflowStatus` from `latestOrganizationStatus`
+- do not replay history to backfill `workflowStatus`
+- pre-existing rows that already show meaningful legacy movement state such as `organized`, `rekeyed`, or `undone` should remain `nil` until a new v1-era meaningful transition writes a durable workflow status explicitly
+- only clearly new or still-uninitialized rows should upgrade to `queued` during scan
+- later explicit transitions such as organize, undo organize, or ignore may write the durable field regardless of prior legacy state
 
 This keeps the slice aligned with the metadata foundation rollout strategy:
 
