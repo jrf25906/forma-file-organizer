@@ -622,6 +622,80 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testWorkflowStatus_RoundTripsThroughMetadataRecord() throws {
+        let schema = Schema([FileMetadataRecord.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+
+        let record = FileMetadataRecord(
+            canonicalIdentity: "resource|volume|identifier",
+            identityKind: .resourceIdentifier,
+            lastKnownPath: "/Users/example/Documents/report.txt",
+            displayName: "report.txt",
+            fileExtension: "txt",
+            firstSeenAt: Date(timeIntervalSince1970: 9_000),
+            lastSeenAt: Date(timeIntervalSince1970: 9_100)
+        )
+        record.workflowStatus = .queued
+        context.insert(record)
+        try context.save()
+
+        let fetchedRecord = try XCTUnwrap(try context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertEqual(fetchedRecord.workflowStatus, .queued)
+        XCTAssertEqual(fetchedRecord.workflowStatusRaw, MetadataWorkflowStatus.queued.rawValue)
+    }
+
+    func testWorkflowStatus_DefaultsToNilForLegacyRows() throws {
+        let schema = Schema([FileMetadataRecord.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+
+        let record = FileMetadataRecord(
+            canonicalIdentity: "resource|volume|legacy",
+            identityKind: .pathFallback,
+            lastKnownPath: "/Users/example/Documents/legacy.txt",
+            displayName: "legacy.txt",
+            fileExtension: "txt",
+            firstSeenAt: Date(timeIntervalSince1970: 9_200),
+            lastSeenAt: Date(timeIntervalSince1970: 9_300)
+        )
+        context.insert(record)
+        try context.save()
+
+        let fetchedRecord = try XCTUnwrap(try context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertNil(fetchedRecord.workflowStatus)
+        XCTAssertNil(fetchedRecord.workflowStatusRaw)
+    }
+
+    func testInspectorSummary_HidesWorkflowStatusWhenFeatureDisabled() throws {
+        try withService { context, service in
+            XCTAssertFalse(FeatureFlagService.Feature.durableWorkflowStatus.defaultValue)
+            XCTAssertFalse(FeatureFlagService.shared.isEnabled(.durableWorkflowStatus))
+
+            FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, false)
+
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/workflow-note.txt", contents: "workflow")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "workflow-note.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 9_400)
+                )
+            )
+            record.workflowStatus = .queued
+            try context.save()
+
+            let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
+            XCTAssertNil(summary.workflowStatusSummary)
+            XCTAssertFalse(summary.durableSummaryLines.contains(where: { $0.contains("Workflow status") }))
+        }
+    }
+
     func testInspectorSummary_ReturnsNilWhenFeatureDisabledOrRecordMissing() throws {
         try withService { _, service in
             let tempDir = try TemporaryDirectory()

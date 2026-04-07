@@ -33,6 +33,7 @@ struct FeatureFlagService: Sendable {
         case metadataFoundation = "feature.metadataFoundation"
         case autoContentTags = "feature.autoContentTags"
         case autoProjectAssociation = "feature.autoProjectAssociation"
+        case durableWorkflowStatus = "feature.durableWorkflowStatus"
 
         // Automation (v1.4)
         case backgroundMonitoring = "feature.backgroundMonitoring"
@@ -64,6 +65,7 @@ struct FeatureFlagService: Sendable {
             case .metadataFoundation: return false
             case .autoContentTags: return false
             case .autoProjectAssociation: return false
+            case .durableWorkflowStatus: return false
             // Automation (v1.4)
             case .backgroundMonitoring: return true
             case .autoOrganize: return false  // Opt-in for initial release
@@ -93,6 +95,7 @@ struct FeatureFlagService: Sendable {
             case .metadataFoundation: return "Metadata foundation"
             case .autoContentTags: return "Auto content tags"
             case .autoProjectAssociation: return "Auto project association"
+            case .durableWorkflowStatus: return "Durable workflow status"
             // Automation (v1.4)
             case .backgroundMonitoring: return "Background monitoring"
             case .autoOrganize: return "Auto-organize files"
@@ -137,6 +140,8 @@ struct FeatureFlagService: Sendable {
                 return "Assign built-in content tags from obvious names, extensions, and file categories."
             case .autoProjectAssociation:
                 return "Write project association labels from explicit project-like destinations and strong related-file inference."
+            case .durableWorkflowStatus:
+                return "Persist queued, organized, recovered, and ignored workflow states in the local metadata foundation."
             // Automation (v1.4)
             case .backgroundMonitoring:
                 return "Live-watch folders while the app is running, with scheduled sweeps as a fallback."
@@ -172,6 +177,7 @@ struct FeatureFlagService: Sendable {
             case .metadataFoundation: return "archivebox"
             case .autoContentTags: return "tag.fill"
             case .autoProjectAssociation: return "folder.badge.gearshape"
+            case .durableWorkflowStatus: return "clock.arrow.circlepath"
             // Automation (v1.4)
             case .backgroundMonitoring: return "eye.circle"
             case .autoOrganize: return "bolt.circle"
@@ -207,6 +213,8 @@ struct FeatureFlagService: Sendable {
             case .autoContentTags:
                 return [.metadataFoundation]
             case .autoProjectAssociation:
+                return [.metadataFoundation]
+            case .durableWorkflowStatus:
                 return [.metadataFoundation]
             // Automation (v1.4)
             case .backgroundMonitoring:

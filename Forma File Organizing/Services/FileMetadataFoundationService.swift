@@ -383,6 +383,10 @@ final class FileMetadataFoundationService {
             }
 
         let shouldExposeProjectAssociation = featureFlags.isEnabled(.autoProjectAssociation)
+        let shouldExposeWorkflowStatus = featureFlags.isEnabled(.durableWorkflowStatus)
+        let workflowStatusSummary = shouldExposeWorkflowStatus
+            ? record.workflowStatus.map { "Workflow status: \($0.rawValue)" }
+            : nil
         let projectAssociationSummary = shouldExposeProjectAssociation
             ? (FileMetadataRecord.normalizedOptionalText(record.projectAssociation) ?? "")
             : ""
@@ -405,6 +409,7 @@ final class FileMetadataFoundationService {
             firstSeenSummary: "First seen: \(Self.inspectorFormatter.string(from: record.firstSeenAt))",
             lastOrganizedSummary: lastOrganizedSummary,
             organizationCountSummary: Self.organizationCountSummary(for: record.organizationCount),
+            workflowStatusSummary: workflowStatusSummary,
             tagsSummary: tagsSummary,
             projectAssociationSummary: projectAssociationSummary,
             projectAssociationSourceSummary: projectAssociationSourceSummary,

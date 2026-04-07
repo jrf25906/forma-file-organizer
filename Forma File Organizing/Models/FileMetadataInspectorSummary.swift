@@ -16,6 +16,7 @@ struct FileMetadataInspectorSummary: Sendable, Equatable {
     let firstSeenSummary: String
     let lastOrganizedSummary: String
     let organizationCountSummary: String
+    let workflowStatusSummary: String?
     let tagsSummary: String
     let projectAssociationSummary: String
     let projectAssociationSourceSummary: String?
@@ -23,10 +24,15 @@ struct FileMetadataInspectorSummary: Sendable, Equatable {
 
     var durableSummaryLines: [String] {
         [
+            workflowStatusSummary,
             firstSeenSummary,
             lastOrganizedSummary,
             organizationCountSummary
-        ]
+        ].compactMap { $0 }
+    }
+
+    var hasWorkflowStatusSummary: Bool {
+        workflowStatusSummary != nil
     }
 
     var hasProjectAssociationSummary: Bool {

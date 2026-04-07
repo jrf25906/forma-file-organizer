@@ -63,6 +63,7 @@ final class FileMetadataRecord {
     var lastOrganizedAt: Date?
     var organizationCount: Int
     private var latestOrganizationStatusRaw: String
+    var workflowStatusRaw: String?
     var tags: [String]
     var projectAssociation: String?
     var notesSummary: String?
@@ -78,6 +79,16 @@ final class FileMetadataRecord {
     var latestOrganizationStatus: OrganizationStatus {
         get { OrganizationStatus(rawValue: latestOrganizationStatusRaw) ?? .unknown }
         set { latestOrganizationStatusRaw = newValue.rawValue }
+    }
+
+    var workflowStatus: MetadataWorkflowStatus? {
+        get {
+            guard let workflowStatusRaw else { return nil }
+            return MetadataWorkflowStatus(rawValue: workflowStatusRaw)
+        }
+        set {
+            workflowStatusRaw = newValue?.rawValue
+        }
     }
 
     init(
@@ -105,6 +116,7 @@ final class FileMetadataRecord {
         self.lastOrganizedAt = lastOrganizedAt
         self.organizationCount = organizationCount
         self.latestOrganizationStatusRaw = latestOrganizationStatus.rawValue
+        self.workflowStatusRaw = nil
         self.tags = tags.map(Self.normalizedTag).filter { !$0.isEmpty }
         self.projectAssociation = Self.normalizedOptionalText(projectAssociation)
         self.notesSummary = Self.normalizedOptionalText(notesSummary)

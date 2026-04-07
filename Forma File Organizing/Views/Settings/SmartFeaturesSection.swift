@@ -21,6 +21,7 @@ struct SmartFeaturesSection: View {
     @AppStorage(FeatureFlagService.Feature.metadataFoundation.rawValue) private var metadataFoundation = FeatureFlagService.Feature.metadataFoundation.defaultValue
     @AppStorage(FeatureFlagService.Feature.autoContentTags.rawValue) private var autoContentTags = FeatureFlagService.Feature.autoContentTags.defaultValue
     @AppStorage(FeatureFlagService.Feature.autoProjectAssociation.rawValue) private var autoProjectAssociation = FeatureFlagService.Feature.autoProjectAssociation.defaultValue
+    @AppStorage(FeatureFlagService.Feature.durableWorkflowStatus.rawValue) private var durableWorkflowStatus = FeatureFlagService.Feature.durableWorkflowStatus.defaultValue
     @AppStorage(FeatureFlagService.Feature.backgroundMonitoring.rawValue) private var backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
     @AppStorage(FeatureFlagService.Feature.autoOrganize.rawValue) private var autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
     @AppStorage(FeatureFlagService.Feature.automationReminders.rawValue) private var automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue
@@ -245,6 +246,16 @@ struct SmartFeaturesSection: View {
                         SmartFeatureRow(
                             feature: .autoProjectAssociation,
                             isEnabled: $autoProjectAssociation,
+                            masterEnabled: masterAIEnabled,
+                            dependencyMet: metadataFoundation,
+                            requiresFeature: .metadataFoundation
+                        )
+
+                        Divider().padding(.leading, FormaSpacing.extraLarge + FormaSpacing.tight)
+
+                        SmartFeatureRow(
+                            feature: .durableWorkflowStatus,
+                            isEnabled: $durableWorkflowStatus,
                             masterEnabled: masterAIEnabled,
                             dependencyMet: metadataFoundation,
                             requiresFeature: .metadataFoundation
@@ -476,6 +487,7 @@ struct SmartFeaturesSection: View {
         metadataFoundation = FeatureFlagService.Feature.metadataFoundation.defaultValue
         autoContentTags = FeatureFlagService.Feature.autoContentTags.defaultValue
         autoProjectAssociation = FeatureFlagService.Feature.autoProjectAssociation.defaultValue
+        durableWorkflowStatus = FeatureFlagService.Feature.durableWorkflowStatus.defaultValue
         backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
         autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
         automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue
