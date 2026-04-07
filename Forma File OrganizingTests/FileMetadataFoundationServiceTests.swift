@@ -16,6 +16,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         FeatureFlagService.shared.resetToDefaults()
         #if DEBUG
         FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = nil
+        FileMetadataFoundationService.debugProjectSpaceBookmarkRootLoadHook = nil
         #endif
         super.tearDown()
     }
@@ -301,6 +302,16 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                 ),
                 "Desktop"
             )
+
+            XCTAssertEqual(
+                service.projectSpaceSourceFolderHintRoot(for: "/Volumes/External Drive/project/file.txt"),
+                "External Drive"
+            )
+
+            XCTAssertEqual(
+                service.projectSpaceSourceFolderHintRoot(for: "/opt/shared/project/file.txt"),
+                "opt"
+            )
         }
     }
 
@@ -460,6 +471,61 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                 let summaries = service.fetchProjectSpaceSummaries()
                 XCTAssertEqual(summaries.map(\.normalizedLabel), ["Alpha"])
                 XCTAssertEqual(summaries.first?.fileCount, 1)
+            }
+        }
+    }
+
+    func testProjectSpaceSummaries_LoadBookmarkBackedRootsOncePerFetch() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let firstURL = try tempDir.createFile(name: "Downloads/first.txt", contents: "alpha")
+            let secondURL = try tempDir.createFile(name: "Downloads/second.txt", contents: "beta")
+            let bookmarkStore = InMemoryBookmarkStore()
+            let destination = try Destination.folder(
+                from: tempDir.url,
+                displayName: BookmarkFolder.FolderType.downloads.displayName
+            )
+            try bookmarkStore.saveBookmark(
+                try XCTUnwrap(destination.bookmarkData),
+                forKey: BookmarkFolder.FolderType.downloads.bookmarkKey
+            )
+
+            try BookmarkStoreProvider.$override.withValue(bookmarkStore) {
+                #if DEBUG
+                var bookmarkRootLoadCount = 0
+                FileMetadataFoundationService.debugProjectSpaceBookmarkRootLoadHook = {
+                    bookmarkRootLoadCount += 1
+                }
+                FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = { path, usingSecurityScopedAccess in
+                    guard path == firstURL.path || path == secondURL.path else { return nil }
+                    return usingSecurityScopedAccess
+                }
+                defer {
+                    FileMetadataFoundationService.debugProjectSpaceBookmarkRootLoadHook = nil
+                    FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = nil
+                }
+                #endif
+
+                for fileURL in [firstURL, secondURL] {
+                    let record = try XCTUnwrap(
+                        service.upsertRecord(
+                            for: fileURL.path,
+                            displayName: fileURL.lastPathComponent,
+                            fileExtension: "txt",
+                            timestamp: Date(timeIntervalSince1970: 1_000)
+                        )
+                    )
+                    record.projectAssociation = "Alpha"
+                }
+                try context.save()
+
+                _ = service.fetchProjectSpaceSummaries()
+
+                #if DEBUG
+                XCTAssertEqual(bookmarkRootLoadCount, 1)
+                #endif
             }
         }
     }

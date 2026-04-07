@@ -66,6 +66,7 @@ final class FileMetadataFoundationService {
     #if DEBUG
     static var debugRecordTransitionHook: ((String, String, FileOrganizationHistoryEntry.EventKind) throws -> Void)?
     static var debugProjectSpacePathReachabilityHook: ((String, Bool) -> Bool?)?
+    static var debugProjectSpaceBookmarkRootLoadHook: (() -> Void)?
     #endif
 
     private static let inspectorFormatter: DateFormatter = {
@@ -487,7 +488,11 @@ final class FileMetadataFoundationService {
             return []
         }
 
-        let recordsByLabel = projectSpaceRecordsByLabel(from: records)
+        let bookmarkBackedRootURLs = projectSpaceBookmarkBackedRootURLs()
+        let recordsByLabel = projectSpaceRecordsByLabel(
+            from: records,
+            bookmarkBackedRootURLs: bookmarkBackedRootURLs
+        )
 
         return recordsByLabel
             .map { label, members in
@@ -512,7 +517,11 @@ final class FileMetadataFoundationService {
             return nil
         }
 
-        let members = projectSpaceMembers(from: records)
+        let bookmarkBackedRootURLs = projectSpaceBookmarkBackedRootURLs()
+        let members = projectSpaceMembers(
+            from: records,
+            bookmarkBackedRootURLs: bookmarkBackedRootURLs
+        )
             .filter { $0.normalizedLabel == selectedLabel }
 
         guard !members.isEmpty else { return nil }
@@ -690,18 +699,34 @@ final class FileMetadataFoundationService {
     }
 
     private func projectSpaceRecordsByLabel(
-        from records: [FileMetadataRecord]
+        from records: [FileMetadataRecord],
+        bookmarkBackedRootURLs: [URL]
     ) -> [String: [ProjectSpaceMember]] {
-        Dictionary(grouping: projectSpaceMembers(from: records), by: \.normalizedLabel)
+        Dictionary(
+            grouping: projectSpaceMembers(
+                from: records,
+                bookmarkBackedRootURLs: bookmarkBackedRootURLs
+            ),
+            by: \.normalizedLabel
+        )
     }
 
-    private func projectSpaceMembers(from records: [FileMetadataRecord]) -> [ProjectSpaceMember] {
-        records.compactMap(projectSpaceMember(for:))
+    private func projectSpaceMembers(
+        from records: [FileMetadataRecord],
+        bookmarkBackedRootURLs: [URL]
+    ) -> [ProjectSpaceMember] {
+        records.compactMap { projectSpaceMember(for: $0, bookmarkBackedRootURLs: bookmarkBackedRootURLs) }
     }
 
-    private func projectSpaceMember(for record: FileMetadataRecord) -> ProjectSpaceMember? {
+    private func projectSpaceMember(
+        for record: FileMetadataRecord,
+        bookmarkBackedRootURLs: [URL]
+    ) -> ProjectSpaceMember? {
         guard let normalizedLabel = FileMetadataRecord.normalizedOptionalText(record.projectAssociation),
-              let normalizedPath = normalizedResolvablePath(for: record) else {
+              let normalizedPath = normalizedResolvablePath(
+                for: record,
+                bookmarkBackedRootURLs: bookmarkBackedRootURLs
+              ) else {
             return nil
         }
 
@@ -712,13 +737,19 @@ final class FileMetadataFoundationService {
         )
     }
 
-    private func normalizedResolvablePath(for record: FileMetadataRecord) -> String? {
+    private func normalizedResolvablePath(
+        for record: FileMetadataRecord,
+        bookmarkBackedRootURLs: [URL]
+    ) -> String? {
         guard let storedPath = FileMetadataRecord.normalizedOptionalText(record.lastKnownPath) else {
             return nil
         }
 
         let normalizedPath = FileMetadataRecord.normalizedPath(storedPath)
-        if isProjectSpacePathReachable(normalizedPath) {
+        if isProjectSpacePathReachable(
+            normalizedPath,
+            bookmarkBackedRootURLs: bookmarkBackedRootURLs
+        ) {
             return normalizedPath
         }
 
@@ -802,12 +833,15 @@ final class FileMetadataFoundationService {
         return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
     }
 
-    private func isProjectSpacePathReachable(_ normalizedPath: String) -> Bool {
+    private func isProjectSpacePathReachable(
+        _ normalizedPath: String,
+        bookmarkBackedRootURLs: [URL]
+    ) -> Bool {
         if projectSpacePathExists(at: normalizedPath, usingSecurityScopedAccess: false) {
             return true
         }
 
-        for rootURL in projectSpaceBookmarkBackedRootURLs() {
+        for rootURL in bookmarkBackedRootURLs {
             let resolvedRootPath = rootURL.standardizedFileURL.path
             guard isPath(normalizedPath, withinRootPath: resolvedRootPath),
                   rootURL.startAccessingSecurityScopedResource() else {
@@ -841,6 +875,10 @@ final class FileMetadataFoundationService {
     }
 
     private func projectSpaceBookmarkBackedRootURLs() -> [URL] {
+        #if DEBUG
+        Self.debugProjectSpaceBookmarkRootLoadHook?()
+        #endif
+
         var rootURLs: [URL] = []
         var seenPaths: Set<String> = []
 
