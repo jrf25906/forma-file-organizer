@@ -392,7 +392,7 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                 sourceFilesByPath: sourceFilesByPath
             )
             do {
-                guard let record = try metadataService.upsertRecordWithoutSaving(
+                guard let upsertResult = try metadataService.upsertRecordForDiscoveryWithoutSaving(
                     for: sourceMetadata.path,
                     displayName: file.name,
                     fileExtension: file.fileExtension,
@@ -400,6 +400,13 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                 ) else {
                     continue
                 }
+                let record = upsertResult.record
+
+                _ = try metadataService.applyWorkflowStatusForDiscoveryWithoutSaving(
+                    to: record,
+                    wasCreated: upsertResult.wasCreated,
+                    timestamp: timestamp
+                )
 
                 let writeContext = projectAssociationWriteContext(
                     for: sourceMetadata,

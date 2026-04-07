@@ -107,6 +107,19 @@ final class FileScanPipelineTests: XCTestCase {
             throw TestError.failedToPersist
         }
 
+        func upsertRecordForDiscoveryWithoutSaving(
+            for path: String,
+            displayName: String,
+            fileExtension: String,
+            timestamp: Date
+        ) throws -> FileMetadataFoundationServiceProtocol.UpsertResult? {
+            _ = path
+            _ = displayName
+            _ = fileExtension
+            _ = timestamp
+            throw TestError.failedToPersist
+        }
+
         func applyProjectAssociationWithoutSaving(
             for metadataRecord: FileMetadataRecord,
             writeContext: ProjectAssociationWriteContext
@@ -152,6 +165,20 @@ final class FileScanPipelineTests: XCTestCase {
             fileExtension: String,
             timestamp: Date
         ) throws -> FileMetadataRecord? {
+            _ = path
+            _ = displayName
+            _ = fileExtension
+            _ = timestamp
+            upsertCalls += 1
+            return nil
+        }
+
+        func upsertRecordForDiscoveryWithoutSaving(
+            for path: String,
+            displayName: String,
+            fileExtension: String,
+            timestamp: Date
+        ) throws -> FileMetadataFoundationServiceProtocol.UpsertResult? {
             _ = path
             _ = displayName
             _ = fileExtension
@@ -441,6 +468,114 @@ final class FileScanPipelineTests: XCTestCase {
                 .first
         )
         XCTAssertEqual(record.tags, ["screenshot"])
+    }
+
+    func testPersistMetadataRecords_NewRecordInitializesQueuedStatus() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+        let now = Date(timeIntervalSince1970: 9_500)
+        let rootPath = "/Users/test/Desktop"
+        let filePath = "\(rootPath)/queued-on-discovery.txt"
+        let metadata = FileMetadata(
+            path: filePath,
+            sizeInBytes: 512,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: rootPath
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: StubFileSystemService(metadata: [metadata], scannedRootPaths: [rootPath]),
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let record = try XCTUnwrap(fetchMetadataRecord(path: filePath))
+        XCTAssertEqual(record.workflowStatus, .queued)
+    }
+
+    func testPersistMetadataRecords_ExistingLegacyRecordDoesNotBackfillQueuedStatus() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+        let now = Date(timeIntervalSince1970: 9_501)
+        let rootPath = "/Users/test/Desktop"
+        let filePath = "\(rootPath)/legacy-record.txt"
+        let metadataService = FileMetadataFoundationService(modelContext: context)
+        let existingRecord = try XCTUnwrap(
+            metadataService.upsertRecordWithoutSaving(
+                for: filePath,
+                displayName: "legacy-record.txt",
+                fileExtension: "txt",
+                timestamp: now.addingTimeInterval(-60)
+            )
+        )
+        try context.save()
+        XCTAssertNil(existingRecord.workflowStatus)
+
+        let metadata = FileMetadata(
+            path: filePath,
+            sizeInBytes: 256,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: rootPath
+        )
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: StubFileSystemService(metadata: [metadata], scannedRootPaths: [rootPath]),
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let records = try context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(records.count, 1)
+        XCTAssertNil(records.first?.workflowStatus)
+    }
+
+    func testPersistMetadataRecords_DiscoveryHelperIsSkippedWhenFeatureDisabled() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, false)
+
+        let now = Date(timeIntervalSince1970: 9_502)
+        let rootPath = "/Users/test/Desktop"
+        let filePath = "\(rootPath)/no-queued-write.txt"
+        let metadata = FileMetadata(
+            path: filePath,
+            sizeInBytes: 128,
+            creationDate: now,
+            modificationDate: now,
+            lastAccessedDate: now,
+            location: .desktop,
+            scanRootPath: rootPath
+        )
+
+        let pipeline: FileScanPipelineProtocol = FileScanPipeline()
+
+        _ = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: StubFileSystemService(metadata: [metadata], scannedRootPaths: [rootPath]),
+            ruleEngine: RuleEngine(),
+            rules: [],
+            context: context
+        )
+
+        let record = try XCTUnwrap(fetchMetadataRecord(path: filePath))
+        XCTAssertNil(record.workflowStatus)
     }
 
     func testScanAndPersist_MetadataFoundationDisabledSkipsMetadataWrites() async throws {
@@ -851,6 +986,15 @@ final class FileScanPipelineTests: XCTestCase {
 
         let records = try context.fetch(FetchDescriptor<FileMetadataRecord>())
         XCTAssertEqual(records.count, 0, "No metadata rows should be written after a failed primary save")
+    }
+
+    private func fetchMetadataRecord(path: String) throws -> FileMetadataRecord? {
+        let verificationContext = ModelContext(container)
+        return try verificationContext.fetch(
+            FetchDescriptor<FileMetadataRecord>(
+                predicate: #Predicate { $0.lastKnownPath == path }
+            )
+        ).first
     }
 
     func testScanAndPersist_StoresScanRootAndRelativeParentPath() async throws {

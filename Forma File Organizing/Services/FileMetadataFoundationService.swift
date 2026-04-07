@@ -3,6 +3,8 @@ import SwiftData
 
 @MainActor
 protocol FileMetadataFoundationServiceProtocol {
+    typealias UpsertResult = (record: FileMetadataRecord, wasCreated: Bool)
+
     @discardableResult
     func upsertRecordWithoutSaving(
         for path: String,
@@ -10,6 +12,14 @@ protocol FileMetadataFoundationServiceProtocol {
         fileExtension: String,
         timestamp: Date
     ) throws -> FileMetadataRecord?
+
+    @discardableResult
+    func upsertRecordForDiscoveryWithoutSaving(
+        for path: String,
+        displayName: String,
+        fileExtension: String,
+        timestamp: Date
+    ) throws -> UpsertResult?
 
     @discardableResult
     func applyProjectAssociationWithoutSaving(
@@ -110,6 +120,21 @@ final class FileMetadataFoundationService {
         fileExtension: String,
         timestamp: Date
     ) throws -> FileMetadataRecord? {
+        try upsertRecordForDiscoveryWithoutSaving(
+            for: path,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            timestamp: timestamp
+        )?.record
+    }
+
+    @discardableResult
+    func upsertRecordForDiscoveryWithoutSaving(
+        for path: String,
+        displayName: String,
+        fileExtension: String,
+        timestamp: Date
+    ) throws -> UpsertResult? {
         guard isEnabled else { return nil }
 
         let identity = resolveIdentity(for: path)
@@ -118,7 +143,7 @@ final class FileMetadataFoundationService {
             existing.displayName = FileMetadataRecord.normalizedDisplayName(displayName)
             existing.fileExtension = fileExtension.lowercased()
             existing.lastSeenAt = timestamp
-            return existing
+            return (existing, false)
         }
 
         let record = FileMetadataRecord(
@@ -131,7 +156,7 @@ final class FileMetadataFoundationService {
             lastSeenAt: timestamp
         )
         modelContext.insert(record)
-        return record
+        return (record, true)
     }
 
     @discardableResult
