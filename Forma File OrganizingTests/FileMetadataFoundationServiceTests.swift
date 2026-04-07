@@ -146,7 +146,46 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
-    func testProjectSpaceSummaries_PreferDurableHistoryOverLastSeenAndLastOrganizedAt() throws {
+    func testProjectSpaceSummaries_SortByFileCountThenLabelWhenRecencyMatches() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let alphaOneURL = try tempDir.createFile(name: "Inbox/alpha-1.txt", contents: "alpha")
+            let alphaTwoURL = try tempDir.createFile(name: "Inbox/alpha-2.txt", contents: "alpha")
+            let betaURL = try tempDir.createFile(name: "Inbox/beta.txt", contents: "beta")
+            let gammaURL = try tempDir.createFile(name: "Inbox/gamma.txt", contents: "gamma")
+            let sharedTimestamp = Date(timeIntervalSince1970: 3_000)
+
+            for (url, label) in [
+                (alphaOneURL, "Alpha"),
+                (alphaTwoURL, "Alpha"),
+                (betaURL, "Beta"),
+                (gammaURL, "Gamma")
+            ] {
+                let record = try XCTUnwrap(
+                    service.upsertRecord(
+                        for: url.path,
+                        displayName: url.lastPathComponent,
+                        fileExtension: "txt",
+                        timestamp: sharedTimestamp
+                    )
+                )
+                record.projectAssociation = label
+                record.lastSeenAt = sharedTimestamp
+            }
+
+            try context.save()
+
+            let summaries = service.fetchProjectSpaceSummaries()
+
+            XCTAssertEqual(summaries.map(\.normalizedLabel), ["Alpha", "Beta", "Gamma"])
+            XCTAssertEqual(summaries.map(\.fileCount), [2, 1, 1])
+            XCTAssertTrue(summaries.allSatisfy { $0.lastActivityAt == sharedTimestamp })
+        }
+    }
+
+    func testProjectSpaceSummaries_PreferNewestDurableHistoryAcrossSupportedEventKinds() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 
         try withService { context, service in
@@ -162,9 +201,22 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                 )
             )
             record.projectAssociation = "Alpha"
-            record.lastSeenAt = Date(timeIntervalSince1970: 4_000)
-            record.lastOrganizedAt = Date(timeIntervalSince1970: 3_000)
+            record.lastSeenAt = Date(timeIntervalSince1970: 6_000)
+            record.lastOrganizedAt = Date(timeIntervalSince1970: 5_000)
 
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: fileURL.path,
+                    toPath: fileURL.path,
+                    destinationDisplayName: "Alpha",
+                    matchedRuleID: nil,
+                    detailsSummary: "Initial durable history entry.",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
             _ = try XCTUnwrap(
                 service.appendHistoryEntry(
                     for: record,
@@ -174,8 +226,21 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                     toPath: fileURL.path,
                     destinationDisplayName: "Alpha",
                     matchedRuleID: nil,
-                    detailsSummary: "Durable history entry.",
+                    detailsSummary: "Follow-up durable history entry.",
                     timestamp: Date(timeIntervalSince1970: 2_000)
+                )
+            )
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .undone,
+                    sourceSurface: .undo,
+                    fromPath: fileURL.path,
+                    toPath: fileURL.path,
+                    destinationDisplayName: "Alpha",
+                    matchedRuleID: nil,
+                    detailsSummary: "Latest durable history entry.",
+                    timestamp: Date(timeIntervalSince1970: 3_000)
                 )
             )
 
@@ -184,7 +249,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
             let summary = try XCTUnwrap(service.fetchProjectSpaceSummaries().first)
             XCTAssertEqual(summary.normalizedLabel, "Alpha")
             XCTAssertEqual(summary.fileCount, 1)
-            XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 2_000))
+            XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 3_000))
         }
     }
 
