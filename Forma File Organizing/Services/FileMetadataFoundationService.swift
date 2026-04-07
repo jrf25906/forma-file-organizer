@@ -142,7 +142,7 @@ final class FileMetadataFoundationService {
     ) throws -> Bool {
         guard isWorkflowStatusWriteEnabled,
               wasCreated,
-              record.workflowStatus != .queued else {
+              record.workflowStatus == nil else {
             return false
         }
 

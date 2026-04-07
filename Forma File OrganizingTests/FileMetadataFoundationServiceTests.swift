@@ -728,6 +728,35 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testApplyWorkflowStatusForDiscovery_DoesNotDowngradeExistingWorkflowStatus() throws {
+        try withService { context, service in
+            FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/already-organized.txt", contents: "organized")
+            let record = try XCTUnwrap(
+                service.upsertRecordWithoutSaving(
+                    for: fileURL.path,
+                    displayName: "already-organized.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 9_451)
+                )
+            )
+            record.workflowStatus = .organized
+
+            let didWriteWorkflowStatus = try service.applyWorkflowStatusForDiscoveryWithoutSaving(
+                to: record,
+                wasCreated: true,
+                timestamp: Date(timeIntervalSince1970: 9_452)
+            )
+            try context.save()
+
+            XCTAssertFalse(didWriteWorkflowStatus)
+            XCTAssertEqual(record.workflowStatus, .organized)
+            XCTAssertTrue(record.historyEntries.isEmpty)
+        }
+    }
+
     func testRecordTransition_OrganizedWritesWorkflowStatus() throws {
         try withService { _, service in
             FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
