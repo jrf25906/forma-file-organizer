@@ -78,6 +78,58 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         return record
     }
 
+    func testProjectSpaceRetrieval_ReturnsResolvableSummariesAndDetail() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let betaURL = try tempDirectory.createFile(name: "Inbox/beta.txt", contents: "beta")
+        let staleURL = try tempDirectory.createFile(name: "Inbox/stale.txt", contents: "stale")
+
+        let alphaRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: alphaURL.path,
+            displayName: alphaURL.lastPathComponent,
+            fileExtension: "txt",
+            timestamp: Date(timeIntervalSince1970: 1_000)
+        )
+        alphaRecord.projectAssociation = "Alpha"
+        alphaRecord.lastSeenAt = Date(timeIntervalSince1970: 2_000)
+
+        let betaRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: betaURL.path,
+            displayName: betaURL.lastPathComponent,
+            fileExtension: "txt",
+            timestamp: Date(timeIntervalSince1970: 1_500)
+        )
+        betaRecord.projectAssociation = "Beta"
+        betaRecord.lastSeenAt = Date(timeIntervalSince1970: 1_600)
+
+        let staleRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: staleURL.path,
+            displayName: staleURL.lastPathComponent,
+            fileExtension: "txt",
+            timestamp: Date(timeIntervalSince1970: 1_700)
+        )
+        staleRecord.projectAssociation = "Alpha"
+        try FileManager.default.removeItem(at: staleURL)
+
+        try environment.context.save()
+
+        let summaries = environment.metadataService.fetchProjectSpaceSummaries()
+        XCTAssertEqual(summaries.map(\.normalizedLabel), ["Alpha", "Beta"])
+        XCTAssertEqual(summaries.map(\.fileCount), [1, 1])
+
+        let alphaDetail = try XCTUnwrap(environment.metadataService.fetchProjectSpaceDetail(for: "Alpha"))
+        XCTAssertEqual(alphaDetail.summary.normalizedLabel, "Alpha")
+        XCTAssertEqual(alphaDetail.files.map(\.displayName), ["alpha.txt"])
+    }
+
     func testOrganizeFile_UpdatesMetadataRecordAndAppendsHistory() async throws {
         let environment = try makeEnvironment()
         let tempDirectory = try TemporaryDirectory()

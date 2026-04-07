@@ -285,6 +285,22 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testProjectSpaceSourceFolderHintRoot_UsesStandardFolderDisplayNameHelper() throws {
+        try withService { _, service in
+            XCTAssertEqual(service.projectSpaceStandardFolderDisplayName(for: "Desktop"), "Desktop")
+            XCTAssertEqual(service.projectSpaceStandardFolderDisplayName(for: "Downloads"), "Downloads")
+            XCTAssertNil(service.projectSpaceStandardFolderDisplayName(for: "Projects"))
+
+            XCTAssertEqual(
+                service.projectSpaceSourceFolderHintRoot(
+                    for: "/Users/project-space-tests/Desktop/file.txt",
+                    homePath: "/Users/project-space-tests"
+                ),
+                "Desktop"
+            )
+        }
+    }
+
     func testProjectSpaceDetail_ReturnsOnlyMatchingResolvableFiles() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 

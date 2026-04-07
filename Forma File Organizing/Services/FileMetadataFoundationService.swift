@@ -764,10 +764,9 @@ final class FileMetadataFoundationService {
                 return nil
             }
 
-            switch firstComponent {
-            case "Desktop", "Downloads", "Documents", "Pictures", "Music":
-                return firstComponent
-            default:
+            if let standardFolderDisplayName = projectSpaceStandardFolderDisplayName(for: firstComponent) {
+                return standardFolderDisplayName
+            } else {
                 return firstComponent
             }
         }
@@ -783,6 +782,23 @@ final class FileMetadataFoundationService {
         }
 
         return pathComponents.first
+    }
+
+    func projectSpaceStandardFolderDisplayName(for component: String) -> String? {
+        switch component {
+        case "Desktop":
+            return "Desktop"
+        case "Downloads":
+            return "Downloads"
+        case "Documents":
+            return "Documents"
+        case "Pictures":
+            return "Pictures"
+        case "Music":
+            return "Music"
+        default:
+            return nil
+        }
     }
 
     private static func organizationCountSummary(for count: Int) -> String {
