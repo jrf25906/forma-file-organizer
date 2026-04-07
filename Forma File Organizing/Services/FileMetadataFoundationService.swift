@@ -585,22 +585,24 @@ final class FileMetadataFoundationService {
     }
 
     private func lastActivityAt(for record: FileMetadataRecord) -> Date {
-        var candidates: [Date] = [record.firstSeenAt, record.lastSeenAt]
-
-        if let lastOrganizedAt = record.lastOrganizedAt {
-            candidates.append(lastOrganizedAt)
+        if let durableHistoryAt = record.historyEntries
+            .compactMap({ entry -> Date? in
+                switch entry.eventKind {
+                case .organized, .rekeyed, .undone:
+                    return entry.timestamp
+                case .scanned, .ignored, .noted:
+                    return nil
+                }
+            })
+            .max() {
+            return durableHistoryAt
         }
 
-        candidates.append(contentsOf: record.historyEntries.compactMap { entry in
-            switch entry.eventKind {
-            case .organized, .rekeyed, .undone:
-                return entry.timestamp
-            case .scanned, .ignored, .noted:
-                return nil
-            }
-        })
+        if let lastOrganizedAt = record.lastOrganizedAt {
+            return lastOrganizedAt
+        }
 
-        return candidates.max() ?? record.firstSeenAt
+        return record.lastSeenAt
     }
 
     private func projectSpaceSummarySortOrder(

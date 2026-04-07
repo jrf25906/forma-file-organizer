@@ -144,6 +144,46 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testProjectSpaceSummaries_PreferDurableHistoryOverLastSeenAndLastOrganizedAt() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/project-alpha.txt", contents: "alpha")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "project-alpha.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            record.projectAssociation = "Alpha"
+            record.lastSeenAt = Date(timeIntervalSince1970: 4_000)
+            record.lastOrganizedAt = Date(timeIntervalSince1970: 3_000)
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: fileURL.path,
+                    toPath: fileURL.path,
+                    destinationDisplayName: "Alpha",
+                    matchedRuleID: nil,
+                    detailsSummary: "Durable history entry.",
+                    timestamp: Date(timeIntervalSince1970: 2_000)
+                )
+            )
+
+            try context.save()
+
+            let summary = try XCTUnwrap(service.fetchProjectSpaceSummaries().first)
+            XCTAssertEqual(summary.normalizedLabel, "Alpha")
+            XCTAssertEqual(summary.fileCount, 1)
+            XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 2_000))
+        }
+    }
+
     func testUpsertRecord_DeduplicatesByCanonicalIdentity() throws {
         try withService { context, service in
             let tempDir = try TemporaryDirectory()
