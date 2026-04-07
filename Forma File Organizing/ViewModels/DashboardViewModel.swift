@@ -218,6 +218,10 @@ class DashboardViewModel: ObservableObject {
     @Published var isRightPanelVisible: Bool = true
     @Published var errorMessage: String?
     @Published var shouldRequestAppReview: Bool = false
+    @Published private(set) var projectSpaces: [ProjectSpaceSummary] = []
+    @Published private(set) var selectedProjectSpace: ProjectSpaceSummary?
+    @Published private(set) var selectedProjectSpaceDetail: ProjectSpaceDetail?
+    @Published private(set) var isShowingProjectSpaceDetail: Bool = false
 
     // MARK: - Organization Progress State
     /// Baseline count of actionable files captured at the start of the current scan session.
@@ -357,6 +361,7 @@ class DashboardViewModel: ObservableObject {
     func setModelContext(_ context: ModelContext) {
         modelContext = context
         refreshContentTagQuickFilters()
+        refreshProjectSpaces()
 
         #if DEBUG
         if CommandLine.arguments.contains("--uitesting") {
@@ -541,6 +546,76 @@ class DashboardViewModel: ObservableObject {
 
     func removeContentTagQuickFilter(_ tag: MetadataContentTag) {
         filterViewModel.removeContentTag(tag)
+    }
+
+    // MARK: - Project Spaces
+
+    func refreshProjectSpaces() {
+        guard let modelContext,
+              featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.projectSpaces) else {
+            clearProjectSpaceState()
+            return
+        }
+
+        let metadataService = FileMetadataFoundationService(modelContext: modelContext)
+        let summaries = metadataService.fetchProjectSpaceSummaries()
+        projectSpaces = summaries
+
+        guard let selectedProjectSpace else {
+            if summaries.isEmpty {
+                selectedProjectSpaceDetail = nil
+                isShowingProjectSpaceDetail = false
+            }
+            return
+        }
+
+        guard let refreshedSummary = summaries.first(where: { $0.id == selectedProjectSpace.id }),
+              let detail = metadataService.fetchProjectSpaceDetail(for: refreshedSummary.normalizedLabel) else {
+            closeProjectSpaceDetail()
+            return
+        }
+
+        self.selectedProjectSpace = refreshedSummary
+        selectedProjectSpaceDetail = detail
+        isShowingProjectSpaceDetail = true
+    }
+
+    func selectProjectSpace(_ summary: ProjectSpaceSummary) {
+        guard let modelContext,
+              featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.projectSpaces) else {
+            closeProjectSpaceDetail()
+            return
+        }
+
+        let metadataService = FileMetadataFoundationService(modelContext: modelContext)
+        guard let detail = metadataService.fetchProjectSpaceDetail(for: summary.normalizedLabel) else {
+            closeProjectSpaceDetail()
+            refreshProjectSpaces()
+            return
+        }
+
+        selectedProjectSpace = projectSpaces.first(where: { $0.id == detail.summary.id }) ?? detail.summary
+        selectedProjectSpaceDetail = detail
+        isShowingProjectSpaceDetail = true
+    }
+
+    func openFileFromProjectSpace(_ fileRow: ProjectSpaceFileRow) {
+        guard let file = scanViewModel.allFiles.first(where: { $0.path == fileRow.normalizedPath }) else {
+            return
+        }
+
+        isRightPanelVisible = true
+        selectionViewModel.selectedFileIDs = [file.path]
+        selectionViewModel.focusedFilePath = file.path
+        panelManager.updateRightPanelForSelection([file])
+    }
+
+    func closeProjectSpaceDetail() {
+        selectedProjectSpace = nil
+        selectedProjectSpaceDetail = nil
+        isShowingProjectSpaceDetail = false
     }
 
     func clearAllFilters() {
@@ -1258,6 +1333,7 @@ class DashboardViewModel: ObservableObject {
                 self.synchronizeOrganizationProgressTotal(with: files)
                 self.filterViewModel.updateSourceFiles(files)
                 self.refreshContentTagQuickFilters(for: files)
+                self.refreshProjectSpaces()
                 self.synchronizeExternalReviewSession(with: files)
                 self.analyticsViewModel.updateAnalytics(from: files)
             }
@@ -1577,6 +1653,7 @@ class DashboardViewModel: ObservableObject {
         scanViewModel._testSetFiles(files)
         filterViewModel.updateSourceFiles(files)
         refreshContentTagQuickFilters(for: files)
+        refreshProjectSpaces()
         resetOrganizationProgress(with: files)
     }
 
@@ -1677,6 +1754,11 @@ class DashboardViewModel: ObservableObject {
         let metadataService = FileMetadataFoundationService(modelContext: modelContext)
         let index = metadataService.contentTagIndex(for: sourceFiles.map(\.path))
         filterViewModel.setContentTagIndex(index)
+    }
+
+    private func clearProjectSpaceState() {
+        projectSpaces = []
+        closeProjectSpaceDetail()
     }
 
     private func synchronizeOrganizationProgressTotal(with files: [FileItem]) {

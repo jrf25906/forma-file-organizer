@@ -67,6 +67,39 @@ final class DashboardViewModelTests: XCTestCase {
         return (container, context, FileMetadataFoundationService(modelContext: context))
     }
 
+    @discardableResult
+    private func insertProjectSpaceRecord(
+        using service: FileMetadataFoundationService,
+        path: String,
+        projectAssociation: String,
+        timestamp: Date
+    ) throws -> FileMetadataRecord {
+        let record = try XCTUnwrap(
+            service.upsertRecord(
+                for: path,
+                displayName: URL(fileURLWithPath: path).lastPathComponent,
+                fileExtension: URL(fileURLWithPath: path).pathExtension,
+                timestamp: timestamp
+            )
+        )
+        record.projectAssociation = projectAssociation
+        return record
+    }
+
+    private func makeProjectSpaceFile(at url: URL, timestamp: Date) -> FileItem {
+        FileItem(
+            path: url.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: url.deletingLastPathComponent().path,
+            destination: nil,
+            status: .pending
+        )
+    }
+
     func testInitialPermissionsCheck() {
         // Given - onboarding not yet completed
         UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
@@ -445,6 +478,167 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedContentTags, [.receipt])
         XCTAssertEqual(viewModel.deferredReviewFileCount, 0)
         XCTAssertEqual(viewModel.currentReviewChunkCount, viewModel.reviewChunkSize)
+    }
+
+    func testProjectSpaces_HiddenWhenFeatureDisabled() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first)
+        viewModel.selectProjectSpace(alphaSummary)
+
+        FeatureFlagService.shared.setEnabled(.projectSpaces, false)
+        viewModel.refreshProjectSpaces()
+
+        XCTAssertEqual(viewModel.projectSpaces, [])
+        XCTAssertNil(viewModel.selectedProjectSpace)
+        XCTAssertNil(viewModel.selectedProjectSpaceDetail)
+        XCTAssertFalse(viewModel.isShowingProjectSpaceDetail)
+    }
+
+    func testProjectSpaces_LoadSummariesWhenFeatureEnabled() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let betaURL = try tempDirectory.createFile(name: "Inbox/beta.txt", contents: "beta")
+        let alphaTimestamp = Date(timeIntervalSince1970: 2_000)
+        let betaTimestamp = Date(timeIntervalSince1970: 1_000)
+
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: alphaTimestamp
+        )
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: betaURL.path,
+            projectAssociation: "Beta",
+            timestamp: betaTimestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([
+            makeProjectSpaceFile(at: alphaURL, timestamp: alphaTimestamp),
+            makeProjectSpaceFile(at: betaURL, timestamp: betaTimestamp)
+        ])
+
+        XCTAssertEqual(viewModel.projectSpaces.map(\.normalizedLabel), ["Alpha", "Beta"])
+        XCTAssertEqual(viewModel.projectSpaces.map(\.fileCount), [1, 1])
+    }
+
+    func testProjectSpaces_SelectingSpaceLoadsDetail() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let secondAlphaURL = try tempDirectory.createFile(name: "Inbox/brief.txt", contents: "brief")
+        let firstTimestamp = Date(timeIntervalSince1970: 1_000)
+        let secondTimestamp = Date(timeIntervalSince1970: 2_000)
+
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: firstTimestamp
+        )
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: secondAlphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: secondTimestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([
+            makeProjectSpaceFile(at: alphaURL, timestamp: firstTimestamp),
+            makeProjectSpaceFile(at: secondAlphaURL, timestamp: secondTimestamp)
+        ])
+
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+
+        viewModel.selectProjectSpace(alphaSummary)
+
+        XCTAssertEqual(viewModel.selectedProjectSpace, alphaSummary)
+        XCTAssertEqual(viewModel.selectedProjectSpaceDetail?.summary, alphaSummary)
+        XCTAssertEqual(
+            Set(viewModel.selectedProjectSpaceDetail?.files.map(\.displayName) ?? []),
+            ["alpha.txt", "brief.txt"]
+        )
+        XCTAssertTrue(viewModel.isShowingProjectSpaceDetail)
+    }
+
+    func testProjectSpaces_SelectionClearsWhenSpaceDisappears() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let alphaRecord = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        viewModel.selectProjectSpace(alphaSummary)
+
+        alphaRecord.projectAssociation = nil
+        try context.save()
+
+        viewModel.refreshProjectSpaces()
+
+        XCTAssertEqual(viewModel.projectSpaces, [])
+        XCTAssertNil(viewModel.selectedProjectSpace)
+        XCTAssertNil(viewModel.selectedProjectSpaceDetail)
+        XCTAssertFalse(viewModel.isShowingProjectSpaceDetail)
     }
     
     func testFirstRunQuickWinPrefersLargestReadyFolderBatch() {
