@@ -500,6 +500,10 @@ final class FileScanPipelineTests: XCTestCase {
 
         let record = try XCTUnwrap(fetchMetadataRecord(path: filePath))
         XCTAssertEqual(record.workflowStatus, .queued)
+        let historyEntries = scannedHistoryEntries(for: record)
+        XCTAssertEqual(historyEntries.count, 1)
+        XCTAssertEqual(historyEntries.first?.eventKind, .scanned)
+        XCTAssertEqual(historyEntries.first?.sourceSurface, .scan)
     }
 
     func testPersistMetadataRecords_ExistingLegacyRecordDoesNotBackfillQueuedStatus() async throws {
@@ -544,6 +548,7 @@ final class FileScanPipelineTests: XCTestCase {
         let records = try context.fetch(FetchDescriptor<FileMetadataRecord>())
         XCTAssertEqual(records.count, 1)
         XCTAssertNil(records.first?.workflowStatus)
+        XCTAssertTrue(scannedHistoryEntries(for: try XCTUnwrap(records.first)).isEmpty)
     }
 
     func testPersistMetadataRecords_DiscoveryHelperIsSkippedWhenFeatureDisabled() async throws {
@@ -576,6 +581,7 @@ final class FileScanPipelineTests: XCTestCase {
 
         let record = try XCTUnwrap(fetchMetadataRecord(path: filePath))
         XCTAssertNil(record.workflowStatus)
+        XCTAssertTrue(scannedHistoryEntries(for: record).isEmpty)
     }
 
     func testScanAndPersist_MetadataFoundationDisabledSkipsMetadataWrites() async throws {
@@ -995,6 +1001,12 @@ final class FileScanPipelineTests: XCTestCase {
                 predicate: #Predicate { $0.lastKnownPath == path }
             )
         ).first
+    }
+
+    private func scannedHistoryEntries(for record: FileMetadataRecord) -> [FileOrganizationHistoryEntry] {
+        record.historyEntries.filter { entry in
+            entry.eventKind == .scanned && entry.sourceSurface == .scan
+        }
     }
 
     func testScanAndPersist_StoresScanRootAndRelativeParentPath() async throws {
