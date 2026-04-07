@@ -25,6 +25,13 @@ protocol FileMetadataFoundationServiceProtocol {
         destinationDisplayName: String?,
         matchedRuleID: UUID?
     ) -> [MetadataContentTag]
+
+    @discardableResult
+    func applyWorkflowStatusForDiscoveryWithoutSaving(
+        to record: FileMetadataRecord,
+        wasCreated: Bool,
+        timestamp: Date
+    ) throws -> Bool
 }
 
 @MainActor
@@ -128,6 +135,33 @@ final class FileMetadataFoundationService {
     }
 
     @discardableResult
+    func applyWorkflowStatusForDiscoveryWithoutSaving(
+        to record: FileMetadataRecord,
+        wasCreated: Bool,
+        timestamp: Date
+    ) throws -> Bool {
+        guard isWorkflowStatusWriteEnabled,
+              wasCreated,
+              record.workflowStatus != .queued else {
+            return false
+        }
+
+        record.workflowStatus = .queued
+        _ = try appendHistoryEntryWithoutSaving(
+            for: record,
+            eventKind: .scanned,
+            sourceSurface: .scan,
+            fromPath: nil,
+            toPath: record.lastKnownPath,
+            destinationDisplayName: nil,
+            matchedRuleID: nil,
+            detailsSummary: nil,
+            timestamp: timestamp
+        )
+        return true
+    }
+
+    @discardableResult
     func rekeyPathFallbackRecord(
         oldPath: String,
         newPath: String,
@@ -171,6 +205,34 @@ final class FileMetadataFoundationService {
         )
         try modelContext.save()
         return entry
+    }
+
+    @discardableResult
+    func appendIgnoredHistory(
+        for metadataRecord: FileMetadataRecord,
+        detailsSummary: String?,
+        timestamp: Date
+    ) throws -> FileOrganizationHistoryEntry? {
+        guard isEnabled else { return nil }
+
+        do {
+            let entry = try appendHistoryEntryWithoutSaving(
+                for: metadataRecord,
+                eventKind: .ignored,
+                sourceSurface: .review,
+                fromPath: metadataRecord.lastKnownPath,
+                toPath: metadataRecord.lastKnownPath,
+                destinationDisplayName: nil,
+                matchedRuleID: nil,
+                detailsSummary: detailsSummary,
+                timestamp: timestamp
+            )
+            try modelContext.save()
+            return entry
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     @discardableResult
@@ -355,6 +417,11 @@ final class FileMetadataFoundationService {
         featureFlags.isEnabled(.metadataFoundation)
     }
 
+    private var isWorkflowStatusWriteEnabled: Bool {
+        featureFlags.isEnabled(.metadataFoundation) &&
+        featureFlags.isEnabled(.durableWorkflowStatus)
+    }
+
     private func record(matching canonicalIdentity: String) throws -> FileMetadataRecord? {
         var descriptor = FetchDescriptor<FileMetadataRecord>(
             predicate: #Predicate<FileMetadataRecord> { record in
@@ -385,7 +452,7 @@ final class FileMetadataFoundationService {
         let shouldExposeProjectAssociation = featureFlags.isEnabled(.autoProjectAssociation)
         let shouldExposeWorkflowStatus = featureFlags.isEnabled(.durableWorkflowStatus)
         let workflowStatusSummary = shouldExposeWorkflowStatus
-            ? record.workflowStatus.map { "Workflow status: \($0.rawValue)" }
+            ? record.workflowStatus.map { "Status: \($0.rawValue)" }
             : nil
         let projectAssociationSummary = shouldExposeProjectAssociation
             ? (FileMetadataRecord.normalizedOptionalText(record.projectAssociation) ?? "")
@@ -425,8 +492,26 @@ final class FileMetadataFoundationService {
         switch eventKind {
         case .organized:
             return true
-        case .scanned, .rekeyed, .undone, .noted:
+        case .ignored, .scanned, .rekeyed, .undone, .noted:
             return false
+        }
+    }
+
+    private func applyWorkflowStatus(
+        for record: FileMetadataRecord,
+        eventKind: FileOrganizationHistoryEntry.EventKind
+    ) {
+        guard isWorkflowStatusWriteEnabled else { return }
+
+        switch eventKind {
+        case .organized:
+            record.workflowStatus = .organized
+        case .ignored:
+            record.workflowStatus = .ignored
+        case .undone:
+            record.workflowStatus = .recovered
+        case .scanned, .rekeyed, .noted:
+            break
         }
     }
 
@@ -620,6 +705,8 @@ final class FileMetadataFoundationService {
         switch eventKind {
         case .organized:
             metadataRecord.latestOrganizationStatus = .organized
+        case .ignored:
+            break
         case .undone:
             metadataRecord.latestOrganizationStatus = .undone
         case .rekeyed:
@@ -627,6 +714,8 @@ final class FileMetadataFoundationService {
         case .scanned, .noted:
             break
         }
+
+        applyWorkflowStatus(for: metadataRecord, eventKind: eventKind)
 
         return entry
     }
@@ -708,3 +797,17 @@ final class FileMetadataFoundationService {
 }
 
 extension FileMetadataFoundationService: FileMetadataFoundationServiceProtocol {}
+
+extension FileMetadataFoundationServiceProtocol {
+    @discardableResult
+    func applyWorkflowStatusForDiscoveryWithoutSaving(
+        to record: FileMetadataRecord,
+        wasCreated: Bool,
+        timestamp: Date
+    ) throws -> Bool {
+        _ = record
+        _ = wasCreated
+        _ = timestamp
+        return false
+    }
+}

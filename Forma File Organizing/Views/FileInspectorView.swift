@@ -998,7 +998,14 @@ private struct MetadataFoundationProofSection: View {
                         .font(.formaCaptionSemibold)
                         .foregroundColor(inspectorSecondaryTextColor)
 
-                    ForEach(summary.durableSummaryLines, id: \.self) { line in
+                    if let workflowStatusSummary = summary.workflowStatusSummary,
+                       summary.hasWorkflowStatusSummary {
+                        Text(workflowStatusSummary)
+                            .font(.formaSmall)
+                            .foregroundColor(.formaLabel)
+                    }
+
+                    ForEach(summary.durableTimingSummaryLines, id: \.self) { line in
                         Text(line)
                             .font(.formaSmall)
                             .foregroundColor(.formaLabel)

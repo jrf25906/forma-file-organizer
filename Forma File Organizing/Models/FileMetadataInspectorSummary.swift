@@ -31,6 +31,14 @@ struct FileMetadataInspectorSummary: Sendable, Equatable {
         ].compactMap { $0 }
     }
 
+    var durableTimingSummaryLines: [String] {
+        [
+            firstSeenSummary,
+            lastOrganizedSummary,
+            organizationCountSummary
+        ]
+    }
+
     var hasWorkflowStatusSummary: Bool {
         workflowStatusSummary != nil
     }

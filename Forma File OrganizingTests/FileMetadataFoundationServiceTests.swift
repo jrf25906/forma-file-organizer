@@ -692,7 +692,118 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
 
             let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
             XCTAssertNil(summary.workflowStatusSummary)
-            XCTAssertFalse(summary.durableSummaryLines.contains(where: { $0.contains("Workflow status") }))
+            XCTAssertFalse(summary.durableSummaryLines.contains(where: { $0.contains("Status:") }))
+        }
+    }
+
+    func testApplyWorkflowStatusForNewRecord_WritesQueuedAndScannedHistory() throws {
+        try withService { context, service in
+            FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/discovered.txt", contents: "discovered")
+            let timestamp = Date(timeIntervalSince1970: 9_450)
+
+            let record = try XCTUnwrap(
+                service.upsertRecordWithoutSaving(
+                    for: fileURL.path,
+                    displayName: "discovered.txt",
+                    fileExtension: "txt",
+                    timestamp: timestamp
+                )
+            )
+
+            let didWriteWorkflowStatus = try service.applyWorkflowStatusForDiscoveryWithoutSaving(
+                to: record,
+                wasCreated: true,
+                timestamp: timestamp
+            )
+            try context.save()
+
+            XCTAssertTrue(didWriteWorkflowStatus)
+            XCTAssertEqual(record.workflowStatus, .queued)
+            XCTAssertEqual(record.historyEntries.count, 1)
+            XCTAssertEqual(record.historyEntries.first?.eventKind, .scanned)
+            XCTAssertEqual(record.historyEntries.first?.sourceSurface, .scan)
+        }
+    }
+
+    func testRecordTransition_OrganizedWritesWorkflowStatus() throws {
+        try withService { _, service in
+            FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+            let tempDir = try TemporaryDirectory()
+            let sourceURL = try tempDir.createFile(name: "Inbox/organized.txt", contents: "organized")
+            let destinationURL = tempDir.url.appendingPathComponent("Archive/organized.txt")
+
+            let record = try XCTUnwrap(
+                service.recordTransition(
+                    from: sourceURL.path,
+                    to: destinationURL.path,
+                    displayName: "organized.txt",
+                    fileExtension: "txt",
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    destinationDisplayName: "Archive",
+                    matchedRuleID: nil,
+                    timestamp: Date(timeIntervalSince1970: 9_460)
+                )
+            )
+
+            XCTAssertEqual(record.workflowStatus, .organized)
+        }
+    }
+
+    func testAppendIgnoredHistory_WritesIgnoredWorkflowStatusAndReviewSource() throws {
+        try withService { context, service in
+            FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/ignored.txt", contents: "ignored")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "ignored.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 9_470)
+                )
+            )
+
+            let entry = try XCTUnwrap(
+                service.appendIgnoredHistory(
+                    for: record,
+                    detailsSummary: "Skipped during review.",
+                    timestamp: Date(timeIntervalSince1970: 9_471)
+                )
+            )
+            try context.save()
+
+            XCTAssertEqual(record.workflowStatus, .ignored)
+            XCTAssertEqual(entry.eventKind, .ignored)
+            XCTAssertEqual(entry.sourceSurface, .review)
+        }
+    }
+
+    func testInspectorSummary_IncludesWorkflowStatusWhenFeatureEnabled() throws {
+        try withService { context, service in
+            FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/status.txt", contents: "status")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "status.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 9_480)
+                )
+            )
+            record.workflowStatus = .organized
+            try context.save()
+
+            let summary = try XCTUnwrap(service.inspectorSummary(for: fileURL.path))
+            XCTAssertTrue(summary.hasWorkflowStatusSummary)
+            XCTAssertEqual(summary.workflowStatusSummary, "Status: organized")
         }
     }
 

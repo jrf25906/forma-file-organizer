@@ -6,6 +6,7 @@ final class FileOrganizationHistoryEntry {
     enum EventKind: String, Codable, Sendable {
         case scanned
         case organized
+        case ignored
         case rekeyed
         case undone
         case noted
@@ -14,6 +15,7 @@ final class FileOrganizationHistoryEntry {
     enum SourceSurface: String, Codable, Sendable {
         case scan
         case organize
+        case review
         case undo
         case inspector
     }
