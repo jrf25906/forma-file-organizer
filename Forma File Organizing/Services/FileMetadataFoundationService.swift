@@ -330,6 +330,7 @@ final class FileMetadataFoundationService {
                 detailsSummary: detailsSummary,
                 timestamp: timestamp
             )
+            applyWorkflowStatus(for: finalRecord, eventKind: eventKind)
 
             #if DEBUG
             if let debugRecordTransitionHook = Self.debugRecordTransitionHook {
@@ -686,8 +687,12 @@ final class FileMetadataFoundationService {
         let newIdentity = FileMetadataRecord.Identity.pathFallback(path: newPath)
         if let destinationRecord = try record(matching: newIdentity.canonicalIdentity),
            destinationRecord !== sourceRecord {
-            mergePathFallbackRecordWithoutSaving(sourceRecord, into: destinationRecord, timestamp: timestamp)
-            return destinationRecord
+            mergePathFallbackRecordWithoutSaving(destinationRecord, into: sourceRecord, timestamp: timestamp)
+            sourceRecord.canonicalIdentity = newIdentity.canonicalIdentity
+            sourceRecord.lastKnownPath = newIdentity.normalizedPath
+            sourceRecord.lastSeenAt = timestamp
+            sourceRecord.latestOrganizationStatus = .rekeyed
+            return sourceRecord
         }
 
         sourceRecord.canonicalIdentity = newIdentity.canonicalIdentity
@@ -771,7 +776,9 @@ final class FileMetadataFoundationService {
             destinationRecord.lastOrganizedAt,
             sourceRecord.lastOrganizedAt
         )
-        destinationRecord.latestOrganizationStatus = .rekeyed
+        if destinationRecord.workflowStatus == nil, sourceRecord.workflowStatus != nil {
+            destinationRecord.workflowStatus = sourceRecord.workflowStatus
+        }
 
         if destinationRecord.displayName.isEmpty, !sourceRecord.displayName.isEmpty {
             destinationRecord.displayName = sourceRecord.displayName
