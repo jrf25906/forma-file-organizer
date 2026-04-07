@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Legacy App Store Migration
+- **Startup migration recovery**: `ProjectCluster.filePathsSearchBlob` now defaults to an empty string for rows created before that denormalized search field existed, allowing older app stores to open and migrate without crashing during container creation.
+- **Regression coverage**: Added `Forma File OrganizingTests/AppStoreMigrationTests.swift` to verify legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows open under the current app schema.
+
 ### Added - Cross-Folder Project Spaces
 - **Cross-folder project spaces v1**: Added a feature-gated, read-only dashboard retrieval slice for durable project groupings.
 - **Project-space membership**: `FileMetadataFoundationService.fetchProjectSpaceSummaries()` and `fetchProjectSpaceDetail(for:)` derive project spaces strictly from durable `projectAssociation` labels and only include files that still resolve locally through the existing metadata/bookmark identity paths.

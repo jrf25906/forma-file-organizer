@@ -1,6 +1,6 @@
 # Forma - Project TODO
 
-**Last Updated:** April 2, 2026
+**Last Updated:** April 7, 2026
 
 Strategic roadmap: [`forma-feature-roadmap.md`](../../forma-feature-roadmap.md). This document is the execution checklist and historical backlog reference.
 
@@ -38,6 +38,9 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 
 ## Recent Delivered Work
 The dated sections below capture shipped work and execution history. Use the roadmap-ordered section above to decide what comes next.
+
+## App Store Migration Recovery (April 7, 2026)
+- [x] Keep pre-metadata app stores launchable by making `ProjectCluster.filePathsSearchBlob` lightweight-migration safe and adding regression coverage for legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.
 
 ## Personal Organization Memory v1 (April 2, 2026)
 - [x] Capture structured decision memory across review-flow organizes, inspector organizes, bulk organize actions, rule-suggestion responses, and undo recoveries.

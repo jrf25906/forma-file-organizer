@@ -1,6 +1,6 @@
 # Project TODO
 
-**Last Updated:** April 6, 2026
+**Last Updated:** April 7, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
@@ -37,6 +37,9 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
+
+## App Store Migration Recovery (April 7, 2026)
+- [x] Keep pre-metadata app stores launchable by making `ProjectCluster.filePathsSearchBlob` lightweight-migration safe and adding regression coverage for legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.
 
 ## Personal Organization Memory v1 (April 2, 2026)
 - [x] Record structured personal-memory events from review-flow organizes, inspector organizes, bulk organizes, undo recoveries, and rule-suggestion accept/dismiss loops.

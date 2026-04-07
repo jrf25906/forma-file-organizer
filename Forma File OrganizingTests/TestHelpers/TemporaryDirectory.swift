@@ -5,9 +5,11 @@ import Foundation
 final class TemporaryDirectory {
     let url: URL
     private let fileManager = FileManager.default
+    private let cleanupOnDeinit: Bool
     
     /// Creates a new temporary directory with a unique name
-    init() throws {
+    init(cleanupOnDeinit: Bool = true) throws {
+        self.cleanupOnDeinit = cleanupOnDeinit
         url = fileManager.temporaryDirectory
             .appendingPathComponent("FormaTests-\(UUID().uuidString)")
         try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
@@ -109,6 +111,7 @@ final class TemporaryDirectory {
     }
     
     deinit {
+        guard cleanupOnDeinit else { return }
         cleanup()
     }
 }

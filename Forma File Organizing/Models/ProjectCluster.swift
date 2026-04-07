@@ -29,7 +29,9 @@ final class ProjectCluster {
     }
 
     /// Searchable representation of stored file paths for path-scoped fetches.
-    private(set) var filePathsSearchBlob: String
+    /// Defaults empty so legacy stores can lightweight-migrate rows created before
+    /// this denormalized search field existed.
+    private(set) var filePathsSearchBlob: String = ""
     
     /// Confidence score (0.0-1.0) indicating how certain we are these files are related
     /// - 0.8+ (High): Strong signals (explicit project codes, tight temporal grouping)

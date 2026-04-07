@@ -5,6 +5,11 @@ Canonical changelog: [Docs/Getting-Started/CHANGELOG.md](Docs/Getting-Started/CH
 Use this short template to stage upcoming notes; add finalized entries to the canonical changelog as changes land.
 
 ## [Unreleased]
+### Fixed
+- Legacy app-store migration recovery:
+  - `ProjectCluster.filePathsSearchBlob` now defaults to an empty string for rows created before that denormalized search field existed, so older stores can open and migrate without failing container creation at startup.
+  - Added a targeted pre-metadata store migration regression in `Forma File OrganizingTests/AppStoreMigrationTests.swift` covering legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.
+
 ### Added
 - Cross-folder project spaces v1 for metadata-backed retrieval:
   - `FeatureFlagService.Feature.projectSpaces`, `ProjectSpaceSummary`, `ProjectSpaceFileRow`, and `ProjectSpaceDetail` now expose a shipped read-only dashboard retrieval slice for durable project groupings.

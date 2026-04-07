@@ -67,6 +67,8 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 
 ### Recent API Updates (April 2026)
 
+- `ProjectCluster.filePathsSearchBlob` now defaults to an empty string so stores created before that denormalized search field existed can still open under the current app schema and rebuild the blob lazily from `filePaths`.
+- Added `Forma File OrganizingTests/AppStoreMigrationTests.swift` coverage for legacy pre-metadata stores containing `FileItem`, `LearnedPattern`, and `ProjectCluster` rows.
 - `FeatureFlagService.Feature.projectSpaces` now gates the shipped read-only project-space retrieval slice.
 - `ProjectSpaceSummary`, `ProjectSpaceFileRow`, and `ProjectSpaceDetail` now power metadata-backed project-space summaries and detail in the dashboard.
 - `FileMetadataFoundationService.fetchProjectSpaceSummaries()` and `fetchProjectSpaceDetail(for:)` now derive membership from durable `projectAssociation` labels and only include files that still resolve locally through the existing metadata/bookmark identity paths.

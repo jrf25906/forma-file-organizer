@@ -4,6 +4,10 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Legacy app-store migration recovery
+  - `ProjectCluster.filePathsSearchBlob`
+  - `Forma File OrganizingTests/AppStoreMigrationTests.swift`
+  - `ProjectCluster.filePathsSearchBlob` now defaults to an empty string so stores created before that denormalized search field existed can still open under the current app schema, and the app has regression coverage for pre-metadata stores containing legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows.
 - Cross-folder project spaces v1
   - `FeatureFlagService.Feature.projectSpaces`
   - `ProjectSpaceSummary`
