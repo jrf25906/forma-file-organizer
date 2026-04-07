@@ -55,6 +55,10 @@ class FileOrganizationCoordinator: ObservableObject {
     /// Test hook that can force an undo metadata transition to fail for a specific snapshot.
     /// Defaults to nil in debug builds.
     var metadataUndoTransitionHook: ((MetadataIdentitySnapshot) throws -> Void)?
+
+    /// Test hook that can force the first skip save attempt to fail after durable metadata mutation.
+    /// Defaults to nil in debug builds.
+    var metadataSkipSaveHook: (() throws -> Void)?
     #endif
 
     // MARK: - Cancellation
@@ -245,7 +249,8 @@ class FileOrganizationCoordinator: ObservableObject {
     }
     
     /// Skips a file (marks it as skipped)
-    func skipFile(_ file: FileItem, context: ModelContext?) {
+    @discardableResult
+    func skipFile(_ file: FileItem, context: ModelContext?) -> Bool {
         let originalStatus = file.status
         file.status = .skipped
 
@@ -259,27 +264,41 @@ class FileOrganizationCoordinator: ObservableObject {
                     for: file,
                     context: context
                 )
+
+                #if DEBUG
+                if let metadataSkipSaveHook {
+                    try metadataSkipSaveHook()
+                }
+                #endif
+
                 try context.save()
             } catch {
                 Log.error(
                     "Failed to persist durable skip metadata for '\(file.path)': \(error.localizedDescription)",
                     category: .undo
                 )
+
+                context.rollback()
+                file.status = .skipped
+                durableWorkflowStatusSnapshot = nil
+
                 do {
                     try context.save()
                 } catch {
                     Log.error("Failed to save transient skip for '\(file.path)': \(error.localizedDescription)", category: .undo)
+                    context.rollback()
                     file.status = originalStatus
-                    return
+                    return false
                 }
             }
         } else if let ctx = context {
             do {
                 try ctx.save()
             } catch {
+                ctx.rollback()
                 file.status = originalStatus
                 Log.error("Failed to skip file: \(error.localizedDescription)", category: .undo)
-                return
+                return false
             }
         }
 
@@ -293,6 +312,7 @@ class FileOrganizationCoordinator: ObservableObject {
             durableWorkflowStatusSnapshot: durableWorkflowStatusSnapshot
         )
         pushUndoCommand(command)
+        return true
     }
     
     /// Organizes multiple files in bulk
@@ -868,27 +888,17 @@ class FileOrganizationCoordinator: ObservableObject {
         for file: FileItem,
         context: ModelContext
     ) throws -> SkipFileCommand.DurableWorkflowStatusSnapshot? {
-        let metadataContext = ModelContext(context.container)
-        let metadataService = FileMetadataFoundationService(modelContext: metadataContext)
-        let normalizedPath = FileMetadataRecord.normalizedPath(file.path)
-        var descriptor = FetchDescriptor<FileMetadataRecord>(
-            predicate: #Predicate<FileMetadataRecord> { record in
-                record.lastKnownPath == normalizedPath
-            }
-        )
-        descriptor.fetchLimit = 1
-
-        guard let record = try metadataContext.fetch(descriptor).first else {
+        let metadataService = FileMetadataFoundationService(modelContext: context)
+        guard let preparation = try metadataService.prepareIgnoredHistoryWithoutSaving(
+            for: file.path,
+            detailsSummary: nil,
+            timestamp: Date()
+        ) else {
             return nil
         }
 
         let snapshot = SkipFileCommand.DurableWorkflowStatusSnapshot(
-            previousValue: record.workflowStatus
-        )
-        _ = try metadataService.appendIgnoredHistory(
-            for: record,
-            detailsSummary: nil,
-            timestamp: Date()
+            previousValue: preparation.previousWorkflowStatus
         )
         return snapshot
     }

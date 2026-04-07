@@ -32,16 +32,18 @@ class ReviewViewModel: ObservableObject {
     private let fileOperationsService = FileOperationsService()
     private let notificationService = NotificationService.shared
     private let fileScanPipeline: FileScanPipelineProtocol
-    private let organizationCoordinator = FileOrganizationCoordinator()
+    private let organizationCoordinator: FileOrganizationCoordinator
 
     // MARK: - Initialization
 
     init(
         fileSystemService: FileSystemServiceProtocol,
-        fileScanPipeline: FileScanPipelineProtocol
+        fileScanPipeline: FileScanPipelineProtocol,
+        organizationCoordinator: FileOrganizationCoordinator = FileOrganizationCoordinator()
     ) {
         self.fileSystemService = fileSystemService
         self.fileScanPipeline = fileScanPipeline
+        self.organizationCoordinator = organizationCoordinator
         // We defer scanning until setModelContext is called
     }
 
@@ -221,7 +223,8 @@ class ReviewViewModel: ObservableObject {
             Log.info("Learning: User rejected suggestion '\(displayName)' for \(fileItem.name) (rejection count: \(fileItem.rejectionCount))", category: .analytics)
         }
 
-        organizationCoordinator.skipFile(fileItem, context: modelContext)
+        let didSkip = organizationCoordinator.skipFile(fileItem, context: modelContext)
+        guard didSkip else { return }
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             files.removeAll { $0.path == fileItem.path }
         }

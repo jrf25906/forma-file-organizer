@@ -605,6 +605,35 @@ final class ReviewViewModelTests: XCTestCase {
         XCTAssertEqual(persistedRecord.historyEntries.first?.eventKind, .ignored)
     }
 
+    func testReviewSkip_FailedSkipKeepsFileVisibleAndRestoresStatus() {
+        let coordinator = MockReviewFileOrganizationCoordinator()
+        coordinator.skipFileResult = false
+
+        viewModel = ReviewViewModel(
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline,
+            organizationCoordinator: coordinator
+        )
+        viewModel.setModelContext(modelContext)
+
+        let fileItem = createFileItem(
+            name: "failed-review-skip.pdf",
+            path: "/Desktop/failed-review-skip.pdf",
+            destination: .mockFolder("Invoices")
+        )
+        modelContext.insert(fileItem)
+        viewModel.files = [fileItem]
+
+        viewModel.skipFile(fileItem)
+
+        XCTAssertEqual(coordinator.skipFileCallCount, 1)
+        XCTAssertEqual(viewModel.files.count, 1)
+        XCTAssertTrue(viewModel.files.contains { $0 === fileItem })
+        XCTAssertEqual(fileItem.status, .ready)
+        XCTAssertEqual(fileItem.rejectedDestination, "Invoices")
+        XCTAssertEqual(fileItem.rejectionCount, 1)
+    }
+
     func testMoveFile_AlreadyCompleted_HandlesGracefully() async {
         // Given: File already marked as completed
         let fileItem = createFileItem(
@@ -653,5 +682,16 @@ final class ReviewViewModelTests: XCTestCase {
             destination: destination,
             status: .ready
         )
+    }
+}
+
+@MainActor
+private final class MockReviewFileOrganizationCoordinator: FileOrganizationCoordinator {
+    var skipFileCallCount = 0
+    var skipFileResult = true
+
+    override func skipFile(_ file: FileItem, context: ModelContext?) -> Bool {
+        skipFileCallCount += 1
+        return skipFileResult
     }
 }

@@ -129,7 +129,8 @@ final class DashboardOrganizationController {
     #endif
 
     func skipFile(_ file: FileItem, context: ModelContext?) {
-        coordinator.skipFile(file, context: context)
+        let didSkip = coordinator.skipFile(file, context: context)
+        guard didSkip else { return }
         filterViewModel.applyFilterImmediately()
     }
 

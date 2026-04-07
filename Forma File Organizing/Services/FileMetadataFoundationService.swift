@@ -46,6 +46,11 @@ protocol FileMetadataFoundationServiceProtocol {
 
 @MainActor
 final class FileMetadataFoundationService {
+    typealias IgnoredHistoryPreparationResult = (
+        record: FileMetadataRecord,
+        previousWorkflowStatus: MetadataWorkflowStatus?
+    )
+
     private let modelContext: ModelContext
     private let featureFlags: FeatureFlagService
 
@@ -258,6 +263,42 @@ final class FileMetadataFoundationService {
             modelContext.rollback()
             throw error
         }
+    }
+
+    @discardableResult
+    func prepareIgnoredHistoryWithoutSaving(
+        for path: String,
+        detailsSummary: String?,
+        timestamp: Date
+    ) throws -> IgnoredHistoryPreparationResult? {
+        guard isWorkflowStatusWriteEnabled else { return nil }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+        var descriptor = FetchDescriptor<FileMetadataRecord>(
+            predicate: #Predicate<FileMetadataRecord> { record in
+                record.lastKnownPath == normalizedPath
+            }
+        )
+        descriptor.fetchLimit = 1
+
+        guard let record = try modelContext.fetch(descriptor).first else {
+            return nil
+        }
+
+        let previousWorkflowStatus = record.workflowStatus
+
+        _ = try appendHistoryEntryWithoutSaving(
+            for: record,
+            eventKind: .ignored,
+            sourceSurface: .review,
+            fromPath: record.lastKnownPath,
+            toPath: record.lastKnownPath,
+            destinationDisplayName: nil,
+            matchedRuleID: nil,
+            detailsSummary: detailsSummary,
+            timestamp: timestamp
+        )
+        return (record, previousWorkflowStatus)
     }
 
     @discardableResult

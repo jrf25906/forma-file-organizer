@@ -192,6 +192,39 @@ final class DashboardOrganizationControllerTests: XCTestCase {
         XCTAssertTrue(coordinator.lastSkipContext === modelContext)
         XCTAssertEqual(file.status, .ready)
     }
+
+    func testDashboardSkip_FailedSkipDoesNotApplyFilter() throws {
+        let file = FileItem(
+            path: "/Users/example/Downloads/failed-skip.pdf",
+            sizeInBytes: 2_048,
+            creationDate: Date(),
+            destination: .mockFolder("Documents"),
+            status: .ready
+        )
+        modelContext.insert(file)
+        try modelContext.save()
+
+        scanViewModel.replaceScannedFiles([file])
+        filterViewModel.updateSourceFiles([file])
+        coordinator.skipFileResult = false
+
+        let controller = DashboardOrganizationController(
+            coordinator: coordinator,
+            scanViewModel: scanViewModel,
+            filterViewModel: filterViewModel,
+            selectionViewModel: selectionViewModel,
+            panelManager: panelManager,
+            appReviewEligibility: appReviewEligibility,
+            usesTestingFastPath: false
+        )
+
+        controller.skipFile(file, context: modelContext)
+
+        XCTAssertEqual(coordinator.skipFileCallCount, 1)
+        XCTAssertEqual(filterViewModel.filteredFiles.count, 1)
+        XCTAssertTrue(filterViewModel.filteredFiles.contains { $0 === file })
+        XCTAssertEqual(file.status, .ready)
+    }
 }
 
 @MainActor
@@ -200,6 +233,7 @@ private final class MockFileOrganizationCoordinator: FileOrganizationCoordinator
     var skipFileCallCount = 0
     var lastSkippedFile: FileItem?
     var lastSkipContext: ModelContext?
+    var skipFileResult = true
 
     override func organizeFile(
         _ file: FileItem,
@@ -216,10 +250,11 @@ private final class MockFileOrganizationCoordinator: FileOrganizationCoordinator
         onSuccess(cannedFileAction)
     }
 
-    override func skipFile(_ file: FileItem, context: ModelContext?) {
+    override func skipFile(_ file: FileItem, context: ModelContext?) -> Bool {
         skipFileCallCount += 1
         lastSkippedFile = file
         lastSkipContext = context
+        return skipFileResult
     }
 
     private enum MockError: Error {
