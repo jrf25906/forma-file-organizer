@@ -25,7 +25,7 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 - [x] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.
 - [ ] Plan progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
 - [ ] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
-- [ ] Plan metadata-backed project spaces and retrieval workflows as the next durable moat.
+- [x] Ship metadata-backed project spaces as a read-only retrieval slice, while leaving broader project-space editing and workflow-memory expansion for later.
 
 ### Later (4-8+ Months)
 - [ ] Plan workflow chains with simulation, audit history, and rollback across multi-step automations, including flows like match -> rename -> tag -> move -> notify -> log.

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Cross-Folder Project Spaces
+- **Cross-folder project spaces v1**: Added a feature-gated, read-only dashboard retrieval slice for durable project groupings.
+- **Project-space membership**: `FileMetadataFoundationService.fetchProjectSpaceSummaries()` and `fetchProjectSpaceDetail(for:)` derive project spaces strictly from durable `projectAssociation` labels and only include files that still resolve locally through the existing metadata/bookmark identity paths.
+- **Project-space surfaces**: `DashboardViewModel`, `ProjectSpacesSection`, `ProjectSpaceDetailView`, and `DefaultPanelView` now surface project-space summaries and detail without adding manual editing, historical placeholder rows for missing files, or workflow execution from spaces.
+
 ### Added - Personal Organization Memory
 - **PersonalMemoryService**: Added a structured local memory layer that records organize, override, defer, undo, and rule-suggestion decisions and turns them into destination preferences keyed by file extension, file category, source location, and relative parent path.
 - **Personal Memory Models**: Added `PersonalMemoryEvent` and `PersonalMemoryPreference` SwiftData models so Forma can persist decision history separately from generic activity-derived learned patterns.

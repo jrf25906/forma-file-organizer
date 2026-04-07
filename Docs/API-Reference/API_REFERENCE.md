@@ -67,6 +67,11 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 
 ### Recent API Updates (April 2026)
 
+- `FeatureFlagService.Feature.projectSpaces` now gates the shipped read-only project-space retrieval slice.
+- `ProjectSpaceSummary`, `ProjectSpaceFileRow`, and `ProjectSpaceDetail` now power metadata-backed project-space summaries and detail in the dashboard.
+- `FileMetadataFoundationService.fetchProjectSpaceSummaries()` and `fetchProjectSpaceDetail(for:)` now derive membership from durable `projectAssociation` labels and only include files that still resolve locally through the existing metadata/bookmark identity paths.
+- `DashboardViewModel`, `ProjectSpacesSection`, `ProjectSpaceDetailView`, and `DefaultPanelView` now surface project-space summaries and detail without manual editing, historical placeholder rows for missing files, or workflow execution from project spaces.
+- Project-space membership stays strict: the shipped slice is read-only retrieval only, while manual project editing, workflow execution from spaces, and broader workflow-memory expansion remain future work.
 - `PersonalMemoryService` now records local organization decisions, surfaces personal-memory destination predictions, derives memory-backed rule suggestions, and supports summary/reset flows for the learned-memory layer.
 - `PersonalMemoryEvent` and `PersonalMemoryPreference` now persist structured organization-memory history separately from generic activity-derived `LearnedPattern` rows.
 - `SuggestionSource` now includes `.personalMemory` so persisted file suggestions can distinguish user-specific memory from rules, learned patterns, and ML predictions.
