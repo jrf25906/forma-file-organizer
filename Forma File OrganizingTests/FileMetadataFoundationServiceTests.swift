@@ -185,7 +185,181 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
-    func testProjectSpaceSummaries_PreferNewestDurableHistoryAcrossSupportedEventKinds() throws {
+    func testProjectSpaceSummaries_ExcludeUnlabeledRecords() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let labeledURL = try tempDir.createFile(name: "Inbox/labeled.txt", contents: "alpha")
+            let unlabeledURL = try tempDir.createFile(name: "Inbox/unlabeled.txt", contents: "beta")
+
+            let labeled = try XCTUnwrap(
+                service.upsertRecord(
+                    for: labeledURL.path,
+                    displayName: labeledURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            labeled.projectAssociation = "Alpha"
+
+            let unlabeled = try XCTUnwrap(
+                service.upsertRecord(
+                    for: unlabeledURL.path,
+                    displayName: unlabeledURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 2_000)
+                )
+            )
+            unlabeled.projectAssociation = "   "
+
+            try context.save()
+
+            let summaries = service.fetchProjectSpaceSummaries()
+
+            XCTAssertEqual(summaries.map(\.normalizedLabel), ["Alpha"])
+            XCTAssertEqual(summaries.first?.fileCount, 1)
+        }
+    }
+
+    func testProjectSpaceSummaries_ExcludeUnresolvableRecords() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let resolvableURL = try tempDir.createFile(name: "Inbox/resolvable.txt", contents: "alpha")
+            let staleURL = try tempDir.createFile(name: "Inbox/stale.txt", contents: "beta")
+
+            let resolvable = try XCTUnwrap(
+                service.upsertRecord(
+                    for: resolvableURL.path,
+                    displayName: resolvableURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            resolvable.projectAssociation = "Alpha"
+
+            let stale = try XCTUnwrap(
+                service.upsertRecord(
+                    for: staleURL.path,
+                    displayName: staleURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 2_000)
+                )
+            )
+            stale.projectAssociation = "Alpha"
+            try FileManager.default.removeItem(at: staleURL)
+
+            try context.save()
+
+            let summaries = service.fetchProjectSpaceSummaries()
+
+            XCTAssertEqual(summaries.count, 1)
+            XCTAssertEqual(summaries.first?.normalizedLabel, "Alpha")
+            XCTAssertEqual(summaries.first?.fileCount, 1)
+        }
+    }
+
+    func testProjectSpaceSummaries_UseBoundedSourceFolderHints() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { _, service in
+            let syntheticHome = "/Users/project-space-tests"
+            let projectsAliasName = "ProjectsZZ"
+
+            let hints = service.projectSpaceSourceFolderHints(
+                for: [
+                    "\(syntheticHome)/Desktop/alpha-1.txt",
+                    "\(syntheticHome)/Desktop/alpha-2.txt",
+                    "\(syntheticHome)/Downloads/beta-1.txt",
+                    "\(syntheticHome)/Downloads/beta-2.txt",
+                    "\(syntheticHome)/\(projectsAliasName)/gamma-1.txt",
+                    "\(syntheticHome)/\(projectsAliasName)/gamma-2.txt",
+                    "\(syntheticHome)/Documents/notes.txt"
+                ],
+                homePath: syntheticHome
+            )
+
+            XCTAssertEqual(hints, ["Desktop", "Downloads", projectsAliasName])
+        }
+    }
+
+    func testProjectSpaceDetail_ReturnsOnlyMatchingResolvableFiles() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let alphaURL = try tempDir.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+            let spacedAlphaURL = try tempDir.createFile(name: "Inbox/spaced-alpha.txt", contents: "alpha")
+            let lowercaseAlphaURL = try tempDir.createFile(name: "Inbox/lowercase-alpha.txt", contents: "alpha")
+            let betaURL = try tempDir.createFile(name: "Inbox/beta.txt", contents: "beta")
+            let staleURL = try tempDir.createFile(name: "Inbox/stale.txt", contents: "stale")
+
+            let alpha = try XCTUnwrap(
+                service.upsertRecord(
+                    for: alphaURL.path,
+                    displayName: alphaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            alpha.projectAssociation = "Alpha"
+
+            let spacedAlpha = try XCTUnwrap(
+                service.upsertRecord(
+                    for: spacedAlphaURL.path,
+                    displayName: spacedAlphaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 2_000)
+                )
+            )
+            spacedAlpha.projectAssociation = " Alpha "
+
+            let lowercaseAlpha = try XCTUnwrap(
+                service.upsertRecord(
+                    for: lowercaseAlphaURL.path,
+                    displayName: lowercaseAlphaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 3_000)
+                )
+            )
+            lowercaseAlpha.projectAssociation = "alpha"
+
+            let beta = try XCTUnwrap(
+                service.upsertRecord(
+                    for: betaURL.path,
+                    displayName: betaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 4_000)
+                )
+            )
+            beta.projectAssociation = "Beta"
+
+            let stale = try XCTUnwrap(
+                service.upsertRecord(
+                    for: staleURL.path,
+                    displayName: staleURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 5_000)
+                )
+            )
+            stale.projectAssociation = "Alpha"
+            try FileManager.default.removeItem(at: staleURL)
+
+            try context.save()
+
+            let detail = try XCTUnwrap(service.fetchProjectSpaceDetail(for: "Alpha"))
+            XCTAssertEqual(detail.summary.normalizedLabel, "Alpha")
+            XCTAssertEqual(detail.summary.fileCount, 2)
+            XCTAssertEqual(
+                Set(detail.files.map(\.displayName)),
+                ["alpha.txt", "spaced-alpha.txt"]
+            )
+        }
+    }
+
+    func testProjectSpaceSummaries_LastActivityPrefersDurableHistoryEntry() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 
         try withService { context, service in
@@ -250,6 +424,32 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
             XCTAssertEqual(summary.normalizedLabel, "Alpha")
             XCTAssertEqual(summary.fileCount, 1)
             XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 3_000))
+        }
+    }
+
+    func testProjectSpaceSummaries_LastActivityFallsBackToFirstSeenAt() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/project-alpha.txt", contents: "alpha")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: fileURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 5_000)
+                )
+            )
+            record.projectAssociation = "Alpha"
+            record.lastSeenAt = Date(timeIntervalSince1970: 1_000)
+
+            try context.save()
+
+            let summary = try XCTUnwrap(service.fetchProjectSpaceSummaries().first)
+            XCTAssertEqual(summary.normalizedLabel, "Alpha")
+            XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 5_000))
         }
     }
 

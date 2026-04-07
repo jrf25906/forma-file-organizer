@@ -51,6 +51,12 @@ final class FileMetadataFoundationService {
         previousWorkflowStatus: MetadataWorkflowStatus?
     )
 
+    private struct ProjectSpaceMember {
+        let normalizedLabel: String
+        let normalizedPath: String
+        let record: FileMetadataRecord
+    }
+
     private let modelContext: ModelContext
     private let featureFlags: FeatureFlagService
 
@@ -477,23 +483,57 @@ final class FileMetadataFoundationService {
             return []
         }
 
-        var recordsByLabel: [String: [FileMetadataRecord]] = [:]
-        for record in records {
-            guard let normalizedLabel = FileMetadataRecord.normalizedOptionalText(record.projectAssociation) else {
-                continue
-            }
-            recordsByLabel[normalizedLabel, default: []].append(record)
-        }
+        let recordsByLabel = projectSpaceRecordsByLabel(from: records)
 
         return recordsByLabel
-            .map { label, groupedRecords in
+            .map { label, members in
                 ProjectSpaceSummary(
                     normalizedLabel: label,
-                    fileCount: groupedRecords.count,
-                    lastActivityAt: lastActivityAt(for: groupedRecords)
+                    fileCount: members.count,
+                    lastActivityAt: lastActivityAt(for: members.map(\.record)),
+                    sourceFolderHints: sourceFolderHints(for: members)
                 )
             }
             .sorted(by: projectSpaceSummarySortOrder(_:_:))
+    }
+
+    func fetchProjectSpaceDetail(for normalizedProjectLabel: String) -> ProjectSpaceDetail? {
+        guard isProjectSpaceReadEnabled,
+              let selectedLabel = FileMetadataRecord.normalizedOptionalText(normalizedProjectLabel) else {
+            return nil
+        }
+
+        let descriptor = FetchDescriptor<FileMetadataRecord>()
+        guard let records = try? modelContext.fetch(descriptor) else {
+            return nil
+        }
+
+        let members = projectSpaceMembers(from: records)
+            .filter { $0.normalizedLabel == selectedLabel }
+
+        guard !members.isEmpty else { return nil }
+
+        let summary = ProjectSpaceSummary(
+            normalizedLabel: selectedLabel,
+            fileCount: members.count,
+            lastActivityAt: lastActivityAt(for: members.map(\.record)),
+            sourceFolderHints: sourceFolderHints(for: members)
+        )
+        let files = members
+            .map { member in
+                ProjectSpaceFileRow(
+                    canonicalIdentity: member.record.canonicalIdentity,
+                    path: member.normalizedPath,
+                    displayName: member.record.displayName,
+                    fileExtension: member.record.fileExtension,
+                    lastActivityAt: lastActivityAt(for: member.record),
+                    workflowStatus: member.record.workflowStatus,
+                    tags: member.record.tags
+                )
+            }
+            .sorted(by: projectSpaceFileSortOrder(_:_:))
+
+        return ProjectSpaceDetail(summary: summary, files: files)
     }
 
     func inspectorSummary(for path: String) -> FileMetadataInspectorSummary? {
@@ -607,7 +647,11 @@ final class FileMetadataFoundationService {
             return lastOrganizedAt
         }
 
-        return record.lastSeenAt
+        if record.lastSeenAt >= record.firstSeenAt {
+            return record.lastSeenAt
+        }
+
+        return record.firstSeenAt
     }
 
     private func projectSpaceSummarySortOrder(
@@ -623,6 +667,122 @@ final class FileMetadataFoundationService {
         }
 
         return lhs.normalizedLabel.localizedCaseInsensitiveCompare(rhs.normalizedLabel) == .orderedAscending
+    }
+
+    private func projectSpaceFileSortOrder(
+        _ lhs: ProjectSpaceFileRow,
+        _ rhs: ProjectSpaceFileRow
+    ) -> Bool {
+        if lhs.lastActivityAt != rhs.lastActivityAt {
+            return lhs.lastActivityAt > rhs.lastActivityAt
+        }
+
+        let displayNameComparison = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
+        if displayNameComparison != .orderedSame {
+            return displayNameComparison == .orderedAscending
+        }
+
+        return lhs.canonicalIdentity < rhs.canonicalIdentity
+    }
+
+    private func projectSpaceRecordsByLabel(
+        from records: [FileMetadataRecord]
+    ) -> [String: [ProjectSpaceMember]] {
+        Dictionary(grouping: projectSpaceMembers(from: records), by: \.normalizedLabel)
+    }
+
+    private func projectSpaceMembers(from records: [FileMetadataRecord]) -> [ProjectSpaceMember] {
+        records.compactMap(projectSpaceMember(for:))
+    }
+
+    private func projectSpaceMember(for record: FileMetadataRecord) -> ProjectSpaceMember? {
+        guard let normalizedLabel = FileMetadataRecord.normalizedOptionalText(record.projectAssociation),
+              let normalizedPath = normalizedResolvablePath(for: record) else {
+            return nil
+        }
+
+        return ProjectSpaceMember(
+            normalizedLabel: normalizedLabel,
+            normalizedPath: normalizedPath,
+            record: record
+        )
+    }
+
+    private func normalizedResolvablePath(for record: FileMetadataRecord) -> String? {
+        guard let storedPath = FileMetadataRecord.normalizedOptionalText(record.lastKnownPath) else {
+            return nil
+        }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(storedPath)
+        guard FileManager.default.fileExists(atPath: normalizedPath) else {
+            return nil
+        }
+
+        return normalizedPath
+    }
+
+    private func sourceFolderHints(for members: [ProjectSpaceMember]) -> [String] {
+        projectSpaceSourceFolderHints(for: members.map(\.normalizedPath))
+    }
+
+    func projectSpaceSourceFolderHints(
+        for paths: [String],
+        homePath: String? = nil
+    ) -> [String] {
+        let counts = paths.reduce(into: [String: Int]()) { partialResult, path in
+            guard let root = projectSpaceSourceFolderHintRoot(for: path, homePath: homePath) else {
+                return
+            }
+            partialResult[root, default: 0] += 1
+        }
+
+        return counts
+            .sorted { lhs, rhs in
+                if lhs.value != rhs.value {
+                    return lhs.value > rhs.value
+                }
+                return lhs.key.localizedCaseInsensitiveCompare(rhs.key) == .orderedAscending
+            }
+            .prefix(3)
+            .map(\.key)
+    }
+
+    func projectSpaceSourceFolderHintRoot(
+        for normalizedPath: String,
+        homePath: String? = nil
+    ) -> String? {
+        let standardizedPath = URL(fileURLWithPath: normalizedPath).standardizedFileURL.path
+        let resolvedHomePath = homePath ?? FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        let homePrefix = resolvedHomePath.hasSuffix("/") ? resolvedHomePath : "\(resolvedHomePath)/"
+
+        if standardizedPath.hasPrefix(homePrefix) {
+            let relativePath = String(standardizedPath.dropFirst(homePrefix.count))
+            let components = relativePath
+                .split(separator: "/")
+                .map(String.init)
+            guard let firstComponent = components.first else {
+                return nil
+            }
+
+            switch firstComponent {
+            case "Desktop", "Downloads", "Documents", "Pictures", "Music":
+                return firstComponent
+            default:
+                return firstComponent
+            }
+        }
+
+        let pathComponents = URL(fileURLWithPath: standardizedPath).pathComponents
+            .filter { $0 != "/" && !$0.isEmpty }
+        guard !pathComponents.isEmpty else {
+            return nil
+        }
+
+        if pathComponents.first == "Volumes", pathComponents.count > 1 {
+            return pathComponents[1]
+        }
+
+        return pathComponents.first
     }
 
     private static func organizationCountSummary(for count: Int) -> String {
