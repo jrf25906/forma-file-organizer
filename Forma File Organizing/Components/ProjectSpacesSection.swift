@@ -51,7 +51,16 @@ struct ProjectSpacesSection: View {
                 return lhs.fileCount > rhs.fileCount
             }
 
-            return lhs.normalizedLabel.localizedCaseInsensitiveCompare(rhs.normalizedLabel) == .orderedAscending
+            let normalizedLabelComparison = lhs.normalizedLabel.localizedCaseInsensitiveCompare(rhs.normalizedLabel)
+            if normalizedLabelComparison != .orderedSame {
+                return normalizedLabelComparison == .orderedAscending
+            }
+
+            if lhs.projectLabel != rhs.projectLabel {
+                return lhs.projectLabel < rhs.projectLabel
+            }
+
+            return false
         }
 
         private static func fileCountText(for count: Int) -> String {

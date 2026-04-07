@@ -40,6 +40,34 @@ final class ProjectSpaceSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.rows.first?.accessibilityIdentifier, "projectSpacesRow_Alpha")
     }
 
+    func testProjectSpaceCardSnapshot_UsesExactLabelTieBreakWhenCaseInsensitiveLabelsMatch() throws {
+        let now = Date(timeIntervalSince1970: 1_710_000_000)
+        let summaries = [
+            ProjectSpaceSummary(
+                projectLabel: "alpha",
+                fileCount: 2,
+                lastActivityAt: now.addingTimeInterval(-3_600),
+                sourceFolderHints: ["Desktop"]
+            ),
+            ProjectSpaceSummary(
+                projectLabel: "Alpha",
+                fileCount: 2,
+                lastActivityAt: now.addingTimeInterval(-3_600),
+                sourceFolderHints: ["Downloads"]
+            )
+        ]
+
+        let snapshot = try XCTUnwrap(
+            ProjectSpacesSection.Snapshot(
+                summaries: summaries,
+                now: now,
+                recencyTextProvider: { _, _ in "1 hour ago" }
+            )
+        )
+
+        XCTAssertEqual(snapshot.rows.map(\.title), ["Alpha", "alpha"])
+    }
+
     func testProjectSpaceDetailSnapshot_UsesSummaryAndCurrentFiles() {
         let now = Date(timeIntervalSince1970: 1_710_000_000)
         let detail = ProjectSpaceDetail(
