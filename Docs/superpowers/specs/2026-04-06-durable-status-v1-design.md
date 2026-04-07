@@ -270,12 +270,19 @@ Rules:
 
 - new records can be initialized to `queued`
 - existing records with `workflowStatus == nil` can be upgraded to `queued`
+- when the durable status actually changes to `queued`, append one `scanned` history row from the scan write path
 - rescans must not clear `queued`
+- rescans that leave the file in `queued` must not append repeated `scanned` history rows
 - rescans should not overwrite a stronger existing status such as `organized`, `recovered`, or `ignored`
 
 Important behavior:
 
 - a file leaving the current scan set does not automatically clear `queued`
+
+Recommended ownership:
+
+- the existing metadata upsert path in [`FileScanPipeline.persistMetadataRecords(...)`](../../../../Forma%20File%20Organizing/Services/FileScanPipeline.swift) should own this write-through behavior by calling into the metadata service
+- the metadata service should decide whether this discovery is a first-write transition or a no-op rescan
 
 This is the explicit approved posture for the slice. Durable status should reflect the last meaningful lifecycle transition, not current scan visibility.
 
@@ -318,10 +325,23 @@ Current code reality:
 
 V1 should tighten that seam:
 
-- route durable ignored writes through the metadata layer
+- treat [`FileOrganizationCoordinator.skipFile(...)`](../../../../Forma%20File%20Organizing/Coordinators/FileOrganizationCoordinator.swift) as the sanctioned ignore entry point for this slice
+- route durable ignored writes from that coordinator path through the metadata layer
 - avoid treating every local list-removal shortcut as a durable metadata update unless it is the sanctioned skip/ignore path for the app
+- `SkipFileCommand.execute(context:)` should preserve the same durable-ignore behavior for redo
 
 This is the only transition in the slice that likely requires extending the history vocabulary.
+
+Undo rule:
+
+- when [`SkipFileCommand.undo(context:)`](../../../../Forma%20File%20Organizing/Services/UndoCommand.swift) reverses an ignored file, restore the previously captured durable workflow status snapshot
+- in normal v1 flows that restored value will usually be `queued`
+- for legacy records created before this slice, the restored value may be `nil`
+- v1 does not need a second history row for skip undo; the durable workflow-status field becomes the current answer, while the existing ignored row remains a historical event
+
+Implementation consequence:
+
+- the skip command path needs to snapshot the previous durable workflow status when creating the undo command, just as it already snapshots `previousStatus` and `previousDestination`
 
 ### 6. Extend Structured History for Ignored Transitions
 
@@ -344,7 +364,7 @@ Recommended source-surface change:
 Why:
 
 - current `SourceSurface` values are `scan`, `organize`, `undo`, and `inspector`
-- ignored transitions do not fit cleanly into `inspector`
+- the sanctioned ignored write originates from `FileOrganizationCoordinator.skipFile(...)`, which is review-driven rather than inspector-driven
 - durable lifecycle explanation should not rely on an overloaded or misleading source label
 
 Non-goal:
@@ -352,6 +372,17 @@ Non-goal:
 - do not start logging every transient panel action
 
 Only meaningful transitions should produce durable lifecycle explanation rows.
+
+Transition matrix for planning:
+
+| Trigger | Owning path | Durable status result | History result |
+|---|---|---|---|
+| first discovery or explicit evaluation | `FileScanPipeline.persistMetadataRecords(...)` via metadata service | `queued` if previously `nil` | append one `scanned` row only when status changes to `queued` |
+| rescan of already-known file | same scan path | no status downgrade or churn | no new row unless another meaningful transition occurred |
+| organize / bulk organize / redo | `FileMetadataFoundationService.recordTransition(...)` | `organized` | append `organized` row |
+| undo organize | existing undo metadata transition path | `recovered` | append `undone` row |
+| skip / ignore | `FileOrganizationCoordinator.skipFile(...)` and `SkipFileCommand.execute(context:)` | `ignored` | append `ignored` row with source surface `review` |
+| undo skip | `SkipFileCommand.undo(context:)` | restore previously captured durable workflow status snapshot | no new row in v1 |
 
 ### 7. Keep the Inspector Proof Narrow
 
