@@ -52,7 +52,9 @@ The sections below capture dated implementation slices that have already shipped
 
 ## Metadata Foundation v1 (April 3, 2026)
 - [x] Ship the durable local metadata foundation for scan, organize, undo, redo, and inspector proof surfaces with `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService`.
-- [x] Keep the broader metadata roadmap open while the v1 foundation ships as a feature-flagged, read-only proof with best-effort scan upserts and structured history.
+- [x] Complete durable workflow status v1 so scan discovery seeds `queued`, organize/undo/ignore lifecycle writes persist `organized` / `recovered` / `ignored`, skip actions capture durable-status snapshots for undo/redo, and inspector proof exposes one read-only workflow-status line behind `FeatureFlagService.Feature.durableWorkflowStatus`.
+- [ ] Keep workflow-engine planning open beyond v1 so multi-step metadata-backed chains, simulation, audit routing, and rollback rules still ship as a later roadmap slice.
+- [ ] Keep metadata-backed project-space and workflow-memory expansion open beyond v1; the current slice remains read-only metadata proof without broad project surfaces or manual editing UX.
 
 ## Auto-Applied Project Association v1 (April 6, 2026)
 - [x] Add the feature-gated `autoProjectAssociation` resolver layer with `ProjectAssociationWriteContext`, `MetadataProjectAssociationResolver`, exact `Projects/...` explicit qualification, cluster-organize explicit opt-in, and strong-winner inferred fallback.

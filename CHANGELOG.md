@@ -18,6 +18,11 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
   - `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService` now provide a durable local metadata ledger for scan, organize, undo, redo, and inspector proof surfaces.
   - `FeatureFlagService.Feature.metadataFoundation` is exposed in Settings so the slice stays explicitly gated while it rolls out.
   - The inspector now surfaces a read-only metadata foundation proof/history section when the feature is enabled and metadata exists.
+- Durable workflow status v1 for the metadata foundation:
+  - `MetadataWorkflowStatus`, `FileMetadataRecord.workflowStatus`, and `FeatureFlagService.Feature.durableWorkflowStatus` now add a separately gated durable workflow-state layer for queued, organized, recovered, and ignored file lifecycle states.
+  - `FileMetadataFoundationService` now writes queued status during discovery for newly created metadata rows, updates organized and recovered states during organize/undo lifecycle transitions, and persists ignored review history/status rows for context-backed skip actions.
+  - Inspector proof now includes a read-only `Status: ...` line when durable workflow status is enabled, so metadata proof can show the latest persisted workflow state without adding editing UI.
+  - Review/dashboard skip paths now reroute through the metadata layer only when both metadata flags are enabled and a model context is available; otherwise skip remains transient, while undo/redo restores the prior durable snapshot without duplicating ignored history rows.
 - Trusted-scope promotion foundations for progressive automation:
   - `TrustedAutomationScopeRecommendationOption`, `TrustedAutomationScopeRecommendation`, and `TrustedAutomationScopeService.recommendedScope(for:)` now derive rule, folder, and category trust candidates from review-flow personal-memory evidence.
   - `TrustedAutomationScopeService.promoteFromReviewDecision(...)` now turns review-earned trust decisions into persisted trusted scopes and resolves rule-backed promotions to an existing or learned move rule.

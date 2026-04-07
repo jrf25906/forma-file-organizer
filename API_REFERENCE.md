@@ -45,17 +45,40 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `FileOrganizationCoordinator.organizeMultipleFiles(_:origin:projectAssociationWriteContext:context:onComplete:)`
   - Auto-applied project association now writes one durable project label from exact `Projects/...` destinations, cluster-organize explicit opt-ins, or strong related-file inference, reconstructs best-effort inspector source text when the source can still be derived, and preserves the stored label through organize, bulk organize, redo, and undo without introducing a separate project entity or persisted provenance fields.
 - Metadata foundation v1 (`Forma File Organizing/Models/FileMetadataRecord.swift`, `Forma File Organizing/Models/FileOrganizationHistoryEntry.swift`, `Forma File Organizing/Models/FileMetadataInspectorSummary.swift`, `Forma File Organizing/Services/FileMetadataFoundationService.swift`)
+  - `MetadataWorkflowStatus`
+    - `.queued`
+    - `.organized`
+    - `.recovered`
+    - `.ignored`
   - `FileMetadataRecord`
+    - `workflowStatus`
   - `FileOrganizationHistoryEntry`
+    - `EventKind.ignored`
+    - `SourceSurface.review`
   - `FileMetadataInspectorSummary`
+    - `workflowStatusSummary`
   - `FileMetadataFoundationService.upsertRecord(for:displayName:fileExtension:timestamp:)`
   - `FileMetadataFoundationService.upsertRecordWithoutSaving(for:displayName:fileExtension:timestamp:)`
+  - `FileMetadataFoundationService.upsertRecordForDiscoveryWithoutSaving(for:displayName:fileExtension:timestamp:)`
   - `FileMetadataFoundationService.rekeyPathFallbackRecord(oldPath:newPath:timestamp:)`
   - `FileMetadataFoundationService.appendHistoryEntry(for:eventKind:sourceSurface:fromPath:toPath:destinationDisplayName:matchedRuleID:detailsSummary:timestamp:)`
+  - `FileMetadataFoundationService.appendIgnoredHistory(for:detailsSummary:timestamp:)`
+  - `FileMetadataFoundationService.prepareIgnoredHistoryWithoutSaving(for:detailsSummary:timestamp:)`
   - `FileMetadataFoundationService.recordTransition(from:to:displayName:fileExtension:eventKind:sourceSurface:destinationDisplayName:matchedRuleID:detailsSummary:timestamp:)`
   - `FileMetadataFoundationService.inspectorSummary(for:)`
   - `FeatureFlagService.Feature.metadataFoundation`
+  - `FeatureFlagService.Feature.durableWorkflowStatus`
+  - `FileMetadataFoundationServiceProtocol`
+    - `upsertRecordForDiscoveryWithoutSaving(for:displayName:fileExtension:timestamp:)`
+    - `applyWorkflowStatusForDiscoveryWithoutSaving(to:wasCreated:timestamp:)`
   - Durable metadata now persists best-effort during scan and explicit-selection evaluation, survives organize/undo/redo transitions, and powers a read-only inspector proof/history section without exposing metadata authoring UI yet.
+  - Durable workflow status layers on top of the metadata foundation: discovery writes `queued` only for newly created records, organize writes `organized`, undo writes `recovered`, ignored review actions write `.ignored` plus one `.ignored` history row from `.review`, and inspector proof exposes a read-only `workflowStatusSummary` line when the flag is enabled.
+  - Context-backed review/dashboard skip flows now snapshot the previous durable workflow state before persisting ignored metadata so undo can restore the prior status and redo can reapply `.ignored` without appending duplicate ignored history rows.
+- `SkipFileCommand`
+  - `DurableWorkflowStatusSnapshot`
+    - `previousValue: MetadataWorkflowStatus?`
+  - `durableWorkflowStatusSnapshot`
+  - When present, the snapshot means the command came from a context-backed durable skip path: `execute(context:)` reapplies `.ignored` to the matched metadata record, and `undo(context:)` restores the prior durable workflow status without rebuilding history. When absent, skip remains a transient file-state change.
 - Trusted automation scopes (`Forma File Organizing/Models/TrustedAutomationScope.swift`, `Forma File Organizing/Services/TrustedAutomationScopeService.swift`)
   - `TrustedAutomationScopeType.displayName`
   - `TrustedAutomationScopeRecommendationOption`
