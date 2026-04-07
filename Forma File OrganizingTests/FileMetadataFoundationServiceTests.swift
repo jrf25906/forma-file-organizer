@@ -762,7 +762,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
-    func testProjectSpaceSummaries_LastActivityUsesLastSeenAtBeforeLastOrganizedAt() throws {
+    func testProjectSpaceSummaries_LastActivityUsesLastOrganizedAtBeforeLastSeenAt() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 
         try withService { context, service in
@@ -785,7 +785,33 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
 
             let summary = try XCTUnwrap(service.fetchProjectSpaceSummaries().first)
             XCTAssertEqual(summary.normalizedLabel, "Alpha")
-            XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 6_000))
+            XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 5_000))
+        }
+    }
+
+    func testProjectSpaceSummaries_LastActivityFallsBackToLastSeenAt() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/project-alpha.txt", contents: "alpha")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: fileURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            record.projectAssociation = "Alpha"
+            record.lastSeenAt = Date(timeIntervalSince1970: 4_000)
+
+            try context.save()
+
+            let summary = try XCTUnwrap(service.fetchProjectSpaceSummaries().first)
+            XCTAssertEqual(summary.normalizedLabel, "Alpha")
+            XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 4_000))
         }
     }
 

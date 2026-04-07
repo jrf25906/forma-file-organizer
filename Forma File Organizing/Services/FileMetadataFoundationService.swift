@@ -656,12 +656,12 @@ final class FileMetadataFoundationService {
             return durableHistoryAt
         }
 
-        if record.lastSeenAt >= record.firstSeenAt {
-            return record.lastSeenAt
-        }
-
         if let lastOrganizedAt = record.lastOrganizedAt {
             return lastOrganizedAt
+        }
+
+        if record.lastSeenAt >= record.firstSeenAt {
+            return record.lastSeenAt
         }
 
         return record.firstSeenAt

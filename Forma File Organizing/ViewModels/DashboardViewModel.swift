@@ -611,11 +611,16 @@ class DashboardViewModel: ObservableObject {
     }
 
     func openFileFromProjectSpace(_ fileRow: ProjectSpaceFileRow) {
-        guard let file = scanViewModel.allFiles.first(where: { $0.path == fileRow.normalizedPath }) else {
+        if let file = scanViewModel.allFiles.first(where: { $0.path == fileRow.normalizedPath }) {
+            openInspector(for: file)
             return
         }
 
-        openInspector(for: file)
+        guard let fallbackFile = makeInspectorFallbackFile(for: fileRow) else {
+            return
+        }
+
+        openInspector(for: fallbackFile)
     }
 
     func closeProjectSpaceDetail() {
@@ -973,6 +978,34 @@ class DashboardViewModel: ObservableObject {
     private func openInspector(for file: FileItem) {
         selectFileForInspector(file)
         panelManager.updateRightPanelForSelection([file])
+    }
+
+    private func makeInspectorFallbackFile(for fileRow: ProjectSpaceFileRow) -> FileItem? {
+        let fileURL = URL(fileURLWithPath: fileRow.normalizedPath).standardizedFileURL
+        let resourceKeys: Set<URLResourceKey> = [
+            .isDirectoryKey,
+            .fileSizeKey,
+            .creationDateKey,
+            .contentModificationDateKey,
+            .contentAccessDateKey
+        ]
+
+        guard let resourceValues = try? fileURL.resourceValues(forKeys: resourceKeys),
+              resourceValues.isDirectory != true else {
+            return nil
+        }
+
+        let fallbackTimestamp = fileRow.lastActivityAt == .distantPast ? Date() : fileRow.lastActivityAt
+        return FileItem(
+            path: fileURL.path,
+            sizeInBytes: Int64(resourceValues.fileSize ?? 0),
+            creationDate: resourceValues.creationDate ?? fallbackTimestamp,
+            modificationDate: resourceValues.contentModificationDate ?? fallbackTimestamp,
+            lastAccessedDate: resourceValues.contentAccessDate ?? fallbackTimestamp,
+            location: .unknown,
+            destination: nil,
+            status: .pending
+        )
     }
 
     func showRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {

@@ -2377,6 +2377,47 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isRightPanelVisible)
     }
 
+    func testOpenFileFromProjectSpaceFallsBackToMetadataBackedPathWhenScanCacheIsEmpty() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let fileURL = try tempDirectory.createFile(name: "Inbox/project-alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 2_000)
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: fileURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([])
+        let summary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        viewModel.selectProjectSpace(summary)
+        let fileRow = try XCTUnwrap(viewModel.selectedProjectSpaceDetail?.files.first)
+
+        viewModel.setRightPanelVisible(false)
+        viewModel.openFileFromProjectSpace(fileRow)
+
+        if case .inspector(let inspectorFiles) = viewModel.rightPanelMode {
+            XCTAssertEqual(inspectorFiles.map(\.path), [fileURL.path])
+        } else {
+            XCTFail("Metadata-backed project-space rows should still open the inspector when the scan cache is empty")
+        }
+
+        XCTAssertEqual(viewModel.selectedFileIDs, [fileURL.path])
+        XCTAssertEqual(viewModel.focusedFilePath, fileURL.path)
+        XCTAssertTrue(viewModel.isRightPanelVisible)
+    }
+
     func testRestorePanelFallsBackToDefaultWhenInspectorFileIsGone() {
         let file = FileItem(path: "/review/file-1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file])
