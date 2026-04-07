@@ -2377,44 +2377,33 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isRightPanelVisible)
     }
 
-    func testOpenFileFromProjectSpaceFallsBackToMetadataBackedPathWhenScanCacheIsEmpty() throws {
-        let (container, context, service) = try makeMetadataService()
-        _ = container
-
-        FeatureFlagService.shared.resetToDefaults()
-        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
-        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
-
-        let tempDirectory = try TemporaryDirectory()
-        defer { tempDirectory.cleanup() }
-
-        let fileURL = try tempDirectory.createFile(name: "Inbox/project-alpha.txt", contents: "alpha")
+    func testOpenFileFromProjectSpaceFallsBackToMetadataBackedRowWhenScanCacheIsEmpty() {
         let timestamp = Date(timeIntervalSince1970: 2_000)
-        _ = try insertProjectSpaceRecord(
-            using: service,
-            path: fileURL.path,
-            projectAssociation: "Alpha",
-            timestamp: timestamp
+        let fileRow = ProjectSpaceFileRow(
+            canonicalIdentity: "bookmark|alpha-plan",
+            path: "/Volumes/Secure/Alpha Plan.md",
+            displayName: "Alpha Plan.md",
+            fileExtension: "md",
+            lastActivityAt: timestamp,
+            workflowStatus: .organized,
+            tags: ["client"]
         )
-        try context.save()
-
-        viewModel.setModelContext(context)
-        viewModel._testSetFiles([])
-        let summary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
-        viewModel.selectProjectSpace(summary)
-        let fileRow = try XCTUnwrap(viewModel.selectedProjectSpaceDetail?.files.first)
 
         viewModel.setRightPanelVisible(false)
         viewModel.openFileFromProjectSpace(fileRow)
 
         if case .inspector(let inspectorFiles) = viewModel.rightPanelMode {
-            XCTAssertEqual(inspectorFiles.map(\.path), [fileURL.path])
+            XCTAssertEqual(inspectorFiles.map(\.path), [fileRow.path])
+            XCTAssertEqual(inspectorFiles.first?.creationDate, timestamp)
+            XCTAssertEqual(inspectorFiles.first?.modificationDate, timestamp)
+            XCTAssertEqual(inspectorFiles.first?.lastAccessedDate, timestamp)
+            XCTAssertEqual(inspectorFiles.first?.status, .completed)
         } else {
             XCTFail("Metadata-backed project-space rows should still open the inspector when the scan cache is empty")
         }
 
-        XCTAssertEqual(viewModel.selectedFileIDs, [fileURL.path])
-        XCTAssertEqual(viewModel.focusedFilePath, fileURL.path)
+        XCTAssertEqual(viewModel.selectedFileIDs, [fileRow.path])
+        XCTAssertEqual(viewModel.focusedFilePath, fileRow.path)
         XCTAssertTrue(viewModel.isRightPanelVisible)
     }
 

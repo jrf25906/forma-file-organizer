@@ -646,9 +646,9 @@ final class FileMetadataFoundationService {
         if let durableHistoryAt = record.historyEntries
             .compactMap({ entry -> Date? in
                 switch entry.eventKind {
-                case .organized, .rekeyed, .undone:
+                case .organized, .rekeyed, .undone, .ignored, .noted:
                     return entry.timestamp
-                case .scanned, .ignored, .noted:
+                case .scanned:
                     return nil
                 }
             })
@@ -679,7 +679,16 @@ final class FileMetadataFoundationService {
             return lhs.fileCount > rhs.fileCount
         }
 
-        return lhs.normalizedLabel.localizedCaseInsensitiveCompare(rhs.normalizedLabel) == .orderedAscending
+        let caseInsensitiveComparison = lhs.normalizedLabel.localizedCaseInsensitiveCompare(rhs.normalizedLabel)
+        if caseInsensitiveComparison != .orderedSame {
+            return caseInsensitiveComparison == .orderedAscending
+        }
+
+        if lhs.normalizedLabel != rhs.normalizedLabel {
+            return lhs.normalizedLabel < rhs.normalizedLabel
+        }
+
+        return false
     }
 
     private func projectSpaceFileSortOrder(

@@ -189,6 +189,45 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testProjectSpaceSummaries_UseExactLabelTieBreakWhenCaseInsensitiveLabelsMatch() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let lowercaseURL = try tempDir.createFile(name: "Inbox/lowercase.txt", contents: "alpha")
+            let uppercaseURL = try tempDir.createFile(name: "Inbox/uppercase.txt", contents: "alpha")
+            let sharedTimestamp = Date(timeIntervalSince1970: 3_000)
+
+            let lowercaseRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: lowercaseURL.path,
+                    displayName: lowercaseURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: sharedTimestamp
+                )
+            )
+            lowercaseRecord.projectAssociation = "alpha"
+            lowercaseRecord.lastSeenAt = sharedTimestamp
+
+            let uppercaseRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: uppercaseURL.path,
+                    displayName: uppercaseURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: sharedTimestamp
+                )
+            )
+            uppercaseRecord.projectAssociation = "Alpha"
+            uppercaseRecord.lastSeenAt = sharedTimestamp
+
+            try context.save()
+
+            let summaries = service.fetchProjectSpaceSummaries()
+
+            XCTAssertEqual(summaries.map(\.normalizedLabel), ["Alpha", "alpha"])
+        }
+    }
+
     func testProjectSpaceSummaries_ExcludeUnlabeledRecords() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 
@@ -759,6 +798,60 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
             XCTAssertEqual(summary.normalizedLabel, "Alpha")
             XCTAssertEqual(summary.fileCount, 1)
             XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 3_000))
+        }
+    }
+
+    func testProjectSpaceSummaries_LastActivityPrefersIgnoredAndNotedHistoryEntries() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/project-alpha.txt", contents: "alpha")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "project-alpha.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            record.projectAssociation = "Alpha"
+            record.lastOrganizedAt = Date(timeIntervalSince1970: 5_000)
+            record.lastSeenAt = Date(timeIntervalSince1970: 6_000)
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .ignored,
+                    sourceSurface: .review,
+                    fromPath: fileURL.path,
+                    toPath: fileURL.path,
+                    destinationDisplayName: nil,
+                    matchedRuleID: nil,
+                    detailsSummary: "Ignored in review.",
+                    timestamp: Date(timeIntervalSince1970: 7_000)
+                )
+            )
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: record,
+                    eventKind: .noted,
+                    sourceSurface: .review,
+                    fromPath: fileURL.path,
+                    toPath: fileURL.path,
+                    destinationDisplayName: nil,
+                    matchedRuleID: nil,
+                    detailsSummary: "Noted in review.",
+                    timestamp: Date(timeIntervalSince1970: 8_000)
+                )
+            )
+
+            try context.save()
+
+            let summary = try XCTUnwrap(service.fetchProjectSpaceSummaries().first)
+            XCTAssertEqual(summary.normalizedLabel, "Alpha")
+            XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 8_000))
         }
     }
 
