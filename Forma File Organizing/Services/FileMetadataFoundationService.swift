@@ -786,7 +786,10 @@ final class FileMetadataFoundationService {
         if destinationRecord.fileExtension.isEmpty, !sourceRecord.fileExtension.isEmpty {
             destinationRecord.fileExtension = sourceRecord.fileExtension
         }
-        destinationRecord.appendStoredTagsPreservingExistingOrder(sourceRecord.tags)
+        destinationRecord.tags = mergedStoredTags(
+            preferredTags: sourceRecord.tags,
+            fallbackTags: destinationRecord.tags
+        )
         if destinationRecord.projectAssociation == nil {
             destinationRecord.projectAssociation = sourceRecord.projectAssociation
         }
@@ -795,6 +798,41 @@ final class FileMetadataFoundationService {
         }
 
         modelContext.delete(sourceRecord)
+    }
+
+    private func mergedStoredTags(
+        preferredTags: [String],
+        fallbackTags: [String]
+    ) -> [String] {
+        let resolver = MetadataContentTagResolver()
+        var mergedTags: [String] = []
+        var seenNormalizedValues = Set<String>()
+        var seenBuiltInTags = Set<MetadataContentTag>()
+
+        func append(_ rawValue: String) {
+            let normalized = FileMetadataRecord.normalizedTag(rawValue)
+            guard !normalized.isEmpty else { return }
+
+            let normalizedKey = normalized.lowercased()
+            guard !seenNormalizedValues.contains(normalizedKey) else {
+                return
+            }
+
+            if let builtInTag = MetadataContentTag(rawValue: normalizedKey)
+                ?? resolver.resolveExplicitTag(forAlias: normalized) {
+                guard !seenBuiltInTags.contains(builtInTag) else {
+                    return
+                }
+                seenBuiltInTags.insert(builtInTag)
+            }
+
+            mergedTags.append(normalized)
+            seenNormalizedValues.insert(normalizedKey)
+        }
+
+        preferredTags.forEach(append)
+        fallbackTags.forEach(append)
+        return mergedTags
     }
 
     private static func latestDate(_ lhs: Date?, _ rhs: Date?) -> Date? {

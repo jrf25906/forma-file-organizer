@@ -789,6 +789,123 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(record.historyEntries.count, 3)
     }
 
+    func testOrganizeUndoRedo_DestinationCollisionPreservesSourceIdentityWorkflowStatusAssociationAndTagOrdering() async throws {
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        _ = try tempDirectory.createDirectory(name: "Projects")
+        let projectFolder = try tempDirectory.createDirectory(name: "Projects/Delta")
+        let sourceURL = sourceFolder.appendingPathComponent("invoice.txt")
+        let destinationURL = projectFolder.appendingPathComponent("invoice.txt")
+        let sourceTimestamp = Date(timeIntervalSince1970: 2_200)
+        let destinationTimestamp = Date(timeIntervalSince1970: 2_210)
+
+        let sourceRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sourceURL.path,
+            displayName: "invoice.txt",
+            fileExtension: "txt",
+            timestamp: sourceTimestamp
+        )
+        let sourceRecordID = sourceRecord.persistentModelID
+        sourceRecord.tags = ["Invoices", "legacy-source"]
+
+        let destinationRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: destinationURL.path,
+            displayName: "invoice.txt",
+            fileExtension: "txt",
+            timestamp: destinationTimestamp
+        )
+        destinationRecord.projectAssociation = "Delta"
+        destinationRecord.tags = ["receipt", "legacy-target"]
+        try environment.context.save()
+
+        _ = try tempDirectory.createFile(name: "Inbox/invoice.txt", contents: "invoice")
+
+        let destination = try Destination.folder(from: projectFolder, displayName: projectFolder.path)
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: sourceTimestamp,
+            modificationDate: sourceTimestamp,
+            lastAccessedDate: sourceTimestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "organize success")
+        await environment.coordinator.organizeFile(
+            file,
+            context: environment.context,
+            sourceSurface: .reviewFlow,
+            onSuccess: { _ in
+                organizeExpectation.fulfill()
+            },
+            onError: { error in
+                XCTFail("Organize should succeed: \(error)")
+            }
+        )
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        var record = try XCTUnwrap(try environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertEqual(record.persistentModelID, sourceRecordID)
+        XCTAssertEqual(record.lastKnownPath, destinationURL.path)
+        XCTAssertEqual(record.workflowStatus, .organized)
+        XCTAssertEqual(record.projectAssociation, "Delta")
+        XCTAssertEqual(
+            record.tags,
+            ["receipt", "legacy-target", "Invoices", "legacy-source"]
+        )
+        XCTAssertEqual(record.historyEntries.count, 1)
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [file], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        record = try XCTUnwrap(try environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertEqual(record.persistentModelID, sourceRecordID)
+        XCTAssertEqual(record.lastKnownPath, sourceURL.path)
+        XCTAssertEqual(record.workflowStatus, .recovered)
+        XCTAssertEqual(record.projectAssociation, "Delta")
+        XCTAssertEqual(
+            record.tags,
+            ["receipt", "legacy-target", "Invoices", "legacy-source"]
+        )
+        XCTAssertEqual(record.historyEntries.count, 2)
+
+        var redoCompleted = false
+        await environment.coordinator.redoLastAction(allFiles: [file], context: environment.context) {
+            redoCompleted = true
+        }
+        XCTAssertTrue(redoCompleted)
+
+        record = try XCTUnwrap(try environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertEqual(record.persistentModelID, sourceRecordID)
+        XCTAssertEqual(record.lastKnownPath, destinationURL.path)
+        XCTAssertEqual(record.workflowStatus, .organized)
+        XCTAssertEqual(record.projectAssociation, "Delta")
+        XCTAssertEqual(
+            record.tags,
+            ["receipt", "legacy-target", "Invoices", "legacy-source"]
+        )
+        XCTAssertEqual(record.historyEntries.count, 3)
+
+        let orderedHistory = record.historyEntries.sorted { $0.timestamp < $1.timestamp }
+        XCTAssertEqual(orderedHistory.map(\.eventKind), [.organized, .undone, .organized])
+    }
+
     func testUndoLastAction_BulkUndoContinuesAfterMetadataWriteFailure() async throws {
         let tempDirectory = try TemporaryDirectory()
         defer { tempDirectory.cleanup() }
