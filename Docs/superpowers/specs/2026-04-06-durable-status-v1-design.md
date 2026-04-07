@@ -270,10 +270,7 @@ When a metadata-backed file is first brought into Forma's reviewable system thro
 Rules:
 
 - new records can be initialized to `queued`
-- existing records can only be upgraded to `queued` when all of the following are true:
-  - `workflowStatus == nil`
-  - `latestOrganizationStatus == .unknown`
-  - the record has no prior lifecycle history beyond possible scan-note noise
+- existing records must not be retrofitted to `queued` during scan
 - when the durable status actually changes to `queued`, append one `scanned` history row from the scan write path
 - rescans must not clear `queued`
 - rescans that leave the file in `queued` must not append repeated `scanned` history rows
@@ -287,7 +284,12 @@ Recommended ownership:
 
 - the existing metadata upsert path in [`FileScanPipeline.persistMetadataRecords(...)`](../../../../Forma%20File%20Organizing/Services/FileScanPipeline.swift) should own this write-through behavior by calling into the metadata service
 - that scan-facing helper should be added to `FileMetadataFoundationServiceProtocol`, not only the concrete service
-- the metadata service should decide whether this discovery is a first-write transition or a no-op rescan
+- the metadata service should decide whether this discovery created a brand-new record or merely touched an existing one
+
+Concrete predicate for planning:
+
+- set `workflowStatus = .queued` only when `upsertRecordWithoutSaving(...)` creates a new `FileMetadataRecord`
+- if `upsertRecordWithoutSaving(...)` returns an already-existing record with `workflowStatus == nil`, leave it `nil`
 
 This is the explicit approved posture for the slice. Durable status should reflect the last meaningful lifecycle transition, not current scan visibility.
 
@@ -330,9 +332,10 @@ Current code reality:
 
 V1 should tighten that seam:
 
-- treat [`FileOrganizationCoordinator.skipFile(...)`](../../../../Forma%20File%20Organizing/Coordinators/FileOrganizationCoordinator.swift) as the sanctioned ignore entry point for this slice
+- treat [`FileOrganizationCoordinator.skipFile(...)`](../../../../Forma%20File%20Organizing/Coordinators/FileOrganizationCoordinator.swift) with a non-`nil` `ModelContext` as the sanctioned durable ignore entry point for this slice
 - route durable ignored writes from that coordinator path through the metadata layer
-- avoid treating every local list-removal shortcut as a durable metadata update unless it is the sanctioned skip/ignore path for the app
+- reroute production skip UI paths that should be durable onto that context-backed coordinator path as part of this slice
+- do not treat direct `.skipped` mutations or no-context fast paths as durable metadata writes
 - `SkipFileCommand.execute(context:)` should preserve the same durable-ignore behavior for redo
 
 This is the only transition in the slice that likely requires extending the history vocabulary.
@@ -347,6 +350,7 @@ Undo rule:
 Implementation consequence:
 
 - the skip command path needs to snapshot the previous durable workflow status when creating the undo command, just as it already snapshots `previousStatus` and `previousDestination`
+- production entry points that currently bypass the coordinator need to be normalized so they do not silently diverge from durable metadata state
 
 ### 6. Extend Structured History for Ignored Transitions
 
@@ -378,11 +382,23 @@ Non-goal:
 
 Only meaningful transitions should produce durable lifecycle explanation rows.
 
+Skip-path matrix for planning:
+
+| Current path | Current behavior | V1 durable-status policy |
+|---|---|---|
+| [`FormaActions.skipFile(...)`](../../../../Forma%20File%20Organizing/Services/FormaActions.swift) | already routes to `FileOrganizationCoordinator.skipFile(file, context: modelContext)` | durable when `modelContext` is present |
+| [`FileOrganizationCoordinator.skipFile(..., context: ModelContext?)`](../../../../Forma%20File%20Organizing/Coordinators/FileOrganizationCoordinator.swift) | central command-backed skip path | only this path with non-`nil` context writes `ignored` and appends `ignored` history |
+| [`SkipFileCommand.execute(context:)`](../../../../Forma%20File%20Organizing/Services/UndoCommand.swift) | redo path for skip | durable when `context` is present; mirrors coordinator semantics |
+| [`DashboardViewModel.skipFile(...)`](../../../../Forma%20File%20Organizing/ViewModels/DashboardViewModel.swift) -> [`DashboardOrganizationController.skipFile(...)`](../../../../Forma%20File%20Organizing/ViewModels/DashboardOrganizationController.swift) | direct transient `.skipped` mutation today | must be rerouted to the context-backed coordinator path in production; direct mutation is not durable |
+| [`ReviewViewModel.skipFile(...)`](../../../../Forma%20File%20Organizing/ViewModels/ReviewViewModel.swift) | direct transient `.skipped` mutation today | must be rerouted to the context-backed coordinator path in production; direct mutation is not durable |
+| [`BulkOperationViewModel.skipSelectedFiles(...)`](../../../../Forma%20File%20Organizing/ViewModels/BulkOperationViewModel.swift) and `skipAllPendingFiles(...)` | calls coordinator with `context: nil` | no-context path stays transient in v1; no durable write or history row |
+| in-memory undo/redo fast paths for skip | test / no-context convenience behavior | remain transient in v1; no durable write or history row |
+
 Transition matrix for planning:
 
 | Trigger | Owning path | Durable status result | History result |
 |---|---|---|---|
-| first discovery or explicit evaluation | `FileScanPipeline.persistMetadataRecords(...)` via metadata service | `queued` if previously `nil` | append one `scanned` row only when status changes to `queued` |
+| first discovery or explicit evaluation | `FileScanPipeline.persistMetadataRecords(...)` via metadata service | `queued` only when a brand-new metadata record is created | append one `scanned` row only when status changes to `queued` |
 | rescan of already-known file | same scan path | no status downgrade or churn | no new row unless another meaningful transition occurred |
 | organize / bulk organize / redo | `FileMetadataFoundationService.recordTransition(...)` | `organized` | append `organized` row |
 | undo organize | existing undo metadata transition path | `recovered` | append `undone` row |
@@ -432,7 +448,7 @@ Explicit legacy-row rule:
 - do not seed `workflowStatus` from `latestOrganizationStatus`
 - do not replay history to backfill `workflowStatus`
 - pre-existing rows that already show meaningful legacy movement state such as `organized`, `rekeyed`, or `undone` should remain `nil` until a new v1-era meaningful transition writes a durable workflow status explicitly
-- only clearly new or still-uninitialized rows should upgrade to `queued` during scan
+- only brand-new records created during scan or explicit evaluation should initialize to `queued`
 - later explicit transitions such as organize, undo organize, or ignore may write the durable field regardless of prior legacy state
 
 This keeps the slice aligned with the metadata foundation rollout strategy:
