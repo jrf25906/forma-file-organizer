@@ -82,44 +82,21 @@ struct DefaultPanelView: View {
             : Color.formaObsidian.opacity(0.07)
     }
 
+    private var projectSpacesFeatureEnabled: Bool {
+        FeatureFlagService.shared.isEnabled(.projectSpaces)
+    }
+
+    private var activeProjectSpaceDetail: ProjectSpaceDetail? {
+        guard projectSpacesFeatureEnabled else { return nil }
+        return dashboardViewModel.selectedProjectSpaceDetail
+    }
+
+    private var showsProjectSpacesSection: Bool {
+        projectSpacesFeatureEnabled && !dashboardViewModel.projectSpaces.isEmpty
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            inspectorSectionCard(emphasized: true) {
-                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                    heroSection
-
-                    if shouldShowPinnedPrimaryAction {
-                        pinnedPrimaryAction
-                            .guidedTourRegion(.organizeButton)
-                    }
-                }
-            }
-            .padding(.horizontal, FormaSpacing.standard)
-            .padding(.top, FormaSpacing.standard)
-            .padding(.bottom, FormaSpacing.tight)
-
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                    if showsAutomationStatusSection {
-                        inspectorSectionCard {
-                            automationStatusSection
-                                .accessibilityElement(children: .contain)
-                                .accessibilityIdentifier("defaultPanelAutomationSection")
-                        }
-                    }
-
-                    if hasAnySuggestions {
-                        inspectorSectionCard {
-                            suggestionsSection
-                                .accessibilityElement(children: .contain)
-                                .accessibilityIdentifier("defaultPanelSuggestionsSection")
-                        }
-                    }
-                }
-                .padding(.horizontal, FormaSpacing.standard)
-                .padding(.bottom, FormaSpacing.generous)
-            }
-        }
+        panelContent
         .background(Color.clear)
         .onAppear {
             loadInsightsImmediately()
@@ -150,6 +127,80 @@ struct DefaultPanelView: View {
                     .accessibilityValue(
                         "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio))"
                     )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var panelContent: some View {
+        if let detail = activeProjectSpaceDetail {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                    inspectorSectionCard(emphasized: true) {
+                        ProjectSpaceDetailView(
+                            detail: detail,
+                            onBack: {
+                                dashboardViewModel.closeProjectSpaceDetail()
+                            },
+                            onOpenFile: { fileRow in
+                                dashboardViewModel.openFileFromProjectSpace(fileRow)
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal, FormaSpacing.standard)
+                .padding(.top, FormaSpacing.standard)
+                .padding(.bottom, FormaSpacing.generous)
+            }
+        } else {
+            dashboardContent
+        }
+    }
+
+    private var dashboardContent: some View {
+        VStack(spacing: 0) {
+            inspectorSectionCard(emphasized: true) {
+                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                    heroSection
+
+                    if shouldShowPinnedPrimaryAction {
+                        pinnedPrimaryAction
+                            .guidedTourRegion(.organizeButton)
+                    }
+                }
+            }
+            .padding(.horizontal, FormaSpacing.standard)
+            .padding(.top, FormaSpacing.standard)
+            .padding(.bottom, FormaSpacing.tight)
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                    if showsProjectSpacesSection {
+                        inspectorSectionCard {
+                            ProjectSpacesSection(summaries: dashboardViewModel.projectSpaces) { summary in
+                                dashboardViewModel.selectProjectSpace(summary)
+                            }
+                        }
+                    }
+
+                    if showsAutomationStatusSection {
+                        inspectorSectionCard {
+                            automationStatusSection
+                                .accessibilityElement(children: .contain)
+                                .accessibilityIdentifier("defaultPanelAutomationSection")
+                        }
+                    }
+
+                    if hasAnySuggestions {
+                        inspectorSectionCard {
+                            suggestionsSection
+                                .accessibilityElement(children: .contain)
+                                .accessibilityIdentifier("defaultPanelSuggestionsSection")
+                        }
+                    }
+                }
+                .padding(.horizontal, FormaSpacing.standard)
+                .padding(.bottom, FormaSpacing.generous)
             }
         }
     }
