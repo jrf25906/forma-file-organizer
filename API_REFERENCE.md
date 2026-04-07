@@ -4,6 +4,26 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Cross-folder project spaces v1
+  - `FeatureFlagService.Feature.projectSpaces`
+  - `ProjectSpaceSummary`
+  - `ProjectSpaceFileRow`
+  - `ProjectSpaceDetail`
+  - `FileMetadataFoundationService.fetchProjectSpaceSummaries()`
+  - `FileMetadataFoundationService.fetchProjectSpaceDetail(for:)`
+  - `DashboardViewModel.projectSpaces`
+  - `DashboardViewModel.selectedProjectSpace`
+  - `DashboardViewModel.selectedProjectSpaceDetail`
+  - `DashboardViewModel.isShowingProjectSpaceDetail`
+  - `DashboardViewModel.refreshProjectSpaces()`
+  - `DashboardViewModel.selectProjectSpace(_:)`
+  - `DashboardViewModel.openFileFromProjectSpace(_:)`
+  - `DashboardViewModel.closeProjectSpaceDetail()`
+  - `ProjectSpacesSection`
+  - `ProjectSpaceDetailView`
+  - Project spaces are now a shipped read-only retrieval surface in the dashboard, derived from durable `projectAssociation` labels already stored on `FileMetadataRecord`.
+  - Membership is strict: a file appears only when it has a durable `projectAssociation` and still resolves locally through the metadata foundation's existing path/bookmark lookup flow.
+  - This slice does not add manual metadata editing, historical placeholder rows for missing files, or workflow execution from project spaces; broader project-space evolution and workflow-memory expansion remain future work.
 - Auto-applied content tags v1
   - `FeatureFlagService.Feature.autoContentTags`
   - `MetadataContentTag`
@@ -44,6 +64,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `MetadataIdentitySnapshot.projectAssociationWriteContext`
   - `FileOrganizationCoordinator.organizeMultipleFiles(_:origin:projectAssociationWriteContext:context:onComplete:)`
   - Auto-applied project association now writes one durable project label from exact `Projects/...` destinations, cluster-organize explicit opt-ins, or strong related-file inference, reconstructs best-effort inspector source text when the source can still be derived, and preserves the stored label through organize, bulk organize, redo, and undo without introducing a separate project entity or persisted provenance fields.
+  - That durable stored label is now also the source of truth for project-space membership; project spaces do not re-infer membership from transient file state.
 - Metadata foundation v1 (`Forma File Organizing/Models/FileMetadataRecord.swift`, `Forma File Organizing/Models/FileOrganizationHistoryEntry.swift`, `Forma File Organizing/Models/FileMetadataInspectorSummary.swift`, `Forma File Organizing/Services/FileMetadataFoundationService.swift`)
   - `MetadataWorkflowStatus`
     - `.queued`
@@ -71,7 +92,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `FileMetadataFoundationServiceProtocol`
     - `upsertRecordForDiscoveryWithoutSaving(for:displayName:fileExtension:timestamp:)`
     - `applyWorkflowStatusForDiscoveryWithoutSaving(to:wasCreated:timestamp:)`
-  - Durable metadata now persists best-effort during scan and explicit-selection evaluation, survives organize/undo/redo transitions, and powers a read-only inspector proof/history section without exposing metadata authoring UI yet.
+  - Durable metadata now persists best-effort during scan and explicit-selection evaluation, survives organize/undo/redo transitions, and powers both the read-only inspector proof/history section and the shipped project-space retrieval slice without exposing metadata authoring UI yet.
   - Durable workflow status layers on top of the metadata foundation: discovery writes `queued` only for newly created records, organize writes `organized`, undo writes `recovered`, ignored review actions write `.ignored` plus one `.ignored` history row from `.review`, and inspector proof exposes a read-only `workflowStatusSummary` line when the flag is enabled.
   - Context-backed review/dashboard skip flows now snapshot the previous durable workflow state before persisting ignored metadata so undo can restore the prior status and redo can reapply `.ignored` without appending duplicate ignored history rows.
 - `SkipFileCommand`

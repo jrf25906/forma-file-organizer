@@ -6,6 +6,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Cross-folder project spaces v1 for metadata-backed retrieval:
+  - `FeatureFlagService.Feature.projectSpaces`, `ProjectSpaceSummary`, `ProjectSpaceFileRow`, and `ProjectSpaceDetail` now expose a shipped read-only dashboard retrieval slice for durable project groupings.
+  - `FileMetadataFoundationService.fetchProjectSpaceSummaries()` and `fetchProjectSpaceDetail(for:)` now derive project spaces strictly from durable `projectAssociation` labels and only include files that still resolve locally through the existing metadata/bookmark identity paths.
+  - `DashboardViewModel`, `ProjectSpacesSection`, `ProjectSpaceDetailView`, and `DefaultPanelView` now surface project-space summaries and detail without adding manual editing, historical placeholder rows for missing files, or workflow execution from spaces.
 - Auto-applied content tags v1 for the metadata foundation:
   - `FeatureFlagService.Feature.autoContentTags`, `MetadataContentTag`, and `MetadataContentTagResolver` now write a small durable built-in tag vocabulary from explicit signals first and conservative inference second during scan, explicit-file evaluation, organize, redo, and undo.
   - The dashboard now exposes metadata-backed content-tag quick filters through `FileFilterManager`, `DashboardViewModel`, `MainContentView`, and `ActiveFiltersBar`, including tag-chip removal, AND/OR-safe cache invalidation, and read-only retrieval without introducing manual tag editing.
@@ -13,7 +17,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Auto-applied project association v1 for the metadata foundation:
   - `FeatureFlagService.Feature.autoProjectAssociation`, `ProjectAssociationWriteContext`, and `MetadataProjectAssociationResolver` now gate and resolve one durable `projectAssociation` label per file using exact `Projects/...` destinations and cluster-organize explicit opt-ins first, then strong-winner related-file inference.
   - `FileMetadataFoundationService` now applies project association during scan, explicit-file evaluation, and metadata transition writes, while inspector proof stays read-only and reconstructs best-effort bounded source copy instead of persisting extra provenance fields.
-  - Organize flows now carry explicit project-association context through single-file organize, cluster-driven bulk organize, redo, and undo so durable project labels survive move history without recomputing on undo.
+  - Organize flows now carry explicit project-association context through single-file organize, cluster-driven bulk organize, redo, and undo so durable project labels survive move history without recomputing on undo, and project-space membership stays anchored to that stored label rather than transient dashboard state.
 - Metadata foundation v1 for progressive automation:
   - `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService` now provide a durable local metadata ledger for scan, organize, undo, redo, and inspector proof surfaces.
   - `FeatureFlagService.Feature.metadataFoundation` is exposed in Settings so the slice stays explicitly gated while it rolls out.
