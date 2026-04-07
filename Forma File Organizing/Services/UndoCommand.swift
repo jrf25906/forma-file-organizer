@@ -194,6 +194,10 @@ struct MoveFileCommand: UndoableCommand {
 
 /// Command for skipping a file
 struct SkipFileCommand: UndoableCommand {
+    struct DurableWorkflowStatusSnapshot: Sendable {
+        let previousValue: MetadataWorkflowStatus?
+    }
+
     let id: UUID
     let timestamp: Date
 
@@ -201,6 +205,7 @@ struct SkipFileCommand: UndoableCommand {
     let fileID: String
     let previousStatus: FileItem.OrganizationStatus
     let previousDestination: Destination?
+    let durableWorkflowStatusSnapshot: DurableWorkflowStatusSnapshot?
 
     var description: String {
         "Skip \(URL(fileURLWithPath: fileID).lastPathComponent)"
@@ -219,6 +224,7 @@ struct SkipFileCommand: UndoableCommand {
         }
 
         file.status = .skipped
+        applyDurableWorkflowStatus(.ignored, in: ctx)
         try ctx.save()
     }
 
@@ -236,7 +242,34 @@ struct SkipFileCommand: UndoableCommand {
 
         file.status = previousStatus
         file.destination = previousDestination
+        if let durableWorkflowStatusSnapshot {
+            applyDurableWorkflowStatus(durableWorkflowStatusSnapshot.previousValue, in: ctx)
+        }
         try ctx.save()
+    }
+
+    @MainActor
+    private func applyDurableWorkflowStatus(
+        _ workflowStatus: MetadataWorkflowStatus?,
+        in context: ModelContext
+    ) {
+        guard durableWorkflowStatusSnapshot != nil else {
+            return
+        }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(fileID)
+        var descriptor = FetchDescriptor<FileMetadataRecord>(
+            predicate: #Predicate<FileMetadataRecord> { record in
+                record.lastKnownPath == normalizedPath
+            }
+        )
+        descriptor.fetchLimit = 1
+
+        guard let record = try? context.fetch(descriptor).first else {
+            return
+        }
+
+        record.workflowStatus = workflowStatus
     }
 }
 

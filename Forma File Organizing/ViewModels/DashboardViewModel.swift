@@ -870,7 +870,7 @@ class DashboardViewModel: ObservableObject {
     }
 
     func skipFile(_ file: FileItem) {
-        organizationController.skipFile(file)
+        organizationController.skipFile(file, context: modelContext)
     }
 
     func handleOrganizeAnimationComplete(for filePath: String) {

@@ -32,6 +32,7 @@ class ReviewViewModel: ObservableObject {
     private let fileOperationsService = FileOperationsService()
     private let notificationService = NotificationService.shared
     private let fileScanPipeline: FileScanPipelineProtocol
+    private let organizationCoordinator = FileOrganizationCoordinator()
 
     // MARK: - Initialization
 
@@ -219,8 +220,8 @@ class ReviewViewModel: ObservableObject {
             fileItem.rejectionCount += 1
             Log.info("Learning: User rejected suggestion '\(displayName)' for \(fileItem.name) (rejection count: \(fileItem.rejectionCount))", category: .analytics)
         }
-        
-        fileItem.status = .skipped
+
+        organizationCoordinator.skipFile(fileItem, context: modelContext)
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             files.removeAll { $0.path == fileItem.path }
         }

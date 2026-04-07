@@ -128,8 +128,8 @@ final class DashboardOrganizationController {
     private static func defaultUsesTestingFastPath() -> Bool { false }
     #endif
 
-    func skipFile(_ file: FileItem) {
-        file.status = .skipped
+    func skipFile(_ file: FileItem, context: ModelContext?) {
+        coordinator.skipFile(file, context: context)
         filterViewModel.applyFilterImmediately()
     }
 

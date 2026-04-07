@@ -248,25 +248,49 @@ class FileOrganizationCoordinator: ObservableObject {
     func skipFile(_ file: FileItem, context: ModelContext?) {
         let originalStatus = file.status
         file.status = .skipped
-        
-        // Save to context
-        if let ctx = context {
+
+        var durableWorkflowStatusSnapshot: SkipFileCommand.DurableWorkflowStatusSnapshot?
+
+        if let context,
+           FeatureFlagService.shared.isEnabled(.metadataFoundation),
+           FeatureFlagService.shared.isEnabled(.durableWorkflowStatus) {
+            do {
+                durableWorkflowStatusSnapshot = try persistSkipMetadata(
+                    for: file,
+                    context: context
+                )
+                try context.save()
+            } catch {
+                Log.error(
+                    "Failed to persist durable skip metadata for '\(file.path)': \(error.localizedDescription)",
+                    category: .undo
+                )
+                do {
+                    try context.save()
+                } catch {
+                    Log.error("Failed to save transient skip for '\(file.path)': \(error.localizedDescription)", category: .undo)
+                    file.status = originalStatus
+                    return
+                }
+            }
+        } else if let ctx = context {
             do {
                 try ctx.save()
             } catch {
-                // Rollback on error
                 file.status = originalStatus
                 Log.error("Failed to skip file: \(error.localizedDescription)", category: .undo)
+                return
             }
         }
-        
+
         // Record lightweight command for undo
         let command = SkipFileCommand(
             id: UUID(),
             timestamp: Date(),
             fileID: file.path,
             previousStatus: originalStatus,
-            previousDestination: file.destination
+            previousDestination: file.destination,
+            durableWorkflowStatusSnapshot: durableWorkflowStatusSnapshot
         )
         pushUndoCommand(command)
     }
@@ -513,7 +537,7 @@ class FileOrganizationCoordinator: ObservableObject {
         
         // Fast-path for skip commands when we only have in-memory FileItem instances
         // Note: Skip only changes status, not destination - destination remains on file
-        if let skipCommand = command as? SkipFileCommand {
+        if context == nil, let skipCommand = command as? SkipFileCommand {
             if let file = allFiles.first(where: { $0.path == skipCommand.fileID }) {
                 file.status = skipCommand.previousStatus
                 // Destination is not modified by skip, so no need to restore it
@@ -838,6 +862,35 @@ class FileOrganizationCoordinator: ObservableObject {
         default:
             break
         }
+    }
+
+    private func persistSkipMetadata(
+        for file: FileItem,
+        context: ModelContext
+    ) throws -> SkipFileCommand.DurableWorkflowStatusSnapshot? {
+        let metadataContext = ModelContext(context.container)
+        let metadataService = FileMetadataFoundationService(modelContext: metadataContext)
+        let normalizedPath = FileMetadataRecord.normalizedPath(file.path)
+        var descriptor = FetchDescriptor<FileMetadataRecord>(
+            predicate: #Predicate<FileMetadataRecord> { record in
+                record.lastKnownPath == normalizedPath
+            }
+        )
+        descriptor.fetchLimit = 1
+
+        guard let record = try metadataContext.fetch(descriptor).first else {
+            return nil
+        }
+
+        let snapshot = SkipFileCommand.DurableWorkflowStatusSnapshot(
+            previousValue: record.workflowStatus
+        )
+        _ = try metadataService.appendIgnoredHistory(
+            for: record,
+            detailsSummary: nil,
+            timestamp: Date()
+        )
+        return snapshot
     }
     
     /// Log rule applications for analytics (v1.2.0).

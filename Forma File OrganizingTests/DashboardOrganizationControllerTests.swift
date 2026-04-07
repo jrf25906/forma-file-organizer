@@ -21,6 +21,8 @@ final class DashboardOrganizationControllerTests: XCTestCase {
             FileItem.self,
             Rule.self,
             ActivityItem.self,
+            FileMetadataRecord.self,
+            FileOrganizationHistoryEntry.self,
             TrustedAutomationScope.self,
             PersonalMemoryEvent.self,
             PersonalMemoryPreference.self
@@ -146,11 +148,58 @@ final class DashboardOrganizationControllerTests: XCTestCase {
         await fulfillment(of: [recommendationExpectation], timeout: 1.0)
         XCTAssertEqual(capturedRecommendation?.recommendedScope.scopeType, .folder)
     }
+
+    func testDashboardSkip_UsesCoordinatorPathWhenModelContextAvailable() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+        let file = FileItem(
+            path: "/Users/example/Downloads/skip.pdf",
+            sizeInBytes: 2_048,
+            creationDate: Date(),
+            destination: .mockFolder("Documents"),
+            status: .ready
+        )
+        modelContext.insert(file)
+
+        let record = FileMetadataRecord(
+            canonicalIdentity: FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: file.path),
+            identityKind: .pathFallback,
+            lastKnownPath: file.path,
+            displayName: file.name,
+            fileExtension: file.fileExtension,
+            firstSeenAt: Date(),
+            lastSeenAt: Date()
+        )
+        record.workflowStatus = .queued
+        modelContext.insert(record)
+        try modelContext.save()
+
+        let controller = DashboardOrganizationController(
+            coordinator: coordinator,
+            scanViewModel: scanViewModel,
+            filterViewModel: filterViewModel,
+            selectionViewModel: selectionViewModel,
+            panelManager: panelManager,
+            appReviewEligibility: appReviewEligibility,
+            usesTestingFastPath: false
+        )
+
+        controller.skipFile(file, context: modelContext)
+
+        XCTAssertEqual(coordinator.skipFileCallCount, 1)
+        XCTAssertTrue(coordinator.lastSkippedFile === file)
+        XCTAssertTrue(coordinator.lastSkipContext === modelContext)
+        XCTAssertEqual(file.status, .ready)
+    }
 }
 
 @MainActor
 private final class MockFileOrganizationCoordinator: FileOrganizationCoordinator {
     var cannedFileAction: FileActionData?
+    var skipFileCallCount = 0
+    var lastSkippedFile: FileItem?
+    var lastSkipContext: ModelContext?
 
     override func organizeFile(
         _ file: FileItem,
@@ -165,6 +214,12 @@ private final class MockFileOrganizationCoordinator: FileOrganizationCoordinator
         }
 
         onSuccess(cannedFileAction)
+    }
+
+    override func skipFile(_ file: FileItem, context: ModelContext?) {
+        skipFileCallCount += 1
+        lastSkippedFile = file
+        lastSkipContext = context
     }
 
     private enum MockError: Error {

@@ -549,6 +549,62 @@ final class ReviewViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.files.isEmpty)
     }
 
+    func testReviewSkip_PreservesVisibleBehaviorWhileUsingCoordinatorPath() throws {
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+        let schema = Schema([
+            FileItem.self,
+            Rule.self,
+            ActivityItem.self,
+            FileMetadataRecord.self,
+            FileOrganizationHistoryEntry.self
+        ])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = container.mainContext
+
+        viewModel = ReviewViewModel(
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline
+        )
+        viewModel.setModelContext(context)
+
+        let fileItem = createFileItem(
+            name: "review-skip.pdf",
+            path: "/Desktop/review-skip.pdf",
+            destination: .mockFolder("Invoices")
+        )
+        context.insert(fileItem)
+
+        let record = FileMetadataRecord(
+            canonicalIdentity: FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: fileItem.path),
+            identityKind: .pathFallback,
+            lastKnownPath: fileItem.path,
+            displayName: fileItem.name,
+            fileExtension: fileItem.fileExtension,
+            firstSeenAt: Date(),
+            lastSeenAt: Date()
+        )
+        record.workflowStatus = .queued
+        context.insert(record)
+        try context.save()
+
+        viewModel.files = [fileItem]
+
+        viewModel.skipFile(fileItem)
+
+        let persistedRecord = try XCTUnwrap(try context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertTrue(viewModel.files.isEmpty)
+        XCTAssertEqual(fileItem.rejectedDestination, "Invoices")
+        XCTAssertEqual(fileItem.rejectionCount, 1)
+        XCTAssertEqual(fileItem.status, .skipped)
+        XCTAssertEqual(persistedRecord.workflowStatus, .ignored)
+        XCTAssertEqual(persistedRecord.historyEntries.count, 1)
+        XCTAssertEqual(persistedRecord.historyEntries.first?.eventKind, .ignored)
+    }
+
     func testMoveFile_AlreadyCompleted_HandlesGracefully() async {
         // Given: File already marked as completed
         let fileItem = createFileItem(

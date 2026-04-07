@@ -789,6 +789,178 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(record.historyEntries.count, 3)
     }
 
+    func testSkipFile_WithContext_WritesIgnoredWorkflowStatusAndHistory() async throws {
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let sourceURL = sourceFolder.appendingPathComponent("ignored.pdf")
+        let initialTimestamp = Date(timeIntervalSince1970: 2_150)
+
+        let seededRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sourceURL.path,
+            displayName: "ignored.pdf",
+            fileExtension: "pdf",
+            timestamp: initialTimestamp
+        )
+        seededRecord.workflowStatus = .queued
+        try environment.context.save()
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: initialTimestamp,
+            modificationDate: initialTimestamp,
+            lastAccessedDate: initialTimestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: .mockFolder("Archive"),
+            status: .ready
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        environment.coordinator.skipFile(file, context: environment.context)
+
+        let record = try XCTUnwrap(try environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertEqual(file.status, .skipped)
+        XCTAssertEqual(record.workflowStatus, .ignored)
+        XCTAssertEqual(record.historyEntries.count, 1)
+        XCTAssertEqual(record.historyEntries.first?.eventKind, .ignored)
+        XCTAssertEqual(record.historyEntries.first?.sourceSurface, .review)
+    }
+
+    func testUndoSkip_WithContext_RestoresPreviousWorkflowStatus() async throws {
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let sourceURL = sourceFolder.appendingPathComponent("undo-skip.pdf")
+        let initialTimestamp = Date(timeIntervalSince1970: 2_151)
+
+        let seededRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sourceURL.path,
+            displayName: "undo-skip.pdf",
+            fileExtension: "pdf",
+            timestamp: initialTimestamp
+        )
+        seededRecord.workflowStatus = .queued
+        try environment.context.save()
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: initialTimestamp,
+            modificationDate: initialTimestamp,
+            lastAccessedDate: initialTimestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: .mockFolder("Archive"),
+            status: .ready
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        environment.coordinator.skipFile(file, context: environment.context)
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [file], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        let record = try XCTUnwrap(try environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertEqual(file.status, .ready)
+        XCTAssertEqual(record.workflowStatus, .queued)
+        XCTAssertEqual(record.historyEntries.count, 1)
+        XCTAssertEqual(record.historyEntries.first?.eventKind, .ignored)
+    }
+
+    func testRedoSkip_WithContext_DoesNotDuplicateIgnoredHistory() async throws {
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let sourceURL = sourceFolder.appendingPathComponent("redo-skip.pdf")
+        let initialTimestamp = Date(timeIntervalSince1970: 2_152)
+
+        let seededRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sourceURL.path,
+            displayName: "redo-skip.pdf",
+            fileExtension: "pdf",
+            timestamp: initialTimestamp
+        )
+        seededRecord.workflowStatus = .queued
+        try environment.context.save()
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: initialTimestamp,
+            modificationDate: initialTimestamp,
+            lastAccessedDate: initialTimestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: .mockFolder("Archive"),
+            status: .ready
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        environment.coordinator.skipFile(file, context: environment.context)
+        environment.coordinator.undoLastAction(allFiles: [file], context: environment.context) {}
+        await environment.coordinator.redoLastAction(allFiles: [file], context: environment.context) {}
+
+        let record = try XCTUnwrap(try environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first)
+        XCTAssertEqual(file.status, .skipped)
+        XCTAssertEqual(record.workflowStatus, .ignored)
+        XCTAssertEqual(record.historyEntries.count, 1)
+        XCTAssertEqual(record.historyEntries.first?.eventKind, .ignored)
+    }
+
+    func testSkipFile_MetadataWriteFailureFallsBackToTransientSkip() async throws {
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+        let schema = Schema([FileItem.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+        let coordinator = FileOrganizationCoordinator()
+
+        let file = FileItem(
+            path: "/tmp/transient-skip.pdf",
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 2_153),
+            destination: .mockFolder("Archive"),
+            status: .ready
+        )
+        context.insert(file)
+        try context.save()
+
+        coordinator.skipFile(file, context: context)
+
+        XCTAssertEqual(file.status, .skipped)
+
+        var undoCompleted = false
+        coordinator.undoLastAction(allFiles: [file], context: context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+        XCTAssertEqual(file.status, .ready)
+    }
+
     func testOrganizeUndoRedo_DestinationCollisionPreservesSourceIdentityWorkflowStatusAssociationAndTagOrdering() async throws {
         FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
         FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
