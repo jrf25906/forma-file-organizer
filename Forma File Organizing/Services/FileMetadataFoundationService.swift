@@ -52,6 +52,8 @@ final class FileMetadataFoundationService {
         previousWorkflowStatus: MetadataWorkflowStatus?
     )
 
+    private static let customFolderBookmarkPrefix = "CustomFolder_"
+
     private struct ProjectSpaceMember {
         let normalizedLabel: String
         let normalizedPath: String
@@ -805,16 +807,15 @@ final class FileMetadataFoundationService {
             return true
         }
 
-        for folder in BookmarkFolder.alertEligibleFolders() {
-            guard let resolvedRootPath = folder.resolvedRootPath,
-                  isPath(normalizedPath, withinRootPath: resolvedRootPath),
-                  let resolvedURL = folder.resolveURL()?.url,
-                  resolvedURL.startAccessingSecurityScopedResource() else {
+        for rootURL in projectSpaceBookmarkBackedRootURLs() {
+            let resolvedRootPath = rootURL.standardizedFileURL.path
+            guard isPath(normalizedPath, withinRootPath: resolvedRootPath),
+                  rootURL.startAccessingSecurityScopedResource() else {
                 continue
             }
 
             defer {
-                resolvedURL.stopAccessingSecurityScopedResource()
+                rootURL.stopAccessingSecurityScopedResource()
             }
 
             if projectSpacePathExists(at: normalizedPath, usingSecurityScopedAccess: true) {
@@ -837,6 +838,49 @@ final class FileMetadataFoundationService {
         #endif
 
         return FileManager.default.fileExists(atPath: normalizedPath)
+    }
+
+    private func projectSpaceBookmarkBackedRootURLs() -> [URL] {
+        var rootURLs: [URL] = []
+        var seenPaths: Set<String> = []
+
+        func appendRootURL(_ url: URL) {
+            let standardizedPath = url.standardizedFileURL.path
+            guard seenPaths.insert(standardizedPath).inserted else {
+                return
+            }
+
+            rootURLs.append(url)
+        }
+
+        for folderType in BookmarkFolder.FolderType.allCases {
+            guard let resolvedURL = BookmarkFolder(folderType: folderType).resolveURL()?.url else {
+                continue
+            }
+
+            appendRootURL(resolvedURL)
+        }
+
+        for key in BookmarkStoreProvider.shared.listAllBookmarkKeys()
+        where key.hasPrefix(Self.customFolderBookmarkPrefix) {
+            guard let bookmarkData = BookmarkStoreProvider.shared.loadBookmark(forKey: key) else {
+                continue
+            }
+
+            var isStale = false
+            guard let resolvedURL = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ) else {
+                continue
+            }
+
+            appendRootURL(resolvedURL)
+        }
+
+        return rootURLs
     }
 
     private func isPath(_ path: String, withinRootPath rootPath: String) -> Bool {

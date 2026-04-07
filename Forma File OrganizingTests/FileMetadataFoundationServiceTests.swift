@@ -362,6 +362,108 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testProjectSpaceSummaries_IncludeDisabledStandardBookmarkBackedRecords() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Downloads/disabled-standard.txt", contents: "alpha")
+            let bookmarkStore = InMemoryBookmarkStore()
+            let destination = try Destination.folder(
+                from: tempDir.url,
+                displayName: BookmarkFolder.FolderType.downloads.displayName
+            )
+            try bookmarkStore.saveBookmark(
+                try XCTUnwrap(destination.bookmarkData),
+                forKey: BookmarkFolder.FolderType.downloads.bookmarkKey
+            )
+
+            let enabledDefaultsKey = "BookmarkFolder.isEnabled.\(BookmarkFolder.FolderType.downloads.bookmarkKey)"
+            let previousEnabledValue = UserDefaults.standard.object(forKey: enabledDefaultsKey)
+            UserDefaults.standard.set(false, forKey: enabledDefaultsKey)
+            defer {
+                if let previousEnabledValue {
+                    UserDefaults.standard.set(previousEnabledValue, forKey: enabledDefaultsKey)
+                } else {
+                    UserDefaults.standard.removeObject(forKey: enabledDefaultsKey)
+                }
+            }
+
+            try BookmarkStoreProvider.$override.withValue(bookmarkStore) {
+                #if DEBUG
+                FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = { path, usingSecurityScopedAccess in
+                    guard path == fileURL.path else { return nil }
+                    return usingSecurityScopedAccess
+                }
+                defer {
+                    FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = nil
+                }
+                #endif
+
+                let record = try XCTUnwrap(
+                    service.upsertRecord(
+                        for: fileURL.path,
+                        displayName: fileURL.lastPathComponent,
+                        fileExtension: "txt",
+                        timestamp: Date(timeIntervalSince1970: 1_000)
+                    )
+                )
+                record.projectAssociation = "Alpha"
+                try context.save()
+
+                let summaries = service.fetchProjectSpaceSummaries()
+                XCTAssertEqual(summaries.map(\.normalizedLabel), ["Alpha"])
+                XCTAssertEqual(summaries.first?.fileCount, 1)
+            }
+        }
+    }
+
+    func testProjectSpaceSummaries_IncludeCustomBookmarkBackedRecords() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let customRootURL = try tempDir.createDirectory(name: "CustomRoot")
+            let fileURL = try tempDir.createFile(name: "CustomRoot/custom-bookmark.txt", contents: "alpha")
+            let bookmarkStore = InMemoryBookmarkStore()
+            let destination = try Destination.folder(
+                from: customRootURL,
+                displayName: "Custom Root"
+            )
+            try bookmarkStore.saveBookmark(
+                try XCTUnwrap(destination.bookmarkData),
+                forKey: "CustomFolder_ProjectSpaceTests"
+            )
+
+            try BookmarkStoreProvider.$override.withValue(bookmarkStore) {
+                #if DEBUG
+                FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = { path, usingSecurityScopedAccess in
+                    guard path == fileURL.path else { return nil }
+                    return usingSecurityScopedAccess
+                }
+                defer {
+                    FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = nil
+                }
+                #endif
+
+                let record = try XCTUnwrap(
+                    service.upsertRecord(
+                        for: fileURL.path,
+                        displayName: fileURL.lastPathComponent,
+                        fileExtension: "txt",
+                        timestamp: Date(timeIntervalSince1970: 1_000)
+                    )
+                )
+                record.projectAssociation = "Alpha"
+                try context.save()
+
+                let summaries = service.fetchProjectSpaceSummaries()
+                XCTAssertEqual(summaries.map(\.normalizedLabel), ["Alpha"])
+                XCTAssertEqual(summaries.first?.fileCount, 1)
+            }
+        }
+    }
+
     func testProjectSpaceDetail_ReturnsOnlyMatchingResolvableFiles() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 
