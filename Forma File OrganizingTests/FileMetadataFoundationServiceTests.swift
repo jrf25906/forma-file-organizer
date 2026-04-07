@@ -91,6 +91,8 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
     }
 
     func testProjectSpaceSummaries_GroupByAssociationAndSortByRecentActivity() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
         try withService { context, service in
             let tempDir = try TemporaryDirectory()
             let alphaOlderURL = try tempDir.createFile(name: "Inbox/alpha-older.txt", contents: "alpha")
@@ -145,6 +147,8 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
     }
 
     func testProjectSpaceSummaries_PreferDurableHistoryOverLastSeenAndLastOrganizedAt() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
         try withService { context, service in
             let tempDir = try TemporaryDirectory()
             let fileURL = try tempDir.createFile(name: "Inbox/project-alpha.txt", contents: "alpha")
@@ -164,7 +168,7 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
             _ = try XCTUnwrap(
                 service.appendHistoryEntry(
                     for: record,
-                    eventKind: .organized,
+                    eventKind: .rekeyed,
                     sourceSurface: .organize,
                     fromPath: fileURL.path,
                     toPath: fileURL.path,
@@ -181,6 +185,28 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
             XCTAssertEqual(summary.normalizedLabel, "Alpha")
             XCTAssertEqual(summary.fileCount, 1)
             XCTAssertEqual(summary.lastActivityAt, Date(timeIntervalSince1970: 2_000))
+        }
+    }
+
+    func testProjectSpaceSummaries_AreHiddenWhenProjectSpacesFeatureIsDisabled() throws {
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Inbox/disabled-space.txt", contents: "alpha")
+
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: fileURL.path,
+                    displayName: "disabled-space.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 5_000)
+                )
+            )
+            record.projectAssociation = "Alpha"
+            try context.save()
+
+            XCTAssertTrue(FeatureFlagService.shared.isEnabled(.metadataFoundation))
+            XCTAssertFalse(FeatureFlagService.shared.isEnabled(.projectSpaces))
+            XCTAssertTrue(service.fetchProjectSpaceSummaries().isEmpty)
         }
     }
 

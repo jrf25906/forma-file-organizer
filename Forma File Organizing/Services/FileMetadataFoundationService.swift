@@ -470,7 +470,7 @@ final class FileMetadataFoundationService {
     }
 
     func fetchProjectSpaceSummaries() -> [ProjectSpaceSummary] {
-        guard isEnabled else { return [] }
+        guard isProjectSpaceReadEnabled else { return [] }
 
         let descriptor = FetchDescriptor<FileMetadataRecord>()
         guard let records = try? modelContext.fetch(descriptor) else {
@@ -509,6 +509,11 @@ final class FileMetadataFoundationService {
 
     private var isEnabled: Bool {
         featureFlags.isEnabled(.metadataFoundation)
+    }
+
+    private var isProjectSpaceReadEnabled: Bool {
+        featureFlags.isEnabled(.metadataFoundation) &&
+        featureFlags.isEnabled(.projectSpaces)
     }
 
     private var isWorkflowStatusWriteEnabled: Bool {
