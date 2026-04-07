@@ -606,10 +606,7 @@ class DashboardViewModel: ObservableObject {
             return
         }
 
-        isRightPanelVisible = true
-        selectionViewModel.selectedFileIDs = [file.path]
-        selectionViewModel.focusedFilePath = file.path
-        panelManager.updateRightPanelForSelection([file])
+        openInspector(for: file)
     }
 
     func closeProjectSpaceDetail() {
@@ -958,15 +955,24 @@ class DashboardViewModel: ObservableObject {
         panelManager.updateRightPanelForSelection(selectedFiles)
     }
 
+    private func selectFileForInspector(_ file: FileItem) {
+        isRightPanelVisible = true
+        selectionViewModel.selectedFileIDs = [file.path]
+        selectionViewModel.focusedFilePath = file.path
+    }
+
+    private func openInspector(for file: FileItem) {
+        selectFileForInspector(file)
+        panelManager.updateRightPanelForSelection([file])
+    }
+
     func showRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {
         isRightPanelVisible = true
         panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
     }
 
     func showRuleBuilderPanelForInspector(_ file: FileItem, editingRule: Rule? = nil) {
-        isRightPanelVisible = true
-        selectionViewModel.selectedFileIDs = [file.path]
-        selectionViewModel.focusedFilePath = file.path
+        selectFileForInspector(file)
         panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: file)
     }
 
@@ -986,10 +992,7 @@ class DashboardViewModel: ObservableObject {
                 return
             }
 
-            isRightPanelVisible = true
-            selectionViewModel.selectedFileIDs = [file.path]
-            selectionViewModel.focusedFilePath = file.path
-            panelManager.updateRightPanelForSelection([file])
+            openInspector(for: file)
         }
     }
 

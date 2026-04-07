@@ -2310,6 +2310,35 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.currentReviewChunkPaths, originalChunkPaths)
     }
 
+    func testOpenFileFromProjectSpaceMatchesInspectorRestorePath() {
+        let files = makeReviewFiles(count: 12)
+        let targetFile = files
+            .sorted { $0.creationDate > $1.creationDate }
+            .first!
+        let projectSpaceFile = ProjectSpaceFileRow(
+            canonicalIdentity: targetFile.path,
+            path: targetFile.path,
+            displayName: URL(fileURLWithPath: targetFile.path).lastPathComponent
+        )
+
+        viewModel._testSetFiles(files)
+        let originalChunkPaths = viewModel.currentReviewChunkPaths
+        viewModel.setRightPanelVisible(false)
+
+        viewModel.openFileFromProjectSpace(projectSpaceFile)
+
+        if case .inspector(let inspectorFiles) = viewModel.rightPanelMode {
+            XCTAssertEqual(inspectorFiles.map(\.path), [targetFile.path])
+        } else {
+            XCTFail("Project-space file opening should route through the inspector selection flow")
+        }
+
+        XCTAssertEqual(viewModel.selectedFileIDs, [targetFile.path])
+        XCTAssertEqual(viewModel.focusedFilePath, targetFile.path)
+        XCTAssertEqual(viewModel.currentReviewChunkPaths, originalChunkPaths)
+        XCTAssertTrue(viewModel.isRightPanelVisible)
+    }
+
     func testRestorePanelFallsBackToDefaultWhenInspectorFileIsGone() {
         let file = FileItem(path: "/review/file-1.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel._testSetFiles([file])
