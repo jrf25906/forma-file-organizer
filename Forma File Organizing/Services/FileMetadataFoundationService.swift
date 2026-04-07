@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import Darwin
 
 @MainActor
 protocol FileMetadataFoundationServiceProtocol {
@@ -62,6 +63,7 @@ final class FileMetadataFoundationService {
 
     #if DEBUG
     static var debugRecordTransitionHook: ((String, String, FileOrganizationHistoryEntry.EventKind) throws -> Void)?
+    static var debugProjectSpacePathReachabilityHook: ((String, Bool) -> Bool?)?
     #endif
 
     private static let inspectorFormatter: DateFormatter = {
@@ -714,11 +716,11 @@ final class FileMetadataFoundationService {
         }
 
         let normalizedPath = FileMetadataRecord.normalizedPath(storedPath)
-        guard FileManager.default.fileExists(atPath: normalizedPath) else {
-            return nil
+        if isProjectSpacePathReachable(normalizedPath) {
+            return normalizedPath
         }
 
-        return normalizedPath
+        return nil
     }
 
     private func sourceFolderHints(for members: [ProjectSpaceMember]) -> [String] {
@@ -752,7 +754,7 @@ final class FileMetadataFoundationService {
         homePath: String? = nil
     ) -> String? {
         let standardizedPath = URL(fileURLWithPath: normalizedPath).standardizedFileURL.path
-        let resolvedHomePath = homePath ?? FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        let resolvedHomePath = homePath ?? projectSpaceRealHomeDirectoryPath()
         let homePrefix = resolvedHomePath.hasSuffix("/") ? resolvedHomePath : "\(resolvedHomePath)/"
 
         if standardizedPath.hasPrefix(homePrefix) {
@@ -785,20 +787,63 @@ final class FileMetadataFoundationService {
     }
 
     func projectSpaceStandardFolderDisplayName(for component: String) -> String? {
-        switch component {
-        case "Desktop":
-            return "Desktop"
-        case "Downloads":
-            return "Downloads"
-        case "Documents":
-            return "Documents"
-        case "Pictures":
-            return "Pictures"
-        case "Music":
-            return "Music"
-        default:
-            return nil
+        BookmarkFolder.FolderType.allCases.first(where: { $0.displayName == component })?.displayName
+    }
+
+    private func projectSpaceRealHomeDirectoryPath() -> String {
+        if let pw = getpwuid(getuid()) {
+            return URL(fileURLWithPath: String(cString: pw.pointee.pw_dir))
+                .standardizedFileURL
+                .path
         }
+
+        return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+    }
+
+    private func isProjectSpacePathReachable(_ normalizedPath: String) -> Bool {
+        if projectSpacePathExists(at: normalizedPath, usingSecurityScopedAccess: false) {
+            return true
+        }
+
+        for folder in BookmarkFolder.alertEligibleFolders() {
+            guard let resolvedRootPath = folder.resolvedRootPath,
+                  isPath(normalizedPath, withinRootPath: resolvedRootPath),
+                  let resolvedURL = folder.resolveURL()?.url,
+                  resolvedURL.startAccessingSecurityScopedResource() else {
+                continue
+            }
+
+            defer {
+                resolvedURL.stopAccessingSecurityScopedResource()
+            }
+
+            if projectSpacePathExists(at: normalizedPath, usingSecurityScopedAccess: true) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func projectSpacePathExists(
+        at normalizedPath: String,
+        usingSecurityScopedAccess: Bool
+    ) -> Bool {
+        #if DEBUG
+        if let override = Self.debugProjectSpacePathReachabilityHook,
+           let result = override(normalizedPath, usingSecurityScopedAccess) {
+            return result
+        }
+        #endif
+
+        return FileManager.default.fileExists(atPath: normalizedPath)
+    }
+
+    private func isPath(_ path: String, withinRootPath rootPath: String) -> Bool {
+        let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+        let standardizedRootPath = URL(fileURLWithPath: rootPath).standardizedFileURL.path
+        let rootPrefix = standardizedRootPath.hasSuffix("/") ? standardizedRootPath : "\(standardizedRootPath)/"
+        return standardizedPath == standardizedRootPath || standardizedPath.hasPrefix(rootPrefix)
     }
 
     private static func organizationCountSummary(for count: Int) -> String {

@@ -14,6 +14,9 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
 
     override func tearDown() {
         FeatureFlagService.shared.resetToDefaults()
+        #if DEBUG
+        FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = nil
+        #endif
         super.tearDown()
     }
 
@@ -298,6 +301,64 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
                 ),
                 "Desktop"
             )
+        }
+    }
+
+    func testProjectSpaceSourceFolderHintRoot_UsesRealHomePathWithoutOverride() throws {
+        try withService { _, service in
+            let path = BookmarkFolder.FolderType.desktop
+                .standardRootPath()
+                .appending("/file.txt")
+
+            XCTAssertEqual(
+                service.projectSpaceSourceFolderHintRoot(for: path),
+                BookmarkFolder.FolderType.desktop.displayName
+            )
+        }
+    }
+
+    func testProjectSpaceSummaries_IncludeBookmarkBackedResolvableRecords() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = try tempDir.createFile(name: "Downloads/bookmark-backed.txt", contents: "alpha")
+            let bookmarkStore = InMemoryBookmarkStore()
+            let destination = try Destination.folder(
+                from: tempDir.url,
+                displayName: BookmarkFolder.FolderType.downloads.displayName
+            )
+            try bookmarkStore.saveBookmark(
+                try XCTUnwrap(destination.bookmarkData),
+                forKey: BookmarkFolder.FolderType.downloads.bookmarkKey
+            )
+
+            try BookmarkStoreProvider.$override.withValue(bookmarkStore) {
+                #if DEBUG
+                FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = { path, usingSecurityScopedAccess in
+                    guard path == fileURL.path else { return nil }
+                    return usingSecurityScopedAccess
+                }
+                defer {
+                    FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = nil
+                }
+                #endif
+
+                let record = try XCTUnwrap(
+                    service.upsertRecord(
+                        for: fileURL.path,
+                        displayName: fileURL.lastPathComponent,
+                        fileExtension: "txt",
+                        timestamp: Date(timeIntervalSince1970: 1_000)
+                    )
+                )
+                record.projectAssociation = "Alpha"
+                try context.save()
+
+                let summaries = service.fetchProjectSpaceSummaries()
+                XCTAssertEqual(summaries.map(\.normalizedLabel), ["Alpha"])
+                XCTAssertEqual(summaries.first?.fileCount, 1)
+            }
         }
     }
 
