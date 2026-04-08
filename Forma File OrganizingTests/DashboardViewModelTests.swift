@@ -885,6 +885,124 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.projectSpaceAssociationCorrectionProposedLabel, "")
         XCTAssertEqual(viewModel.projectSpaceAssociationSuggestedLabels, [])
     }
+
+    func testProjectSpaces_SelectingAnotherSpaceClearsCorrectionEditor() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let betaURL = try tempDirectory.createFile(name: "Inbox/beta.txt", contents: "beta")
+        let alphaTimestamp = Date(timeIntervalSince1970: 1_000)
+        let betaTimestamp = Date(timeIntervalSince1970: 2_000)
+
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: alphaTimestamp
+        )
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: betaURL.path,
+            projectAssociation: "Beta",
+            timestamp: betaTimestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([
+            makeProjectSpaceFile(at: alphaURL, timestamp: alphaTimestamp),
+            makeProjectSpaceFile(at: betaURL, timestamp: betaTimestamp)
+        ])
+
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        let betaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Beta" }))
+        viewModel.selectProjectSpace(alphaSummary)
+
+        let alphaFile = try XCTUnwrap(
+            viewModel.selectedProjectSpaceDetail?.files.first(where: { $0.displayName == "alpha.txt" })
+        )
+        viewModel.beginProjectSpaceAssociationCorrection(alphaFile)
+        viewModel.projectSpaceAssociationCorrectionProposedLabel = "Retargeted"
+
+        viewModel.selectProjectSpace(betaSummary)
+
+        XCTAssertEqual(viewModel.selectedProjectSpace, betaSummary)
+        XCTAssertEqual(viewModel.selectedProjectSpaceDetail?.summary, betaSummary)
+        XCTAssertNil(viewModel.projectSpaceAssociationCorrectionFileRow)
+        XCTAssertEqual(viewModel.projectSpaceAssociationCorrectionProposedLabel, "")
+        XCTAssertEqual(viewModel.projectSpaceAssociationSuggestedLabels, [])
+    }
+
+    func testProjectSpaces_RefreshRebindsCorrectionEditorToRefreshedFileRow() throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let alphaPlanURL = try tempDirectory.createFile(name: "Inbox/alpha-plan.txt", contents: "plan")
+        let alphaTimestamp = Date(timeIntervalSince1970: 1_000)
+        let alphaPlanTimestamp = Date(timeIntervalSince1970: 1_100)
+
+        let alphaRecord = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: alphaTimestamp
+        )
+        let alphaPlanRecord = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaPlanURL.path,
+            projectAssociation: "Alpha",
+            timestamp: alphaPlanTimestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([
+            makeProjectSpaceFile(at: alphaURL, timestamp: alphaTimestamp),
+            makeProjectSpaceFile(at: alphaPlanURL, timestamp: alphaPlanTimestamp)
+        ])
+
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        viewModel.selectProjectSpace(alphaSummary)
+        let originalFileRow = try XCTUnwrap(
+            viewModel.selectedProjectSpaceDetail?.files.first(where: { $0.displayName == "alpha-plan.txt" })
+        )
+        viewModel.beginProjectSpaceAssociationCorrection(originalFileRow)
+        viewModel.projectSpaceAssociationCorrectionProposedLabel = "Alpha Revised"
+
+        alphaRecord.tags = ["reference"]
+        alphaPlanRecord.tags = ["updated"]
+        try context.save()
+
+        viewModel.refreshProjectSpaces()
+
+        let refreshedFileRow = try XCTUnwrap(
+            viewModel.selectedProjectSpaceDetail?.files.first(where: { $0.canonicalIdentity == originalFileRow.canonicalIdentity })
+        )
+        XCTAssertEqual(viewModel.projectSpaceAssociationCorrectionFileRow, refreshedFileRow)
+        XCTAssertEqual(viewModel.projectSpaceAssociationCorrectionFileRow?.projectAssociation, "Alpha")
+        XCTAssertEqual(viewModel.projectSpaceAssociationCorrectionFileRow?.tags, ["updated"])
+        XCTAssertEqual(viewModel.projectSpaceAssociationCorrectionProposedLabel, "Alpha Revised")
+        XCTAssertEqual(
+            viewModel.selectedProjectSpaceDetail?.files.map(\.displayName).sorted(),
+            ["alpha-plan.txt", "alpha.txt"]
+        )
+    }
     
     func testFirstRunQuickWinPrefersLargestReadyFolderBatch() {
         let now = Date()

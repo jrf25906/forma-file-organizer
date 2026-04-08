@@ -575,6 +575,7 @@ class DashboardViewModel: ObservableObject {
         projectSpaces = summaries
 
         guard let selectedProjectSpace else {
+            clearProjectSpaceAssociationCorrection()
             if summaries.isEmpty {
                 selectedProjectSpaceDetail = nil
                 isShowingProjectSpaceDetail = false
@@ -591,6 +592,7 @@ class DashboardViewModel: ObservableObject {
         self.selectedProjectSpace = refreshedSummary
         selectedProjectSpaceDetail = detail
         isShowingProjectSpaceDetail = true
+        reconcileProjectSpaceAssociationCorrection(with: detail)
     }
 
     func selectProjectSpace(_ summary: ProjectSpaceSummary) {
@@ -606,6 +608,10 @@ class DashboardViewModel: ObservableObject {
             closeProjectSpaceDetail()
             refreshProjectSpaces()
             return
+        }
+
+        if selectedProjectSpace?.id != detail.summary.id {
+            clearProjectSpaceAssociationCorrection()
         }
 
         selectedProjectSpace = projectSpaces.first(where: { $0.id == detail.summary.id }) ?? detail.summary
@@ -1866,6 +1872,19 @@ class DashboardViewModel: ObservableObject {
         projectSpaceAssociationCorrectionFileRow = nil
         projectSpaceAssociationCorrectionProposedLabel = ""
         projectSpaceAssociationSuggestedLabels = []
+    }
+
+    private func reconcileProjectSpaceAssociationCorrection(with detail: ProjectSpaceDetail) {
+        guard let correctionFileRow = projectSpaceAssociationCorrectionFileRow else { return }
+
+        guard let refreshedFileRow = detail.files.first(where: {
+            $0.canonicalIdentity == correctionFileRow.canonicalIdentity
+        }) else {
+            clearProjectSpaceAssociationCorrection()
+            return
+        }
+
+        projectSpaceAssociationCorrectionFileRow = refreshedFileRow
     }
 
     private func currentProjectSpaceFeatureState() -> (metadataFoundation: Bool, projectSpaces: Bool) {
