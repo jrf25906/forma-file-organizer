@@ -3,6 +3,49 @@ import XCTest
 
 @MainActor
 final class TrustedAutomationScopeSnapshotTests: XCTestCase {
+    func testSmartFeaturesSection_KeepsManagementVisibleWhenScopesExistAndAutomationTogglesAreOff() {
+        let scopeSections = [
+            TrustedAutomationScopeSummarySection(
+                status: .paused,
+                title: "Paused",
+                summaries: [
+                    TrustedAutomationScopeSummary(
+                        id: UUID(),
+                        scopeType: .folder,
+                        displayName: "Exports",
+                        boundarySummary: "Exports -> Documents/Exports",
+                        allowedActions: [.move],
+                        lifecycle: TrustedAutomationScopeLifecycleSummary(
+                            status: .paused,
+                            createdAt: Date(timeIntervalSince1970: 100),
+                            updatedAt: Date(timeIntervalSince1970: 200),
+                            lastEvidenceAt: Date(timeIntervalSince1970: 150),
+                            pausedAt: Date(timeIntervalSince1970: 200),
+                            lastRunAt: nil,
+                            revokedAt: nil
+                        ),
+                        health: TrustedAutomationScopeHealthSummary(
+                            state: .quiet,
+                            messages: [],
+                            lastSuccessfulRunAt: nil,
+                            lastBlockedRunAt: nil
+                        ),
+                        lastRun: nil
+                    )
+                ]
+            )
+        ]
+
+        XCTAssertTrue(
+            SmartFeaturesSection.shouldShowTrustedAutomationScopeManagement(
+                masterAIEnabled: false,
+                backgroundMonitoring: false,
+                autoOrganize: false,
+                scopeSections: scopeSections
+            )
+        )
+    }
+
     func testTrustedAutomationScopesSection_ShowsAttentionStateAndRecentRunSummary() throws {
         let now = Date(timeIntervalSince1970: 2_000)
         let summary = TrustedAutomationScopeSummary(
@@ -116,7 +159,15 @@ final class TrustedAutomationScopeSnapshotTests: XCTestCase {
 
         let snapshot = TrustedAutomationScopeRecommendationSheet.Snapshot(
             recommendation: recommendation,
-            selectedScopeType: .folder
+            selectedScopeType: .folder,
+            previewSummary: TrustedAutomationScopeRecommendationPreviewSummary(
+                matchedCount: 3,
+                eligibleCount: 2,
+                skippedMissingDestinationCount: 0,
+                skippedPermissionIssueCount: 0,
+                skippedConfidenceThresholdCount: 1,
+                exampleFileNames: ["Quarterly Report.csv", "Quarterly Summary.csv"]
+            )
         )
 
         XCTAssertEqual(snapshot.recommendedBadgeText, "Recommended")
@@ -132,8 +183,79 @@ final class TrustedAutomationScopeSnapshotTests: XCTestCase {
         )
         XCTAssertEqual(
             snapshot.preflightSummary,
-            "First preflight: files from Downloads > Exports would move to Documents/Exports inside this trusted boundary."
+            "3 current matches. 2 would move automatically on the first pass, and 1 would stay in review."
         )
         XCTAssertEqual(snapshot.alternativeScopeTitles, ["Category"])
+    }
+
+    func testTrustedAutomationScopeDetailSheet_ShowsNoPreflightYetWhenHistoryOnlyHasExecutedRuns() {
+        let detail = TrustedAutomationScopeDetail(
+            id: UUID(),
+            summary: TrustedAutomationScopeSummary(
+                id: UUID(),
+                scopeType: .folder,
+                displayName: "Exports",
+                boundarySummary: "Exports -> Documents/Exports",
+                allowedActions: [.move],
+                lifecycle: TrustedAutomationScopeLifecycleSummary(
+                    status: .active,
+                    createdAt: Date(timeIntervalSince1970: 100),
+                    updatedAt: Date(timeIntervalSince1970: 250),
+                    lastEvidenceAt: Date(timeIntervalSince1970: 200),
+                    pausedAt: nil,
+                    lastRunAt: Date(timeIntervalSince1970: 250),
+                    revokedAt: nil
+                ),
+                health: TrustedAutomationScopeHealthSummary(
+                    state: .healthy,
+                    messages: [],
+                    lastSuccessfulRunAt: Date(timeIntervalSince1970: 250),
+                    lastBlockedRunAt: nil
+                ),
+                lastRun: nil
+            ),
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Exports"
+                ),
+                destination: .init(.mockFolder("Documents/Exports"))
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.94,
+            rationaleSummary: "You’ve approved this folder pattern 6 times with no recent undo in Exports.",
+            recentRuns: [
+                TrustedAutomationScopeRecentRunSummary(
+                    id: UUID(),
+                    triggerSource: .scheduledAutomationPass,
+                    status: .executed,
+                    startedAt: Date(timeIntervalSince1970: 240),
+                    endedAt: Date(timeIntervalSince1970: 250),
+                    matchedCount: 4,
+                    eligibleCount: 4,
+                    organizedCount: 4,
+                    heldCount: 0,
+                    failedCount: 0,
+                    heldBuckets: [],
+                    summaryText: "Executed 4 matching files.",
+                    exampleFileNames: ["Quarterly Report.csv"]
+                )
+            ]
+        )
+
+        let snapshot = TrustedAutomationScopeDetailSheet.Snapshot(
+            detail: detail,
+            now: Date(timeIntervalSince1970: 300),
+            relativeDateProvider: { _, _ in "just now" }
+        )
+
+        XCTAssertEqual(snapshot.latestPreflightSummary, "No scope-specific preflight has run yet.")
+        XCTAssertEqual(snapshot.recentRuns.first?.statusText, "Executed")
+        XCTAssertEqual(snapshot.recentRuns.first?.summaryText, "Executed 4 matching files.")
     }
 }

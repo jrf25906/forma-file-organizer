@@ -34,9 +34,7 @@ struct TrustedAutomationScopeDetailSheet: View {
             relativeDateProvider: (Date, Date) -> String = Self.defaultRelativeDateText
         ) {
             let parsedBoundary = Self.parseBoundary(detail)
-            let preflightRun = detail.recentRuns.first {
-                $0.triggerSource == .promotionPreview || $0.triggerSource == .manualRefreshInspection
-            } ?? detail.recentRuns.first
+            let preflightRun = detail.recentRuns.first { $0.status == .simulated }
 
             self.title = detail.summary.displayName
             self.scopeTypeText = detail.summary.scopeType.displayName

@@ -48,7 +48,23 @@ struct SmartFeaturesSection: View {
     @State private var trustedAutomationScopeLoadError: String?
 
     private var showsTrustedAutomationScopeManagement: Bool {
-        masterAIEnabled && (backgroundMonitoring || autoOrganize)
+        Self.shouldShowTrustedAutomationScopeManagement(
+            masterAIEnabled: masterAIEnabled,
+            backgroundMonitoring: backgroundMonitoring,
+            autoOrganize: autoOrganize,
+            scopeSections: trustedAutomationScopeSections
+        )
+    }
+
+    static func shouldShowTrustedAutomationScopeManagement(
+        masterAIEnabled: Bool,
+        backgroundMonitoring: Bool,
+        autoOrganize: Bool,
+        scopeSections: [TrustedAutomationScopeSummarySection]
+    ) -> Bool {
+        let automationControlsEnabled = masterAIEnabled && (backgroundMonitoring || autoOrganize)
+        let hasTrustedScopes = scopeSections.contains { !$0.summaries.isEmpty }
+        return automationControlsEnabled || hasTrustedScopes
     }
 
     var body: some View {
@@ -610,13 +626,6 @@ struct SmartFeaturesSection: View {
     }
 
     private func refreshTrustedAutomationScopeManagementState(referenceDate: Date = Date()) {
-        guard showsTrustedAutomationScopeManagement else {
-            trustedAutomationScopeSections = []
-            selectedTrustedAutomationScopeDetail = nil
-            trustedAutomationScopeLoadError = nil
-            return
-        }
-
         loadTrustedAutomationScopes(referenceDate: referenceDate)
     }
 

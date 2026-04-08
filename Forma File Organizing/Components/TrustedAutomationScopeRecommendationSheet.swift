@@ -16,7 +16,8 @@ struct TrustedAutomationScopeRecommendationSheet: View {
 
         init(
             recommendation: TrustedAutomationScopeRecommendation,
-            selectedScopeType: TrustedAutomationScopeType
+            selectedScopeType: TrustedAutomationScopeType,
+            previewSummary: TrustedAutomationScopeRecommendationPreviewSummary?
         ) {
             let selectedOption = recommendation.option(for: selectedScopeType) ?? recommendation.recommendedScope
             let destinationSummary = recommendation.snapshot.chosenDestination?.displayName ?? "No destination"
@@ -34,11 +35,7 @@ struct TrustedAutomationScopeRecommendationSheet: View {
                 snapshot: recommendation.snapshot,
                 destinationSummary: destinationSummary
             )
-            self.preflightSummary = Self.makePreflightSummary(
-                for: selectedOption.scopeType,
-                sourceBoundarySummary: sourceBoundarySummary,
-                destinationSummary: destinationSummary
-            )
+            self.preflightSummary = previewSummary?.summaryText ?? "No pending or ready files currently match this scope."
             self.rationaleSummary = selectedOption.rationaleSummary
             self.alternativeScopeTitles = recommendation.allScopeChoices
                 .filter { $0.scopeType != selectedOption.scopeType }
@@ -72,21 +69,10 @@ struct TrustedAutomationScopeRecommendationSheet: View {
             }
         }
 
-        private static func makePreflightSummary(
-            for scopeType: TrustedAutomationScopeType,
-            sourceBoundarySummary: String,
-            destinationSummary: String
-        ) -> String {
-            switch scopeType {
-            case .rule:
-                return "First preflight: files that match this rule inside \(sourceBoundarySummary) would move to \(destinationSummary)."
-            case .folder, .category:
-                return "First preflight: files from \(sourceBoundarySummary) would move to \(destinationSummary) inside this trusted boundary."
-            }
-        }
     }
 
     let recommendation: TrustedAutomationScopeRecommendation
+    let previewSummariesByType: [TrustedAutomationScopeType: TrustedAutomationScopeRecommendationPreviewSummary]?
     let onConfirm: (TrustedAutomationScopeType) -> Void
     let onCancel: () -> Void
 
@@ -94,10 +80,12 @@ struct TrustedAutomationScopeRecommendationSheet: View {
 
     init(
         recommendation: TrustedAutomationScopeRecommendation,
+        previewSummariesByType: [TrustedAutomationScopeType: TrustedAutomationScopeRecommendationPreviewSummary]? = nil,
         onConfirm: @escaping (TrustedAutomationScopeType) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.recommendation = recommendation
+        self.previewSummariesByType = previewSummariesByType
         self.onConfirm = onConfirm
         self.onCancel = onCancel
         _selectedScopeType = State(initialValue: recommendation.recommendedScope.scopeType)
@@ -106,7 +94,8 @@ struct TrustedAutomationScopeRecommendationSheet: View {
     var body: some View {
         let snapshot = Snapshot(
             recommendation: recommendation,
-            selectedScopeType: selectedScopeType
+            selectedScopeType: selectedScopeType,
+            previewSummary: previewSummary(for: selectedScopeType)
         )
 
         VStack(alignment: .leading, spacing: FormaSpacing.large) {
@@ -200,7 +189,13 @@ struct TrustedAutomationScopeRecommendationSheet: View {
                             .foregroundColor(.formaLabel)
 
                         if option.scopeType == recommendation.recommendedScope.scopeType {
-                            Text(Snapshot(recommendation: recommendation, selectedScopeType: option.scopeType).recommendedBadgeText)
+                            Text(
+                                Snapshot(
+                                    recommendation: recommendation,
+                                    selectedScopeType: option.scopeType,
+                                    previewSummary: previewSummary(for: option.scopeType)
+                                ).recommendedBadgeText
+                            )
                                 .font(.formaCaptionBold)
                                 .foregroundColor(.formaSteelBlue)
                                 .padding(.horizontal, FormaSpacing.tight)
@@ -263,5 +258,12 @@ struct TrustedAutomationScopeRecommendationSheet: View {
                 .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
         )
         .formaCornerRadius(FormaRadius.card)
+    }
+
+    private func previewSummary(
+        for scopeType: TrustedAutomationScopeType
+    ) -> TrustedAutomationScopeRecommendationPreviewSummary? {
+        let selectedOption = recommendation.option(for: scopeType) ?? recommendation.recommendedScope
+        return previewSummariesByType?[selectedOption.scopeType]
     }
 }

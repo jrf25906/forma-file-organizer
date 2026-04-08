@@ -3,6 +3,43 @@ import SwiftUI
 import SwiftData
 import Combine
 
+struct TrustedAutomationScopeRecommendationPreviewSummary: Hashable, Sendable {
+    let matchedCount: Int
+    let eligibleCount: Int
+    let skippedMissingDestinationCount: Int
+    let skippedPermissionIssueCount: Int
+    let skippedConfidenceThresholdCount: Int
+    let exampleFileNames: [String]
+
+    var reviewCount: Int {
+        max(matchedCount - eligibleCount, 0)
+    }
+
+    var summaryText: String {
+        guard matchedCount > 0 else {
+            return "No pending or ready files currently match this scope."
+        }
+
+        if reviewCount == 0 {
+            if matchedCount == 1 {
+                return "1 current match. It would move automatically on the first pass."
+            }
+
+            return "\(matchedCount) current matches. All \(eligibleCount) would move automatically on the first pass."
+        }
+
+        if eligibleCount == 0 {
+            if matchedCount == 1 {
+                return "1 current match. It would stay in review."
+            }
+
+            return "\(matchedCount) current matches. All \(reviewCount) would stay in review."
+        }
+
+        return "\(matchedCount) current matches. \(eligibleCount) would move automatically on the first pass, and \(reviewCount) would stay in review."
+    }
+}
+
 struct FirstRunQuickWinSuggestion: Equatable {
     enum Kind: String, Equatable {
         case screenshots
@@ -1138,6 +1175,37 @@ class DashboardViewModel: ObservableObject {
         panelManager.trustedScopeRecommendation
     }
 
+    func trustedScopeRecommendationPreviewSummary(
+        for scopeType: TrustedAutomationScopeType
+    ) -> TrustedAutomationScopeRecommendationPreviewSummary? {
+        guard let recommendation = panelManager.trustedScopeRecommendation,
+              let option = recommendation.option(for: scopeType) else {
+            return nil
+        }
+
+        let candidates = scanViewModel.allFiles.filter {
+            $0.status == .pending || $0.status == .ready
+        }
+        let matchedCandidates = trustedScopeMatchingCandidates(
+            for: option,
+            snapshot: recommendation.snapshot,
+            within: candidates
+        )
+        let preflight = AutomationEngine.buildPreflightSummary(
+            candidates: matchedCandidates,
+            confidenceThreshold: recommendedTrustedScopePreviewConfidenceThreshold
+        )
+
+        return TrustedAutomationScopeRecommendationPreviewSummary(
+            matchedCount: matchedCandidates.count,
+            eligibleCount: preflight.eligibleCount,
+            skippedMissingDestinationCount: preflight.skippedMissingDestination,
+            skippedPermissionIssueCount: preflight.skippedPermissionIssues,
+            skippedConfidenceThresholdCount: preflight.skippedConfidenceThreshold,
+            exampleFileNames: Array(matchedCandidates.prefix(3).map(\.name))
+        )
+    }
+
     var isTrustedScopeRecommendationPresented: Bool {
         panelManager.isTrustedScopeRecommendationPresented
     }
@@ -1633,6 +1701,160 @@ class DashboardViewModel: ObservableObject {
         filterViewModel.clearExternalReviewPaths()
         if ExternalReviewSessionStore.shared.currentSession != nil {
             ExternalReviewSessionStore.shared.publish(nil)
+        }
+    }
+
+    private var recommendedTrustedScopePreviewConfidenceThreshold: Double {
+        AutomationPolicy.resolve(
+            flags: featureFlags,
+            userSettings: .current
+        ).mlConfidenceThreshold
+    }
+
+    private func trustedScopeMatchingCandidates(
+        for option: TrustedAutomationScopeRecommendationOption,
+        snapshot: OrganizationMemorySnapshot,
+        within candidates: [FileItem]
+    ) -> [FileItem] {
+        switch option.scopeType {
+        case .folder, .category:
+            guard let boundaryDescriptor = trustedScopeBoundaryDescriptor(
+                for: option,
+                snapshot: snapshot
+            ) else {
+                return []
+            }
+
+            return candidates.filter { file in
+                boundaryDescriptor.matches(candidate: file, destination: file.destination)
+            }
+        case .rule:
+            return candidates.filter { file in
+                trustedScopeRuleMatches(
+                    file,
+                    option: option,
+                    snapshot: snapshot
+                )
+            }
+        }
+    }
+
+    private func trustedScopeBoundaryDescriptor(
+        for option: TrustedAutomationScopeRecommendationOption,
+        snapshot: OrganizationMemorySnapshot
+    ) -> TrustedAutomationScopeBoundaryDescriptor? {
+        guard let destination = snapshot.chosenDestination else {
+            return nil
+        }
+
+        let sourceBoundary = TrustedAutomationScopeBoundaryDescriptor.SourceBoundary(
+            sourceLocation: snapshot.sourceLocation,
+            scanRootPath: snapshot.scanRootPath,
+            relativeParentPath: snapshot.relativeParentPath
+        )
+        let destinationSnapshot = TrustedAutomationScopeBoundaryDescriptor.DestinationSnapshot(destination)
+
+        switch option.scopeType {
+        case .rule:
+            guard let ruleID = trustedScopeRuleID(from: option.scopeKey) else {
+                return nil
+            }
+
+            return .rule(
+                rule: .init(id: ruleID, name: option.displayName),
+                source: sourceBoundary,
+                destination: destinationSnapshot
+            )
+        case .folder:
+            return .folder(source: sourceBoundary, destination: destinationSnapshot)
+        case .category:
+            return .category(
+                fileTypeCategory: snapshot.fileTypeCategory,
+                source: sourceBoundary,
+                destination: destinationSnapshot
+            )
+        }
+    }
+
+    private func trustedScopeRuleMatches(
+        _ file: FileItem,
+        option: TrustedAutomationScopeRecommendationOption,
+        snapshot: OrganizationMemorySnapshot
+    ) -> Bool {
+        guard trustedScopeDestinationMatches(file.destination, snapshot.chosenDestination) else {
+            return false
+        }
+
+        if let boundaryDescriptor = trustedScopeBoundaryDescriptor(
+            for: option,
+            snapshot: snapshot
+        ) {
+            return boundaryDescriptor.matches(candidate: file, destination: file.destination)
+        }
+
+        let ruleConditions = trustedScopeDerivedRuleConditions(for: snapshot)
+        let logicalOperator: Rule.LogicalOperator = ruleConditions.count > 1 ? .and : .single
+        return matchingRule(file: file, conditions: ruleConditions, logicalOperator: logicalOperator)
+    }
+
+    private func matchingRule(
+        file: FileItem,
+        conditions: [RuleCondition],
+        logicalOperator: Rule.LogicalOperator
+    ) -> Bool {
+        struct EphemeralRule: Ruleable {
+            let id = UUID()
+            let conditionType: Rule.ConditionType
+            let conditionValue: String
+            let conditions: [RuleCondition]
+            let logicalOperator: Rule.LogicalOperator
+            let isEnabled = true
+            let destination: Destination?
+            let actionType: Rule.ActionType = .move
+            let sortOrder = 0
+            let exclusionConditions: [RuleCondition] = []
+        }
+
+        guard let firstCondition = conditions.first else {
+            return false
+        }
+
+        let rule = EphemeralRule(
+            conditionType: firstCondition.type,
+            conditionValue: firstCondition.value,
+            conditions: conditions,
+            logicalOperator: logicalOperator,
+            destination: file.destination
+        )
+        return ruleEngine.fileMatchesRule(file: file, rule: rule)
+    }
+
+    private func trustedScopeDerivedRuleConditions(
+        for snapshot: OrganizationMemorySnapshot
+    ) -> [RuleCondition] {
+        var conditions: [RuleCondition] = [.fileExtension(snapshot.fileExtension.lowercased())]
+        if snapshot.sourceLocation != .unknown {
+            conditions.append(.sourceLocation(snapshot.sourceLocation))
+        }
+        return conditions
+    }
+
+    private func trustedScopeRuleID(from scopeKey: String) -> UUID? {
+        guard scopeKey.hasPrefix("rule:") else {
+            return nil
+        }
+
+        return UUID(uuidString: String(scopeKey.dropFirst("rule:".count)))
+    }
+
+    private func trustedScopeDestinationMatches(_ lhs: Destination?, _ rhs: Destination?) -> Bool {
+        switch (lhs, rhs) {
+        case (.trash, .trash), (nil, nil):
+            return true
+        case (.folder(let lhsBookmark, _), .folder(let rhsBookmark, _)):
+            return lhsBookmark == rhsBookmark
+        default:
+            return false
         }
     }
 

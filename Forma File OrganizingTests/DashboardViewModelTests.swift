@@ -2259,6 +2259,72 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedTrustedAutomationScopeDetail?.lifecycle.status, .revoked)
         XCTAssertTrue(viewModel.defaultPanelTrustedAutomationScopes.isEmpty)
     }
+
+    func testTrustedAutomationScopeRecommendationPreview_UsesCurrentMatchingAndPreflightCounts() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
+        let matchingEligible = FileItem(
+            path: "/Users/example/Downloads/Exports/Quarterly Report.csv",
+            sizeInBytes: 1_000,
+            creationDate: Date(timeIntervalSince1970: 100),
+            location: .downloads,
+            scanRootPath: "/Users/example/Downloads",
+            relativeParentPath: "Exports",
+            destination: destination,
+            status: .pending
+        )
+        matchingEligible.confidenceScore = 0.96
+
+        let matchingReady = FileItem(
+            path: "/Users/example/Downloads/Exports/Quarterly Summary.csv",
+            sizeInBytes: 1_000,
+            creationDate: Date(timeIntervalSince1970: 110),
+            location: .downloads,
+            scanRootPath: "/Users/example/Downloads",
+            relativeParentPath: "Exports",
+            destination: destination,
+            status: .ready
+        )
+        matchingReady.confidenceScore = 0.93
+
+        let matchingHeld = FileItem(
+            path: "/Users/example/Downloads/Exports/Draft.csv",
+            sizeInBytes: 1_000,
+            creationDate: Date(timeIntervalSince1970: 120),
+            location: .downloads,
+            scanRootPath: "/Users/example/Downloads",
+            relativeParentPath: "Exports",
+            destination: destination,
+            status: .pending
+        )
+        matchingHeld.confidenceScore = 0.42
+
+        let nonMatchingDestination = FileItem(
+            path: "/Users/example/Downloads/Exports/Other.csv",
+            sizeInBytes: 1_000,
+            creationDate: Date(timeIntervalSince1970: 130),
+            location: .downloads,
+            scanRootPath: "/Users/example/Downloads",
+            relativeParentPath: "Exports",
+            destination: Destination.mockFolder("Documents/Other"),
+            status: .pending
+        )
+        nonMatchingDestination.confidenceScore = 0.97
+
+        viewModel._testSetFiles([matchingEligible, matchingReady, matchingHeld, nonMatchingDestination])
+
+        let recommendation = makeTrustedScopeRecommendation(destination: destination)
+        panelStateManager().stageTrustedScopeRecommendation(recommendation)
+
+        let preview = viewModel.trustedScopeRecommendationPreviewSummary(for: .folder)
+
+        XCTAssertEqual(preview?.matchedCount, 3)
+        XCTAssertEqual(preview?.eligibleCount, 2)
+        XCTAssertEqual(preview?.skippedConfidenceThresholdCount, 1)
+        XCTAssertEqual(preview?.summaryText, "3 current matches. 2 would move automatically on the first pass, and 1 would stay in review.")
+    }
     
     func testRedoSkipOperation() {
         // Given
@@ -2554,8 +2620,9 @@ final class DashboardViewModelTests: XCTestCase {
         return (container, context, TrustedAutomationScopeService(modelContext: context))
     }
 
-    private func makeTrustedScopeRecommendation() -> TrustedAutomationScopeRecommendation {
-        let destination = Destination.mockFolder("Documents/Exports")
+    private func makeTrustedScopeRecommendation(
+        destination: Destination = Destination.mockFolder("Documents/Exports")
+    ) -> TrustedAutomationScopeRecommendation {
         let snapshot = OrganizationMemorySnapshot(
             fileName: "Report.csv",
             fileExtension: "csv",

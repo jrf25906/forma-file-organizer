@@ -51,6 +51,7 @@ struct CelebrationView: View {
             if let recommendation = dashboardViewModel.trustedScopeRecommendation {
                 TrustedAutomationScopeRecommendationSheet(
                     recommendation: recommendation,
+                    previewSummariesByType: trustedScopeRecommendationPreviewSummaries(recommendation),
                     onConfirm: { scopeType in
                         dashboardViewModel.confirmTrustedScopeRecommendation(
                             selectedScopeType: scopeType,
@@ -219,9 +220,13 @@ struct CelebrationView: View {
     }
 
     private func trustAutomationSection(_ recommendation: TrustedAutomationScopeRecommendation) -> some View {
+        let previewSummary = dashboardViewModel.trustedScopeRecommendationPreviewSummary(
+            for: recommendation.recommendedScope.scopeType
+        )
         let snapshot = TrustedAutomationScopeRecommendationSheet.Snapshot(
             recommendation: recommendation,
-            selectedScopeType: recommendation.recommendedScope.scopeType
+            selectedScopeType: recommendation.recommendedScope.scopeType,
+            previewSummary: previewSummary
         )
 
         return VStack(alignment: .leading, spacing: FormaSpacing.standard) {
@@ -311,6 +316,22 @@ struct CelebrationView: View {
                 if !isPresented {
                     dashboardViewModel.dismissTrustedScopeRecommendation()
                 }
+            }
+        )
+    }
+
+    private func trustedScopeRecommendationPreviewSummaries(
+        _ recommendation: TrustedAutomationScopeRecommendation
+    ) -> [TrustedAutomationScopeType: TrustedAutomationScopeRecommendationPreviewSummary] {
+        Dictionary(
+            uniqueKeysWithValues: recommendation.allScopeChoices.compactMap { option in
+                guard let preview = dashboardViewModel.trustedScopeRecommendationPreviewSummary(
+                    for: option.scopeType
+                ) else {
+                    return nil
+                }
+
+                return (option.scopeType, preview)
             }
         )
     }
