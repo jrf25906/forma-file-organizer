@@ -53,6 +53,7 @@ final class FileMetadataFoundationService {
     )
 
     private static let customFolderBookmarkPrefix = "CustomFolder_"
+    private static let projectSpaceRecentActivityLimit = 8
 
     private struct ProjectSpaceMember {
         let normalizedLabel: String
@@ -496,11 +497,21 @@ final class FileMetadataFoundationService {
 
         return recordsByLabel
             .map { label, members in
-                ProjectSpaceSummary(
+                let memberContexts = members.map { member in
+                    ProjectSpaceMemoryResolver.MemberContext(
+                        record: member.record,
+                        normalizedPath: member.normalizedPath
+                    )
+                }
+                let overview = isProjectSpaceMemoryEnabled
+                    ? ProjectSpaceMemoryResolver().buildOverview(for: memberContexts)
+                    : nil
+
+                return ProjectSpaceSummary(
                     normalizedLabel: label,
                     fileCount: members.count,
                     lastActivityAt: lastActivityAt(for: members.map(\.record)),
-                    sourceFolderHints: sourceFolderHints(for: members)
+                    sourceFolderHints: overview?.activeFolderHints ?? sourceFolderHints(for: members)
                 )
             }
             .sorted(by: projectSpaceSummarySortOrder(_:_:))
@@ -526,11 +537,29 @@ final class FileMetadataFoundationService {
 
         guard !members.isEmpty else { return nil }
 
+        let memberContexts = members.map { member in
+            ProjectSpaceMemoryResolver.MemberContext(
+                record: member.record,
+                normalizedPath: member.normalizedPath
+            )
+        }
+        let memoryResolver = ProjectSpaceMemoryResolver()
+        let fallbackSourceFolderHints = sourceFolderHints(for: members)
+        let overview: ProjectSpaceOverview = if isProjectSpaceMemoryEnabled {
+            memoryResolver.buildOverview(for: memberContexts)
+        } else {
+            ProjectSpaceOverview(
+                currentFileCount: members.count,
+                activeFolderCount: fallbackSourceFolderHints.count,
+                activeFolderHints: fallbackSourceFolderHints
+            )
+        }
+
         let summary = ProjectSpaceSummary(
             normalizedLabel: selectedLabel,
             fileCount: members.count,
             lastActivityAt: lastActivityAt(for: members.map(\.record)),
-            sourceFolderHints: sourceFolderHints(for: members)
+            sourceFolderHints: isProjectSpaceMemoryEnabled ? overview.activeFolderHints : fallbackSourceFolderHints
         )
         let files = members
             .map { member in
@@ -541,12 +570,72 @@ final class FileMetadataFoundationService {
                     fileExtension: member.record.fileExtension,
                     lastActivityAt: lastActivityAt(for: member.record),
                     workflowStatus: member.record.workflowStatus,
-                    tags: member.record.tags
+                    tags: member.record.tags,
+                    projectAssociation: FileMetadataRecord.normalizedOptionalText(member.record.projectAssociation),
+                    sourceFolderHint: projectSpaceSourceFolderHintRoot(for: member.normalizedPath)
                 )
             }
             .sorted(by: projectSpaceFileSortOrder(_:_:))
 
-        return ProjectSpaceDetail(summary: summary, files: files)
+        let preferredDestinations = isProjectSpaceMemoryEnabled
+            ? memoryResolver.buildPreferredDestinations(for: memberContexts)
+            : []
+        let recentActivity = isProjectSpaceMemoryEnabled
+            ? Array(memoryResolver.buildRecentActivityRows(for: memberContexts).prefix(Self.projectSpaceRecentActivityLimit))
+            : []
+
+        return ProjectSpaceDetail(
+            summary: summary,
+            files: files,
+            overview: overview,
+            preferredDestinations: preferredDestinations,
+            recentActivity: recentActivity
+        )
+    }
+
+    @discardableResult
+    func correctProjectAssociation(
+        forCanonicalIdentity canonicalIdentity: String,
+        to updatedProjectLabel: String,
+        timestamp: Date
+    ) throws -> Bool {
+        guard isProjectSpaceWriteEnabled,
+              let normalizedUpdatedLabel = FileMetadataRecord.normalizedOptionalText(updatedProjectLabel),
+              let metadataRecord = try record(matching: canonicalIdentity) else {
+            return false
+        }
+
+        let existingLabel = FileMetadataRecord.normalizedOptionalText(metadataRecord.projectAssociation)
+        guard existingLabel != normalizedUpdatedLabel else {
+            return false
+        }
+
+        metadataRecord.projectAssociation = normalizedUpdatedLabel
+        let detailsSummary: String
+        if let existingLabel {
+            detailsSummary = "Corrected project association from \(existingLabel) to \(normalizedUpdatedLabel)."
+        } else {
+            detailsSummary = "Corrected project association to \(normalizedUpdatedLabel)."
+        }
+
+        do {
+            _ = try appendHistoryEntryWithoutSaving(
+                for: metadataRecord,
+                eventKind: .noted,
+                sourceSurface: .review,
+                fromPath: metadataRecord.lastKnownPath,
+                toPath: metadataRecord.lastKnownPath,
+                destinationDisplayName: nil,
+                matchedRuleID: nil,
+                detailsSummary: detailsSummary,
+                timestamp: timestamp
+            )
+            try modelContext.save()
+            return true
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     func inspectorSummary(for path: String) -> FileMetadataInspectorSummary? {
@@ -567,6 +656,16 @@ final class FileMetadataFoundationService {
     private var isProjectSpaceReadEnabled: Bool {
         featureFlags.isEnabled(.metadataFoundation) &&
         featureFlags.isEnabled(.projectSpaces)
+    }
+
+    private var isProjectSpaceWriteEnabled: Bool {
+        isProjectSpaceReadEnabled
+    }
+
+    private var isProjectSpaceMemoryEnabled: Bool {
+        featureFlags.isEnabled(.metadataFoundation) &&
+        featureFlags.isEnabled(.projectSpaces) &&
+        featureFlags.isEnabled(.projectSpaceMemory)
     }
 
     private var isWorkflowStatusWriteEnabled: Bool {

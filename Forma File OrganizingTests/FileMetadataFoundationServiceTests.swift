@@ -643,6 +643,278 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testFetchProjectSpaceDetail_V2IncludesOverviewPreferredDestinationsAndRecentActivity() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let alphaOneURL = try tempDir.createFile(name: "Inbox/alpha-one.txt", contents: "alpha")
+            let alphaTwoURL = try tempDir.createFile(name: "Inbox/alpha-two.txt", contents: "alpha")
+            let betaURL = try tempDir.createFile(name: "Inbox/beta.txt", contents: "beta")
+
+            let alphaOne = try XCTUnwrap(
+                service.upsertRecord(
+                    for: alphaOneURL.path,
+                    displayName: alphaOneURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            alphaOne.projectAssociation = "Alpha"
+
+            let alphaTwo = try XCTUnwrap(
+                service.upsertRecord(
+                    for: alphaTwoURL.path,
+                    displayName: alphaTwoURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_100)
+                )
+            )
+            alphaTwo.projectAssociation = "Alpha"
+
+            let beta = try XCTUnwrap(
+                service.upsertRecord(
+                    for: betaURL.path,
+                    displayName: betaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_200)
+                )
+            )
+            beta.projectAssociation = "Beta"
+            try context.save()
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: alphaOne,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: alphaOneURL.path,
+                    toPath: "/tmp/Alpha Archive/alpha-one.txt",
+                    destinationDisplayName: "Alpha Archive",
+                    matchedRuleID: nil,
+                    detailsSummary: "Initial move to Alpha Archive.",
+                    timestamp: Date(timeIntervalSince1970: 100)
+                )
+            )
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: alphaOne,
+                    eventKind: .rekeyed,
+                    sourceSurface: .organize,
+                    fromPath: alphaOneURL.path,
+                    toPath: "/tmp/Alpha Archive/alpha-one-v2.txt",
+                    destinationDisplayName: "Alpha Archive",
+                    matchedRuleID: nil,
+                    detailsSummary: "Rekeyed in Alpha Archive.",
+                    timestamp: Date(timeIntervalSince1970: 200)
+                )
+            )
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: alphaTwo,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: alphaTwoURL.path,
+                    toPath: "/tmp/Beta Shared/alpha-two.txt",
+                    destinationDisplayName: "Beta Shared",
+                    matchedRuleID: nil,
+                    detailsSummary: "Moved to Beta Shared.",
+                    timestamp: Date(timeIntervalSince1970: 300)
+                )
+            )
+
+            for offset in 0..<7 {
+                _ = try XCTUnwrap(
+                    service.appendHistoryEntry(
+                        for: alphaOne,
+                        eventKind: .noted,
+                        sourceSurface: .review,
+                        fromPath: alphaOneURL.path,
+                        toPath: alphaOneURL.path,
+                        destinationDisplayName: nil,
+                        matchedRuleID: nil,
+                        detailsSummary: "Note \(offset)",
+                        timestamp: Date(timeIntervalSince1970: TimeInterval(1_000 + offset))
+                    )
+                )
+            }
+
+            let detail = try XCTUnwrap(service.fetchProjectSpaceDetail(for: "Alpha"))
+
+            XCTAssertEqual(detail.summary.normalizedLabel, "Alpha")
+            XCTAssertEqual(detail.summary.fileCount, 2)
+            XCTAssertFalse(detail.summary.sourceFolderHints.isEmpty)
+            XCTAssertEqual(Set(detail.files.map(\.displayName)), ["alpha-one.txt", "alpha-two.txt"])
+            XCTAssertTrue(detail.files.allSatisfy { $0.projectAssociation == "Alpha" })
+
+            XCTAssertEqual(detail.overview.currentFileCount, 2)
+            XCTAssertEqual(detail.overview.activeFolderCount, detail.overview.activeFolderHints.count)
+            XCTAssertEqual(detail.overview.activeFolderHints, detail.summary.sourceFolderHints)
+            XCTAssertEqual(detail.overview.preferredDestinationCount, 2)
+            XCTAssertEqual(detail.overview.recentActivityCount, 10)
+            XCTAssertEqual(detail.overview.lastActivityAt, Date(timeIntervalSince1970: 1_006))
+
+            XCTAssertEqual(detail.preferredDestinations.map(\.destinationDisplayName), ["Alpha Archive", "Beta Shared"])
+            XCTAssertEqual(detail.preferredDestinations.map(\.eventCount), [2, 1])
+
+            XCTAssertEqual(detail.recentActivity.count, 8)
+            XCTAssertEqual(detail.recentActivity.first?.eventKind, .noted)
+            XCTAssertEqual(detail.recentActivity.first?.detailsSummary, "Note 6")
+            XCTAssertEqual(detail.recentActivity.last?.eventKind, .organized)
+            XCTAssertEqual(detail.recentActivity.last?.destinationDisplayName, "Beta Shared")
+        }
+    }
+
+    func testFetchProjectSpaceDetail_UsesNotedAndIgnoredHistoryInRecentActivity() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let alphaURL = try tempDir.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+
+            let alpha = try XCTUnwrap(
+                service.upsertRecord(
+                    for: alphaURL.path,
+                    displayName: alphaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            alpha.projectAssociation = "Alpha"
+            try context.save()
+
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: alpha,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    fromPath: alphaURL.path,
+                    toPath: "/tmp/Alpha Archive/alpha.txt",
+                    destinationDisplayName: "Alpha Archive",
+                    matchedRuleID: nil,
+                    detailsSummary: "Organized to archive.",
+                    timestamp: Date(timeIntervalSince1970: 1_500)
+                )
+            )
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: alpha,
+                    eventKind: .ignored,
+                    sourceSurface: .review,
+                    fromPath: alphaURL.path,
+                    toPath: alphaURL.path,
+                    destinationDisplayName: nil,
+                    matchedRuleID: nil,
+                    detailsSummary: "Ignored during review.",
+                    timestamp: Date(timeIntervalSince1970: 2_000)
+                )
+            )
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: alpha,
+                    eventKind: .noted,
+                    sourceSurface: .review,
+                    fromPath: alphaURL.path,
+                    toPath: alphaURL.path,
+                    destinationDisplayName: nil,
+                    matchedRuleID: nil,
+                    detailsSummary: "Needs project rename.",
+                    timestamp: Date(timeIntervalSince1970: 3_000)
+                )
+            )
+            _ = try XCTUnwrap(
+                service.appendHistoryEntry(
+                    for: alpha,
+                    eventKind: .scanned,
+                    sourceSurface: .scan,
+                    fromPath: nil,
+                    toPath: alphaURL.path,
+                    destinationDisplayName: nil,
+                    matchedRuleID: nil,
+                    detailsSummary: "Scan-only event.",
+                    timestamp: Date(timeIntervalSince1970: 4_000)
+                )
+            )
+
+            let detail = try XCTUnwrap(service.fetchProjectSpaceDetail(for: "Alpha"))
+            XCTAssertEqual(detail.recentActivity.map(\.eventKind), [.noted, .ignored, .organized])
+            XCTAssertEqual(detail.recentActivity.map(\.detailsSummary), ["Needs project rename.", "Ignored during review.", "Organized to archive."])
+            XCTAssertEqual(detail.recentActivity.map(\.destinationDisplayName), ["Inbox", "Inbox", "Alpha Archive"])
+        }
+    }
+
+    func testCorrectProjectAssociation_UpdatesNormalizedLabelAndAppendsNotedHistory() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let alphaURL = try tempDir.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+            let betaURL = try tempDir.createFile(name: "Inbox/beta.txt", contents: "beta")
+
+            let alphaRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: alphaURL.path,
+                    displayName: alphaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            alphaRecord.projectAssociation = "Alpha"
+
+            let betaRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: betaURL.path,
+                    displayName: betaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_100)
+                )
+            )
+            betaRecord.projectAssociation = "Beta"
+            try context.save()
+
+            let didCorrect = try service.correctProjectAssociation(
+                forCanonicalIdentity: alphaRecord.canonicalIdentity,
+                to: "  Beta  ",
+                timestamp: Date(timeIntervalSince1970: 2_000)
+            )
+            XCTAssertTrue(didCorrect)
+
+            XCTAssertEqual(alphaRecord.projectAssociation, "Beta")
+            XCTAssertNil(service.fetchProjectSpaceDetail(for: "Alpha"))
+
+            let betaDetail = try XCTUnwrap(service.fetchProjectSpaceDetail(for: "Beta"))
+            XCTAssertEqual(betaDetail.summary.fileCount, 2)
+            XCTAssertEqual(Set(betaDetail.files.map(\.displayName)), ["alpha.txt", "beta.txt"])
+
+            let notedEntries = alphaRecord.historyEntries
+                .filter { $0.eventKind == .noted }
+                .sorted(by: { $0.timestamp < $1.timestamp })
+            XCTAssertEqual(notedEntries.count, 1)
+            XCTAssertEqual(notedEntries.last?.detailsSummary, "Corrected project association from Alpha to Beta.")
+
+            let unchangedResult = try service.correctProjectAssociation(
+                forCanonicalIdentity: alphaRecord.canonicalIdentity,
+                to: "Beta",
+                timestamp: Date(timeIntervalSince1970: 2_500)
+            )
+            XCTAssertFalse(unchangedResult)
+
+            let emptyResult = try service.correctProjectAssociation(
+                forCanonicalIdentity: alphaRecord.canonicalIdentity,
+                to: "   ",
+                timestamp: Date(timeIntervalSince1970: 3_000)
+            )
+            XCTAssertFalse(emptyResult)
+
+            let postNoopNotedEntries = alphaRecord.historyEntries
+                .filter { $0.eventKind == .noted }
+            XCTAssertEqual(postNoopNotedEntries.count, 1)
+        }
+    }
+
     func testProjectSpaceSummaries_ExcludeMalformedRelativePaths() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 

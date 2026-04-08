@@ -49,6 +49,8 @@ struct ProjectSpaceFileRow: Identifiable, Hashable, Sendable {
     let lastActivityAt: Date
     let workflowStatus: MetadataWorkflowStatus?
     let tags: [String]
+    let projectAssociation: String?
+    let sourceFolderHint: String?
 
     var id: String { canonicalIdentity }
 
@@ -61,7 +63,9 @@ struct ProjectSpaceFileRow: Identifiable, Hashable, Sendable {
         fileExtension: String = "",
         lastActivityAt: Date = .distantPast,
         workflowStatus: MetadataWorkflowStatus? = nil,
-        tags: [String] = []
+        tags: [String] = [],
+        projectAssociation: String? = nil,
+        sourceFolderHint: String? = nil
     ) {
         self.canonicalIdentity = canonicalIdentity
         self.path = path
@@ -70,12 +74,17 @@ struct ProjectSpaceFileRow: Identifiable, Hashable, Sendable {
         self.lastActivityAt = lastActivityAt
         self.workflowStatus = workflowStatus
         self.tags = tags
+        self.projectAssociation = projectAssociation
+        self.sourceFolderHint = sourceFolderHint
     }
 }
 
 struct ProjectSpaceDetail: Identifiable, Hashable, Sendable {
     let summary: ProjectSpaceSummary
     let files: [ProjectSpaceFileRow]
+    let overview: ProjectSpaceOverview
+    let preferredDestinations: [ProjectSpacePreferredDestination]
+    let recentActivity: [ProjectSpaceRecentActivityRow]
 
     var id: String { summary.id }
 
@@ -86,4 +95,18 @@ struct ProjectSpaceDetail: Identifiable, Hashable, Sendable {
     var sourceFolderHints: [String] { summary.sourceFolderHints }
 
     var lastActivityAt: Date { summary.lastActivityAt }
+
+    init(
+        summary: ProjectSpaceSummary,
+        files: [ProjectSpaceFileRow],
+        overview: ProjectSpaceOverview = ProjectSpaceOverview(),
+        preferredDestinations: [ProjectSpacePreferredDestination] = [],
+        recentActivity: [ProjectSpaceRecentActivityRow] = []
+    ) {
+        self.summary = summary
+        self.files = files
+        self.overview = overview
+        self.preferredDestinations = preferredDestinations
+        self.recentActivity = recentActivity
+    }
 }

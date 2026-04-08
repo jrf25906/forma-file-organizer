@@ -130,6 +130,81 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(alphaDetail.files.map(\.displayName), ["alpha.txt"])
     }
 
+    func testProjectSpaceCorrection_RefreshesSummariesAndDetailsAfterAssociationUpdate() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaOneURL = try tempDirectory.createFile(name: "Inbox/alpha-one.txt", contents: "alpha")
+        let alphaTwoURL = try tempDirectory.createFile(name: "Inbox/alpha-two.txt", contents: "alpha")
+        let betaURL = try tempDirectory.createFile(name: "Inbox/beta.txt", contents: "beta")
+
+        let alphaOneRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: alphaOneURL.path,
+            displayName: alphaOneURL.lastPathComponent,
+            fileExtension: "txt",
+            timestamp: Date(timeIntervalSince1970: 1_000)
+        )
+        alphaOneRecord.projectAssociation = "Alpha"
+
+        let alphaTwoRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: alphaTwoURL.path,
+            displayName: alphaTwoURL.lastPathComponent,
+            fileExtension: "txt",
+            timestamp: Date(timeIntervalSince1970: 1_100)
+        )
+        alphaTwoRecord.projectAssociation = "Alpha"
+
+        let betaRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: betaURL.path,
+            displayName: betaURL.lastPathComponent,
+            fileExtension: "txt",
+            timestamp: Date(timeIntervalSince1970: 1_200)
+        )
+        betaRecord.projectAssociation = "Beta"
+
+        try environment.context.save()
+
+        let initialSummaryByLabel = Dictionary(uniqueKeysWithValues: environment.metadataService.fetchProjectSpaceSummaries().map {
+            ($0.normalizedLabel, $0.fileCount)
+        })
+        XCTAssertEqual(initialSummaryByLabel, ["Alpha": 2, "Beta": 1])
+        XCTAssertEqual(try XCTUnwrap(environment.metadataService.fetchProjectSpaceDetail(for: "Alpha")).summary.fileCount, 2)
+        XCTAssertEqual(try XCTUnwrap(environment.metadataService.fetchProjectSpaceDetail(for: "Beta")).summary.fileCount, 1)
+
+        let didCorrect = try environment.metadataService.correctProjectAssociation(
+            forCanonicalIdentity: alphaTwoRecord.canonicalIdentity,
+            to: "  Beta  ",
+            timestamp: Date(timeIntervalSince1970: 2_000)
+        )
+        XCTAssertTrue(didCorrect)
+
+        let refreshedSummaryByLabel = Dictionary(uniqueKeysWithValues: environment.metadataService.fetchProjectSpaceSummaries().map {
+            ($0.normalizedLabel, $0.fileCount)
+        })
+        XCTAssertEqual(refreshedSummaryByLabel, ["Alpha": 1, "Beta": 2])
+
+        let alphaDetail = try XCTUnwrap(environment.metadataService.fetchProjectSpaceDetail(for: "Alpha"))
+        XCTAssertEqual(alphaDetail.summary.fileCount, 1)
+        XCTAssertEqual(alphaDetail.files.map(\.displayName), ["alpha-one.txt"])
+
+        let betaDetail = try XCTUnwrap(environment.metadataService.fetchProjectSpaceDetail(for: "Beta"))
+        XCTAssertEqual(betaDetail.summary.fileCount, 2)
+        XCTAssertEqual(Set(betaDetail.files.map(\.displayName)), ["alpha-two.txt", "beta.txt"])
+        XCTAssertEqual(
+            betaDetail.files
+                .first(where: { $0.canonicalIdentity == alphaTwoRecord.canonicalIdentity })?
+                .projectAssociation,
+            "Beta"
+        )
+    }
+
     func testOrganizeFile_UpdatesMetadataRecordAndAppendsHistory() async throws {
         let environment = try makeEnvironment()
         let tempDirectory = try TemporaryDirectory()
