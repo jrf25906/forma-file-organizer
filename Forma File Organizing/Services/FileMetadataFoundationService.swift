@@ -488,7 +488,7 @@ final class FileMetadataFoundationService {
             return []
         }
 
-        let bookmarkBackedRootURLs = projectSpaceBookmarkBackedRootURLs()
+        let bookmarkBackedRootURLs = Self.projectSpaceBookmarkBackedRootURLs()
         let recordsByLabel = projectSpaceRecordsByLabel(
             from: records,
             bookmarkBackedRootURLs: bookmarkBackedRootURLs
@@ -517,7 +517,7 @@ final class FileMetadataFoundationService {
             return nil
         }
 
-        let bookmarkBackedRootURLs = projectSpaceBookmarkBackedRootURLs()
+        let bookmarkBackedRootURLs = Self.projectSpaceBookmarkBackedRootURLs()
         let members = projectSpaceMembers(
             from: records,
             bookmarkBackedRootURLs: bookmarkBackedRootURLs
@@ -751,24 +751,10 @@ final class FileMetadataFoundationService {
         bookmarkBackedRootURLs: [URL]
     ) -> String? {
         let rawStoredPath = record.lastKnownPath
-        guard rawStoredPath == rawStoredPath.trimmingCharacters(in: .whitespacesAndNewlines),
-              let storedPath = FileMetadataRecord.normalizedOptionalText(rawStoredPath) else {
-            return nil
-        }
-
-        guard (storedPath as NSString).isAbsolutePath else {
-            return nil
-        }
-
-        let normalizedPath = FileMetadataRecord.normalizedPath(storedPath)
-        if isProjectSpacePathReachable(
-            normalizedPath,
+        return Self.normalizedResolvablePath(
+            for: rawStoredPath,
             bookmarkBackedRootURLs: bookmarkBackedRootURLs
-        ) {
-            return normalizedPath
-        }
-
-        return nil
+        )
     }
 
     private func sourceFolderHints(for members: [ProjectSpaceMember]) -> [String] {
@@ -848,17 +834,41 @@ final class FileMetadataFoundationService {
         return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
     }
 
-    private func isProjectSpacePathReachable(
+    static func normalizedResolvablePath(
+        for rawStoredPath: String,
+        bookmarkBackedRootURLs: [URL]
+    ) -> String? {
+        guard rawStoredPath == rawStoredPath.trimmingCharacters(in: .whitespacesAndNewlines),
+              let storedPath = FileMetadataRecord.normalizedOptionalText(rawStoredPath) else {
+            return nil
+        }
+
+        guard (storedPath as NSString).isAbsolutePath else {
+            return nil
+        }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(storedPath)
+        if Self.isProjectSpacePathReachable(
+            normalizedPath,
+            bookmarkBackedRootURLs: bookmarkBackedRootURLs
+        ) {
+            return normalizedPath
+        }
+
+        return nil
+    }
+
+    static func isProjectSpacePathReachable(
         _ normalizedPath: String,
         bookmarkBackedRootURLs: [URL]
     ) -> Bool {
-        if projectSpacePathExists(at: normalizedPath, usingSecurityScopedAccess: false) {
+        if Self.projectSpacePathExists(at: normalizedPath, usingSecurityScopedAccess: false) {
             return true
         }
 
         for rootURL in bookmarkBackedRootURLs {
             let resolvedRootPath = rootURL.standardizedFileURL.path
-            guard isPath(normalizedPath, withinRootPath: resolvedRootPath),
+            guard Self.isPath(normalizedPath, withinRootPath: resolvedRootPath),
                   rootURL.startAccessingSecurityScopedResource() else {
                 continue
             }
@@ -867,7 +877,7 @@ final class FileMetadataFoundationService {
                 rootURL.stopAccessingSecurityScopedResource()
             }
 
-            if projectSpacePathExists(at: normalizedPath, usingSecurityScopedAccess: true) {
+            if Self.projectSpacePathExists(at: normalizedPath, usingSecurityScopedAccess: true) {
                 return true
             }
         }
@@ -875,7 +885,7 @@ final class FileMetadataFoundationService {
         return false
     }
 
-    private func projectSpacePathExists(
+    static func projectSpacePathExists(
         at normalizedPath: String,
         usingSecurityScopedAccess: Bool
     ) -> Bool {
@@ -889,7 +899,7 @@ final class FileMetadataFoundationService {
         return FileManager.default.fileExists(atPath: normalizedPath)
     }
 
-    private func projectSpaceBookmarkBackedRootURLs() -> [URL] {
+    static func projectSpaceBookmarkBackedRootURLs() -> [URL] {
         #if DEBUG
         Self.debugProjectSpaceBookmarkRootLoadHook?()
         #endif
@@ -936,7 +946,7 @@ final class FileMetadataFoundationService {
         return rootURLs
     }
 
-    private func isPath(_ path: String, withinRootPath rootPath: String) -> Bool {
+    static func isPath(_ path: String, withinRootPath rootPath: String) -> Bool {
         let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
         let standardizedRootPath = URL(fileURLWithPath: rootPath).standardizedFileURL.path
         let rootPrefix = standardizedRootPath.hasSuffix("/") ? standardizedRootPath : "\(standardizedRootPath)/"

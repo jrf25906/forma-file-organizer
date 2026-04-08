@@ -9,7 +9,7 @@ struct ProjectSpaceMemoryResolver {
 
     private struct DestinationAggregate {
         let destinationDisplayName: String
-        let destinationFolderPath: String?
+        let destinationFolderPath: String
         let eventCount: Int
         let lastUsedAt: Date
     }
@@ -90,12 +90,12 @@ struct ProjectSpaceMemoryResolver {
 
                 rows.append(
                     ProjectSpaceRecentActivityRow(
-                    canonicalIdentity: member.record.canonicalIdentity,
-                    fileDisplayName: member.record.displayName,
-                    eventKind: entry.eventKind,
-                    timestamp: entry.timestamp,
-                    destinationDisplayName: destinationDisplayName(for: entry),
-                    detailsSummary: entry.detailsSummary
+                        canonicalIdentity: member.record.canonicalIdentity,
+                        fileDisplayName: member.record.displayName,
+                        eventKind: entry.eventKind,
+                        timestamp: entry.timestamp,
+                        destinationDisplayName: destinationDisplayName(for: entry),
+                        detailsSummary: entry.detailsSummary
                     )
                 )
             }
@@ -145,9 +145,13 @@ struct ProjectSpaceMemoryResolver {
     }
 
     private func resolvedMembers(from memberContexts: [MemberContext]) -> [MemberContext] {
-        memberContexts.compactMap { context in
-            guard let normalizedPath = standardizedResolvablePath(for: context.normalizedPath),
-                  FileManager.default.fileExists(atPath: normalizedPath),
+        let bookmarkBackedRootURLs = FileMetadataFoundationService.projectSpaceBookmarkBackedRootURLs()
+
+        return memberContexts.compactMap { (context: MemberContext) -> MemberContext? in
+            guard let normalizedPath = FileMetadataFoundationService.normalizedResolvablePath(
+                for: context.normalizedPath,
+                bookmarkBackedRootURLs: bookmarkBackedRootURLs
+            ),
                   FileMetadataRecord.normalizedOptionalText(context.record.projectAssociation) != nil else {
                 return nil
             }
@@ -197,15 +201,18 @@ struct ProjectSpaceMemoryResolver {
             }
         }
 
-        let grouped = Dictionary(grouping: qualifyingEvents, by: \.destinationDisplayName)
+        let grouped = Dictionary(grouping: qualifyingEvents, by: \.destinationFolderPath)
 
         return grouped.compactMap { _, group in
-            guard let first = group.max(by: { lhs, rhs in
+            let representative = group.sorted { lhs, rhs in
                 if lhs.lastUsedAt != rhs.lastUsedAt {
-                    return lhs.lastUsedAt < rhs.lastUsedAt
+                    return lhs.lastUsedAt > rhs.lastUsedAt
                 }
-                return (lhs.destinationFolderPath ?? "") < (rhs.destinationFolderPath ?? "")
-            }) else {
+
+                return lhs.destinationDisplayName.localizedCaseInsensitiveCompare(rhs.destinationDisplayName) == .orderedAscending
+            }.first
+
+            guard let first = representative else {
                 return nil
             }
 
@@ -225,8 +232,8 @@ struct ProjectSpaceMemoryResolver {
                 return lhs.lastUsedAt > rhs.lastUsedAt
             }
 
-            return lhs.destinationDisplayName.localizedCaseInsensitiveCompare(rhs.destinationDisplayName) == .orderedAscending
-        }
+                return lhs.destinationDisplayName.localizedCaseInsensitiveCompare(rhs.destinationDisplayName) == .orderedAscending
+            }
     }
 
     private func destinationDisplayName(for entry: FileOrganizationHistoryEntry) -> String? {
@@ -259,12 +266,4 @@ struct ProjectSpaceMemoryResolver {
         return folderName
     }
 
-    private func standardizedResolvablePath(for path: String) -> String? {
-        guard let trimmed = FileMetadataRecord.normalizedOptionalText(path),
-              (trimmed as NSString).isAbsolutePath else {
-            return nil
-        }
-
-        return FileMetadataRecord.normalizedPath(trimmed)
-    }
 }

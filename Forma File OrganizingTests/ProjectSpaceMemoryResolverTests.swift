@@ -17,6 +17,10 @@ final class ProjectSpaceMemoryResolverTests: XCTestCase {
 
     override func tearDown() {
         FeatureFlagService.shared.resetToDefaults()
+        #if DEBUG
+        FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = nil
+        FileMetadataFoundationService.debugProjectSpaceBookmarkRootLoadHook = nil
+        #endif
         super.tearDown()
     }
 
@@ -390,6 +394,116 @@ final class ProjectSpaceMemoryResolverTests: XCTestCase {
             )
 
             XCTAssertNil(suggestion)
+        }
+    }
+
+    func testBuildOverview_UsesBookmarkAwareReachabilityForResolvedMembers() throws {
+        try withContext { _, context in
+            let tempDir = try TemporaryDirectory()
+            let fileURL = tempDir.url.appendingPathComponent("Downloads/bookmark-backed.txt")
+            let bookmarkStore = InMemoryBookmarkStore()
+            let destination = try Destination.folder(
+                from: tempDir.url,
+                displayName: BookmarkFolder.FolderType.downloads.displayName
+            )
+            try bookmarkStore.saveBookmark(
+                try XCTUnwrap(destination.bookmarkData),
+                forKey: BookmarkFolder.FolderType.downloads.bookmarkKey
+            )
+
+            try BookmarkStoreProvider.$override.withValue(bookmarkStore) {
+                #if DEBUG
+                FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = { path, usingSecurityScopedAccess in
+                    guard path == fileURL.path else { return nil }
+                    return usingSecurityScopedAccess
+                }
+                defer {
+                    FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = nil
+                }
+                #endif
+
+                let record = makeRecord(
+                    in: context,
+                    path: fileURL.path,
+                    displayName: fileURL.lastPathComponent,
+                    projectAssociation: "Alpha"
+                )
+                try context.save()
+
+                let overview = resolver.buildOverview(
+                    for: [record].map { memberContext(for: $0) },
+                    now: Date(timeIntervalSince1970: 1_000)
+                )
+
+                XCTAssertEqual(overview.currentFileCount, 1)
+                XCTAssertEqual(overview.activeFolderHints, ["Downloads"])
+            }
+        }
+    }
+
+    func testBuildPreferredDestinations_DistinguishesSameLabelDifferentPaths() throws {
+        try withContext { _, context in
+            let tempDir = try TemporaryDirectory()
+            let alphaURL = try tempDir.createFile(name: "Project/alpha.txt", contents: "alpha")
+            let betaURL = try tempDir.createFile(name: "Project/beta.txt", contents: "beta")
+
+            let alpha = makeRecord(
+                in: context,
+                path: alphaURL.path,
+                displayName: alphaURL.lastPathComponent,
+                projectAssociation: "Alpha"
+            )
+            let beta = makeRecord(
+                in: context,
+                path: betaURL.path,
+                displayName: betaURL.lastPathComponent,
+                projectAssociation: "Alpha"
+            )
+
+            addHistory(
+                in: context,
+                to: alpha,
+                eventKind: .organized,
+                timestamp: Date(timeIntervalSince1970: 100),
+                toPath: "/tmp/Team One/Shared/report.txt",
+                destinationDisplayName: "Shared"
+            )
+            addHistory(
+                in: context,
+                to: alpha,
+                eventKind: .rekeyed,
+                timestamp: Date(timeIntervalSince1970: 200),
+                toPath: "/tmp/Team One/Shared/report-2.txt",
+                destinationDisplayName: "Shared"
+            )
+            addHistory(
+                in: context,
+                to: alpha,
+                eventKind: .organized,
+                timestamp: Date(timeIntervalSince1970: 300),
+                toPath: "/tmp/Team One/Shared/report-3.txt",
+                destinationDisplayName: "Shared"
+            )
+            addHistory(
+                in: context,
+                to: beta,
+                eventKind: .organized,
+                timestamp: Date(timeIntervalSince1970: 400),
+                toPath: "/tmp/Team Two/Shared/report.txt",
+                destinationDisplayName: "Shared"
+            )
+
+            try context.save()
+
+            let memberContexts = [alpha, beta].map { memberContext(for: $0) }
+            let preferredDestinations = resolver.buildPreferredDestinations(for: memberContexts, now: Date(timeIntervalSince1970: 1_000))
+            let suggestion = resolver.suggestDominantDestination(for: memberContexts, now: Date(timeIntervalSince1970: 1_000))
+
+            XCTAssertEqual(preferredDestinations.count, 2)
+            XCTAssertEqual(preferredDestinations.map(\.eventCount), [3, 1])
+            XCTAssertEqual(preferredDestinations.map(\.destinationDisplayName), ["Shared", "Shared"])
+            XCTAssertEqual(suggestion?.destinationFolderPath, "/tmp/Team One/Shared")
+            XCTAssertEqual(suggestion?.destinationDisplayName, "Shared")
         }
     }
 }

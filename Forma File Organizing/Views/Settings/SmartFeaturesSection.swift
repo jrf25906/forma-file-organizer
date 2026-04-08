@@ -270,7 +270,7 @@ struct SmartFeaturesSection: View {
                             isEnabled: $projectSpaceMemory,
                             masterEnabled: masterAIEnabled,
                             dependencyMet: metadataFoundation && autoProjectAssociation && projectSpaces,
-                            requiresFeature: .projectSpaces
+                            dependencySummary: "Requires Metadata foundation, Auto project association, and Project spaces to be enabled."
                         )
 
                         Divider().padding(.leading, FormaSpacing.extraLarge + FormaSpacing.tight)
@@ -681,6 +681,7 @@ private struct SmartFeatureRow: View {
     let masterEnabled: Bool
     var dependencyMet: Bool = true
     var requiresFeature: FeatureFlagService.Feature? = nil
+    var dependencySummary: String? = nil
     var showPerformanceWarning: Bool = false
 
     private var isEffectivelyDisabled: Bool {
@@ -725,7 +726,11 @@ private struct SmartFeatureRow: View {
                     .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
                     .lineLimit(2)
 
-                    if let requiresFeature, !dependencyMet && masterEnabled {
+                    if let dependencySummary, !dependencyMet && masterEnabled {
+                        Text(dependencySummary)
+                            .font(.formaSmall)
+                            .foregroundColor(.formaWarning)
+                    } else if let requiresFeature, !dependencyMet && masterEnabled {
                         Text("Requires \"\(requiresFeature.displayName)\" to be enabled")
                             .font(.formaSmall)
                             .foregroundColor(.formaWarning)
