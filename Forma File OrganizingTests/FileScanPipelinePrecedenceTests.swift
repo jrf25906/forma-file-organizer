@@ -4,11 +4,13 @@ import SwiftData
 
 /// Integration tests for FileScanPipeline prediction ordering.
 ///
-/// Verifies correct precedence: RuleEngine → LearnedPattern → ML predictions
+/// Verifies correct precedence:
+/// RuleEngine → Personal memory → Project-space memory → LearnedPattern → ML predictions
 /// Tests that:
 /// - Rules always win (highest priority)
-/// - Patterns are second priority (only for files rules don't match)
-/// - ML predictions are last (only when neither rules nor patterns match)
+/// - Personal and project-space memory only apply when higher-priority stages do not match
+/// - Learned patterns only apply when no higher-priority source already resolved the file
+/// - ML predictions are last (only when no earlier source resolved the file)
 /// - FileItem state updates correctly through the pipeline
 @available(macOS 13.0, *)
 @MainActor
@@ -230,10 +232,13 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
     }
 
     func testProjectSpaceMemorySuggestion_AppliesForKnownProjectWithDominantRecentDestination() async throws {
-        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
-        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
-        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
-        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        let featureFlags = FeatureFlagService.shared
+        featureFlags.resetToDefaults()
+        defer { featureFlags.resetToDefaults() }
+        featureFlags.setEnabled(.metadataFoundation, true)
+        featureFlags.setEnabled(.autoProjectAssociation, true)
+        featureFlags.setEnabled(.projectSpaces, true)
+        featureFlags.setEnabled(.projectSpaceMemory, true)
 
         let tempDir = try TemporaryDirectory()
         let fileURL = try tempDir.createFile(name: "Workspace/Alpha/invoice.pdf", contents: "invoice")
@@ -294,10 +299,13 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
     }
 
     func testProjectSpaceMemorySuggestion_DoesNotOverrideExplicitRuleOrPersonalMemory() async throws {
-        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
-        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
-        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
-        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        let featureFlags = FeatureFlagService.shared
+        featureFlags.resetToDefaults()
+        defer { featureFlags.resetToDefaults() }
+        featureFlags.setEnabled(.metadataFoundation, true)
+        featureFlags.setEnabled(.autoProjectAssociation, true)
+        featureFlags.setEnabled(.projectSpaces, true)
+        featureFlags.setEnabled(.projectSpaceMemory, true)
 
         let tempDir = try TemporaryDirectory()
         let dominantFolderURL = try tempDir.createDirectory(name: "Destinations/Project Archive")
@@ -403,6 +411,84 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         XCTAssertEqual(memoryFile.destination?.displayName, "Personal Inbox")
         XCTAssertEqual(memoryFile.suggestionSource, .personalMemory)
         XCTAssertNotEqual(memoryFile.suggestionSource, .projectSpaceMemory)
+    }
+
+    func testProjectSpaceMemorySuggestion_TakesPrecedenceOverPatternsAndML() async throws {
+        let featureFlags = FeatureFlagService.shared
+        featureFlags.resetToDefaults()
+        defer { featureFlags.resetToDefaults() }
+        featureFlags.setEnabled(.metadataFoundation, true)
+        featureFlags.setEnabled(.autoProjectAssociation, true)
+        featureFlags.setEnabled(.projectSpaces, true)
+        featureFlags.setEnabled(.projectSpaceMemory, true)
+
+        let tempDir = try TemporaryDirectory()
+        let fileURL = try tempDir.createFile(name: "Workspace/Alpha/brief.pdf", contents: "brief")
+        let projectArchiveURL = try tempDir.createDirectory(name: "Destinations/Project Archive")
+        let now = Date()
+
+        let record = makeMetadataRecord(
+            path: fileURL.path,
+            displayName: fileURL.lastPathComponent,
+            projectAssociation: "Alpha"
+        )
+        addHistoryEntry(
+            to: record,
+            eventKind: .organized,
+            timestamp: now.addingTimeInterval(-3_600),
+            toPath: projectArchiveURL.appendingPathComponent("brief-v1.pdf").path,
+            destinationDisplayName: "Project Archive"
+        )
+        addHistoryEntry(
+            to: record,
+            eventKind: .rekeyed,
+            timestamp: now.addingTimeInterval(-1_800),
+            toPath: projectArchiveURL.appendingPathComponent("brief-v2.pdf").path,
+            destinationDisplayName: "Project Archive"
+        )
+
+        let competingPattern = LearnedPattern(
+            patternDescription: "PDFs → Pattern Archive",
+            fileExtension: "pdf",
+            destinationPath: "Pattern Archive",
+            occurrenceCount: 12,
+            confidenceScore: 0.93
+        )
+        let modelHistory = MLTrainingHistory(
+            modelName: "destinationPrediction",
+            version: "1-test",
+            exampleCount: 100,
+            labelCount: 3,
+            validationAccuracy: 0.8,
+            falsePositiveRate: 0.1,
+            accepted: true,
+            notes: "Test model"
+        )
+        modelContext.insert(competingPattern)
+        modelContext.insert(modelHistory)
+        try modelContext.save()
+
+        mockFileSystem.mockFiles = [
+            createMockMetadata(path: fileURL.path, ext: "pdf", location: .desktop)
+        ]
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: mockFileSystem,
+            ruleEngine: ruleEngine,
+            rules: [],
+            context: modelContext
+        )
+
+        let file = try XCTUnwrap(result.files.first(where: { $0.path == fileURL.path }))
+        XCTAssertEqual(file.status, .ready)
+        XCTAssertEqual(file.destination?.displayName, "Project Archive")
+        XCTAssertEqual(file.originalSuggestedDestination?.displayName, "Project Archive")
+        XCTAssertEqual(file.suggestionSource, .projectSpaceMemory)
+        XCTAssertNotEqual(file.suggestionSource, .pattern)
+        XCTAssertNotEqual(file.suggestionSource, .mlPrediction)
+        XCTAssertNotEqual(file.destination?.displayName, "Pattern Archive")
     }
     
     /// Test: ML predictions only apply when no rules or patterns match
