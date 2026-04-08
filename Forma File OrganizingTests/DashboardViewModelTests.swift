@@ -3023,6 +3023,145 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedFileIDs, [file.path])
         XCTAssertTrue(viewModel.selectedFiles.contains { $0 === file })
     }
+
+    func testLatestWorkflowInspectorSummary_ShowsLatestWorkflowRunSummary() throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let schema = Schema([
+            FileItem.self,
+            Rule.self,
+            ActivityItem.self,
+            FileMetadataRecord.self,
+            FileOrganizationHistoryEntry.self,
+            TrustedAutomationScopeRunRecord.self,
+            WorkflowRunRecord.self,
+            WorkflowStepRunRecord.self,
+            WorkflowFileActionRecord.self
+        ])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+        viewModel.setModelContext(context)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let sourceURL = try tempDirectory.createFile(name: "Inbox/April Receipt.pdf", contents: "receipt")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .completed
+        )
+        context.insert(file)
+        try context.save()
+
+        let metadataService = FileMetadataFoundationService(modelContext: context)
+        let identity = metadataService.resolveIdentity(for: file.path).canonicalIdentity
+        let store = WorkflowAuditStore(modelContext: context)
+        let run = try store.createRun(
+            scopeID: UUID(),
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+            startedAt: Date(timeIntervalSince1970: 1_712_620_810),
+            primaryStatus: .succeeded
+        )
+
+        let renameStep = try store.recordStepStatus(
+            runID: run.id,
+            stepID: "execute|rename|\(sourceURL.path)",
+            status: .succeeded,
+            startedAt: Date(timeIntervalSince1970: 1_712_620_811),
+            endedAt: Date(timeIntervalSince1970: 1_712_620_812)
+        )
+        _ = try store.recordFileAction(
+            runID: run.id,
+            stepRunID: renameStep.id,
+            fileIdentity: identity,
+            sourcePath: sourceURL.path,
+            destinationPath: sourceFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path,
+            disposition: .moved,
+            compensationStatus: .available,
+            compensationPayload: WorkflowCompensationPayloadCodec.encode(
+                .renameRollback(
+                    originalPath: sourceURL.path,
+                    renamedPath: sourceFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path
+                )
+            )
+        )
+
+        let tagStep = try store.recordStepStatus(
+            runID: run.id,
+            stepID: "execute|tag|\(sourceURL.path)",
+            status: .succeeded,
+            startedAt: Date(timeIntervalSince1970: 1_712_620_813),
+            endedAt: Date(timeIntervalSince1970: 1_712_620_814)
+        )
+        _ = try store.recordFileAction(
+            runID: run.id,
+            stepRunID: tagStep.id,
+            fileIdentity: identity,
+            sourcePath: sourceFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path,
+            destinationPath: sourceFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path,
+            disposition: .moved,
+            compensationStatus: .available,
+            compensationPayload: WorkflowCompensationPayloadCodec.encode(
+                .tagRemoval(
+                    path: sourceFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path,
+                    tagsToRemove: ["receipt", "document"]
+                )
+            )
+        )
+
+        let moveStep = try store.recordStepStatus(
+            runID: run.id,
+            stepID: "execute|move|\(sourceURL.path)",
+            status: .succeeded,
+            startedAt: Date(timeIntervalSince1970: 1_712_620_815),
+            endedAt: Date(timeIntervalSince1970: 1_712_620_816)
+        )
+        _ = try store.recordFileAction(
+            runID: run.id,
+            stepRunID: moveStep.id,
+            fileIdentity: identity,
+            sourcePath: sourceFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path,
+            destinationPath: destinationFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path,
+            disposition: .moved,
+            compensationStatus: .available,
+            compensationPayload: WorkflowCompensationPayloadCodec.encode(
+                .moveRollback(
+                    originalDestinationPath: destinationFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path,
+                    rollbackPath: sourceFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path
+                )
+            )
+        )
+        try store.updateRunStatus(
+            runID: run.id,
+            primaryStatus: .succeeded,
+            endedAt: Date(timeIntervalSince1970: 1_712_620_817)
+        )
+
+        let summary = try XCTUnwrap(
+            viewModel.latestWorkflowInspectorSummary(for: file.path, context: context)
+        )
+
+        XCTAssertEqual(summary.runID, run.id)
+        XCTAssertEqual(summary.templateDisplayName, "Receipt Intake")
+        XCTAssertEqual(summary.renameResultFileName, "2024-04-09-April Receipt.pdf")
+        XCTAssertEqual(summary.appliedTags, ["document", "receipt"])
+        XCTAssertEqual(summary.moveDestinationDisplayName, "Receipts")
+        XCTAssertTrue(summary.statusText.contains("Succeeded"))
+        XCTAssertTrue(summary.canOpenRunDetail)
+    }
     
     func testShowRuleBuilderPanel() {
         // Given

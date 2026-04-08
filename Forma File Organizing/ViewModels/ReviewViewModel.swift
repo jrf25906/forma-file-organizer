@@ -321,9 +321,17 @@ class ReviewViewModel: ObservableObject {
                 files: plan.simulation.files.filter { runnablePaths.contains($0.sourcePath) }
             )
         )
+        let workflowScopeID = UUID()
 
         do {
-            try await workflowExecution.run(runnablePlan, runnableFiles, UUID(), modelContext)
+            try await workflowExecution.run(runnablePlan, runnableFiles, workflowScopeID, modelContext)
+            ActivityLoggingService.logWorkflowRunSummaryIfAvailable(
+                from: modelContext,
+                scopeID: workflowScopeID,
+                workflowTemplateID: template.id,
+                triggerSurface: .reviewView,
+                affectedFileCount: runnableFiles.count
+            )
             for file in runnableFiles {
                 file.status = .completed
             }
@@ -341,6 +349,13 @@ class ReviewViewModel: ObservableObject {
                 errorMessage = "\(blockedFiles.count) file\(blockedFiles.count == 1 ? " is" : "s are") blocked in the workflow plan."
             }
         } catch {
+            ActivityLoggingService.logWorkflowRunSummaryIfAvailable(
+                from: modelContext,
+                scopeID: workflowScopeID,
+                workflowTemplateID: template.id,
+                triggerSurface: .reviewView,
+                affectedFileCount: runnableFiles.count
+            )
             errorMessage = error.localizedDescription
         }
     }

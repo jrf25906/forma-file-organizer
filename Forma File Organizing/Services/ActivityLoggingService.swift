@@ -316,6 +316,37 @@ final class ActivityLoggingService {
         )
     }
 
+    func logWorkflowRunSummary(
+        run: WorkflowRunRecord,
+        triggerSurface: ActivityItem.WorkflowTriggerSurface,
+        affectedFileCount: Int
+    ) {
+        let triggerSurfaceLabel = ActivityItem.workflowTriggerSurfaceLabel(triggerSurface)
+        let fileSummary = "\(affectedFileCount) file\(affectedFileCount == 1 ? "" : "s")"
+        let isSuccessful = run.primaryStatus == .succeeded && run.rollbackStatus != .failed
+        let details = [
+            "\(triggerSurfaceLabel) workflow run \(isSuccessful ? "succeeded" : "failed") for \(fileSummary)",
+            ActivityItem.workflowRollbackText(
+                primaryStatus: run.primaryStatus,
+                rollbackStatus: run.rollbackStatus
+            )
+        ].joined(separator: ". ") + "."
+
+        let activity = ActivityItem(
+            activityType: isSuccessful ? .workflowRunCompleted : .workflowRunAttentionNeeded,
+            fileName: WorkflowTemplateCatalog.template(for: run.workflowTemplateID)?.displayName ?? "Workflow",
+            details: details,
+            affectedFileCount: affectedFileCount,
+            workflowRunID: run.id,
+            workflowTemplateID: run.workflowTemplateID,
+            workflowTriggerSurface: triggerSurface,
+            workflowPrimaryStatus: run.primaryStatus,
+            workflowRollbackStatus: run.rollbackStatus
+        )
+        modelContext.insert(activity)
+        save()
+    }
+
     // MARK: - Private
 
     private func save() {
@@ -357,5 +388,25 @@ extension ActivityLoggingService {
     static func create(from context: ModelContext?) -> ActivityLoggingService? {
         guard let context = context else { return nil }
         return ActivityLoggingService(modelContext: context)
+    }
+
+    static func logWorkflowRunSummaryIfAvailable(
+        from context: ModelContext?,
+        scopeID: UUID,
+        workflowTemplateID: String?,
+        triggerSurface: ActivityItem.WorkflowTriggerSurface,
+        affectedFileCount: Int
+    ) {
+        guard let context = context,
+              let run = try? WorkflowAuditStore(modelContext: context)
+                .latestRunSummary(scopeID: scopeID, workflowTemplateID: workflowTemplateID) else {
+            return
+        }
+
+        ActivityLoggingService(modelContext: context).logWorkflowRunSummary(
+            run: run,
+            triggerSurface: triggerSurface,
+            affectedFileCount: affectedFileCount
+        )
     }
 }

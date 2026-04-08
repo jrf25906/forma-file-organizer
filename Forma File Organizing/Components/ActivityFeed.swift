@@ -3,6 +3,7 @@ import SwiftData
 
 struct ActivityFeed: View {
     let activities: [ActivityItem]
+    @State private var presentedWorkflowRunID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
@@ -26,7 +27,9 @@ struct ActivityFeed: View {
                 ScrollView {
                     VStack(spacing: FormaSpacing.tight) {
                         ForEach(activities, id: \.id) { activity in
-                            ActivityRow(activity: activity)
+                            ActivityRow(activity: activity) { runID in
+                                presentedWorkflowRunID = runID
+                            }
                         }
                     }
                 }
@@ -34,11 +37,26 @@ struct ActivityFeed: View {
             }
         }
         .padding(FormaSpacing.generous)
+        .sheet(
+            isPresented: Binding(
+                get: { presentedWorkflowRunID != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        presentedWorkflowRunID = nil
+                    }
+                }
+            )
+        ) {
+            if let presentedWorkflowRunID {
+                WorkflowRunDetailSheet(runID: presentedWorkflowRunID)
+            }
+        }
     }
 }
 
 struct ActivityRow: View {
     let activity: ActivityItem
+    let onOpenWorkflowRun: (UUID) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: FormaSpacing.standard) {
@@ -87,6 +105,15 @@ struct ActivityRow: View {
                             ActivityAuditBadgeView(badge: badge)
                         }
                     }
+                }
+
+                if let workflowProjection = activity.workflowProjection {
+                    Button("View workflow details") {
+                        onOpenWorkflowRun(workflowProjection.runID)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.formaCaptionSemibold)
+                    .foregroundColor(.formaSteelBlue)
                 }
 
                 Text(activity.relativeTimestamp)
@@ -209,6 +236,10 @@ struct ActivityRow: View {
         case .trustedAutomationScopeRunSummary:
             return Color.formaSteelBlue
         case .trustedAutomationScopeAttentionNeeded:
+            return Color.formaError
+        case .workflowRunCompleted:
+            return Color.formaSteelBlue
+        case .workflowRunAttentionNeeded:
             return Color.formaError
         }
     }

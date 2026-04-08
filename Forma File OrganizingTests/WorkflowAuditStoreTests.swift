@@ -7,6 +7,7 @@ final class WorkflowAuditStoreTests: XCTestCase {
 
     private func makeStore() throws -> (ModelContainer, ModelContext, WorkflowAuditStore) {
         let schema = Schema([
+            FileMetadataRecord.self,
             TrustedAutomationScopeRunRecord.self,
             WorkflowRunRecord.self,
             WorkflowStepRunRecord.self,
@@ -252,6 +253,104 @@ final class WorkflowAuditStoreTests: XCTestCase {
 
             XCTAssertEqual(latestForSharedFile?.id, newerRun.id)
             XCTAssertNil(latestForUnknownFile)
+        }
+    }
+
+    func testLatestRunForPath_UsesResolvedIdentityWhenMetadataRecordIsMissing() throws {
+        try withStore { context, store in
+            let tempDirectory = try TemporaryDirectory()
+            defer { tempDirectory.cleanup() }
+
+            let fileURL = try tempDirectory.createFile(name: "Inbox/April Receipt.pdf", contents: "receipt")
+            let fileIdentity = FileMetadataFoundationService(modelContext: context)
+                .resolveIdentity(for: fileURL.path)
+                .canonicalIdentity
+
+            let run = try store.createRun(
+                scopeID: UUID(),
+                workflowTemplateID: "builtin.workflow.receipts.v1",
+                startedAt: Date(timeIntervalSince1970: 100),
+                primaryStatus: .succeeded
+            )
+
+            _ = try store.recordFileAction(
+                runID: run.id,
+                fileIdentity: fileIdentity,
+                sourcePath: fileURL.path,
+                destinationPath: fileURL.path,
+                disposition: .moved,
+                recordedAt: Date(timeIntervalSince1970: 120)
+            )
+
+            let latestRun = try store.latestRunForPath(fileURL.path)
+
+            XCTAssertEqual(latestRun?.id, run.id)
+        }
+    }
+
+    func testLatestRunForPath_PrefersLatestActionWhenMultipleMetadataRecordsSharePath() throws {
+        try withStore { context, store in
+            let sharedPath = "/Users/example/Inbox/Receipt.pdf"
+            let olderIdentity = "resource|diskA|older"
+            let newerIdentity = "resource|diskA|newer"
+
+            context.insert(
+                FileMetadataRecord(
+                    canonicalIdentity: olderIdentity,
+                    identityKind: .resourceIdentifier,
+                    lastKnownPath: sharedPath,
+                    displayName: "Receipt.pdf",
+                    fileExtension: "pdf",
+                    firstSeenAt: Date(timeIntervalSince1970: 10),
+                    lastSeenAt: Date(timeIntervalSince1970: 10)
+                )
+            )
+            context.insert(
+                FileMetadataRecord(
+                    canonicalIdentity: newerIdentity,
+                    identityKind: .resourceIdentifier,
+                    lastKnownPath: sharedPath,
+                    displayName: "Receipt.pdf",
+                    fileExtension: "pdf",
+                    firstSeenAt: Date(timeIntervalSince1970: 20),
+                    lastSeenAt: Date(timeIntervalSince1970: 20)
+                )
+            )
+            try context.save()
+
+            let olderRun = try store.createRun(
+                scopeID: UUID(),
+                workflowTemplateID: "builtin.workflow.receipts.v1",
+                startedAt: Date(timeIntervalSince1970: 100),
+                primaryStatus: .succeeded
+            )
+            let newerRun = try store.createRun(
+                scopeID: UUID(),
+                workflowTemplateID: "builtin.workflow.receipts.v1",
+                startedAt: Date(timeIntervalSince1970: 200),
+                primaryStatus: .succeeded
+            )
+
+            _ = try store.recordFileAction(
+                runID: olderRun.id,
+                fileIdentity: olderIdentity,
+                sourcePath: sharedPath,
+                destinationPath: "/Users/example/Receipts/Receipt.pdf",
+                disposition: .moved,
+                recordedAt: Date(timeIntervalSince1970: 120)
+            )
+            _ = try store.recordFileAction(
+                runID: newerRun.id,
+                fileIdentity: newerIdentity,
+                sourcePath: sharedPath,
+                destinationPath: "/Users/example/Receipts/Receipt.pdf",
+                disposition: .moved,
+                recordedAt: Date(timeIntervalSince1970: 220)
+            )
+
+            let latestRun = try store.latestRunForPath(sharedPath)
+
+            XCTAssertEqual(latestRun?.id, newerRun.id)
         }
     }
 }

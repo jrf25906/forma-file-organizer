@@ -28,6 +28,64 @@ final class ActivityItem {
     var ruleID: UUID?
     /// Number of files affected by the operation (for ruleApplied and bulkOrganized).
     var affectedFileCount: Int?
+    var workflowRunID: UUID?
+    var workflowTemplateID: String?
+    private var workflowTriggerSurfaceRaw: String?
+    private var workflowPrimaryStatusRaw: String?
+    private var workflowRollbackStatusRaw: String?
+
+    var workflowTriggerSurface: WorkflowTriggerSurface? {
+        get {
+            guard let workflowTriggerSurfaceRaw else { return nil }
+            return WorkflowTriggerSurface(rawValue: workflowTriggerSurfaceRaw)
+        }
+        set {
+            workflowTriggerSurfaceRaw = newValue?.rawValue
+        }
+    }
+
+    var workflowPrimaryStatus: WorkflowRunPrimaryStatus? {
+        get {
+            guard let workflowPrimaryStatusRaw else { return nil }
+            return WorkflowRunPrimaryStatus(rawValue: workflowPrimaryStatusRaw)
+        }
+        set {
+            workflowPrimaryStatusRaw = newValue?.rawValue
+        }
+    }
+
+    var workflowRollbackStatus: WorkflowRunRollbackStatus? {
+        get {
+            guard let workflowRollbackStatusRaw else { return nil }
+            return WorkflowRunRollbackStatus(rawValue: workflowRollbackStatusRaw)
+        }
+        set {
+            workflowRollbackStatusRaw = newValue?.rawValue
+        }
+    }
+
+    var workflowProjection: WorkflowActivityProjection? {
+        guard let workflowRunID,
+              let workflowPrimaryStatus else {
+            return nil
+        }
+
+        return WorkflowActivityProjection(
+            runID: workflowRunID,
+            templateID: workflowTemplateID,
+            templateDisplayName: WorkflowTemplateCatalog.template(for: workflowTemplateID)?.displayName ?? fileName,
+            triggerSurfaceLabel: Self.workflowTriggerSurfaceLabel(workflowTriggerSurface),
+            fileCount: affectedFileCount ?? 0,
+            statusText: Self.workflowStatusText(
+                primaryStatus: workflowPrimaryStatus,
+                rollbackStatus: workflowRollbackStatus ?? .notRequested
+            ),
+            rollbackText: Self.workflowRollbackText(
+                primaryStatus: workflowPrimaryStatus,
+                rollbackStatus: workflowRollbackStatus ?? .notRequested
+            )
+        )
+    }
 
     init(
         activityType: ActivityType,
@@ -35,7 +93,12 @@ final class ActivityItem {
         details: String,
         fileExtension: String? = nil,
         ruleID: UUID? = nil,
-        affectedFileCount: Int? = nil
+        affectedFileCount: Int? = nil,
+        workflowRunID: UUID? = nil,
+        workflowTemplateID: String? = nil,
+        workflowTriggerSurface: WorkflowTriggerSurface? = nil,
+        workflowPrimaryStatus: WorkflowRunPrimaryStatus? = nil,
+        workflowRollbackStatus: WorkflowRunRollbackStatus? = nil
     ) {
         self.id = UUID()
         self.timestamp = Date()
@@ -45,6 +108,11 @@ final class ActivityItem {
         self.fileExtension = fileExtension
         self.ruleID = ruleID
         self.affectedFileCount = affectedFileCount
+        self.workflowRunID = workflowRunID
+        self.workflowTemplateID = workflowTemplateID
+        self.workflowTriggerSurfaceRaw = workflowTriggerSurface?.rawValue
+        self.workflowPrimaryStatusRaw = workflowPrimaryStatus?.rawValue
+        self.workflowRollbackStatusRaw = workflowRollbackStatus?.rawValue
     }
 
     enum ActivityType: String, Codable {
@@ -94,6 +162,8 @@ final class ActivityItem {
         case trustedAutomationScopeRevoked
         case trustedAutomationScopeRunSummary
         case trustedAutomationScopeAttentionNeeded
+        case workflowRunCompleted
+        case workflowRunAttentionNeeded
 
         enum ToneCategory: String, Codable {
             case neutral
@@ -137,6 +207,8 @@ final class ActivityItem {
             case .trustedAutomationScopeRevoked: return "xmark.shield.fill"
             case .trustedAutomationScopeRunSummary: return "list.bullet.rectangle.portrait.fill"
             case .trustedAutomationScopeAttentionNeeded: return "exclamationmark.shield.fill"
+            case .workflowRunCompleted: return "square.stack.3d.down.forward.fill"
+            case .workflowRunAttentionNeeded: return "exclamationmark.square.fill"
             }
         }
 
@@ -175,6 +247,8 @@ final class ActivityItem {
             case .trustedAutomationScopeRevoked: return "Trusted Scope Revoked"
             case .trustedAutomationScopeRunSummary: return "Trusted Scope Run"
             case .trustedAutomationScopeAttentionNeeded: return "Trusted Scope Needs Attention"
+            case .workflowRunCompleted: return "Workflow Run"
+            case .workflowRunAttentionNeeded: return "Workflow Needs Attention"
             }
         }
 
@@ -184,18 +258,91 @@ final class ActivityItem {
                  .automationResumed,
                  .trustedAutomationScopePromoted,
                  .trustedAutomationScopeResumed,
-                 .trustedAutomationScopeRunSummary:
+                 .trustedAutomationScopeRunSummary,
+                 .workflowRunCompleted:
                 return .progressWin
             case .automationScanCompleted,
                  .automationPaused,
                  .trustedAutomationScopePaused,
                  .trustedAutomationScopeRevoked:
                 return .reminder
-            case .automationError, .trustedAutomationScopeAttentionNeeded:
+            case .automationError,
+                 .trustedAutomationScopeAttentionNeeded,
+                 .workflowRunAttentionNeeded:
                 return .errorOrPermission
             default:
                 return .neutral
             }
+        }
+    }
+
+    enum WorkflowTriggerSurface: String, Codable {
+        case reviewFlow
+        case inspector
+        case bulkOrganize
+        case reviewView
+        case scheduledAutomationPass
+        case realtimeAutomationPass
+        case manualRefreshInspection
+    }
+
+    static func workflowTriggerSurfaceLabel(_ surface: WorkflowTriggerSurface?) -> String {
+        switch surface {
+        case .reviewFlow:
+            return "Review"
+        case .inspector:
+            return "Inspector"
+        case .bulkOrganize:
+            return "Bulk organize"
+        case .reviewView:
+            return "Review"
+        case .scheduledAutomationPass:
+            return "Scheduled trusted scope"
+        case .realtimeAutomationPass:
+            return "Live trusted scope"
+        case .manualRefreshInspection:
+            return "Trusted scope inspection"
+        case .none:
+            return "Workflow"
+        }
+    }
+
+    static func workflowStatusText(
+        primaryStatus: WorkflowRunPrimaryStatus,
+        rollbackStatus: WorkflowRunRollbackStatus
+    ) -> String {
+        switch primaryStatus {
+        case .queued:
+            return "Queued"
+        case .running:
+            return "Running"
+        case .succeeded:
+            return "Succeeded"
+        case .failed:
+            if rollbackStatus == .succeeded {
+                return "Failed, changes rolled back"
+            }
+            return "Failed"
+        case .canceled:
+            return "Canceled"
+        }
+    }
+
+    static func workflowRollbackText(
+        primaryStatus: WorkflowRunPrimaryStatus,
+        rollbackStatus: WorkflowRunRollbackStatus
+    ) -> String {
+        switch rollbackStatus {
+        case .notRequested:
+            return primaryStatus == .succeeded ? "Rollback available" : "Rollback unavailable"
+        case .requested:
+            return "Rollback requested"
+        case .inProgress:
+            return "Rollback in progress"
+        case .succeeded:
+            return "Rollback completed"
+        case .failed:
+            return "Rollback failed"
         }
     }
 
@@ -241,4 +388,16 @@ extension ActivityItem {
             )
         ]
     }
+}
+
+struct WorkflowActivityProjection: Equatable {
+    let runID: UUID
+    let templateID: String?
+    let templateDisplayName: String
+    let triggerSurfaceLabel: String
+    let fileCount: Int
+    let statusText: String
+    let rollbackText: String
+
+    var canOpenRunDetail: Bool { true }
 }

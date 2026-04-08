@@ -67,4 +67,44 @@ final class ActivityLoggingTests: XCTestCase {
             "Restored to original locations from the last automatic pass."
         )
     }
+
+    func testLogWorkflowRunSummary_PersistsInspectableRunLink() throws {
+        let schema = Schema([
+            ActivityItem.self,
+            WorkflowRunRecord.self,
+            WorkflowStepRunRecord.self,
+            WorkflowFileActionRecord.self
+        ])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = container.mainContext
+        let store = WorkflowAuditStore(modelContext: context)
+        let service = ActivityLoggingService(modelContext: context)
+
+        let run = try store.createRun(
+            scopeID: UUID(),
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.screenshots,
+            startedAt: Date(timeIntervalSince1970: 3_000),
+            primaryStatus: .succeeded
+        )
+        try store.updateRunStatus(
+            runID: run.id,
+            primaryStatus: .succeeded,
+            endedAt: Date(timeIntervalSince1970: 3_030)
+        )
+
+        service.logWorkflowRunSummary(
+            run: run,
+            triggerSurface: .bulkOrganize,
+            affectedFileCount: 4
+        )
+
+        let activities = try context.fetch(FetchDescriptor<ActivityItem>())
+        let activity = try XCTUnwrap(activities.last)
+
+        XCTAssertEqual(activity.workflowRunID, run.id)
+        XCTAssertEqual(activity.workflowTemplateID, BuiltInWorkflowTemplate.StableID.screenshots)
+        XCTAssertEqual(activity.affectedFileCount, 4)
+        XCTAssertEqual(activity.activityType, .workflowRunCompleted)
+    }
 }

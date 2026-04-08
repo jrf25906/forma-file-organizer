@@ -231,6 +231,18 @@ struct DashboardLaunchPresentation {
     }
 }
 
+struct WorkflowInspectorRunSummary: Equatable {
+    let runID: UUID
+    let templateDisplayName: String
+    let statusText: String
+    let rollbackText: String
+    let renameResultFileName: String?
+    let appliedTags: [String]
+    let moveDestinationDisplayName: String?
+
+    var canOpenRunDetail: Bool { true }
+}
+
 /// Coordinator ViewModel that composes focused ViewModels.
 /// This is the main entry point for the Dashboard, delegating responsibilities
 /// to specialized ViewModels for scanning, filtering, selection, analytics, and bulk operations.
@@ -962,6 +974,65 @@ class DashboardViewModel: ObservableObject {
         return WorkflowTemplateSimulationPreview.make(
             templateID: selectedWorkflowTemplateID,
             files: selectedFiles
+        )
+    }
+    func latestWorkflowInspectorSummary(
+        for filePath: String,
+        context: ModelContext? = nil
+    ) -> WorkflowInspectorRunSummary? {
+        guard featureFlags.isEnabled(.workflowEngineV2),
+              let context else {
+            return nil
+        }
+
+        let store = WorkflowAuditStore(modelContext: context)
+        guard let lookup = try? store.latestRunLookup(forPath: filePath) else {
+            return nil
+        }
+
+        let run = lookup.run
+        let fileIdentity = lookup.fileIdentity
+        let stepRuns = (try? store.stepRuns(runID: run.id)) ?? []
+        let stepRunsByID = Dictionary(uniqueKeysWithValues: stepRuns.map { ($0.id, $0) })
+        let fileActions = ((try? store.fileActions(runID: run.id)) ?? [])
+            .filter { $0.fileIdentity == fileIdentity }
+
+        let renameAction = fileActions.last {
+            workflowStepKind(for: $0, using: stepRunsByID) == .rename && $0.destinationPath != nil
+        }
+        let moveAction = fileActions.last {
+            workflowStepKind(for: $0, using: stepRunsByID) == .move && $0.destinationPath != nil
+        }
+        let appliedTags = Array(
+            Set(
+                fileActions.flatMap { action -> [String] in
+                    guard workflowStepKind(for: action, using: stepRunsByID) == .tag,
+                          case .tagRemoval(_, let tagsToRemove)? = WorkflowCompensationPayloadCodec.decode(action.compensationPayload) else {
+                        return []
+                    }
+                    return tagsToRemove
+                }
+            )
+        ).sorted()
+
+        return WorkflowInspectorRunSummary(
+            runID: run.id,
+            templateDisplayName: WorkflowTemplateCatalog.template(for: run.workflowTemplateID)?.displayName ?? "Workflow",
+            statusText: ActivityItem.workflowStatusText(
+                primaryStatus: run.primaryStatus,
+                rollbackStatus: run.rollbackStatus
+            ),
+            rollbackText: ActivityItem.workflowRollbackText(
+                primaryStatus: run.primaryStatus,
+                rollbackStatus: run.rollbackStatus
+            ),
+            renameResultFileName: renameAction?.destinationPath.flatMap { path in
+                URL(fileURLWithPath: path).lastPathComponent
+            },
+            appliedTags: appliedTags,
+            moveDestinationDisplayName: moveAction?.destinationPath.flatMap { path in
+                URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent
+            }
         )
     }
     var showBulkEditSheet: Bool {
@@ -2172,6 +2243,23 @@ class DashboardViewModel: ObservableObject {
         }
 
         return reviewableFiles.filter { $0.status == .ready }
+    }
+
+    private func workflowStepKind(
+        for action: WorkflowFileActionRecord,
+        using stepRunsByID: [UUID: WorkflowStepRunRecord]
+    ) -> WorkflowStepKind? {
+        guard let stepRunID = action.stepRunID,
+              let stepID = stepRunsByID[stepRunID]?.stepID else {
+            return nil
+        }
+
+        let parts = stepID.split(separator: "|")
+        guard parts.count >= 2 else {
+            return nil
+        }
+
+        return WorkflowStepKind(rawValue: String(parts[1]))
     }
     var deferredReviewFileCount: Int {
         activeDeferredReviewPaths(in: filterViewModel.reviewableFiles).count

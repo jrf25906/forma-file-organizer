@@ -15,6 +15,7 @@ struct FileInspectorView: View {
     private let previewHeight: CGFloat = 200
     @State private var pendingTrashFile: FileItem?
     @State private var ruleSimulationSummary: RuleEngine.RuleSimulationSummary?
+    @State private var presentedWorkflowRunID: UUID?
     
     var body: some View {
         ScrollView {
@@ -74,6 +75,20 @@ struct FileInspectorView: View {
                 Text("\"\(pendingTrashFile.name)\" will be moved to Trash.")
             }
         }
+        .sheet(
+            isPresented: Binding(
+                get: { presentedWorkflowRunID != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        presentedWorkflowRunID = nil
+                    }
+                }
+            )
+        ) {
+            if let presentedWorkflowRunID {
+                WorkflowRunDetailSheet(runID: presentedWorkflowRunID)
+            }
+        }
     }
     
     // MARK: - Single File Inspector
@@ -93,6 +108,14 @@ struct FileInspectorView: View {
         
         // Metadata
         metadataCard(file)
+
+        if FeatureFlagService.shared.isEnabled(.workflowEngineV2),
+           let workflowSummary = dashboardViewModel.latestWorkflowInspectorSummary(
+                for: file.path,
+                context: modelContext
+           ) {
+            workflowAuditCard(workflowSummary)
+        }
         
         // Organization Section
         if let destination = file.destination {
@@ -260,6 +283,47 @@ struct FileInspectorView: View {
             
             Spacer()
         }
+    }
+
+    private func workflowAuditCard(_ summary: WorkflowInspectorRunSummary) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            Text("Latest Workflow Run")
+                .font(.formaBodySemibold)
+                .tracking(0.5)
+                .foregroundColor(inspectorSecondaryTextColor)
+
+            metadataRow(label: "Template", value: summary.templateDisplayName)
+            metadataRow(label: "Status", value: summary.statusText)
+            metadataRow(label: "Rollback", value: summary.rollbackText)
+
+            if let renameResultFileName = summary.renameResultFileName {
+                metadataRow(label: "Rename", value: renameResultFileName)
+            }
+
+            if !summary.appliedTags.isEmpty {
+                metadataRow(label: "Tags", value: summary.appliedTags.joined(separator: ", "))
+            }
+
+            if let moveDestinationDisplayName = summary.moveDestinationDisplayName {
+                metadataRow(label: "Move", value: moveDestinationDisplayName)
+            }
+
+            if summary.canOpenRunDetail {
+                Button("View workflow details") {
+                    presentedWorkflowRunID = summary.runID
+                }
+                .buttonStyle(.plain)
+                .font(.formaCaptionSemibold)
+                .foregroundColor(.formaSteelBlue)
+            }
+        }
+        .padding(FormaSpacing.large)
+        .background(Color.formaCardBackground)
+        .formaCornerRadius(FormaRadius.card)
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+        )
     }
     
     private func organizationCard(_ file: FileItem, destination: String, matchingRule: Rule?) -> some View {

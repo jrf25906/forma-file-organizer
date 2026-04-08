@@ -3,6 +3,11 @@ import SwiftData
 
 @MainActor
 final class WorkflowAuditStore {
+    struct RunLookupResult {
+        let run: WorkflowRunRecord
+        let fileIdentity: String
+    }
+
     enum StoreError: LocalizedError {
         case runNotFound(UUID)
         case stepRunNotFound(UUID)
@@ -188,6 +193,59 @@ final class WorkflowAuditStore {
         return try run(id: latestAction.runID)
     }
 
+    func latestRunForPath(_ path: String) throws -> WorkflowRunRecord? {
+        try latestRunLookup(forPath: path)?.run
+    }
+
+    func latestRunLookup(forPath path: String) throws -> RunLookupResult? {
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+        let metadataRecords = try modelContext.fetch(FetchDescriptor<FileMetadataRecord>())
+            .filter { $0.lastKnownPath == normalizedPath }
+        let resolvedIdentity = FileMetadataFoundationService(modelContext: modelContext)
+            .resolveIdentity(for: normalizedPath)
+            .canonicalIdentity
+        let pathFallbackIdentity = FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: normalizedPath)
+
+        var candidateIdentities = Set(metadataRecords.map(\.canonicalIdentity))
+        candidateIdentities.insert(resolvedIdentity)
+        candidateIdentities.insert(pathFallbackIdentity)
+
+        guard let latestAction = try modelContext.fetch(FetchDescriptor<WorkflowFileActionRecord>())
+            .filter({
+                candidateIdentities.contains($0.fileIdentity) ||
+                $0.sourcePath == normalizedPath ||
+                $0.destinationPath == normalizedPath
+            })
+            .max(by: Self.fileActionSortOrder),
+              let run = try run(id: latestAction.runID) else {
+            return nil
+        }
+
+        return RunLookupResult(run: run, fileIdentity: latestAction.fileIdentity)
+    }
+
+    func stepRuns(runID: UUID) throws -> [WorkflowStepRunRecord] {
+        try modelContext.fetch(FetchDescriptor<WorkflowStepRunRecord>())
+            .filter { $0.runID == runID }
+            .sorted { lhs, rhs in
+                if lhs.recordedAt == rhs.recordedAt {
+                    return lhs.id.uuidString < rhs.id.uuidString
+                }
+                return lhs.recordedAt < rhs.recordedAt
+            }
+    }
+
+    func fileActions(runID: UUID) throws -> [WorkflowFileActionRecord] {
+        try modelContext.fetch(FetchDescriptor<WorkflowFileActionRecord>())
+            .filter { $0.runID == runID }
+            .sorted { lhs, rhs in
+                if lhs.recordedAt == rhs.recordedAt {
+                    return lhs.id.uuidString < rhs.id.uuidString
+                }
+                return lhs.recordedAt < rhs.recordedAt
+            }
+    }
+
     func run(id: UUID) throws -> WorkflowRunRecord? {
         try modelContext.fetch(FetchDescriptor<WorkflowRunRecord>()).first(where: { $0.id == id })
     }
@@ -213,5 +271,12 @@ final class WorkflowAuditStore {
             return lhs.updatedAt < rhs.updatedAt
         }
         return lhs.startedAt < rhs.startedAt
+    }
+
+    private static func fileActionSortOrder(_ lhs: WorkflowFileActionRecord, _ rhs: WorkflowFileActionRecord) -> Bool {
+        if lhs.recordedAt == rhs.recordedAt {
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+        return lhs.recordedAt < rhs.recordedAt
     }
 }
