@@ -127,6 +127,7 @@ final class AutomationEngine: ObservableObject {
     private let policyResolver: () -> AutomationPolicy
     private let fileMonitor: FileMonitoring
     private let watchedFoldersProvider: @MainActor () -> [WatchedFolderDescriptor]
+    private let workflowExecution: WorkflowExecutionClient
     private var modelContext: ModelContext?
 
     // Lazy initialization to avoid circular dependencies
@@ -153,13 +154,15 @@ final class AutomationEngine: ObservableObject {
         clock: Clock = SystemClock(),
         policyResolver: (() -> AutomationPolicy)? = nil,
         fileMonitor: FileMonitoring = FileMonitorService(),
-        watchedFoldersProvider: (@MainActor () -> [WatchedFolderDescriptor])? = nil
+        watchedFoldersProvider: (@MainActor () -> [WatchedFolderDescriptor])? = nil,
+        workflowExecution: WorkflowExecutionClient = .live
     ) {
         self.featureFlags = featureFlags
         self.notificationService = notificationService
         self.folderHealthAlertService = folderHealthAlertService
         self.clock = clock
         self.fileMonitor = fileMonitor
+        self.workflowExecution = workflowExecution
         self.policyResolver = policyResolver ?? {
             AutomationPolicy.resolve(flags: featureFlags, userSettings: .current)
         }
@@ -385,7 +388,6 @@ final class AutomationEngine: ObservableObject {
 
     private func performAutoOrganize(triggerSource: TrustedAutomationScopeRunTriggerSource) async {
         guard let context = modelContext,
-              let coordinator = organizationCoordinator,
               let provider = scanProvider else {
             return
         }
@@ -463,6 +465,7 @@ final class AutomationEngine: ObservableObject {
 
         var totalSuccess = 0
         var totalFailed = 0
+        var postPreflightSkippedCount = 0
         var firstExecutionError: Error?
         var attentionSignals = preflightPlan.attentionSignals
 
@@ -473,12 +476,12 @@ final class AutomationEngine: ObservableObject {
 
             let executionResult = await executeScopedAutoOrganizeGroup(
                 group,
-                using: coordinator,
                 context: context
             )
 
             totalSuccess += executionResult.successCount
             totalFailed += executionResult.failedCount
+            postPreflightSkippedCount += executionResult.skippedCount
 
             if firstExecutionError == nil {
                 firstExecutionError = executionResult.error
@@ -486,6 +489,10 @@ final class AutomationEngine: ObservableObject {
 
             if let executionAttentionSignal = group.executionAttentionSignal(for: executionResult.error) {
                 attentionSignals.append(executionAttentionSignal)
+            }
+
+            guard executionResult.shouldRecordRun else {
+                continue
             }
 
             do {
@@ -496,10 +503,10 @@ final class AutomationEngine: ObservableObject {
                     matchedCount: group.matchedCount,
                     eligibleCount: group.eligibleFiles.count,
                     organizedCount: executionResult.successCount,
-                    heldCount: group.heldCount,
+                    heldCount: group.heldCount + executionResult.additionalHeldCount,
                     failedCount: executionResult.failedCount,
-                    heldBuckets: group.heldBuckets,
-                    summaryText: group.executedSummaryText(
+                    heldBuckets: group.heldBuckets + executionResult.additionalHeldBuckets,
+                    summaryText: executionResult.summaryText ?? group.executedSummaryText(
                         successCount: executionResult.successCount,
                         failedCount: executionResult.failedCount
                     ),
@@ -520,24 +527,24 @@ final class AutomationEngine: ObservableObject {
 
         state.lastRunSuccessCount = totalSuccess
         state.lastRunFailedCount = totalFailed
-        state.lastRunSkippedCount = preflight.totalSkippedCount
+        state.lastRunSkippedCount = preflight.totalSkippedCount + postPreflightSkippedCount
 
         ActivityLoggingService.create(from: context)?.logAutoOrganizeBatch(
             successCount: totalSuccess,
             failedCount: totalFailed,
-            skippedCount: preflight.totalSkippedCount,
+            skippedCount: preflight.totalSkippedCount + postPreflightSkippedCount,
             skippedMissingDestination: preflight.skippedMissingDestination,
             skippedPermissionIssues: preflight.skippedPermissionIssues,
             skippedConfidenceThreshold: preflight.skippedConfidenceThreshold,
             skippedExcludedFromAutomation: preflight.skippedExcludedFromAutomation,
-            undoAvailable: totalSuccess > 0 && coordinator.latestUndoableBatchSummary?.origin == .automation
+            undoAvailable: false
         )
 
         if totalSuccess > 0 {
             sendAutoOrganizeSummary(
                 successCount: totalSuccess,
                 failedCount: totalFailed,
-                skippedCount: preflight.totalSkippedCount,
+                skippedCount: preflight.totalSkippedCount + postPreflightSkippedCount,
                 touchedScopeCount: preflightPlan.groups.count,
                 singleScopeDisplayName: preflightPlan.groups.count == 1
                     ? preflightPlan.groups.first?.scope.displayName
@@ -921,39 +928,53 @@ final class AutomationEngine: ObservableObject {
 
     private func executeScopedAutoOrganizeGroup(
         _ group: ScopedAutomationGroup,
-        using coordinator: FileOrganizationCoordinator,
         context: ModelContext
     ) async -> ScopedAutomationExecutionResult {
-        var result = ScopedAutomationExecutionResult(
-            successCount: 0,
-            failedCount: 0,
-            status: group.heldCount > 0 ? .held : .executed,
-            error: nil
-        )
-
-        await coordinator.organizeMultipleFiles(
-            group.eligibleFiles,
-            origin: .automation,
-            context: context
-        ) { success, failed, _, error in
-            let status: TrustedAutomationScopeRunStatus
-            if error != nil && success == 0 {
-                status = .failed
-            } else if failed > 0 || group.heldCount > 0 {
-                status = .held
-            } else {
-                status = .executed
-            }
-
-            result = ScopedAutomationExecutionResult(
-                successCount: success,
-                failedCount: failed,
-                status: status,
-                error: error
+        guard let templateID = group.scope.selectedWorkflowTemplateID,
+              WorkflowTemplateCatalog.template(for: templateID) != nil else {
+            return ScopedAutomationExecutionResult(
+                successCount: 0,
+                failedCount: 0,
+                skippedCount: group.eligibleFiles.count,
+                additionalHeldCount: group.eligibleFiles.count,
+                additionalHeldBuckets: [
+                    .init(bucket: "Workflow template required", count: group.eligibleFiles.count)
+                ],
+                status: .held,
+                error: nil,
+                didExecuteWorkflow: false,
+                summaryText: group.configurationRequiredSummaryText
             )
         }
 
-        return result
+        let plan = workflowExecution.plan(templateID, group.eligibleFiles)
+
+        do {
+            try await workflowExecution.run(plan, group.eligibleFiles, group.scope.id, context)
+            return ScopedAutomationExecutionResult(
+                successCount: group.eligibleFiles.count,
+                failedCount: 0,
+                skippedCount: 0,
+                additionalHeldCount: 0,
+                additionalHeldBuckets: [],
+                status: .executed,
+                error: nil,
+                didExecuteWorkflow: true,
+                summaryText: nil
+            )
+        } catch {
+            return ScopedAutomationExecutionResult(
+                successCount: 0,
+                failedCount: group.eligibleFiles.count,
+                skippedCount: 0,
+                additionalHeldCount: 0,
+                additionalHeldBuckets: [],
+                status: .failed,
+                error: error,
+                didExecuteWorkflow: true,
+                summaryText: nil
+            )
+        }
     }
 
     private func makeAttentionNotification(
@@ -990,8 +1011,17 @@ final class AutomationEngine: ObservableObject {
 private struct ScopedAutomationExecutionResult {
     let successCount: Int
     let failedCount: Int
+    let skippedCount: Int
+    let additionalHeldCount: Int
+    let additionalHeldBuckets: [TrustedAutomationScopeRunRecord.HeldBucket]
     let status: TrustedAutomationScopeRunStatus
     let error: Error?
+    let didExecuteWorkflow: Bool
+    let summaryText: String?
+
+    var shouldRecordRun: Bool {
+        didExecuteWorkflow || additionalHeldCount > 0 || failedCount > 0
+    }
 }
 
 private struct ScopedAutomationPreflightPlan {
@@ -1107,8 +1137,21 @@ private struct ScopedAutomationGroup {
         return "\(heldCount) file(s) were held for \(scope.displayName)."
     }
 
+    var configurationRequiredSummaryText: String {
+        "\(eligibleFiles.count) file(s) matched \(scope.displayName) but need a workflow template before automatic runs can continue."
+    }
+
     func executedSummaryText(successCount: Int, failedCount: Int) -> String {
-        var sentences = ["Organized \(successCount) file(s) in the \(scope.displayName) trusted scope"]
+        let leadSentence: String
+        if successCount > 0 {
+            leadSentence = "Organized \(successCount) file(s) in the \(scope.displayName) trusted scope"
+        } else if failedCount > 0 {
+            leadSentence = "\(failedCount) file(s) failed in the \(scope.displayName) trusted scope"
+        } else {
+            leadSentence = "No files were organized in the \(scope.displayName) trusted scope"
+        }
+
+        var sentences = [leadSentence]
         if heldCount > 0 {
             sentences.append("\(heldCount) file(s) remained held")
         }

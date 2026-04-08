@@ -14,6 +14,7 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
         let schema = Schema([
             TrustedAutomationScope.self,
             TrustedAutomationScopeRunRecord.self,
+            WorkflowRunRecord.self,
             Rule.self,
             RuleCategory.self
         ])
@@ -408,6 +409,118 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
             XCTAssertEqual(detail.summary.allowedActions, [.rename, .tag, .move])
             XCTAssertFalse(templateSummary.displayName.isEmpty)
             XCTAssertFalse(templateSummary.summaryText.isEmpty)
+        }
+    }
+
+    func testBuildDetail_IncludesLatestWorkflowStatusAndRollbackAvailability() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Organized")
+        )
+        let startedAt = Date(timeIntervalSince1970: 880)
+        let endedAt = Date(timeIntervalSince1970: 900)
+
+        try withServices { context, scopeService, catalogService in
+            let scope = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(reviewedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 3,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.93,
+                rationaleSummary: "Template-backed scope",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                templateAssignedAt: startedAt,
+                refreshedAt: startedAt
+            )
+
+            let store = WorkflowAuditStore(modelContext: context)
+            let run = try store.createRun(
+                scopeID: scope.id,
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                startedAt: startedAt,
+                primaryStatus: .running
+            )
+            try store.updateRunStatus(runID: run.id, primaryStatus: .succeeded, endedAt: endedAt)
+
+            let detail = try XCTUnwrap(catalogService.buildDetail(for: scope.id))
+            let latestWorkflowRun = try XCTUnwrap(detail.latestWorkflowRun)
+
+            XCTAssertEqual(latestWorkflowRun.templateID, BuiltInWorkflowTemplate.StableID.receipts)
+            XCTAssertEqual(latestWorkflowRun.primaryStatus, .succeeded)
+            XCTAssertEqual(latestWorkflowRun.rollbackStatus, .notRequested)
+            XCTAssertEqual(latestWorkflowRun.completedAt, endedAt)
+            XCTAssertTrue(latestWorkflowRun.isRollbackAvailable)
+        }
+    }
+
+    func testPromoteFromReviewDecision_PersistsSelectedWorkflowTemplate() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive")
+        )
+        let promotedAt = Date(timeIntervalSince1970: 9_000)
+
+        try withServices { _, scopeService, catalogService in
+            let recommendation = TrustedAutomationScopeRecommendation(
+                recommendedScope: TrustedAutomationScopeRecommendationOption(
+                    scopeType: .folder,
+                    scopeKey: "/Users/example/Downloads/Receipts",
+                    displayName: "Receipts",
+                    recommendationSource: .repeatedReviewAcceptance,
+                    acceptedEvidenceCount: 5,
+                    overrideEvidenceCount: 0,
+                    undoEvidenceCount: 0,
+                    confidenceSnapshot: 0.96,
+                    rationaleSummary: "Receipts are consistently approved."
+                ),
+                alternativeScopes: [],
+                snapshot: OrganizationMemorySnapshot(
+                    fileName: "April Receipt.pdf",
+                    fileExtension: "pdf",
+                    fileTypeCategory: .documents,
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Receipts",
+                    suggestionSource: .personalMemory,
+                    suggestedDestination: reviewedDestination,
+                    chosenDestination: reviewedDestination,
+                    confidenceScore: 0.96,
+                    matchedRuleID: nil
+                )
+            )
+
+            let promoted = try scopeService.promoteFromReviewDecision(
+                recommendation: recommendation,
+                selectedScopeType: .folder,
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                promotedAt: promotedAt
+            )
+
+            XCTAssertEqual(promoted.selectedWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
+            XCTAssertEqual(promoted.templateAssignedAt, promotedAt)
+            XCTAssertEqual(promoted.allowedActions, BuiltInWorkflowTemplate.requiredActionShape)
+
+            let detail = try XCTUnwrap(catalogService.buildDetail(for: promoted.id))
+            XCTAssertEqual(detail.selectedWorkflowTemplate?.id, BuiltInWorkflowTemplate.StableID.receipts)
+            XCTAssertEqual(detail.selectedWorkflowTemplate?.assignedAt, promotedAt)
+            XCTAssertEqual(detail.summary.allowedActions, BuiltInWorkflowTemplate.requiredActionShape)
         }
     }
 

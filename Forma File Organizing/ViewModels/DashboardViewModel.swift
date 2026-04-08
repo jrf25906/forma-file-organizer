@@ -1778,6 +1778,7 @@ class DashboardViewModel: ObservableObject {
 
     func confirmTrustedScopeRecommendation(
         selectedScopeType: TrustedAutomationScopeType,
+        selectedWorkflowTemplateID: String? = nil,
         context: ModelContext
     ) {
         guard let recommendation = panelManager.trustedScopeRecommendation else { return }
@@ -1785,7 +1786,8 @@ class DashboardViewModel: ObservableObject {
         do {
             let trustedScope = try TrustedAutomationScopeService(modelContext: context).promoteFromReviewDecision(
                 recommendation: recommendation,
-                selectedScopeType: selectedScopeType
+                selectedScopeType: selectedScopeType,
+                selectedWorkflowTemplateID: selectedWorkflowTemplateID
             )
             panelManager.dismissTrustedScopeRecommendation(clearRecommendation: true)
             refreshTrustedAutomationScopes(referenceDate: trustedScope.updatedAt)

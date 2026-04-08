@@ -21,6 +21,46 @@ final class AutomationEngineTests: XCTestCase {
     }
 
     @MainActor
+    private final class RecordingNotificationService: AutomationNotificationServing {
+        private(set) var scopedAutoOrganizeSummaries: [(
+            success: Int,
+            failed: Int,
+            skipped: Int,
+            scopeDisplayName: String?,
+            groupedScopeCount: Int
+        )] = []
+
+        func notifyAutoOrganizeSummary(successCount: Int, failedCount: Int, skippedCount: Int) {}
+
+        func notifyAutoOrganizeSummary(
+            successCount: Int,
+            failedCount: Int,
+            skippedCount: Int,
+            scopeDisplayName: String?,
+            groupedScopeCount: Int
+        ) {
+            scopedAutoOrganizeSummaries.append((
+                successCount,
+                failedCount,
+                skippedCount,
+                scopeDisplayName,
+                groupedScopeCount
+            ))
+        }
+
+        func notifyBacklogReminder(pendingCount: Int, oldestAgeDays: Int?) {}
+        func notifyAutomationError(type: AutomationErrorType, message: String) {}
+        func notifyFolderHealthAlert(
+            folderType: BookmarkFolder.FolderType,
+            currentBytes: Int64,
+            thresholdBytes: Int64
+        ) {}
+        func notifyStaleRulesAlert(ruleNames: [String], thresholdDays: Int) {}
+        func clearFolderHealthAlert(folderType: BookmarkFolder.FolderType) {}
+        func clearStaleRulesAlert() {}
+    }
+
+    @MainActor
     private final class RecordingOrganizationCoordinator: FileOrganizationCoordinator {
         private(set) var organizedFileBatches: [[String]] = []
 
@@ -35,6 +75,35 @@ final class AutomationEngineTests: XCTestCase {
             onComplete(files.count, 0, [], nil)
         }
     }
+
+    @MainActor
+    private final class WorkflowExecutionSpy {
+        private(set) var plannedTemplateIDs: [String] = []
+        private(set) var ranTemplateIDs: [String] = []
+        private(set) var lastPlannedFilePaths: [String] = []
+        private(set) var lastRunFilePaths: [String] = []
+        var runError: Error?
+
+        lazy var client = WorkflowExecutionClient(
+            plan: { [weak self] templateID, files in
+                self?.plannedTemplateIDs.append(templateID)
+                self?.lastPlannedFilePaths = files.map(\.path)
+                return WorkflowPlanner().plan(templateID: templateID, files: files)
+            },
+            run: { [weak self] plan, files, _, _ in
+                let filePaths = files.map(\.path)
+                await MainActor.run {
+                    self?.ranTemplateIDs.append(plan.definition.templateID)
+                    self?.lastRunFilePaths = filePaths
+                }
+                if let runError = await MainActor.run(resultType: Error?.self, body: { self?.runError }) {
+                    throw runError
+                }
+            }
+        )
+    }
+
+    private struct WorkflowExecutionFailure: Error {}
 
     // MARK: - Backoff Policy
 
@@ -141,7 +210,8 @@ final class AutomationEngineTests: XCTestCase {
         let scopeService = TrustedAutomationScopeService(modelContext: context)
         let provider = MockFileScanProvider()
         let coordinator = RecordingOrganizationCoordinator()
-        let engine = makeEngine()
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(workflowExecution: workflowExecution.client)
 
         let trustedFile = try makeFile(
             sourceRoot: sourceRoot,
@@ -177,7 +247,8 @@ final class AutomationEngineTests: XCTestCase {
             sourceRoot: sourceRoot,
             relativeParentPath: "trusted",
             displayName: "Receipts",
-            destination: activeDestination
+            destination: activeDestination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
         )
         let pausedScope = try makeFolderScope(
             service: scopeService,
@@ -205,7 +276,10 @@ final class AutomationEngineTests: XCTestCase {
 
         await engine.triggerAutoOrganize()
 
-        XCTAssertEqual(coordinator.organizedFileBatches, [[trustedFile.name]])
+        XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.lastRunFilePaths, [trustedFile.path])
         XCTAssertEqual(engine.state.lastPreflightSummary?.eligibleCount, 1)
         XCTAssertEqual(engine.state.lastPreflightSummary?.skippedExcludedFromAutomation, 3)
         XCTAssertEqual(try scopeService.activeScopes().map(\.id), [activeScope.id])
@@ -347,15 +421,377 @@ final class AutomationEngineTests: XCTestCase {
     }
 
     @MainActor
-    private func makeEngine() -> AutomationEngine {
+    func testAutomationEngine_UsesWorkflowRunnerForEligibleTrustedScopeBatch() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(workflowExecution: workflowExecution.client)
+
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "Receipt-August.pdf",
+            destination: destination
+        )
+        context.insert(file)
+
+        let scope = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Receipts",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.lastPlannedFilePaths, [file.path])
+        XCTAssertEqual(workflowExecution.lastRunFilePaths, [file.path])
+
+        let records = try context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+            )
+        ).filter { $0.scopeID == scope.id }
+
+        XCTAssertEqual(records.map(\.status), [.simulated, .executed])
+
+        let executedRecord = try XCTUnwrap(records.last)
+        XCTAssertEqual(executedRecord.organizedCount, 1)
+        XCTAssertEqual(executedRecord.heldCount, 0)
+        XCTAssertEqual(executedRecord.failedCount, 0)
+        XCTAssertEqual(executedRecord.exampleFileNames, [file.name])
+
+        let activities = try context.fetch(FetchDescriptor<ActivityItem>())
+        let autoOrganizeActivity = try XCTUnwrap(
+            activities.last(where: { $0.activityType == .automationAutoOrganized })
+        )
+        XCTAssertTrue(autoOrganizeActivity.details.contains("Automatic changes are final"))
+        XCTAssertFalse(autoOrganizeActivity.details.contains("Undo available"))
+    }
+
+    @MainActor
+    func testAutomationEngine_DoesNotRunScopeWithoutAssignedTemplate() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(workflowExecution: workflowExecution.client)
+
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "Receipt-September.pdf",
+            destination: destination
+        )
+        context.insert(file)
+
+        let scope = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Receipts",
+            destination: destination
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
+        XCTAssertTrue(workflowExecution.plannedTemplateIDs.isEmpty)
+        XCTAssertTrue(workflowExecution.ranTemplateIDs.isEmpty)
+
+        let records = try context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+            )
+        ).filter { $0.scopeID == scope.id }
+
+        XCTAssertEqual(records.map(\.status), [.simulated, .held])
+        XCTAssertEqual(engine.state.lastRunSkippedCount, 1)
+
+        let heldRecord = try XCTUnwrap(records.last)
+        XCTAssertEqual(heldRecord.eligibleCount, 1)
+        XCTAssertEqual(heldRecord.organizedCount, 0)
+        XCTAssertEqual(heldRecord.heldCount, 1)
+        XCTAssertEqual(heldRecord.exampleFileNames, [file.name])
+        XCTAssertTrue(heldRecord.summaryText?.localizedCaseInsensitiveContains("template") == true)
+        XCTAssertTrue(heldRecord.heldBuckets.contains { $0.bucket.localizedCaseInsensitiveContains("template") && $0.count == 1 })
+    }
+
+    @MainActor
+    func testAutomationEngine_PostPreflightSkippedCountFeedsNotificationSummary() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let notificationService = RecordingNotificationService()
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            notificationService: notificationService,
+            notificationsEnabled: true
+        )
+
+        let templatedFile = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "templated",
+            fileName: "Receipt-Template.pdf",
+            destination: destination
+        )
+        let untemplatedFile = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "legacy",
+            fileName: "Receipt-Legacy.pdf",
+            destination: destination
+        )
+        context.insert(templatedFile)
+        context.insert(untemplatedFile)
+
+        _ = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "templated",
+            displayName: "Templated Receipts",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+        _ = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "legacy",
+            displayName: "Legacy Receipts",
+            destination: destination
+        )
+
+        provider.autoOrganizeCandidates = [templatedFile, untemplatedFile]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        let summary = try XCTUnwrap(notificationService.scopedAutoOrganizeSummaries.first)
+        XCTAssertEqual(summary.success, 1)
+        XCTAssertEqual(summary.failed, 0)
+        XCTAssertEqual(summary.skipped, 1)
+        XCTAssertEqual(summary.groupedScopeCount, 2)
+    }
+
+    @MainActor
+    func testAutomationEngine_WorkflowSuccessWithPreflightHeldFilesRecordsExecutedStatus() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(workflowExecution: workflowExecution.client)
+
+        let readyFile = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "Receipt-October.pdf",
+            destination: destination
+        )
+        let heldFile = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "Receipt-LowConfidence.pdf",
+            destination: destination,
+            confidenceScore: 0.20
+        )
+        context.insert(readyFile)
+        context.insert(heldFile)
+
+        let scope = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Receipts",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+
+        provider.autoOrganizeCandidates = [readyFile, heldFile]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        let records = try context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+            )
+        ).filter { $0.scopeID == scope.id }
+
+        XCTAssertEqual(records.map(\.status), [.simulated, .executed])
+
+        let executedRecord = try XCTUnwrap(records.last)
+        XCTAssertEqual(executedRecord.organizedCount, 1)
+        XCTAssertEqual(executedRecord.heldCount, 1)
+        XCTAssertEqual(executedRecord.failedCount, 0)
+    }
+
+    @MainActor
+    func testAutomationEngine_WorkflowFailureWithPreflightHeldFilesRecordsFailedStatus() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        workflowExecution.runError = WorkflowExecutionFailure()
+        let engine = makeEngine(workflowExecution: workflowExecution.client)
+
+        let readyFile = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "Receipt-November.pdf",
+            destination: destination
+        )
+        let heldFile = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "Receipt-LowConfidence-2.pdf",
+            destination: destination,
+            confidenceScore: 0.20
+        )
+        context.insert(readyFile)
+        context.insert(heldFile)
+
+        let scope = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Receipts",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+
+        provider.autoOrganizeCandidates = [readyFile, heldFile]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        let records = try context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+            )
+        ).filter { $0.scopeID == scope.id }
+
+        XCTAssertEqual(records.map(\.status), [.simulated, .failed])
+
+        let failedRecord = try XCTUnwrap(records.last)
+        XCTAssertEqual(failedRecord.organizedCount, 0)
+        XCTAssertEqual(failedRecord.heldCount, 1)
+        XCTAssertEqual(failedRecord.failedCount, 1)
+        XCTAssertTrue(failedRecord.summaryText?.localizedCaseInsensitiveContains("failed") == true)
+        XCTAssertFalse(failedRecord.summaryText?.contains("Organized 0") == true)
+    }
+
+    @MainActor
+    private func makeEngine(
+        workflowExecution: WorkflowExecutionClient = .live,
+        notificationService: AutomationNotificationServing = SilentNotificationService(),
+        notificationsEnabled: Bool = false
+    ) -> AutomationEngine {
         AutomationEngine(
-            notificationService: SilentNotificationService(),
+            notificationService: notificationService,
             clock: FixedClock(now: Date(timeIntervalSince1970: 1_700_000_000)),
-            policyResolver: { self.makePolicy() }
+            policyResolver: { self.makePolicy(notificationsEnabled: notificationsEnabled) },
+            workflowExecution: workflowExecution
         )
     }
 
-    private func makePolicy() -> AutomationPolicy {
+    private func makePolicy(notificationsEnabled: Bool = false) -> AutomationPolicy {
         AutomationPolicy(
             userMode: .scanAndOrganize,
             effectiveMode: .scanAndOrganize,
@@ -365,7 +801,7 @@ final class AutomationEngineTests: XCTestCase {
             ageThresholdDays: FormaConfig.Automation.ageThresholdDays,
             mlConfidenceThreshold: FormaConfig.Automation.mlAutoOrganizeConfidenceMinimum,
             maxConsecutiveFailures: FormaConfig.Automation.maxConsecutiveFailures,
-            notificationsEnabled: false,
+            notificationsEnabled: notificationsEnabled,
             backlogReminderCooldownHours: FormaConfig.Automation.backlogReminderCooldownHours,
             errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
         )
@@ -378,6 +814,9 @@ final class AutomationEngineTests: XCTestCase {
             ActivityItem.self,
             TrustedAutomationScope.self,
             TrustedAutomationScopeRunRecord.self,
+            WorkflowRunRecord.self,
+            WorkflowStepRunRecord.self,
+            WorkflowFileActionRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     }
@@ -386,7 +825,8 @@ final class AutomationEngineTests: XCTestCase {
         sourceRoot: TemporaryDirectory,
         relativeParentPath: String,
         fileName: String,
-        destination: Destination
+        destination: Destination,
+        confidenceScore: Double = 0.99
     ) throws -> FileItem {
         let sourceURL = try sourceRoot.createFile(name: "\(relativeParentPath)/\(fileName)")
         let file = FileItem(
@@ -400,7 +840,7 @@ final class AutomationEngineTests: XCTestCase {
             originalSuggestedDestination: destination,
             status: .pending
         )
-        file.confidenceScore = 0.99
+        file.confidenceScore = confidenceScore
         return file
     }
 
@@ -410,7 +850,8 @@ final class AutomationEngineTests: XCTestCase {
         sourceRoot: TemporaryDirectory,
         relativeParentPath: String,
         displayName: String,
-        destination: Destination
+        destination: Destination,
+        selectedWorkflowTemplateID: String? = nil
     ) throws -> TrustedAutomationScope {
         try service.createOrReactivateScope(
             scopeType: .folder,
@@ -431,7 +872,8 @@ final class AutomationEngineTests: XCTestCase {
             undoEvidenceCount: 0,
             confidenceSnapshot: 0.93,
             rationaleSummary: "Repeated trusted review decisions.",
-            allowedActions: [.move]
+            allowedActions: [.move],
+            selectedWorkflowTemplateID: selectedWorkflowTemplateID
         )
     }
 }

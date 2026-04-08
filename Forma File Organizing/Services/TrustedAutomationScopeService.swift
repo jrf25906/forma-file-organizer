@@ -365,6 +365,7 @@ final class TrustedAutomationScopeService {
     func promoteFromReviewDecision(
         recommendation: TrustedAutomationScopeRecommendation,
         selectedScopeType: TrustedAutomationScopeType? = nil,
+        selectedWorkflowTemplateID: String? = nil,
         promotedAt: Date = Date()
     ) throws -> TrustedAutomationScope {
         let selectedType = selectedScopeType ?? recommendation.recommendedScope.scopeType
@@ -398,6 +399,8 @@ final class TrustedAutomationScopeService {
             confidenceSnapshot: resolvedOption.confidenceSnapshot,
             rationaleSummary: resolvedOption.rationaleSummary,
             allowedActions: [.move],
+            selectedWorkflowTemplateID: selectedWorkflowTemplateID,
+            templateAssignedAt: selectedWorkflowTemplateID == nil ? nil : promotedAt,
             refreshedAt: promotedAt
         )
     }

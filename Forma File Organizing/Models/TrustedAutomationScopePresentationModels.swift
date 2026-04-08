@@ -47,6 +47,18 @@ struct TrustedAutomationScopeWorkflowTemplateSummary: Sendable, Hashable {
     let assignedAt: Date?
 }
 
+struct TrustedAutomationScopeWorkflowRunSummary: Sendable, Hashable {
+    let templateID: String
+    let primaryStatus: WorkflowRunPrimaryStatus
+    let rollbackStatus: WorkflowRunRollbackStatus
+    let startedAt: Date
+    let completedAt: Date?
+
+    var isRollbackAvailable: Bool {
+        primaryStatus == .succeeded && rollbackStatus == .notRequested
+    }
+}
+
 struct TrustedAutomationScopeSummary: Identifiable, Sendable, Hashable {
     let id: UUID
     let scopeType: TrustedAutomationScopeType
@@ -93,6 +105,7 @@ struct TrustedAutomationScopeDetail: Identifiable, Sendable, Hashable {
     let confidenceSnapshot: Double
     let rationaleSummary: String
     let selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary?
+    let latestWorkflowRun: TrustedAutomationScopeWorkflowRunSummary?
     let recentRuns: [TrustedAutomationScopeRecentRunSummary]
 
     init(
@@ -107,6 +120,7 @@ struct TrustedAutomationScopeDetail: Identifiable, Sendable, Hashable {
         confidenceSnapshot: Double,
         rationaleSummary: String,
         selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary? = nil,
+        latestWorkflowRun: TrustedAutomationScopeWorkflowRunSummary? = nil,
         recentRuns: [TrustedAutomationScopeRecentRunSummary]
     ) {
         self.id = id
@@ -120,6 +134,7 @@ struct TrustedAutomationScopeDetail: Identifiable, Sendable, Hashable {
         self.confidenceSnapshot = confidenceSnapshot
         self.rationaleSummary = rationaleSummary
         self.selectedWorkflowTemplate = selectedWorkflowTemplate
+        self.latestWorkflowRun = latestWorkflowRun
         self.recentRuns = recentRuns
     }
 

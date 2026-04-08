@@ -261,6 +261,7 @@ final class TrustedAutomationScopeSnapshotTests: XCTestCase {
             undoEvidenceCount: 0,
             confidenceSnapshot: 0.94,
             rationaleSummary: "You’ve approved this folder pattern 6 times with no recent undo in Exports.",
+            latestWorkflowRun: nil,
             recentRuns: [
                 TrustedAutomationScopeRecentRunSummary(
                     id: UUID(),
@@ -289,5 +290,82 @@ final class TrustedAutomationScopeSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.latestPreflightSummary, "No scope-specific preflight has run yet.")
         XCTAssertEqual(snapshot.recentRuns.first?.statusText, "Executed")
         XCTAssertEqual(snapshot.recentRuns.first?.summaryText, "Executed 4 matching files.")
+    }
+
+    func testTrustedAutomationScopeDetailSheet_ShowsSelectedTemplateStepShapeAndRollbackAvailability() {
+        let detail = TrustedAutomationScopeDetail(
+            id: UUID(),
+            summary: TrustedAutomationScopeSummary(
+                id: UUID(),
+                scopeType: .folder,
+                displayName: "Receipts",
+                boundarySummary: "Receipts -> Documents/Receipts",
+                allowedActions: [.rename, .tag, .move],
+                selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary(
+                    id: BuiltInWorkflowTemplate.StableID.receipts,
+                    displayName: "Receipt Workflow",
+                    summaryText: "Rename receipts, tag them, and move them into the archive.",
+                    allowedActions: [.rename, .tag, .move],
+                    assignedAt: Date(timeIntervalSince1970: 100)
+                ),
+                lifecycle: TrustedAutomationScopeLifecycleSummary(
+                    status: .active,
+                    createdAt: Date(timeIntervalSince1970: 100),
+                    updatedAt: Date(timeIntervalSince1970: 300),
+                    lastEvidenceAt: Date(timeIntervalSince1970: 250),
+                    pausedAt: nil,
+                    lastRunAt: Date(timeIntervalSince1970: 290),
+                    revokedAt: nil
+                ),
+                health: TrustedAutomationScopeHealthSummary(
+                    state: .healthy,
+                    messages: [],
+                    lastSuccessfulRunAt: Date(timeIntervalSince1970: 290),
+                    lastBlockedRunAt: nil
+                ),
+                lastRun: nil
+            ),
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Receipts"
+                ),
+                destination: .init(.mockFolder("Documents/Receipts"))
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.96,
+            rationaleSummary: "Receipts are consistently approved.",
+            selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary(
+                id: BuiltInWorkflowTemplate.StableID.receipts,
+                displayName: "Receipt Workflow",
+                summaryText: "Rename receipts, tag them, and move them into the archive.",
+                allowedActions: [.rename, .tag, .move],
+                assignedAt: Date(timeIntervalSince1970: 100)
+            ),
+            latestWorkflowRun: TrustedAutomationScopeWorkflowRunSummary(
+                templateID: BuiltInWorkflowTemplate.StableID.receipts,
+                primaryStatus: .succeeded,
+                rollbackStatus: .notRequested,
+                startedAt: Date(timeIntervalSince1970: 280),
+                completedAt: Date(timeIntervalSince1970: 290)
+            ),
+            recentRuns: []
+        )
+
+        let snapshot = TrustedAutomationScopeDetailSheet.Snapshot(
+            detail: detail,
+            now: Date(timeIntervalSince1970: 300),
+            relativeDateProvider: { _, _ in "just now" }
+        )
+
+        XCTAssertEqual(snapshot.workflowTemplateTitle, "Receipt Workflow")
+        XCTAssertEqual(snapshot.workflowStepShapeText, "Rename -> Tag -> Move")
+        XCTAssertEqual(snapshot.latestWorkflowStatusText, "Latest workflow run: Succeeded")
+        XCTAssertEqual(snapshot.rollbackAvailabilityText, "Rollback available")
     }
 }

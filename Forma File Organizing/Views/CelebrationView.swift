@@ -52,9 +52,10 @@ struct CelebrationView: View {
                 TrustedAutomationScopeRecommendationSheet(
                     recommendation: recommendation,
                     previewSummariesByType: trustedScopeRecommendationPreviewSummaries(recommendation),
-                    onConfirm: { scopeType in
+                    onConfirm: { scopeType, workflowTemplateID in
                         dashboardViewModel.confirmTrustedScopeRecommendation(
                             selectedScopeType: scopeType,
+                            selectedWorkflowTemplateID: workflowTemplateID,
                             context: modelContext
                         )
                     },

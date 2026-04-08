@@ -80,6 +80,7 @@ final class TrustedAutomationScopeCatalogService {
             confidenceSnapshot: scope.confidenceSnapshot,
             rationaleSummary: scope.rationaleSummary,
             selectedWorkflowTemplate: summary.selectedWorkflowTemplate,
+            latestWorkflowRun: try makeLatestWorkflowRunSummary(for: scope),
             recentRuns: records.prefix(recentRunLimit).map(makeRecentRunSummary)
         )
     }
@@ -173,6 +174,27 @@ final class TrustedAutomationScopeCatalogService {
             summaryText: "This scope references a template that is not available in this build.",
             allowedActions: scope.allowedActions,
             assignedAt: scope.templateAssignedAt
+        )
+    }
+
+    private func makeLatestWorkflowRunSummary(
+        for scope: TrustedAutomationScope
+    ) throws -> TrustedAutomationScopeWorkflowRunSummary? {
+        guard let templateID = scope.selectedWorkflowTemplateID else {
+            return nil
+        }
+
+        let store = WorkflowAuditStore(modelContext: modelContext)
+        guard let run = try store.latestRunSummary(scopeID: scope.id, workflowTemplateID: templateID) else {
+            return nil
+        }
+
+        return TrustedAutomationScopeWorkflowRunSummary(
+            templateID: templateID,
+            primaryStatus: run.primaryStatus,
+            rollbackStatus: run.rollbackStatus,
+            startedAt: run.startedAt,
+            completedAt: run.endedAt
         )
     }
 

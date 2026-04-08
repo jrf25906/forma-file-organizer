@@ -73,15 +73,16 @@ struct TrustedAutomationScopeRecommendationSheet: View {
 
     let recommendation: TrustedAutomationScopeRecommendation
     let previewSummariesByType: [TrustedAutomationScopeType: TrustedAutomationScopeRecommendationPreviewSummary]?
-    let onConfirm: (TrustedAutomationScopeType) -> Void
+    let onConfirm: (TrustedAutomationScopeType, String) -> Void
     let onCancel: () -> Void
 
     @State private var selectedScopeType: TrustedAutomationScopeType
+    @State private var selectedWorkflowTemplateID: String?
 
     init(
         recommendation: TrustedAutomationScopeRecommendation,
         previewSummariesByType: [TrustedAutomationScopeType: TrustedAutomationScopeRecommendationPreviewSummary]? = nil,
-        onConfirm: @escaping (TrustedAutomationScopeType) -> Void,
+        onConfirm: @escaping (TrustedAutomationScopeType, String) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.recommendation = recommendation
@@ -89,6 +90,7 @@ struct TrustedAutomationScopeRecommendationSheet: View {
         self.onConfirm = onConfirm
         self.onCancel = onCancel
         _selectedScopeType = State(initialValue: recommendation.recommendedScope.scopeType)
+        _selectedWorkflowTemplateID = State(initialValue: nil)
     }
 
     var body: some View {
@@ -130,6 +132,23 @@ struct TrustedAutomationScopeRecommendationSheet: View {
                 Text(snapshot.automaticBehaviorSummary)
             }
 
+            detailCard(title: "Workflow template", systemImage: "square.stack.3d.down.forward") {
+                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                    WorkflowTemplatePicker(selectedTemplateID: $selectedWorkflowTemplateID)
+
+                    Text("Trusted automation uses the fixed workflow step shape: \(workflowStepShapeText).")
+                        .font(.formaCaption)
+                        .foregroundColor(.formaSecondaryLabel)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if selectedWorkflowTemplateID == nil {
+                        Text("Choose a built-in template before enabling trust.")
+                            .font(.formaCaptionSemibold)
+                            .foregroundColor(.formaWarmOrange)
+                    }
+                }
+            }
+
             detailCard(title: "First preflight", systemImage: "checklist") {
                 Text(snapshot.preflightSummary)
             }
@@ -162,10 +181,12 @@ struct TrustedAutomationScopeRecommendationSheet: View {
                 Spacer()
 
                 Button("Trust \(snapshot.selectedScopeTitle) Scope") {
-                    onConfirm(selectedScopeType)
+                    guard let selectedWorkflowTemplateID else { return }
+                    onConfirm(selectedScopeType, selectedWorkflowTemplateID)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.formaSteelBlue)
+                .disabled(selectedWorkflowTemplateID == nil)
             }
         }
         .padding(FormaSpacing.extraLarge)
@@ -265,5 +286,24 @@ struct TrustedAutomationScopeRecommendationSheet: View {
     ) -> TrustedAutomationScopeRecommendationPreviewSummary? {
         let selectedOption = recommendation.option(for: scopeType) ?? recommendation.recommendedScope
         return previewSummariesByType?[selectedOption.scopeType]
+    }
+
+    private var workflowStepShapeText: String {
+        let orderedActions: [TrustedAutomationAllowedAction] = [.rename, .tag, .move, .notify]
+        return orderedActions
+            .filter(BuiltInWorkflowTemplate.requiredActionShape.contains)
+            .map {
+                switch $0 {
+                case .rename:
+                    return "Rename"
+                case .tag:
+                    return "Tag"
+                case .move:
+                    return "Move"
+                case .notify:
+                    return "Notify"
+                }
+            }
+            .joined(separator: " -> ")
     }
 }
