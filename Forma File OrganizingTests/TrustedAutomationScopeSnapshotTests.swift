@@ -188,6 +188,38 @@ final class TrustedAutomationScopeSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.alternativeScopeTitles, ["Category"])
     }
 
+    func testRecommendationPreviewSummary_CallsOutSetupBlockersSeparatelyFromReview() {
+        let summary = TrustedAutomationScopeRecommendationPreviewSummary(
+            matchedCount: 5,
+            eligibleCount: 1,
+            skippedMissingDestinationCount: 1,
+            skippedPermissionIssueCount: 2,
+            skippedConfidenceThresholdCount: 1,
+            exampleFileNames: ["Quarterly Report.csv"]
+        )
+
+        XCTAssertEqual(
+            summary.summaryText,
+            "5 current matches. 1 would move automatically on the first pass, 1 would stay in review, and 3 are blocked by destination or permission setup."
+        )
+    }
+
+    func testRecommendationPreviewSummary_CallsOutMissingDestinationOnlyBlockers() {
+        let summary = TrustedAutomationScopeRecommendationPreviewSummary(
+            matchedCount: 2,
+            eligibleCount: 0,
+            skippedMissingDestinationCount: 2,
+            skippedPermissionIssueCount: 0,
+            skippedConfidenceThresholdCount: 0,
+            exampleFileNames: []
+        )
+
+        XCTAssertEqual(
+            summary.summaryText,
+            "2 current matches. Both are blocked by missing destinations."
+        )
+    }
+
     func testTrustedAutomationScopeDetailSheet_ShowsNoPreflightYetWhenHistoryOnlyHasExecutedRuns() {
         let detail = TrustedAutomationScopeDetail(
             id: UUID(),

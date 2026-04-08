@@ -556,6 +556,9 @@ struct SmartFeaturesSection: View {
         .onChange(of: autoOrganize) { _, _ in
             refreshTrustedAutomationScopeManagementState()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .automationScanDidPersist)) { _ in
+            refreshTrustedAutomationScopeManagementState()
+        }
         .sheet(isPresented: $showPersonalityQuiz) {
             PersonalityQuizView(
                 onComplete: { personality in

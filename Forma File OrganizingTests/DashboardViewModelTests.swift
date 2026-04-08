@@ -1421,6 +1421,95 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(Set(localViewModel.allFiles.map(\.path)), [refreshedDesktopFile.path])
     }
 
+    func testApplyAutomationScanUpdateRefreshesTrustedAutomationScopeState() async throws {
+        let schema = Schema([
+            FileItem.self,
+            Rule.self,
+            RuleCategory.self,
+            TrustedAutomationScope.self,
+            TrustedAutomationScopeRunRecord.self
+        ])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline()
+        )
+        localViewModel.setModelContext(context)
+
+        let destinationRoot = try TemporaryDirectory()
+        defer {
+            withExtendedLifetime(container) {}
+            destinationRoot.cleanup()
+        }
+
+        let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let scope = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "/Users/example/Downloads/Exports",
+            displayName: "Exports",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Exports"
+                ),
+                destination: .init(destination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.95,
+            rationaleSummary: "You’ve approved this folder pattern 6 times with no recent undo in Exports.",
+            allowedActions: [.move],
+            refreshedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        localViewModel.refreshTrustedAutomationScopes(referenceDate: Date(timeIntervalSince1970: 120))
+        localViewModel.presentTrustedAutomationScopeDetail(
+            id: scope.id,
+            referenceDate: Date(timeIntervalSince1970: 120)
+        )
+
+        XCTAssertEqual(localViewModel.trustedAutomationAttentionScopeCount, 0)
+        XCTAssertTrue(localViewModel.selectedTrustedAutomationScopeDetail?.recentRuns.isEmpty ?? false)
+
+        _ = try scopeService.recordRun(
+            scopeID: scope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .held,
+            matchedCount: 3,
+            eligibleCount: 2,
+            organizedCount: 2,
+            heldCount: 1,
+            failedCount: 0,
+            heldBuckets: [.init(bucket: "Needs Review", count: 1)],
+            summaryText: "Held 1 file for review.",
+            exampleFileNames: ["Draft.csv"],
+            startedAt: Date(timeIntervalSince1970: 180),
+            endedAt: Date(timeIntervalSince1970: 190)
+        )
+
+        await localViewModel.applyAutomationScanUpdate(
+            scannedRootPaths: ["/Users/example/Downloads"],
+            errorSummary: nil,
+            replacesAllFiles: false,
+            context: context
+        )
+
+        XCTAssertEqual(localViewModel.trustedAutomationAttentionScopeCount, 1)
+        XCTAssertEqual(localViewModel.trustedAutomationScopeSections.first?.summaries.first?.health.state, .needsAttention)
+        XCTAssertEqual(localViewModel.selectedTrustedAutomationScopeDetail?.recentRuns.first?.status, .held)
+        XCTAssertEqual(localViewModel.selectedTrustedAutomationScopeDetail?.recentRuns.first?.summaryText, "Held 1 file for review.")
+    }
+
     func testApplyExternalReviewSessionSkipOnlyRequestPreservesExistingFilters() {
         ExternalReviewSessionStore.shared.publish(nil)
 
@@ -2324,6 +2413,98 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(preview?.eligibleCount, 2)
         XCTAssertEqual(preview?.skippedConfidenceThresholdCount, 1)
         XCTAssertEqual(preview?.summaryText, "3 current matches. 2 would move automatically on the first pass, and 1 would stay in review.")
+    }
+
+    func testTrustedAutomationAttentionScopeCount_ExcludesRevokedScopes() throws {
+        let (container, context, scopeService) = try makeTrustedAutomationScopeDashboardServices()
+        let destinationRoot = try TemporaryDirectory()
+        defer {
+            withExtendedLifetime(container) {}
+            destinationRoot.cleanup()
+        }
+
+        let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
+        let activeScope = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "/Users/example/Downloads/Exports",
+            displayName: "Active Exports",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Exports"
+                ),
+                destination: .init(destination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.95,
+            rationaleSummary: "Active scope rationale.",
+            allowedActions: [.move],
+            refreshedAt: Date(timeIntervalSince1970: 100)
+        )
+        let revokedScope = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "/Users/example/Downloads/Archives",
+            displayName: "Revoked Archives",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Archives"
+                ),
+                destination: .init(destination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.95,
+            rationaleSummary: "Revoked scope rationale.",
+            allowedActions: [.move],
+            refreshedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        _ = try scopeService.recordRun(
+            scopeID: activeScope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .held,
+            matchedCount: 2,
+            eligibleCount: 1,
+            organizedCount: 1,
+            heldCount: 1,
+            failedCount: 0,
+            heldBuckets: [.init(bucket: "Needs Review", count: 1)],
+            summaryText: "Held 1 active file.",
+            exampleFileNames: ["active.csv"],
+            startedAt: Date(timeIntervalSince1970: 180),
+            endedAt: Date(timeIntervalSince1970: 190)
+        )
+        try scopeService.removeScope(id: revokedScope.id, at: Date(timeIntervalSince1970: 195))
+        _ = try scopeService.recordRun(
+            scopeID: revokedScope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .held,
+            matchedCount: 2,
+            eligibleCount: 1,
+            organizedCount: 1,
+            heldCount: 1,
+            failedCount: 0,
+            heldBuckets: [.init(bucket: "Needs Review", count: 1)],
+            summaryText: "Held 1 revoked file.",
+            exampleFileNames: ["revoked.csv"],
+            startedAt: Date(timeIntervalSince1970: 200),
+            endedAt: Date(timeIntervalSince1970: 210)
+        )
+
+        viewModel.setModelContext(context)
+        viewModel.refreshTrustedAutomationScopes(referenceDate: Date(timeIntervalSince1970: 220))
+
+        XCTAssertEqual(viewModel.trustedAutomationAttentionScopeCount, 1)
     }
     
     func testRedoSkipOperation() {

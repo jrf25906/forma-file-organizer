@@ -11,8 +11,12 @@ struct TrustedAutomationScopeRecommendationPreviewSummary: Hashable, Sendable {
     let skippedConfidenceThresholdCount: Int
     let exampleFileNames: [String]
 
+    var blockedBySetupCount: Int {
+        skippedMissingDestinationCount + skippedPermissionIssueCount
+    }
+
     var reviewCount: Int {
-        max(matchedCount - eligibleCount, 0)
+        max(matchedCount - eligibleCount - blockedBySetupCount, 0)
     }
 
     var summaryText: String {
@@ -20,7 +24,11 @@ struct TrustedAutomationScopeRecommendationPreviewSummary: Hashable, Sendable {
             return "No pending or ready files currently match this scope."
         }
 
-        if reviewCount == 0 {
+        if eligibleCount == 0, reviewCount == 0, blockedBySetupCount > 0 {
+            return blockerOnlySummaryText
+        }
+
+        if reviewCount == 0, blockedBySetupCount == 0 {
             if matchedCount == 1 {
                 return "1 current match. It would move automatically on the first pass."
             }
@@ -28,7 +36,7 @@ struct TrustedAutomationScopeRecommendationPreviewSummary: Hashable, Sendable {
             return "\(matchedCount) current matches. All \(eligibleCount) would move automatically on the first pass."
         }
 
-        if eligibleCount == 0 {
+        if eligibleCount == 0, blockedBySetupCount == 0 {
             if matchedCount == 1 {
                 return "1 current match. It would stay in review."
             }
@@ -36,7 +44,63 @@ struct TrustedAutomationScopeRecommendationPreviewSummary: Hashable, Sendable {
             return "\(matchedCount) current matches. All \(reviewCount) would stay in review."
         }
 
-        return "\(matchedCount) current matches. \(eligibleCount) would move automatically on the first pass, and \(reviewCount) would stay in review."
+        var components: [String] = []
+
+        if eligibleCount > 0 {
+            components.append("\(eligibleCount) would move automatically on the first pass")
+        }
+
+        if reviewCount > 0 {
+            components.append("\(reviewCount) would stay in review")
+        }
+
+        if blockedBySetupCount > 0 {
+            components.append(blockedBySetupSummaryFragment)
+        }
+
+        return "\(matchedCount) current matches. \(joinedSummaryComponents(components))."
+    }
+
+    private var blockerOnlySummaryText: String {
+        let blockerDescription = setupBlockerDescription
+
+        if matchedCount == 1 {
+            return "1 current match. It is blocked by \(blockerDescription)."
+        }
+
+        if matchedCount == 2 {
+            return "2 current matches. Both are blocked by \(blockerDescription)."
+        }
+
+        return "\(matchedCount) current matches. All \(blockedBySetupCount) are blocked by \(blockerDescription)."
+    }
+
+    private var blockedBySetupSummaryFragment: String {
+        let blockerDescription = setupBlockerDescription
+        let verb = blockedBySetupCount == 1 ? "is" : "are"
+        return "\(blockedBySetupCount) \(verb) blocked by \(blockerDescription)"
+    }
+
+    private var setupBlockerDescription: String {
+        if skippedMissingDestinationCount > 0, skippedPermissionIssueCount == 0 {
+            return skippedMissingDestinationCount == 1 ? "a missing destination" : "missing destinations"
+        }
+
+        if skippedPermissionIssueCount > 0, skippedMissingDestinationCount == 0 {
+            return skippedPermissionIssueCount == 1 ? "destination permissions" : "destination permissions"
+        }
+
+        return "destination or permission setup"
+    }
+
+    private func joinedSummaryComponents(_ components: [String]) -> String {
+        guard let first = components.first else { return "" }
+        guard components.count > 1 else { return first }
+        if components.count == 2 {
+            return "\(components[0]), and \(components[1])"
+        }
+
+        return "\(components.dropLast().joined(separator: ", ")), and \(components.last ?? "")"
     }
 }
 
@@ -465,6 +529,7 @@ class DashboardViewModel: ObservableObject {
             context: context,
             actions: makeScanRefreshActions()
         )
+        refreshTrustedAutomationScopes(referenceDate: Date())
     }
 
     /// Debug-only harness for deterministic signpost capture of dashboard refresh flows.
@@ -1218,6 +1283,7 @@ class DashboardViewModel: ObservableObject {
 
     var trustedAutomationAttentionScopeCount: Int {
         trustedAutomationScopeSections
+            .filter { $0.status != .revoked }
             .flatMap(\.summaries)
             .filter { $0.health.state == .needsAttention }
             .count
