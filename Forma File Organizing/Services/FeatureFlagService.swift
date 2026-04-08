@@ -34,6 +34,7 @@ struct FeatureFlagService: Sendable {
         case autoContentTags = "feature.autoContentTags"
         case autoProjectAssociation = "feature.autoProjectAssociation"
         case projectSpaces = "feature.projectSpaces"
+        case projectSpaceMemory = "feature.projectSpaceMemory"
         case durableWorkflowStatus = "feature.durableWorkflowStatus"
 
         // Automation (v1.4)
@@ -67,6 +68,7 @@ struct FeatureFlagService: Sendable {
             case .autoContentTags: return false
             case .autoProjectAssociation: return false
             case .projectSpaces: return false
+            case .projectSpaceMemory: return false
             case .durableWorkflowStatus: return false
             // Automation (v1.4)
             case .backgroundMonitoring: return true
@@ -98,6 +100,7 @@ struct FeatureFlagService: Sendable {
             case .autoContentTags: return "Auto content tags"
             case .autoProjectAssociation: return "Auto project association"
             case .projectSpaces: return "Project spaces"
+            case .projectSpaceMemory: return "Project space memory"
             case .durableWorkflowStatus: return "Durable workflow status"
             // Automation (v1.4)
             case .backgroundMonitoring: return "Background monitoring"
@@ -145,6 +148,8 @@ struct FeatureFlagService: Sendable {
                 return "Write project association labels from explicit project-like destinations and strong related-file inference."
             case .projectSpaces:
                 return "Group files across folders by shared project labels."
+            case .projectSpaceMemory:
+                return "Build richer project context summaries and reuse dominant destination suggestions."
             case .durableWorkflowStatus:
                 return "Persist queued, organized, recovered, and ignored workflow states in the local metadata foundation."
             // Automation (v1.4)
@@ -183,6 +188,7 @@ struct FeatureFlagService: Sendable {
             case .autoContentTags: return "tag.fill"
             case .autoProjectAssociation: return "folder.badge.gearshape"
             case .projectSpaces: return "square.grid.2x2"
+            case .projectSpaceMemory: return "books.vertical"
             case .durableWorkflowStatus: return "clock.arrow.circlepath"
             // Automation (v1.4)
             case .backgroundMonitoring: return "eye.circle"
@@ -222,6 +228,8 @@ struct FeatureFlagService: Sendable {
                 return [.metadataFoundation]
             case .projectSpaces:
                 return [.metadataFoundation]
+            case .projectSpaceMemory:
+                return [.metadataFoundation, .autoProjectAssociation, .projectSpaces]
             case .durableWorkflowStatus:
                 return [.metadataFoundation]
             // Automation (v1.4)

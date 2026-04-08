@@ -22,6 +22,7 @@ struct SmartFeaturesSection: View {
     @AppStorage(FeatureFlagService.Feature.autoContentTags.rawValue) private var autoContentTags = FeatureFlagService.Feature.autoContentTags.defaultValue
     @AppStorage(FeatureFlagService.Feature.autoProjectAssociation.rawValue) private var autoProjectAssociation = FeatureFlagService.Feature.autoProjectAssociation.defaultValue
     @AppStorage(FeatureFlagService.Feature.projectSpaces.rawValue) private var projectSpaces = FeatureFlagService.Feature.projectSpaces.defaultValue
+    @AppStorage(FeatureFlagService.Feature.projectSpaceMemory.rawValue) private var projectSpaceMemory = FeatureFlagService.Feature.projectSpaceMemory.defaultValue
     @AppStorage(FeatureFlagService.Feature.durableWorkflowStatus.rawValue) private var durableWorkflowStatus = FeatureFlagService.Feature.durableWorkflowStatus.defaultValue
     @AppStorage(FeatureFlagService.Feature.backgroundMonitoring.rawValue) private var backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
     @AppStorage(FeatureFlagService.Feature.autoOrganize.rawValue) private var autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
@@ -265,6 +266,16 @@ struct SmartFeaturesSection: View {
                         Divider().padding(.leading, FormaSpacing.extraLarge + FormaSpacing.tight)
 
                         SmartFeatureRow(
+                            feature: .projectSpaceMemory,
+                            isEnabled: $projectSpaceMemory,
+                            masterEnabled: masterAIEnabled,
+                            dependencyMet: metadataFoundation && autoProjectAssociation && projectSpaces,
+                            requiresFeature: .projectSpaces
+                        )
+
+                        Divider().padding(.leading, FormaSpacing.extraLarge + FormaSpacing.tight)
+
+                        SmartFeatureRow(
                             feature: .durableWorkflowStatus,
                             isEnabled: $durableWorkflowStatus,
                             masterEnabled: masterAIEnabled,
@@ -502,6 +513,7 @@ struct SmartFeaturesSection: View {
         autoContentTags = FeatureFlagService.Feature.autoContentTags.defaultValue
         autoProjectAssociation = FeatureFlagService.Feature.autoProjectAssociation.defaultValue
         projectSpaces = FeatureFlagService.Feature.projectSpaces.defaultValue
+        projectSpaceMemory = FeatureFlagService.Feature.projectSpaceMemory.defaultValue
         durableWorkflowStatus = FeatureFlagService.Feature.durableWorkflowStatus.defaultValue
         backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
         autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
@@ -534,6 +546,7 @@ struct SmartFeaturesSection: View {
         autoContentTags = FeatureFlagService.shared.getRawValue(.autoContentTags)
         autoProjectAssociation = FeatureFlagService.shared.getRawValue(.autoProjectAssociation)
         projectSpaces = FeatureFlagService.shared.getRawValue(.projectSpaces)
+        projectSpaceMemory = FeatureFlagService.shared.getRawValue(.projectSpaceMemory)
         durableWorkflowStatus = FeatureFlagService.shared.getRawValue(.durableWorkflowStatus)
         backgroundMonitoring = FeatureFlagService.shared.getRawValue(.backgroundMonitoring)
         autoOrganize = FeatureFlagService.shared.getRawValue(.autoOrganize)
