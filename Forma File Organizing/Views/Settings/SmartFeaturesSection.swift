@@ -43,6 +43,13 @@ struct SmartFeaturesSection: View {
     @AppStorage(AutomationUserSettings.Keys.scanInterval) private var scanInterval = FormaConfig.Automation.defaultScanIntervalMinutes
     @AppStorage(AutomationUserSettings.Keys.scanOnLaunch) private var scanOnLaunch = true
     @AppStorage(AutomationUserSettings.Keys.notifications) private var automationNotifications = true
+    @State private var trustedAutomationScopeSections: [TrustedAutomationScopeSummarySection] = []
+    @State private var selectedTrustedAutomationScopeDetail: TrustedAutomationScopeDetail?
+    @State private var trustedAutomationScopeLoadError: String?
+
+    private var showsTrustedAutomationScopeManagement: Bool {
+        masterAIEnabled && (backgroundMonitoring || autoOrganize)
+    }
 
     var body: some View {
         ScrollView {
@@ -319,6 +326,53 @@ struct SmartFeaturesSection: View {
                     }
                 }
 
+                if showsTrustedAutomationScopeManagement {
+                    SettingsSection("Trusted Autopilot Scopes") {
+                        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                            Text("Review-earned scopes define what Forma can organize automatically. Open a scope to inspect health, recent runs, and lifecycle controls.")
+                                .font(.formaSmall)
+                                .foregroundColor(.formaSecondaryLabel)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            if let snapshot = TrustedAutomationScopesSection.Snapshot(
+                                title: "Scope management",
+                                sections: trustedAutomationScopeSections,
+                                style: .management
+                            ) {
+                                TrustedAutomationScopesSection(snapshot: snapshot) { scopeID in
+                                    presentTrustedAutomationScopeDetail(id: scopeID)
+                                }
+                            } else {
+                                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                                    Text("No trusted scopes yet")
+                                        .font(.formaBodySemibold)
+                                        .foregroundColor(.formaLabel)
+
+                                    Text("Earn trust from the review celebration flow to add your first autopilot boundary.")
+                                        .font(.formaSmall)
+                                        .foregroundColor(.formaSecondaryLabel)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(FormaSpacing.large)
+                                .background(Color.formaCardBackground)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                                        .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+                            }
+
+                            if let trustedAutomationScopeLoadError {
+                                Text(trustedAutomationScopeLoadError)
+                                    .font(.formaCaption)
+                                    .foregroundColor(.formaWarmOrange)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+
                 // Automation Behavior (only show when background monitoring is enabled)
                 if masterAIEnabled && backgroundMonitoring {
                     SettingsSection("Automation Behavior") {
@@ -472,9 +526,19 @@ struct SmartFeaturesSection: View {
         .onAppear {
             syncFeatureFlagState()
             loadPersonalMemorySummary()
+            refreshTrustedAutomationScopeManagementState()
         }
         .onChange(of: patternLearning) { _, _ in
             loadPersonalMemorySummary()
+        }
+        .onChange(of: masterAIEnabled) { _, _ in
+            refreshTrustedAutomationScopeManagementState()
+        }
+        .onChange(of: backgroundMonitoring) { _, _ in
+            refreshTrustedAutomationScopeManagementState()
+        }
+        .onChange(of: autoOrganize) { _, _ in
+            refreshTrustedAutomationScopeManagementState()
         }
         .sheet(isPresented: $showPersonalityQuiz) {
             PersonalityQuizView(
@@ -492,6 +556,23 @@ struct SmartFeaturesSection: View {
             Button("Reset", role: .destructive, action: resetPersonalMemory)
         } message: {
             Text("Forma will forget stored organization decisions and remove memory-backed rule suggestions.")
+        }
+        .sheet(item: $selectedTrustedAutomationScopeDetail) { detail in
+            TrustedAutomationScopeDetailSheet(
+                detail: detail,
+                onPause: {
+                    pauseSelectedTrustedAutomationScope()
+                },
+                onResume: {
+                    resumeSelectedTrustedAutomationScope()
+                },
+                onRevoke: {
+                    revokeSelectedTrustedAutomationScope()
+                },
+                onClose: {
+                    selectedTrustedAutomationScopeDetail = nil
+                }
+            )
         }
     }
 
@@ -526,6 +607,84 @@ struct SmartFeaturesSection: View {
         UserDefaults.standard.removeObject(forKey: FolderHealthAlertSettings.Keys.staleRuleThresholdDays)
         NotificationService.shared.clearStaleRulesAlert()
         AutomationEngine.shared.refreshPolicy()
+    }
+
+    private func refreshTrustedAutomationScopeManagementState(referenceDate: Date = Date()) {
+        guard showsTrustedAutomationScopeManagement else {
+            trustedAutomationScopeSections = []
+            selectedTrustedAutomationScopeDetail = nil
+            trustedAutomationScopeLoadError = nil
+            return
+        }
+
+        loadTrustedAutomationScopes(referenceDate: referenceDate)
+    }
+
+    private func loadTrustedAutomationScopes(referenceDate: Date = Date()) {
+        do {
+            let catalogService = TrustedAutomationScopeCatalogService(modelContext: modelContext)
+            trustedAutomationScopeSections = try catalogService.buildSummarySections(referenceDate: referenceDate)
+            trustedAutomationScopeLoadError = nil
+
+            if let selectedTrustedAutomationScopeDetail {
+                self.selectedTrustedAutomationScopeDetail = try catalogService.buildDetail(
+                    for: selectedTrustedAutomationScopeDetail.id,
+                    referenceDate: referenceDate
+                )
+            }
+        } catch {
+            trustedAutomationScopeLoadError = error.localizedDescription
+            trustedAutomationScopeSections = []
+        }
+    }
+
+    private func presentTrustedAutomationScopeDetail(id: UUID, referenceDate: Date = Date()) {
+        do {
+            let catalogService = TrustedAutomationScopeCatalogService(modelContext: modelContext)
+            selectedTrustedAutomationScopeDetail = try catalogService.buildDetail(
+                for: id,
+                referenceDate: referenceDate
+            )
+            trustedAutomationScopeLoadError = nil
+        } catch {
+            trustedAutomationScopeLoadError = error.localizedDescription
+        }
+    }
+
+    private func pauseSelectedTrustedAutomationScope(referenceDate: Date = Date()) {
+        mutateSelectedTrustedAutomationScope(referenceDate: referenceDate) { service, detailID in
+            try service.pauseScope(id: detailID)
+        }
+    }
+
+    private func resumeSelectedTrustedAutomationScope(referenceDate: Date = Date()) {
+        mutateSelectedTrustedAutomationScope(referenceDate: referenceDate) { service, detailID in
+            try service.resumeScope(id: detailID)
+        }
+    }
+
+    private func revokeSelectedTrustedAutomationScope(referenceDate: Date = Date()) {
+        mutateSelectedTrustedAutomationScope(referenceDate: referenceDate) { service, detailID in
+            try service.removeScope(id: detailID)
+        }
+    }
+
+    private func mutateSelectedTrustedAutomationScope(
+        referenceDate: Date = Date(),
+        mutation: (TrustedAutomationScopeService, UUID) throws -> Void
+    ) {
+        guard let detailID = selectedTrustedAutomationScopeDetail?.id else {
+            return
+        }
+
+        do {
+            let service = TrustedAutomationScopeService(modelContext: modelContext)
+            try mutation(service, detailID)
+            loadTrustedAutomationScopes(referenceDate: referenceDate)
+            presentTrustedAutomationScopeDetail(id: detailID, referenceDate: referenceDate)
+        } catch {
+            trustedAutomationScopeLoadError = error.localizedDescription
+        }
     }
 
     private func syncFeatureFlagState() {

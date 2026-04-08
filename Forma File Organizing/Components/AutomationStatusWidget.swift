@@ -11,6 +11,8 @@ import Combine
 /// Designed to fit within DefaultPanelView's scrolling content area.
 struct AutomationStatusWidget: View {
     let pendingReviewCount: Int
+    let activeScopeCount: Int
+    let attentionScopeCount: Int
     private let engine = AutomationEngine.shared
     private let automationState = AutomationEngine.shared.state
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -27,8 +29,14 @@ struct AutomationStatusWidget: View {
     /// Timer to update countdown display
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
-    init(pendingReviewCount: Int = 0) {
+    init(
+        pendingReviewCount: Int = 0,
+        activeScopeCount: Int = 0,
+        attentionScopeCount: Int = 0
+    ) {
         self.pendingReviewCount = pendingReviewCount
+        self.activeScopeCount = activeScopeCount
+        self.attentionScopeCount = attentionScopeCount
     }
 
     /// Whether the automation is paused (neither running nor scheduled)
@@ -113,6 +121,23 @@ struct AutomationStatusWidget: View {
                                 .font(.formaCaption)
                                 .foregroundStyle(Color.formaSecondaryLabelHigh)
                                 .lineLimit(1)
+                        }
+
+                        if activeScopeCount > 0 || attentionScopeCount > 0 {
+                            HStack(spacing: FormaSpacing.tight) {
+                                if activeScopeCount > 0 {
+                                    Text("\(activeScopeCount) autopilot scope\(activeScopeCount == 1 ? "" : "s")")
+                                        .font(.formaCaption)
+                                        .foregroundStyle(Color.formaSecondaryLabelHigh)
+                                }
+
+                                if attentionScopeCount > 0 {
+                                    Text("\(attentionScopeCount) attention")
+                                        .font(.formaCaptionBold)
+                                        .foregroundStyle(Color.formaWarmOrange)
+                                }
+                            }
+                            .lineLimit(1)
                         }
                     }
                     .fixedSize(horizontal: true, vertical: false)

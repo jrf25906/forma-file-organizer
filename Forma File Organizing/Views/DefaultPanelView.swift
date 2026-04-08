@@ -95,11 +95,20 @@ struct DefaultPanelView: View {
         projectSpacesFeatureEnabled && !dashboardViewModel.projectSpaces.isEmpty
     }
 
+    private var trustedAutomationScopeSnapshot: TrustedAutomationScopesSection.Snapshot? {
+        TrustedAutomationScopesSection.Snapshot(
+            title: "Autopilot scopes",
+            sections: dashboardViewModel.trustedAutomationScopeSections,
+            style: .compact
+        )
+    }
+
     var body: some View {
         panelContent
         .background(Color.clear)
         .onAppear {
             loadInsightsImmediately()
+            dashboardViewModel.refreshTrustedAutomationScopes()
         }
         .onChange(of: dashboardViewModel.allFiles) { _, _ in
             loadInsightsDebounced()
@@ -114,6 +123,25 @@ struct DefaultPanelView: View {
             // Cancel any pending insight load when view disappears
             insightLoadSequence &+= 1
             insightLoadTask?.cancel()
+        }
+        .sheet(isPresented: trustedAutomationScopeDetailSheetBinding) {
+            if let detail = dashboardViewModel.selectedTrustedAutomationScopeDetail {
+                TrustedAutomationScopeDetailSheet(
+                    detail: detail,
+                    onPause: {
+                        dashboardViewModel.pauseSelectedTrustedAutomationScope()
+                    },
+                    onResume: {
+                        dashboardViewModel.resumeSelectedTrustedAutomationScope()
+                    },
+                    onRevoke: {
+                        dashboardViewModel.revokeSelectedTrustedAutomationScope()
+                    },
+                    onClose: {
+                        dashboardViewModel.dismissTrustedAutomationScopeDetail()
+                    }
+                )
+            }
         }
         .overlay(alignment: .topLeading) {
             if isUITesting {
@@ -636,8 +664,16 @@ struct DefaultPanelView: View {
         if showsAutomationStatusSection {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 AutomationStatusWidget(
-                    pendingReviewCount: dashboardViewModel.cachedNeedsReviewCount
+                    pendingReviewCount: dashboardViewModel.cachedNeedsReviewCount,
+                    activeScopeCount: dashboardViewModel.trustedAutomationActiveScopeCount,
+                    attentionScopeCount: dashboardViewModel.trustedAutomationAttentionScopeCount
                 )
+
+                if let trustedAutomationScopeSnapshot {
+                    TrustedAutomationScopesSection(snapshot: trustedAutomationScopeSnapshot) { scopeID in
+                        dashboardViewModel.presentTrustedAutomationScopeDetail(id: scopeID)
+                    }
+                }
 
                 if let summary = automationState.lastPreflightSummary,
                    shouldShowAutomationPreflight(summary) {
@@ -724,6 +760,17 @@ struct DefaultPanelView: View {
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .strokeBorder(inspectorSecondaryCardBorder, lineWidth: 1)
+        )
+    }
+
+    private var trustedAutomationScopeDetailSheetBinding: Binding<Bool> {
+        Binding(
+            get: { dashboardViewModel.isTrustedAutomationScopeDetailPresented },
+            set: { isPresented in
+                if !isPresented {
+                    dashboardViewModel.dismissTrustedAutomationScopeDetail()
+                }
+            }
         )
     }
 

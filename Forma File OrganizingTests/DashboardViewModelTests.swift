@@ -2169,6 +2169,96 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.trustedScopeRecommendation)
         XCTAssertFalse(viewModel.isTrustedScopeRecommendationPresented)
     }
+
+    func testTrustedAutomationScopeDetail_PauseResumeAndRevokeRefreshVisibleGroups() throws {
+        let (container, context, scopeService) = try makeTrustedAutomationScopeDashboardServices()
+        let destinationRoot = try TemporaryDirectory()
+        defer {
+            withExtendedLifetime(container) {}
+            destinationRoot.cleanup()
+        }
+
+        let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
+        let scope = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "/Users/example/Downloads/Exports",
+            displayName: "Exports",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Exports"
+                ),
+                destination: .init(destination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.95,
+            rationaleSummary: "You’ve approved this folder pattern 6 times with no recent undo in Exports.",
+            allowedActions: [.move, .notify],
+            refreshedAt: Date(timeIntervalSince1970: 100)
+        )
+        _ = try scopeService.recordRun(
+            scopeID: scope.id,
+            triggerSource: .promotionPreview,
+            status: .executed,
+            matchedCount: 3,
+            eligibleCount: 3,
+            organizedCount: 3,
+            heldCount: 0,
+            failedCount: 0,
+            heldBuckets: [],
+            summaryText: "Previewed 3 matching files with no blockers.",
+            exampleFileNames: ["Quarterly Report.csv"],
+            startedAt: Date(timeIntervalSince1970: 180),
+            endedAt: Date(timeIntervalSince1970: 210)
+        )
+
+        viewModel.setModelContext(context)
+        viewModel.refreshTrustedAutomationScopes(referenceDate: Date(timeIntervalSince1970: 300))
+
+        XCTAssertEqual(viewModel.trustedAutomationScopeSections.map(\.status), [.active])
+        XCTAssertEqual(viewModel.trustedAutomationScopeSections.first?.summaries.map(\.displayName), ["Exports"])
+        XCTAssertEqual(viewModel.defaultPanelTrustedAutomationScopes.map(\.displayName), ["Exports"])
+
+        viewModel.presentTrustedAutomationScopeDetail(
+            id: scope.id,
+            referenceDate: Date(timeIntervalSince1970: 300)
+        )
+
+        XCTAssertTrue(viewModel.isTrustedAutomationScopeDetailPresented)
+        XCTAssertEqual(viewModel.selectedTrustedAutomationScopeDetail?.summary.displayName, "Exports")
+        XCTAssertEqual(viewModel.selectedTrustedAutomationScopeDetail?.lifecycle.status, .active)
+
+        viewModel.pauseSelectedTrustedAutomationScope(
+            at: Date(timeIntervalSince1970: 400),
+            referenceDate: Date(timeIntervalSince1970: 400)
+        )
+
+        XCTAssertEqual(viewModel.trustedAutomationScopeSections.map(\.status), [.paused])
+        XCTAssertEqual(viewModel.trustedAutomationScopeSections.first?.summaries.map(\.displayName), ["Exports"])
+        XCTAssertEqual(viewModel.selectedTrustedAutomationScopeDetail?.lifecycle.status, .paused)
+
+        viewModel.resumeSelectedTrustedAutomationScope(
+            at: Date(timeIntervalSince1970: 500),
+            referenceDate: Date(timeIntervalSince1970: 500)
+        )
+
+        XCTAssertEqual(viewModel.trustedAutomationScopeSections.map(\.status), [.active])
+        XCTAssertEqual(viewModel.selectedTrustedAutomationScopeDetail?.lifecycle.status, .active)
+
+        viewModel.revokeSelectedTrustedAutomationScope(
+            at: Date(timeIntervalSince1970: 600),
+            referenceDate: Date(timeIntervalSince1970: 600)
+        )
+
+        XCTAssertEqual(viewModel.trustedAutomationScopeSections.map(\.status), [.revoked])
+        XCTAssertEqual(viewModel.selectedTrustedAutomationScopeDetail?.lifecycle.status, .revoked)
+        XCTAssertTrue(viewModel.defaultPanelTrustedAutomationScopes.isEmpty)
+    }
     
     func testRedoSkipOperation() {
         // Given
@@ -2445,6 +2535,23 @@ final class DashboardViewModelTests: XCTestCase {
 
     private func panelStateManager() -> PanelStateManager {
         viewModel._testPanelManager
+    }
+
+    private func makeTrustedAutomationScopeDashboardServices() throws -> (
+        ModelContainer,
+        ModelContext,
+        TrustedAutomationScopeService
+    ) {
+        let schema = Schema([
+            TrustedAutomationScope.self,
+            TrustedAutomationScopeRunRecord.self,
+            Rule.self,
+            RuleCategory.self
+        ])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+        return (container, context, TrustedAutomationScopeService(modelContext: context))
     }
 
     private func makeTrustedScopeRecommendation() -> TrustedAutomationScopeRecommendation {

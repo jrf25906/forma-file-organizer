@@ -219,7 +219,12 @@ struct CelebrationView: View {
     }
 
     private func trustAutomationSection(_ recommendation: TrustedAutomationScopeRecommendation) -> some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+        let snapshot = TrustedAutomationScopeRecommendationSheet.Snapshot(
+            recommendation: recommendation,
+            selectedScopeType: recommendation.recommendedScope.scopeType
+        )
+
+        return VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             HStack(spacing: FormaSpacing.tight) {
                 Image(systemName: "checkmark.shield")
                     .font(.formaBodyMedium)
@@ -230,9 +235,24 @@ struct CelebrationView: View {
                     .foregroundColor(.formaLabel)
             }
 
-            Text(recommendation.recommendedScope.rationaleSummary)
+            Text(snapshot.rationaleSummary)
                 .font(.formaSmall)
                 .foregroundColor(.formaSecondaryLabel)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                trustDetailRow(title: snapshot.sourceBoundaryTitle, value: snapshot.sourceBoundarySummary)
+                trustDetailRow(title: snapshot.destinationTitle, value: snapshot.destinationSummary)
+            }
+
+            Text(snapshot.automaticBehaviorSummary)
+                .font(.formaSmall)
+                .foregroundColor(.formaSecondaryLabel)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(snapshot.preflightSummary)
+                .font(.formaCaption)
+                .foregroundColor(.formaSecondaryLabelHigh)
                 .fixedSize(horizontal: false, vertical: true)
 
             Button(action: {
@@ -240,7 +260,7 @@ struct CelebrationView: View {
                 dashboardViewModel.presentTrustedScopeRecommendation()
             }) {
                 HStack(spacing: FormaSpacing.micro) {
-                    Text("Trust this automatically")
+                    Text("Review trust boundary")
                         .font(.formaSmallSemibold)
                     Image(systemName: "arrow.right")
                         .font(.formaCaptionBold)
@@ -256,6 +276,17 @@ struct CelebrationView: View {
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
         )
+    }
+
+    private func trustDetailRow(title: String, value: String) -> some View {
+        return VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+            Text(title)
+                .font(.formaCaptionBold)
+                .foregroundColor(.formaSecondaryLabelHigh)
+            Text(value)
+                .font(.formaSmall)
+                .foregroundColor(.formaLabel)
+        }
     }
     
     // MARK: - Computed Properties

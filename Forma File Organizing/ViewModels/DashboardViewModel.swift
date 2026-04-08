@@ -225,6 +225,10 @@ class DashboardViewModel: ObservableObject {
     @Published private(set) var projectSpaceAssociationCorrectionFileRow: ProjectSpaceFileRow?
     @Published var projectSpaceAssociationCorrectionProposedLabel: String = ""
     @Published private(set) var projectSpaceAssociationSuggestedLabels: [String] = []
+    @Published private(set) var trustedAutomationScopeSections: [TrustedAutomationScopeSummarySection] = []
+    @Published private(set) var defaultPanelTrustedAutomationScopes: [TrustedAutomationScopeSummary] = []
+    @Published private(set) var selectedTrustedAutomationScopeDetail: TrustedAutomationScopeDetail?
+    @Published private(set) var isTrustedAutomationScopeDetailPresented: Bool = false
 
     // MARK: - Organization Progress State
     /// Baseline count of actionable files captured at the start of the current scan session.
@@ -371,6 +375,7 @@ class DashboardViewModel: ObservableObject {
         modelContext = context
         refreshContentTagQuickFilters()
         refreshProjectSpaces()
+        refreshTrustedAutomationScopes()
 
         #if DEBUG
         if CommandLine.arguments.contains("--uitesting") {
@@ -1137,6 +1142,19 @@ class DashboardViewModel: ObservableObject {
         panelManager.isTrustedScopeRecommendationPresented
     }
 
+    var trustedAutomationActiveScopeCount: Int {
+        trustedAutomationScopeSections
+            .first(where: { $0.status == .active })?
+            .summaries.count ?? 0
+    }
+
+    var trustedAutomationAttentionScopeCount: Int {
+        trustedAutomationScopeSections
+            .flatMap(\.summaries)
+            .filter { $0.health.state == .needsAttention }
+            .count
+    }
+
     // MARK: - Panel State Delegation (Required for Views)
 
     /// Toast notification state - required by ToastHost
@@ -1474,6 +1492,99 @@ class DashboardViewModel: ObservableObject {
         panelManager.dismissCelebration()
     }
 
+    func refreshTrustedAutomationScopes(referenceDate: Date = Date()) {
+        guard let modelContext else {
+            trustedAutomationScopeSections = []
+            defaultPanelTrustedAutomationScopes = []
+            selectedTrustedAutomationScopeDetail = nil
+            isTrustedAutomationScopeDetailPresented = false
+            return
+        }
+
+        do {
+            let catalogService = TrustedAutomationScopeCatalogService(modelContext: modelContext)
+            let sections = try catalogService.buildSummarySections(referenceDate: referenceDate)
+            trustedAutomationScopeSections = sections
+            defaultPanelTrustedAutomationScopes = Self.makeDefaultPanelTrustedAutomationScopes(from: sections)
+
+            if let selectedScopeID = selectedTrustedAutomationScopeDetail?.id {
+                selectedTrustedAutomationScopeDetail = try catalogService.buildDetail(
+                    for: selectedScopeID,
+                    referenceDate: referenceDate
+                )
+                if selectedTrustedAutomationScopeDetail == nil {
+                    isTrustedAutomationScopeDetailPresented = false
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            trustedAutomationScopeSections = []
+            defaultPanelTrustedAutomationScopes = []
+            selectedTrustedAutomationScopeDetail = nil
+            isTrustedAutomationScopeDetailPresented = false
+        }
+    }
+
+    func presentTrustedAutomationScopeDetail(
+        id: UUID,
+        referenceDate: Date = Date()
+    ) {
+        guard let modelContext else { return }
+
+        do {
+            let catalogService = TrustedAutomationScopeCatalogService(modelContext: modelContext)
+            selectedTrustedAutomationScopeDetail = try catalogService.buildDetail(
+                for: id,
+                referenceDate: referenceDate
+            )
+            isTrustedAutomationScopeDetailPresented = selectedTrustedAutomationScopeDetail != nil
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+        }
+    }
+
+    func dismissTrustedAutomationScopeDetail() {
+        isTrustedAutomationScopeDetailPresented = false
+        selectedTrustedAutomationScopeDetail = nil
+    }
+
+    func pauseSelectedTrustedAutomationScope(
+        at timestamp: Date = Date(),
+        referenceDate: Date = Date()
+    ) {
+        mutateSelectedTrustedAutomationScope(
+            timestamp: timestamp,
+            referenceDate: referenceDate
+        ) { service, id, mutationTimestamp in
+            try service.pauseScope(id: id, at: mutationTimestamp)
+        }
+    }
+
+    func resumeSelectedTrustedAutomationScope(
+        at timestamp: Date = Date(),
+        referenceDate: Date = Date()
+    ) {
+        mutateSelectedTrustedAutomationScope(
+            timestamp: timestamp,
+            referenceDate: referenceDate
+        ) { service, id, mutationTimestamp in
+            try service.resumeScope(id: id, at: mutationTimestamp)
+        }
+    }
+
+    func revokeSelectedTrustedAutomationScope(
+        at timestamp: Date = Date(),
+        referenceDate: Date = Date()
+    ) {
+        mutateSelectedTrustedAutomationScope(
+            timestamp: timestamp,
+            referenceDate: referenceDate
+        ) { service, id, mutationTimestamp in
+            try service.removeScope(id: id, at: mutationTimestamp)
+        }
+    }
+
     func presentTrustedScopeRecommendation() {
         panelManager.presentTrustedScopeRecommendation()
     }
@@ -1494,6 +1605,7 @@ class DashboardViewModel: ObservableObject {
                 selectedScopeType: selectedScopeType
             )
             panelManager.dismissTrustedScopeRecommendation(clearRecommendation: true)
+            refreshTrustedAutomationScopes(referenceDate: trustedScope.updatedAt)
             showToast(
                 message: "Autopilot enabled for \(trustedScope.displayName)",
                 canUndo: false
@@ -1911,6 +2023,79 @@ class DashboardViewModel: ObservableObject {
     private func handleMetadataMutationCompletion() {
         filterViewModel.applyFilterImmediately()
         refreshProjectSpaces()
+        refreshTrustedAutomationScopes()
+    }
+
+    private func mutateSelectedTrustedAutomationScope(
+        timestamp: Date,
+        referenceDate: Date,
+        mutation: (TrustedAutomationScopeService, UUID, Date) throws -> Void
+    ) {
+        guard let modelContext,
+              let selectedScopeID = selectedTrustedAutomationScopeDetail?.id else {
+            return
+        }
+
+        do {
+            let scopeService = TrustedAutomationScopeService(modelContext: modelContext)
+            try mutation(scopeService, selectedScopeID, timestamp)
+            refreshTrustedAutomationScopes(referenceDate: referenceDate)
+            presentTrustedAutomationScopeDetail(id: selectedScopeID, referenceDate: referenceDate)
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+        }
+    }
+
+    private static func makeDefaultPanelTrustedAutomationScopes(
+        from sections: [TrustedAutomationScopeSummarySection]
+    ) -> [TrustedAutomationScopeSummary] {
+        sections
+            .filter { $0.status != .revoked }
+            .flatMap(\.summaries)
+            .sorted(by: isPreferredDefaultPanelSummary)
+            .prefix(3)
+            .map { $0 }
+    }
+
+    private static func isPreferredDefaultPanelSummary(
+        _ lhs: TrustedAutomationScopeSummary,
+        _ rhs: TrustedAutomationScopeSummary
+    ) -> Bool {
+        let lhsRank = defaultPanelSummaryRank(lhs)
+        let rhsRank = defaultPanelSummaryRank(rhs)
+        if lhsRank != rhsRank {
+            return lhsRank < rhsRank
+        }
+
+        let lhsDate = lhs.lastRun?.endedAt
+            ?? lhs.lastRun?.startedAt
+            ?? lhs.lifecycle.lastRunAt
+            ?? lhs.lifecycle.updatedAt
+        let rhsDate = rhs.lastRun?.endedAt
+            ?? rhs.lastRun?.startedAt
+            ?? rhs.lifecycle.lastRunAt
+            ?? rhs.lifecycle.updatedAt
+        if lhsDate != rhsDate {
+            return lhsDate > rhsDate
+        }
+
+        return lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
+    }
+
+    private static func defaultPanelSummaryRank(_ summary: TrustedAutomationScopeSummary) -> Int {
+        if summary.health.state == .needsAttention {
+            return 0
+        }
+
+        switch summary.lifecycle.status {
+        case .active:
+            return 1
+        case .paused:
+            return 2
+        case .revoked:
+            return 3
+        }
     }
 
     private func synchronizeOrganizationProgressTotal(with files: [FileItem]) {
