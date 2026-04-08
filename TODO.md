@@ -1,6 +1,6 @@
 # Project TODO
 
-**Last Updated:** April 7, 2026
+**Last Updated:** April 8, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
@@ -22,12 +22,12 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 
 ### Next (2-4 Months)
 - [x] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
-- [ ] Complete progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
+- [x] Complete progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
 - [x] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
 - [x] Extend the shipped metadata-backed project spaces slice beyond read-only retrieval and plan workflow-memory expansion before broad cloud or chatbot-style AI expansion.
 
 ### Later (4-8+ Months)
-- [ ] Plan workflow chains with simulation, audit history, and rollback across multi-step automations, including flows like match -> rename -> tag -> move -> notify -> log.
+- [ ] Ship `workflow-engine-v2` with simulation, audit history, and rollback across multi-step automations, including flows like match -> rename -> tag -> move -> notify -> log.
 - [ ] Deepen macOS integration beyond current Finder Services, Spotlight, App Intents, and menu bar entry points.
 - [ ] Plan backup, sync, and portability for rules, settings, metadata, and organization memory.
 - [ ] Evaluate collaboration and shared conventions only after the solo local workflow is stronger.
@@ -37,6 +37,12 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
+
+## Progressive Automation Upgrades (April 8, 2026)
+- [x] Promote review-earned folder, rule, and category trust into explicit autopilot boundaries backed by `TrustedAutomationScopeBoundaryDescriptor`, `TrustedAutomationScopeRunRecord`, and `TrustedAutomationScopeResolver`.
+- [x] Ship first-class autopilot scope UI in the default panel and Smart Features, including active/paused/revoked grouping, derived health, recent runs, and pause/resume/revoke lifecycle controls.
+- [x] Make trusted-scope promotion, preflight, notifications, and activity scope-aware while keeping move-only automation and review-earned trust as the product boundary.
+- [ ] Keep `workflow-engine-v2` as the next branch for multi-step workflow chains, broader audit, and deeper rollback behavior.
 
 ## App Store Migration Recovery (April 7, 2026)
 - [x] Keep pre-metadata app stores launchable by making `ProjectCluster.filePathsSearchBlob` lightweight-migration safe and adding regression coverage for legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.

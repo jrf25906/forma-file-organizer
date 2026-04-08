@@ -140,6 +140,76 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - Review-earned trust suggestions now derive narrow rule, folder, and category candidates from review/undo history only, bind folder scopes to the reviewed subtree, and can promote the selected scope into persisted move-only autopilot eligibility.
   - Explicit-rule promotion now reuses a matched rule only when that rule still points at the confirmed bookmark-backed destination, otherwise it searches for another rule with the same conditions that already targets the confirmed bookmark before creating a new one.
   - Derived rule promotion now seeds new rules from the confirmed review destination and review/undo evidence instead of shared personal-memory preferences, so same-named bookmarks from inspector history cannot leak into the promoted rule.
+- Progressive automation upgrades for trusted autopilot scopes
+  - `TrustedAutomationScopeBoundaryDescriptor`
+    - `SourceBoundary`
+    - `RuleBoundary`
+    - `DestinationSnapshot`
+    - `sourceBoundary`
+    - `destinationSnapshot`
+    - `identityScopeKey`
+    - `matchingSpecificityScore`
+    - `boundarySummary`
+    - `matches(candidate:destination:)`
+  - `TrustedAutomationScopeRunRecord`
+    - `HeldBucket`
+    - `triggerSource`
+    - `status`
+    - `heldBuckets`
+    - `exampleFileNames`
+  - `TrustedAutomationScopeHealthState`
+    - `.healthy`
+    - `.quiet`
+    - `.needsAttention`
+  - `TrustedAutomationScopeLifecycleSummary`
+  - `TrustedAutomationScopeHealthSummary`
+  - `TrustedAutomationScopeRecentRunSummary`
+  - `TrustedAutomationScopeSummary`
+  - `TrustedAutomationScopeDetail`
+  - `TrustedAutomationScopeSummarySection`
+  - `TrustedAutomationScopeCatalogService`
+    - `buildSummarySections(referenceDate:)`
+    - `buildDetail(for:referenceDate:)`
+  - `TrustedAutomationScopeService`
+    - `pauseScope(id:at:)`
+    - `resumeScope(id:at:)`
+    - `removeScope(id:at:)`
+    - `recordRun(scopeID:triggerSource:status:matchedCount:eligibleCount:organizedCount:heldCount:failedCount:heldBuckets:summaryText:exampleFileNames:startedAt:endedAt:)`
+  - `TrustedAutomationScopeRecommendationPreviewSummary`
+    - `matchedCount`
+    - `eligibleCount`
+    - `skippedMissingDestinationCount`
+    - `skippedPermissionIssueCount`
+    - `skippedConfidenceThresholdCount`
+    - `exampleFileNames`
+    - `summaryText`
+  - `DashboardViewModel`
+    - `trustedAutomationScopeSections`
+    - `defaultPanelTrustedAutomationScopes`
+    - `selectedTrustedAutomationScopeDetail`
+    - `isTrustedAutomationScopeDetailPresented`
+    - `trustedAutomationActiveScopeCount`
+    - `trustedAutomationAttentionScopeCount`
+    - `refreshTrustedAutomationScopes(referenceDate:)`
+    - `presentTrustedAutomationScopeDetail(id:referenceDate:)`
+    - `dismissTrustedAutomationScopeDetail()`
+    - `pauseSelectedTrustedAutomationScope(at:referenceDate:)`
+    - `resumeSelectedTrustedAutomationScope(at:referenceDate:)`
+    - `revokeSelectedTrustedAutomationScope(at:referenceDate:)`
+    - `trustedScopeRecommendationPreviewSummary(for:)`
+  - `TrustedAutomationScopesSection`
+    - `Style`
+    - `Snapshot`
+  - `TrustedAutomationScopeDetailSheet`
+    - `Snapshot`
+  - `TrustedAutomationScopeRecommendationSheet`
+    - `Snapshot`
+    - `previewSummariesByType`
+  - `AutomationStatusWidget`
+    - `activeScopeCount`
+    - `attentionScopeCount`
+  - Trusted scopes now ship as visible optional autopilot boundaries with active/paused/revoked lifecycle, derived health, recent-run inspection, and scope-aware notifications/activity while keeping move-only automation and review-earned trust as the branch boundary.
+  - This slice intentionally stops short of multi-step workflow execution; `workflow-engine-v2` remains the next planned branch for broader chain orchestration, audit, and rollback.
 - Rule lookup helpers (`Forma File Organizing/Services/RuleService.swift`)
   - `fetchRule(id:)`
   - `findMatchingMoveRule(conditions:logicalOperator:destination:)`

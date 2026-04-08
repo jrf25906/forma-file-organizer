@@ -11,6 +11,11 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
   - Added a targeted pre-metadata store migration regression in `Forma File OrganizingTests/AppStoreMigrationTests.swift` covering legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.
 
 ### Added
+- Progressive automation upgrades for trusted autopilot scopes:
+  - `TrustedAutomationScopeBoundaryDescriptor`, `TrustedAutomationScopeRunRecord`, `TrustedAutomationScopePresentationModels`, `TrustedAutomationScopeResolver`, and `TrustedAutomationScopeCatalogService` now turn review-earned trusted scopes into explicit autopilot boundaries with persisted recent-run summaries, derived health, and detail/read models.
+  - `TrustedAutomationScopeService.pauseScope(id:at:)`, `resumeScope(id:at:)`, `removeScope(id:at:)`, and `recordRun(...)` now support active/paused/revoked lifecycle controls plus scope-owned simulated, held, failed, and executed summaries.
+  - `DashboardViewModel`, `AutomationStatusWidget`, `DefaultPanelView`, `SmartFeaturesSection`, `TrustedAutomationScopesSection`, `TrustedAutomationScopeDetailSheet`, `TrustedAutomationScopeRecommendationSheet`, and `CelebrationView` now surface first-class `Autopilot scopes` management with explicit source/destination boundaries, scope-aware preflight previews, recent runs, and lifecycle actions.
+  - `AutomationEngine`, `NotificationService`, and `ActivityLoggingService` now keep automatic moves restricted to active trusted scopes, emit scope-aware grouped notifications/activity, and preserve review-earned trust as the only creation path while `workflow-engine-v2` remains the next branch for multi-step chains and broader audit.
 - Cross-folder project spaces v1 for metadata-backed retrieval:
   - `FeatureFlagService.Feature.projectSpaces`, `ProjectSpaceSummary`, `ProjectSpaceFileRow`, and `ProjectSpaceDetail` now expose a shipped read-only dashboard retrieval slice for durable project groupings.
   - `FileMetadataFoundationService.fetchProjectSpaceSummaries()` and `fetchProjectSpaceDetail(for:)` now derive project spaces strictly from durable `projectAssociation` labels and only include files that still resolve locally through the existing metadata/bookmark identity paths.
