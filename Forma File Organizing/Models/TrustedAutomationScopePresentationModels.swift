@@ -1,0 +1,79 @@
+import Foundation
+
+enum TrustedAutomationScopeHealthState: String, Sendable, Hashable {
+    case healthy
+    case quiet
+    case needsAttention
+}
+
+struct TrustedAutomationScopeLifecycleSummary: Sendable, Hashable {
+    let status: TrustedAutomationScopeStatus
+    let createdAt: Date
+    let updatedAt: Date
+    let lastEvidenceAt: Date
+    let pausedAt: Date?
+    let lastRunAt: Date?
+    let revokedAt: Date?
+}
+
+struct TrustedAutomationScopeHealthSummary: Sendable, Hashable {
+    let state: TrustedAutomationScopeHealthState
+    let messages: [String]
+    let lastSuccessfulRunAt: Date?
+    let lastBlockedRunAt: Date?
+}
+
+struct TrustedAutomationScopeRecentRunSummary: Identifiable, Sendable, Hashable {
+    let id: UUID
+    let triggerSource: TrustedAutomationScopeRunTriggerSource
+    let status: TrustedAutomationScopeRunStatus
+    let startedAt: Date
+    let endedAt: Date?
+    let matchedCount: Int
+    let eligibleCount: Int
+    let organizedCount: Int
+    let heldCount: Int
+    let failedCount: Int
+    let heldBuckets: [TrustedAutomationScopeRunRecord.HeldBucket]
+    let summaryText: String?
+    let exampleFileNames: [String]
+}
+
+struct TrustedAutomationScopeSummary: Identifiable, Sendable, Hashable {
+    let id: UUID
+    let scopeType: TrustedAutomationScopeType
+    let displayName: String
+    let boundarySummary: String
+    let allowedActions: [TrustedAutomationAllowedAction]
+    let lifecycle: TrustedAutomationScopeLifecycleSummary
+    let health: TrustedAutomationScopeHealthSummary
+    let lastRun: TrustedAutomationScopeRecentRunSummary?
+}
+
+struct TrustedAutomationScopeDetail: Identifiable, Sendable, Hashable {
+    let id: UUID
+    let summary: TrustedAutomationScopeSummary
+    let boundaryDescriptor: TrustedAutomationScopeBoundaryDescriptor?
+    let promotionSource: TrustedAutomationScopePromotionSource
+    let recommendationSource: TrustedAutomationScopeRecommendationSource
+    let acceptedEvidenceCount: Int
+    let overrideEvidenceCount: Int
+    let undoEvidenceCount: Int
+    let confidenceSnapshot: Double
+    let rationaleSummary: String
+    let recentRuns: [TrustedAutomationScopeRecentRunSummary]
+
+    var health: TrustedAutomationScopeHealthSummary {
+        summary.health
+    }
+
+    var lifecycle: TrustedAutomationScopeLifecycleSummary {
+        summary.lifecycle
+    }
+}
+
+struct TrustedAutomationScopeSummarySection: Sendable, Hashable {
+    let status: TrustedAutomationScopeStatus
+    let title: String
+    let summaries: [TrustedAutomationScopeSummary]
+}

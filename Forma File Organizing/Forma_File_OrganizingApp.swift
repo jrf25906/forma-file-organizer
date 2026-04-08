@@ -101,6 +101,7 @@ struct Forma_File_OrganizingApp: App {
         FileOrganizationHistoryEntry.self,
         ActivityItem.self,
         TrustedAutomationScope.self,
+        TrustedAutomationScopeRunRecord.self,
         StorageSnapshot.self,
         PersonalMemoryEvent.self,
         PersonalMemoryPreference.self,

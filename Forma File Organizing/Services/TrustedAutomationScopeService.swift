@@ -284,6 +284,46 @@ final class TrustedAutomationScopeService {
         try allScopes().filter { $0.status == .paused }
     }
 
+    @discardableResult
+    func recordRun(
+        scopeID: UUID,
+        triggerSource: TrustedAutomationScopeRunTriggerSource,
+        status: TrustedAutomationScopeRunStatus,
+        matchedCount: Int,
+        eligibleCount: Int,
+        organizedCount: Int,
+        heldCount: Int,
+        failedCount: Int,
+        heldBuckets: [TrustedAutomationScopeRunRecord.HeldBucket],
+        summaryText: String?,
+        exampleFileNames: [String],
+        startedAt: Date,
+        endedAt: Date? = nil
+    ) throws -> TrustedAutomationScopeRunRecord {
+        let scope = try requireScope(id: scopeID)
+        let record = TrustedAutomationScopeRunRecord(
+            scopeID: scopeID,
+            triggerSource: triggerSource,
+            status: status,
+            matchedCount: matchedCount,
+            eligibleCount: eligibleCount,
+            organizedCount: organizedCount,
+            heldCount: heldCount,
+            failedCount: failedCount,
+            heldBuckets: heldBuckets,
+            summaryText: summaryText,
+            exampleFileNames: exampleFileNames,
+            startedAt: startedAt,
+            endedAt: endedAt
+        )
+
+        modelContext.insert(record)
+        scope.lastRunAt = endedAt ?? startedAt
+        scope.updatedAt = max(scope.updatedAt, endedAt ?? startedAt)
+        try modelContext.save()
+        return record
+    }
+
     private func allScopes() throws -> [TrustedAutomationScope] {
         let descriptor = FetchDescriptor<TrustedAutomationScope>(
             sortBy: [SortDescriptor(\.createdAt, order: .forward)]

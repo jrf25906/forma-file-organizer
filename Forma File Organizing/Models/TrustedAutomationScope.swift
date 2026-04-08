@@ -18,7 +18,7 @@ enum TrustedAutomationScopeType: String, Codable, Sendable, CaseIterable {
     }
 }
 
-enum TrustedAutomationScopeStatus: String, Codable, Sendable {
+enum TrustedAutomationScopeStatus: String, Codable, Sendable, CaseIterable {
     case active
     case paused
     case revoked

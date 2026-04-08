@@ -6,7 +6,10 @@ import SwiftData
 final class TrustedAutomationScopeServiceTests: XCTestCase {
 
     private func makeService() throws -> (ModelContainer, ModelContext, TrustedAutomationScopeService) {
-        let schema = Schema([TrustedAutomationScope.self])
+        let schema = Schema([
+            TrustedAutomationScope.self,
+            TrustedAutomationScopeRunRecord.self
+        ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = container.mainContext
@@ -25,9 +28,11 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
     private func makeRecommendationServices() throws -> (ModelContainer, ModelContext, TrustedAutomationScopeService, PersonalMemoryService, RuleService) {
         let schema = Schema([
             TrustedAutomationScope.self,
+            TrustedAutomationScopeRunRecord.self,
             PersonalMemoryEvent.self,
             PersonalMemoryPreference.self,
             Rule.self,
+            RuleCategory.self,
             ActivityItem.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -181,6 +186,82 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
             let removed = try XCTUnwrap(context.fetch(FetchDescriptor<TrustedAutomationScope>()).first)
             XCTAssertEqual(removed.status, .revoked)
             XCTAssertNotNil(removed.revokedAt)
+        }
+    }
+
+    func testRecordRun_PersistsHeldBucketsAndRecentExamples() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive")
+        )
+
+        try withService { context, service in
+            let scope = try service.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(reviewedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.92,
+                rationaleSummary: "Reviewed receipts are consistently trusted.",
+                allowedActions: [.move]
+            )
+
+            let startedAt = Date(timeIntervalSince1970: 10_000)
+            let endedAt = Date(timeIntervalSince1970: 10_120)
+            let record = try service.recordRun(
+                scopeID: scope.id,
+                triggerSource: .automaticPass,
+                status: .completedWithBlockers,
+                matchedCount: 8,
+                eligibleCount: 6,
+                organizedCount: 4,
+                heldCount: 2,
+                failedCount: 0,
+                heldBuckets: [
+                    .init(bucket: "Needs Review", count: 1),
+                    .init(bucket: "Missing Destination", count: 1)
+                ],
+                summaryText: "Two files were held for follow-up.",
+                exampleFileNames: ["Receipt-April.pdf", "Receipt-May.pdf"],
+                startedAt: startedAt,
+                endedAt: endedAt
+            )
+
+            let persisted = try XCTUnwrap(
+                context.fetch(
+                    FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                        sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+                    )
+                ).first
+            )
+            let persistedScope = try XCTUnwrap(
+                context.fetch(FetchDescriptor<TrustedAutomationScope>()).first(where: { $0.id == scope.id })
+            )
+
+            XCTAssertEqual(record.id, persisted.id)
+            XCTAssertEqual(persisted.scopeID, scope.id)
+            XCTAssertEqual(persisted.triggerSource, .automaticPass)
+            XCTAssertEqual(persisted.status, .completedWithBlockers)
+            XCTAssertEqual(persisted.heldBuckets, [
+                .init(bucket: "Needs Review", count: 1),
+                .init(bucket: "Missing Destination", count: 1)
+            ])
+            XCTAssertEqual(persisted.exampleFileNames, ["Receipt-April.pdf", "Receipt-May.pdf"])
+            XCTAssertEqual(persisted.summaryText, "Two files were held for follow-up.")
+            XCTAssertEqual(persistedScope.lastRunAt, endedAt)
         }
     }
 
