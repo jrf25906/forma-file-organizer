@@ -301,6 +301,7 @@ final class TrustedAutomationScopeService {
         endedAt: Date? = nil
     ) throws -> TrustedAutomationScopeRunRecord {
         let scope = try requireScope(id: scopeID)
+        let recordedAt = max(startedAt, endedAt ?? startedAt)
         let record = TrustedAutomationScopeRunRecord(
             scopeID: scopeID,
             triggerSource: triggerSource,
@@ -318,8 +319,8 @@ final class TrustedAutomationScopeService {
         )
 
         modelContext.insert(record)
-        scope.lastRunAt = endedAt ?? startedAt
-        scope.updatedAt = max(scope.updatedAt, endedAt ?? startedAt)
+        scope.lastRunAt = recordedAt
+        scope.updatedAt = max(scope.updatedAt, recordedAt)
         try modelContext.save()
         return record
     }

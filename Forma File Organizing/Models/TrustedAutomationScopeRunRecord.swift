@@ -2,15 +2,51 @@ import Foundation
 import SwiftData
 
 enum TrustedAutomationScopeRunTriggerSource: String, Codable, Sendable, Hashable {
-    case manualPreview
-    case automaticPass
+    case promotionPreview
+    case scheduledAutomationPass
+    case realtimeAutomationPass
+    case manualRefreshInspection
+
+    init(rawValueOrLegacyValue value: String) {
+        if let triggerSource = Self(rawValue: value) {
+            self = triggerSource
+            return
+        }
+
+        switch value {
+        case "manualPreview":
+            self = .promotionPreview
+        case "automaticPass":
+            self = .scheduledAutomationPass
+        default:
+            self = .scheduledAutomationPass
+        }
+    }
 }
 
 enum TrustedAutomationScopeRunStatus: String, Codable, Sendable, Hashable {
-    case completed
-    case completedWithBlockers
-    case blocked
+    case simulated
+    case executed
+    case held
     case failed
+
+    init(rawValueOrLegacyValue value: String) {
+        if let status = Self(rawValue: value) {
+            self = status
+            return
+        }
+
+        switch value {
+        case "completed":
+            self = .executed
+        case "completedWithBlockers", "blocked":
+            self = .held
+        case "failed":
+            self = .failed
+        default:
+            self = .executed
+        }
+    }
 }
 
 @Model
@@ -36,12 +72,12 @@ final class TrustedAutomationScopeRunRecord {
     private var exampleFileNamesData: Data
 
     var triggerSource: TrustedAutomationScopeRunTriggerSource {
-        get { TrustedAutomationScopeRunTriggerSource(rawValue: triggerSourceRaw) ?? .automaticPass }
+        get { TrustedAutomationScopeRunTriggerSource(rawValueOrLegacyValue: triggerSourceRaw) }
         set { triggerSourceRaw = newValue.rawValue }
     }
 
     var status: TrustedAutomationScopeRunStatus {
-        get { TrustedAutomationScopeRunStatus(rawValue: statusRaw) ?? .completed }
+        get { TrustedAutomationScopeRunStatus(rawValueOrLegacyValue: statusRaw) }
         set { statusRaw = newValue.rawValue }
     }
 

@@ -192,24 +192,14 @@ final class TrustedAutomationScopeCatalogService {
         }
 
         let lastSuccessfulRunAt = recentRecords
-            .first(where: { $0.status == .completed || $0.status == .completedWithBlockers })?
+            .first(where: isSuccessfulRun)?
             .endedAt
-            ?? recentRecords.first(where: { $0.status == .completed || $0.status == .completedWithBlockers })?.startedAt
+            ?? recentRecords.first(where: isSuccessfulRun)?.startedAt
 
         let lastBlockedRunAt = recentRecords
-            .first(where: { record in
-                record.status == .blocked ||
-                record.status == .failed ||
-                record.heldCount > 0 ||
-                record.failedCount > 0
-            })?
+            .first(where: isAttentionWorthyRun)?
             .endedAt
-            ?? recentRecords.first(where: { record in
-                record.status == .blocked ||
-                record.status == .failed ||
-                record.heldCount > 0 ||
-                record.failedCount > 0
-            })?.startedAt
+            ?? recentRecords.first(where: isAttentionWorthyRun)?.startedAt
 
         let state: TrustedAutomationScopeHealthState
         if !messages.isEmpty {
@@ -287,12 +277,7 @@ final class TrustedAutomationScopeCatalogService {
     }
 
     private func recentBlockerMessage(for records: [TrustedAutomationScopeRunRecord]) -> String? {
-        guard let record = records.first(where: { record in
-            record.status == .blocked ||
-            record.status == .failed ||
-            record.heldCount > 0 ||
-            record.failedCount > 0
-        }) else {
+        guard let record = records.first(where: isAttentionWorthyRun) else {
             return nil
         }
 
@@ -305,13 +290,24 @@ final class TrustedAutomationScopeCatalogService {
         }
 
         switch record.status {
-        case .blocked:
-            return "A recent run was blocked."
+        case .held:
+            return "A recent run was held."
         case .failed:
             return "A recent run failed."
-        case .completed, .completedWithBlockers:
+        case .simulated, .executed:
             return nil
         }
+    }
+
+    private func isSuccessfulRun(_ record: TrustedAutomationScopeRunRecord) -> Bool {
+        record.status == .executed
+    }
+
+    private func isAttentionWorthyRun(_ record: TrustedAutomationScopeRunRecord) -> Bool {
+        record.status == .held ||
+        record.status == .failed ||
+        record.heldCount > 0 ||
+        record.failedCount > 0
     }
 
     private func isQuiet(

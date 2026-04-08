@@ -137,15 +137,15 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
             )
             _ = try scopeService.recordRun(
                 scopeID: healthyScope.id,
-                triggerSource: .manualPreview,
-                status: .completed,
+                triggerSource: .promotionPreview,
+                status: .simulated,
                 matchedCount: 3,
                 eligibleCount: 3,
-                organizedCount: 3,
+                organizedCount: 0,
                 heldCount: 0,
                 failedCount: 0,
                 heldBuckets: [],
-                summaryText: "Organized cleanly.",
+                summaryText: "Previewed cleanly before promotion.",
                 exampleFileNames: ["Receipt.pdf"],
                 startedAt: Date(timeIntervalSince1970: 1_999_500),
                 endedAt: Date(timeIntervalSince1970: 1_999_550)
@@ -175,8 +175,8 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
             )
             _ = try scopeService.recordRun(
                 scopeID: quietScope.id,
-                triggerSource: .automaticPass,
-                status: .completed,
+                triggerSource: .scheduledAutomationPass,
+                status: .executed,
                 matchedCount: 1,
                 eligibleCount: 1,
                 organizedCount: 1,
@@ -260,8 +260,8 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
             )
             _ = try scopeService.recordRun(
                 scopeID: blockedScope.id,
-                triggerSource: .automaticPass,
-                status: .completedWithBlockers,
+                triggerSource: .realtimeAutomationPass,
+                status: .held,
                 matchedCount: 4,
                 eligibleCount: 4,
                 organizedCount: 2,
@@ -272,6 +272,44 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
                 exampleFileNames: ["Held-1.pdf", "Held-2.pdf"],
                 startedAt: Date(timeIntervalSince1970: 1_999_700),
                 endedAt: Date(timeIntervalSince1970: 1_999_760)
+            )
+
+            let failedScope = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Failed",
+                displayName: "Failed Folder",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Failed"
+                    ),
+                    destination: .init(blockedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.87,
+                rationaleSummary: "Failed scope",
+                allowedActions: [.move],
+                refreshedAt: Date(timeIntervalSince1970: 100)
+            )
+            _ = try scopeService.recordRun(
+                scopeID: failedScope.id,
+                triggerSource: .manualRefreshInspection,
+                status: .failed,
+                matchedCount: 2,
+                eligibleCount: 2,
+                organizedCount: 0,
+                heldCount: 0,
+                failedCount: 2,
+                heldBuckets: [],
+                summaryText: "Manual inspection surfaced permission failures.",
+                exampleFileNames: ["Failed-1.pdf", "Failed-2.pdf"],
+                startedAt: Date(timeIntervalSince1970: 1_999_800),
+                endedAt: Date(timeIntervalSince1970: 1_999_850)
             )
 
             let referenceDate = Date(timeIntervalSince1970: 2_000_000)
@@ -290,12 +328,28 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
             let blockedDetail = try XCTUnwrap(
                 catalogService.buildDetail(for: blockedScope.id, referenceDate: referenceDate)
             )
+            let failedDetail = try XCTUnwrap(
+                catalogService.buildDetail(for: failedScope.id, referenceDate: referenceDate)
+            )
 
             XCTAssertEqual(healthyDetail.health.state, .healthy)
             XCTAssertEqual(quietDetail.health.state, .quiet)
             XCTAssertEqual(brokenBookmarkDetail.health.state, .needsAttention)
             XCTAssertEqual(invalidRuleDetail.health.state, .needsAttention)
             XCTAssertEqual(blockedDetail.health.state, .needsAttention)
+            XCTAssertEqual(failedDetail.health.state, .needsAttention)
+            XCTAssertEqual(healthyDetail.summary.lastRun?.triggerSource, .promotionPreview)
+            XCTAssertEqual(healthyDetail.summary.lastRun?.status, .simulated)
+            XCTAssertNil(healthyDetail.health.lastSuccessfulRunAt)
+            XCTAssertEqual(quietDetail.summary.lastRun?.triggerSource, .scheduledAutomationPass)
+            XCTAssertEqual(quietDetail.summary.lastRun?.status, .executed)
+            XCTAssertEqual(quietDetail.health.lastSuccessfulRunAt, Date(timeIntervalSince1970: 20))
+            XCTAssertEqual(blockedDetail.summary.lastRun?.triggerSource, .realtimeAutomationPass)
+            XCTAssertEqual(blockedDetail.summary.lastRun?.status, .held)
+            XCTAssertEqual(blockedDetail.health.lastBlockedRunAt, Date(timeIntervalSince1970: 1_999_760))
+            XCTAssertEqual(failedDetail.summary.lastRun?.triggerSource, .manualRefreshInspection)
+            XCTAssertEqual(failedDetail.summary.lastRun?.status, .failed)
+            XCTAssertEqual(failedDetail.health.lastBlockedRunAt, Date(timeIntervalSince1970: 1_999_850))
             XCTAssertTrue(
                 brokenBookmarkDetail.health.messages.contains(where: { $0.localizedCaseInsensitiveContains("permission") })
             )
@@ -304,6 +358,9 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
             )
             XCTAssertTrue(
                 blockedDetail.health.messages.contains(where: { $0.localizedCaseInsensitiveContains("held") })
+            )
+            XCTAssertTrue(
+                failedDetail.health.messages.contains(where: { $0.localizedCaseInsensitiveContains("failed") })
             )
         }
     }

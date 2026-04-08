@@ -189,7 +189,7 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         }
     }
 
-    func testRecordRun_PersistsHeldBucketsAndRecentExamples() throws {
+    func testRecordRun_PersistsSimulationVocabularyAndRecentExamples() throws {
         let destinationRoot = try TemporaryDirectory()
         defer { destinationRoot.cleanup() }
         let reviewedDestination = try Destination.folder(
@@ -223,18 +223,15 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
             let endedAt = Date(timeIntervalSince1970: 10_120)
             let record = try service.recordRun(
                 scopeID: scope.id,
-                triggerSource: .automaticPass,
-                status: .completedWithBlockers,
+                triggerSource: .promotionPreview,
+                status: .simulated,
                 matchedCount: 8,
                 eligibleCount: 6,
-                organizedCount: 4,
-                heldCount: 2,
+                organizedCount: 0,
+                heldCount: 0,
                 failedCount: 0,
-                heldBuckets: [
-                    .init(bucket: "Needs Review", count: 1),
-                    .init(bucket: "Missing Destination", count: 1)
-                ],
-                summaryText: "Two files were held for follow-up.",
+                heldBuckets: [],
+                summaryText: "Previewed the trusted scope without moving files.",
                 exampleFileNames: ["Receipt-April.pdf", "Receipt-May.pdf"],
                 startedAt: startedAt,
                 endedAt: endedAt
@@ -253,14 +250,13 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
 
             XCTAssertEqual(record.id, persisted.id)
             XCTAssertEqual(persisted.scopeID, scope.id)
-            XCTAssertEqual(persisted.triggerSource, .automaticPass)
-            XCTAssertEqual(persisted.status, .completedWithBlockers)
-            XCTAssertEqual(persisted.heldBuckets, [
-                .init(bucket: "Needs Review", count: 1),
-                .init(bucket: "Missing Destination", count: 1)
-            ])
+            XCTAssertEqual(persisted.triggerSource, .promotionPreview)
+            XCTAssertEqual(persisted.status, .simulated)
+            XCTAssertEqual(persisted.organizedCount, 0)
+            XCTAssertEqual(persisted.heldCount, 0)
+            XCTAssertTrue(persisted.heldBuckets.isEmpty)
             XCTAssertEqual(persisted.exampleFileNames, ["Receipt-April.pdf", "Receipt-May.pdf"])
-            XCTAssertEqual(persisted.summaryText, "Two files were held for follow-up.")
+            XCTAssertEqual(persisted.summaryText, "Previewed the trusted scope without moving files.")
             XCTAssertEqual(persistedScope.lastRunAt, endedAt)
         }
     }
