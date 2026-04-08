@@ -773,6 +773,158 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         }
     }
 
+    func testPromoteFolderScope_PersistsSubtreeBoundaryAndDestinationSnapshot() throws {
+        let destinationRoot = try TemporaryDirectory()
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive")
+        )
+
+        try withService { context, service in
+            let snapshot = OrganizationMemorySnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Clients/Acme",
+                suggestionSource: .personalMemory,
+                suggestedDestination: reviewedDestination,
+                chosenDestination: reviewedDestination,
+                confidenceScore: 0.91,
+                matchedRuleID: nil
+            )
+            let recommendation = TrustedAutomationScopeRecommendation(
+                recommendedScope: TrustedAutomationScopeRecommendationOption(
+                    scopeType: .folder,
+                    scopeKey: "/Users/example/Downloads/Clients/Acme",
+                    displayName: "Acme",
+                    recommendationSource: .repeatedReviewAcceptance,
+                    acceptedEvidenceCount: 4,
+                    overrideEvidenceCount: 0,
+                    undoEvidenceCount: 0,
+                    confidenceSnapshot: 0.91,
+                    rationaleSummary: "Reviewed subtree is consistently organized."
+                ),
+                alternativeScopes: [],
+                snapshot: snapshot
+            )
+
+            let promoted = try service.promoteFromReviewDecision(
+                recommendation: recommendation,
+                selectedScopeType: .folder
+            )
+            let persisted = try XCTUnwrap(context.fetch(FetchDescriptor<TrustedAutomationScope>()).first)
+
+            XCTAssertEqual(promoted.id, persisted.id)
+            XCTAssertEqual(persisted.scopeType, .folder)
+            XCTAssertEqual(persisted.scopeKey, "/Users/example/Downloads/Clients/Acme")
+            XCTAssertEqual(
+                persisted.boundaryDescriptor,
+                .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Clients/Acme"
+                    ),
+                    destination: .init(reviewedDestination)
+                )
+            )
+            XCTAssertEqual(persisted.boundarySummary, "Acme -> Receipts Archive")
+        }
+    }
+
+    func testPromoteCategoryScope_PersistsTrustedDestinationWithoutCreatingDuplicateScopes() throws {
+        let firstDestinationRoot = try TemporaryDirectory()
+        let secondDestinationRoot = try TemporaryDirectory()
+        let firstDestination = try Destination.folder(from: try firstDestinationRoot.createDirectory(name: "Shared"))
+        let secondDestination = try Destination.folder(from: try secondDestinationRoot.createDirectory(name: "Shared"))
+
+        XCTAssertNotEqual(firstDestination, secondDestination)
+
+        try withService { context, service in
+            let firstPromotionDate = Date(timeIntervalSince1970: 1_000)
+            let secondPromotionDate = Date(timeIntervalSince1970: 2_000)
+
+            let firstRecommendation = TrustedAutomationScopeRecommendation(
+                recommendedScope: TrustedAutomationScopeRecommendationOption(
+                    scopeType: .category,
+                    scopeKey: FileTypeCategory.images.rawValue,
+                    displayName: FileTypeCategory.images.displayName,
+                    recommendationSource: .repeatedReviewAcceptance,
+                    acceptedEvidenceCount: 3,
+                    overrideEvidenceCount: 0,
+                    undoEvidenceCount: 0,
+                    confidenceSnapshot: 0.9,
+                    rationaleSummary: "Reviewed images are consistently trusted."
+                ),
+                alternativeScopes: [],
+                snapshot: OrganizationMemorySnapshot(
+                    fileName: "Screen Shot.png",
+                    fileExtension: "png",
+                    fileTypeCategory: .images,
+                    sourceLocation: .unknown,
+                    scanRootPath: nil,
+                    relativeParentPath: nil,
+                    suggestionSource: .personalMemory,
+                    suggestedDestination: firstDestination,
+                    chosenDestination: firstDestination,
+                    confidenceScore: 0.9,
+                    matchedRuleID: nil
+                )
+            )
+
+            let firstScope = try service.promoteFromReviewDecision(
+                recommendation: firstRecommendation,
+                selectedScopeType: .category,
+                promotedAt: firstPromotionDate
+            )
+
+            let refreshedScope = try service.promoteFromReviewDecision(
+                recommendation: TrustedAutomationScopeRecommendation(
+                    recommendedScope: firstRecommendation.recommendedScope,
+                    alternativeScopes: [],
+                    snapshot: OrganizationMemorySnapshot(
+                        fileName: "Screen Shot 2.png",
+                        fileExtension: "png",
+                        fileTypeCategory: .images,
+                        sourceLocation: .unknown,
+                        scanRootPath: nil,
+                        relativeParentPath: nil,
+                        suggestionSource: .personalMemory,
+                        suggestedDestination: secondDestination,
+                        chosenDestination: secondDestination,
+                        confidenceScore: 0.94,
+                        matchedRuleID: nil
+                    )
+                ),
+                selectedScopeType: .category,
+                promotedAt: secondPromotionDate
+            )
+
+            let persistedScopes = try context.fetch(FetchDescriptor<TrustedAutomationScope>())
+            let persisted = try XCTUnwrap(persistedScopes.first)
+
+            XCTAssertEqual(persistedScopes.count, 1)
+            XCTAssertEqual(refreshedScope.id, firstScope.id)
+            XCTAssertEqual(persisted.id, firstScope.id)
+            XCTAssertEqual(persisted.createdAt, firstPromotionDate)
+            XCTAssertEqual(persisted.updatedAt, secondPromotionDate)
+            XCTAssertEqual(
+                persisted.boundaryDescriptor,
+                .category(
+                    fileTypeCategory: .images,
+                    source: .init(
+                        sourceLocation: .unknown,
+                        scanRootPath: nil,
+                        relativeParentPath: nil
+                    ),
+                    destination: .init(secondDestination)
+                )
+            )
+            XCTAssertEqual(persisted.boundarySummary, "Images -> Shared")
+        }
+    }
+
     private func makeSnapshot(
         fileName: String,
         fileExtension: String,

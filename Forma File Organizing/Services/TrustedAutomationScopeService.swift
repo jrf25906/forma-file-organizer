@@ -113,6 +113,7 @@ final class TrustedAutomationScopeService {
         scopeType: TrustedAutomationScopeType,
         scopeKey: String,
         displayName: String,
+        boundaryDescriptor: TrustedAutomationScopeBoundaryDescriptor? = nil,
         promotionSource: TrustedAutomationScopePromotionSource,
         recommendationSource: TrustedAutomationScopeRecommendationSource,
         acceptedEvidenceCount: Int,
@@ -125,6 +126,7 @@ final class TrustedAutomationScopeService {
     ) throws -> TrustedAutomationScope {
         if let existing = try scope(scopeType: scopeType, scopeKey: scopeKey) {
             existing.status = .active
+            existing.pausedAt = nil
             existing.revokedAt = nil
             existing.refresh(
                 displayName: displayName,
@@ -135,6 +137,7 @@ final class TrustedAutomationScopeService {
                 undoEvidenceCount: undoEvidenceCount,
                 confidenceSnapshot: confidenceSnapshot,
                 rationaleSummary: rationaleSummary,
+                boundaryDescriptor: boundaryDescriptor,
                 allowedActions: allowedActions,
                 refreshedAt: refreshedAt
             )
@@ -153,6 +156,7 @@ final class TrustedAutomationScopeService {
             undoEvidenceCount: undoEvidenceCount,
             confidenceSnapshot: confidenceSnapshot,
             rationaleSummary: rationaleSummary,
+            boundaryDescriptor: boundaryDescriptor,
             allowedActions: allowedActions,
             createdAt: refreshedAt
         )
@@ -167,6 +171,7 @@ final class TrustedAutomationScopeService {
             throw ServiceError.invalidTransition(id: id, from: scope.status, to: .paused)
         }
         scope.status = .paused
+        scope.pausedAt = timestamp
         scope.updatedAt = timestamp
         try modelContext.save()
     }
@@ -177,6 +182,7 @@ final class TrustedAutomationScopeService {
             throw ServiceError.invalidTransition(id: id, from: scope.status, to: .active)
         }
         scope.status = .active
+        scope.pausedAt = nil
         scope.revokedAt = nil
         scope.updatedAt = timestamp
         try modelContext.save()
@@ -238,10 +244,15 @@ final class TrustedAutomationScopeService {
         }
 
         let resolvedOption = try resolvePromotionOption(requestedOption, snapshot: recommendation.snapshot)
+        let boundaryDescriptor = try makeBoundaryDescriptor(
+            for: resolvedOption,
+            snapshot: recommendation.snapshot
+        )
         return try createOrReactivateScope(
             scopeType: resolvedOption.scopeType,
             scopeKey: resolvedOption.scopeKey,
             displayName: resolvedOption.displayName,
+            boundaryDescriptor: boundaryDescriptor,
             promotionSource: .reviewFlow,
             recommendationSource: resolvedOption.recommendationSource,
             acceptedEvidenceCount: resolvedOption.acceptedEvidenceCount,
@@ -565,6 +576,43 @@ final class TrustedAutomationScopeService {
         )
     }
 
+    private func makeBoundaryDescriptor(
+        for option: TrustedAutomationScopeRecommendationOption,
+        snapshot: OrganizationMemorySnapshot
+    ) throws -> TrustedAutomationScopeBoundaryDescriptor {
+        guard let chosenDestination = snapshot.chosenDestination else {
+            throw ServiceError.recommendationMissingDestination
+        }
+
+        let sourceBoundary = TrustedAutomationScopeBoundaryDescriptor.SourceBoundary(
+            sourceLocation: snapshot.sourceLocation,
+            scanRootPath: snapshot.scanRootPath,
+            relativeParentPath: snapshot.relativeParentPath
+        )
+        let destinationSnapshot = TrustedAutomationScopeBoundaryDescriptor.DestinationSnapshot(chosenDestination)
+
+        switch option.scopeType {
+        case .rule:
+            guard let ruleID = ruleID(from: option.scopeKey) else {
+                throw ServiceError.recommendationOptionUnavailable(.rule)
+            }
+
+            return .rule(
+                rule: .init(id: ruleID, name: option.displayName),
+                source: sourceBoundary,
+                destination: destinationSnapshot
+            )
+        case .folder:
+            return .folder(source: sourceBoundary, destination: destinationSnapshot)
+        case .category:
+            return .category(
+                fileTypeCategory: snapshot.fileTypeCategory,
+                source: sourceBoundary,
+                destination: destinationSnapshot
+            )
+        }
+    }
+
     private func resolveRule(for snapshot: OrganizationMemorySnapshot) throws -> Rule {
         let ruleService = RuleService(modelContext: modelContext)
 
@@ -741,6 +789,14 @@ final class TrustedAutomationScopeService {
 
     private func matchesRuleDestination(_ rule: Rule, destination: Destination?) -> Bool {
         destinationsMatch(rule.destination, destination)
+    }
+
+    private func ruleID(from scopeKey: String) -> UUID? {
+        guard scopeKey.hasPrefix("rule:") else {
+            return nil
+        }
+
+        return UUID(uuidString: String(scopeKey.dropFirst("rule:".count)))
     }
 
     private func destinationsMatch(_ lhs: Destination?, _ rhs: Destination?) -> Bool {
