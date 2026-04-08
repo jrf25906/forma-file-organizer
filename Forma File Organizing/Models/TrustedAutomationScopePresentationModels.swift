@@ -39,15 +39,46 @@ struct TrustedAutomationScopeRecentRunSummary: Identifiable, Sendable, Hashable 
     let exampleFileNames: [String]
 }
 
+struct TrustedAutomationScopeWorkflowTemplateSummary: Sendable, Hashable {
+    let id: String
+    let displayName: String
+    let summaryText: String
+    let allowedActions: [TrustedAutomationAllowedAction]
+    let assignedAt: Date?
+}
+
 struct TrustedAutomationScopeSummary: Identifiable, Sendable, Hashable {
     let id: UUID
     let scopeType: TrustedAutomationScopeType
     let displayName: String
     let boundarySummary: String
     let allowedActions: [TrustedAutomationAllowedAction]
+    let selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary?
     let lifecycle: TrustedAutomationScopeLifecycleSummary
     let health: TrustedAutomationScopeHealthSummary
     let lastRun: TrustedAutomationScopeRecentRunSummary?
+
+    init(
+        id: UUID,
+        scopeType: TrustedAutomationScopeType,
+        displayName: String,
+        boundarySummary: String,
+        allowedActions: [TrustedAutomationAllowedAction],
+        selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary? = nil,
+        lifecycle: TrustedAutomationScopeLifecycleSummary,
+        health: TrustedAutomationScopeHealthSummary,
+        lastRun: TrustedAutomationScopeRecentRunSummary?
+    ) {
+        self.id = id
+        self.scopeType = scopeType
+        self.displayName = displayName
+        self.boundarySummary = boundarySummary
+        self.allowedActions = allowedActions
+        self.selectedWorkflowTemplate = selectedWorkflowTemplate
+        self.lifecycle = lifecycle
+        self.health = health
+        self.lastRun = lastRun
+    }
 }
 
 struct TrustedAutomationScopeDetail: Identifiable, Sendable, Hashable {
@@ -61,7 +92,36 @@ struct TrustedAutomationScopeDetail: Identifiable, Sendable, Hashable {
     let undoEvidenceCount: Int
     let confidenceSnapshot: Double
     let rationaleSummary: String
+    let selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary?
     let recentRuns: [TrustedAutomationScopeRecentRunSummary]
+
+    init(
+        id: UUID,
+        summary: TrustedAutomationScopeSummary,
+        boundaryDescriptor: TrustedAutomationScopeBoundaryDescriptor?,
+        promotionSource: TrustedAutomationScopePromotionSource,
+        recommendationSource: TrustedAutomationScopeRecommendationSource,
+        acceptedEvidenceCount: Int,
+        overrideEvidenceCount: Int,
+        undoEvidenceCount: Int,
+        confidenceSnapshot: Double,
+        rationaleSummary: String,
+        selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary? = nil,
+        recentRuns: [TrustedAutomationScopeRecentRunSummary]
+    ) {
+        self.id = id
+        self.summary = summary
+        self.boundaryDescriptor = boundaryDescriptor
+        self.promotionSource = promotionSource
+        self.recommendationSource = recommendationSource
+        self.acceptedEvidenceCount = acceptedEvidenceCount
+        self.overrideEvidenceCount = overrideEvidenceCount
+        self.undoEvidenceCount = undoEvidenceCount
+        self.confidenceSnapshot = confidenceSnapshot
+        self.rationaleSummary = rationaleSummary
+        self.selectedWorkflowTemplate = selectedWorkflowTemplate
+        self.recentRuns = recentRuns
+    }
 
     var health: TrustedAutomationScopeHealthSummary {
         summary.health

@@ -365,6 +365,241 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
         }
     }
 
+    func testBuildDetail_IncludesSelectedWorkflowTemplateSummary() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Organized")
+        )
+        let assignedAt = Date(timeIntervalSince1970: 777)
+
+        try withServices { _, scopeService, catalogService in
+            let scope = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(reviewedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 3,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.93,
+                rationaleSummary: "Template-backed scope",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: "builtin.workflow.receipts.v1",
+                templateAssignedAt: assignedAt,
+                refreshedAt: assignedAt
+            )
+
+            let detail = try XCTUnwrap(catalogService.buildDetail(for: scope.id))
+            let templateSummary = try XCTUnwrap(detail.selectedWorkflowTemplate)
+
+            XCTAssertEqual(templateSummary.id, "builtin.workflow.receipts.v1")
+            XCTAssertEqual(templateSummary.assignedAt, assignedAt)
+            XCTAssertEqual(templateSummary.allowedActions, [.rename, .tag, .move])
+            XCTAssertEqual(detail.summary.allowedActions, [.rename, .tag, .move])
+            XCTAssertFalse(templateSummary.displayName.isEmpty)
+            XCTAssertFalse(templateSummary.summaryText.isEmpty)
+        }
+    }
+
+    func testTemplateNormalization_LegacyMoveOnlyScopeRemainsMoveOnlyUntilExplicitTemplateAssignment() throws {
+        let templateAssignedAt = Date(timeIntervalSince1970: 2_000)
+
+        try withServices { _, scopeService, _ in
+            let created = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Legacy",
+                displayName: "Legacy Scope",
+                promotionSource: .manualSettings,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 2,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.8,
+                rationaleSummary: "Legacy move-only scope",
+                allowedActions: [.move],
+                refreshedAt: Date(timeIntervalSince1970: 1_000)
+            )
+            XCTAssertNil(created.selectedWorkflowTemplateID)
+            XCTAssertNil(created.templateAssignedAt)
+            XCTAssertEqual(created.allowedActions, [.move])
+
+            let reactivatedLegacy = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Legacy",
+                displayName: "Legacy Scope",
+                promotionSource: .manualSettings,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 3,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.82,
+                rationaleSummary: "Still move-only",
+                allowedActions: [.move],
+                refreshedAt: Date(timeIntervalSince1970: 1_500)
+            )
+            XCTAssertNil(reactivatedLegacy.selectedWorkflowTemplateID)
+            XCTAssertNil(reactivatedLegacy.templateAssignedAt)
+            XCTAssertEqual(reactivatedLegacy.allowedActions, [.move])
+
+            let templated = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Legacy",
+                displayName: "Legacy Scope",
+                promotionSource: .manualSettings,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.86,
+                rationaleSummary: "Assigned template",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                templateAssignedAt: templateAssignedAt,
+                refreshedAt: templateAssignedAt
+            )
+            XCTAssertEqual(templated.selectedWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
+            XCTAssertEqual(templated.templateAssignedAt, templateAssignedAt)
+            XCTAssertEqual(templated.allowedActions, [.rename, .tag, .move])
+        }
+    }
+
+    func testTemplateNormalization_ReactivatingTemplatedScopeReforcesCanonicalActionShape() throws {
+        let assignedAt = Date(timeIntervalSince1970: 4_000)
+
+        try withServices { context, scopeService, _ in
+            let templated = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Reforce",
+                displayName: "Templated Scope",
+                promotionSource: .manualSettings,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.9,
+                rationaleSummary: "Template active",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                templateAssignedAt: assignedAt,
+                refreshedAt: assignedAt
+            )
+            XCTAssertEqual(templated.allowedActions, [.rename, .tag, .move])
+
+            templated.allowedActions = [.move]
+            try context.save()
+            XCTAssertEqual(templated.allowedActions, [.move])
+
+            let reactivated = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Reforce",
+                displayName: "Templated Scope",
+                promotionSource: .manualSettings,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 5,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.92,
+                rationaleSummary: "Reactivated",
+                allowedActions: [.move],
+                refreshedAt: Date(timeIntervalSince1970: 5_000)
+            )
+
+            XCTAssertEqual(reactivated.selectedWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
+            XCTAssertEqual(reactivated.templateAssignedAt, assignedAt)
+            XCTAssertEqual(reactivated.allowedActions, [.rename, .tag, .move])
+        }
+    }
+
+    func testTemplateNormalization_InvalidTemplateInputDoesNotPersistBadTemplateReference() throws {
+        let attemptedAssignmentAt = Date(timeIntervalSince1970: 6_000)
+
+        try withServices { _, scopeService, catalogService in
+            let scope = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/InvalidTemplate",
+                displayName: "Invalid Template Scope",
+                promotionSource: .manualSettings,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 1,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.7,
+                rationaleSummary: "Attempted bad template assignment",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: "builtin.workflow.typo.v1",
+                templateAssignedAt: attemptedAssignmentAt,
+                refreshedAt: attemptedAssignmentAt
+            )
+
+            XCTAssertNil(scope.selectedWorkflowTemplateID)
+            XCTAssertNil(scope.templateAssignedAt)
+            XCTAssertEqual(scope.allowedActions, [.move])
+
+            let detail = try XCTUnwrap(catalogService.buildDetail(for: scope.id))
+            XCTAssertNil(detail.selectedWorkflowTemplate)
+        }
+    }
+
+    func testTemplateNormalization_PreservesPreviouslyStoredUnknownTemplateForCompatibility() throws {
+        let legacyTemplateID = "legacy.workflow.template.v1"
+        let legacyAssignedAt = Date(timeIntervalSince1970: 7_000)
+        let legacyActionShape: [TrustedAutomationAllowedAction] = [.rename, .notify]
+
+        try withServices { context, scopeService, catalogService in
+            let legacyScope = TrustedAutomationScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/LegacyUnknownTemplate",
+                displayName: "Legacy Unknown Template Scope",
+                promotionSource: .manualSettings,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 2,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.75,
+                rationaleSummary: "Stored by an older build",
+                allowedActions: legacyActionShape,
+                selectedWorkflowTemplateID: legacyTemplateID,
+                templateAssignedAt: legacyAssignedAt,
+                createdAt: Date(timeIntervalSince1970: 6_500)
+            )
+            context.insert(legacyScope)
+            try context.save()
+
+            let refreshed = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: legacyScope.scopeKey,
+                displayName: legacyScope.displayName,
+                promotionSource: .manualSettings,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 3,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.8,
+                rationaleSummary: "Refreshed legacy scope",
+                allowedActions: [.move],
+                refreshedAt: Date(timeIntervalSince1970: 8_000)
+            )
+
+            XCTAssertEqual(refreshed.selectedWorkflowTemplateID, legacyTemplateID)
+            XCTAssertEqual(refreshed.templateAssignedAt, legacyAssignedAt)
+            XCTAssertEqual(refreshed.allowedActions, legacyActionShape)
+
+            let detail = try XCTUnwrap(catalogService.buildDetail(for: refreshed.id))
+            XCTAssertEqual(detail.selectedWorkflowTemplate?.id, legacyTemplateID)
+            XCTAssertEqual(detail.summary.allowedActions, legacyActionShape)
+        }
+    }
+
     private func makeScope(
         service: TrustedAutomationScopeService,
         scopeType: TrustedAutomationScopeType,

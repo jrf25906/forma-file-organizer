@@ -105,6 +105,12 @@ final class TrustedAutomationScopeService {
         let displayName: String
     }
 
+    private struct TemplateAssignment {
+        let templateID: String?
+        let templateAssignedAt: Date?
+        let allowedActions: [TrustedAutomationAllowedAction]
+    }
+
     private let modelContext: ModelContext
     private var activityLoggingService: ActivityLoggingService? {
         ActivityLoggingService.create(from: modelContext)
@@ -128,9 +134,20 @@ final class TrustedAutomationScopeService {
         confidenceSnapshot: Double,
         rationaleSummary: String,
         allowedActions: [TrustedAutomationAllowedAction],
+        selectedWorkflowTemplateID: String? = nil,
+        templateAssignedAt: Date? = nil,
         refreshedAt: Date = Date()
     ) throws -> TrustedAutomationScope {
         if let existing = try scope(scopeType: scopeType, scopeKey: scopeKey) {
+            let templateAssignment = normalizeTemplateAssignment(
+                selectedWorkflowTemplateID: selectedWorkflowTemplateID,
+                templateAssignedAt: templateAssignedAt,
+                currentTemplateID: existing.selectedWorkflowTemplateID,
+                currentTemplateAssignedAt: existing.templateAssignedAt,
+                currentAllowedActions: existing.allowedActions,
+                requestedAllowedActions: allowedActions,
+                refreshedAt: refreshedAt
+            )
             let wasInactive = existing.status != .active
             existing.status = .active
             existing.pausedAt = nil
@@ -145,7 +162,9 @@ final class TrustedAutomationScopeService {
                 confidenceSnapshot: confidenceSnapshot,
                 rationaleSummary: rationaleSummary,
                 boundaryDescriptor: boundaryDescriptor,
-                allowedActions: allowedActions,
+                allowedActions: templateAssignment.allowedActions,
+                selectedWorkflowTemplateID: templateAssignment.templateID,
+                templateAssignedAt: templateAssignment.templateAssignedAt,
                 refreshedAt: refreshedAt
             )
             try modelContext.save()
@@ -157,6 +176,16 @@ final class TrustedAutomationScopeService {
             }
             return existing
         }
+
+        let templateAssignment = normalizeTemplateAssignment(
+            selectedWorkflowTemplateID: selectedWorkflowTemplateID,
+            templateAssignedAt: templateAssignedAt,
+            currentTemplateID: nil,
+            currentTemplateAssignedAt: nil,
+            currentAllowedActions: nil,
+            requestedAllowedActions: allowedActions,
+            refreshedAt: refreshedAt
+        )
 
         let scope = TrustedAutomationScope(
             scopeType: scopeType,
@@ -170,7 +199,9 @@ final class TrustedAutomationScopeService {
             confidenceSnapshot: confidenceSnapshot,
             rationaleSummary: rationaleSummary,
             boundaryDescriptor: boundaryDescriptor,
-            allowedActions: allowedActions,
+            allowedActions: templateAssignment.allowedActions,
+            selectedWorkflowTemplateID: templateAssignment.templateID,
+            templateAssignedAt: templateAssignment.templateAssignedAt,
             createdAt: refreshedAt
         )
         modelContext.insert(scope)
@@ -180,6 +211,84 @@ final class TrustedAutomationScopeService {
             scopeType: scopeType
         )
         return scope
+    }
+
+    private func normalizeTemplateAssignment(
+        selectedWorkflowTemplateID: String?,
+        templateAssignedAt: Date?,
+        currentTemplateID: String?,
+        currentTemplateAssignedAt: Date?,
+        currentAllowedActions: [TrustedAutomationAllowedAction]?,
+        requestedAllowedActions: [TrustedAutomationAllowedAction],
+        refreshedAt: Date
+    ) -> TemplateAssignment {
+        let incomingTemplateID = selectedWorkflowTemplateID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedIncomingTemplateID = incomingTemplateID?.isEmpty == true ? nil : incomingTemplateID
+        let normalizedActions = normalizedAllowedActions(requestedAllowedActions)
+        let normalizedCurrentActions = normalizedAllowedActions(currentAllowedActions ?? [])
+
+        if let normalizedIncomingTemplateID {
+            if let incomingTemplate = WorkflowTemplateCatalog.template(for: normalizedIncomingTemplateID) {
+                return TemplateAssignment(
+                    templateID: incomingTemplate.id,
+                    templateAssignedAt: templateAssignedAt ?? refreshedAt,
+                    allowedActions: incomingTemplate.allowedActions
+                )
+            }
+
+            if let currentTemplateID, let currentTemplate = WorkflowTemplateCatalog.template(for: currentTemplateID) {
+                return TemplateAssignment(
+                    templateID: currentTemplate.id,
+                    templateAssignedAt: currentTemplateAssignedAt ?? refreshedAt,
+                    allowedActions: currentTemplate.allowedActions
+                )
+            }
+
+            if let currentTemplateID {
+                return TemplateAssignment(
+                    templateID: currentTemplateID,
+                    templateAssignedAt: currentTemplateAssignedAt,
+                    allowedActions: normalizedCurrentActions.isEmpty ? normalizedActions : normalizedCurrentActions
+                )
+            }
+
+            return TemplateAssignment(
+                templateID: nil,
+                templateAssignedAt: nil,
+                allowedActions: normalizedActions
+            )
+        }
+
+        if let currentTemplateID, let currentTemplate = WorkflowTemplateCatalog.template(for: currentTemplateID) {
+            return TemplateAssignment(
+                templateID: currentTemplate.id,
+                templateAssignedAt: currentTemplateAssignedAt ?? refreshedAt,
+                allowedActions: currentTemplate.allowedActions
+            )
+        }
+
+        if let currentTemplateID {
+            return TemplateAssignment(
+                templateID: currentTemplateID,
+                templateAssignedAt: currentTemplateAssignedAt,
+                allowedActions: normalizedCurrentActions.isEmpty ? normalizedActions : normalizedCurrentActions
+            )
+        }
+
+        return TemplateAssignment(
+            templateID: nil,
+            templateAssignedAt: nil,
+            allowedActions: normalizedActions
+        )
+    }
+
+    private func normalizedAllowedActions(
+        _ actions: [TrustedAutomationAllowedAction]
+    ) -> [TrustedAutomationAllowedAction] {
+        var seen = Set<String>()
+        return actions.filter { action in
+            seen.insert(action.rawValue).inserted
+        }
     }
 
     func pauseScope(id: UUID, at timestamp: Date = Date()) throws {

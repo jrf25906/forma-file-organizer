@@ -63,6 +63,8 @@ final class TrustedAutomationScope {
     private var boundaryDescriptorData: Data?
     var boundarySummary: String
     private var allowedActionRaws: [String]
+    var selectedWorkflowTemplateID: String?
+    var templateAssignedAt: Date?
 
     var createdAt: Date
     var updatedAt: Date
@@ -129,6 +131,8 @@ final class TrustedAutomationScope {
         rationaleSummary: String,
         boundaryDescriptor: TrustedAutomationScopeBoundaryDescriptor? = nil,
         allowedActions: [TrustedAutomationAllowedAction],
+        selectedWorkflowTemplateID: String? = nil,
+        templateAssignedAt: Date? = nil,
         createdAt: Date = Date(),
         updatedAt: Date? = nil,
         lastEvidenceAt: Date? = nil,
@@ -151,6 +155,8 @@ final class TrustedAutomationScope {
         self.rationaleSummary = rationaleSummary
         self.boundarySummary = boundaryDescriptor?.boundarySummary ?? displayName
         self.allowedActionRaws = allowedActions.map(\.rawValue)
+        self.selectedWorkflowTemplateID = selectedWorkflowTemplateID
+        self.templateAssignedAt = templateAssignedAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt ?? createdAt
         self.lastEvidenceAt = lastEvidenceAt ?? createdAt
@@ -173,6 +179,8 @@ final class TrustedAutomationScope {
         rationaleSummary: String,
         boundaryDescriptor: TrustedAutomationScopeBoundaryDescriptor?,
         allowedActions: [TrustedAutomationAllowedAction],
+        selectedWorkflowTemplateID: String?,
+        templateAssignedAt: Date?,
         refreshedAt: Date
     ) {
         self.displayName = displayName
@@ -185,6 +193,8 @@ final class TrustedAutomationScope {
         self.rationaleSummary = rationaleSummary
         self.boundaryDescriptor = boundaryDescriptor ?? self.boundaryDescriptor
         self.allowedActions = allowedActions
+        self.selectedWorkflowTemplateID = selectedWorkflowTemplateID
+        self.templateAssignedAt = templateAssignedAt
         self.lastEvidenceAt = refreshedAt
         self.updatedAt = refreshedAt
     }

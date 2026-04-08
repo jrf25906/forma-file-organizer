@@ -79,6 +79,7 @@ final class TrustedAutomationScopeCatalogService {
             undoEvidenceCount: scope.undoEvidenceCount,
             confidenceSnapshot: scope.confidenceSnapshot,
             rationaleSummary: scope.rationaleSummary,
+            selectedWorkflowTemplate: summary.selectedWorkflowTemplate,
             recentRuns: records.prefix(recentRunLimit).map(makeRecentRunSummary)
         )
     }
@@ -134,6 +135,7 @@ final class TrustedAutomationScopeCatalogService {
             displayName: scope.displayName,
             boundarySummary: scope.boundarySummary,
             allowedActions: scope.allowedActions,
+            selectedWorkflowTemplate: makeWorkflowTemplateSummary(for: scope),
             lifecycle: TrustedAutomationScopeLifecycleSummary(
                 status: scope.status,
                 createdAt: scope.createdAt,
@@ -145,6 +147,32 @@ final class TrustedAutomationScopeCatalogService {
             ),
             health: health,
             lastRun: recentRunSummaries.first
+        )
+    }
+
+    private func makeWorkflowTemplateSummary(
+        for scope: TrustedAutomationScope
+    ) -> TrustedAutomationScopeWorkflowTemplateSummary? {
+        guard let templateID = scope.selectedWorkflowTemplateID else {
+            return nil
+        }
+
+        if let template = WorkflowTemplateCatalog.template(for: templateID) {
+            return TrustedAutomationScopeWorkflowTemplateSummary(
+                id: template.id,
+                displayName: template.displayName,
+                summaryText: template.summaryText,
+                allowedActions: template.allowedActions,
+                assignedAt: scope.templateAssignedAt
+            )
+        }
+
+        return TrustedAutomationScopeWorkflowTemplateSummary(
+            id: templateID,
+            displayName: "Unavailable template",
+            summaryText: "This scope references a template that is not available in this build.",
+            allowedActions: scope.allowedActions,
+            assignedAt: scope.templateAssignedAt
         )
     }
 
