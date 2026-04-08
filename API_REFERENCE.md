@@ -4,6 +4,55 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Workflow Engine v2 shared templates, audit, and rollback
+  - `FeatureFlagService.Feature.workflowEngineV2`
+  - `BuiltInWorkflowTemplate`
+    - `StableID.receipts`
+    - `StableID.screenshots`
+    - `StableID.projectDrop`
+    - `requiredActionShape`
+  - `WorkflowTemplateCatalog`
+    - `shippedTemplates`
+    - `template(for:)`
+  - `WorkflowPlanner`
+    - `plan(templateID:files:)`
+  - `WorkflowRunRecord`
+  - `WorkflowStepRunRecord`
+  - `WorkflowFileActionRecord`
+  - `WorkflowAuditStore`
+    - `createRun(scopeID:workflowTemplateID:startedAt:primaryStatus:rollbackStatus:)`
+    - `updateRunStatus(runID:primaryStatus:endedAt:updatedAt:)`
+    - `updateRollbackStatus(runID:rollbackStatus:rollbackReason:rollbackRequestedAt:rollbackCompletedAt:updatedAt:)`
+    - `recordStepStatus(runID:stepID:status:startedAt:endedAt:errorMessage:recordedAt:)`
+    - `recordFileAction(runID:stepRunID:fileIdentity:sourcePath:destinationPath:disposition:compensationStatus:compensationPayload:failureReason:recordedAt:)`
+    - `latestRunSummary(scopeID:workflowTemplateID:)`
+    - `latestRunForFile(fileIdentity:)`
+    - `latestRunForPath(_:)`
+    - `latestRunLookup(forPath:)`
+    - `stepRuns(runID:)`
+    - `fileActions(runID:)`
+  - `WorkflowRunner`
+    - `run(plan:files:scopeID:modelContext:)`
+  - `WorkflowRollbackCoordinator`
+    - `rollback(_:)`
+  - `TrustedAutomationScope.selectedWorkflowTemplateID`
+  - `TrustedAutomationScope.templateAssignedAt`
+  - `TrustedAutomationScopeWorkflowTemplateSummary`
+  - `TrustedAutomationScopeWorkflowRunSummary`
+  - `TrustedAutomationScopeSummary.selectedWorkflowTemplate`
+  - `TrustedAutomationScopeDetail.selectedWorkflowTemplate`
+  - `TrustedAutomationScopeDetail.latestWorkflowRun`
+  - `ActivityItem.WorkflowTriggerSurface`
+  - `ActivityItem.workflowProjection`
+  - `WorkflowActivityProjection`
+  - `ActivityLoggingService`
+    - `logWorkflowRunSummary(run:triggerSurface:affectedFileCount:)`
+    - `logWorkflowRunSummaryIfAvailable(from:scopeID:workflowTemplateID:triggerSurface:affectedFileCount:)`
+  - `WorkflowRunDetailSheet`
+  - `WorkflowInspectorRunSummary`
+  - `DashboardViewModel.latestWorkflowInspectorSummary(for:context:)`
+  - Workflow Engine v2 now ships the built-in `rename -> tag -> move` planner/runner path end to end: review, bulk, inspector, and selected trusted-automation scopes all share the same template catalog, audit store, and rollback coordinator under the feature flag.
+  - Workflow audit semantics are explicit: primary run status and rollback status stay separate, per-step outcomes and per-file actions are persisted independently, and rollback state is projected back into trusted-scope detail, activity, and inspector surfaces without flattening failures into generic success copy.
 - Workflow Engine v2 Task 5 ad hoc organize routing
   - `WorkflowExecutionClient`
     - `plan(templateID:files:)`
@@ -232,7 +281,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `activeScopeCount`
     - `attentionScopeCount`
   - Trusted scopes now ship as visible optional autopilot boundaries with active/paused/revoked lifecycle, derived health, recent-run inspection, and scope-aware notifications/activity while keeping move-only automation and review-earned trust as the branch boundary.
-  - This slice intentionally stops short of multi-step workflow execution; `workflow-engine-v2` remains the next planned branch for broader chain orchestration, audit, and rollback.
+  - Trusted-scope detail now projects the selected built-in workflow template plus the latest workflow-native run and rollback summary instead of limiting autopilot detail to move-only recent-run counters.
 - Rule lookup helpers (`Forma File Organizing/Services/RuleService.swift`)
   - `fetchRule(id:)`
   - `findMatchingMoveRule(conditions:logicalOperator:destination:)`

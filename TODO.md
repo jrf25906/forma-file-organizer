@@ -27,7 +27,7 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 - [x] Extend the shipped metadata-backed project spaces slice beyond read-only retrieval and plan workflow-memory expansion before broad cloud or chatbot-style AI expansion.
 
 ### Later (4-8+ Months)
-- [ ] Ship `workflow-engine-v2` with simulation, audit history, and rollback across multi-step automations, including flows like match -> rename -> tag -> move -> notify -> log.
+- [ ] Expand the shipped `workflow-engine-v2` slice beyond built-in `rename -> tag -> move` into broader multi-step automations such as notify/log steps and project-space-triggered flows.
 - [ ] Deepen macOS integration beyond current Finder Services, Spotlight, App Intents, and menu bar entry points.
 - [ ] Plan backup, sync, and portability for rules, settings, metadata, and organization memory.
 - [ ] Evaluate collaboration and shared conventions only after the solo local workflow is stronger.
@@ -44,7 +44,7 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Make trusted-scope promotion, preflight, notifications, and activity scope-aware while keeping move-only automation and review-earned trust as the product boundary.
 - [x] Land Task 5 of `workflow-engine-v2`: require explicit built-in template selection for feature-gated ad hoc organize flows, add shared template-picker + simulation-preview state on dashboard/review/inspector surfaces, preserve trusted-scope recommendations on the v2 single-file review path, keep blocked v2 batches as partial failures with workflow-aware retry, and route dashboard, bulk, inspector, and review organizes through `WorkflowRunner` when `Feature.workflowEngineV2` is enabled while keeping legacy organize behavior when it is off.
 - [x] Tighten the shipped Task 5 behavior so workflow-v2 partial-success toasts do not offer dead undo affordances and successful v2 single-file organizes still feed accepted decisions into personal-memory learning.
-- [ ] Keep `workflow-engine-v2` as the next branch for multi-step workflow chains, broader audit, and deeper rollback behavior.
+- [x] Finish the shipped `workflow-engine-v2` slice with the built-in template catalog, shared planner/runner, rollback coordination, trusted-scope template ownership, workflow audit persistence, and activity/inspector audit surfaces for the feature-gated `rename -> tag -> move` path.
 
 ## App Store Migration Recovery (April 7, 2026)
 - [x] Keep pre-metadata app stores launchable by making `ProjectCluster.filePathsSearchBlob` lightweight-migration safe and adding regression coverage for legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.
@@ -64,7 +64,7 @@ The sections below capture dated implementation slices that have already shipped
 ## Metadata Foundation v1 (April 3, 2026)
 - [x] Ship the durable local metadata foundation for scan, organize, undo, redo, and inspector proof surfaces with `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService`.
 - [x] Complete durable workflow status v1 so scan discovery seeds `queued`, organize/undo/ignore lifecycle writes persist `organized` / `recovered` / `ignored`, skip actions capture durable-status snapshots for undo/redo, and inspector proof exposes one read-only workflow-status line behind `FeatureFlagService.Feature.durableWorkflowStatus`.
-- [ ] Keep workflow-engine planning open beyond v1 so multi-step metadata-backed chains, simulation, audit routing, and rollback rules still ship as a later roadmap slice.
+- [ ] Build on the shipped `workflow-engine-v2` slice with additional metadata-backed step kinds, broader audit projections, and richer workflow-memory layers beyond the built-in `rename -> tag -> move` path.
 - [ ] Keep metadata-backed workflow-memory expansion open beyond v1; the shipped slices now include read-only project-space retrieval, richer project-space detail/correction, and narrow project-memory destination suggestions, while broader editing, workflow execution, and richer memory layers remain later work.
 
 ## Auto-Applied Project Association v1 (April 6, 2026)

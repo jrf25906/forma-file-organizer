@@ -87,6 +87,31 @@ final class AutomationEngineNotificationTests: XCTestCase {
         }
     }
 
+    @MainActor
+    private final class WorkflowExecutionSpy {
+        var failingFileNames: Set<String> = []
+        var runError: Error?
+
+        lazy var client = WorkflowExecutionClient(
+            plan: { templateID, files in
+                WorkflowPlanner().plan(templateID: templateID, files: files)
+            },
+            run: { [weak self] _, files, _, _ in
+                let fileNames = files.map(\.name)
+                let shouldFail = await MainActor.run {
+                    fileNames.contains { self?.failingFileNames.contains($0) == true }
+                }
+                guard shouldFail else {
+                    return
+                }
+
+                if let runError = await MainActor.run(resultType: Error?.self, body: { self?.runError }) {
+                    throw runError
+                }
+            }
+        )
+    }
+
     func testBacklogThresholdSendsReminderWhenNotificationsEnabled() {
         let policy = makePolicy(notificationsEnabled: true)
         let notificationService = MockNotificationService()
@@ -195,7 +220,12 @@ final class AutomationEngineNotificationTests: XCTestCase {
             errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
         )
         let notificationService = MockNotificationService()
-        let engine = makeEngine(policy: policy, notificationService: notificationService)
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(
+            policy: policy,
+            notificationService: notificationService,
+            workflowExecution: workflowExecution.client
+        )
 
         let container = try ModelContainer(
             for: FileItem.self,
@@ -243,7 +273,8 @@ final class AutomationEngineNotificationTests: XCTestCase {
             undoEvidenceCount: 0,
             confidenceSnapshot: 0.95,
             rationaleSummary: "Trusted after repeated review approvals.",
-            allowedActions: [.move]
+            allowedActions: [.move],
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
         )
 
         provider.autoOrganizeCandidates = [file]
@@ -286,7 +317,12 @@ final class AutomationEngineNotificationTests: XCTestCase {
             errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
         )
         let notificationService = MockNotificationService()
-        let engine = makeEngine(policy: policy, notificationService: notificationService)
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(
+            policy: policy,
+            notificationService: notificationService,
+            workflowExecution: workflowExecution.client
+        )
 
         let container = try ModelContainer(
             for: FileItem.self,
@@ -350,7 +386,8 @@ final class AutomationEngineNotificationTests: XCTestCase {
             undoEvidenceCount: 0,
             confidenceSnapshot: 0.95,
             rationaleSummary: "Trusted after repeated review approvals.",
-            allowedActions: [.move]
+            allowedActions: [.move],
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
         )
         _ = try scopeService.createOrReactivateScope(
             scopeType: .folder,
@@ -371,7 +408,8 @@ final class AutomationEngineNotificationTests: XCTestCase {
             undoEvidenceCount: 0,
             confidenceSnapshot: 0.95,
             rationaleSummary: "Trusted after repeated review approvals.",
-            allowedActions: [.move]
+            allowedActions: [.move],
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
         )
 
         try FileManager.default.removeItem(at: heldDestinationURL)
@@ -420,7 +458,12 @@ final class AutomationEngineNotificationTests: XCTestCase {
             errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
         )
         let notificationService = MockNotificationService()
-        let engine = makeEngine(policy: policy, notificationService: notificationService)
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(
+            policy: policy,
+            notificationService: notificationService,
+            workflowExecution: workflowExecution.client
+        )
 
         let container = try ModelContainer(
             for: FileItem.self,
@@ -459,6 +502,8 @@ final class AutomationEngineNotificationTests: XCTestCase {
             status: .pending
         )
         failingFile.confidenceScore = 0.99
+        workflowExecution.failingFileNames = [failingFile.name]
+        workflowExecution.runError = FormaError.fileSystem(.permissionDenied("Invoices Archive"))
 
         container.mainContext.insert(successFile)
         container.mainContext.insert(failingFile)
@@ -483,7 +528,8 @@ final class AutomationEngineNotificationTests: XCTestCase {
             undoEvidenceCount: 0,
             confidenceSnapshot: 0.95,
             rationaleSummary: "Trusted after repeated review approvals.",
-            allowedActions: [.move]
+            allowedActions: [.move],
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
         )
         _ = try scopeService.createOrReactivateScope(
             scopeType: .folder,
@@ -504,13 +550,11 @@ final class AutomationEngineNotificationTests: XCTestCase {
             undoEvidenceCount: 0,
             confidenceSnapshot: 0.95,
             rationaleSummary: "Trusted after repeated review approvals.",
-            allowedActions: [.move]
+            allowedActions: [.move],
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
         )
 
-        let coordinator = SelectiveFailingOrganizationCoordinator(
-            failingFileNames: [failingFile.name],
-            error: FormaError.fileSystem(.permissionDenied("Invoices Archive"))
-        )
+        let coordinator = RecordingOrganizationCoordinator()
         provider.autoOrganizeCandidates = [successFile, failingFile]
         engine.configure(
             modelContext: container.mainContext,
@@ -878,12 +922,14 @@ final class AutomationEngineNotificationTests: XCTestCase {
 
     private func makeEngine(
         policy: AutomationPolicy,
-        notificationService: AutomationNotificationServing
+        notificationService: AutomationNotificationServing,
+        workflowExecution: WorkflowExecutionClient = .live
     ) -> AutomationEngine {
         AutomationEngine(
             notificationService: notificationService,
             clock: FixedClock(now: Date(timeIntervalSince1970: 1_700_000_000)),
-            policyResolver: { policy }
+            policyResolver: { policy },
+            workflowExecution: workflowExecution
         )
     }
 

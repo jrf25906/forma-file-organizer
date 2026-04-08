@@ -269,6 +269,17 @@ enum ActivityAuditBadgeClassifier {
     }
 
     private static func isAutomaticActivity(_ activity: ActivityItem) -> Bool {
+        if let workflowTriggerSurface = activity.workflowTriggerSurface {
+            switch workflowTriggerSurface {
+            case .scheduledAutomationPass,
+                 .realtimeAutomationPass,
+                 .manualRefreshInspection:
+                return true
+            default:
+                break
+            }
+        }
+
         switch activity.activityType {
         case .automationScanCompleted,
              .automationAutoOrganized,
@@ -284,6 +295,18 @@ enum ActivityAuditBadgeClassifier {
     }
 
     private static func isReviewActivity(_ activity: ActivityItem) -> Bool {
+        if let workflowTriggerSurface = activity.workflowTriggerSurface {
+            switch workflowTriggerSurface {
+            case .reviewFlow,
+                 .inspector,
+                 .reviewView,
+                 .bulkOrganize:
+                return true
+            default:
+                break
+            }
+        }
+
         switch activity.activityType {
         case .bulkOrganized, .bulkUndone, .bulkPartialFailure:
             return !isAutomaticActivity(activity)
@@ -293,6 +316,11 @@ enum ActivityAuditBadgeClassifier {
     }
 
     private static func hasUndoAvailable(_ activity: ActivityItem) -> Bool {
+        if activity.workflowRunID != nil {
+            return activity.workflowPrimaryStatus == .succeeded &&
+                (activity.workflowRollbackStatus ?? .notRequested) == .notRequested
+        }
+
         switch activity.activityType {
         case .bulkOrganized, .automationAutoOrganized:
             return containsDetail("undo available", in: activity)
@@ -302,6 +330,10 @@ enum ActivityAuditBadgeClassifier {
     }
 
     private static func isFinalActivity(_ activity: ActivityItem) -> Bool {
+        if activity.workflowRunID != nil {
+            return !hasUndoAvailable(activity)
+        }
+
         switch activity.activityType {
         case .bulkOrganized, .automationAutoOrganized:
             return containsDetail("final", in: activity)

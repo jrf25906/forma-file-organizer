@@ -107,4 +107,61 @@ final class ActivityLoggingTests: XCTestCase {
         XCTAssertEqual(activity.affectedFileCount, 4)
         XCTAssertEqual(activity.activityType, .workflowRunCompleted)
     }
+
+    func testWorkflowRunReviewBadges_ShowReviewAndUndoAvailable() {
+        let activity = ActivityItem(
+            activityType: .workflowRunCompleted,
+            fileName: "Receipt Intake",
+            details: "Review workflow run succeeded for 1 file. Rollback available.",
+            affectedFileCount: 1,
+            workflowRunID: UUID(),
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+            workflowTriggerSurface: .reviewView,
+            workflowPrimaryStatus: .succeeded,
+            workflowRollbackStatus: .notRequested
+        )
+
+        XCTAssertEqual(
+            ActivityAuditBadgeClassifier.titles(for: activity),
+            ["Review", "Undo Available"]
+        )
+    }
+
+    func testWorkflowRunInspectorBadges_ShowReviewAndUndoAvailable() {
+        let activity = ActivityItem(
+            activityType: .workflowRunCompleted,
+            fileName: "Receipt Intake",
+            details: "Inspector workflow run succeeded for 1 file. Rollback available.",
+            affectedFileCount: 1,
+            workflowRunID: UUID(),
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+            workflowTriggerSurface: .inspector,
+            workflowPrimaryStatus: .succeeded,
+            workflowRollbackStatus: .notRequested
+        )
+
+        XCTAssertEqual(
+            ActivityAuditBadgeClassifier.titles(for: activity),
+            ["Review", "Undo Available"]
+        )
+    }
+
+    func testWorkflowRunAutomaticFailureBadges_ShowAutomaticAndFinal() {
+        let activity = ActivityItem(
+            activityType: .workflowRunAttentionNeeded,
+            fileName: "Receipt Intake",
+            details: "Scheduled trusted scope workflow run failed for 2 files. Rollback failed.",
+            affectedFileCount: 2,
+            workflowRunID: UUID(),
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+            workflowTriggerSurface: .scheduledAutomationPass,
+            workflowPrimaryStatus: .failed,
+            workflowRollbackStatus: .failed
+        )
+
+        XCTAssertEqual(
+            ActivityAuditBadgeClassifier.titles(for: activity),
+            ["Automatic", "Final"]
+        )
+    }
 }
