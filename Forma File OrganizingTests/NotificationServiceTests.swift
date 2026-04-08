@@ -7,7 +7,9 @@ final class NotificationServiceTests: XCTestCase {
         let payload = NotificationService.autoOrganizeSummaryPayload(
             successCount: 6,
             failedCount: 0,
-            skippedCount: 0
+            skippedCount: 0,
+            scopeDisplayName: nil,
+            groupedScopeCount: 0
         )
 
         XCTAssertNotNil(payload)
@@ -15,6 +17,44 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertEqual(payload?.identifier, NotificationService.AutomationNotificationID.autoOrganizeSummary)
         XCTAssertEqual(payload?.title, "Auto-Organize Made Progress")
         XCTAssertEqual(payload?.body, "Forma cleared 6 files from your queue based on your rules.")
+    }
+
+    func testAutoOrganizeSummaryPayloadUsesScopeNameForSingleScopeRun() {
+        let payload = NotificationService.autoOrganizeSummaryPayload(
+            successCount: 3,
+            failedCount: 0,
+            skippedCount: 1,
+            scopeDisplayName: "Receipts",
+            groupedScopeCount: 1
+        )
+
+        XCTAssertNotNil(payload)
+        XCTAssertEqual(payload?.category, .progressWin)
+        XCTAssertEqual(payload?.identifier, NotificationService.AutomationNotificationID.autoOrganizeSummary)
+        XCTAssertEqual(payload?.title, "Receipts Made Progress")
+        XCTAssertEqual(
+            payload?.body,
+            "Forma cleared 3 files from the Receipts trusted scope. 1 is still waiting for review."
+        )
+    }
+
+    func testAutoOrganizeSummaryPayloadKeepsMultiScopeRunsGrouped() {
+        let payload = NotificationService.autoOrganizeSummaryPayload(
+            successCount: 5,
+            failedCount: 1,
+            skippedCount: 0,
+            scopeDisplayName: "Receipts",
+            groupedScopeCount: 2
+        )
+
+        XCTAssertNotNil(payload)
+        XCTAssertEqual(payload?.category, .progressWin)
+        XCTAssertEqual(payload?.identifier, NotificationService.AutomationNotificationID.autoOrganizeSummary)
+        XCTAssertEqual(payload?.title, "Auto-Organize Made Progress")
+        XCTAssertEqual(
+            payload?.body,
+            "Forma cleared 5 files across 2 trusted scopes based on your rules. 1 still needs your attention."
+        )
     }
 
     func testBacklogReminderPayloadFramesNextReviewPassWithoutGuilt() {

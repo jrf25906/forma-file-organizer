@@ -106,6 +106,9 @@ final class TrustedAutomationScopeService {
     }
 
     private let modelContext: ModelContext
+    private var activityLoggingService: ActivityLoggingService? {
+        ActivityLoggingService.create(from: modelContext)
+    }
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -128,6 +131,7 @@ final class TrustedAutomationScopeService {
         refreshedAt: Date = Date()
     ) throws -> TrustedAutomationScope {
         if let existing = try scope(scopeType: scopeType, scopeKey: scopeKey) {
+            let wasInactive = existing.status != .active
             existing.status = .active
             existing.pausedAt = nil
             existing.revokedAt = nil
@@ -145,6 +149,12 @@ final class TrustedAutomationScopeService {
                 refreshedAt: refreshedAt
             )
             try modelContext.save()
+            if wasInactive {
+                activityLoggingService?.logTrustedAutomationScopePromoted(
+                    scopeName: displayName,
+                    scopeType: scopeType
+                )
+            }
             return existing
         }
 
@@ -165,6 +175,10 @@ final class TrustedAutomationScopeService {
         )
         modelContext.insert(scope)
         try modelContext.save()
+        activityLoggingService?.logTrustedAutomationScopePromoted(
+            scopeName: displayName,
+            scopeType: scopeType
+        )
         return scope
     }
 
@@ -177,6 +191,7 @@ final class TrustedAutomationScopeService {
         scope.pausedAt = timestamp
         scope.updatedAt = timestamp
         try modelContext.save()
+        activityLoggingService?.logTrustedAutomationScopePaused(scopeName: scope.displayName)
     }
 
     func resumeScope(id: UUID, at timestamp: Date = Date()) throws {
@@ -189,6 +204,7 @@ final class TrustedAutomationScopeService {
         scope.revokedAt = nil
         scope.updatedAt = timestamp
         try modelContext.save()
+        activityLoggingService?.logTrustedAutomationScopeResumed(scopeName: scope.displayName)
     }
 
     func removeScope(id: UUID, at timestamp: Date = Date()) throws {
@@ -197,6 +213,7 @@ final class TrustedAutomationScopeService {
         scope.revokedAt = timestamp
         scope.updatedAt = timestamp
         try modelContext.save()
+        activityLoggingService?.logTrustedAutomationScopeRevoked(scopeName: scope.displayName)
     }
 
     func recommendedScope(for snapshot: OrganizationMemorySnapshot) throws -> TrustedAutomationScopeRecommendation? {
@@ -322,6 +339,29 @@ final class TrustedAutomationScopeService {
         scope.lastRunAt = recordedAt
         scope.updatedAt = max(scope.updatedAt, recordedAt)
         try modelContext.save()
+
+        if status != .simulated {
+            let summary = summaryText ?? defaultRunSummary(
+                scopeName: scope.displayName,
+                status: status,
+                organizedCount: organizedCount,
+                heldCount: heldCount,
+                failedCount: failedCount
+            )
+            if status == .held || status == .failed || heldCount > 0 || failedCount > 0 {
+                activityLoggingService?.logTrustedAutomationScopeAttentionNeeded(
+                    scopeName: scope.displayName,
+                    summary: summary,
+                    affectedFileCount: max(heldCount + failedCount, 1)
+                )
+            } else {
+                activityLoggingService?.logTrustedAutomationScopeRunSummary(
+                    scopeName: scope.displayName,
+                    summary: summary,
+                    affectedFileCount: organizedCount
+                )
+            }
+        }
         return record
     }
 
@@ -345,6 +385,31 @@ final class TrustedAutomationScopeService {
             return scope
         }
         throw ServiceError.scopeNotFound(id)
+    }
+
+    private func defaultRunSummary(
+        scopeName: String,
+        status: TrustedAutomationScopeRunStatus,
+        organizedCount: Int,
+        heldCount: Int,
+        failedCount: Int
+    ) -> String {
+        switch status {
+        case .simulated:
+            return "Previewed the \(scopeName) trusted scope."
+        case .executed:
+            return "Organized \(organizedCount) file(s) in the \(scopeName) trusted scope."
+        case .held:
+            if heldCount > 0 {
+                return "\(heldCount) file(s) were held in the \(scopeName) trusted scope."
+            }
+            return "The \(scopeName) trusted scope needs attention."
+        case .failed:
+            if failedCount > 0 {
+                return "\(failedCount) file(s) failed in the \(scopeName) trusted scope."
+            }
+            return "The \(scopeName) trusted scope failed to run."
+        }
     }
 
     private func explicitRuleOption(

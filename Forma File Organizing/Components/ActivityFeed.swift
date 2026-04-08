@@ -198,6 +198,18 @@ struct ActivityRow: View {
             return Color.formaWarmOrange
         case .automationResumed:
             return Color.formaSage
+        case .trustedAutomationScopePromoted:
+            return Color.formaSage
+        case .trustedAutomationScopePaused:
+            return Color.formaWarmOrange
+        case .trustedAutomationScopeResumed:
+            return Color.formaSage
+        case .trustedAutomationScopeRevoked:
+            return Color.formaWarmOrange
+        case .trustedAutomationScopeRunSummary:
+            return Color.formaSteelBlue
+        case .trustedAutomationScopeAttentionNeeded:
+            return Color.formaError
         }
     }
 }
@@ -229,7 +241,9 @@ enum ActivityAuditBadgeClassifier {
         switch activity.activityType {
         case .automationScanCompleted,
              .automationAutoOrganized,
-             .automationError:
+             .automationError,
+             .trustedAutomationScopeRunSummary,
+             .trustedAutomationScopeAttentionNeeded:
             return true
         case .bulkOrganized, .bulkUndone:
             return containsDetail("automatic", in: activity)

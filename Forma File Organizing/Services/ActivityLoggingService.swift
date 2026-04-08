@@ -258,6 +258,64 @@ final class ActivityLoggingService {
         log(.automationResumed, name: "Automation", details: "Resumed by user")
     }
 
+    func logTrustedAutomationScopePromoted(scopeName: String, scopeType: TrustedAutomationScopeType) {
+        log(
+            .trustedAutomationScopePromoted,
+            name: scopeName,
+            details: "\(scopeType.displayName) scope is now trusted for automatic moves."
+        )
+    }
+
+    func logTrustedAutomationScopePaused(scopeName: String) {
+        log(
+            .trustedAutomationScopePaused,
+            name: scopeName,
+            details: "Automatic moves are paused for this trusted scope."
+        )
+    }
+
+    func logTrustedAutomationScopeResumed(scopeName: String) {
+        log(
+            .trustedAutomationScopeResumed,
+            name: scopeName,
+            details: "Automatic moves resumed for this trusted scope."
+        )
+    }
+
+    func logTrustedAutomationScopeRevoked(scopeName: String) {
+        log(
+            .trustedAutomationScopeRevoked,
+            name: scopeName,
+            details: "This trusted scope will stay review-first until you enable it again."
+        )
+    }
+
+    func logTrustedAutomationScopeRunSummary(
+        scopeName: String,
+        summary: String,
+        affectedFileCount: Int?
+    ) {
+        log(
+            .trustedAutomationScopeRunSummary,
+            name: scopeName,
+            details: summary,
+            affectedFileCount: affectedFileCount
+        )
+    }
+
+    func logTrustedAutomationScopeAttentionNeeded(
+        scopeName: String,
+        summary: String,
+        affectedFileCount: Int?
+    ) {
+        log(
+            .trustedAutomationScopeAttentionNeeded,
+            name: scopeName,
+            details: summary,
+            affectedFileCount: affectedFileCount
+        )
+    }
+
     // MARK: - Private
 
     private func save() {

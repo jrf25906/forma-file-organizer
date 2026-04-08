@@ -194,6 +194,7 @@ final class NotificationService: Sendable {
     /// Use these to clear specific notification types.
     enum AutomationNotificationID {
         static let autoOrganizeSummary = "forma.automation.organize-summary"
+        static let trustedScopeAttention = "forma.automation.trusted-scope-attention"
         static let backlogReminder = "forma.automation.backlog-reminder"
         static let ageReminder = "forma.automation.age-reminder"
         static let folderHealthPrefix = "forma.automation.folder-health"
@@ -221,11 +222,29 @@ final class NotificationService: Sendable {
     ///   - failedCount: Number of files that failed to organize
     ///   - skippedCount: Number of files skipped (didn't meet criteria)
     func notifyAutoOrganizeSummary(successCount: Int, failedCount: Int, skippedCount: Int) {
+        notifyAutoOrganizeSummary(
+            successCount: successCount,
+            failedCount: failedCount,
+            skippedCount: skippedCount,
+            scopeDisplayName: nil,
+            groupedScopeCount: 0
+        )
+    }
+
+    func notifyAutoOrganizeSummary(
+        successCount: Int,
+        failedCount: Int,
+        skippedCount: Int,
+        scopeDisplayName: String?,
+        groupedScopeCount: Int
+    ) {
         guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
         guard let payload = Self.autoOrganizeSummaryPayload(
             successCount: successCount,
             failedCount: failedCount,
-            skippedCount: skippedCount
+            skippedCount: skippedCount,
+            scopeDisplayName: scopeDisplayName,
+            groupedScopeCount: groupedScopeCount
         ) else { return }
 
         enqueue(payload) { error in
@@ -233,6 +252,23 @@ final class NotificationService: Sendable {
                 Log.error("Error showing auto-organize notification: \(error)", category: .automation)
             } else {
                 Log.info("Auto-organize notification shown: \(successCount) success, \(failedCount) failed", category: .automation)
+            }
+        }
+    }
+
+    func notifyTrustedAutomationScopeAttention(scopeDisplayName: String, reason: String) {
+        guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
+
+        let payload = Self.trustedAutomationScopeAttentionPayload(
+            scopeDisplayName: scopeDisplayName,
+            reason: reason
+        )
+
+        enqueue(payload) { error in
+            if let error = error {
+                Log.error("Error showing trusted scope attention notification: \(error)", category: .automation)
+            } else {
+                Log.info("Trusted scope attention notification shown: \(scopeDisplayName)", category: .automation)
             }
         }
     }
@@ -399,11 +435,27 @@ final class NotificationService: Sendable {
     static func autoOrganizeSummaryPayload(
         successCount: Int,
         failedCount: Int,
-        skippedCount: Int
+        skippedCount: Int,
+        scopeDisplayName: String? = nil,
+        groupedScopeCount: Int = 0
     ) -> AutomationNotificationPayload? {
         guard successCount > 0 || failedCount > 0 else { return nil }
 
-        var sentences = ["Forma cleared \(successCount) file\(successCount == 1 ? "" : "s") from your queue based on your rules"]
+        let isSingleScopeRun = groupedScopeCount == 1 && !(scopeDisplayName?.isEmpty ?? true)
+        let title = isSingleScopeRun
+            ? "\(scopeDisplayName ?? "Trusted Scope") Made Progress"
+            : "Auto-Organize Made Progress"
+
+        let leadSentence: String
+        if isSingleScopeRun, let scopeDisplayName {
+            leadSentence = "Forma cleared \(successCount) file\(successCount == 1 ? "" : "s") from the \(scopeDisplayName) trusted scope"
+        } else if groupedScopeCount > 1 {
+            leadSentence = "Forma cleared \(successCount) file\(successCount == 1 ? "" : "s") across \(groupedScopeCount) trusted scopes based on your rules"
+        } else {
+            leadSentence = "Forma cleared \(successCount) file\(successCount == 1 ? "" : "s") from your queue based on your rules"
+        }
+
+        var sentences = [leadSentence]
         if failedCount > 0 {
             sentences.append("\(failedCount) still need\(failedCount == 1 ? "s" : "") your attention")
         }
@@ -414,8 +466,21 @@ final class NotificationService: Sendable {
         return AutomationNotificationPayload(
             category: .progressWin,
             identifier: AutomationNotificationID.autoOrganizeSummary,
-            title: "Auto-Organize Made Progress",
+            title: title,
             body: sentences.joined(separator: ". ").ensureTrailingPeriod(),
+            categoryIdentifier: nil
+        )
+    }
+
+    static func trustedAutomationScopeAttentionPayload(
+        scopeDisplayName: String,
+        reason: String
+    ) -> AutomationNotificationPayload {
+        AutomationNotificationPayload(
+            category: .errorOrPermission,
+            identifier: AutomationNotificationID.trustedScopeAttention,
+            title: "\(scopeDisplayName) Needs Attention",
+            body: reason.ensureTrailingPeriod(),
             categoryIdentifier: nil
         )
     }

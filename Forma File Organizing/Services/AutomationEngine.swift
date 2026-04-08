@@ -293,7 +293,7 @@ final class AutomationEngine: ObservableObject {
             return
         }
 
-        await performAutoOrganize()
+        await performAutoOrganize(triggerSource: .manualRefreshInspection)
     }
 
     // MARK: - Threshold Checks
@@ -373,7 +373,7 @@ final class AutomationEngine: ObservableObject {
 
             // Auto-organize if enabled
             if policy.canAutoOrganize {
-                await performAutoOrganize()
+                await performAutoOrganize(triggerSource: autoOrganizeTriggerSource(for: reason))
             }
 
             Log.info("AutomationEngine: Scan completed - \(result.totalScanned) files", category: .automation)
@@ -383,7 +383,7 @@ final class AutomationEngine: ObservableObject {
         }
     }
 
-    private func performAutoOrganize() async {
+    private func performAutoOrganize(triggerSource: TrustedAutomationScopeRunTriggerSource) async {
         guard let context = modelContext,
               let coordinator = organizationCoordinator,
               let provider = scanProvider else {
@@ -403,16 +403,51 @@ final class AutomationEngine: ObservableObject {
             return
         }
 
-        let preflight = Self.buildPreflightSummary(
-            candidates: candidates,
-            confidenceThreshold: policy.mlConfidenceThreshold
-        )
+        let scopeResolver = TrustedAutomationScopeResolver(modelContext: context)
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+
+        let preflightPlan: ScopedAutomationPreflightPlan
+        do {
+            preflightPlan = try Self.buildScopedPreflightPlan(
+                candidates: candidates,
+                confidenceThreshold: policy.mlConfidenceThreshold,
+                scopeResolver: scopeResolver
+            )
+        } catch {
+            let errorType = AutomationErrorType.classify(error: error)
+            let message = AutomationErrorType.cleanMessage(from: error)
+            Log.error("AutomationEngine: Failed to build scoped auto-organize preflight - \(message)", category: .automation)
+            ActivityLoggingService.create(from: context)?.logAutomationError(type: errorType, message: message)
+            sendErrorNotification(type: errorType, message: message)
+            return
+        }
+
+        let preflight = preflightPlan.summary
         state.lastPreflightSummary = preflight
         state.lastRunSuccessCount = 0
         state.lastRunFailedCount = 0
         state.lastRunSkippedCount = preflight.totalSkippedCount
 
+        recordScopedPreflightRuns(
+            groups: preflightPlan.groups,
+            triggerSource: triggerSource,
+            scopeService: scopeService
+        )
+
         guard !preflight.eligibleFiles.isEmpty else {
+            recordHeldScopeRuns(
+                groups: preflightPlan.groups,
+                triggerSource: triggerSource,
+                scopeService: scopeService
+            )
+
+            if let attentionGroup = preflightPlan.singleAttentionNotificationGroup {
+                sendTrustedScopeAttention(
+                    scopeDisplayName: attentionGroup.scope.displayName,
+                    reason: attentionGroup.attentionNotificationReason
+                )
+            }
+
             Log.info(
                 "AutomationEngine: No eligible files for auto-organize (\(preflight.totalSkippedCount) skipped in preflight)",
                 category: .automation
@@ -422,41 +457,93 @@ final class AutomationEngine: ObservableObject {
 
         Log.info("AutomationEngine: Auto-organizing \(preflight.eligibleCount) files", category: .automation)
 
-        // Perform bulk organize
-        await coordinator.organizeMultipleFiles(
-            preflight.eligibleFiles,
-            origin: .automation,
-            context: context
-        ) { [weak self] success, failed, failedFiles, error in
-            guard let self else { return }
+        var totalSuccess = 0
+        var totalFailed = 0
+        var firstExecutionError: Error?
+        var successfulScopeNames: [String] = []
 
-            self.state.lastRunSuccessCount = success
-            self.state.lastRunFailedCount = failed
-            self.state.lastRunSkippedCount = preflight.totalSkippedCount
+        for group in preflightPlan.groups {
+            guard !group.eligibleFiles.isEmpty else {
+                continue
+            }
 
-            ActivityLoggingService.create(from: context)?.logAutoOrganizeBatch(
-                successCount: success,
-                failedCount: failed,
-                skippedCount: preflight.totalSkippedCount,
-                skippedMissingDestination: preflight.skippedMissingDestination,
-                skippedPermissionIssues: preflight.skippedPermissionIssues,
-                skippedConfidenceThreshold: preflight.skippedConfidenceThreshold,
-                skippedExcludedFromAutomation: preflight.skippedExcludedFromAutomation,
-                undoAvailable: success > 0 && coordinator.latestUndoableBatchSummary?.origin == .automation
+            let executionResult = await executeScopedAutoOrganizeGroup(
+                group,
+                using: coordinator,
+                context: context
             )
 
-            // Send notification
-            if success > 0 {
-                self.sendAutoOrganizeSummary(
-                    successCount: success,
-                    failedCount: failed,
-                    skippedCount: preflight.totalSkippedCount
-                )
+            totalSuccess += executionResult.successCount
+            totalFailed += executionResult.failedCount
+            if executionResult.successCount > 0 {
+                successfulScopeNames.append(group.scope.displayName)
             }
 
-            if let error {
-                Log.error("AutomationEngine: Auto-organize had failures - \(error.localizedDescription)", category: .automation)
+            if firstExecutionError == nil {
+                firstExecutionError = executionResult.error
             }
+
+            do {
+                try scopeService.recordRun(
+                    scopeID: group.scope.id,
+                    triggerSource: triggerSource,
+                    status: executionResult.status,
+                    matchedCount: group.matchedCount,
+                    eligibleCount: group.eligibleFiles.count,
+                    organizedCount: executionResult.successCount,
+                    heldCount: group.heldCount,
+                    failedCount: executionResult.failedCount,
+                    heldBuckets: group.heldBuckets,
+                    summaryText: group.executedSummaryText(
+                        successCount: executionResult.successCount,
+                        failedCount: executionResult.failedCount
+                    ),
+                    exampleFileNames: group.exampleFileNames,
+                    startedAt: clock.now,
+                    endedAt: clock.now
+                )
+            } catch {
+                Log.error("AutomationEngine: Failed to record trusted scope run - \(error.localizedDescription)", category: .automation)
+            }
+        }
+
+        recordHeldScopeRuns(
+            groups: preflightPlan.groups.filter { $0.eligibleFiles.isEmpty },
+            triggerSource: triggerSource,
+            scopeService: scopeService
+        )
+
+        state.lastRunSuccessCount = totalSuccess
+        state.lastRunFailedCount = totalFailed
+        state.lastRunSkippedCount = preflight.totalSkippedCount
+
+        ActivityLoggingService.create(from: context)?.logAutoOrganizeBatch(
+            successCount: totalSuccess,
+            failedCount: totalFailed,
+            skippedCount: preflight.totalSkippedCount,
+            skippedMissingDestination: preflight.skippedMissingDestination,
+            skippedPermissionIssues: preflight.skippedPermissionIssues,
+            skippedConfidenceThreshold: preflight.skippedConfidenceThreshold,
+            skippedExcludedFromAutomation: preflight.skippedExcludedFromAutomation,
+            undoAvailable: totalSuccess > 0 && coordinator.latestUndoableBatchSummary?.origin == .automation
+        )
+
+        if totalSuccess > 0 {
+            sendAutoOrganizeSummary(
+                successCount: totalSuccess,
+                failedCount: totalFailed,
+                skippedCount: preflight.totalSkippedCount,
+                successfulScopeNames: successfulScopeNames
+            )
+        } else if let attentionGroup = preflightPlan.singleAttentionNotificationGroup {
+            sendTrustedScopeAttention(
+                scopeDisplayName: attentionGroup.scope.displayName,
+                reason: attentionGroup.attentionNotificationReason
+            )
+        }
+
+        if let firstExecutionError {
+            Log.error("AutomationEngine: Auto-organize had failures - \(firstExecutionError.localizedDescription)", category: .automation)
         }
     }
 
@@ -529,13 +616,31 @@ final class AutomationEngine: ObservableObject {
 
     // MARK: - Private: Notifications
 
-    private func sendAutoOrganizeSummary(successCount: Int, failedCount: Int, skippedCount: Int) {
+    private func sendAutoOrganizeSummary(
+        successCount: Int,
+        failedCount: Int,
+        skippedCount: Int,
+        successfulScopeNames: [String]
+    ) {
         guard policy.notificationsEnabled, canSendNotification() else { return }
 
+        let scopeDisplayName = successfulScopeNames.count == 1 ? successfulScopeNames.first : nil
         notificationService.notifyAutoOrganizeSummary(
             successCount: successCount,
             failedCount: failedCount,
-            skippedCount: skippedCount
+            skippedCount: skippedCount,
+            scopeDisplayName: scopeDisplayName,
+            groupedScopeCount: successfulScopeNames.count
+        )
+        recordNotificationSent()
+    }
+
+    private func sendTrustedScopeAttention(scopeDisplayName: String, reason: String) {
+        guard policy.notificationsEnabled, canSendNotification() else { return }
+
+        notificationService.notifyTrustedAutomationScopeAttention(
+            scopeDisplayName: scopeDisplayName,
+            reason: reason
         )
         recordNotificationSent()
     }
@@ -727,9 +832,211 @@ final class AutomationEngine: ObservableObject {
         pendingRealtimeRoots.removeAll()
         await performScan(reason: .fileSystemEvent, baseFolders: roots)
     }
+
+    private func autoOrganizeTriggerSource(for reason: ScanReason) -> TrustedAutomationScopeRunTriggerSource {
+        switch reason {
+        case .fileSystemEvent:
+            return .realtimeAutomationPass
+        case .manual:
+            return .manualRefreshInspection
+        case .appLaunch, .scheduled, .thresholdExceeded:
+            return .scheduledAutomationPass
+        }
+    }
+
+    private func recordScopedPreflightRuns(
+        groups: [ScopedAutomationGroup],
+        triggerSource: TrustedAutomationScopeRunTriggerSource,
+        scopeService: TrustedAutomationScopeService
+    ) {
+        for group in groups {
+            do {
+                try scopeService.recordRun(
+                    scopeID: group.scope.id,
+                    triggerSource: triggerSource,
+                    status: .simulated,
+                    matchedCount: group.matchedCount,
+                    eligibleCount: group.eligibleFiles.count,
+                    organizedCount: 0,
+                    heldCount: group.heldCount,
+                    failedCount: 0,
+                    heldBuckets: group.heldBuckets,
+                    summaryText: group.simulatedSummaryText,
+                    exampleFileNames: group.exampleFileNames,
+                    startedAt: clock.now,
+                    endedAt: clock.now
+                )
+            } catch {
+                Log.error("AutomationEngine: Failed to record trusted scope preflight - \(error.localizedDescription)", category: .automation)
+            }
+        }
+    }
+
+    private func recordHeldScopeRuns(
+        groups: [ScopedAutomationGroup],
+        triggerSource: TrustedAutomationScopeRunTriggerSource,
+        scopeService: TrustedAutomationScopeService
+    ) {
+        for group in groups where group.heldCount > 0 {
+            do {
+                try scopeService.recordRun(
+                    scopeID: group.scope.id,
+                    triggerSource: triggerSource,
+                    status: .held,
+                    matchedCount: group.matchedCount,
+                    eligibleCount: group.eligibleFiles.count,
+                    organizedCount: 0,
+                    heldCount: group.heldCount,
+                    failedCount: 0,
+                    heldBuckets: group.heldBuckets,
+                    summaryText: group.heldSummaryText,
+                    exampleFileNames: group.exampleFileNames,
+                    startedAt: clock.now,
+                    endedAt: clock.now
+                )
+            } catch {
+                Log.error("AutomationEngine: Failed to record trusted scope hold - \(error.localizedDescription)", category: .automation)
+            }
+        }
+    }
+
+    private func executeScopedAutoOrganizeGroup(
+        _ group: ScopedAutomationGroup,
+        using coordinator: FileOrganizationCoordinator,
+        context: ModelContext
+    ) async -> ScopedAutomationExecutionResult {
+        var result = ScopedAutomationExecutionResult(
+            successCount: 0,
+            failedCount: 0,
+            status: group.heldCount > 0 ? .held : .executed,
+            error: nil
+        )
+
+        await coordinator.organizeMultipleFiles(
+            group.eligibleFiles,
+            origin: .automation,
+            context: context
+        ) { success, failed, _, error in
+            let status: TrustedAutomationScopeRunStatus
+            if error != nil && success == 0 {
+                status = .failed
+            } else if failed > 0 || group.heldCount > 0 {
+                status = .held
+            } else {
+                status = .executed
+            }
+
+            result = ScopedAutomationExecutionResult(
+                successCount: success,
+                failedCount: failed,
+                status: status,
+                error: error
+            )
+        }
+
+        return result
+    }
 }
 
 // MARK: - Supporting Types
+
+private struct ScopedAutomationExecutionResult {
+    let successCount: Int
+    let failedCount: Int
+    let status: TrustedAutomationScopeRunStatus
+    let error: Error?
+}
+
+private struct ScopedAutomationPreflightPlan {
+    let summary: AutomationPreflightSummary
+    let groups: [ScopedAutomationGroup]
+
+    var singleAttentionNotificationGroup: ScopedAutomationGroup? {
+        let groupsNeedingAttention = groups.filter {
+            $0.shouldSurfaceAttentionNotification && $0.eligibleFiles.isEmpty
+        }
+        guard groupsNeedingAttention.count == 1 else {
+            return nil
+        }
+        return groupsNeedingAttention.first
+    }
+}
+
+private struct ScopedAutomationGroup {
+    let scope: TrustedAutomationScope
+    var matchedCount: Int = 0
+    var eligibleFiles: [FileItem] = []
+    var skippedMissingDestination: Int = 0
+    var skippedPermissionIssues: Int = 0
+    var skippedConfidenceThreshold: Int = 0
+    var skippedExcludedFromAutomation: Int = 0
+    var exampleFileNames: [String] = []
+
+    var heldCount: Int {
+        skippedMissingDestination +
+        skippedPermissionIssues +
+        skippedConfidenceThreshold +
+        skippedExcludedFromAutomation
+    }
+
+    var heldBuckets: [TrustedAutomationScopeRunRecord.HeldBucket] {
+        var buckets: [TrustedAutomationScopeRunRecord.HeldBucket] = []
+        if skippedMissingDestination > 0 {
+            buckets.append(.init(bucket: "Missing destination", count: skippedMissingDestination))
+        }
+        if skippedPermissionIssues > 0 {
+            buckets.append(.init(bucket: "Permission or destination issue", count: skippedPermissionIssues))
+        }
+        if skippedConfidenceThreshold > 0 {
+            buckets.append(.init(bucket: "Below confidence threshold", count: skippedConfidenceThreshold))
+        }
+        if skippedExcludedFromAutomation > 0 {
+            buckets.append(.init(bucket: "Excluded from automation", count: skippedExcludedFromAutomation))
+        }
+        return buckets
+    }
+
+    var shouldSurfaceAttentionNotification: Bool {
+        skippedMissingDestination > 0 || skippedPermissionIssues > 0
+    }
+
+    var attentionNotificationReason: String {
+        if skippedPermissionIssues > 0 {
+            return "Forma needs permission or destination access again before the \(scope.displayName) trusted scope can keep organizing automatically"
+        }
+        return "Forma needs a valid destination again before the \(scope.displayName) trusted scope can keep organizing automatically"
+    }
+
+    var simulatedSummaryText: String {
+        if heldCount > 0 {
+            return "Preview matched \(matchedCount) file(s); \(heldCount) would be held."
+        }
+        return "Preview matched \(matchedCount) file(s) for the \(scope.displayName) trusted scope."
+    }
+
+    var heldSummaryText: String {
+        if let leadBucket = heldBuckets.first {
+            return "\(heldCount) file(s) were held for \(scope.displayName). \(leadBucket.bucket.capitalized): \(leadBucket.count)."
+        }
+        return "\(heldCount) file(s) were held for \(scope.displayName)."
+    }
+
+    func executedSummaryText(successCount: Int, failedCount: Int) -> String {
+        var sentences = ["Organized \(successCount) file(s) in the \(scope.displayName) trusted scope"]
+        if heldCount > 0 {
+            sentences.append("\(heldCount) file(s) remained held")
+        }
+        if failedCount > 0 {
+            sentences.append("\(failedCount) file(s) failed")
+        }
+        return sentences.joined(separator: ". ").terminatedSentence()
+    }
+
+    mutating func appendExampleName(_ name: String) {
+        guard exampleFileNames.count < 3 else { return }
+        exampleFileNames.append(name)
+    }
+}
 
 /// Reason for triggering a scan.
 enum ScanReason: String, Sendable {
@@ -998,6 +1305,75 @@ private enum AutomationPreflightDisposition {
 }
 
 extension AutomationEngine {
+    @MainActor
+    private static func buildScopedPreflightPlan(
+        candidates: [FileItem],
+        confidenceThreshold: Double,
+        scopeResolver: TrustedAutomationScopeResolver
+    ) throws -> ScopedAutomationPreflightPlan {
+        var eligibleFiles: [FileItem] = []
+        var skippedMissingDestination = 0
+        var skippedPermissionIssues = 0
+        var skippedConfidenceThreshold = 0
+        var skippedExcludedFromAutomation = 0
+        var destinationValidationCache: [Data: Bool] = [:]
+        var groupsByScopeID: [UUID: ScopedAutomationGroup] = [:]
+        var orderedScopeIDs: [UUID] = []
+
+        for file in candidates {
+            guard let scope = try scopeResolver.resolveMatch(for: file, destination: file.destination) else {
+                skippedExcludedFromAutomation += 1
+                continue
+            }
+
+            if groupsByScopeID[scope.id] == nil {
+                groupsByScopeID[scope.id] = ScopedAutomationGroup(scope: scope)
+                orderedScopeIDs.append(scope.id)
+            }
+
+            var group = groupsByScopeID[scope.id] ?? ScopedAutomationGroup(scope: scope)
+            group.matchedCount += 1
+            group.appendExampleName(file.name)
+
+            switch preflightDisposition(
+                for: file,
+                confidenceThreshold: confidenceThreshold,
+                validationCache: &destinationValidationCache
+            ) {
+            case .eligible:
+                eligibleFiles.append(file)
+                group.eligibleFiles.append(file)
+            case .missingDestination:
+                skippedMissingDestination += 1
+                group.skippedMissingDestination += 1
+            case .permissionIssues:
+                skippedPermissionIssues += 1
+                group.skippedPermissionIssues += 1
+            case .confidenceThreshold:
+                skippedConfidenceThreshold += 1
+                group.skippedConfidenceThreshold += 1
+            case .excludedFromAutomation:
+                skippedExcludedFromAutomation += 1
+                group.skippedExcludedFromAutomation += 1
+            }
+
+            groupsByScopeID[scope.id] = group
+        }
+
+        return ScopedAutomationPreflightPlan(
+            summary: AutomationPreflightSummary(
+                eligibleFiles: eligibleFiles,
+                eligibleCount: eligibleFiles.count,
+                skippedMissingDestination: skippedMissingDestination,
+                skippedPermissionIssues: skippedPermissionIssues,
+                skippedConfidenceThreshold: skippedConfidenceThreshold,
+                skippedExcludedFromAutomation: skippedExcludedFromAutomation,
+                exampleFileNames: Array(eligibleFiles.prefix(3).map(\.name))
+            ),
+            groups: orderedScopeIDs.compactMap { groupsByScopeID[$0] }
+        )
+    }
+
     static func buildPreflightSummary(
         candidates: [FileItem],
         confidenceThreshold: Double

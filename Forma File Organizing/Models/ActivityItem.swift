@@ -88,6 +88,12 @@ final class ActivityItem {
         case automationError
         case automationPaused
         case automationResumed
+        case trustedAutomationScopePromoted
+        case trustedAutomationScopePaused
+        case trustedAutomationScopeResumed
+        case trustedAutomationScopeRevoked
+        case trustedAutomationScopeRunSummary
+        case trustedAutomationScopeAttentionNeeded
 
         enum ToneCategory: String, Codable {
             case neutral
@@ -125,6 +131,12 @@ final class ActivityItem {
             case .automationError: return "exclamationmark.triangle.fill"
             case .automationPaused: return "pause.circle.fill"
             case .automationResumed: return "play.circle.fill"
+            case .trustedAutomationScopePromoted: return "checkmark.shield.fill"
+            case .trustedAutomationScopePaused: return "pause.badge.shield.fill"
+            case .trustedAutomationScopeResumed: return "play.badge.shield.fill"
+            case .trustedAutomationScopeRevoked: return "xmark.shield.fill"
+            case .trustedAutomationScopeRunSummary: return "list.bullet.rectangle.portrait.fill"
+            case .trustedAutomationScopeAttentionNeeded: return "exclamationmark.shield.fill"
             }
         }
 
@@ -157,16 +169,29 @@ final class ActivityItem {
             case .automationError: return "Automation Needs Attention"
             case .automationPaused: return "Automation Paused"
             case .automationResumed: return "Automation Resumed"
+            case .trustedAutomationScopePromoted: return "Trusted Scope Enabled"
+            case .trustedAutomationScopePaused: return "Trusted Scope Paused"
+            case .trustedAutomationScopeResumed: return "Trusted Scope Resumed"
+            case .trustedAutomationScopeRevoked: return "Trusted Scope Revoked"
+            case .trustedAutomationScopeRunSummary: return "Trusted Scope Run"
+            case .trustedAutomationScopeAttentionNeeded: return "Trusted Scope Needs Attention"
             }
         }
 
         var toneCategory: ToneCategory {
             switch self {
-            case .automationAutoOrganized, .automationResumed:
+            case .automationAutoOrganized,
+                 .automationResumed,
+                 .trustedAutomationScopePromoted,
+                 .trustedAutomationScopeResumed,
+                 .trustedAutomationScopeRunSummary:
                 return .progressWin
-            case .automationScanCompleted, .automationPaused:
+            case .automationScanCompleted,
+                 .automationPaused,
+                 .trustedAutomationScopePaused,
+                 .trustedAutomationScopeRevoked:
                 return .reminder
-            case .automationError:
+            case .automationError, .trustedAutomationScopeAttentionNeeded:
                 return .errorOrPermission
             default:
                 return .neutral

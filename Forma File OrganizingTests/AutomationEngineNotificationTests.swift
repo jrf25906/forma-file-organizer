@@ -7,6 +7,13 @@ final class AutomationEngineNotificationTests: XCTestCase {
 
     private final class MockNotificationService: AutomationNotificationServing {
         private(set) var autoOrganizeSummaries: [(success: Int, failed: Int, skipped: Int)] = []
+        private(set) var scopedAutoOrganizeSummaries: [(
+            success: Int,
+            failed: Int,
+            skipped: Int,
+            scopeDisplayName: String?,
+            groupedScopeCount: Int
+        )] = []
         private(set) var backlogReminders: [(pendingCount: Int, oldestAgeDays: Int?)] = []
         private(set) var automationErrors: [(type: AutomationErrorType, message: String)] = []
         private(set) var folderHealthAlerts: [(folderType: BookmarkFolder.FolderType, currentBytes: Int64, thresholdBytes: Int64)] = []
@@ -16,6 +23,22 @@ final class AutomationEngineNotificationTests: XCTestCase {
 
         func notifyAutoOrganizeSummary(successCount: Int, failedCount: Int, skippedCount: Int) {
             autoOrganizeSummaries.append((successCount, failedCount, skippedCount))
+        }
+
+        func notifyAutoOrganizeSummary(
+            successCount: Int,
+            failedCount: Int,
+            skippedCount: Int,
+            scopeDisplayName: String?,
+            groupedScopeCount: Int
+        ) {
+            scopedAutoOrganizeSummaries.append((
+                successCount,
+                failedCount,
+                skippedCount,
+                scopeDisplayName,
+                groupedScopeCount
+            ))
         }
 
         func notifyBacklogReminder(pendingCount: Int, oldestAgeDays: Int?) {
@@ -129,6 +152,95 @@ final class AutomationEngineNotificationTests: XCTestCase {
         XCTAssertEqual(notificationService.backlogReminders.count, 1)
         XCTAssertEqual(notificationService.backlogReminders.first?.pendingCount, 0)
         XCTAssertEqual(notificationService.backlogReminders.first?.oldestAgeDays, policy.ageThresholdDays)
+    }
+
+    func testAutoOrganizeSummaryUsesScopeNameForSingleTrustedScopeRun() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destinationURL = try destinationRoot.createDirectory(name: "Receipts Archive")
+        let destination = try Destination.folder(from: destinationURL, displayName: "Receipts Archive")
+
+        let policy = AutomationPolicy(
+            userMode: .scanAndOrganize,
+            effectiveMode: .scanAndOrganize,
+            scanIntervalMinutes: 30,
+            scanOnLaunch: false,
+            backlogThreshold: FormaConfig.Automation.backlogThreshold,
+            ageThresholdDays: FormaConfig.Automation.ageThresholdDays,
+            mlConfidenceThreshold: FormaConfig.Automation.mlAutoOrganizeConfidenceMinimum,
+            maxConsecutiveFailures: FormaConfig.Automation.maxConsecutiveFailures,
+            notificationsEnabled: true,
+            backlogReminderCooldownHours: FormaConfig.Automation.backlogReminderCooldownHours,
+            errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
+        )
+        let notificationService = MockNotificationService()
+        let engine = makeEngine(policy: policy, notificationService: notificationService)
+
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            ActivityItem.self,
+            TrustedAutomationScope.self,
+            TrustedAutomationScopeRunRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let coordinator = RecordingOrganizationCoordinator()
+        let provider = MockFileScanProvider()
+
+        let fileURL = try sourceRoot.createFile(name: "trusted/Receipt-April.pdf")
+        let file = FileItem(
+            path: fileURL.path,
+            sizeInBytes: 128,
+            creationDate: Date(timeIntervalSince1970: 1_700_000_000),
+            location: .downloads,
+            scanRootPath: sourceRoot.url.path,
+            relativeParentPath: "trusted",
+            destination: destination,
+            originalSuggestedDestination: destination,
+            status: .pending
+        )
+        file.confidenceScore = 0.99
+        container.mainContext.insert(file)
+
+        let scopeService = TrustedAutomationScopeService(modelContext: container.mainContext)
+        _ = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "\(sourceRoot.url.path)|trusted",
+            displayName: "Receipts",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: sourceRoot.url.path,
+                    relativeParentPath: "trusted"
+                ),
+                destination: .init(destination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 4,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.95,
+            rationaleSummary: "Trusted after repeated review approvals.",
+            allowedActions: [.move]
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: container.mainContext,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.count, 1)
+        XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.first?.scopeDisplayName, "Receipts")
+        XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.first?.groupedScopeCount, 1)
     }
 
     func testAutoOrganizeCandidateFetchFailureSendsErrorNotification() async throws {
@@ -487,6 +599,19 @@ final class AutomationEngineNotificationTests: XCTestCase {
             clock: FixedClock(now: Date(timeIntervalSince1970: 1_700_000_000)),
             policyResolver: { policy }
         )
+    }
+
+    @MainActor
+    private final class RecordingOrganizationCoordinator: FileOrganizationCoordinator {
+        override func organizeMultipleFiles(
+            _ files: [FileItem],
+            origin: OrganizationRunOrigin = .reviewDriven,
+            projectAssociationWriteContext explicitProjectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
+            context: ModelContext?,
+            onComplete: @escaping (Int, Int, [FileItem], Error?) -> Void
+        ) async {
+            onComplete(files.count, 0, [], nil)
+        }
     }
 
     private func makePolicy(notificationsEnabled: Bool) -> AutomationPolicy {
