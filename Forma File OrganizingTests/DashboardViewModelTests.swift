@@ -2930,6 +2930,99 @@ final class DashboardViewModelTests: XCTestCase {
             XCTFail("Right panel mode should show inspector with multiple files")
         }
     }
+
+    func testInspectorState_ShowsSelectedTemplateAndSimulationSummary() throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let sourceURL = try tempDirectory.createFile(name: "Inbox/April Receipt.pdf", contents: "receipt")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+
+        viewModel._testSetFiles([file])
+        viewModel.toggleSelection(for: file)
+        viewModel.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.receipts
+
+        let preview = try XCTUnwrap(viewModel.inspectorWorkflowSimulationPreview)
+        XCTAssertEqual(viewModel.selectedWorkflowTemplate?.id, BuiltInWorkflowTemplate.StableID.receipts)
+        XCTAssertEqual(preview.templateID, BuiltInWorkflowTemplate.StableID.receipts)
+        XCTAssertEqual(preview.selectedFileCount, 1)
+        XCTAssertEqual(preview.readyToRunCount, 1)
+        XCTAssertTrue(preview.summaryText.contains("1 selected"))
+    }
+
+    func testDashboardWorkflowSimulationPreview_UsesBulkSelectionState() throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let sourceURL = try tempDirectory.createFile(name: "Inbox/Bulk Preview Receipt.pdf", contents: "receipt")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+
+        viewModel._testSetFiles([file])
+        viewModel.toggleSelection(for: file)
+        viewModel.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.receipts
+
+        let preview = try XCTUnwrap(viewModel.dashboardWorkflowSimulationPreview)
+        XCTAssertEqual(preview.templateID, BuiltInWorkflowTemplate.StableID.receipts)
+        XCTAssertEqual(preview.selectedFileCount, 1)
+        XCTAssertEqual(preview.readyToRunCount, 1)
+    }
+
+    func testOrganizeSelectedFiles_PreservesSelectionWhenWorkflowEngineV2DoesNotAttemptExecution() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let file = FileItem(
+            path: "/Users/test/Downloads/preserved.pdf",
+            sizeInBytes: 1_024,
+            creationDate: Date(),
+            location: .downloads,
+            destination: .mockFolder("Documents"),
+            status: .ready
+        )
+
+        viewModel._testSetFiles([file])
+        viewModel.toggleSelection(for: file)
+
+        await MainActor.run {
+            viewModel.organizeSelectedFiles(context: nil)
+        }
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(viewModel.selectedFileIDs, [file.path])
+        XCTAssertTrue(viewModel.selectedFiles.contains { $0 === file })
+    }
     
     func testShowRuleBuilderPanel() {
         // Given

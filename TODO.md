@@ -42,6 +42,8 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Promote review-earned folder, rule, and category trust into explicit autopilot boundaries backed by `TrustedAutomationScopeBoundaryDescriptor`, `TrustedAutomationScopeRunRecord`, and `TrustedAutomationScopeResolver`.
 - [x] Ship first-class autopilot scope UI in the default panel and Smart Features, including active/paused/revoked grouping, derived health, recent runs, and pause/resume/revoke lifecycle controls.
 - [x] Make trusted-scope promotion, preflight, notifications, and activity scope-aware while keeping move-only automation and review-earned trust as the product boundary.
+- [x] Land Task 5 of `workflow-engine-v2`: require explicit built-in template selection for feature-gated ad hoc organize flows, add shared template-picker + simulation-preview state on dashboard/review/inspector surfaces, preserve trusted-scope recommendations on the v2 single-file review path, keep blocked v2 batches as partial failures with workflow-aware retry, and route dashboard, bulk, inspector, and review organizes through `WorkflowRunner` when `Feature.workflowEngineV2` is enabled while keeping legacy organize behavior when it is off.
+- [x] Tighten the shipped Task 5 behavior so workflow-v2 partial-success toasts do not offer dead undo affordances and successful v2 single-file organizes still feed accepted decisions into personal-memory learning.
 - [ ] Keep `workflow-engine-v2` as the next branch for multi-step workflow chains, broader audit, and deeper rollback behavior.
 
 ## App Store Migration Recovery (April 7, 2026)

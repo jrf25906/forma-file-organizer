@@ -12,6 +12,22 @@ import Combine
 /// - Cluster organization
 @MainActor
 class BulkOperationViewModel: ObservableObject {
+    enum ExecutionAttemptResult: Equatable {
+        case notAttempted
+        case executionAttempted
+    }
+
+    enum CelebrationDisplayStyle {
+        case batchUndo
+        case workflowExecution
+    }
+
+    private struct WorkflowExecutionPartition {
+        let runnablePlan: WorkflowPlan
+        let runnableFiles: [FileItem]
+        let blockedFiles: [FileItem]
+    }
+
     // MARK: - Published Properties
 
     /// Bulk operation progress (0.0 to 1.0)
@@ -35,6 +51,7 @@ class BulkOperationViewModel: ObservableObject {
     private let fileOperationsService: FileOperationsService
     private let notificationService: NotificationService
     private let appReviewEligibility: AppReviewEligibilityProviding
+    private let workflowExecution: WorkflowExecutionClient
 
     // MARK: - Callbacks
 
@@ -45,7 +62,7 @@ class BulkOperationViewModel: ObservableObject {
     var onShowErrorToast: ((String) -> Void)?
 
     /// Callback when celebration should be shown
-    var onShowCelebration: ((String) -> Void)?
+    var onShowCelebration: ((String, CelebrationDisplayStyle) -> Void)?
 
     /// Callback when completion celebration should be shown
     var onShowCompletionCelebration: ((Int) -> Void)?
@@ -59,6 +76,7 @@ class BulkOperationViewModel: ObservableObject {
     // MARK: - Private State
 
     private var cancelRequested = false
+    private var lastFailedFilesWorkflowTemplateID: String?
 
     // MARK: - Initialization
 
@@ -66,12 +84,14 @@ class BulkOperationViewModel: ObservableObject {
         organizationCoordinator: FileOrganizationCoordinator = FileOrganizationCoordinator(),
         fileOperationsService: FileOperationsService = FileOperationsService(),
         notificationService: NotificationService,
-        appReviewEligibility: AppReviewEligibilityProviding = AppReviewEligibilityService()
+        appReviewEligibility: AppReviewEligibilityProviding = AppReviewEligibilityService(),
+        workflowExecution: WorkflowExecutionClient = .live
     ) {
         self.organizationCoordinator = organizationCoordinator
         self.fileOperationsService = fileOperationsService
         self.notificationService = notificationService
         self.appReviewEligibility = appReviewEligibility
+        self.workflowExecution = workflowExecution
         setupCoordinatorForwarding()
     }
 
@@ -85,11 +105,28 @@ class BulkOperationViewModel: ObservableObject {
     // MARK: - Bulk Operations
 
     /// Organize selected files
-    func organizeSelectedFiles(_ files: [FileItem], context: ModelContext?) async {
+    func organizeSelectedFiles(
+        _ files: [FileItem],
+        context: ModelContext?,
+        workflowTemplateID: String? = nil
+    ) async -> ExecutionAttemptResult {
+        guard !files.isEmpty else {
+            return .notAttempted
+        }
+
+        if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+            return await organizeMultipleFilesWithWorkflowEngine(
+                files,
+                context: context,
+                totalCount: files.count,
+                workflowTemplateID: workflowTemplateID
+            )
+        }
+
         let readyFiles = files.filter { $0.destination != nil }
         guard !readyFiles.isEmpty else {
             onShowToast?("No selected files have a destination set.", false)
-            return
+            return .notAttempted
         }
 
         #if DEBUG
@@ -98,16 +135,29 @@ class BulkOperationViewModel: ObservableObject {
         Log.debug("Unique destinations: \(destinations.sorted().joined(separator: ", "))", category: .pipeline)
         #endif
 
-        await organizeMultipleFiles(readyFiles, context: context, totalCount: files.count)
+        return await organizeMultipleFiles(readyFiles, context: context, totalCount: files.count)
     }
 
     /// Organize all ready files (Review mode)
-    func organizeAllReadyFiles(_ files: [FileItem], context: ModelContext?) async {
+    func organizeAllReadyFiles(
+        _ files: [FileItem],
+        context: ModelContext?,
+        workflowTemplateID: String? = nil
+    ) async -> ExecutionAttemptResult {
         let readyFiles = files.filter { $0.status == .ready }
 
         guard !readyFiles.isEmpty else {
             onShowToast?("No files are ready to organize. Apply rules first.", false)
-            return
+            return .notAttempted
+        }
+
+        if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+            return await organizeMultipleFilesWithWorkflowEngine(
+                readyFiles,
+                context: context,
+                totalCount: readyFiles.count,
+                workflowTemplateID: workflowTemplateID
+            )
         }
 
         #if DEBUG
@@ -116,7 +166,7 @@ class BulkOperationViewModel: ObservableObject {
         Log.debug("Unique destinations: \(destinations.sorted().joined(separator: ", "))", category: .pipeline)
         #endif
 
-        await organizeMultipleFiles(readyFiles, context: context, totalCount: readyFiles.count)
+        return await organizeMultipleFiles(readyFiles, context: context, totalCount: readyFiles.count)
     }
 
     /// Skip selected files
@@ -250,7 +300,7 @@ class BulkOperationViewModel: ObservableObject {
                         title: "Cluster Organized",
                         message: "Moved \(successCount) files to \(cluster.suggestedFolderName)"
                     )
-                    self.onShowCelebration?("Organized \(successCount) files!")
+                    self.onShowCelebration?("Organized \(successCount) files!", .batchUndo)
                 } else {
                     self.notificationService.showNotification(
                         title: "Cluster Partially Organized",
@@ -270,14 +320,26 @@ class BulkOperationViewModel: ObservableObject {
     // MARK: - Failed Files
 
     /// Retry organizing the files that failed in the last batch
-    func retryFailedFiles(context: ModelContext?) async {
-        guard !lastBatchFailedFiles.isEmpty else { return }
+    func retryFailedFiles(
+        context: ModelContext?,
+        workflowTemplateID: String? = nil
+    ) async -> ExecutionAttemptResult {
+        guard !lastBatchFailedFiles.isEmpty else { return .notAttempted }
 
         let filesToRetry = lastBatchFailedFiles
         lastBatchFailedFiles = []
         showFailedFilesSheet = false
 
-        await organizeMultipleFiles(filesToRetry, context: context, totalCount: filesToRetry.count)
+        if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+            return await organizeMultipleFilesWithWorkflowEngine(
+                filesToRetry,
+                context: context,
+                totalCount: filesToRetry.count,
+                workflowTemplateID: workflowTemplateID ?? lastFailedFilesWorkflowTemplateID
+            )
+        }
+
+        return await organizeMultipleFiles(filesToRetry, context: context, totalCount: filesToRetry.count)
     }
 
     /// Cancel the active bulk operation.
@@ -300,7 +362,7 @@ class BulkOperationViewModel: ObservableObject {
         projectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
         context: ModelContext?,
         totalCount: Int
-    ) async {
+    ) async -> ExecutionAttemptResult {
         cancelRequested = false
         await organizationCoordinator.organizeMultipleFiles(
             files,
@@ -321,12 +383,88 @@ class BulkOperationViewModel: ObservableObject {
             )
             self.onOperationComplete?(successCount, failedCount)
         }
+        return .executionAttempted
+    }
+
+    private func organizeMultipleFilesWithWorkflowEngine(
+        _ files: [FileItem],
+        context: ModelContext?,
+        totalCount: Int,
+        workflowTemplateID: String?
+    ) async -> ExecutionAttemptResult {
+        guard let template = WorkflowTemplateCatalog.template(for: workflowTemplateID) else {
+            onShowToast?("Choose a built-in workflow template before organizing with Workflow Engine v2.", false)
+            return .notAttempted
+        }
+
+        guard let context else {
+            onShowToast?("Workflow Engine v2 needs a model context before it can run.", false)
+            return .notAttempted
+        }
+
+        let plan = workflowExecution.plan(template.id, files)
+        let partition = partitionWorkflowPlan(plan, files: files)
+        lastFailedFilesWorkflowTemplateID = template.id
+
+        guard !partition.runnableFiles.isEmpty else {
+            showOrganizeFeedback(
+                successCount: 0,
+                totalCount: totalCount,
+                failedCount: partition.blockedFiles.count,
+                failedFiles: partition.blockedFiles
+            )
+            return .notAttempted
+        }
+
+        isBulkOperationInProgress = true
+        bulkOperationProgress = 0.0
+        defer {
+            isBulkOperationInProgress = false
+            bulkOperationProgress = 0.0
+        }
+
+        do {
+            try await workflowExecution.run(
+                partition.runnablePlan,
+                partition.runnableFiles,
+                UUID(),
+                context
+            )
+            bulkOperationProgress = 1.0
+            for file in partition.runnableFiles {
+                file.status = .completed
+            }
+            showOrganizeFeedback(
+                successCount: partition.runnableFiles.count,
+                totalCount: totalCount,
+                failedCount: partition.blockedFiles.count,
+                failedFiles: partition.blockedFiles,
+                celebrationStyle: .workflowExecution
+            )
+            onOperationComplete?(partition.runnableFiles.count, partition.blockedFiles.count)
+            return .executionAttempted
+        } catch {
+            let failedFiles = partition.blockedFiles + partition.runnableFiles
+            lastBatchFailedFiles = failedFiles
+            showFailedFilesSheet = !failedFiles.isEmpty
+            onShowToast?(error.localizedDescription, false)
+            onOperationComplete?(0, totalCount)
+            return .executionAttempted
+        }
     }
 
     /// Show appropriate feedback based on operation results
-    private func showOrganizeFeedback(successCount: Int, totalCount: Int, failedCount: Int, failedFiles: [FileItem]) {
+    private func showOrganizeFeedback(
+        successCount: Int,
+        totalCount: Int,
+        failedCount: Int,
+        failedFiles: [FileItem],
+        celebrationStyle: CelebrationDisplayStyle = .batchUndo
+    ) {
         if !failedFiles.isEmpty {
             lastBatchFailedFiles = failedFiles
+        } else {
+            lastBatchFailedFiles = []
         }
 
         if successCount > 0 {
@@ -337,15 +475,48 @@ class BulkOperationViewModel: ObservableObject {
         }
 
         if successCount == totalCount {
-            lastBatchFailedFiles = []
-            onShowCelebration?("Organized \(successCount) file\(successCount == 1 ? "" : "s")")
+            showFailedFilesSheet = false
+            onShowCelebration?(
+                "Organized \(successCount) file\(successCount == 1 ? "" : "s")",
+                celebrationStyle
+            )
         } else if successCount > 0 && failedCount > 0 {
-            onShowToast?("Organized \(successCount) of \(totalCount). Open failed files for details.", true)
+            onShowToast?(
+                "Organized \(successCount) of \(totalCount). Open failed files for details.",
+                celebrationStyle == .batchUndo
+            )
             showFailedFilesSheet = true
         } else if failedCount > 0 {
             onShowToast?("Failed to organize \(failedCount) file\(failedCount == 1 ? "" : "s"). Open failed files to retry.", false)
             showFailedFilesSheet = true
         }
+    }
+
+    private func partitionWorkflowPlan(
+        _ plan: WorkflowPlan,
+        files: [FileItem]
+    ) -> WorkflowExecutionPartition {
+        let runnablePaths = Set(plan.files.filter { !$0.isBlocked }.map(\.sourcePath))
+        let blockedPaths = Set(plan.files.filter(\.isBlocked).map(\.sourcePath))
+        let runnableFiles = files.filter { runnablePaths.contains(standardizedPath(for: $0)) }
+        let blockedFiles = files.filter { blockedPaths.contains(standardizedPath(for: $0)) }
+        let runnablePlan = WorkflowPlan(
+            definition: plan.definition,
+            files: plan.files.filter { runnablePaths.contains($0.sourcePath) },
+            simulation: WorkflowSimulationReport(
+                files: plan.simulation.files.filter { runnablePaths.contains($0.sourcePath) }
+            )
+        )
+
+        return WorkflowExecutionPartition(
+            runnablePlan: runnablePlan,
+            runnableFiles: runnableFiles,
+            blockedFiles: blockedFiles
+        )
+    }
+
+    private func standardizedPath(for file: FileItem) -> String {
+        URL(fileURLWithPath: file.path).standardizedFileURL.path
     }
 
     /// Setup forwarding from OrganizationCoordinator

@@ -13,6 +13,7 @@ class ReviewViewModel: ObservableObject {
     @Published var loadingState: LoadingState = .idle
     @Published var errorMessage: String?
     @Published var successMessage: String?
+    @Published var selectedWorkflowTemplateID: String?
     
     private var modelContext: ModelContext?
 
@@ -33,17 +34,20 @@ class ReviewViewModel: ObservableObject {
     private let notificationService = NotificationService.shared
     private let fileScanPipeline: FileScanPipelineProtocol
     private let organizationCoordinator: FileOrganizationCoordinator
+    private let workflowExecution: WorkflowExecutionClient
 
     // MARK: - Initialization
 
     init(
         fileSystemService: FileSystemServiceProtocol,
         fileScanPipeline: FileScanPipelineProtocol,
-        organizationCoordinator: FileOrganizationCoordinator = FileOrganizationCoordinator()
+        organizationCoordinator: FileOrganizationCoordinator = FileOrganizationCoordinator(),
+        workflowExecution: WorkflowExecutionClient = .live
     ) {
         self.fileSystemService = fileSystemService
         self.fileScanPipeline = fileScanPipeline
         self.organizationCoordinator = organizationCoordinator
+        self.workflowExecution = workflowExecution
         // We defer scanning until setModelContext is called
     }
 
@@ -59,6 +63,21 @@ class ReviewViewModel: ObservableObject {
         let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         guard !isRunningTests else { return }
         Task { await scanDesktop() }
+    }
+
+    var selectedWorkflowTemplate: BuiltInWorkflowTemplate? {
+        WorkflowTemplateCatalog.template(for: selectedWorkflowTemplateID)
+    }
+
+    var workflowSimulationPreview: WorkflowTemplateSimulationPreview? {
+        guard FeatureFlagService.shared.isEnabled(.workflowEngineV2) else {
+            return nil
+        }
+
+        return WorkflowTemplateSimulationPreview.make(
+            templateID: selectedWorkflowTemplateID,
+            files: files
+        )
     }
 
     // MARK: - Public Methods
@@ -114,6 +133,11 @@ class ReviewViewModel: ObservableObject {
             return
         }
 
+        if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+            await organizeFileWithWorkflowEngine(fileItem)
+            return
+        }
+
         do {
             // Perform the move operation
             let result = try await fileOperationsService.moveFile(fileItem)
@@ -159,10 +183,16 @@ class ReviewViewModel: ObservableObject {
 
     /// Moves all files that have suggested destinations
     func moveAllFiles() async {
-        let filesToMove = files.filter { $0.destination != nil }
+        let usesWorkflowEngineV2 = FeatureFlagService.shared.isEnabled(.workflowEngineV2)
+        let filesToMove = usesWorkflowEngineV2 ? files : files.filter { $0.destination != nil }
 
         guard !filesToMove.isEmpty else {
             errorMessage = "No files with suggested destinations"
+            return
+        }
+
+        if usesWorkflowEngineV2 {
+            await organizeFilesWithWorkflowEngine(filesToMove)
             return
         }
         
@@ -255,5 +285,67 @@ class ReviewViewModel: ObservableObject {
     /// Clears success message
     func clearSuccess() {
         successMessage = nil
+    }
+
+    private func organizeFileWithWorkflowEngine(_ fileItem: FileItem) async {
+        await organizeFilesWithWorkflowEngine([fileItem])
+    }
+
+    private func organizeFilesWithWorkflowEngine(_ filesToMove: [FileItem]) async {
+        guard let template = WorkflowTemplateCatalog.template(for: selectedWorkflowTemplateID) else {
+            errorMessage = "Choose a built-in workflow template before organizing with Workflow Engine v2."
+            return
+        }
+
+        guard let modelContext else {
+            errorMessage = "Workflow Engine v2 needs a model context before it can run."
+            return
+        }
+
+        let plan = workflowExecution.plan(template.id, filesToMove)
+        let runnablePaths = Set(plan.files.filter { !$0.isBlocked }.map(\.sourcePath))
+        let blockedPaths = Set(plan.files.filter(\.isBlocked).map(\.sourcePath))
+        let runnableFiles = filesToMove.filter { runnablePaths.contains(standardizedPath(for: $0)) }
+        let blockedFiles = filesToMove.filter { blockedPaths.contains(standardizedPath(for: $0)) }
+
+        guard !runnableFiles.isEmpty else {
+            successMessage = nil
+            errorMessage = "No files were organized. \(blockedFiles.count) file\(blockedFiles.count == 1 ? " is" : "s are") blocked in the workflow plan."
+            return
+        }
+
+        let runnablePlan = WorkflowPlan(
+            definition: plan.definition,
+            files: plan.files.filter { runnablePaths.contains($0.sourcePath) },
+            simulation: WorkflowSimulationReport(
+                files: plan.simulation.files.filter { runnablePaths.contains($0.sourcePath) }
+            )
+        )
+
+        do {
+            try await workflowExecution.run(runnablePlan, runnableFiles, UUID(), modelContext)
+            for file in runnableFiles {
+                file.status = .completed
+            }
+
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                let movedPaths = Set(runnableFiles.map(\.path))
+                files.removeAll { movedPaths.contains($0.path) }
+            }
+
+            if blockedFiles.isEmpty {
+                successMessage = "Organized \(runnableFiles.count) file\(runnableFiles.count == 1 ? "" : "s") with \(template.displayName)"
+                errorMessage = nil
+            } else {
+                successMessage = "Organized \(runnableFiles.count) of \(filesToMove.count) files with \(template.displayName)"
+                errorMessage = "\(blockedFiles.count) file\(blockedFiles.count == 1 ? " is" : "s are") blocked in the workflow plan."
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func standardizedPath(for file: FileItem) -> String {
+        URL(fileURLWithPath: file.path).standardizedFileURL.path
     }
 }

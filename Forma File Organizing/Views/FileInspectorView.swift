@@ -483,6 +483,17 @@ struct FileInspectorView: View {
         let matchingRule = matchingRule(for: file)
 
         VStack(spacing: FormaSpacing.standard) {
+            if FeatureFlagService.shared.isEnabled(.workflowEngineV2),
+               file.destination != nil {
+                WorkflowTemplatePicker(
+                    selectedTemplateID: Binding(
+                        get: { dashboardViewModel.selectedWorkflowTemplateID },
+                        set: { dashboardViewModel.selectedWorkflowTemplateID = $0 }
+                    ),
+                    preview: dashboardViewModel.inspectorWorkflowSimulationPreview
+                )
+            }
+
             // Primary action: Organize
             if file.destination != nil {
                 PrimaryButton("Organize", icon: "checkmark.circle.fill") {
@@ -705,6 +716,16 @@ struct FileInspectorView: View {
     
     private func bulkActionsCard() -> some View {
         VStack(spacing: FormaSpacing.standard) {
+            if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+                WorkflowTemplatePicker(
+                    selectedTemplateID: Binding(
+                        get: { dashboardViewModel.selectedWorkflowTemplateID },
+                        set: { dashboardViewModel.selectedWorkflowTemplateID = $0 }
+                    ),
+                    preview: dashboardViewModel.inspectorWorkflowSimulationPreview
+                )
+            }
+
             // Check if all have destinations
             let filesWithDestinations = files.filter { $0.destination != nil }
             let allHaveDestinations = filesWithDestinations.count == files.count

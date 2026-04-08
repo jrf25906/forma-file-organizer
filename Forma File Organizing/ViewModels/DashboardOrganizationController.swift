@@ -13,6 +13,7 @@ final class DashboardOrganizationController {
     private let panelManager: PanelStateManager
     private let appReviewEligibility: AppReviewEligibilityProviding
     private let usesTestingFastPath: Bool
+    private let workflowExecution: WorkflowExecutionClient
 
     var onShowToast: ((String, Bool) -> Void)?
     var onShowError: ((String) -> Void)?
@@ -26,7 +27,8 @@ final class DashboardOrganizationController {
         selectionViewModel: SelectionViewModel,
         panelManager: PanelStateManager,
         appReviewEligibility: AppReviewEligibilityProviding = AppReviewEligibilityService(),
-        usesTestingFastPath: Bool = DashboardOrganizationController.defaultUsesTestingFastPath()
+        usesTestingFastPath: Bool = DashboardOrganizationController.defaultUsesTestingFastPath(),
+        workflowExecution: WorkflowExecutionClient = .live
     ) {
         self.coordinator = coordinator
         self.scanViewModel = scanViewModel
@@ -35,6 +37,7 @@ final class DashboardOrganizationController {
         self.panelManager = panelManager
         self.appReviewEligibility = appReviewEligibility
         self.usesTestingFastPath = usesTestingFastPath
+        self.workflowExecution = workflowExecution
     }
 
     // MARK: - Organization Status
@@ -52,9 +55,20 @@ final class DashboardOrganizationController {
     func organizeFile(
         _ file: FileItem,
         context: ModelContext?,
-        sourceSurface: PersonalMemorySourceSurface = .reviewFlow
+        sourceSurface: PersonalMemorySourceSurface = .reviewFlow,
+        workflowTemplateID: String? = nil
     ) {
         guard file.destination != nil else { return }
+        if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+            organizeFileWithWorkflowEngine(
+                file,
+                context: context,
+                sourceSurface: sourceSurface,
+                workflowTemplateID: workflowTemplateID
+            )
+            return
+        }
+
         selectionViewModel.deselectAll()
 
         #if DEBUG
@@ -95,14 +109,88 @@ final class DashboardOrganizationController {
         }
     }
 
+    private func organizeFileWithWorkflowEngine(
+        _ file: FileItem,
+        context: ModelContext?,
+        sourceSurface: PersonalMemorySourceSurface,
+        workflowTemplateID: String?
+    ) {
+        guard let template = WorkflowTemplateCatalog.template(for: workflowTemplateID) else {
+            let message = "Choose a built-in workflow template before organizing with Workflow Engine v2."
+            onShowError?(message)
+            onShowToast?(message, false)
+            return
+        }
+
+        guard let context else {
+            let message = "Workflow Engine v2 needs a model context before it can run."
+            onShowError?(message)
+            onShowToast?(message, false)
+            return
+        }
+
+        selectionViewModel.deselectAll()
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let memorySnapshot = self.makeWorkflowMemorySnapshot(for: file)
+
+            do {
+                let plan = self.workflowExecution.plan(template.id, [file])
+                try await self.workflowExecution.run(
+                    plan,
+                    [file],
+                    UUID(),
+                    context
+                )
+                file.status = .completed
+                self.handleSuccessfulOrganization(
+                    file: file,
+                    action: FileOrganizationCoordinator.FileActionData(
+                        filePath: file.path,
+                        originalPath: file.path,
+                        originalStatus: .ready,
+                        originalSuggestedDestination: file.originalSuggestedDestination?.displayName,
+                        destinationPath: file.path,
+                        memorySnapshot: memorySnapshot
+                    ),
+                    context: context,
+                    sourceSurface: sourceSurface,
+                    celebrationStyle: .workflowExecution,
+                    shouldRecordPersonalMemoryDecision: true
+                )
+                self.scanViewModel.removeFile(at: file.path)
+                self.filterViewModel.updateSourceFiles(self.scanViewModel.allFiles)
+            } catch {
+                self.onShowError?(error.localizedDescription)
+                self.onShowToast?(error.localizedDescription, false)
+            }
+        }
+    }
+
     private func handleSuccessfulOrganization(
         file: FileItem,
         action: FileOrganizationCoordinator.FileActionData,
         context: ModelContext?,
-        sourceSurface: PersonalMemorySourceSurface
+        sourceSurface: PersonalMemorySourceSurface,
+        celebrationStyle: PanelStateManager.CelebrationStyle = .batchUndo,
+        shouldRecordPersonalMemoryDecision: Bool = false
     ) {
         if let displayName = file.destination?.displayName {
-            panelManager.showCelebrationPanel(message: "Organized to \(displayName)")
+            panelManager.showCelebrationPanel(
+                message: "Organized to \(displayName)",
+                style: celebrationStyle
+            )
+        }
+
+        if shouldRecordPersonalMemoryDecision,
+           let context,
+           let snapshot = action.memorySnapshot {
+            recordPersonalMemoryDecision(
+                snapshot: snapshot,
+                sourceSurface: sourceSurface,
+                context: context
+            )
         }
 
         if sourceSurface == .reviewFlow,
@@ -116,6 +204,64 @@ final class DashboardOrganizationController {
         appReviewEligibility.recordSuccessfulOperation(count: 1)
         if appReviewEligibility.shouldRequestReview() {
             onShouldRequestReview?()
+        }
+    }
+
+    private func makeWorkflowMemorySnapshot(for file: FileItem) -> OrganizationMemorySnapshot? {
+        guard FeatureFlagService.shared.isEnabled(.patternLearning),
+              let chosenDestination = file.destination else {
+            return nil
+        }
+
+        return OrganizationMemorySnapshot(
+            fileName: file.name,
+            fileExtension: file.fileExtension,
+            fileTypeCategory: FileTypeCategory.category(for: file.fileExtension),
+            sourceLocation: file.location,
+            scanRootPath: file.scanRootPath,
+            relativeParentPath: file.relativeParentPath,
+            suggestionSource: explicitSuggestionSource(for: file),
+            suggestedDestination: file.originalSuggestedDestination,
+            chosenDestination: chosenDestination,
+            confidenceScore: file.confidenceScore,
+            matchedRuleID: file.matchedRuleID
+        )
+    }
+
+    private func explicitSuggestionSource(for file: FileItem) -> SuggestionSource? {
+        if file.matchedRuleID != nil {
+            return .rule
+        }
+
+        guard let raw = file.suggestionSourceRaw else {
+            return nil
+        }
+
+        return SuggestionSource(rawValue: raw)
+    }
+
+    private func recordPersonalMemoryDecision(
+        snapshot: OrganizationMemorySnapshot,
+        sourceSurface: PersonalMemorySourceSurface,
+        context: ModelContext
+    ) {
+        do {
+            _ = try PersonalMemoryService(modelContext: context).recordDecision(
+                fileName: snapshot.fileName,
+                fileExtension: snapshot.fileExtension,
+                fileTypeCategory: snapshot.fileTypeCategory,
+                sourceLocation: snapshot.sourceLocation,
+                scanRootPath: snapshot.scanRootPath,
+                relativeParentPath: snapshot.relativeParentPath,
+                sourceSurface: sourceSurface,
+                suggestionSource: snapshot.suggestionSource,
+                suggestedDestination: snapshot.suggestedDestination,
+                chosenDestination: snapshot.chosenDestination,
+                confidenceScore: snapshot.confidenceScore,
+                matchedRuleID: snapshot.matchedRuleID
+            )
+        } catch {
+            Log.error("Failed to record personal memory decision: \(error.localizedDescription)", category: .analytics)
         }
     }
 

@@ -273,38 +273,58 @@ struct MainContentView: View {
         
         // Floating Action Bar - Direct ZStack child
         if dashboardViewModel.isSelectionMode {
-            FloatingActionBar(
-                mode: .selection,
-                count: dashboardViewModel.selectedFileIDs.count,
-                canOrganizeAll: dashboardViewModel.canOrganizeAllSelected,
-                onOrganize: {
-                    dashboardViewModel.organizeSelectedFiles(context: modelContext)
-                },
-                onSkip: {
-                    dashboardViewModel.skipSelectedFiles()
-                },
-                onBulkEdit: {
-                    dashboardViewModel.showBulkEditSheet = true
-                },
-                onDeselect: {
-                    dashboardViewModel.deselectAll()
+            VStack(spacing: FormaSpacing.tight) {
+                if dashboardViewModel.showsDashboardWorkflowTemplatePicker {
+                    WorkflowTemplatePicker(
+                        selectedTemplateID: $dashboardViewModel.selectedWorkflowTemplateID,
+                        preview: dashboardViewModel.dashboardWorkflowSimulationPreview
+                    )
+                    .padding(.horizontal, FormaLayout.Gutters.center)
                 }
-            )
+
+                FloatingActionBar(
+                    mode: .selection,
+                    count: dashboardViewModel.selectedFileIDs.count,
+                    canOrganizeAll: dashboardViewModel.canOrganizeAllSelected,
+                    onOrganize: {
+                        dashboardViewModel.organizeSelectedFiles(context: modelContext)
+                    },
+                    onSkip: {
+                        dashboardViewModel.skipSelectedFiles()
+                    },
+                    onBulkEdit: {
+                        dashboardViewModel.showBulkEditSheet = true
+                    },
+                    onDeselect: {
+                        dashboardViewModel.deselectAll()
+                    }
+                )
+            }
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(100)
             .padding(.bottom, FloatingActionBar.bottomOffset)
         } else if dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.visibleFiles.isEmpty {
-            FloatingActionBar(
-                mode: .review,
-                count: dashboardViewModel.currentReviewChunkReadyCount,
-                canOrganizeAll: dashboardViewModel.currentReviewChunkReadyCount > 0,
-                onOrganize: {
-                    dashboardViewModel.organizeAllReadyFiles(context: modelContext)
-                },
-                onSkip: {
-                    dashboardViewModel.doneForNow()
+            VStack(spacing: FormaSpacing.tight) {
+                if dashboardViewModel.showsDashboardWorkflowTemplatePicker {
+                    WorkflowTemplatePicker(
+                        selectedTemplateID: $dashboardViewModel.selectedWorkflowTemplateID,
+                        preview: dashboardViewModel.dashboardWorkflowSimulationPreview
+                    )
+                    .padding(.horizontal, FormaLayout.Gutters.center)
                 }
-            )
+
+                FloatingActionBar(
+                    mode: .review,
+                    count: dashboardViewModel.currentReviewChunkReadyCount,
+                    canOrganizeAll: dashboardViewModel.currentReviewChunkReadyCount > 0,
+                    onOrganize: {
+                        dashboardViewModel.organizeAllReadyFiles(context: modelContext)
+                    },
+                    onSkip: {
+                        dashboardViewModel.doneForNow()
+                    }
+                )
+            }
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(100)
             .padding(.bottom, FloatingActionBar.bottomOffset)

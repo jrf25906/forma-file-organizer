@@ -319,6 +319,7 @@ class DashboardViewModel: ObservableObject {
     @Published var isRightPanelVisible: Bool = true
     @Published var errorMessage: String?
     @Published var shouldRequestAppReview: Bool = false
+    @Published var selectedWorkflowTemplateID: String?
     @Published private(set) var projectSpaces: [ProjectSpaceSummary] = []
     @Published private(set) var selectedProjectSpace: ProjectSpaceSummary?
     @Published private(set) var selectedProjectSpaceDetail: ProjectSpaceDetail?
@@ -937,6 +938,32 @@ class DashboardViewModel: ObservableObject {
 
     var bulkOperationProgress: Double { bulkOperationViewModel.bulkOperationProgress }
     var isBulkOperationInProgress: Bool { bulkOperationViewModel.isBulkOperationInProgress }
+    var selectedWorkflowTemplate: BuiltInWorkflowTemplate? {
+        WorkflowTemplateCatalog.template(for: selectedWorkflowTemplateID)
+    }
+    var showsDashboardWorkflowTemplatePicker: Bool {
+        featureFlags.isEnabled(.workflowEngineV2) && !dashboardWorkflowCandidateFiles.isEmpty
+    }
+    var dashboardWorkflowSimulationPreview: WorkflowTemplateSimulationPreview? {
+        guard showsDashboardWorkflowTemplatePicker else {
+            return nil
+        }
+
+        return WorkflowTemplateSimulationPreview.make(
+            templateID: selectedWorkflowTemplateID,
+            files: dashboardWorkflowCandidateFiles
+        )
+    }
+    var inspectorWorkflowSimulationPreview: WorkflowTemplateSimulationPreview? {
+        guard featureFlags.isEnabled(.workflowEngineV2) else {
+            return nil
+        }
+
+        return WorkflowTemplateSimulationPreview.make(
+            templateID: selectedWorkflowTemplateID,
+            files: selectedFiles
+        )
+    }
     var showBulkEditSheet: Bool {
         get { bulkOperationViewModel.showBulkEditSheet }
         set { bulkOperationViewModel.showBulkEditSheet = newValue }
@@ -953,9 +980,15 @@ class DashboardViewModel: ObservableObject {
     func organizeSelectedFiles(context: ModelContext? = nil) {
         startBulkOperation { [weak self] in
             guard let self else { return }
-            await self.bulkOperationViewModel.organizeSelectedFiles(self.selectedFiles, context: context)
-            self.deselectAll()
-            self.filterViewModel.applyFilterImmediately()
+            let result = await self.bulkOperationViewModel.organizeSelectedFiles(
+                self.selectedFiles,
+                context: context,
+                workflowTemplateID: self.selectedWorkflowTemplateID
+            )
+            if result == .executionAttempted {
+                self.deselectAll()
+                self.filterViewModel.applyFilterImmediately()
+            }
         }
     }
 
@@ -968,7 +1001,11 @@ class DashboardViewModel: ObservableObject {
     func organizeAllReadyFiles(context: ModelContext? = nil) {
         startBulkOperation { [weak self] in
             guard let self else { return }
-            await self.bulkOperationViewModel.organizeAllReadyFiles(self.reviewableFiles, context: context)
+            _ = await self.bulkOperationViewModel.organizeAllReadyFiles(
+                self.reviewableFiles,
+                context: context,
+                workflowTemplateID: self.selectedWorkflowTemplateID
+            )
             self.filterViewModel.applyFilterImmediately()
         }
     }
@@ -979,7 +1016,11 @@ class DashboardViewModel: ObservableObject {
 
         startBulkOperation { [weak self] in
             guard let self else { return }
-            await self.bulkOperationViewModel.organizeSelectedFiles(quickWinFiles, context: context)
+            _ = await self.bulkOperationViewModel.organizeSelectedFiles(
+                quickWinFiles,
+                context: context,
+                workflowTemplateID: self.selectedWorkflowTemplateID
+            )
             self.filterViewModel.applyFilterImmediately()
         }
     }
@@ -1044,7 +1085,10 @@ class DashboardViewModel: ObservableObject {
     func retryFailedFiles(context: ModelContext? = nil) {
         startBulkOperation { [weak self] in
             guard let self else { return }
-            await self.bulkOperationViewModel.retryFailedFiles(context: context)
+            _ = await self.bulkOperationViewModel.retryFailedFiles(
+                context: context,
+                workflowTemplateID: self.selectedWorkflowTemplateID
+            )
             self.filterViewModel.applyFilterImmediately()
         }
     }
@@ -1111,7 +1155,12 @@ class DashboardViewModel: ObservableObject {
         context: ModelContext? = nil,
         sourceSurface: PersonalMemorySourceSurface = .reviewFlow
     ) {
-        organizationController.organizeFile(file, context: context, sourceSurface: sourceSurface)
+        organizationController.organizeFile(
+            file,
+            context: context,
+            sourceSurface: sourceSurface,
+            workflowTemplateID: selectedWorkflowTemplateID
+        )
     }
 
     func skipFile(_ file: FileItem) {
@@ -1970,8 +2019,19 @@ class DashboardViewModel: ObservableObject {
             self?.showToast(message: message, canUndo: false)
         }
 
-        bulkOperationViewModel.onShowCelebration = { [weak self] message in
-            self?.panelManager.showCelebrationPanel(message: message)
+        bulkOperationViewModel.onShowCelebration = { [weak self] message, style in
+            let celebrationStyle: PanelStateManager.CelebrationStyle
+            switch style {
+            case .batchUndo:
+                celebrationStyle = .batchUndo
+            case .workflowExecution:
+                celebrationStyle = .workflowExecution
+            }
+
+            self?.panelManager.showCelebrationPanel(
+                message: message,
+                style: celebrationStyle
+            )
         }
 
         bulkOperationViewModel.onShowToast = { [weak self] message, canUndo in
@@ -2103,6 +2163,13 @@ class DashboardViewModel: ObservableObject {
     var currentReviewChunkPaths: [String] { currentReviewChunkFiles.map(\.path) }
     var currentReviewChunkReadyCount: Int {
         currentReviewChunkFiles.filter { $0.status == .ready }.count
+    }
+    private var dashboardWorkflowCandidateFiles: [FileItem] {
+        if isSelectionMode {
+            return selectedFiles
+        }
+
+        return reviewableFiles.filter { $0.status == .ready }
     }
     var deferredReviewFileCount: Int {
         activeDeferredReviewPaths(in: filterViewModel.reviewableFiles).count

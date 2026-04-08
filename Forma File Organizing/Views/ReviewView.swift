@@ -166,6 +166,16 @@ struct ReviewView: View {
             .padding(FormaSpacing.generous)
             .background(Color.formaBoneWhite)
 
+            if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+                WorkflowTemplatePicker(
+                    selectedTemplateID: $viewModel.selectedWorkflowTemplateID,
+                    preview: viewModel.workflowSimulationPreview
+                )
+                .padding(.horizontal, FormaSpacing.generous)
+                .padding(.top, FormaSpacing.tight)
+                .background(Color.formaBoneWhite)
+            }
+
             // Status Messages
             if let errorMessage = viewModel.errorMessage {
                 VStack(alignment: .leading, spacing: FormaSpacing.micro) {

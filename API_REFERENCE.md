@@ -4,6 +4,29 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Workflow Engine v2 Task 5 ad hoc organize routing
+  - `WorkflowExecutionClient`
+    - `plan(templateID:files:)`
+    - `run(plan:files:scopeID:modelContext:)`
+  - `WorkflowTemplateSimulationPreview`
+  - `WorkflowTemplatePicker`
+  - `DashboardOrganizationController.organizeFile(_:origin:modelContext:workflowTemplateID:)`
+  - `BulkOperationViewModel`
+    - `organizeSelectedFiles(_:selectedCount:modelContext:workflowTemplateID:)`
+    - `organizeAllReadyFiles(from:modelContext:workflowTemplateID:)`
+  - `DashboardViewModel.selectedWorkflowTemplateID`
+  - `DashboardViewModel.selectedWorkflowTemplate`
+  - `DashboardViewModel.showsDashboardWorkflowTemplatePicker`
+  - `DashboardViewModel.dashboardWorkflowSimulationPreview`
+  - `DashboardViewModel.inspectorWorkflowSimulationPreview`
+  - `ReviewViewModel.selectedWorkflowTemplateID`
+  - `ReviewViewModel.selectedWorkflowTemplate`
+  - `ReviewViewModel.workflowSimulationPreview`
+  - Feature-gated ad hoc organize entry points now require an explicit built-in workflow template before invoking `WorkflowRunner`.
+  - The same workflow-engine-v2 affordance now applies across dashboard single-file organize, bulk organize, inspector organize, and reachable review organize flows, with `MainContentView` and `DefaultPanelView` now exposing the shared template picker and dashboard-scope simulation preview instead of limiting the affordance to the inspector.
+  - `BulkOperationViewModel.organizeSelectedFiles`, `organizeAllReadyFiles`, and `retryFailedFiles` now return an execution-attempt result so dashboard selection only clears after a real organize attempt, and the v2 batch paths partition planned files into runnable and blocked subsets before handing work to `WorkflowRunner`.
+  - `DashboardOrganizationController` now reconstructs the personal-memory snapshot for v2 single-file success so trusted-scope recommendation eligibility remains intact even though the path bypasses the legacy coordinator undo payload, and it records the accepted decision into personal-memory learning on successful workflow-v2 single-file organizes.
+  - Workflow-v2 mixed-result batch toasts intentionally suppress undo because those runs do not populate the legacy dashboard undo stack.
 - Legacy app-store migration recovery
   - `ProjectCluster.filePathsSearchBlob`
   - `Forma File OrganizingTests/AppStoreMigrationTests.swift`

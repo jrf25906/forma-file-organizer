@@ -18,6 +18,7 @@ final class ReviewViewModelTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
+        FeatureFlagService.shared.resetToDefaults()
 
         // Create in-memory model container with required models
         let schema = Schema([FileItem.self, Rule.self, ActivityItem.self])
@@ -38,6 +39,7 @@ final class ReviewViewModelTests: XCTestCase {
     }
 
     override func tearDown() async throws {
+        FeatureFlagService.shared.resetToDefaults()
         await MainActor.run {
             viewModel = nil
             mockService = nil
@@ -189,6 +191,52 @@ final class ReviewViewModelTests: XCTestCase {
                      "File should remain in list or error should be set when operation fails")
     }
 
+    func testMoveFile_UsesWorkflowRunnerWhenWorkflowEngineV2Enabled() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Desktop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let sourceURL = try tempDirectory.createFile(name: "Desktop/April Receipt.pdf", contents: "receipt")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+        let fileItem = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            location: .desktop,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        modelContext.insert(fileItem)
+        try modelContext.save()
+
+        let workflowExecution = WorkflowExecutionSpy()
+        let runExpectation = expectation(description: "review workflow runner used")
+        workflowExecution.onRun = { runExpectation.fulfill() }
+        viewModel = ReviewViewModel(
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline,
+            organizationCoordinator: FileOrganizationCoordinator(),
+            workflowExecution: workflowExecution.client
+        )
+        viewModel.setModelContext(modelContext)
+        viewModel.files = [fileItem]
+        viewModel.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.receipts
+
+        await viewModel.moveFile(fileItem)
+
+        await fulfillment(of: [runExpectation], timeout: 1.0)
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertTrue(viewModel.files.isEmpty)
+    }
+
     // MARK: - MoveAllFiles Error Handling Tests
 
     func testMoveAllFiles_NoFilesWithDestination_SetsErrorMessage() async {
@@ -239,6 +287,99 @@ final class ReviewViewModelTests: XCTestCase {
         // File2 (without destination) should remain
         let file2StillPresent = viewModel.files.contains(file2)
         XCTAssertTrue(file2StillPresent, "File without destination should not be attempted")
+    }
+
+    func testWorkflowSimulationPreview_ReflectsSelectedTemplate() throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Desktop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let sourceURL = try tempDirectory.createFile(name: "Desktop/Preview Receipt.pdf", contents: "receipt")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+        let fileItem = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            location: .desktop,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+
+        viewModel.files = [fileItem]
+        viewModel.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.receipts
+
+        let preview = try XCTUnwrap(viewModel.workflowSimulationPreview)
+        XCTAssertEqual(viewModel.selectedWorkflowTemplate?.id, BuiltInWorkflowTemplate.StableID.receipts)
+        XCTAssertEqual(preview.templateID, BuiltInWorkflowTemplate.StableID.receipts)
+        XCTAssertEqual(preview.selectedFileCount, 1)
+        XCTAssertEqual(preview.readyToRunCount, 1)
+        XCTAssertTrue(preview.summaryText.contains("1 selected"))
+    }
+
+    func testMoveAllFiles_WithMixedRunnableAndBlockedFiles_RunsRunnableSubsetAndKeepsBlockedFilesVisible() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Desktop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let runnableURL = try tempDirectory.createFile(name: "Desktop/Runnable Receipt.pdf", contents: "receipt")
+        let blockedURL = sourceFolder.appendingPathComponent("Missing Receipt.pdf")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+
+        let runnableFile = FileItem(
+            path: runnableURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            location: .desktop,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        let blockedFile = FileItem(
+            path: blockedURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 1_712_620_801),
+            modificationDate: Date(timeIntervalSince1970: 1_712_620_801),
+            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_801),
+            location: .desktop,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        modelContext.insert(runnableFile)
+        modelContext.insert(blockedFile)
+        try modelContext.save()
+
+        let workflowExecution = WorkflowExecutionSpy()
+        viewModel = ReviewViewModel(
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline,
+            organizationCoordinator: FileOrganizationCoordinator(),
+            workflowExecution: workflowExecution.client
+        )
+        viewModel.setModelContext(modelContext)
+        viewModel.files = [runnableFile, blockedFile]
+        viewModel.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.receipts
+
+        await viewModel.moveAllFiles()
+
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(viewModel.files.map(\.path), [blockedURL.path])
+        XCTAssertNotNil(viewModel.successMessage)
+        XCTAssertNotNil(viewModel.errorMessage)
     }
 
     // MARK: - Message Clearing Tests
@@ -694,4 +835,25 @@ private final class MockReviewFileOrganizationCoordinator: FileOrganizationCoord
         skipFileCallCount += 1
         return skipFileResult
     }
+}
+
+@MainActor
+private final class WorkflowExecutionSpy {
+    var plannedTemplateIDs: [String] = []
+    var ranTemplateIDs: [String] = []
+    var onRun: (() -> Void)?
+
+    lazy var client = WorkflowExecutionClient(
+        plan: { [weak self] templateID, files in
+            self?.plannedTemplateIDs.append(templateID)
+            return WorkflowPlanner().plan(templateID: templateID, files: files)
+        },
+        run: { [weak self] plan, _, _, _ in
+            let templateID = plan.definition.templateID
+            await MainActor.run {
+                self?.ranTemplateIDs.append(templateID)
+                self?.onRun?()
+            }
+        }
+    )
 }

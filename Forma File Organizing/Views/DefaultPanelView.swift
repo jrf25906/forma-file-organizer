@@ -630,7 +630,7 @@ struct DefaultPanelView: View {
     private var pinnedPrimaryAction: some View {
         let readyFiles = dashboardViewModel.reviewableFiles.filter { $0.status == .ready }
         
-        return Group {
+        return VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             if dashboardViewModel.hasDeferredReviewFiles && dashboardViewModel.currentReviewChunkCount == 0 {
                 Button(action: {
                     dashboardViewModel.resumeDeferredReviewFiles()
@@ -643,6 +643,13 @@ struct DefaultPanelView: View {
                 .controlSize(.large)
                 .help("Bring back the files you set aside for now")
             } else if !readyFiles.isEmpty {
+                if dashboardViewModel.showsDashboardWorkflowTemplatePicker {
+                    WorkflowTemplatePicker(
+                        selectedTemplateID: $dashboardViewModel.selectedWorkflowTemplateID,
+                        preview: dashboardViewModel.dashboardWorkflowSimulationPreview
+                    )
+                }
+
                 Button(action: {
                     dashboardViewModel.organizeAllReadyFiles(context: modelContext)
                 }) {

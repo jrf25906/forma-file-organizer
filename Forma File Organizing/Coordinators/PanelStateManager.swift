@@ -49,12 +49,13 @@ class PanelStateManager: ObservableObject {
     enum CelebrationStyle: Equatable {
         case batchUndo
         case ruleWorkflow
+        case workflowExecution
 
         var showsUndo: Bool {
             switch self {
             case .batchUndo:
                 return true
-            case .ruleWorkflow:
+            case .ruleWorkflow, .workflowExecution:
                 return false
             }
         }
@@ -63,7 +64,7 @@ class PanelStateManager: ObservableObject {
             switch self {
             case .batchUndo:
                 return true
-            case .ruleWorkflow:
+            case .ruleWorkflow, .workflowExecution:
                 return false
             }
         }

@@ -11,6 +11,12 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
   - Added a targeted pre-metadata store migration regression in `Forma File OrganizingTests/AppStoreMigrationTests.swift` covering legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.
 
 ### Added
+- Workflow Engine v2 Task 5 ad hoc organize routing:
+  - `WorkflowExecutionClient`, `WorkflowTemplatePicker`, and `WorkflowTemplateSimulationPreview` now provide a shared built-in-template selection and simulation-preview layer for feature-gated ad hoc organize entry points.
+  - `DashboardOrganizationController`, `BulkOperationViewModel`, `DashboardViewModel`, `ReviewViewModel`, `FileInspectorView`, and `ReviewView` now require an explicit built-in template choice before running ad hoc organize through `WorkflowRunner` when `FeatureFlagService.Feature.workflowEngineV2` is enabled.
+  - Single-file, bulk, inspector, and reachable review organize actions now mirror the same workflow-engine-v2 affordance, preserve trusted-scope recommendation behavior on the v2 dashboard review path, keep the legacy move-only organize path when the feature flag is off, and use a non-undo celebration style for v2 dashboard success states.
+  - V2 batch organize now simulates the whole candidate set, runs only the runnable subset, surfaces blocked files as partial failures instead of aborting the whole batch, and keeps failed-files retry on the same workflow-template path instead of silently falling back to legacy move-only execution.
+  - Workflow-v2 mixed-result batch toasts no longer advertise undo, and successful v2 single-file organizes now record accepted personal-memory decisions using the same snapshot fields as the legacy organize path.
 - Progressive automation upgrades for trusted autopilot scopes:
   - `TrustedAutomationScopeBoundaryDescriptor`, `TrustedAutomationScopeRunRecord`, `TrustedAutomationScopePresentationModels`, `TrustedAutomationScopeResolver`, and `TrustedAutomationScopeCatalogService` now turn review-earned trusted scopes into explicit autopilot boundaries with persisted recent-run summaries, derived health, and detail/read models.
   - `TrustedAutomationScopeService.pauseScope(id:at:)`, `resumeScope(id:at:)`, `removeScope(id:at:)`, and `recordRun(...)` now support active/paused/revoked lifecycle controls plus scope-owned simulated, held, failed, and executed summaries.
