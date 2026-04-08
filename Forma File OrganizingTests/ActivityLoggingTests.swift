@@ -146,6 +146,25 @@ final class ActivityLoggingTests: XCTestCase {
         )
     }
 
+    func testWorkflowRunManualInspectionBadges_ShowReviewAndUndoAvailable() {
+        let activity = ActivityItem(
+            activityType: .workflowRunCompleted,
+            fileName: "Receipt Intake",
+            details: "Trusted scope inspection workflow run succeeded for 1 file. Rollback available.",
+            affectedFileCount: 1,
+            workflowRunID: UUID(),
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+            workflowTriggerSurface: .manualRefreshInspection,
+            workflowPrimaryStatus: .succeeded,
+            workflowRollbackStatus: .notRequested
+        )
+
+        XCTAssertEqual(
+            ActivityAuditBadgeClassifier.titles(for: activity),
+            ["Review", "Undo Available"]
+        )
+    }
+
     func testWorkflowRunAutomaticFailureBadges_ShowAutomaticAndFinal() {
         let activity = ActivityItem(
             activityType: .workflowRunAttentionNeeded,

@@ -272,8 +272,7 @@ enum ActivityAuditBadgeClassifier {
         if let workflowTriggerSurface = activity.workflowTriggerSurface {
             switch workflowTriggerSurface {
             case .scheduledAutomationPass,
-                 .realtimeAutomationPass,
-                 .manualRefreshInspection:
+                 .realtimeAutomationPass:
                 return true
             default:
                 break
@@ -300,7 +299,8 @@ enum ActivityAuditBadgeClassifier {
             case .reviewFlow,
                  .inspector,
                  .reviewView,
-                 .bulkOrganize:
+                 .bulkOrganize,
+                 .manualRefreshInspection:
                 return true
             default:
                 break
