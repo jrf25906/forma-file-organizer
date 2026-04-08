@@ -15,6 +15,7 @@ struct ProjectSpacesSection: View {
         }
 
         let title: String
+        let subtitle: String
         let accessibilityIdentifier: String
         let rows: [RowSnapshot]
 
@@ -29,6 +30,7 @@ struct ProjectSpacesSection: View {
             let relativeText = recencyTextProvider ?? Self.defaultRecencyText(activityAt:relativeTo:)
 
             self.title = "Project Spaces"
+            self.subtitle = "Open a space to review destinations and correct labels."
             self.accessibilityIdentifier = "projectSpacesSection"
             self.rows = orderedSummaries.map { summary in
                 RowSnapshot(
@@ -138,16 +140,22 @@ struct ProjectSpacesSection: View {
     }
 
     private func header(snapshot: Snapshot) -> some View {
-        HStack(alignment: .center, spacing: FormaSpacing.tight) {
-            Image(systemName: "square.grid.2x2")
-                .font(.formaBodySemibold)
-                .foregroundStyle(Color.formaSteelBlue)
+        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+            HStack(alignment: .center, spacing: FormaSpacing.tight) {
+                Image(systemName: "square.grid.2x2")
+                    .font(.formaBodySemibold)
+                    .foregroundStyle(Color.formaSteelBlue)
 
-            Text(snapshot.title)
-                .font(.formaBodySemibold)
-                .foregroundStyle(Color.formaLabel)
+                Text(snapshot.title)
+                    .font(.formaBodySemibold)
+                    .foregroundStyle(Color.formaLabel)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+            }
+
+            Text(snapshot.subtitle)
+                .font(.formaCaption)
+                .foregroundStyle(Color.formaSecondaryLabel)
         }
     }
 

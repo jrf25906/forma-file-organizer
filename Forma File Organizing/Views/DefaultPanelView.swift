@@ -136,6 +136,23 @@ struct DefaultPanelView: View {
         if let detail = activeProjectSpaceDetail {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                    if let fileRow = dashboardViewModel.projectSpaceAssociationCorrectionFileRow {
+                        inspectorSectionCard {
+                            ProjectSpaceAssociationEditorView(
+                                fileName: fileRow.displayName,
+                                sourceFolderHint: fileRow.sourceFolderHint,
+                                proposedLabel: $dashboardViewModel.projectSpaceAssociationCorrectionProposedLabel,
+                                suggestedLabels: dashboardViewModel.projectSpaceAssociationSuggestedLabels,
+                                onSave: {
+                                    dashboardViewModel.saveProjectSpaceAssociationCorrection()
+                                },
+                                onCancel: {
+                                    dashboardViewModel.cancelProjectSpaceAssociationCorrection()
+                                }
+                            )
+                        }
+                    }
+
                     inspectorSectionCard(emphasized: true) {
                         ProjectSpaceDetailView(
                             detail: detail,
@@ -144,6 +161,9 @@ struct DefaultPanelView: View {
                             },
                             onOpenFile: { fileRow in
                                 dashboardViewModel.openFileFromProjectSpace(fileRow)
+                            },
+                            onCorrectAssociation: { fileRow in
+                                dashboardViewModel.beginProjectSpaceAssociationCorrection(fileRow)
                             }
                         )
                     }

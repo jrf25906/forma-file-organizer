@@ -3,6 +3,20 @@ import SwiftUI
 
 struct ProjectSpaceDetailView: View {
     struct Snapshot: Hashable {
+        struct PreferredDestinationSnapshot: Hashable {
+            let destinationDisplayName: String
+            let eventCountText: String
+            let lastUsedText: String
+        }
+
+        struct RecentActivitySnapshot: Hashable {
+            let fileDisplayName: String
+            let eventSummaryText: String
+            let destinationText: String
+            let timestampText: String
+            let iconName: String
+        }
+
         struct FileSnapshot: Identifiable, Hashable {
             let fileRow: ProjectSpaceFileRow
             let displayName: String
@@ -10,6 +24,9 @@ struct ProjectSpaceDetailView: View {
             let recencyText: String
             let statusText: String?
             let tagsText: String?
+            let projectAssociationText: String?
+            let sourceFolderText: String?
+            let correctionButtonTitle: String
             let iconName: String
 
             var id: String { fileRow.id }
@@ -21,8 +38,20 @@ struct ProjectSpaceDetailView: View {
         let closeButtonTitle: String
         let fileCountText: String
         let recencyText: String
+        let overviewTitle: String
+        let overviewFileCountText: String
+        let overviewActiveFoldersText: String
+        let overviewPreferredDestinationsText: String
+        let overviewRecentActivityText: String
+        let overviewSourceFoldersText: String
         let sourceFoldersTitle: String
         let sourceFolderSummary: String
+        let preferredDestinationsTitle: String
+        let emptyPreferredDestinationsText: String
+        let preferredDestinations: [PreferredDestinationSnapshot]
+        let recentActivityTitle: String
+        let emptyRecentActivityText: String
+        let recentActivity: [RecentActivitySnapshot]
         let filesTitle: String
         let emptyFilesText: String
         let files: [FileSnapshot]
@@ -31,10 +60,14 @@ struct ProjectSpaceDetailView: View {
             detail: ProjectSpaceDetail,
             now: Date = Date(),
             recencyTextProvider: ((Date, Date) -> String)? = nil,
-            fileRecencyTextProvider: ((Date, Date) -> String)? = nil
+            fileRecencyTextProvider: ((Date, Date) -> String)? = nil,
+            destinationRecencyTextProvider: ((Date, Date) -> String)? = nil,
+            activityRecencyTextProvider: ((Date, Date) -> String)? = nil
         ) {
             let detailRecencyText = recencyTextProvider ?? Self.defaultRecencyText(activityAt:relativeTo:)
             let fileRecencyText = fileRecencyTextProvider ?? Self.defaultRecencyText(activityAt:relativeTo:)
+            let destinationRecencyText = destinationRecencyTextProvider ?? Self.defaultRecencyText(activityAt:relativeTo:)
+            let activityRecencyText = activityRecencyTextProvider ?? Self.defaultRecencyText(activityAt:relativeTo:)
 
             self.eyebrow = "Project Space"
             self.title = detail.projectLabel
@@ -42,8 +75,58 @@ struct ProjectSpaceDetailView: View {
             self.closeButtonTitle = "Close"
             self.fileCountText = Self.fileCountText(for: detail.fileCount)
             self.recencyText = detailRecencyText(detail.lastActivityAt, now)
+            self.overviewTitle = "Overview"
+            self.overviewFileCountText = Self.countText(
+                count: detail.overview.currentFileCount,
+                singular: "current file",
+                plural: "current files"
+            )
+            self.overviewActiveFoldersText = Self.countText(
+                count: detail.overview.activeFolderCount,
+                singular: "active folder",
+                plural: "active folders"
+            )
+            self.overviewPreferredDestinationsText = Self.countText(
+                count: detail.overview.preferredDestinationCount,
+                singular: "preferred destination",
+                plural: "preferred destinations"
+            )
+            self.overviewRecentActivityText = Self.countText(
+                count: detail.overview.recentActivityCount,
+                singular: "recent event",
+                plural: "recent events"
+            )
+            self.overviewSourceFoldersText = Self.sourceFolderSummary(
+                for: detail.overview.activeFolderHints.isEmpty
+                    ? detail.sourceFolderHints
+                    : detail.overview.activeFolderHints
+            )
             self.sourceFoldersTitle = "Source Folders"
             self.sourceFolderSummary = Self.sourceFolderSummary(for: detail.sourceFolderHints)
+            self.preferredDestinationsTitle = "Preferred Destinations"
+            self.emptyPreferredDestinationsText = "No preferred destinations have been learned yet."
+            self.preferredDestinations = detail.preferredDestinations.map { destination in
+                PreferredDestinationSnapshot(
+                    destinationDisplayName: destination.destinationDisplayName,
+                    eventCountText: Self.countText(
+                        count: destination.eventCount,
+                        singular: "move",
+                        plural: "moves"
+                    ),
+                    lastUsedText: destinationRecencyText(destination.lastUsedAt, now)
+                )
+            }
+            self.recentActivityTitle = "Recent Activity"
+            self.emptyRecentActivityText = "No recent activity is available for this project space."
+            self.recentActivity = detail.recentActivity.map { activity in
+                RecentActivitySnapshot(
+                    fileDisplayName: activity.fileDisplayName,
+                    eventSummaryText: activity.detailsSummary ?? Self.eventTitle(for: activity.eventKind),
+                    destinationText: activity.destinationDisplayName ?? "No destination recorded",
+                    timestampText: activityRecencyText(activity.timestamp, now),
+                    iconName: Self.activityIconName(for: activity.eventKind)
+                )
+            }
             self.filesTitle = "Current Files"
             self.emptyFilesText = "No current files are available in this project space."
             self.files = detail.files
@@ -56,6 +139,9 @@ struct ProjectSpaceDetailView: View {
                         recencyText: fileRecencyText(fileRow.lastActivityAt, now),
                         statusText: fileRow.workflowStatus.map(Self.statusText(for:)),
                         tagsText: Self.tagsText(for: fileRow.tags),
+                        projectAssociationText: fileRow.projectAssociation,
+                        sourceFolderText: fileRow.sourceFolderHint,
+                        correctionButtonTitle: "Correct Label",
                         iconName: Self.iconName(for: fileRow)
                     )
                 }
@@ -63,6 +149,10 @@ struct ProjectSpaceDetailView: View {
 
         private static func fileCountText(for count: Int) -> String {
             count == 1 ? "1 file" : "\(count) files"
+        }
+
+        private static func countText(count: Int, singular: String, plural: String) -> String {
+            count == 1 ? "1 \(singular)" : "\(count) \(plural)"
         }
 
         private static func defaultRecencyText(activityAt: Date, relativeTo now: Date) -> String {
@@ -107,6 +197,40 @@ struct ProjectSpaceDetailView: View {
             return tags.joined(separator: ", ")
         }
 
+        private static func eventTitle(for eventKind: FileOrganizationHistoryEntry.EventKind) -> String {
+            switch eventKind {
+            case .organized:
+                return "Organized"
+            case .rekeyed:
+                return "Rekeyed"
+            case .ignored:
+                return "Ignored"
+            case .noted:
+                return "Noted"
+            case .undone:
+                return "Undone"
+            case .scanned:
+                return "Scanned"
+            }
+        }
+
+        private static func activityIconName(for eventKind: FileOrganizationHistoryEntry.EventKind) -> String {
+            switch eventKind {
+            case .organized:
+                return "arrow.triangle.branch"
+            case .rekeyed:
+                return "tag"
+            case .ignored:
+                return "eye.slash"
+            case .noted:
+                return "pencil"
+            case .undone:
+                return "arrow.uturn.backward"
+            case .scanned:
+                return "magnifyingglass"
+            }
+        }
+
         private static func iconName(for fileRow: ProjectSpaceFileRow) -> String {
             switch fileRow.fileExtension.lowercased() {
             case "pdf":
@@ -126,32 +250,40 @@ struct ProjectSpaceDetailView: View {
     let snapshot: Snapshot
     let onBack: () -> Void
     let onOpenFile: (ProjectSpaceFileRow) -> Void
+    let onCorrectAssociation: (ProjectSpaceFileRow) -> Void
 
     init(
         detail: ProjectSpaceDetail,
         onBack: @escaping () -> Void,
-        onOpenFile: @escaping (ProjectSpaceFileRow) -> Void
+        onOpenFile: @escaping (ProjectSpaceFileRow) -> Void,
+        onCorrectAssociation: @escaping (ProjectSpaceFileRow) -> Void = { _ in }
     ) {
         self.snapshot = Snapshot(detail: detail)
         self.onBack = onBack
         self.onOpenFile = onOpenFile
+        self.onCorrectAssociation = onCorrectAssociation
     }
 
     init(
         snapshot: Snapshot,
         onBack: @escaping () -> Void,
-        onOpenFile: @escaping (ProjectSpaceFileRow) -> Void
+        onOpenFile: @escaping (ProjectSpaceFileRow) -> Void,
+        onCorrectAssociation: @escaping (ProjectSpaceFileRow) -> Void = { _ in }
     ) {
         self.snapshot = snapshot
         self.onBack = onBack
         self.onOpenFile = onOpenFile
+        self.onCorrectAssociation = onCorrectAssociation
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             topBar
             headerBlock
+            overviewBlock
             sourceFoldersBlock
+            preferredDestinationsBlock
+            recentActivityBlock
             fileListBlock
         }
         .accessibilityElement(children: .contain)
@@ -205,6 +337,25 @@ struct ProjectSpaceDetailView: View {
         }
     }
 
+    private var overviewBlock: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Text(snapshot.overviewTitle)
+                .font(.formaCaptionSemibold)
+                .foregroundStyle(Color.formaSecondaryLabel)
+
+            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                overviewRow(text: snapshot.overviewFileCountText, iconName: "doc.text")
+                overviewRow(text: snapshot.overviewActiveFoldersText, iconName: "folder")
+                overviewRow(text: snapshot.overviewPreferredDestinationsText, iconName: "tray.and.arrow.down")
+                overviewRow(text: snapshot.overviewRecentActivityText, iconName: "clock.arrow.circlepath")
+                overviewRow(text: snapshot.overviewSourceFoldersText, iconName: "square.stack.3d.down.right")
+            }
+        }
+        .padding(FormaSpacing.standard)
+        .background(cardBackground)
+        .overlay(cardBorder)
+    }
+
     private var sourceFoldersBlock: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             Text(snapshot.sourceFoldersTitle)
@@ -253,55 +404,179 @@ struct ProjectSpaceDetailView: View {
         }
     }
 
-    private func fileButton(_ file: Snapshot.FileSnapshot) -> some View {
-        Button {
-            onOpenFile(file.fileRow)
-        } label: {
-            HStack(alignment: .top, spacing: FormaSpacing.standard) {
-                fileIcon(name: file.iconName)
+    private var preferredDestinationsBlock: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Text(snapshot.preferredDestinationsTitle)
+                .font(.formaCaptionSemibold)
+                .foregroundStyle(Color.formaSecondaryLabel)
 
-                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-                    Text(file.displayName)
-                        .font(.formaBodySemibold)
-                        .foregroundStyle(Color.formaLabel)
-                        .lineLimit(1)
+            if snapshot.preferredDestinations.isEmpty {
+                emptyCard(text: snapshot.emptyPreferredDestinationsText)
+            } else {
+                VStack(spacing: FormaSpacing.tight) {
+                    ForEach(Array(snapshot.preferredDestinations.enumerated()), id: \.offset) { _, destination in
+                        HStack(alignment: .center, spacing: FormaSpacing.standard) {
+                            fileIcon(name: "tray.and.arrow.down")
 
-                    Text(file.directoryText)
-                        .font(.formaCaption)
-                        .foregroundStyle(Color.formaSecondaryLabel)
-                        .lineLimit(1)
+                            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                                Text(destination.destinationDisplayName)
+                                    .font(.formaBodySemibold)
+                                    .foregroundStyle(Color.formaLabel)
 
-                    HStack(spacing: FormaSpacing.tight) {
-                        if let statusText = file.statusText {
-                            metadataPill(text: statusText, tint: .formaSage)
+                                Text(destination.lastUsedText)
+                                    .font(.formaCaption)
+                                    .foregroundStyle(Color.formaSecondaryLabel)
+                            }
+
+                            Spacer(minLength: 0)
+
+                            metadataPill(text: destination.eventCountText, tint: .formaSteelBlue)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(FormaSpacing.standard)
+                        .background(cardBackground)
+                        .overlay(cardBorder)
+                    }
+                }
+            }
+        }
+    }
 
-                        if let tagsText = file.tagsText {
-                            metadataPill(text: tagsText, tint: .formaSteelBlue)
+    private var recentActivityBlock: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Text(snapshot.recentActivityTitle)
+                .font(.formaCaptionSemibold)
+                .foregroundStyle(Color.formaSecondaryLabel)
+
+            if snapshot.recentActivity.isEmpty {
+                emptyCard(text: snapshot.emptyRecentActivityText)
+            } else {
+                VStack(spacing: FormaSpacing.tight) {
+                    ForEach(Array(snapshot.recentActivity.enumerated()), id: \.offset) { _, activity in
+                        HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                            fileIcon(name: activity.iconName)
+
+                            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                                Text(activity.fileDisplayName)
+                                    .font(.formaBodySemibold)
+                                    .foregroundStyle(Color.formaLabel)
+
+                                Text(activity.eventSummaryText)
+                                    .font(.formaCaption)
+                                    .foregroundStyle(Color.formaLabel)
+
+                                Label(activity.destinationText, systemImage: "arrow.triangle.branch")
+                                    .font(.formaCaption)
+                                    .foregroundStyle(Color.formaSecondaryLabel)
+                            }
+
+                            Spacer(minLength: 0)
+
+                            Text(activity.timestampText)
+                                .font(.formaCaption)
+                                .foregroundStyle(Color.formaSecondaryLabel)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(FormaSpacing.standard)
+                        .background(cardBackground)
+                        .overlay(cardBorder)
+                    }
+                }
+            }
+        }
+    }
+
+    private func fileButton(_ file: Snapshot.FileSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Button {
+                onOpenFile(file.fileRow)
+            } label: {
+                HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                    fileIcon(name: file.iconName)
+
+                    VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                        Text(file.displayName)
+                            .font(.formaBodySemibold)
+                            .foregroundStyle(Color.formaLabel)
+                            .lineLimit(1)
+
+                        Text(file.directoryText)
+                            .font(.formaCaption)
+                            .foregroundStyle(Color.formaSecondaryLabel)
+                            .lineLimit(1)
+
+                        HStack(spacing: FormaSpacing.tight) {
+                            if let statusText = file.statusText {
+                                metadataPill(text: statusText, tint: .formaSage)
+                            }
+
+                            if let tagsText = file.tagsText {
+                                metadataPill(text: tagsText, tint: .formaSteelBlue)
+                            }
                         }
                     }
+
+                    Spacer(minLength: 0)
+
+                    Text(file.recencyText)
+                        .font(.formaCaption)
+                        .foregroundStyle(Color.formaSecondaryLabel)
+                        .multilineTextAlignment(.trailing)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            HStack(alignment: .center, spacing: FormaSpacing.tight) {
+                if let projectAssociationText = file.projectAssociationText {
+                    metadataPill(text: projectAssociationText, tint: .formaSteelBlue)
+                }
+
+                if let sourceFolderText = file.sourceFolderText {
+                    metadataPill(text: sourceFolderText, tint: .formaSage)
                 }
 
                 Spacer(minLength: 0)
 
-                Text(file.recencyText)
-                    .font(.formaCaption)
-                    .foregroundStyle(Color.formaSecondaryLabel)
-                    .multilineTextAlignment(.trailing)
+                Button(file.correctionButtonTitle) {
+                    onCorrectAssociation(file.fileRow)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(FormaSpacing.standard)
+        .background(cardBackground)
+        .overlay(cardBorder)
+    }
+
+    private func overviewRow(text: String, iconName: String) -> some View {
+        Label(text, systemImage: iconName)
+            .font(.formaBody)
+            .foregroundStyle(Color.formaLabel)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func emptyCard(text: String) -> some View {
+        Text(text)
+            .font(.formaBody)
+            .foregroundStyle(Color.formaSecondaryLabel)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(FormaSpacing.standard)
-            .background(
-                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .fill(Color.formaControlBackground.opacity(Color.FormaOpacity.light))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-        }
-        .buttonStyle(.plain)
+            .background(cardBackground)
+            .overlay(cardBorder)
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+            .fill(Color.formaControlBackground.opacity(Color.FormaOpacity.light))
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+            .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
     }
 
     private func statPill(text: String, tint: Color) -> some View {

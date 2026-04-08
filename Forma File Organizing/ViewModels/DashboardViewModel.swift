@@ -222,6 +222,9 @@ class DashboardViewModel: ObservableObject {
     @Published private(set) var selectedProjectSpace: ProjectSpaceSummary?
     @Published private(set) var selectedProjectSpaceDetail: ProjectSpaceDetail?
     @Published private(set) var isShowingProjectSpaceDetail: Bool = false
+    @Published private(set) var projectSpaceAssociationCorrectionFileRow: ProjectSpaceFileRow?
+    @Published var projectSpaceAssociationCorrectionProposedLabel: String = ""
+    @Published private(set) var projectSpaceAssociationSuggestedLabels: [String] = []
 
     // MARK: - Organization Progress State
     /// Baseline count of actionable files captured at the start of the current scan session.
@@ -623,7 +626,50 @@ class DashboardViewModel: ObservableObject {
         openInspector(for: fallbackFile)
     }
 
+    func beginProjectSpaceAssociationCorrection(_ fileRow: ProjectSpaceFileRow) {
+        projectSpaceAssociationCorrectionFileRow = fileRow
+        projectSpaceAssociationCorrectionProposedLabel = fileRow.projectAssociation ?? selectedProjectSpaceDetail?.projectLabel ?? ""
+
+        let excludedLabels = Set(
+            [fileRow.projectAssociation, selectedProjectSpaceDetail?.projectLabel]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        )
+        projectSpaceAssociationSuggestedLabels = projectSpaces
+            .map(\.displayName)
+            .filter { !excludedLabels.contains($0) }
+    }
+
+    func saveProjectSpaceAssociationCorrection() {
+        guard let modelContext,
+              let correctionFileRow = projectSpaceAssociationCorrectionFileRow else {
+            return
+        }
+
+        let proposedLabel = projectSpaceAssociationCorrectionProposedLabel
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !proposedLabel.isEmpty else { return }
+
+        do {
+            let metadataService = FileMetadataFoundationService(modelContext: modelContext)
+            _ = try metadataService.correctProjectAssociation(
+                forCanonicalIdentity: correctionFileRow.canonicalIdentity,
+                to: proposedLabel,
+                timestamp: Date()
+            )
+            refreshProjectSpaces()
+            clearProjectSpaceAssociationCorrection()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func cancelProjectSpaceAssociationCorrection() {
+        clearProjectSpaceAssociationCorrection()
+    }
+
     func closeProjectSpaceDetail() {
+        clearProjectSpaceAssociationCorrection()
         selectedProjectSpace = nil
         selectedProjectSpaceDetail = nil
         isShowingProjectSpaceDetail = false
@@ -1814,6 +1860,12 @@ class DashboardViewModel: ObservableObject {
     private func clearProjectSpaceState() {
         projectSpaces = []
         closeProjectSpaceDetail()
+    }
+
+    private func clearProjectSpaceAssociationCorrection() {
+        projectSpaceAssociationCorrectionFileRow = nil
+        projectSpaceAssociationCorrectionProposedLabel = ""
+        projectSpaceAssociationSuggestedLabels = []
     }
 
     private func currentProjectSpaceFeatureState() -> (metadataFoundation: Bool, projectSpaces: Bool) {
