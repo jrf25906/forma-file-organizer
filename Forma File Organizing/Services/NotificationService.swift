@@ -257,10 +257,23 @@ final class NotificationService: Sendable {
     }
 
     func notifyTrustedAutomationScopeAttention(scopeDisplayName: String, reason: String) {
+        notifyTrustedAutomationScopeAttention(
+            scopeDisplayName: scopeDisplayName,
+            groupedScopeCount: 1,
+            reason: reason
+        )
+    }
+
+    func notifyTrustedAutomationScopeAttention(
+        scopeDisplayName: String?,
+        groupedScopeCount: Int,
+        reason: String
+    ) {
         guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
 
         let payload = Self.trustedAutomationScopeAttentionPayload(
             scopeDisplayName: scopeDisplayName,
+            groupedScopeCount: groupedScopeCount,
             reason: reason
         )
 
@@ -268,7 +281,10 @@ final class NotificationService: Sendable {
             if let error = error {
                 Log.error("Error showing trusted scope attention notification: \(error)", category: .automation)
             } else {
-                Log.info("Trusted scope attention notification shown: \(scopeDisplayName)", category: .automation)
+                Log.info(
+                    "Trusted scope attention notification shown: \(scopeDisplayName ?? "grouped")",
+                    category: .automation
+                )
             }
         }
     }
@@ -473,14 +489,32 @@ final class NotificationService: Sendable {
     }
 
     static func trustedAutomationScopeAttentionPayload(
-        scopeDisplayName: String,
+        scopeDisplayName: String?,
+        groupedScopeCount: Int = 1,
         reason: String
     ) -> AutomationNotificationPayload {
-        AutomationNotificationPayload(
+        let isSingleScope = groupedScopeCount == 1 && !(scopeDisplayName?.isEmpty ?? true)
+        let title = isSingleScope
+            ? "\(scopeDisplayName ?? "Trusted Scope") Needs Attention"
+            : "Trusted Scopes Need Attention"
+
+        let body: String
+        if isSingleScope {
+            body = reason.ensureTrailingPeriod()
+        } else if reason.contains("across this pass") {
+            body = reason.replacingOccurrences(
+                of: "across this pass",
+                with: "across \(groupedScopeCount) trusted scopes in this pass"
+            ).ensureTrailingPeriod()
+        } else {
+            body = reason.ensureTrailingPeriod()
+        }
+
+        return AutomationNotificationPayload(
             category: .errorOrPermission,
             identifier: AutomationNotificationID.trustedScopeAttention,
-            title: "\(scopeDisplayName) Needs Attention",
-            body: reason.ensureTrailingPeriod(),
+            title: title,
+            body: body,
             categoryIdentifier: nil
         )
     }

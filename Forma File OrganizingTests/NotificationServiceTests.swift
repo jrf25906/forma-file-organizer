@@ -57,6 +57,22 @@ final class NotificationServiceTests: XCTestCase {
         )
     }
 
+    func testTrustedAutomationScopeAttentionPayloadKeepsMultiScopeRunsGrouped() {
+        let payload = NotificationService.trustedAutomationScopeAttentionPayload(
+            scopeDisplayName: nil,
+            groupedScopeCount: 2,
+            reason: "Forma needs permission or destination access again before auto-organize can continue across this pass."
+        )
+
+        XCTAssertEqual(payload.category, .errorOrPermission)
+        XCTAssertEqual(payload.identifier, NotificationService.AutomationNotificationID.trustedScopeAttention)
+        XCTAssertEqual(payload.title, "Trusted Scopes Need Attention")
+        XCTAssertEqual(
+            payload.body,
+            "Forma needs permission or destination access again before auto-organize can continue across 2 trusted scopes in this pass."
+        )
+    }
+
     func testBacklogReminderPayloadFramesNextReviewPassWithoutGuilt() {
         let payload = NotificationService.backlogReminderPayload(
             pendingCount: 12,

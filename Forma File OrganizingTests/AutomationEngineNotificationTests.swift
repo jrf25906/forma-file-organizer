@@ -14,6 +14,11 @@ final class AutomationEngineNotificationTests: XCTestCase {
             scopeDisplayName: String?,
             groupedScopeCount: Int
         )] = []
+        private(set) var trustedScopeAttentionNotifications: [(
+            scopeDisplayName: String?,
+            groupedScopeCount: Int,
+            reason: String
+        )] = []
         private(set) var backlogReminders: [(pendingCount: Int, oldestAgeDays: Int?)] = []
         private(set) var automationErrors: [(type: AutomationErrorType, message: String)] = []
         private(set) var folderHealthAlerts: [(folderType: BookmarkFolder.FolderType, currentBytes: Int64, thresholdBytes: Int64)] = []
@@ -39,6 +44,18 @@ final class AutomationEngineNotificationTests: XCTestCase {
                 scopeDisplayName,
                 groupedScopeCount
             ))
+        }
+
+        func notifyTrustedAutomationScopeAttention(scopeDisplayName: String, reason: String) {
+            trustedScopeAttentionNotifications.append((scopeDisplayName, 1, reason))
+        }
+
+        func notifyTrustedAutomationScopeAttention(
+            scopeDisplayName: String?,
+            groupedScopeCount: Int,
+            reason: String
+        ) {
+            trustedScopeAttentionNotifications.append((scopeDisplayName, groupedScopeCount, reason))
         }
 
         func notifyBacklogReminder(pendingCount: Int, oldestAgeDays: Int?) {
@@ -241,6 +258,140 @@ final class AutomationEngineNotificationTests: XCTestCase {
         XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.count, 1)
         XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.first?.scopeDisplayName, "Receipts")
         XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.first?.groupedScopeCount, 1)
+    }
+
+    func testMixedScopeRunKeepsSummaryGroupedAndStillSendsGroupedAttentionNotification() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let successDestinationURL = try destinationRoot.createDirectory(name: "Receipts Archive")
+        let heldDestinationURL = try destinationRoot.createDirectory(name: "Invoices Archive")
+        let successDestination = try Destination.folder(from: successDestinationURL, displayName: "Receipts Archive")
+        let heldDestination = try Destination.folder(from: heldDestinationURL, displayName: "Invoices Archive")
+
+        let policy = AutomationPolicy(
+            userMode: .scanAndOrganize,
+            effectiveMode: .scanAndOrganize,
+            scanIntervalMinutes: 30,
+            scanOnLaunch: false,
+            backlogThreshold: FormaConfig.Automation.backlogThreshold,
+            ageThresholdDays: FormaConfig.Automation.ageThresholdDays,
+            mlConfidenceThreshold: FormaConfig.Automation.mlAutoOrganizeConfidenceMinimum,
+            maxConsecutiveFailures: FormaConfig.Automation.maxConsecutiveFailures,
+            notificationsEnabled: true,
+            backlogReminderCooldownHours: FormaConfig.Automation.backlogReminderCooldownHours,
+            errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
+        )
+        let notificationService = MockNotificationService()
+        let engine = makeEngine(policy: policy, notificationService: notificationService)
+
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            ActivityItem.self,
+            TrustedAutomationScope.self,
+            TrustedAutomationScopeRunRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let coordinator = RecordingOrganizationCoordinator()
+        let provider = MockFileScanProvider()
+
+        let successFileURL = try sourceRoot.createFile(name: "receipts/Receipt-April.pdf")
+        let successFile = FileItem(
+            path: successFileURL.path,
+            sizeInBytes: 128,
+            creationDate: Date(timeIntervalSince1970: 1_700_000_000),
+            location: .downloads,
+            scanRootPath: sourceRoot.url.path,
+            relativeParentPath: "receipts",
+            destination: successDestination,
+            originalSuggestedDestination: successDestination,
+            status: .pending
+        )
+        successFile.confidenceScore = 0.99
+
+        let heldFileURL = try sourceRoot.createFile(name: "invoices/Invoice-April.pdf")
+        let heldFile = FileItem(
+            path: heldFileURL.path,
+            sizeInBytes: 128,
+            creationDate: Date(timeIntervalSince1970: 1_700_000_000),
+            location: .downloads,
+            scanRootPath: sourceRoot.url.path,
+            relativeParentPath: "invoices",
+            destination: heldDestination,
+            originalSuggestedDestination: heldDestination,
+            status: .pending
+        )
+        heldFile.confidenceScore = 0.99
+
+        container.mainContext.insert(successFile)
+        container.mainContext.insert(heldFile)
+
+        let scopeService = TrustedAutomationScopeService(modelContext: container.mainContext)
+        _ = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "\(sourceRoot.url.path)|receipts",
+            displayName: "Receipts",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: sourceRoot.url.path,
+                    relativeParentPath: "receipts"
+                ),
+                destination: .init(successDestination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 4,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.95,
+            rationaleSummary: "Trusted after repeated review approvals.",
+            allowedActions: [.move]
+        )
+        _ = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "\(sourceRoot.url.path)|invoices",
+            displayName: "Invoices",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: sourceRoot.url.path,
+                    relativeParentPath: "invoices"
+                ),
+                destination: .init(heldDestination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 4,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.95,
+            rationaleSummary: "Trusted after repeated review approvals.",
+            allowedActions: [.move]
+        )
+
+        try FileManager.default.removeItem(at: heldDestinationURL)
+
+        provider.autoOrganizeCandidates = [successFile, heldFile]
+        engine.configure(
+            modelContext: container.mainContext,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.count, 1)
+        XCTAssertNil(notificationService.scopedAutoOrganizeSummaries.first?.scopeDisplayName)
+        XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.first?.groupedScopeCount, 2)
+
+        XCTAssertEqual(notificationService.trustedScopeAttentionNotifications.count, 1)
+        XCTAssertNil(notificationService.trustedScopeAttentionNotifications.first?.scopeDisplayName)
+        XCTAssertEqual(notificationService.trustedScopeAttentionNotifications.first?.groupedScopeCount, 2)
     }
 
     func testAutoOrganizeCandidateFetchFailureSendsErrorNotification() async throws {

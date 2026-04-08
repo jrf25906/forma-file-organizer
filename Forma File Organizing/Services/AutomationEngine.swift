@@ -441,10 +441,11 @@ final class AutomationEngine: ObservableObject {
                 scopeService: scopeService
             )
 
-            if let attentionGroup = preflightPlan.singleAttentionNotificationGroup {
+            if let attentionNotification = preflightPlan.attentionNotification {
                 sendTrustedScopeAttention(
-                    scopeDisplayName: attentionGroup.scope.displayName,
-                    reason: attentionGroup.attentionNotificationReason
+                    scopeDisplayName: attentionNotification.scopeDisplayName,
+                    groupedScopeCount: attentionNotification.groupedScopeCount,
+                    reason: attentionNotification.reason
                 )
             }
 
@@ -460,7 +461,6 @@ final class AutomationEngine: ObservableObject {
         var totalSuccess = 0
         var totalFailed = 0
         var firstExecutionError: Error?
-        var successfulScopeNames: [String] = []
 
         for group in preflightPlan.groups {
             guard !group.eligibleFiles.isEmpty else {
@@ -475,9 +475,6 @@ final class AutomationEngine: ObservableObject {
 
             totalSuccess += executionResult.successCount
             totalFailed += executionResult.failedCount
-            if executionResult.successCount > 0 {
-                successfulScopeNames.append(group.scope.displayName)
-            }
 
             if firstExecutionError == nil {
                 firstExecutionError = executionResult.error
@@ -533,12 +530,18 @@ final class AutomationEngine: ObservableObject {
                 successCount: totalSuccess,
                 failedCount: totalFailed,
                 skippedCount: preflight.totalSkippedCount,
-                successfulScopeNames: successfulScopeNames
+                touchedScopeCount: preflightPlan.groups.count,
+                singleScopeDisplayName: preflightPlan.groups.count == 1
+                    ? preflightPlan.groups.first?.scope.displayName
+                    : nil
             )
-        } else if let attentionGroup = preflightPlan.singleAttentionNotificationGroup {
+        }
+
+        if let attentionNotification = preflightPlan.attentionNotification {
             sendTrustedScopeAttention(
-                scopeDisplayName: attentionGroup.scope.displayName,
-                reason: attentionGroup.attentionNotificationReason
+                scopeDisplayName: attentionNotification.scopeDisplayName,
+                groupedScopeCount: attentionNotification.groupedScopeCount,
+                reason: attentionNotification.reason
             )
         }
 
@@ -620,26 +623,31 @@ final class AutomationEngine: ObservableObject {
         successCount: Int,
         failedCount: Int,
         skippedCount: Int,
-        successfulScopeNames: [String]
+        touchedScopeCount: Int,
+        singleScopeDisplayName: String?
     ) {
         guard policy.notificationsEnabled, canSendNotification() else { return }
 
-        let scopeDisplayName = successfulScopeNames.count == 1 ? successfulScopeNames.first : nil
         notificationService.notifyAutoOrganizeSummary(
             successCount: successCount,
             failedCount: failedCount,
             skippedCount: skippedCount,
-            scopeDisplayName: scopeDisplayName,
-            groupedScopeCount: successfulScopeNames.count
+            scopeDisplayName: singleScopeDisplayName,
+            groupedScopeCount: touchedScopeCount
         )
         recordNotificationSent()
     }
 
-    private func sendTrustedScopeAttention(scopeDisplayName: String, reason: String) {
+    private func sendTrustedScopeAttention(
+        scopeDisplayName: String?,
+        groupedScopeCount: Int,
+        reason: String
+    ) {
         guard policy.notificationsEnabled, canSendNotification() else { return }
 
         notificationService.notifyTrustedAutomationScopeAttention(
             scopeDisplayName: scopeDisplayName,
+            groupedScopeCount: groupedScopeCount,
             reason: reason
         )
         recordNotificationSent()
@@ -951,15 +959,32 @@ private struct ScopedAutomationPreflightPlan {
     let summary: AutomationPreflightSummary
     let groups: [ScopedAutomationGroup]
 
-    var singleAttentionNotificationGroup: ScopedAutomationGroup? {
-        let groupsNeedingAttention = groups.filter {
-            $0.shouldSurfaceAttentionNotification && $0.eligibleFiles.isEmpty
-        }
-        guard groupsNeedingAttention.count == 1 else {
+    var attentionNotification: ScopedAutomationAttentionNotification? {
+        let groupsNeedingAttention = groups.filter(\.shouldSurfaceAttentionNotification)
+        guard !groupsNeedingAttention.isEmpty else {
             return nil
         }
-        return groupsNeedingAttention.first
+
+        if groups.count == 1, let group = groups.first {
+            return ScopedAutomationAttentionNotification(
+                scopeDisplayName: group.scope.displayName,
+                groupedScopeCount: 1,
+                reason: group.attentionNotificationReason
+            )
+        }
+
+        return ScopedAutomationAttentionNotification(
+            scopeDisplayName: nil,
+            groupedScopeCount: groups.count,
+            reason: "Forma needs permission or destination access again before auto-organize can continue across this pass."
+        )
     }
+}
+
+private struct ScopedAutomationAttentionNotification {
+    let scopeDisplayName: String?
+    let groupedScopeCount: Int
+    let reason: String
 }
 
 private struct ScopedAutomationGroup {

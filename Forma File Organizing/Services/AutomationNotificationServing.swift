@@ -13,6 +13,11 @@ protocol AutomationNotificationServing: AnyObject {
         groupedScopeCount: Int
     )
     func notifyTrustedAutomationScopeAttention(scopeDisplayName: String, reason: String)
+    func notifyTrustedAutomationScopeAttention(
+        scopeDisplayName: String?,
+        groupedScopeCount: Int,
+        reason: String
+    )
     func notifyBacklogReminder(pendingCount: Int, oldestAgeDays: Int?)
     func notifyAutomationError(type: AutomationErrorType, message: String)
     func notifyFolderHealthAlert(folderType: BookmarkFolder.FolderType, currentBytes: Int64, thresholdBytes: Int64)
@@ -36,7 +41,19 @@ extension AutomationNotificationServing {
         )
     }
 
-    func notifyTrustedAutomationScopeAttention(scopeDisplayName: String, reason: String) {}
+    func notifyTrustedAutomationScopeAttention(scopeDisplayName: String, reason: String) {
+        notifyTrustedAutomationScopeAttention(
+            scopeDisplayName: scopeDisplayName,
+            groupedScopeCount: 1,
+            reason: reason
+        )
+    }
+
+    func notifyTrustedAutomationScopeAttention(
+        scopeDisplayName: String?,
+        groupedScopeCount: Int,
+        reason: String
+    ) {}
 }
 
 extension NotificationService: AutomationNotificationServing {}
