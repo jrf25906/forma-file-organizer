@@ -30,6 +30,33 @@ enum TrustedAutomationScopeBoundaryDescriptor: Codable, Equatable, Hashable, Sen
             self.relativeParentPath = Self.normalizedRelativeParentPath(relativeParentPath)
         }
 
+        var isAmbiguousSubtreeWithoutRootIdentity: Bool {
+            scanRootPath == nil && relativeParentPath != nil
+        }
+
+        var specificityScore: Int {
+            let rootScore: Int
+            if scanRootPath != nil {
+                rootScore = 10_000
+            } else if sourceLocation != .unknown {
+                rootScore = 1_000
+            } else {
+                rootScore = 0
+            }
+
+            let relativeDepth = relativeParentPath?
+                .split(separator: "/")
+                .count ?? 0
+
+            return rootScore + relativeDepth
+        }
+
+        var identityKey: String {
+            let rootIdentity = scanRootPath ?? "location:\(sourceLocation.rawValue)"
+            let relativeIdentity = relativeParentPath ?? "<root>"
+            return "\(rootIdentity)|\(relativeIdentity)"
+        }
+
         var displayName: String {
             if let relativeParentPath {
                 return relativeParentPath.split(separator: "/").last.map(String.init) ?? sourceLocation.displayName
@@ -43,6 +70,10 @@ enum TrustedAutomationScopeBoundaryDescriptor: Codable, Equatable, Hashable, Sen
         }
 
         func matches(file: FileItem) -> Bool {
+            guard !isAmbiguousSubtreeWithoutRootIdentity else {
+                return false
+            }
+
             if let scanRootPath {
                 guard Self.normalizedPath(file.scanRootPath) == scanRootPath else {
                     return false
@@ -118,6 +149,23 @@ enum TrustedAutomationScopeBoundaryDescriptor: Codable, Equatable, Hashable, Sen
             }
         }
 
+        var identityKey: String {
+            switch kind {
+            case .trash:
+                return "trash"
+            case .folder:
+                if let resolvedPath {
+                    return "folder:\(resolvedPath)"
+                }
+
+                if let bookmarkData {
+                    return "folder-bookmark:\(Self.fnv1a64(bookmarkData))"
+                }
+
+                return "folder-name:\(displayName)"
+            }
+        }
+
         func matches(_ destination: Destination?) -> Bool {
             guard let destination else {
                 return false
@@ -139,6 +187,15 @@ enum TrustedAutomationScopeBoundaryDescriptor: Codable, Equatable, Hashable, Sen
 
                 return destination.resolve()?.url.standardizedFileURL.path == resolvedPath
             }
+        }
+
+        private static func fnv1a64(_ data: Data) -> String {
+            var hash: UInt64 = 14_695_981_039_346_656_037
+            for byte in data {
+                hash ^= UInt64(byte)
+                hash &*= 1_099_511_628_211
+            }
+            return String(hash, radix: 16)
         }
     }
 
@@ -219,6 +276,28 @@ enum TrustedAutomationScopeBoundaryDescriptor: Codable, Equatable, Hashable, Sen
         }
     }
 
+    var identityScopeKey: String {
+        switch self {
+        case .rule(let rule, _, _):
+            return "rule:\(rule.id.uuidString)"
+        case .folder(let source, _):
+            return source.identityKey
+        case .category(let fileTypeCategory, let source, let destination):
+            return "\(fileTypeCategory.rawValue)|\(source.identityKey)|\(destination.identityKey)"
+        }
+    }
+
+    var matchingSpecificityScore: Int {
+        switch self {
+        case .rule(_, let source, _):
+            return 100_000 + source.specificityScore
+        case .folder(let source, _):
+            return source.specificityScore
+        case .category(_, let source, _):
+            return source.specificityScore
+        }
+    }
+
     var boundarySummary: String {
         switch self {
         case .rule(let rule, _, let destination):
@@ -236,12 +315,12 @@ enum TrustedAutomationScopeBoundaryDescriptor: Codable, Equatable, Hashable, Sen
         }
 
         switch self {
-        case .rule(let rule, _, _):
-            return file.matchedRuleID == rule.id
+        case .rule(let rule, let source, _):
+            return source.matches(file: file) && file.matchedRuleID == rule.id
         case .folder(let source, _):
             return source.matches(file: file)
-        case .category(let fileTypeCategory, _, _):
-            return fileTypeCategory.matches(fileExtension: file.fileExtension)
+        case .category(let fileTypeCategory, let source, _):
+            return source.matches(file: file) && fileTypeCategory.matches(fileExtension: file.fileExtension)
         }
     }
 }

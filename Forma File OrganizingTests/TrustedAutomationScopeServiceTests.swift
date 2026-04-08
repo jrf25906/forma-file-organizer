@@ -106,6 +106,9 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
 
     func testPauseResumeAndRemove_UpdateStatusWithoutDeletingDuplicates() throws {
         try withService { context, service in
+            let pausedAt = Date(timeIntervalSince1970: 1_234)
+            let resumedAt = Date(timeIntervalSince1970: 2_345)
+            let revokedAt = Date(timeIntervalSince1970: 3_456)
             let scope = try service.createOrReactivateScope(
                 scopeType: .category,
                 scopeKey: "category:screenshots",
@@ -122,26 +125,33 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
 
             XCTAssertEqual(try service.activeScopes().map(\.id), [scope.id])
             XCTAssertTrue(try service.pausedScopes().isEmpty)
+            XCTAssertNil(scope.pausedAt)
+            XCTAssertNil(scope.lastRunAt)
 
-            try service.pauseScope(id: scope.id)
+            try service.pauseScope(id: scope.id, at: pausedAt)
 
             let paused = try XCTUnwrap(context.fetch(FetchDescriptor<TrustedAutomationScope>()).first)
             XCTAssertEqual(paused.status, .paused)
+            XCTAssertEqual(paused.pausedAt, pausedAt)
+            XCTAssertNil(paused.lastRunAt)
             XCTAssertTrue(try service.activeScopes().isEmpty)
             XCTAssertEqual(try service.pausedScopes().map(\.id), [scope.id])
 
-            try service.resumeScope(id: scope.id)
+            try service.resumeScope(id: scope.id, at: resumedAt)
 
             let resumed = try XCTUnwrap(context.fetch(FetchDescriptor<TrustedAutomationScope>()).first)
             XCTAssertEqual(resumed.status, .active)
+            XCTAssertNil(resumed.pausedAt)
+            XCTAssertEqual(resumed.updatedAt, resumedAt)
+            XCTAssertNil(resumed.lastRunAt)
             XCTAssertEqual(try service.activeScopes().map(\.id), [scope.id])
             XCTAssertTrue(try service.pausedScopes().isEmpty)
 
-            try service.removeScope(id: scope.id)
+            try service.removeScope(id: scope.id, at: revokedAt)
 
             let removed = try XCTUnwrap(context.fetch(FetchDescriptor<TrustedAutomationScope>()).first)
             XCTAssertEqual(removed.status, .revoked)
-            XCTAssertNotNil(removed.revokedAt)
+            XCTAssertEqual(removed.revokedAt, revokedAt)
             XCTAssertTrue(try service.activeScopes().isEmpty)
             XCTAssertTrue(try service.pausedScopes().isEmpty)
             XCTAssertEqual(try context.fetch(FetchDescriptor<TrustedAutomationScope>()).count, 1)
@@ -773,6 +783,76 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         }
     }
 
+    func testPromoteRuleScope_PersistsFullRuleBoundaryDescriptor() throws {
+        let destinationRoot = try TemporaryDirectory()
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive")
+        )
+
+        try withRecommendationServices { context, service, _, ruleService in
+            let ruleID = UUID()
+            let rule = Rule(
+                name: "Receipt Rule",
+                conditionType: .fileExtension,
+                conditionValue: "pdf",
+                actionType: .move,
+                destination: reviewedDestination
+            )
+            rule.id = ruleID
+            try ruleService.createRule(rule, source: .ruleEditor)
+
+            let snapshot = OrganizationMemorySnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Clients/Acme",
+                suggestionSource: .rule,
+                suggestedDestination: reviewedDestination,
+                chosenDestination: reviewedDestination,
+                confidenceScore: 0.93,
+                matchedRuleID: ruleID
+            )
+            let recommendation = TrustedAutomationScopeRecommendation(
+                recommendedScope: TrustedAutomationScopeRecommendationOption(
+                    scopeType: .rule,
+                    scopeKey: "rule:\(ruleID.uuidString)",
+                    displayName: rule.name,
+                    recommendationSource: .explicitRule,
+                    acceptedEvidenceCount: 4,
+                    overrideEvidenceCount: 0,
+                    undoEvidenceCount: 0,
+                    confidenceSnapshot: 0.93,
+                    rationaleSummary: "Reviewed rule is consistently accepted."
+                ),
+                alternativeScopes: [],
+                snapshot: snapshot
+            )
+
+            let promoted = try service.promoteFromReviewDecision(
+                recommendation: recommendation,
+                selectedScopeType: .rule
+            )
+            let persisted = try XCTUnwrap(
+                context.fetch(FetchDescriptor<TrustedAutomationScope>()).first(where: { $0.id == promoted.id })
+            )
+
+            XCTAssertEqual(
+                persisted.boundaryDescriptor,
+                .rule(
+                    rule: .init(id: ruleID, name: "Receipt Rule"),
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Clients/Acme"
+                    ),
+                    destination: .init(reviewedDestination)
+                )
+            )
+        }
+    }
+
     func testPromoteFolderScope_PersistsSubtreeBoundaryAndDestinationSnapshot() throws {
         let destinationRoot = try TemporaryDirectory()
         let reviewedDestination = try Destination.folder(
@@ -833,7 +913,7 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         }
     }
 
-    func testPromoteCategoryScope_PersistsTrustedDestinationWithoutCreatingDuplicateScopes() throws {
+    func testPromoteCategoryScope_ReusesOnlyTheSameTrustedBoundary() throws {
         let firstDestinationRoot = try TemporaryDirectory()
         let secondDestinationRoot = try TemporaryDirectory()
         let firstDestination = try Destination.folder(from: try firstDestinationRoot.createDirectory(name: "Shared"))
@@ -891,8 +971,8 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
                         scanRootPath: nil,
                         relativeParentPath: nil,
                         suggestionSource: .personalMemory,
-                        suggestedDestination: secondDestination,
-                        chosenDestination: secondDestination,
+                        suggestedDestination: firstDestination,
+                        chosenDestination: firstDestination,
                         confidenceScore: 0.94,
                         matchedRuleID: nil
                     )
@@ -901,16 +981,39 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
                 promotedAt: secondPromotionDate
             )
 
-            let persistedScopes = try context.fetch(FetchDescriptor<TrustedAutomationScope>())
-            let persisted = try XCTUnwrap(persistedScopes.first)
+            let distinctBoundaryScope = try service.promoteFromReviewDecision(
+                recommendation: TrustedAutomationScopeRecommendation(
+                    recommendedScope: firstRecommendation.recommendedScope,
+                    alternativeScopes: [],
+                    snapshot: OrganizationMemorySnapshot(
+                        fileName: "Screen Shot 3.png",
+                        fileExtension: "png",
+                        fileTypeCategory: .images,
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Screenshots",
+                        suggestionSource: .personalMemory,
+                        suggestedDestination: secondDestination,
+                        chosenDestination: secondDestination,
+                        confidenceScore: 0.95,
+                        matchedRuleID: nil
+                    )
+                ),
+                selectedScopeType: .category,
+                promotedAt: Date(timeIntervalSince1970: 3_000)
+            )
 
-            XCTAssertEqual(persistedScopes.count, 1)
+            let persistedScopes = try context.fetch(FetchDescriptor<TrustedAutomationScope>())
+            let refreshedPersisted = try XCTUnwrap(persistedScopes.first(where: { $0.id == firstScope.id }))
+            let distinctPersisted = try XCTUnwrap(persistedScopes.first(where: { $0.id == distinctBoundaryScope.id }))
+
+            XCTAssertEqual(persistedScopes.count, 2)
             XCTAssertEqual(refreshedScope.id, firstScope.id)
-            XCTAssertEqual(persisted.id, firstScope.id)
-            XCTAssertEqual(persisted.createdAt, firstPromotionDate)
-            XCTAssertEqual(persisted.updatedAt, secondPromotionDate)
+            XCTAssertNotEqual(distinctBoundaryScope.id, firstScope.id)
+            XCTAssertEqual(refreshedPersisted.createdAt, firstPromotionDate)
+            XCTAssertEqual(refreshedPersisted.updatedAt, secondPromotionDate)
             XCTAssertEqual(
-                persisted.boundaryDescriptor,
+                refreshedPersisted.boundaryDescriptor,
                 .category(
                     fileTypeCategory: .images,
                     source: .init(
@@ -918,10 +1021,54 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
                         scanRootPath: nil,
                         relativeParentPath: nil
                     ),
+                    destination: .init(firstDestination)
+                )
+            )
+            XCTAssertEqual(
+                distinctPersisted.boundaryDescriptor,
+                .category(
+                    fileTypeCategory: .images,
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Screenshots"
+                    ),
                     destination: .init(secondDestination)
                 )
             )
-            XCTAssertEqual(persisted.boundarySummary, "Images -> Shared")
+            XCTAssertEqual(refreshedPersisted.boundarySummary, "Images -> Shared")
+            XCTAssertEqual(distinctPersisted.boundarySummary, "Images -> Shared")
+        }
+    }
+
+    func testRecommendedScope_DoesNotOfferAmbiguousRootlessFolderScope() throws {
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Exports")
+            let snapshot = makeSnapshot(
+                fileName: "Report.csv",
+                fileExtension: "csv",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: nil,
+                relativeParentPath: "Clients/Acme",
+                destination: destination
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            let recommendation = try XCTUnwrap(service.recommendedScope(for: snapshot))
+
+            XCTAssertFalse(
+                recommendation.allScopeChoices.contains(where: { $0.scopeType == .folder }),
+                "Nested folder scopes need root identity; without it they should not be promoted."
+            )
         }
     }
 

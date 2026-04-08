@@ -164,6 +164,199 @@ final class TrustedAutomationScopeResolverTests: XCTestCase {
         }
     }
 
+    func testResolveMatch_PrefersNarrowerFolderWhenMultipleFoldersMatch() throws {
+        let destinationRoot = try TemporaryDirectory()
+        let trustedDestination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Receipts"))
+
+        try withServices { _, service, resolver in
+            let broaderScope = try service.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Projects",
+                displayName: "Projects",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Projects"
+                    ),
+                    destination: .init(trustedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.91,
+                rationaleSummary: "Projects subtree is trusted.",
+                allowedActions: [.move],
+                refreshedAt: Date(timeIntervalSince1970: 100)
+            )
+            let narrowerScope = try service.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Projects/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Projects/Receipts"
+                    ),
+                    destination: .init(trustedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.95,
+                rationaleSummary: "Receipt subtree is trusted.",
+                allowedActions: [.move],
+                refreshedAt: Date(timeIntervalSince1970: 200)
+            )
+            let candidate = makeCandidateFile(
+                path: "/Users/example/Downloads/Projects/Receipts/2026/Receipt.pdf",
+                fileExtension: "pdf",
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Projects/Receipts/2026"
+            )
+
+            XCTAssertEqual(try resolver.resolveMatch(for: candidate, destination: trustedDestination)?.id, narrowerScope.id)
+            XCTAssertNotEqual(broaderScope.id, narrowerScope.id)
+        }
+    }
+
+    func testResolveMatch_EnforcesPersistedSourceBoundaryForCategoryAndRule() throws {
+        let destinationRoot = try TemporaryDirectory()
+        let trustedDestination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Shared"))
+        let ruleID = UUID()
+
+        try withServices { _, service, resolver in
+            let categoryScope = try service.createOrReactivateScope(
+                scopeType: .category,
+                scopeKey: FileTypeCategory.images.rawValue,
+                displayName: FileTypeCategory.images.displayName,
+                boundaryDescriptor: .category(
+                    fileTypeCategory: .images,
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Screenshots"
+                    ),
+                    destination: .init(trustedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 3,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.91,
+                rationaleSummary: "Screenshots are trusted for automatic organization.",
+                allowedActions: [.move]
+            )
+            let ruleScope = try service.createOrReactivateScope(
+                scopeType: .rule,
+                scopeKey: "rule:\(ruleID.uuidString)",
+                displayName: "Receipt Rule",
+                boundaryDescriptor: .rule(
+                    rule: .init(id: ruleID, name: "Receipt Rule"),
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(trustedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .explicitRule,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.95,
+                rationaleSummary: "Receipt rule is trusted.",
+                allowedActions: [.move]
+            )
+
+            let matchingCategoryCandidate = makeCandidateFile(
+                path: "/Users/example/Downloads/Screenshots/Screen Shot.png",
+                fileExtension: "png",
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Screenshots"
+            )
+            let mismatchedCategoryCandidate = makeCandidateFile(
+                path: "/Users/example/Downloads/Misc/Screen Shot.png",
+                fileExtension: "png",
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Misc"
+            )
+            let matchingRuleCandidate = makeCandidateFile(
+                path: "/Users/example/Downloads/Receipts/Receipt.pdf",
+                fileExtension: "pdf",
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                matchedRuleID: ruleID
+            )
+            let mismatchedRuleCandidate = makeCandidateFile(
+                path: "/Users/example/Downloads/Other/Receipt.pdf",
+                fileExtension: "pdf",
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Other",
+                matchedRuleID: ruleID
+            )
+
+            XCTAssertEqual(try resolver.resolveMatch(for: matchingCategoryCandidate, destination: trustedDestination)?.id, categoryScope.id)
+            XCTAssertNil(try resolver.resolveMatch(for: mismatchedCategoryCandidate, destination: trustedDestination))
+            XCTAssertEqual(try resolver.resolveMatch(for: matchingRuleCandidate, destination: trustedDestination)?.id, ruleScope.id)
+            XCTAssertNil(try resolver.resolveMatch(for: mismatchedRuleCandidate, destination: trustedDestination))
+        }
+    }
+
+    func testResolveMatch_DoesNotTrustAmbiguousRootlessFolderBoundary() throws {
+        let destinationRoot = try TemporaryDirectory()
+        let trustedDestination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
+
+        try withServices { _, service, resolver in
+            let scope = try service.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "location:downloads|Clients/Acme",
+                displayName: "Acme",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: nil,
+                        relativeParentPath: "Clients/Acme"
+                    ),
+                    destination: .init(trustedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.91,
+                rationaleSummary: "Acme subtree is trusted.",
+                allowedActions: [.move]
+            )
+            let candidate = makeCandidateFile(
+                path: "/Users/example/Downloads/Clients/Acme/Report.csv",
+                fileExtension: "csv",
+                sourceLocation: .downloads,
+                scanRootPath: nil,
+                relativeParentPath: "Clients/Acme"
+            )
+
+            XCTAssertNil(
+                try resolver.resolveMatch(for: candidate, destination: trustedDestination),
+                "Rootless nested folder scopes should stay inert rather than trust same-name folders interchangeably."
+            )
+            XCTAssertEqual(scope.scopeKey, "location:downloads|Clients/Acme")
+        }
+    }
+
     private func makeCandidateFile(
         path: String,
         fileExtension: String,

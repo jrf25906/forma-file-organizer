@@ -248,9 +248,14 @@ final class TrustedAutomationScopeService {
             for: resolvedOption,
             snapshot: recommendation.snapshot
         )
+        let scopeKey = scopeKey(
+            for: resolvedOption.scopeType,
+            requestedScopeKey: resolvedOption.scopeKey,
+            boundaryDescriptor: boundaryDescriptor
+        )
         return try createOrReactivateScope(
             scopeType: resolvedOption.scopeType,
-            scopeKey: resolvedOption.scopeKey,
+            scopeKey: scopeKey,
             displayName: resolvedOption.displayName,
             boundaryDescriptor: boundaryDescriptor,
             promotionSource: .reviewFlow,
@@ -374,6 +379,9 @@ final class TrustedAutomationScopeService {
         destination: Destination
     ) throws -> TrustedAutomationScopeRecommendationOption? {
         guard snapshot.scanRootPath != nil || snapshot.sourceLocation != .unknown else {
+            return nil
+        }
+        guard !isAmbiguousFolderBoundary(snapshot) else {
             return nil
         }
 
@@ -746,6 +754,23 @@ final class TrustedAutomationScopeService {
         return "derived:\(snapshot.fileExtension.lowercased())|\(snapshot.sourceLocation.rawValue)|\(destinationIdentity)"
     }
 
+    private func scopeKey(
+        for scopeType: TrustedAutomationScopeType,
+        requestedScopeKey: String,
+        boundaryDescriptor: TrustedAutomationScopeBoundaryDescriptor?
+    ) -> String {
+        guard let boundaryDescriptor else {
+            return requestedScopeKey
+        }
+
+        switch scopeType {
+        case .rule, .category:
+            return boundaryDescriptor.identityScopeKey
+        case .folder:
+            return requestedScopeKey
+        }
+    }
+
     private func normalizedPath(_ value: String?) -> String? {
         guard let value, !value.isEmpty else { return nil }
         return URL(fileURLWithPath: value).standardizedFileURL.path
@@ -775,6 +800,11 @@ final class TrustedAutomationScopeService {
             .appendingPathComponent(relativeParentPath)
             .standardizedFileURL
             .path
+    }
+
+    private func isAmbiguousFolderBoundary(_ snapshot: OrganizationMemorySnapshot) -> Bool {
+        normalizedPath(snapshot.scanRootPath) == nil &&
+        normalizedRelativeParentPath(snapshot.relativeParentPath) != nil
     }
 
     private func relativePath(_ candidate: String?, isWithin scope: String?) -> Bool {

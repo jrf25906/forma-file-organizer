@@ -14,19 +14,33 @@ final class TrustedAutomationScopeResolver {
         destination: Destination?
     ) throws -> TrustedAutomationScope? {
         try activeScopes()
-            .sorted { lhs, rhs in
-                if scopePriority(lhs.scopeType) == scopePriority(rhs.scopeType) {
-                    return lhs.createdAt < rhs.createdAt
-                }
-                return scopePriority(lhs.scopeType) < scopePriority(rhs.scopeType)
-            }
-            .first { scope in
-                guard let boundaryDescriptor = scope.boundaryDescriptor else {
-                    return false
+            .compactMap { scope -> (scope: TrustedAutomationScope, boundary: TrustedAutomationScopeBoundaryDescriptor)? in
+                guard let boundary = scope.boundaryDescriptor,
+                      boundary.matches(candidate: file, destination: destination) else {
+                    return nil
                 }
 
-                return boundaryDescriptor.matches(candidate: file, destination: destination)
+                return (scope, boundary)
             }
+            .sorted { lhs, rhs in
+                let lhsPriority = scopePriority(lhs.scope.scopeType)
+                let rhsPriority = scopePriority(rhs.scope.scopeType)
+                if lhsPriority != rhsPriority {
+                    return lhsPriority < rhsPriority
+                }
+
+                if lhs.boundary.matchingSpecificityScore != rhs.boundary.matchingSpecificityScore {
+                    return lhs.boundary.matchingSpecificityScore > rhs.boundary.matchingSpecificityScore
+                }
+
+                if lhs.scope.updatedAt != rhs.scope.updatedAt {
+                    return lhs.scope.updatedAt > rhs.scope.updatedAt
+                }
+
+                return lhs.scope.createdAt < rhs.scope.createdAt
+            }
+            .first?
+            .scope
     }
 
     private func activeScopes() throws -> [TrustedAutomationScope] {
