@@ -750,7 +750,6 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
 
             XCTAssertEqual(detail.overview.currentFileCount, 2)
             XCTAssertEqual(detail.overview.activeFolderCount, detail.overview.activeFolderHints.count)
-            XCTAssertEqual(detail.overview.activeFolderHints, detail.summary.sourceFolderHints)
             XCTAssertEqual(detail.overview.preferredDestinationCount, 2)
             XCTAssertEqual(detail.overview.recentActivityCount, 10)
             XCTAssertEqual(detail.overview.lastActivityAt, Date(timeIntervalSince1970: 1_006))
@@ -842,6 +841,62 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
             XCTAssertEqual(detail.recentActivity.map(\.eventKind), [.noted, .ignored, .organized])
             XCTAssertEqual(detail.recentActivity.map(\.detailsSummary), ["Needs project rename.", "Ignored during review.", "Organized to archive."])
             XCTAssertEqual(detail.recentActivity.map(\.destinationDisplayName), ["Inbox", "Inbox", "Alpha Archive"])
+        }
+    }
+
+    func testProjectSpaceSummaryAndDetail_KeepRootSourceFolderHintsWhenProjectSpaceMemoryEnabled() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+
+        try withService { context, service in
+            let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+            let docsPath = "\(homePath)/Downloads/Alpha/Docs/spec.txt"
+            let designPath = "\(homePath)/Downloads/Alpha/Design/mockup.txt"
+
+            let docsRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: docsPath,
+                    displayName: "spec.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            docsRecord.projectAssociation = "Alpha"
+
+            let designRecord = try XCTUnwrap(
+                service.upsertRecord(
+                    for: designPath,
+                    displayName: "mockup.txt",
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_100)
+                )
+            )
+            designRecord.projectAssociation = "Alpha"
+
+            try context.save()
+
+            #if DEBUG
+            FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = { path, _ in
+                if path == docsPath || path == designPath {
+                    return true
+                }
+                return nil
+            }
+            defer {
+                FileMetadataFoundationService.debugProjectSpacePathReachabilityHook = nil
+            }
+            #endif
+
+            let summary = try XCTUnwrap(service.fetchProjectSpaceSummaries().first(where: { $0.normalizedLabel == "Alpha" }))
+            let detail = try XCTUnwrap(service.fetchProjectSpaceDetail(for: "Alpha"))
+            let expectedRootHint = try XCTUnwrap(service.projectSpaceSourceFolderHintRoot(for: docsPath))
+
+            XCTAssertEqual(summary.sourceFolderHints, [expectedRootHint])
+            XCTAssertEqual(detail.summary.sourceFolderHints, [expectedRootHint])
+
+            XCTAssertEqual(detail.overview.activeFolderCount, 2)
+            XCTAssertEqual(detail.overview.activeFolderHints, ["Design", "Docs"])
+            XCTAssertNotEqual(detail.overview.activeFolderHints, detail.summary.sourceFolderHints)
         }
     }
 

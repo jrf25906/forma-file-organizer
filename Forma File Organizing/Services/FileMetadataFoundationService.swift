@@ -497,21 +497,11 @@ final class FileMetadataFoundationService {
 
         return recordsByLabel
             .map { label, members in
-                let memberContexts = members.map { member in
-                    ProjectSpaceMemoryResolver.MemberContext(
-                        record: member.record,
-                        normalizedPath: member.normalizedPath
-                    )
-                }
-                let overview = isProjectSpaceMemoryEnabled
-                    ? ProjectSpaceMemoryResolver().buildOverview(for: memberContexts)
-                    : nil
-
                 return ProjectSpaceSummary(
                     normalizedLabel: label,
                     fileCount: members.count,
                     lastActivityAt: lastActivityAt(for: members.map(\.record)),
-                    sourceFolderHints: overview?.activeFolderHints ?? sourceFolderHints(for: members)
+                    sourceFolderHints: sourceFolderHints(for: members)
                 )
             }
             .sorted(by: projectSpaceSummarySortOrder(_:_:))
@@ -559,7 +549,7 @@ final class FileMetadataFoundationService {
             normalizedLabel: selectedLabel,
             fileCount: members.count,
             lastActivityAt: lastActivityAt(for: members.map(\.record)),
-            sourceFolderHints: isProjectSpaceMemoryEnabled ? overview.activeFolderHints : fallbackSourceFolderHints
+            sourceFolderHints: fallbackSourceFolderHints
         )
         let files = members
             .map { member in
