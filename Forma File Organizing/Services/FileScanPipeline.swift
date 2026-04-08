@@ -188,9 +188,10 @@ struct FileScanPipeline: FileScanPipelineProtocol {
         }
 
         let memoryEvaluated = applyPersonalMemorySuggestions(to: ruleEvaluated, context: context)
+        let projectSpaceMemoryEvaluated = applyProjectSpaceMemorySuggestions(to: memoryEvaluated, context: context)
 
         let positivePatterns = patterns.filter { !$0.isNegativePattern && $0.source != .personalMemory }
-        let patternEvaluated = applyLearnedPatterns(to: memoryEvaluated, patterns: positivePatterns)
+        let patternEvaluated = applyLearnedPatterns(to: projectSpaceMemoryEvaluated, patterns: positivePatterns)
 
         // ML predictions only if model exists
         let evaluated: [FileMetadata]
@@ -776,6 +777,120 @@ struct FileScanPipeline: FileScanPipelineProtocol {
                 modified.suggestionSourceRaw = SuggestionSource.pattern.rawValue
                 mutableFiles[index] = modified
             }
+        }
+
+        return mutableFiles
+    }
+
+    private func applyProjectSpaceMemorySuggestions(
+        to files: [FileMetadata],
+        context: ModelContext
+    ) -> [FileMetadata] {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation),
+              FeatureFlagService.shared.isEnabled(.autoProjectAssociation),
+              FeatureFlagService.shared.isEnabled(.projectSpaces),
+              FeatureFlagService.shared.isEnabled(.projectSpaceMemory) else {
+            return files
+        }
+
+        var mutableFiles = files
+        let pendingIndices = files.enumerated().compactMap { index, file -> Int? in
+            guard file.status == .pending,
+                  file.destination == nil,
+                  file.matchedRuleID == nil else {
+                return nil
+            }
+            return index
+        }
+
+        guard !pendingIndices.isEmpty else {
+            return mutableFiles
+        }
+
+        let pendingPaths = Set(pendingIndices.map { files[$0].path })
+        let pendingRecords: [FileMetadataRecord]
+        do {
+            let descriptor = FetchDescriptor<FileMetadataRecord>(
+                predicate: #Predicate<FileMetadataRecord> { record in
+                    pendingPaths.contains(record.lastKnownPath)
+                }
+            )
+            pendingRecords = try context.fetch(descriptor)
+        } catch {
+            Log.error(
+                "FileScanPipeline: Failed to fetch metadata records for project-space suggestions: \(error.localizedDescription)",
+                category: .pipeline
+            )
+            return mutableFiles
+        }
+
+        var recordByPath: [String: FileMetadataRecord] = [:]
+        recordByPath.reserveCapacity(pendingRecords.count)
+        for record in pendingRecords {
+            recordByPath[record.lastKnownPath] = record
+        }
+
+        let projectLabels = Set(
+            pendingRecords.compactMap { FileMetadataRecord.normalizedOptionalText($0.projectAssociation) }
+        )
+        guard !projectLabels.isEmpty else {
+            return mutableFiles
+        }
+
+        let resolver = ProjectSpaceMemoryResolver()
+        var suggestionByLabel: [String: (suggestion: ProjectSpaceMemorySuggestion, destination: Destination)] = [:]
+
+        for label in projectLabels {
+            let projectRecords: [FileMetadataRecord]
+            do {
+                let descriptor = FetchDescriptor<FileMetadataRecord>(
+                    predicate: #Predicate<FileMetadataRecord> { record in
+                        record.projectAssociation == label
+                    }
+                )
+                projectRecords = try context.fetch(descriptor)
+            } catch {
+                Log.error(
+                    "FileScanPipeline: Failed to fetch project records for label '\(label)': \(error.localizedDescription)",
+                    category: .pipeline
+                )
+                continue
+            }
+
+            let memberContexts = projectRecords.map {
+                ProjectSpaceMemoryResolver.MemberContext(
+                    record: $0,
+                    normalizedPath: $0.lastKnownPath
+                )
+            }
+            guard let suggestion = resolver.suggestDominantDestination(for: memberContexts),
+                  let destination = resolver.resolveDestination(for: suggestion) else {
+                continue
+            }
+
+            suggestionByLabel[label] = (suggestion, destination)
+        }
+
+        guard !suggestionByLabel.isEmpty else {
+            return mutableFiles
+        }
+
+        for index in pendingIndices {
+            let file = mutableFiles[index]
+            guard let record = recordByPath[file.path],
+                  let normalizedProjectAssociation = FileMetadataRecord.normalizedOptionalText(record.projectAssociation),
+                  let resolvedSuggestion = suggestionByLabel[normalizedProjectAssociation] else {
+                continue
+            }
+
+            var modified = file
+            modified.destination = resolvedSuggestion.destination
+            modified.originalSuggestedDestination = resolvedSuggestion.destination
+            modified.status = .ready
+            modified.matchReason = resolvedSuggestion.suggestion.reasonSummary
+            modified.confidenceScore = resolvedSuggestion.suggestion.confidence
+            modified.suggestionSourceRaw = SuggestionSource.projectSpaceMemory.rawValue
+            mutableFiles[index] = modified
         }
 
         return mutableFiles

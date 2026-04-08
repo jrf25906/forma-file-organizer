@@ -506,4 +506,34 @@ final class ProjectSpaceMemoryResolverTests: XCTestCase {
             XCTAssertEqual(suggestion?.destinationDisplayName, "Shared")
         }
     }
+
+    func testResolveDestination_ReturnsBookmarkBackedDestinationForReachablePath() throws {
+        let tempDir = try TemporaryDirectory()
+        let destinationFolderURL = try tempDir.createDirectory(name: "Workspace/Alpha Archive")
+        let suggestion = ProjectSpaceMemorySuggestion(
+            destinationDisplayName: "Alpha Archive",
+            destinationFolderPath: destinationFolderURL.path,
+            confidence: 0.82,
+            reasonSummary: "Dominant project activity.",
+            lastUsedAt: Date(timeIntervalSince1970: 1_000)
+        )
+
+        let destination = resolver.resolveDestination(for: suggestion)
+
+        XCTAssertEqual(destination?.displayName, "Alpha Archive")
+        XCTAssertNotNil(destination?.bookmarkData)
+        XCTAssertEqual(destination?.resolve()?.url.standardizedFileURL.path, destinationFolderURL.standardizedFileURL.path)
+    }
+
+    func testResolveDestination_ReturnsNilForUnresolvablePath() {
+        let suggestion = ProjectSpaceMemorySuggestion(
+            destinationDisplayName: "Missing",
+            destinationFolderPath: "/tmp/forma-tests-\(UUID().uuidString)/does-not-exist",
+            confidence: 0.9,
+            reasonSummary: "Dominant project activity.",
+            lastUsedAt: Date(timeIntervalSince1970: 2_000)
+        )
+
+        XCTAssertNil(resolver.resolveDestination(for: suggestion))
+    }
 }

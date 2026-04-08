@@ -83,10 +83,11 @@ struct DestinationFeatures: Equatable, Sendable {
 enum SuggestionSource: String, Codable, Sendable {
     // Persisted raw values are part of stored-model compatibility.
     // Do not rename or remove without an explicit data migration.
-    case rule           // From RuleEngine match
-    case personalMemory // From structured personal organization memory
-    case pattern        // From LearnedPattern
-    case mlPrediction   // From ML model
+    case rule = "rule"                             // From RuleEngine match
+    case personalMemory = "personalMemory"         // From structured personal organization memory
+    case projectSpaceMemory = "projectSpaceMemory" // From dominant recent project destination activity
+    case pattern = "pattern"                       // From LearnedPattern
+    case mlPrediction = "mlPrediction"             // From ML model
 }
 
 /// Explanation for why a prediction was made

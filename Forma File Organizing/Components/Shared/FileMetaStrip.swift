@@ -306,9 +306,7 @@ struct FileProvenancePresentation {
     let helpText: String
 
     static func resolve(for file: FileItem) -> FileProvenancePresentation {
-        let helpText = file.matchReason?.isEmpty == false
-            ? file.matchReason!
-            : "Suggestion source: \(label(for: file.suggestionSource))"
+        let helpText = helpText(for: file)
 
         return FileProvenancePresentation(
             label: label(for: file.suggestionSource),
@@ -317,12 +315,29 @@ struct FileProvenancePresentation {
         )
     }
 
+    private static func helpText(for file: FileItem) -> String {
+        switch file.suggestionSource {
+        case .projectSpaceMemory:
+            let defaultHelp = "Suggested from recent activity in the current project."
+            guard let matchReason = file.matchReason, !matchReason.isEmpty else {
+                return defaultHelp
+            }
+            return "\(matchReason) Recent activity in the current project reinforced this destination."
+        case .rule, .personalMemory, .pattern, .mlPrediction:
+            return file.matchReason?.isEmpty == false
+                ? file.matchReason!
+                : "Suggestion source: \(label(for: file.suggestionSource))"
+        }
+    }
+
     private static func label(for source: SuggestionSource) -> String {
         switch source {
         case .rule:
             return "Rule"
         case .personalMemory:
             return "Memory"
+        case .projectSpaceMemory:
+            return "Project"
         case .pattern:
             return "Learned"
         case .mlPrediction:
@@ -336,6 +351,8 @@ struct FileProvenancePresentation {
             return "arrow.triangle.branch"
         case .personalMemory:
             return "brain.head.profile"
+        case .projectSpaceMemory:
+            return "books.vertical.fill"
         case .pattern:
             return "sparkles"
         case .mlPrediction:

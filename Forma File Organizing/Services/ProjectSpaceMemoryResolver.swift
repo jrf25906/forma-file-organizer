@@ -144,6 +144,29 @@ struct ProjectSpaceMemoryResolver {
         )
     }
 
+    func resolveDestination(for suggestion: ProjectSpaceMemorySuggestion) -> Destination? {
+        guard let destinationFolderPath = suggestion.destinationFolderPath else {
+            return nil
+        }
+
+        let bookmarkBackedRootURLs = FileMetadataFoundationService.projectSpaceBookmarkBackedRootURLs()
+        guard let normalizedFolderPath = FileMetadataFoundationService.normalizedResolvablePath(
+            for: destinationFolderPath,
+            bookmarkBackedRootURLs: bookmarkBackedRootURLs
+        ) else {
+            return nil
+        }
+
+        let folderURL = URL(fileURLWithPath: normalizedFolderPath).standardizedFileURL
+        let displayName = FileMetadataRecord.normalizedOptionalText(suggestion.destinationDisplayName)
+            ?? folderURL.lastPathComponent
+        guard !displayName.isEmpty else {
+            return nil
+        }
+
+        return try? Destination.folder(from: folderURL, displayName: displayName)
+    }
+
     private func resolvedMembers(from memberContexts: [MemberContext]) -> [MemberContext] {
         let bookmarkBackedRootURLs = FileMetadataFoundationService.projectSpaceBookmarkBackedRootURLs()
 

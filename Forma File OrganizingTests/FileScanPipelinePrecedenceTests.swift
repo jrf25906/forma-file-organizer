@@ -31,6 +31,7 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
             for: FileItem.self, Rule.self, ActivityItem.self,
                  PersonalMemoryEvent.self, PersonalMemoryPreference.self,
                  LearnedPattern.self, MLTrainingHistory.self,
+                 FileMetadataRecord.self, FileOrganizationHistoryEntry.self,
             configurations: config
         )
         await MainActor.run {
@@ -226,6 +227,182 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         let file = try XCTUnwrap(result.files.first)
         XCTAssertEqual(file.status, .pending)
         XCTAssertNil(file.destination)
+    }
+
+    func testProjectSpaceMemorySuggestion_AppliesForKnownProjectWithDominantRecentDestination() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+
+        let tempDir = try TemporaryDirectory()
+        let fileURL = try tempDir.createFile(name: "Workspace/Alpha/invoice.pdf", contents: "invoice")
+        let dominantFolderURL = try tempDir.createDirectory(name: "Destinations/Alpha Archive")
+        let secondaryFolderURL = try tempDir.createDirectory(name: "Destinations/Beta Vault")
+        let now = Date()
+
+        let record = makeMetadataRecord(
+            path: fileURL.path,
+            displayName: fileURL.lastPathComponent,
+            projectAssociation: "Alpha"
+        )
+
+        addHistoryEntry(
+            to: record,
+            eventKind: .organized,
+            timestamp: now.addingTimeInterval(-3_600),
+            toPath: dominantFolderURL.appendingPathComponent("invoice-v1.pdf").path,
+            destinationDisplayName: "Alpha Archive"
+        )
+        addHistoryEntry(
+            to: record,
+            eventKind: .rekeyed,
+            timestamp: now.addingTimeInterval(-2_400),
+            toPath: dominantFolderURL.appendingPathComponent("invoice-v2.pdf").path,
+            destinationDisplayName: "Alpha Archive"
+        )
+        addHistoryEntry(
+            to: record,
+            eventKind: .organized,
+            timestamp: now.addingTimeInterval(-1_200),
+            toPath: secondaryFolderURL.appendingPathComponent("invoice-v3.pdf").path,
+            destinationDisplayName: "Beta Vault"
+        )
+        try modelContext.save()
+
+        mockFileSystem.mockFiles = [
+            createMockMetadata(path: fileURL.path, ext: "pdf", location: .desktop)
+        ]
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.desktop],
+            scanOptions: .defaults,
+            fileSystemService: mockFileSystem,
+            ruleEngine: ruleEngine,
+            rules: [],
+            context: modelContext
+        )
+
+        let file = try XCTUnwrap(result.files.first(where: { $0.path == fileURL.path }))
+        XCTAssertEqual(file.status, .ready)
+        XCTAssertEqual(file.suggestionSource, .projectSpaceMemory)
+        XCTAssertEqual(file.destination?.displayName, "Alpha Archive")
+        XCTAssertEqual(file.originalSuggestedDestination?.displayName, "Alpha Archive")
+        XCTAssertNotNil(file.destination?.bookmarkData)
+        XCTAssertNotNil(file.matchReason)
+        XCTAssertGreaterThan(file.confidenceScore ?? 0, 0.6)
+    }
+
+    func testProjectSpaceMemorySuggestion_DoesNotOverrideExplicitRuleOrPersonalMemory() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+
+        let tempDir = try TemporaryDirectory()
+        let dominantFolderURL = try tempDir.createDirectory(name: "Destinations/Project Archive")
+        let explicitRuleFileURL = try tempDir.createFile(name: "Workspace/Alpha/contract.pdf", contents: "contract")
+        let personalMemoryFileURL = try tempDir.createFile(name: "Workspace/Alpha/invoice.txt", contents: "invoice")
+        let personalMemoryDestinationURL = try tempDir.createDirectory(name: "Destinations/Personal Inbox")
+        let personalMemoryDestination = try Destination.folder(
+            from: personalMemoryDestinationURL,
+            displayName: "Personal Inbox"
+        )
+
+        let explicitRuleRecord = makeMetadataRecord(
+            path: explicitRuleFileURL.path,
+            displayName: explicitRuleFileURL.lastPathComponent,
+            projectAssociation: "Alpha"
+        )
+        let personalMemoryRecord = makeMetadataRecord(
+            path: personalMemoryFileURL.path,
+            displayName: personalMemoryFileURL.lastPathComponent,
+            projectAssociation: "Alpha"
+        )
+
+        let now = Date()
+        addHistoryEntry(
+            to: explicitRuleRecord,
+            eventKind: .organized,
+            timestamp: now.addingTimeInterval(-3_600),
+            toPath: dominantFolderURL.appendingPathComponent("contract-v1.pdf").path,
+            destinationDisplayName: "Project Archive"
+        )
+        addHistoryEntry(
+            to: explicitRuleRecord,
+            eventKind: .rekeyed,
+            timestamp: now.addingTimeInterval(-2_000),
+            toPath: dominantFolderURL.appendingPathComponent("contract-v2.pdf").path,
+            destinationDisplayName: "Project Archive"
+        )
+        addHistoryEntry(
+            to: personalMemoryRecord,
+            eventKind: .organized,
+            timestamp: now.addingTimeInterval(-1_800),
+            toPath: dominantFolderURL.appendingPathComponent("invoice-v1.txt").path,
+            destinationDisplayName: "Project Archive"
+        )
+        addHistoryEntry(
+            to: personalMemoryRecord,
+            eventKind: .rekeyed,
+            timestamp: now.addingTimeInterval(-1_000),
+            toPath: dominantFolderURL.appendingPathComponent("invoice-v2.txt").path,
+            destinationDisplayName: "Project Archive"
+        )
+
+        let memoryService = PersonalMemoryService(modelContext: modelContext)
+        for index in 0..<2 {
+            _ = try memoryService.recordDecision(
+                fileName: "invoice-\(index).txt",
+                fileExtension: "txt",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: nil,
+                relativeParentPath: nil,
+                sourceSurface: .reviewFlow,
+                suggestionSource: .personalMemory,
+                suggestedDestination: personalMemoryDestination,
+                chosenDestination: personalMemoryDestination,
+                confidenceScore: 0.9,
+                matchedRuleID: nil
+            )
+        }
+        try modelContext.save()
+
+        let explicitRule = Rule(
+            name: "Contracts Rule",
+            conditions: [.fileExtension("pdf")],
+            logicalOperator: .single,
+            actionType: .move,
+            destination: .mockFolder("Rule Destination"),
+            isEnabled: true
+        )
+        modelContext.insert(explicitRule)
+        try modelContext.save()
+
+        mockFileSystem.mockFiles = [
+            createMockMetadata(path: explicitRuleFileURL.path, ext: "pdf", location: .desktop),
+            createMockMetadata(path: personalMemoryFileURL.path, ext: "txt", location: .downloads)
+        ]
+
+        let result = await pipeline.scanAndPersist(
+            baseFolders: [.desktop, .downloads],
+            scanOptions: .defaults,
+            fileSystemService: mockFileSystem,
+            ruleEngine: ruleEngine,
+            rules: [explicitRule],
+            context: modelContext
+        )
+
+        let ruleFile = try XCTUnwrap(result.files.first(where: { $0.path == explicitRuleFileURL.path }))
+        XCTAssertEqual(ruleFile.destination?.displayName, "Rule Destination")
+        XCTAssertEqual(ruleFile.suggestionSource, .rule)
+        XCTAssertNotEqual(ruleFile.suggestionSource, .projectSpaceMemory)
+
+        let memoryFile = try XCTUnwrap(result.files.first(where: { $0.path == personalMemoryFileURL.path }))
+        XCTAssertEqual(memoryFile.destination?.displayName, "Personal Inbox")
+        XCTAssertEqual(memoryFile.suggestionSource, .personalMemory)
+        XCTAssertNotEqual(memoryFile.suggestionSource, .projectSpaceMemory)
     }
     
     /// Test: ML predictions only apply when no rules or patterns match
@@ -547,6 +724,49 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
     }
 
     // MARK: - Helper Methods
+
+    @discardableResult
+    private func makeMetadataRecord(
+        path: String,
+        displayName: String,
+        projectAssociation: String?
+    ) -> FileMetadataRecord {
+        let identity = FileMetadataRecord.Identity.pathFallback(path: path)
+        let record = FileMetadataRecord(
+            canonicalIdentity: identity.canonicalIdentity,
+            identityKind: identity.kind,
+            lastKnownPath: path,
+            displayName: displayName,
+            fileExtension: URL(fileURLWithPath: path).pathExtension,
+            firstSeenAt: Date(timeIntervalSince1970: 100),
+            lastSeenAt: Date(timeIntervalSince1970: 100)
+        )
+        record.projectAssociation = projectAssociation
+        modelContext.insert(record)
+        return record
+    }
+
+    private func addHistoryEntry(
+        to record: FileMetadataRecord,
+        eventKind: FileOrganizationHistoryEntry.EventKind,
+        timestamp: Date,
+        toPath: String,
+        destinationDisplayName: String
+    ) {
+        let entry = FileOrganizationHistoryEntry(
+            timestamp: timestamp,
+            metadataRecord: record,
+            fileIdentitySnapshot: record.canonicalIdentity,
+            eventKind: eventKind,
+            sourceSurface: .review,
+            fromPath: record.lastKnownPath,
+            toPath: toPath,
+            destinationDisplayName: destinationDisplayName,
+            detailsSummary: nil
+        )
+        modelContext.insert(entry)
+        record.historyEntries.append(entry)
+    }
     
     /// Create mock FileMetadata for testing
     func createMockMetadata(
@@ -554,17 +774,27 @@ final class FileScanPipelinePrecedenceTests: XCTestCase {
         ext: String,
         location: FileLocationKind
     ) -> FileMetadata {
+        createMockMetadata(path: "/tmp/\(name)", ext: ext, location: location)
+    }
+
+    func createMockMetadata(
+        path: String,
+        ext: String,
+        location: FileLocationKind
+    ) -> FileMetadata {
         let normalizedExt = ext.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathURL = URL(fileURLWithPath: path)
         let filename: String
         if normalizedExt.isEmpty {
-            filename = name
-        } else if name.lowercased().hasSuffix(".\(normalizedExt.lowercased())") {
-            filename = name
+            filename = pathURL.lastPathComponent
+        } else if pathURL.lastPathComponent.lowercased().hasSuffix(".\(normalizedExt.lowercased())") {
+            filename = pathURL.lastPathComponent
         } else {
-            filename = "\(name).\(normalizedExt)"
+            filename = "\(pathURL.lastPathComponent).\(normalizedExt)"
         }
+        let finalPath = pathURL.deletingLastPathComponent().appendingPathComponent(filename).path
         return FileMetadata(
-            path: "/tmp/\(filename)",
+            path: finalPath,
             sizeInBytes: 1024,
             creationDate: Date(),
             modificationDate: Date(),
