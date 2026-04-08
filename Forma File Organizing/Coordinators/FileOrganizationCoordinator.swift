@@ -30,6 +30,18 @@ class FileOrganizationCoordinator: ObservableObject {
         let files: [FileActionData]
         let timestamp: Date
     }
+
+    struct WorkflowMoveResult {
+        let originalPath: String
+        let destinationPath: String
+        let destinationDisplayName: String?
+        let projectAssociationWriteContext: ProjectAssociationWriteContext
+    }
+
+    struct WorkflowMoveError: Error {
+        let result: WorkflowMoveResult
+        let underlyingError: Error
+    }
     
     // MARK: - Published State
     
@@ -240,6 +252,64 @@ class FileOrganizationCoordinator: ObservableObject {
             }
 
             onError(error)
+        }
+    }
+
+    @discardableResult
+    func executeWorkflowMove(
+        _ file: FileItem,
+        context: ModelContext?
+    ) async throws -> WorkflowMoveResult {
+        guard file.destination != nil else {
+            throw FormaError.operation(.notReady("No destination specified"))
+        }
+
+        let originalPath = file.path
+        let previousStatus = file.status
+
+        try await operationCoordinator.beginOperation(fileID: originalPath)
+        defer {
+            Task {
+                await operationCoordinator.finishOperation(fileID: originalPath)
+            }
+        }
+
+        let moveResult = try await fileOperationsService.moveFile(file, modelContext: context)
+        guard moveResult.success else {
+            throw moveResult.error ?? FormaError.operationFailed("Workflow move failed")
+        }
+
+        let resolvedDestinationPath = moveResult.destinationPath
+            ?? fileOperationsService.getDestinationPath(for: file)
+            ?? originalPath
+
+        _ = file.updatePath(resolvedDestinationPath)
+        file.status = .completed
+
+        let workflowMoveResult = WorkflowMoveResult(
+            originalPath: originalPath,
+            destinationPath: resolvedDestinationPath,
+            destinationDisplayName: file.destination?.displayName,
+            projectAssociationWriteContext: projectAssociationWriteContext(
+                destinationPath: resolvedDestinationPath
+            )
+        )
+
+        guard let context else {
+            return workflowMoveResult
+        }
+
+        let transaction = SwiftDataTransaction(context: context)
+        transaction.onRollback {
+            _ = file.updatePath(originalPath)
+            file.status = previousStatus
+        }
+
+        do {
+            try transaction.saveOrRollback()
+            return workflowMoveResult
+        } catch {
+            throw WorkflowMoveError(result: workflowMoveResult, underlyingError: error)
         }
     }
     

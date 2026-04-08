@@ -68,6 +68,7 @@ final class FileMetadataFoundationService {
     static var debugRecordTransitionHook: ((String, String, FileOrganizationHistoryEntry.EventKind) throws -> Void)?
     static var debugProjectSpacePathReachabilityHook: ((String, Bool) -> Bool?)?
     static var debugProjectSpaceBookmarkRootLoadHook: (() -> Void)?
+    static var debugWorkflowTagSaveHook: (() throws -> Void)?
     #endif
 
     private static let inspectorFormatter: DateFormatter = {
@@ -329,6 +330,71 @@ final class FileMetadataFoundationService {
     ) throws -> FileMetadataRecord? {
         guard isEnabled else { return nil }
 
+        return try recordTransition(
+            from: sourcePath,
+            to: destinationPath,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            eventKind: eventKind,
+            sourceSurface: sourceSurface,
+            destinationDisplayName: destinationDisplayName,
+            projectAssociationWriteContext: projectAssociationWriteContext,
+            matchedRuleID: matchedRuleID,
+            detailsSummary: detailsSummary,
+            timestamp: timestamp,
+            shouldApplyContentTags: true
+        )
+    }
+
+    @discardableResult
+    func recordWorkflowTransition(
+        from sourcePath: String,
+        to destinationPath: String,
+        displayName: String,
+        fileExtension: String,
+        eventKind: FileOrganizationHistoryEntry.EventKind,
+        sourceSurface: FileOrganizationHistoryEntry.SourceSurface,
+        destinationDisplayName: String? = nil,
+        projectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
+        matchedRuleID: UUID? = nil,
+        detailsSummary: String? = nil,
+        timestamp: Date
+    ) throws -> FileMetadataRecord? {
+        guard isEnabled else { return nil }
+
+        return try recordTransition(
+            from: sourcePath,
+            to: destinationPath,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            eventKind: eventKind,
+            sourceSurface: sourceSurface,
+            destinationDisplayName: destinationDisplayName,
+            projectAssociationWriteContext: projectAssociationWriteContext,
+            matchedRuleID: matchedRuleID,
+            detailsSummary: detailsSummary,
+            timestamp: timestamp,
+            shouldApplyContentTags: false
+        )
+    }
+
+    @discardableResult
+    private func recordTransition(
+        from sourcePath: String,
+        to destinationPath: String,
+        displayName: String,
+        fileExtension: String,
+        eventKind: FileOrganizationHistoryEntry.EventKind,
+        sourceSurface: FileOrganizationHistoryEntry.SourceSurface,
+        destinationDisplayName: String? = nil,
+        projectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
+        matchedRuleID: UUID? = nil,
+        detailsSummary: String? = nil,
+        timestamp: Date,
+        shouldApplyContentTags: Bool
+    ) throws -> FileMetadataRecord? {
+        guard isEnabled else { return nil }
+
         do {
             let normalizedSourcePath = FileMetadataRecord.normalizedPath(sourcePath)
             let normalizedDestinationPath = FileMetadataRecord.normalizedPath(destinationPath)
@@ -364,13 +430,15 @@ final class FileMetadataFoundationService {
                 )
             }
 
-            _ = applyContentTagsWithoutSaving(
-                for: finalRecord,
-                displayName: displayName,
-                fileExtension: fileExtension,
-                destinationDisplayName: destinationDisplayName,
-                matchedRuleID: matchedRuleID
-            )
+            if shouldApplyContentTags {
+                _ = applyContentTagsWithoutSaving(
+                    for: finalRecord,
+                    displayName: displayName,
+                    fileExtension: fileExtension,
+                    destinationDisplayName: destinationDisplayName,
+                    matchedRuleID: matchedRuleID
+                )
+            }
 
             _ = try appendHistoryEntryWithoutSaving(
                 for: finalRecord,
@@ -479,6 +547,118 @@ final class FileMetadataFoundationService {
         }
 
         return index
+    }
+
+    @discardableResult
+    func applyWorkflowTags(
+        path: String,
+        displayName: String,
+        fileExtension: String,
+        tags: [String],
+        timestamp: Date
+    ) throws -> [String] {
+        guard isEnabled else { return [] }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+        let requestedTags = uniqueNormalizedTags(tags)
+        guard !requestedTags.isEmpty else { return [] }
+
+        do {
+            guard let record = try upsertWorkflowTagRecordWithoutSaving(
+                for: normalizedPath,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                timestamp: timestamp
+            ) else {
+                return []
+            }
+
+            let existingTagKeys = Set(
+                record
+                    .storedTagValuesForDuplicateSuppression()
+                    .map { FileMetadataRecord.normalizedTag($0).lowercased() }
+            )
+            let appendedTags = requestedTags.filter { !existingTagKeys.contains($0.lowercased()) }
+            record.appendStoredTagsPreservingExistingOrder(appendedTags)
+            #if DEBUG
+            try Self.debugWorkflowTagSaveHook?()
+            #endif
+            try modelContext.save()
+            return appendedTags
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
+    func previewWorkflowTags(
+        path: String,
+        tags: [String]
+    ) throws -> [String] {
+        guard isEnabled else { return [] }
+
+        let requestedTags = uniqueNormalizedTags(tags)
+        guard !requestedTags.isEmpty else { return [] }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+        let existingTagKeys = Set(
+            (try workflowTagRecord(for: normalizedPath))?
+                .storedTagValuesForDuplicateSuppression()
+                .map { FileMetadataRecord.normalizedTag($0).lowercased() } ?? []
+        )
+
+        return requestedTags.filter { !existingTagKeys.contains($0.lowercased()) }
+    }
+
+    @discardableResult
+    func removeWorkflowTags(
+        path: String,
+        tags: [String]
+    ) throws -> [String] {
+        guard isEnabled else { return [] }
+
+        let requestedTags = uniqueNormalizedTags(tags)
+        guard !requestedTags.isEmpty else { return [] }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+        do {
+            guard let record = try workflowTagRecord(for: normalizedPath) else {
+                return []
+            }
+
+            let resolver = MetadataContentTagResolver()
+            let requestedKeys = Set(requestedTags.map { $0.lowercased() })
+            let requestedBuiltIns = Set(requestedTags.compactMap {
+                MetadataContentTag(rawValue: $0.lowercased()) ?? resolver.resolveExplicitTag(forAlias: $0)
+            })
+            var removedKeys = Set<String>()
+
+            record.tags.removeAll { rawValue in
+                let normalized = FileMetadataRecord.normalizedTag(rawValue)
+                let normalizedKey = normalized.lowercased()
+                if requestedKeys.contains(normalizedKey) {
+                    removedKeys.insert(normalizedKey)
+                    return true
+                }
+
+                if let builtIn = MetadataContentTag(rawValue: normalizedKey) ?? resolver.resolveExplicitTag(forAlias: normalized),
+                   requestedBuiltIns.contains(builtIn) {
+                    removedKeys.insert(builtIn.rawValue)
+                    return true
+                }
+
+                return false
+            }
+
+            #if DEBUG
+            try Self.debugWorkflowTagSaveHook?()
+            #endif
+            try modelContext.save()
+            return requestedTags.filter { removedKeys.contains($0.lowercased()) }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     func fetchProjectSpaceSummaries() -> [ProjectSpaceSummary] {
@@ -671,6 +851,64 @@ final class FileMetadataFoundationService {
         )
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first
+    }
+
+    private func workflowTagRecord(for normalizedPath: String) throws -> FileMetadataRecord? {
+        if let pathRecord = try pathFallbackRecord(lastKnownPath: normalizedPath) {
+            return pathRecord
+        }
+
+        if let matchingPathRecord = try firstRecord(lastKnownPath: normalizedPath) {
+            return matchingPathRecord
+        }
+
+        let identity = resolveIdentity(for: normalizedPath)
+        return try record(matching: identity.canonicalIdentity)
+    }
+
+    @discardableResult
+    private func upsertWorkflowTagRecordWithoutSaving(
+        for normalizedPath: String,
+        displayName: String,
+        fileExtension: String,
+        timestamp: Date
+    ) throws -> FileMetadataRecord? {
+        if let existing = try workflowTagRecord(for: normalizedPath) {
+            existing.lastKnownPath = normalizedPath
+            existing.displayName = FileMetadataRecord.normalizedDisplayName(displayName)
+            existing.fileExtension = fileExtension.lowercased()
+            existing.lastSeenAt = timestamp
+            return existing
+        }
+
+        return try upsertRecordWithoutSaving(
+            for: normalizedPath,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            timestamp: timestamp
+        )
+    }
+
+    private func pathFallbackRecord(lastKnownPath normalizedPath: String) throws -> FileMetadataRecord? {
+        try records(lastKnownPath: normalizedPath)
+            .first(where: { $0.identityKind == .pathFallback })
+    }
+
+    private func firstRecord(lastKnownPath normalizedPath: String) throws -> FileMetadataRecord? {
+        try records(lastKnownPath: normalizedPath).first
+    }
+
+    private func records(lastKnownPath normalizedPath: String) throws -> [FileMetadataRecord] {
+        let descriptor = FetchDescriptor<FileMetadataRecord>(
+            predicate: #Predicate<FileMetadataRecord> { record in
+                record.lastKnownPath == normalizedPath
+            }
+        )
+
+        let matches: [FileMetadataRecord] = try modelContext.fetch(descriptor)
+        return matches.sorted { lhs, rhs in
+            lhs.canonicalIdentity < rhs.canonicalIdentity
+        }
     }
 
     private func makeInspectorSummary(for record: FileMetadataRecord) -> FileMetadataInspectorSummary {
@@ -1365,6 +1603,22 @@ final class FileMetadataFoundationService {
         preferredTags.forEach(append)
         fallbackTags.forEach(append)
         return mergedTags
+    }
+
+    private func uniqueNormalizedTags(_ tags: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+
+        for tag in tags {
+            let normalized = FileMetadataRecord.normalizedTag(tag)
+            let key = normalized.lowercased()
+            guard !normalized.isEmpty, seen.insert(key).inserted else {
+                continue
+            }
+            result.append(normalized)
+        }
+
+        return result
     }
 
     private static func latestDate(_ lhs: Date?, _ rhs: Date?) -> Date? {

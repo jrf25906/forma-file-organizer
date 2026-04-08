@@ -8,6 +8,7 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         case bulkUndoFirstItem
         case transitionWriteFailure
         case skipMainContextSaveFailure
+        case workflowTagSaveFailure
     }
     override func setUp() {
         super.setUp()
@@ -277,6 +278,221 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(historyEntry.sourceSurface, .organize)
         XCTAssertEqual(historyEntry.fromPath, sourceURL.path)
         XCTAssertEqual(historyEntry.toPath, destinationURL.path)
+    }
+
+    func testWorkflowTags_ApplyAndRemoveOnlyNewTemplateTags() throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let fileURL = try tempDirectory.createFile(name: "Inbox/invoice.pdf", contents: "invoice")
+        let timestamp = Date(timeIntervalSince1970: 1_250)
+
+        let record = try XCTUnwrap(
+            environment.metadataService.upsertRecord(
+                for: fileURL.path,
+                displayName: fileURL.lastPathComponent,
+                fileExtension: fileURL.pathExtension,
+                timestamp: timestamp
+            )
+        )
+        record.tags = ["finance"]
+        try environment.context.save()
+
+        let appendedTags = try environment.metadataService.applyWorkflowTags(
+            path: fileURL.path,
+            displayName: fileURL.lastPathComponent,
+            fileExtension: fileURL.pathExtension,
+            tags: ["finance", "receipt", "document"],
+            timestamp: timestamp
+        )
+
+        XCTAssertEqual(appendedTags, ["receipt", "document"])
+        XCTAssertEqual(record.tags, ["finance", "receipt", "document"])
+
+        let removedTags = try environment.metadataService.removeWorkflowTags(
+            path: fileURL.path,
+            tags: appendedTags
+        )
+
+        XCTAssertEqual(removedTags, ["receipt", "document"])
+        XCTAssertEqual(record.tags, ["finance"])
+    }
+
+    func testWorkflowTags_ApplyAndRemoveReuseSeededPathFallbackRecord() throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let fileURL = try tempDirectory.createFile(name: "Inbox/path-fallback.pdf", contents: "invoice")
+        let timestamp = Date(timeIntervalSince1970: 1_255)
+
+        let seededRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: fileURL.path,
+            displayName: fileURL.lastPathComponent,
+            fileExtension: fileURL.pathExtension,
+            timestamp: timestamp
+        )
+        seededRecord.tags = ["finance"]
+        try environment.context.save()
+
+        let appendedTags = try environment.metadataService.applyWorkflowTags(
+            path: fileURL.path,
+            displayName: fileURL.lastPathComponent,
+            fileExtension: fileURL.pathExtension,
+            tags: ["finance", "receipt"],
+            timestamp: timestamp
+        )
+
+        XCTAssertEqual(appendedTags, ["receipt"])
+
+        let recordsAfterApply = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(recordsAfterApply.count, 1)
+        XCTAssertEqual(recordsAfterApply.first?.id, seededRecord.id)
+        XCTAssertEqual(recordsAfterApply.first?.tags, ["finance", "receipt"])
+
+        let removedTags = try environment.metadataService.removeWorkflowTags(
+            path: fileURL.path,
+            tags: appendedTags
+        )
+
+        XCTAssertEqual(removedTags, ["receipt"])
+
+        let recordsAfterRemove = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(recordsAfterRemove.count, 1)
+        XCTAssertEqual(recordsAfterRemove.first?.id, seededRecord.id)
+        XCTAssertEqual(recordsAfterRemove.first?.tags, ["finance"])
+    }
+
+    func testWorkflowTags_RemoveRollsBackInMemoryMutationWhenSaveFails() throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let fileURL = try tempDirectory.createFile(name: "Inbox/tag-rollback.pdf", contents: "invoice")
+        let timestamp = Date(timeIntervalSince1970: 1_260)
+
+        let record = try XCTUnwrap(
+            environment.metadataService.upsertRecord(
+                for: fileURL.path,
+                displayName: fileURL.lastPathComponent,
+                fileExtension: fileURL.pathExtension,
+                timestamp: timestamp
+            )
+        )
+        record.tags = ["finance", "receipt"]
+        try environment.context.save()
+
+        FileMetadataFoundationService.debugWorkflowTagSaveHook = {
+            throw InjectedMetadataFailure.workflowTagSaveFailure
+        }
+        defer {
+            FileMetadataFoundationService.debugWorkflowTagSaveHook = nil
+        }
+
+        XCTAssertThrowsError(
+            try environment.metadataService.removeWorkflowTags(
+                path: fileURL.path,
+                tags: ["receipt"]
+            )
+        )
+
+        let refreshedRecord = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(refreshedRecord.tags, ["finance", "receipt"])
+    }
+
+    func testWorkflowTags_PathFallbackRowWinsWhenPathFallbackAndResourceBackedRowsSharePath() throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let fileURL = try tempDirectory.createFile(name: "Inbox/coexistence.pdf", contents: "invoice")
+        let timestamp = Date(timeIntervalSince1970: 1_265)
+
+        let resourceRecord = FileMetadataRecord(
+            canonicalIdentity: "resource|volume-1|file-1",
+            identityKind: .resourceIdentifier,
+            lastKnownPath: fileURL.path,
+            displayName: fileURL.lastPathComponent,
+            fileExtension: fileURL.pathExtension,
+            firstSeenAt: timestamp,
+            lastSeenAt: timestamp,
+            tags: ["scanned"]
+        )
+        environment.context.insert(resourceRecord)
+        try environment.context.save()
+
+        let pathFallbackRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: fileURL.path,
+            displayName: fileURL.lastPathComponent,
+            fileExtension: fileURL.pathExtension,
+            timestamp: timestamp
+        )
+        pathFallbackRecord.tags = ["finance"]
+        try environment.context.save()
+
+        let appendedTags = try environment.metadataService.applyWorkflowTags(
+            path: fileURL.path,
+            displayName: fileURL.lastPathComponent,
+            fileExtension: fileURL.pathExtension,
+            tags: ["finance", "receipt"],
+            timestamp: timestamp
+        )
+
+        XCTAssertEqual(appendedTags, ["receipt"])
+        XCTAssertEqual(pathFallbackRecord.tags, ["finance", "receipt"])
+        XCTAssertEqual(resourceRecord.tags, ["scanned"])
+
+        let removedTags = try environment.metadataService.removeWorkflowTags(
+            path: fileURL.path,
+            tags: appendedTags
+        )
+
+        XCTAssertEqual(removedTags, ["receipt"])
+        XCTAssertEqual(pathFallbackRecord.tags, ["finance"])
+        XCTAssertEqual(resourceRecord.tags, ["scanned"])
+    }
+
+    func testWorkflowMoveHelper_MovesFileWithoutTouchingGlobalUndoStack() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let sourceURL = try tempDirectory.createFile(name: "Inbox/workflow-move.pdf", contents: "move")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Archive")
+        let timestamp = Date(timeIntervalSince1970: 1_300)
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 512,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let moveResult = try await environment.coordinator.executeWorkflowMove(
+            file,
+            context: environment.context
+        )
+
+        let expectedDestinationPath = destinationFolder.appendingPathComponent(sourceURL.lastPathComponent).path
+        XCTAssertEqual(moveResult.originalPath, sourceURL.path)
+        XCTAssertEqual(moveResult.destinationPath, expectedDestinationPath)
+        XCTAssertEqual(file.path, expectedDestinationPath)
+        XCTAssertEqual(file.status, .completed)
+        XCTAssertTrue(environment.coordinator.undoStack.isEmpty)
     }
 
     func testOrganizeFile_ProjectLikeRuleDestinationWritesProjectAssociation() async throws {
