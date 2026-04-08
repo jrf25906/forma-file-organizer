@@ -28,6 +28,29 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - Project spaces are now a shipped read-only retrieval surface in the dashboard, derived from durable `projectAssociation` labels already stored on `FileMetadataRecord`.
   - Membership is strict: a file appears only when it has a durable `projectAssociation` and still resolves locally through the metadata foundation's existing path/bookmark lookup flow.
   - This slice does not add manual metadata editing, historical placeholder rows for missing files, or workflow execution from project spaces; broader project-space evolution and workflow-memory expansion remain future work.
+- Cross-folder project spaces v2
+  - `FeatureFlagService.Feature.projectSpaceMemory`
+  - `ProjectSpaceOverview`
+  - `ProjectSpacePreferredDestination`
+  - `ProjectSpaceRecentActivityRow`
+  - `ProjectSpaceMemoryResolver`
+    - `buildOverview(for:now:)`
+    - `buildPreferredDestinations(for:now:)`
+    - `buildRecentActivityRows(for:)`
+    - `suggestDominantDestination(for:now:)`
+    - `resolveDestination(for:)`
+  - `FileMetadataFoundationService.correctProjectAssociation(forCanonicalIdentity:to:timestamp:)`
+  - `DashboardViewModel.projectSpaceAssociationCorrectionFileRow`
+  - `DashboardViewModel.projectSpaceAssociationCorrectionProposedLabel`
+  - `DashboardViewModel.projectSpaceAssociationSuggestedLabels`
+  - `DashboardViewModel.beginProjectSpaceAssociationCorrection(_:)`
+  - `DashboardViewModel.saveProjectSpaceAssociationCorrection()`
+  - `DashboardViewModel.cancelProjectSpaceAssociationCorrection()`
+  - `ProjectSpaceAssociationEditorView`
+  - `SuggestionSource.projectSpaceMemory`
+  - Project-space detail now exposes overview counts, active/source folder hints, preferred destinations, and recent activity derived from durable metadata history instead of remaining a membership-only view.
+  - The correction flow can relabel one file's durable `projectAssociation` from project-space detail without introducing broad metadata editing or historical placeholder rows.
+  - Files that already have a durable project association can now receive a bookmark-backed `projectSpaceMemory` destination suggestion from dominant recent project activity ahead of learned patterns and ML predictions; unknown files still do not infer project labels through this path.
 - Auto-applied content tags v1
   - `FeatureFlagService.Feature.autoContentTags`
   - `MetadataContentTag`

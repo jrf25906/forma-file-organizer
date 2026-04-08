@@ -23,8 +23,8 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 ### Next (2-4 Months)
 - [x] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
 - [ ] Complete progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
-- [ ] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
-- [ ] Extend the shipped metadata-backed project spaces slice beyond read-only retrieval and plan workflow-memory expansion before broad cloud or chatbot-style AI expansion.
+- [x] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
+- [x] Extend the shipped metadata-backed project spaces slice beyond read-only retrieval and plan workflow-memory expansion before broad cloud or chatbot-style AI expansion.
 
 ### Later (4-8+ Months)
 - [ ] Plan workflow chains with simulation, audit history, and rollback across multi-step automations, including flows like match -> rename -> tag -> move -> notify -> log.
@@ -57,7 +57,7 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Ship the durable local metadata foundation for scan, organize, undo, redo, and inspector proof surfaces with `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService`.
 - [x] Complete durable workflow status v1 so scan discovery seeds `queued`, organize/undo/ignore lifecycle writes persist `organized` / `recovered` / `ignored`, skip actions capture durable-status snapshots for undo/redo, and inspector proof exposes one read-only workflow-status line behind `FeatureFlagService.Feature.durableWorkflowStatus`.
 - [ ] Keep workflow-engine planning open beyond v1 so multi-step metadata-backed chains, simulation, audit routing, and rollback rules still ship as a later roadmap slice.
-- [ ] Keep metadata-backed project-space and workflow-memory expansion open beyond v1; the shipped slice now includes read-only project-space retrieval, while broader editing, workflow execution, and richer memory layers remain later work.
+- [ ] Keep metadata-backed workflow-memory expansion open beyond v1; the shipped slices now include read-only project-space retrieval, richer project-space detail/correction, and narrow project-memory destination suggestions, while broader editing, workflow execution, and richer memory layers remain later work.
 
 ## Auto-Applied Project Association v1 (April 6, 2026)
 - [x] Add the feature-gated `autoProjectAssociation` resolver layer with `ProjectAssociationWriteContext`, `MetadataProjectAssociationResolver`, exact `Projects/...` explicit qualification, cluster-organize explicit opt-in, and strong-winner inferred fallback.
@@ -70,6 +70,11 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Base project-space membership strictly on durable `projectAssociation` labels already stored in `FileMetadataRecord`, using the metadata foundation retrieval path instead of speculative live inference.
 - [x] Limit v1 membership to files that still resolve locally through existing path/bookmark lookup, so missing files do not appear as historical placeholders.
 - [x] Keep the roadmap honest: v1 is read-only retrieval only, while manual project editing, workflow execution from spaces, and broader workflow-memory expansion remain future work.
+
+## Cross-Folder Project Spaces v2 (April 7, 2026)
+- [x] Expand project-space detail beyond membership-only retrieval with overview, preferred destinations, and recent activity derived from durable metadata/history through `ProjectSpaceMemoryResolver`.
+- [x] Add a narrow project-space correction flow so one file's durable `projectAssociation` can be corrected from project-space detail without opening broad metadata editing.
+- [x] Feed dominant recent project destination memory into the scan pipeline ahead of learned patterns and ML only for files that already have a durable project association, and label those suggestions as `Project` in the dashboard UI.
 
 ## Auto-Applied Content Tags v1 (April 6, 2026)
 - [x] Add the feature-gated durable content-tag layer with a small built-in vocabulary, explicit-signal-first resolution, and conservative inference through `MetadataContentTag`, `MetadataContentTagResolver`, and metadata-foundation write paths.
