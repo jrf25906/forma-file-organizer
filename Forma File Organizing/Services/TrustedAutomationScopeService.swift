@@ -54,6 +54,7 @@ final class TrustedAutomationScopeService {
         case invalidTransition(id: UUID, from: TrustedAutomationScopeStatus, to: TrustedAutomationScopeStatus)
         case recommendationMissingDestination
         case recommendationOptionUnavailable(TrustedAutomationScopeType)
+        case ambiguousSourceBoundary(TrustedAutomationScopeType)
 
         var errorDescription: String? {
             switch self {
@@ -65,6 +66,8 @@ final class TrustedAutomationScopeService {
                 return "A trusted automation recommendation requires a destination."
             case .recommendationOptionUnavailable(let scopeType):
                 return "The \(scopeType.displayName.lowercased()) scope is no longer available for promotion."
+            case .ambiguousSourceBoundary(let scopeType):
+                return "The \(scopeType.displayName.lowercased()) scope needs a persisted scan root before it can be trusted."
             }
         }
     }
@@ -242,6 +245,9 @@ final class TrustedAutomationScopeService {
         guard let requestedOption = recommendation.option(for: selectedType) else {
             throw ServiceError.recommendationOptionUnavailable(selectedType)
         }
+        guard !hasAmbiguousRootlessBoundary(recommendation.snapshot, for: selectedType) else {
+            throw ServiceError.ambiguousSourceBoundary(selectedType)
+        }
 
         let resolvedOption = try resolvePromotionOption(requestedOption, snapshot: recommendation.snapshot)
         let boundaryDescriptor = try makeBoundaryDescriptor(
@@ -304,6 +310,9 @@ final class TrustedAutomationScopeService {
         for snapshot: OrganizationMemorySnapshot,
         destination: Destination
     ) throws -> TrustedAutomationScopeRecommendationOption? {
+        guard !hasAmbiguousRootlessBoundary(snapshot, for: .rule) else {
+            return nil
+        }
         guard let ruleID = snapshot.matchedRuleID else {
             return nil
         }
@@ -316,7 +325,9 @@ final class TrustedAutomationScopeService {
 
         guard let evidence = try evidence(
             matching: { event in
-                event.matchedRuleID == ruleID && self.matchesDestination(event, destination: destination)
+                event.matchedRuleID == ruleID &&
+                self.matchesExactSourceBoundary(event, snapshot: snapshot) &&
+                self.matchesDestination(event, destination: destination)
             },
             policy: .explicitRule
         ) else {
@@ -345,8 +356,7 @@ final class TrustedAutomationScopeService {
         let events = try eligibleEvents(
             matching: { event in
                 event.fileExtension == snapshot.fileExtension.lowercased() &&
-                event.sourceLocation == snapshot.sourceLocation &&
-                self.normalizedRelativeParentPath(event.relativeParentPath) == nil &&
+                self.matchesExactSourceBoundary(event, snapshot: snapshot) &&
                 self.matchesDestination(event, destination: destination)
             },
         )
@@ -381,7 +391,7 @@ final class TrustedAutomationScopeService {
         guard snapshot.scanRootPath != nil || snapshot.sourceLocation != .unknown else {
             return nil
         }
-        guard !isAmbiguousFolderBoundary(snapshot) else {
+        guard !hasAmbiguousRootlessBoundary(snapshot, for: .folder) else {
             return nil
         }
 
@@ -418,11 +428,15 @@ final class TrustedAutomationScopeService {
         guard snapshot.fileTypeCategory != .all else {
             return nil
         }
+        guard !hasAmbiguousRootlessBoundary(snapshot, for: .category) else {
+            return nil
+        }
 
         let displayName = snapshot.fileTypeCategory.displayName
         guard let evidence = try evidence(
             matching: { event in
                 event.fileTypeCategory == snapshot.fileTypeCategory &&
+                self.matchesExactSourceBoundary(event, snapshot: snapshot) &&
                 self.matchesDestination(event, destination: destination)
             },
             policy: .destinationScope
@@ -521,6 +535,24 @@ final class TrustedAutomationScopeService {
         return relativePath(event.relativeParentPath, isWithin: snapshot.relativeParentPath)
     }
 
+    private func matchesExactSourceBoundary(
+        _ event: PersonalMemoryEvent,
+        snapshot: OrganizationMemorySnapshot
+    ) -> Bool {
+        if let snapshotRoot = normalizedPath(snapshot.scanRootPath) {
+            guard normalizedPath(event.scanRootPath) == snapshotRoot else {
+                return false
+            }
+        } else {
+            guard event.sourceLocation == snapshot.sourceLocation else {
+                return false
+            }
+        }
+
+        return normalizedRelativeParentPath(event.relativeParentPath) ==
+            normalizedRelativeParentPath(snapshot.relativeParentPath)
+    }
+
     private func derivedRuleCandidate(
         for snapshot: OrganizationMemorySnapshot,
         destination: Destination,
@@ -590,6 +622,9 @@ final class TrustedAutomationScopeService {
     ) throws -> TrustedAutomationScopeBoundaryDescriptor {
         guard let chosenDestination = snapshot.chosenDestination else {
             throw ServiceError.recommendationMissingDestination
+        }
+        guard !hasAmbiguousRootlessBoundary(snapshot, for: option.scopeType) else {
+            throw ServiceError.ambiguousSourceBoundary(option.scopeType)
         }
 
         let sourceBoundary = TrustedAutomationScopeBoundaryDescriptor.SourceBoundary(
@@ -802,9 +837,16 @@ final class TrustedAutomationScopeService {
             .path
     }
 
-    private func isAmbiguousFolderBoundary(_ snapshot: OrganizationMemorySnapshot) -> Bool {
-        normalizedPath(snapshot.scanRootPath) == nil &&
-        normalizedRelativeParentPath(snapshot.relativeParentPath) != nil
+    private func hasAmbiguousRootlessBoundary(
+        _ snapshot: OrganizationMemorySnapshot,
+        for scopeType: TrustedAutomationScopeType
+    ) -> Bool {
+        guard scopeType == .rule || scopeType == .category || scopeType == .folder else {
+            return false
+        }
+
+        return normalizedPath(snapshot.scanRootPath) == nil &&
+            normalizedRelativeParentPath(snapshot.relativeParentPath) != nil
     }
 
     private func relativePath(_ candidate: String?, isWithin scope: String?) -> Bool {

@@ -317,11 +317,9 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
                 )
             }
 
-            let recommendation = try XCTUnwrap(service.recommendedScope(for: exportsSnapshot))
-            XCTAssertEqual(recommendation.recommendedScope.scopeType, .category)
-            XCTAssertFalse(
-                recommendation.allScopeChoices.contains(where: { $0.scopeType == .folder }),
-                "Evidence from sibling subfolders should not pool into one trusted folder recommendation."
+            XCTAssertNil(
+                try service.recommendedScope(for: exportsSnapshot),
+                "Evidence from sibling subfolders should not pool into folder or category trust for a specific reviewed boundary."
             )
         }
     }
@@ -1041,6 +1039,221 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         }
     }
 
+    func testRecommendedScope_DoesNotOfferAmbiguousRootlessCategoryScope() throws {
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Pictures/Screenshots")
+            let snapshot = makeSnapshot(
+                fileName: "Screen Shot.png",
+                fileExtension: "png",
+                fileTypeCategory: .images,
+                sourceLocation: .downloads,
+                scanRootPath: nil,
+                relativeParentPath: "Clients/Acme",
+                destination: destination
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            XCTAssertNil(
+                try service.recommendedScope(for: snapshot),
+                "Boundary-specific category trust needs a persisted root; rootless nested sources should not be recommended."
+            )
+        }
+    }
+
+    func testRecommendedScope_DoesNotOfferAmbiguousRootlessExplicitRuleScope() throws {
+        try withRecommendationServices { _, service, memoryService, ruleService in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let ruleID = UUID()
+            let rule = Rule(
+                name: "Receipt Rule",
+                conditionType: .fileExtension,
+                conditionValue: "pdf",
+                actionType: .move,
+                destination: destination
+            )
+            rule.id = ruleID
+            try ruleService.createRule(rule, source: .ruleEditor)
+
+            let snapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .all,
+                sourceLocation: .downloads,
+                scanRootPath: nil,
+                relativeParentPath: "Clients/Acme",
+                destination: destination,
+                matchedRuleID: ruleID
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            XCTAssertNil(
+                try service.recommendedScope(for: snapshot),
+                "Explicit rule trust should not be recommended when the reviewed subtree lacks root identity."
+            )
+        }
+    }
+
+    func testRecommendedScope_CategoryEvidenceStaysBoundToReviewedSourceBoundary() throws {
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Pictures/Archive")
+            let screenshotsSnapshot = makeSnapshot(
+                fileName: "Screen Shot.png",
+                fileExtension: "png",
+                fileTypeCategory: .images,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Screenshots",
+                destination: destination
+            )
+            let cameraSnapshot = makeSnapshot(
+                fileName: "Camera Roll.png",
+                fileExtension: "png",
+                fileTypeCategory: .images,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Camera",
+                destination: destination
+            )
+
+            for dayOffset in 0..<2 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: screenshotsSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: cameraSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset + 10))
+                )
+            }
+
+            XCTAssertNil(
+                try service.recommendedScope(for: screenshotsSnapshot),
+                "Category trust should come from the reviewed boundary itself, not pooled sibling evidence."
+            )
+        }
+    }
+
+    func testRecommendedScope_ExplicitRuleEvidenceStaysBoundToReviewedSourceBoundary() throws {
+        try withRecommendationServices { _, service, memoryService, ruleService in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let ruleID = UUID()
+            let rule = Rule(
+                name: "Receipt Rule",
+                conditionType: .fileExtension,
+                conditionValue: "pdf",
+                actionType: .move,
+                destination: destination
+            )
+            rule.id = ruleID
+            try ruleService.createRule(rule, source: .ruleEditor)
+
+            let receiptsSnapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .all,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                destination: destination,
+                matchedRuleID: ruleID
+            )
+            let invoicesSnapshot = makeSnapshot(
+                fileName: "Invoice.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .all,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Invoices",
+                destination: destination,
+                matchedRuleID: ruleID
+            )
+
+            for dayOffset in 0..<2 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: receiptsSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: invoicesSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset + 10))
+                )
+            }
+
+            XCTAssertNil(
+                try service.recommendedScope(for: receiptsSnapshot),
+                "Explicit rule trust should only count evidence from the current persisted source boundary."
+            )
+        }
+    }
+
+    func testRecommendedScope_DerivedRuleEvidenceStaysBoundToReviewedSourceBoundary() throws {
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let downloadsSnapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .all,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: nil,
+                destination: destination
+            )
+            let externalSnapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .all,
+                sourceLocation: .downloads,
+                scanRootPath: "/Volumes/Archive/Downloads Mirror",
+                relativeParentPath: nil,
+                destination: destination
+            )
+
+            for dayOffset in 0..<2 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: downloadsSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset))
+                )
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: externalSnapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: Date().addingTimeInterval(TimeInterval(dayOffset + 10))
+                )
+            }
+
+            XCTAssertNil(
+                try service.recommendedScope(for: downloadsSnapshot),
+                "Derived rule trust should not pool evidence across different persisted source roots."
+            )
+        }
+    }
+
     func testRecommendedScope_DoesNotOfferAmbiguousRootlessFolderScope() throws {
         try withRecommendationServices { _, service, memoryService, _ in
             let destination = Destination.mockFolder("Documents/Exports")
@@ -1063,12 +1276,97 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
                 )
             }
 
-            let recommendation = try XCTUnwrap(service.recommendedScope(for: snapshot))
-
-            XCTAssertFalse(
-                recommendation.allScopeChoices.contains(where: { $0.scopeType == .folder }),
-                "Nested folder scopes need root identity; without it they should not be promoted."
+            XCTAssertNil(
+                try service.recommendedScope(for: snapshot),
+                "Nested folder scopes need root identity, and category fallback should not recreate the same ambiguous boundary."
             )
+        }
+    }
+
+    func testPromoteFromReviewDecision_RejectsAmbiguousRootlessCategoryBoundary() throws {
+        let destinationRoot = try TemporaryDirectory()
+        let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Screenshots"))
+
+        try withService { context, service in
+            let recommendation = TrustedAutomationScopeRecommendation(
+                recommendedScope: TrustedAutomationScopeRecommendationOption(
+                    scopeType: .category,
+                    scopeKey: FileTypeCategory.images.rawValue,
+                    displayName: FileTypeCategory.images.displayName,
+                    recommendationSource: .repeatedReviewAcceptance,
+                    acceptedEvidenceCount: 4,
+                    overrideEvidenceCount: 0,
+                    undoEvidenceCount: 0,
+                    confidenceSnapshot: 0.93,
+                    rationaleSummary: "Reviewed images are consistently trusted."
+                ),
+                alternativeScopes: [],
+                snapshot: OrganizationMemorySnapshot(
+                    fileName: "Screen Shot.png",
+                    fileExtension: "png",
+                    fileTypeCategory: .images,
+                    sourceLocation: .downloads,
+                    scanRootPath: nil,
+                    relativeParentPath: "Clients/Acme",
+                    suggestionSource: .personalMemory,
+                    suggestedDestination: destination,
+                    chosenDestination: destination,
+                    confidenceScore: 0.93,
+                    matchedRuleID: nil
+                )
+            )
+
+            XCTAssertThrowsError(
+                try service.promoteFromReviewDecision(
+                    recommendation: recommendation,
+                    selectedScopeType: .category
+                )
+            )
+            XCTAssertTrue(try context.fetch(FetchDescriptor<TrustedAutomationScope>()).isEmpty)
+        }
+    }
+
+    func testPromoteFromReviewDecision_RejectsAmbiguousRootlessRuleBoundary() throws {
+        let destinationRoot = try TemporaryDirectory()
+        let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Receipts"))
+
+        try withRecommendationServices { context, service, _, ruleService in
+            let recommendation = TrustedAutomationScopeRecommendation(
+                recommendedScope: TrustedAutomationScopeRecommendationOption(
+                    scopeType: .rule,
+                    scopeKey: "rule:\(UUID().uuidString)",
+                    displayName: "Receipt Rule",
+                    recommendationSource: .explicitRule,
+                    acceptedEvidenceCount: 4,
+                    overrideEvidenceCount: 0,
+                    undoEvidenceCount: 0,
+                    confidenceSnapshot: 0.95,
+                    rationaleSummary: "Reviewed rule is consistently trusted."
+                ),
+                alternativeScopes: [],
+                snapshot: OrganizationMemorySnapshot(
+                    fileName: "Receipt.pdf",
+                    fileExtension: "pdf",
+                    fileTypeCategory: .documents,
+                    sourceLocation: .downloads,
+                    scanRootPath: nil,
+                    relativeParentPath: "Clients/Acme",
+                    suggestionSource: .rule,
+                    suggestedDestination: destination,
+                    chosenDestination: destination,
+                    confidenceScore: 0.95,
+                    matchedRuleID: nil
+                )
+            )
+
+            XCTAssertThrowsError(
+                try service.promoteFromReviewDecision(
+                    recommendation: recommendation,
+                    selectedScopeType: .rule
+                )
+            )
+            XCTAssertTrue(try context.fetch(FetchDescriptor<TrustedAutomationScope>()).isEmpty)
+            XCTAssertTrue(try ruleService.fetchRules().isEmpty)
         }
     }
 
