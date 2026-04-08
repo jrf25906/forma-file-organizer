@@ -441,7 +441,10 @@ final class AutomationEngine: ObservableObject {
                 scopeService: scopeService
             )
 
-            if let attentionNotification = preflightPlan.attentionNotification {
+            if let attentionNotification = makeAttentionNotification(
+                touchedScopeCount: preflightPlan.groups.count,
+                signals: preflightPlan.attentionSignals
+            ) {
                 sendTrustedScopeAttention(
                     scopeDisplayName: attentionNotification.scopeDisplayName,
                     groupedScopeCount: attentionNotification.groupedScopeCount,
@@ -461,6 +464,7 @@ final class AutomationEngine: ObservableObject {
         var totalSuccess = 0
         var totalFailed = 0
         var firstExecutionError: Error?
+        var attentionSignals = preflightPlan.attentionSignals
 
         for group in preflightPlan.groups {
             guard !group.eligibleFiles.isEmpty else {
@@ -478,6 +482,10 @@ final class AutomationEngine: ObservableObject {
 
             if firstExecutionError == nil {
                 firstExecutionError = executionResult.error
+            }
+
+            if let executionAttentionSignal = group.executionAttentionSignal(for: executionResult.error) {
+                attentionSignals.append(executionAttentionSignal)
             }
 
             do {
@@ -537,7 +545,10 @@ final class AutomationEngine: ObservableObject {
             )
         }
 
-        if let attentionNotification = preflightPlan.attentionNotification {
+        if let attentionNotification = makeAttentionNotification(
+            touchedScopeCount: preflightPlan.groups.count,
+            signals: attentionSignals
+        ) {
             sendTrustedScopeAttention(
                 scopeDisplayName: attentionNotification.scopeDisplayName,
                 groupedScopeCount: attentionNotification.groupedScopeCount,
@@ -944,6 +955,34 @@ final class AutomationEngine: ObservableObject {
 
         return result
     }
+
+    private func makeAttentionNotification(
+        touchedScopeCount: Int,
+        signals: [ScopedAutomationAttentionSignal]
+    ) -> ScopedAutomationAttentionNotification? {
+        var seenScopeIDs: Set<UUID> = []
+        let uniqueSignals = signals.filter { signal in
+            seenScopeIDs.insert(signal.scopeID).inserted
+        }
+
+        guard !uniqueSignals.isEmpty else {
+            return nil
+        }
+
+        if touchedScopeCount == 1, let signal = uniqueSignals.first {
+            return ScopedAutomationAttentionNotification(
+                scopeDisplayName: signal.scopeDisplayName,
+                groupedScopeCount: 1,
+                reason: signal.reason
+            )
+        }
+
+        return ScopedAutomationAttentionNotification(
+            scopeDisplayName: nil,
+            groupedScopeCount: touchedScopeCount,
+            reason: "Forma needs permission or destination access again before auto-organize can continue across this pass."
+        )
+    }
 }
 
 // MARK: - Supporting Types
@@ -959,26 +998,25 @@ private struct ScopedAutomationPreflightPlan {
     let summary: AutomationPreflightSummary
     let groups: [ScopedAutomationGroup]
 
-    var attentionNotification: ScopedAutomationAttentionNotification? {
-        let groupsNeedingAttention = groups.filter(\.shouldSurfaceAttentionNotification)
-        guard !groupsNeedingAttention.isEmpty else {
-            return nil
-        }
+    var attentionSignals: [ScopedAutomationAttentionSignal] {
+        groups.compactMap { group in
+            guard group.shouldSurfaceAttentionNotification else {
+                return nil
+            }
 
-        if groups.count == 1, let group = groups.first {
-            return ScopedAutomationAttentionNotification(
+            return ScopedAutomationAttentionSignal(
+                scopeID: group.scope.id,
                 scopeDisplayName: group.scope.displayName,
-                groupedScopeCount: 1,
                 reason: group.attentionNotificationReason
             )
         }
-
-        return ScopedAutomationAttentionNotification(
-            scopeDisplayName: nil,
-            groupedScopeCount: groups.count,
-            reason: "Forma needs permission or destination access again before auto-organize can continue across this pass."
-        )
     }
+}
+
+private struct ScopedAutomationAttentionSignal {
+    let scopeID: UUID
+    let scopeDisplayName: String
+    let reason: String
 }
 
 private struct ScopedAutomationAttentionNotification {
@@ -1030,6 +1068,29 @@ private struct ScopedAutomationGroup {
             return "Forma needs permission or destination access again before the \(scope.displayName) trusted scope can keep organizing automatically"
         }
         return "Forma needs a valid destination again before the \(scope.displayName) trusted scope can keep organizing automatically"
+    }
+
+    func executionAttentionSignal(for error: Error?) -> ScopedAutomationAttentionSignal? {
+        guard let error else {
+            return nil
+        }
+
+        switch AutomationErrorType.classify(error: error) {
+        case .permissionDenied, .bookmarkInvalid:
+            return ScopedAutomationAttentionSignal(
+                scopeID: scope.id,
+                scopeDisplayName: scope.displayName,
+                reason: "Forma needs permission or destination access again before the \(scope.displayName) trusted scope can keep organizing automatically"
+            )
+        case .destinationInaccessible:
+            return ScopedAutomationAttentionSignal(
+                scopeID: scope.id,
+                scopeDisplayName: scope.displayName,
+                reason: "Forma needs a valid destination again before the \(scope.displayName) trusted scope can keep organizing automatically"
+            )
+        case .scanFailed:
+            return nil
+        }
     }
 
     var simulatedSummaryText: String {
@@ -1336,6 +1397,7 @@ extension AutomationEngine {
         confidenceThreshold: Double,
         scopeResolver: TrustedAutomationScopeResolver
     ) throws -> ScopedAutomationPreflightPlan {
+        let activeScopes = try scopeResolver.activeScopes()
         var eligibleFiles: [FileItem] = []
         var skippedMissingDestination = 0
         var skippedPermissionIssues = 0
@@ -1346,7 +1408,11 @@ extension AutomationEngine {
         var orderedScopeIDs: [UUID] = []
 
         for file in candidates {
-            guard let scope = try scopeResolver.resolveMatch(for: file, destination: file.destination) else {
+            guard let scope = try scopeResolver.resolveMatch(
+                for: file,
+                destination: file.destination,
+                within: activeScopes
+            ) else {
                 skippedExcludedFromAutomation += 1
                 continue
             }

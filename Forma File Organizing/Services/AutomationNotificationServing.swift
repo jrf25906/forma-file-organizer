@@ -41,19 +41,19 @@ extension AutomationNotificationServing {
         )
     }
 
-    func notifyTrustedAutomationScopeAttention(scopeDisplayName: String, reason: String) {
-        notifyTrustedAutomationScopeAttention(
-            scopeDisplayName: scopeDisplayName,
-            groupedScopeCount: 1,
-            reason: reason
-        )
-    }
+    func notifyTrustedAutomationScopeAttention(scopeDisplayName: String, reason: String) {}
 
     func notifyTrustedAutomationScopeAttention(
         scopeDisplayName: String?,
         groupedScopeCount: Int,
         reason: String
-    ) {}
+    ) {
+        guard groupedScopeCount == 1, let scopeDisplayName else {
+            return
+        }
+
+        notifyTrustedAutomationScopeAttention(scopeDisplayName: scopeDisplayName, reason: reason)
+    }
 }
 
 extension NotificationService: AutomationNotificationServing {}

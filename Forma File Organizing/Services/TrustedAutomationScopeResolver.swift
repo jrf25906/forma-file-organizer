@@ -13,7 +13,19 @@ final class TrustedAutomationScopeResolver {
         for file: FileItem,
         destination: Destination?
     ) throws -> TrustedAutomationScope? {
-        try activeScopes()
+        try resolveMatch(
+            for: file,
+            destination: destination,
+            within: activeScopes()
+        )
+    }
+
+    func resolveMatch(
+        for file: FileItem,
+        destination: Destination?,
+        within scopes: [TrustedAutomationScope]
+    ) throws -> TrustedAutomationScope? {
+        scopes
             .compactMap { scope -> (scope: TrustedAutomationScope, boundary: TrustedAutomationScopeBoundaryDescriptor)? in
                 guard let boundary = scope.boundaryDescriptor,
                       boundary.matches(candidate: file, destination: destination) else {
@@ -43,7 +55,7 @@ final class TrustedAutomationScopeResolver {
             .scope
     }
 
-    private func activeScopes() throws -> [TrustedAutomationScope] {
+    func activeScopes() throws -> [TrustedAutomationScope] {
         try modelContext.fetch(
             FetchDescriptor<TrustedAutomationScope>(
                 sortBy: [SortDescriptor(\.createdAt, order: .forward)]
