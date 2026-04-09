@@ -10,7 +10,8 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
             ProjectSpaceAutomationProfile.self,
             ProjectSpaceAutomationPolicy.self,
             ProjectSpaceAutomationRunRecord.self,
-            WorkflowRunRecord.self
+            WorkflowRunRecord.self,
+            WorkflowFileActionRecord.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
@@ -168,6 +169,195 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
             let profiles = try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>())
             XCTAssertEqual(profiles.count, 1)
             XCTAssertEqual(profiles.first?.preferredWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+        }
+    }
+
+    func testProfileService_MigratesLegacyPreferredTemplateAndLatestRun() throws {
+        try withService { context, service in
+            let legacyRunID = UUID()
+            let legacyCompletedAt = Date(timeIntervalSince1970: 1_000)
+            let legacyProfile = ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: " Alpha ",
+                preferredWorkflowTemplateID: " \(BuiltInWorkflowTemplate.StableID.projectDrop) ",
+                lastWorkflowRunID: legacyRunID,
+                lastWorkflowCompletedAt: legacyCompletedAt,
+                updatedAt: Date(timeIntervalSince1970: 1_100)
+            )
+            context.insert(legacyProfile)
+            try context.save()
+
+            let run = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: " \(BuiltInWorkflowTemplate.StableID.projectDrop) ",
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 1_200),
+                endedAt: Date(timeIntervalSince1970: 1_250)
+            )
+            context.insert(run)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: run.id,
+                    fileIdentity: "resource|diskA|legacy-file-001",
+                    sourcePath: "/Users/example/Inbox/legacy.pdf",
+                    destinationPath: "/Users/example/Projects/Alpha/legacy.pdf",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 1_245)
+                )
+            )
+            try context.save()
+
+            try service.recordLatestRun(run, for: "Alpha", at: Date(timeIntervalSince1970: 1_260))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(profile.preferredWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(profile.lastWorkflowRunID, run.id)
+            XCTAssertEqual(profile.lastWorkflowCompletedAt, Date(timeIntervalSince1970: 1_250))
+
+            XCTAssertEqual(profile.successfulTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertGreaterThanOrEqual(profile.successfulTemplateCount, 1)
+            XCTAssertEqual(profile.successfulTemplateLastSucceededAt, Date(timeIntervalSince1970: 1_250))
+            XCTAssertEqual(profile.dominantTriggerSurface, .projectPolicyManual)
+            XCTAssertEqual(profile.latestSuccessfulDestinationSignal, "/Users/example/Projects/Alpha/legacy.pdf")
+            XCTAssertEqual(profile.workflowMemoryStatus, .stable)
+        }
+    }
+
+    func testProfileService_RepeatedSuccessfulRuns_StrengthenDominantTemplateMemory() throws {
+        try withService { context, service in
+            let projectLabel = "Alpha"
+            let templateID = BuiltInWorkflowTemplate.StableID.projectDrop
+
+            let runA = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: " \(templateID) ",
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 2_000),
+                endedAt: Date(timeIntervalSince1970: 2_010)
+            )
+            context.insert(runA)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: runA.id,
+                    fileIdentity: "resource|diskA|alpha-file-001",
+                    sourcePath: "/Users/example/Inbox/A.pdf",
+                    destinationPath: "/Users/example/Projects/Alpha/A.pdf",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 2_009)
+                )
+            )
+            try context.save()
+            try service.recordLatestRun(runA, for: projectLabel, at: Date(timeIntervalSince1970: 2_011))
+
+            let runB = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: templateID,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 2_100),
+                endedAt: Date(timeIntervalSince1970: 2_110)
+            )
+            context.insert(runB)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: runB.id,
+                    fileIdentity: "resource|diskA|alpha-file-002",
+                    sourcePath: "/Users/example/Inbox/B.pdf",
+                    destinationPath: "/Users/example/Projects/Alpha/B.pdf",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 2_109)
+                )
+            )
+            try context.save()
+            try service.recordLatestRun(runB, for: " Alpha ", at: Date(timeIntervalSince1970: 2_111))
+
+            let runC = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: templateID,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 2_200),
+                endedAt: Date(timeIntervalSince1970: 2_210)
+            )
+            context.insert(runC)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: runC.id,
+                    fileIdentity: "resource|diskA|alpha-file-003",
+                    sourcePath: "/Users/example/Inbox/C.pdf",
+                    destinationPath: "/Users/example/Projects/Alpha/C.pdf",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 2_209)
+                )
+            )
+            try context.save()
+            try service.recordLatestRun(runC, for: projectLabel, at: Date(timeIntervalSince1970: 2_211))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: projectLabel))
+            XCTAssertEqual(profile.successfulTemplateID, templateID)
+            XCTAssertEqual(profile.successfulTemplateCount, 3)
+            XCTAssertEqual(profile.successfulTemplateLastSucceededAt, Date(timeIntervalSince1970: 2_210))
+            XCTAssertEqual(profile.dominantTriggerSurface, .projectPolicyManual)
+            XCTAssertEqual(profile.dominantTriggerSurfaceCount, 3)
+            XCTAssertEqual(profile.latestSuccessfulDestinationSignal, "/Users/example/Projects/Alpha/C.pdf")
+            XCTAssertEqual(profile.latestSuccessfulDestinationAt, Date(timeIntervalSince1970: 2_210))
+            XCTAssertEqual(profile.workflowMemoryStatus, .stable)
+        }
+    }
+
+    func testProfileService_ConflictingRecentRuns_MarkProfileConflicted() throws {
+        try withService { context, service in
+            let firstRun = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 3_000),
+                endedAt: Date(timeIntervalSince1970: 3_010)
+            )
+            context.insert(firstRun)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: firstRun.id,
+                    fileIdentity: "resource|diskA|conflict-file-001",
+                    sourcePath: "/Users/example/Inbox/A.txt",
+                    destinationPath: "/Users/example/Projects/Alpha/A.txt",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 3_009)
+                )
+            )
+            try context.save()
+            try service.recordLatestRun(firstRun, for: "Alpha", at: Date(timeIntervalSince1970: 3_011))
+
+            let secondRun = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                triggerSurface: .projectPolicyScheduled,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 3_040),
+                endedAt: Date(timeIntervalSince1970: 3_050)
+            )
+            context.insert(secondRun)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: secondRun.id,
+                    fileIdentity: "resource|diskA|conflict-file-002",
+                    sourcePath: "/Users/example/Inbox/B.txt",
+                    destinationPath: "/Users/example/Documents/Receipts/B.txt",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 3_049)
+                )
+            )
+            try context.save()
+            try service.recordLatestRun(secondRun, for: "Alpha", at: Date(timeIntervalSince1970: 3_051))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(profile.workflowMemoryStatus, .conflicted)
+            XCTAssertEqual(profile.lastWorkflowRunID, secondRun.id)
+            XCTAssertEqual(profile.lastWorkflowCompletedAt, Date(timeIntervalSince1970: 3_050))
+            XCTAssertEqual(profile.latestSuccessfulDestinationSignal, "/Users/example/Documents/Receipts/B.txt")
+            XCTAssertNotEqual(profile.successfulTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
         }
     }
 }

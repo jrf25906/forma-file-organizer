@@ -137,6 +137,34 @@ final class WorkflowAuditStoreTests: XCTestCase {
         }
     }
 
+    func testRecordFileAction_NormalizesDestinationPathSignal() throws {
+        try withStore { context, store in
+            let run = try store.createRun(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                startedAt: Date(timeIntervalSince1970: 1_800),
+                primaryStatus: .succeeded
+            )
+
+            _ = try store.recordFileAction(
+                runID: run.id,
+                fileIdentity: "resource|diskA|normalized-destination-file",
+                sourcePath: " /Users/example/Inbox/Note.txt ",
+                destinationPath: " /Users/example/Projects/Alpha/../Alpha/Note.txt ",
+                disposition: .moved,
+                recordedAt: Date(timeIntervalSince1970: 1_801)
+            )
+
+            let persistedAction = try XCTUnwrap(
+                context.fetch(FetchDescriptor<WorkflowFileActionRecord>())
+                    .first(where: { $0.runID == run.id })
+            )
+
+            XCTAssertEqual(persistedAction.sourcePath, "/Users/example/Inbox/Note.txt")
+            XCTAssertEqual(persistedAction.destinationPath, "/Users/example/Projects/Alpha/Note.txt")
+        }
+    }
+
     func testLatestRunSummary_ReturnsNewestRunForTrustedScope() throws {
         try withStore { _, store in
             let scopeA = UUID()

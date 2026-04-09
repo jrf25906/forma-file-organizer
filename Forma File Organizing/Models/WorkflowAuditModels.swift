@@ -47,6 +47,12 @@ enum WorkflowCompensationStatus: String, Codable, Sendable, Hashable {
     case failed
 }
 
+enum WorkflowMemoryStatus: String, Codable, Sendable, Hashable {
+    case stable
+    case stale
+    case conflicted
+}
+
 struct WorkflowFileMetadataDelta: Codable, Sendable, Hashable {
     let addedTags: [String]
     let removedTags: [String]
@@ -300,5 +306,26 @@ final class WorkflowFileActionRecord {
 
     private static func decode<Value: Decodable>(_ type: Value.Type, from data: Data) -> Value? {
         try? JSONDecoder().decode(type, from: data)
+    }
+}
+
+extension WorkflowRunRecord {
+    static func normalizedWorkflowMemoryTemplateSignal(_ value: String?) -> String? {
+        normalizedOptionalText(value)
+    }
+
+    static func normalizedWorkflowMemoryTriggerSurface(
+        _ value: ActivityItem.WorkflowTriggerSurface?
+    ) -> ActivityItem.WorkflowTriggerSurface? {
+        guard let rawValue = value?.rawValue else {
+            return nil
+        }
+        return ActivityItem.WorkflowTriggerSurface(rawValue: rawValue)
+    }
+}
+
+extension WorkflowFileActionRecord {
+    static func normalizedWorkflowMemoryDestinationSignal(_ value: String?) -> String? {
+        normalizedPath(value)
     }
 }
