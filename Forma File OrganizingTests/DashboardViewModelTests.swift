@@ -1631,7 +1631,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.blockedCount, 1)
     }
 
-    func testProjectSpaceAutomationState_BootstrapsFromLegacyWorkflowProfile() async throws {
+    func testProjectSpaceAutomationState_BootstrapsFromWorkflowMemoryRecommendation() async throws {
         let (container, context, service) = try makeMetadataService()
         _ = container
 
@@ -1648,7 +1648,7 @@ final class DashboardViewModelTests: XCTestCase {
         let tempDirectory = try TemporaryDirectory()
         defer { tempDirectory.cleanup() }
 
-        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let timestamp = Date()
         let alphaURL = try tempDirectory.createFile(name: "Desktop/alpha.txt", contents: "alpha")
         _ = try insertProjectSpaceRecord(
             using: service,
@@ -1659,7 +1659,15 @@ final class DashboardViewModelTests: XCTestCase {
         context.insert(
             ProjectSpaceWorkflowProfile(
                 normalizedProjectLabel: "Alpha",
-                preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+                preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                successfulTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                successfulTemplateCount: 4,
+                successfulTemplateLastSucceededAt: timestamp.addingTimeInterval(-120),
+                dominantTriggerSurface: .projectPolicyScheduled,
+                dominantTriggerSurfaceCount: 4,
+                dominantTriggerSurfaceLastSeenAt: timestamp.addingTimeInterval(-120),
+                workflowMemoryStatus: .stable,
+                updatedAt: timestamp
             )
         )
         try context.save()
@@ -1679,8 +1687,67 @@ final class DashboardViewModelTests: XCTestCase {
 
         let board = try XCTUnwrap(viewModel.selectedProjectSpaceAutomationBoard)
         let recommendedGroup = try XCTUnwrap(board.groups.first(where: { $0.kind == .recommended }))
-        XCTAssertEqual(recommendedGroup.policies.map(\.workflowTemplateID), [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(recommendedGroup.policies.map(\.workflowTemplateID), [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(recommendedGroup.policies.map(\.triggerSummaryText), ["Scheduled sweep"])
+        XCTAssertEqual(recommendedGroup.policies.map(\.admissionSummaryText), ["Automatic admission"])
         XCTAssertEqual(recommendedGroup.policies.map(\.state), [.recommended])
+    }
+
+    func testProjectSpaceAutomationComposer_DefaultsFromWorkflowMemoryRecommendation() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+        FeatureFlagService.shared.setEnabled(.backgroundMonitoring, true)
+        FeatureFlagService.shared.setEnabled(.autoOrganize, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceAutomationBoard, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let timestamp = Date()
+        let alphaURL = try tempDirectory.createFile(name: "Desktop/alpha.txt", contents: "alpha")
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        context.insert(
+            ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                successfulTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                successfulTemplateCount: 3,
+                successfulTemplateLastSucceededAt: timestamp.addingTimeInterval(-60),
+                dominantTriggerSurface: .projectPolicyScheduled,
+                dominantTriggerSurfaceCount: 3,
+                dominantTriggerSurfaceLastSeenAt: timestamp.addingTimeInterval(-60),
+                workflowMemoryStatus: .stable,
+                updatedAt: timestamp
+            )
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+        viewModel.refreshProjectSpaces()
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        viewModel.selectProjectSpace(alphaSummary)
+        await waitForProjectSpaceAutomationBoard(in: viewModel)
+        await waitForProjectSpaceWorkflowPreparationToSettle(in: viewModel)
+
+        viewModel.presentProjectSpaceAutomationComposer()
+
+        let draft = try XCTUnwrap(viewModel.projectSpaceAutomationComposerDraft)
+        XCTAssertEqual(draft.workflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
+        XCTAssertEqual(draft.triggerKinds, [.scheduledSweep])
+        XCTAssertEqual(draft.admissionMode, .automatic)
+        XCTAssertEqual(draft.state, .draft)
     }
 
     func testDashboardProjectSpaceSummary_ShowsConflictedWorkflowMemoryState() async throws {
@@ -1740,11 +1807,7 @@ final class DashboardViewModelTests: XCTestCase {
         let board = try XCTUnwrap(viewModel.selectedProjectSpaceAutomationBoard)
         XCTAssertTrue(board.subtitle.localizedCaseInsensitiveContains("conflicted"))
         XCTAssertTrue(board.subtitle.localizedCaseInsensitiveContains("receipt"))
-
-        let recommendedGroup = try XCTUnwrap(board.groups.first(where: { $0.kind == .recommended }))
-        let recommendedPolicy = try XCTUnwrap(recommendedGroup.policies.first)
-        XCTAssertTrue(recommendedPolicy.healthMessageText.localizedCaseInsensitiveContains("conflicted"))
-        XCTAssertTrue(recommendedPolicy.healthMessageText.localizedCaseInsensitiveContains("receipt"))
+        XCTAssertFalse(board.groups.contains(where: { $0.kind == .recommended && !$0.policies.isEmpty }))
     }
 
     func testCreateProjectSpacePolicy_FromPresetComposerPersistsDraft() async throws {

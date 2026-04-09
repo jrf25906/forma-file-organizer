@@ -22,6 +22,13 @@ struct ProjectSpaceAutomationService {
         }
     }
 
+    private struct BootstrapRecommendationCandidate {
+        let workflowTemplateID: String
+        let triggerKinds: [ProjectSpaceAutomationTriggerKind]
+        let admissionMode: ProjectSpaceAutomationAdmissionMode
+        let updatedAt: Date
+    }
+
     private let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
@@ -246,8 +253,7 @@ struct ProjectSpaceAutomationService {
             return nil
         }
 
-        let legacyService = ProjectSpaceWorkflowProfileService(modelContext: modelContext)
-        guard let bootstrapCandidate = legacyService.preferredTemplateBootstrapCandidate(
+        guard let bootstrapCandidate = bootstrapRecommendationCandidate(
             normalizedProjectLabel: normalizedProjectLabel
         ) else {
             return existingProfile
@@ -276,23 +282,23 @@ struct ProjectSpaceAutomationService {
         }
 
         if let bridgedPolicy = recommendedPolicies.first {
-            bridgedPolicy.workflowTemplateID = bootstrapCandidate.templateID
-            bridgedPolicy.triggerKinds = [.manual]
-            bridgedPolicy.admissionMode = .manualReview
+            bridgedPolicy.workflowTemplateID = bootstrapCandidate.workflowTemplateID
+            bridgedPolicy.triggerKinds = bootstrapCandidate.triggerKinds
+            bridgedPolicy.admissionMode = bootstrapCandidate.admissionMode
             applyLifecycle(state: .recommended, timestamp: bootstrapCandidate.updatedAt, to: bridgedPolicy)
 
             for duplicatePolicy in recommendedPolicies.dropFirst() {
                 modelContext.delete(duplicatePolicy)
             }
-        } else if policies.contains(where: { $0.workflowTemplateID == bootstrapCandidate.templateID }) {
+        } else if policies.contains(where: { $0.workflowTemplateID == bootstrapCandidate.workflowTemplateID }) {
             // A previously bootstrapped policy has been promoted or terminally transitioned.
             // Preserve that row and avoid creating a duplicate recommended bridge.
         } else {
             let policy = ProjectSpaceAutomationPolicy(
                 profileID: profile.id,
-                workflowTemplateID: bootstrapCandidate.templateID,
-                triggerKinds: [.manual],
-                admissionMode: .manualReview,
+                workflowTemplateID: bootstrapCandidate.workflowTemplateID,
+                triggerKinds: bootstrapCandidate.triggerKinds,
+                admissionMode: bootstrapCandidate.admissionMode,
                 state: .recommended,
                 createdAt: bootstrapCandidate.updatedAt
             )
@@ -304,6 +310,81 @@ struct ProjectSpaceAutomationService {
         profile.updatedAt = max(profile.updatedAt, bootstrapCandidate.updatedAt)
         try modelContext.save()
         return profile
+    }
+
+    private func bootstrapRecommendationCandidate(
+        normalizedProjectLabel: String,
+        now: Date = Date()
+    ) -> BootstrapRecommendationCandidate? {
+        let workflowProfileService = ProjectSpaceWorkflowProfileService(modelContext: modelContext)
+        let workflowProfile = workflowProfileService.profile(normalizedProjectLabel: normalizedProjectLabel)
+        let recommendationService = ProjectSpaceAutomationRecommendationService()
+        let memoryResolver = ProjectSpaceMemoryResolver()
+        let summary = ProjectSpaceSummary(
+            normalizedLabel: normalizedProjectLabel,
+            fileCount: 0,
+            lastActivityAt: now,
+            sourceFolderHints: []
+        )
+        let workflowOnlyDetail = ProjectSpaceDetail(
+            summary: summary,
+            files: [],
+            workflowMemory: memoryResolver.resolveWorkflowMemoryProjection(
+                for: ProjectSpaceDetail(summary: summary, files: []),
+                profile: workflowProfile,
+                now: now
+            )
+        )
+
+        if let workflowMemory = workflowOnlyDetail.workflowMemory,
+           workflowMemory.state != .destinationFallback {
+            guard let recommendation = recommendationService
+                .recommendedPolicies(for: workflowOnlyDetail, now: now)
+                .first else {
+                return nil
+            }
+
+            return BootstrapRecommendationCandidate(
+                workflowTemplateID: recommendation.workflowTemplateID,
+                triggerKinds: recommendation.triggerKinds,
+                admissionMode: recommendation.admissionMode,
+                updatedAt: workflowMemory.successfulTemplateLastSucceededAt
+                    ?? workflowProfile?.updatedAt
+                    ?? now
+            )
+        }
+
+        let metadataService = FileMetadataFoundationService(modelContext: modelContext)
+        guard let detail = metadataService.fetchProjectSpaceDetail(for: normalizedProjectLabel) else {
+            return nil
+        }
+
+        let projectedDetail = ProjectSpaceDetail(
+            summary: detail.summary,
+            files: detail.files,
+            overview: detail.overview,
+            preferredDestinations: detail.preferredDestinations,
+            recentActivity: detail.recentActivity,
+            workflowMemory: memoryResolver.resolveWorkflowMemoryProjection(
+                for: detail,
+                profile: workflowProfile,
+                now: now
+            )
+        )
+        guard let recommendation = recommendationService
+            .recommendedPolicies(for: projectedDetail, now: now)
+            .first else {
+            return nil
+        }
+
+        return BootstrapRecommendationCandidate(
+            workflowTemplateID: recommendation.workflowTemplateID,
+            triggerKinds: recommendation.triggerKinds,
+            admissionMode: recommendation.admissionMode,
+            updatedAt: recommendationService
+                .dominantDestination(for: projectedDetail, now: now)?
+                .lastUsedAt ?? detail.lastActivityAt
+        )
     }
 
     private func normalizedTemplateID(_ value: String) throws -> String {

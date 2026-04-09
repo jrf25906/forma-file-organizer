@@ -904,8 +904,22 @@ class DashboardViewModel: ObservableObject {
             return
         }
 
+        let recommendation: ProjectSpaceAutomationRecommendation? = {
+            guard let detail = selectedProjectSpaceDetail,
+                  detail.summary.normalizedLabel == selectedProjectSpace.normalizedLabel else {
+                return nil
+            }
+
+            return ProjectSpaceAutomationRecommendationService()
+                .recommendedPolicies(for: detail, now: Date())
+                .first
+        }()
+
         projectSpaceAutomationComposerDraft = ProjectSpaceAutomationComposerDraft(
-            normalizedProjectLabel: selectedProjectSpace.normalizedLabel
+            normalizedProjectLabel: selectedProjectSpace.normalizedLabel,
+            workflowTemplateID: recommendation?.workflowTemplateID,
+            triggerKinds: recommendation?.triggerKinds ?? [.manual],
+            admissionMode: recommendation?.admissionMode ?? .manualReview
         )
         isProjectSpaceAutomationComposerPresented = true
     }

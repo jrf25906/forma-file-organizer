@@ -76,6 +76,7 @@ final class ProjectSpaceAutomationRecommendationServiceTests: XCTestCase {
         XCTAssertEqual(recommendation.workflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
         XCTAssertEqual(recommendation.triggerKinds, [.scheduledSweep])
         XCTAssertEqual(recommendation.admissionMode, .automatic)
+        XCTAssertTrue(recommendation.reasonSummary.contains("Receipt Intake"))
         XCTAssertTrue(recommendation.reasonSummary.contains("5 successful runs"))
         XCTAssertTrue(recommendation.reasonSummary.contains("scheduled"))
         XCTAssertNotEqual(recommendation.workflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)

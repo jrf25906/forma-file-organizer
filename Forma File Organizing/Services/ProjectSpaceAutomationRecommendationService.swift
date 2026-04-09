@@ -76,13 +76,14 @@ struct ProjectSpaceAutomationRecommendationService {
         let triggerKinds = workflowMemory.dominantTriggerKind.map { [$0] } ?? [.manual]
         let recencyText = relativeTimeText(for: lastSucceededAt, now: now)
         let triggerPatternText = triggerPatternText(for: workflowMemory.dominantTriggerKind)
+        let templateDisplayName = WorkflowTemplateCatalog.template(for: templateID)?.displayName ?? templateID
 
         return [
             ProjectSpaceAutomationRecommendation(
                 workflowTemplateID: templateID,
                 triggerKinds: triggerKinds,
                 admissionMode: .automatic,
-                reasonSummary: "Workflow memory is stable: \(workflowMemory.successfulTemplateCount) successful runs, last \(recencyText), mostly \(triggerPatternText)."
+                reasonSummary: "Workflow memory is stable: \(templateDisplayName) has \(workflowMemory.successfulTemplateCount) successful runs, last \(recencyText), mostly \(triggerPatternText)."
             )
         ]
     }
