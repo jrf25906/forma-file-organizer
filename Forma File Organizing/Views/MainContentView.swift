@@ -222,7 +222,7 @@ struct MainContentView: View {
                         }
                         .mask(scrollFadeMask)
                         .guidedTourRegion(.mainFileList)
-                        .animation(FormaEasing.standard, value: dashboardViewModel.currentViewMode)
+                        .animation(.easeInOut(duration: FormaEasing.Duration.fast), value: dashboardViewModel.currentViewMode)
                     }
                 }
 
@@ -731,7 +731,7 @@ struct MainContentView: View {
     }
 
     private func presentRuleEditor(for file: FileItem) {
-        withAnimation(FormaEasing.standard) {
+        withAnimation(.easeInOut(duration: FormaEasing.Duration.fast)) {
             nav.openRuleEditor(
                 fileContext: file,
                 returnTarget: .defaultPanel
