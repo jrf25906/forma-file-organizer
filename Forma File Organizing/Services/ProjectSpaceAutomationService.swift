@@ -4,10 +4,13 @@ import SwiftData
 @MainActor
 struct ProjectSpaceAutomationService {
     enum ServiceError: LocalizedError {
+        case invalidProjectLabel
         case invalidWorkflowTemplateID
 
         var errorDescription: String? {
             switch self {
+            case .invalidProjectLabel:
+                return "A project space automation policy requires a non-empty project label."
             case .invalidWorkflowTemplateID:
                 return "A project space automation policy requires a workflow template ID."
             }
@@ -53,14 +56,7 @@ struct ProjectSpaceAutomationService {
             existing.workflowTemplateID = normalizedTemplateID
             existing.triggerKinds = triggerKinds
             existing.admissionMode = admissionMode
-            existing.state = state
-            existing.updatedAt = updatedAt
-            if state != .paused {
-                existing.pausedAt = nil
-            }
-            if state != .revoked {
-                existing.revokedAt = nil
-            }
+            applyLifecycle(state: state, timestamp: updatedAt, to: existing)
             profile.updatedAt = updatedAt
             try modelContext.save()
             return existing
@@ -74,6 +70,7 @@ struct ProjectSpaceAutomationService {
             state: state,
             createdAt: updatedAt
         )
+        applyLifecycle(state: state, timestamp: updatedAt, to: policy)
         modelContext.insert(policy)
         profile.updatedAt = updatedAt
         try modelContext.save()
@@ -85,9 +82,7 @@ struct ProjectSpaceAutomationService {
             return
         }
 
-        policy.state = .paused
-        policy.pausedAt = timestamp
-        policy.updatedAt = timestamp
+        applyLifecycle(state: .paused, timestamp: timestamp, to: policy)
         try modelContext.save()
     }
 
@@ -128,7 +123,17 @@ struct ProjectSpaceAutomationService {
                 at: bootstrapCandidate.updatedAt
             )
         }
-        if existingPolicy(profileID: profile.id, workflowTemplateID: bootstrapCandidate.templateID) == nil {
+        let recommendedPolicies = recommendedPolicies(profileID: profile.id)
+        if let bridgedPolicy = recommendedPolicies.first {
+            bridgedPolicy.workflowTemplateID = bootstrapCandidate.templateID
+            bridgedPolicy.triggerKinds = [.manual]
+            bridgedPolicy.admissionMode = .manualReview
+            applyLifecycle(state: .recommended, timestamp: bootstrapCandidate.updatedAt, to: bridgedPolicy)
+
+            for duplicatePolicy in recommendedPolicies.dropFirst() {
+                modelContext.delete(duplicatePolicy)
+            }
+        } else {
             let policy = ProjectSpaceAutomationPolicy(
                 profileID: profile.id,
                 workflowTemplateID: bootstrapCandidate.templateID,
@@ -137,6 +142,7 @@ struct ProjectSpaceAutomationService {
                 state: .recommended,
                 createdAt: bootstrapCandidate.updatedAt
             )
+            applyLifecycle(state: .recommended, timestamp: bootstrapCandidate.updatedAt, to: policy)
             modelContext.insert(policy)
         }
 
@@ -152,6 +158,14 @@ struct ProjectSpaceAutomationService {
         }
 
         throw ServiceError.invalidWorkflowTemplateID
+    }
+
+    private func validatedProjectLabel(_ value: String) throws -> String {
+        let normalizedProjectLabel = ProjectSpaceAutomationProfile.normalizedProjectLabelValue(value)
+        guard !normalizedProjectLabel.isEmpty else {
+            throw ServiceError.invalidProjectLabel
+        }
+        return normalizedProjectLabel
     }
 
     private func existingProfile(for normalizedProjectLabel: String) -> ProjectSpaceAutomationProfile? {
@@ -183,8 +197,19 @@ struct ProjectSpaceAutomationService {
         })
     }
 
+    private func recommendedPolicies(profileID: UUID) -> [ProjectSpaceAutomationPolicy] {
+        let descriptor = FetchDescriptor<ProjectSpaceAutomationPolicy>(
+            predicate: #Predicate<ProjectSpaceAutomationPolicy> { policy in
+                policy.profileID == profileID
+            }
+        )
+
+        let policies = (try? modelContext.fetch(descriptor)) ?? []
+        return policies.filter { $0.state == .recommended }
+    }
+
     private func profileOrCreate(normalizedProjectLabel: String, at timestamp: Date) throws -> ProjectSpaceAutomationProfile {
-        let normalizedProjectLabel = ProjectSpaceAutomationProfile.normalizedProjectLabelValue(normalizedProjectLabel)
+        let normalizedProjectLabel = try validatedProjectLabel(normalizedProjectLabel)
         if let existing = existingProfile(for: normalizedProjectLabel) {
             return existing
         }
@@ -196,5 +221,26 @@ struct ProjectSpaceAutomationService {
         modelContext.insert(profile)
         try modelContext.save()
         return profile
+    }
+
+    private func applyLifecycle(
+        state: ProjectSpaceAutomationPolicyState,
+        timestamp: Date,
+        to policy: ProjectSpaceAutomationPolicy
+    ) {
+        policy.state = state
+        policy.updatedAt = timestamp
+
+        switch state {
+        case .paused:
+            policy.pausedAt = timestamp
+            policy.revokedAt = nil
+        case .revoked:
+            policy.pausedAt = nil
+            policy.revokedAt = timestamp
+        case .draft, .recommended, .active:
+            policy.pausedAt = nil
+            policy.revokedAt = nil
+        }
     }
 }

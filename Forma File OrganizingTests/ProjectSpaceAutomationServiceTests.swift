@@ -82,6 +82,23 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
         }
     }
 
+    func testCreatePolicy_BlankProjectLabelFailsClosedWithoutPersistingRows() throws {
+        try withService { context, service in
+            XCTAssertThrowsError(
+                try service.createOrUpdatePolicy(
+                    normalizedProjectLabel: "   ",
+                    workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                    triggerKinds: [.manual],
+                    admissionMode: .manualReview,
+                    state: .active
+                )
+            )
+
+            XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceAutomationProfile>()).count, 0)
+            XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>()).count, 0)
+        }
+    }
+
     func testPauseAndRevokePolicy_UpdateLifecycleWithoutDeletingRunHistory() throws {
         try withService { context, service in
             let createdAt = Date(timeIntervalSince1970: 3_000)
@@ -115,6 +132,88 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
             XCTAssertEqual(persistedPolicy.pausedAt, pausedAt)
             XCTAssertEqual(persistedPolicy.revokedAt, revokedAt)
             XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceAutomationRunRecord>()).count, 1)
+        }
+    }
+
+    func testCreatePolicy_TerminalStatesStampAndClearLifecycleMetadata() throws {
+        try withService { context, service in
+            let pausedAt = Date(timeIntervalSince1970: 4_000)
+            let resumedAt = pausedAt.addingTimeInterval(60)
+            let revokedAt = resumedAt.addingTimeInterval(60)
+
+            let pausedPolicy = try service.createOrUpdatePolicy(
+                normalizedProjectLabel: "Alpha",
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .paused,
+                updatedAt: pausedAt
+            )
+
+            XCTAssertEqual(pausedPolicy.state, .paused)
+            XCTAssertEqual(pausedPolicy.pausedAt, pausedAt)
+            XCTAssertNil(pausedPolicy.revokedAt)
+
+            let resumedPolicy = try service.createOrUpdatePolicy(
+                normalizedProjectLabel: "Alpha",
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .active,
+                updatedAt: resumedAt
+            )
+
+            XCTAssertEqual(resumedPolicy.state, .active)
+            XCTAssertNil(resumedPolicy.pausedAt)
+            XCTAssertNil(resumedPolicy.revokedAt)
+
+            let revokedPolicy = try service.createOrUpdatePolicy(
+                normalizedProjectLabel: "Alpha",
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .revoked,
+                updatedAt: revokedAt
+            )
+
+            XCTAssertEqual(revokedPolicy.state, .revoked)
+            XCTAssertNil(revokedPolicy.pausedAt)
+            XCTAssertEqual(revokedPolicy.revokedAt, revokedAt)
+        }
+    }
+
+    func testProfileFetch_BootstrapReusesSingleRecommendedPolicyWhenLegacyTemplateChanges() throws {
+        try withService { context, service in
+            let firstTimestamp = Date(timeIntervalSince1970: 5_000)
+            let secondTimestamp = firstTimestamp.addingTimeInterval(120)
+
+            let legacyProfile = ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                updatedAt: firstTimestamp
+            )
+            context.insert(legacyProfile)
+            try context.save()
+
+            let firstProfile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(firstProfile.lastLegacyBootstrapAt, firstTimestamp)
+            XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>()).count, 1)
+
+            legacyProfile.preferredWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.projectDrop
+            legacyProfile.updatedAt = secondTimestamp
+            try context.save()
+
+            let secondProfile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            let policies = try context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>())
+
+            XCTAssertEqual(secondProfile.id, firstProfile.id)
+            XCTAssertEqual(secondProfile.lastLegacyBootstrapAt, secondTimestamp)
+            XCTAssertEqual(policies.count, 1)
+
+            let bridgedPolicy = try XCTUnwrap(policies.first)
+            XCTAssertEqual(bridgedPolicy.workflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(bridgedPolicy.state, .recommended)
+            XCTAssertEqual(bridgedPolicy.triggerKinds, [.manual])
         }
     }
 
