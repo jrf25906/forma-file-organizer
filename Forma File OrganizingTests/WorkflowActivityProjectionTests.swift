@@ -120,6 +120,41 @@ final class WorkflowActivityProjectionTests: XCTestCase {
         XCTAssertEqual(projection.triggerSurfaceLabel, "Realtime project policy")
     }
 
+    func testWorkflowRunProjection_UsesOwnerAndPolicySpecificCopy() throws {
+        let (container, context) = try makeContainer()
+        let store = WorkflowAuditStore(modelContext: context)
+        let service = ActivityLoggingService(modelContext: context)
+
+        try withExtendedLifetime(container) {
+            let run = try store.createRun(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerSurface: .projectPolicyRealtime,
+                ownerDisplayName: "Alpha",
+                policyName: "Project Drop Zone",
+                startedAt: Date(timeIntervalSince1970: 4_000),
+                primaryStatus: .succeeded
+            )
+            try store.updateRunStatus(
+                runID: run.id,
+                primaryStatus: .succeeded,
+                endedAt: Date(timeIntervalSince1970: 4_030)
+            )
+
+            service.logWorkflowRunSummary(
+                run: run,
+                triggerSurface: .projectPolicyRealtime,
+                affectedFileCount: 2
+            )
+
+            let activity = try XCTUnwrap(context.fetch(FetchDescriptor<ActivityItem>()).last)
+
+            XCTAssertTrue(activity.details.contains("Alpha"))
+            XCTAssertTrue(activity.details.contains("Project Drop Zone"))
+            XCTAssertTrue(activity.details.contains("Realtime project policy"))
+        }
+    }
+
     func testWorkflowStatusText_CompletedWithIssuesUsesAttentionLanguage() throws {
         let activity = ActivityItem(
             activityType: .workflowRunAttentionNeeded,

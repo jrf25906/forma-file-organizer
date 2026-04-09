@@ -17,12 +17,16 @@ struct WorkflowRunDetailSheet: View {
             let destinationSummary: String?
             let dispositionText: String
             let compensationText: String
+            let metadataSummary: String?
             let failureText: String?
         }
 
         let templateDisplayName: String
         let statusText: String
         let rollbackText: String
+        let triggerSurfaceLabel: String
+        let ownerDisplayName: String?
+        let policyName: String?
         let startedAtText: String
         let endedAtText: String
         let stepRows: [StepRow]
@@ -84,6 +88,9 @@ struct WorkflowRunDetailSheet: View {
                                                 }
                                                 detailMetric(title: "Disposition", value: row.dispositionText)
                                                 detailMetric(title: "Compensation", value: row.compensationText)
+                                                if let metadataSummary = row.metadataSummary {
+                                                    detailMetric(title: "Metadata", value: metadataSummary)
+                                                }
 
                                                 if let failureText = row.failureText {
                                                     Text(failureText)
@@ -143,8 +150,9 @@ struct WorkflowRunDetailSheet: View {
                 title: workflowActionTitle(for: action, using: stepRunsByID),
                 sourceSummary: action.sourcePath.map(abbreviatePath),
                 destinationSummary: action.destinationPath.map(abbreviatePath),
-                dispositionText: action.disposition.rawValue.capitalized,
+                dispositionText: workflowDispositionText(for: action),
                 compensationText: action.compensationStatus.rawValue.capitalized,
+                metadataSummary: metadataSummaryText(for: action),
                 failureText: action.failureReason
             )
         }
@@ -159,13 +167,16 @@ struct WorkflowRunDetailSheet: View {
                 primaryStatus: run.primaryStatus,
                 rollbackStatus: run.rollbackStatus
             ),
+            triggerSurfaceLabel: ActivityItem.workflowTriggerSurfaceLabel(run.triggerSurface),
+            ownerDisplayName: run.ownerDisplayName,
+            policyName: run.policyName,
             startedAtText: timestampText(for: run.startedAt),
             endedAtText: run.endedAt.map(timestampText) ?? "Still running",
             stepRows: stepRuns.map { stepRun in
                 Snapshot.StepRow(
                     id: stepRun.id,
                     title: stepRunTitle(stepRun.stepID),
-                    statusText: stepRun.status.rawValue.capitalized,
+                    statusText: stepStatusText(stepRun.status),
                     errorText: stepRun.errorMessage
                 )
             },
@@ -178,6 +189,13 @@ struct WorkflowRunDetailSheet: View {
             VStack(alignment: .leading, spacing: FormaSpacing.tight) {
                 detailMetric(title: "Status", value: snapshot.statusText)
                 detailMetric(title: "Rollback", value: snapshot.rollbackText)
+                detailMetric(title: "Trigger", value: snapshot.triggerSurfaceLabel)
+                if let ownerDisplayName = snapshot.ownerDisplayName {
+                    detailMetric(title: "Owner", value: ownerDisplayName)
+                }
+                if let policyName = snapshot.policyName {
+                    detailMetric(title: "Policy", value: policyName)
+                }
                 detailMetric(title: "Started", value: snapshot.startedAtText)
                 detailMetric(title: "Completed", value: snapshot.endedAtText)
             }
@@ -250,6 +268,62 @@ struct WorkflowRunDetailSheet: View {
 
     private func timestampText(for date: Date) -> String {
         date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    func stepStatusText(_ status: WorkflowStepStatus) -> String {
+        switch status {
+        case .planned:
+            return "Planned"
+        case .blocked:
+            return "Blocked"
+        case .pending:
+            return "Prepared"
+        case .running:
+            return "Running"
+        case .succeeded:
+            return "Succeeded"
+        case .failed:
+            return "Failed"
+        case .skipped:
+            return "Skipped"
+        }
+    }
+
+    func workflowDispositionText(for action: WorkflowFileActionRecord) -> String {
+        if action.disposition == .pending,
+           action.metadataDelta != nil {
+            return "Metadata updated"
+        }
+
+        return action.disposition.rawValue.capitalized
+    }
+
+    func metadataSummaryText(for action: WorkflowFileActionRecord) -> String? {
+        guard let metadataDelta = action.metadataDelta,
+              !metadataDelta.isEmpty else {
+            return nil
+        }
+
+        var segments: [String] = []
+
+        if !metadataDelta.addedTags.isEmpty {
+            segments.append("Added tags: \(metadataDelta.addedTags.joined(separator: ", "))")
+        }
+        if !metadataDelta.removedTags.isEmpty {
+            segments.append("Removed tags: \(metadataDelta.removedTags.joined(separator: ", "))")
+        }
+        if let projectAssociation = metadataDelta.resultingProjectAssociation {
+            segments.append("Project: \(projectAssociation)")
+        } else if metadataDelta.previousProjectAssociation != nil {
+            segments.append("Project cleared")
+        }
+        if let workflowStatus = metadataDelta.resultingWorkflowStatus {
+            segments.append("Workflow: \(workflowStatus.rawValue.capitalized)")
+        } else if metadataDelta.previousWorkflowStatus != nil {
+            segments.append("Workflow cleared")
+        }
+
+        return segments.isEmpty ? nil : segments.joined(separator: " • ")
     }
 
     private func stepKindTitle(_ stepID: String) -> String {

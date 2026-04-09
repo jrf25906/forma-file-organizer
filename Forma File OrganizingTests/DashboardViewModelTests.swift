@@ -1900,6 +1900,16 @@ final class DashboardViewModelTests: XCTestCase {
             workflowExecution.plannedInvocationContexts,
             [.projectPolicyManual(projectLabel: "Alpha", policyName: expectedPolicyName)]
         )
+        let request = try XCTUnwrap(workflowExecution.plannedRequests.last)
+        guard case let .projectPolicy(policyID, triggerKind, projectLabel, policyName) = request.entryPoint else {
+            XCTFail("Expected manual project-policy execution request")
+            return
+        }
+        XCTAssertEqual(policyID, policy.id)
+        XCTAssertEqual(triggerKind, .manual)
+        XCTAssertEqual(projectLabel, "Alpha")
+        XCTAssertEqual(policyName, expectedPolicyName)
+        XCTAssertEqual(workflowExecution.ranRequests.last?.projectPolicyID, policy.id)
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
         XCTAssertEqual(
             ProjectSpaceWorkflowProfileService(modelContext: context)
@@ -4151,6 +4161,7 @@ final class DashboardViewModelTests: XCTestCase {
         let run = try store.createRun(
             scopeID: UUID(),
             workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+            triggerSurface: .inspector,
             startedAt: Date(timeIntervalSince1970: 1_712_620_810),
             primaryStatus: .succeeded
         )
@@ -4198,6 +4209,14 @@ final class DashboardViewModelTests: XCTestCase {
                     path: sourceFolder.appendingPathComponent("2024-04-09-April Receipt.pdf").path,
                     tagsToRemove: ["receipt", "document"]
                 )
+            ),
+            metadataDelta: WorkflowFileMetadataDelta(
+                addedTags: ["receipt", "document"],
+                removedTags: [],
+                previousProjectAssociation: nil,
+                resultingProjectAssociation: nil,
+                previousWorkflowStatus: nil,
+                resultingWorkflowStatus: nil
             )
         )
 
@@ -4235,11 +4254,229 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertEqual(summary.runID, run.id)
         XCTAssertEqual(summary.templateDisplayName, "Receipt Intake")
+        XCTAssertEqual(summary.triggerSurfaceLabel, "Inspector")
         XCTAssertEqual(summary.renameResultFileName, "2024-04-09-April Receipt.pdf")
         XCTAssertEqual(summary.appliedTags, ["document", "receipt"])
         XCTAssertEqual(summary.moveDestinationDisplayName, "Receipts")
         XCTAssertTrue(summary.statusText.contains("Succeeded"))
         XCTAssertTrue(summary.canOpenRunDetail)
+    }
+
+    func testLatestWorkflowInspectorSummary_ShowsMetadataContextForProjectWorkflow() throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+
+        let schema = Schema([
+            FileItem.self,
+            Rule.self,
+            ActivityItem.self,
+            FileMetadataRecord.self,
+            FileOrganizationHistoryEntry.self,
+            TrustedAutomationScopeRunRecord.self,
+            WorkflowRunRecord.self,
+            WorkflowStepRunRecord.self,
+            WorkflowFileActionRecord.self
+        ])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+        viewModel.setModelContext(context)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Drop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects")
+        let sourceURL = try tempDirectory.createFile(name: "Drop/Product Spec.pdf", contents: "project")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Projects")
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .completed
+        )
+        context.insert(file)
+        try context.save()
+
+        let metadataService = FileMetadataFoundationService(modelContext: context)
+        let identity = metadataService.resolveIdentity(for: file.path).canonicalIdentity
+        let store = WorkflowAuditStore(modelContext: context)
+        let run = try store.createRun(
+            scopeID: UUID(),
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerSurface: .projectPolicyManual,
+            ownerDisplayName: "Alpha",
+            policyName: "Project Drop Zone",
+            startedAt: Date(timeIntervalSince1970: 1_712_620_900),
+            primaryStatus: .succeeded
+        )
+
+        let renamePath = sourceFolder.appendingPathComponent("2024-04-09-product-spec.pdf").path
+        let renameStep = try store.recordStepStatus(
+            runID: run.id,
+            stepID: "execute|rename|\(sourceURL.path)",
+            status: .succeeded,
+            startedAt: Date(timeIntervalSince1970: 1_712_620_901),
+            endedAt: Date(timeIntervalSince1970: 1_712_620_902)
+        )
+        _ = try store.recordFileAction(
+            runID: run.id,
+            stepRunID: renameStep.id,
+            fileIdentity: identity,
+            sourcePath: sourceURL.path,
+            destinationPath: renamePath,
+            disposition: .moved,
+            compensationStatus: .available,
+            compensationPayload: WorkflowCompensationPayloadCodec.encode(
+                .renameRollback(
+                    originalPath: sourceURL.path,
+                    renamedPath: renamePath
+                )
+            )
+        )
+
+        let tagStep = try store.recordStepStatus(
+            runID: run.id,
+            stepID: "execute|tag|\(sourceURL.path)",
+            status: .succeeded,
+            startedAt: Date(timeIntervalSince1970: 1_712_620_903),
+            endedAt: Date(timeIntervalSince1970: 1_712_620_904)
+        )
+        _ = try store.recordFileAction(
+            runID: run.id,
+            stepRunID: tagStep.id,
+            fileIdentity: identity,
+            sourcePath: renamePath,
+            destinationPath: renamePath,
+            disposition: .pending,
+            compensationStatus: .available,
+            compensationPayload: WorkflowCompensationPayloadCodec.encode(
+                .tagRemoval(
+                    path: renamePath,
+                    tagsToRemove: ["project", "context", "intake"]
+                )
+            ),
+            metadataDelta: WorkflowFileMetadataDelta(
+                addedTags: ["project", "context", "intake"],
+                removedTags: [],
+                previousProjectAssociation: nil,
+                resultingProjectAssociation: nil,
+                previousWorkflowStatus: nil,
+                resultingWorkflowStatus: nil
+            )
+        )
+
+        let projectStep = try store.recordStepStatus(
+            runID: run.id,
+            stepID: "execute|projectAssociation|\(sourceURL.path)",
+            status: .succeeded,
+            startedAt: Date(timeIntervalSince1970: 1_712_620_905),
+            endedAt: Date(timeIntervalSince1970: 1_712_620_906)
+        )
+        _ = try store.recordFileAction(
+            runID: run.id,
+            stepRunID: projectStep.id,
+            fileIdentity: identity,
+            sourcePath: renamePath,
+            destinationPath: renamePath,
+            disposition: .pending,
+            compensationStatus: .available,
+            compensationPayload: WorkflowCompensationPayloadCodec.encode(
+                .projectAssociationRestore(
+                    path: renamePath,
+                    previousProjectAssociation: nil
+                )
+            ),
+            metadataDelta: WorkflowFileMetadataDelta(
+                addedTags: [],
+                removedTags: [],
+                previousProjectAssociation: nil,
+                resultingProjectAssociation: "Alpha",
+                previousWorkflowStatus: nil,
+                resultingWorkflowStatus: nil
+            )
+        )
+
+        let workflowStatusStep = try store.recordStepStatus(
+            runID: run.id,
+            stepID: "execute|workflowStatus|\(sourceURL.path)",
+            status: .succeeded,
+            startedAt: Date(timeIntervalSince1970: 1_712_620_907),
+            endedAt: Date(timeIntervalSince1970: 1_712_620_908)
+        )
+        _ = try store.recordFileAction(
+            runID: run.id,
+            stepRunID: workflowStatusStep.id,
+            fileIdentity: identity,
+            sourcePath: renamePath,
+            destinationPath: renamePath,
+            disposition: .pending,
+            compensationStatus: .available,
+            compensationPayload: WorkflowCompensationPayloadCodec.encode(
+                .workflowStatusRestore(
+                    path: renamePath,
+                    previousWorkflowStatus: nil
+                )
+            ),
+            metadataDelta: WorkflowFileMetadataDelta(
+                addedTags: [],
+                removedTags: [],
+                previousProjectAssociation: nil,
+                resultingProjectAssociation: nil,
+                previousWorkflowStatus: nil,
+                resultingWorkflowStatus: .organized
+            )
+        )
+
+        let moveStep = try store.recordStepStatus(
+            runID: run.id,
+            stepID: "execute|move|\(sourceURL.path)",
+            status: .succeeded,
+            startedAt: Date(timeIntervalSince1970: 1_712_620_909),
+            endedAt: Date(timeIntervalSince1970: 1_712_620_910)
+        )
+        _ = try store.recordFileAction(
+            runID: run.id,
+            stepRunID: moveStep.id,
+            fileIdentity: identity,
+            sourcePath: renamePath,
+            destinationPath: destinationFolder.appendingPathComponent("2024-04-09-product-spec.pdf").path,
+            disposition: .moved,
+            compensationStatus: .available,
+            compensationPayload: WorkflowCompensationPayloadCodec.encode(
+                .moveRollback(
+                    originalDestinationPath: destinationFolder.appendingPathComponent("2024-04-09-product-spec.pdf").path,
+                    rollbackPath: renamePath
+                )
+            )
+        )
+        try store.updateRunStatus(
+            runID: run.id,
+            primaryStatus: .succeeded,
+            endedAt: Date(timeIntervalSince1970: 1_712_620_911)
+        )
+
+        let summary = try XCTUnwrap(
+            viewModel.latestWorkflowInspectorSummary(for: file.path, context: context)
+        )
+
+        XCTAssertEqual(summary.runID, run.id)
+        XCTAssertEqual(summary.templateDisplayName, "Project Drop Zone")
+        XCTAssertEqual(summary.triggerSurfaceLabel, "Project policy manual run")
+        XCTAssertEqual(summary.ownerDisplayName, "Alpha")
+        XCTAssertEqual(summary.policyName, "Project Drop Zone")
+        XCTAssertEqual(summary.projectAssociationDisplayName, "Alpha")
+        XCTAssertEqual(summary.workflowStatusDisplayName, "Organized")
+        XCTAssertEqual(summary.appliedTags, ["context", "intake", "project"])
+        XCTAssertEqual(summary.moveDestinationDisplayName, "Projects")
     }
     
     func testShowRuleBuilderPanel() {
@@ -4527,7 +4764,9 @@ final class DashboardViewModelTests: XCTestCase {
 private final class WorkflowExecutionSpy {
     var plannedTemplateIDs: [String] = []
     var plannedInvocationContexts: [WorkflowInvocationContext] = []
+    var plannedRequests: [WorkflowExecutionRequest] = []
     var ranTemplateIDs: [String] = []
+    var ranRequests: [WorkflowExecutionRequest] = []
     var lastRunFilePaths: [String] = []
     var runID = UUID()
     var runPrimaryStatus: WorkflowRunPrimaryStatus = .succeeded
@@ -4536,19 +4775,21 @@ private final class WorkflowExecutionSpy {
     var runError: Error?
 
     lazy var client = WorkflowExecutionClient(
-        plan: { [weak self] templateID, files, invocationContext in
-            self?.plannedTemplateIDs.append(templateID)
-            self?.plannedInvocationContexts.append(invocationContext)
+        planRequest: { [weak self] request, files in
+            self?.plannedTemplateIDs.append(request.templateID)
+            self?.plannedInvocationContexts.append(request.invocationContext)
+            self?.plannedRequests.append(request)
             return WorkflowPlanner().plan(
-                templateID: templateID,
+                templateID: request.templateID,
                 files: files,
-                invocationContext: invocationContext
+                invocationContext: request.invocationContext
             )
         },
-        run: { [weak self] plan, files, scopeID, modelContext in
+        runRequest: { [weak self] request, plan, files, modelContext in
             let filePaths = files.map(\.path)
             await MainActor.run {
                 self?.ranTemplateIDs.append(plan.definition.templateID)
+                self?.ranRequests.append(request)
                 self?.lastRunFilePaths = filePaths
             }
             let runID = await MainActor.run { self?.runID ?? UUID() }
@@ -4556,7 +4797,7 @@ private final class WorkflowExecutionSpy {
             let endedAt = await MainActor.run { self?.runEndedAt }
             let runRecord = WorkflowRunRecord(
                 id: runID,
-                scopeID: scopeID,
+                scopeID: request.scopeID,
                 workflowTemplateID: plan.definition.templateID,
                 primaryStatus: primaryStatus,
                 startedAt: Date(timeIntervalSince1970: 1_000),
@@ -4574,7 +4815,7 @@ private final class WorkflowExecutionSpy {
                     let persistenceContext = ModelContext(container)
                     let persistedRunRecord = WorkflowRunRecord(
                         id: runID,
-                        scopeID: scopeID,
+                        scopeID: request.scopeID,
                         workflowTemplateID: templateID,
                         primaryStatus: primaryStatus,
                         startedAt: Date(timeIntervalSince1970: 1_000),

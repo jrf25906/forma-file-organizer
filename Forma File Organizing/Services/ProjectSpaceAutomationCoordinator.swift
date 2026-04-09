@@ -132,21 +132,35 @@ struct ProjectSpaceAutomationCoordinator {
             throw CoordinatorError.noRunnableFiles
         }
 
-        let resolvedInvocationContext = invocationContext ?? .projectSpace(projectLabel: detail.projectLabel)
-        let plan = workflowExecution.plan(policy.workflowTemplateID, eligibleFiles, resolvedInvocationContext)
+        let scopeID = UUID()
+        let executionRequest: WorkflowExecutionRequest
+        if let invocationContext {
+            executionRequest = WorkflowExecutionRequest(
+                templateID: policy.workflowTemplateID,
+                scopeID: scopeID,
+                invocationContext: invocationContext
+            )
+        } else {
+            executionRequest = automationService.workflowExecutionRequest(
+                for: policy,
+                projectLabel: detail.projectLabel,
+                triggerKind: triggerKind,
+                scopeID: scopeID
+            )
+        }
+
+        let plan = workflowExecution.plan(executionRequest, eligibleFiles)
         let partition = partitionWorkflowPlan(plan, files: eligibleFiles)
         guard !partition.runnableFiles.isEmpty else {
             throw CoordinatorError.noRunnableFiles
         }
-
-        let scopeID = UUID()
         let workflowRun: WorkflowRunRecord
 
         do {
             workflowRun = try await workflowExecution.run(
+                executionRequest,
                 partition.runnablePlan,
                 partition.runnableFiles,
-                scopeID,
                 modelContext
             )
         } catch {

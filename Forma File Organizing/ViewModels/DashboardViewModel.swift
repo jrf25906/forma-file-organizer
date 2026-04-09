@@ -236,8 +236,13 @@ struct WorkflowInspectorRunSummary: Equatable {
     let templateDisplayName: String
     let statusText: String
     let rollbackText: String
+    let triggerSurfaceLabel: String
+    let ownerDisplayName: String?
+    let policyName: String?
     let renameResultFileName: String?
     let appliedTags: [String]
+    let projectAssociationDisplayName: String?
+    let workflowStatusDisplayName: String?
     let moveDestinationDisplayName: String?
 
     var canOpenRunDetail: Bool { true }
@@ -1049,15 +1054,17 @@ class DashboardViewModel: ObservableObject {
         refreshProjectSpaceWorkflowPreview()
         refreshSelectedProjectSpaceAutomationPolicyDetail()
 
+        let workflowScopeID = UUID()
         let execution = bulkOperationViewModel.prepareWorkflowExecution(
             executionCandidateFiles,
             template: template,
-            invocationContext: .projectPolicyManual(
+            request: automationService.workflowExecutionRequest(
+                for: policy,
                 projectLabel: detail.projectLabel,
-                policyName: template.displayName
+                triggerKind: .manual,
+                scopeID: workflowScopeID
             )
         )
-        let workflowScopeID = UUID()
 
         guard !execution.partition.runnableFiles.isEmpty else {
             if preparedFiles.isEmpty {
@@ -1506,6 +1513,11 @@ class DashboardViewModel: ObservableObject {
         let appliedTags = Array(
             Set(
                 fileActions.flatMap { action -> [String] in
+                    if let metadataDelta = action.metadataDelta,
+                       !metadataDelta.addedTags.isEmpty {
+                        return metadataDelta.addedTags
+                    }
+
                     guard workflowStepKind(for: action, using: stepRunsByID) == .tag,
                           case .tagRemoval(_, let tagsToRemove)? = WorkflowCompensationPayloadCodec.decode(action.compensationPayload) else {
                         return []
@@ -1514,6 +1526,25 @@ class DashboardViewModel: ObservableObject {
                 }
             )
         ).sorted()
+        let projectAssociationDisplayName = fileActions
+            .compactMap { action -> String? in
+                guard workflowStepKind(for: action, using: stepRunsByID) == .projectAssociation else {
+                    return nil
+                }
+                return action.metadataDelta?.resultingProjectAssociation
+            }
+            .last
+        let workflowStatusDisplayName = fileActions
+            .compactMap { action -> String? in
+                guard workflowStepKind(for: action, using: stepRunsByID) == .workflowStatus else {
+                    return nil
+                }
+                guard let status = action.metadataDelta?.resultingWorkflowStatus else {
+                    return nil
+                }
+                return status.rawValue.capitalized
+            }
+            .last
 
         return WorkflowInspectorRunSummary(
             runID: run.id,
@@ -1526,10 +1557,15 @@ class DashboardViewModel: ObservableObject {
                 primaryStatus: run.primaryStatus,
                 rollbackStatus: run.rollbackStatus
             ),
+            triggerSurfaceLabel: ActivityItem.workflowTriggerSurfaceLabel(run.triggerSurface),
+            ownerDisplayName: run.ownerDisplayName,
+            policyName: run.policyName,
             renameResultFileName: renameAction?.destinationPath.flatMap { path in
                 URL(fileURLWithPath: path).lastPathComponent
             },
             appliedTags: appliedTags,
+            projectAssociationDisplayName: projectAssociationDisplayName,
+            workflowStatusDisplayName: workflowStatusDisplayName,
             moveDestinationDisplayName: moveAction?.destinationPath.flatMap { path in
                 URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent
             }

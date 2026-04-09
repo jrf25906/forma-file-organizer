@@ -304,41 +304,264 @@ final class WorkflowStepExecutorTests: XCTestCase {
         }
     }
 
+    func testProjectAssociationExecutor_AppliesTargetAndRestoresPreviousValue() async throws {
+        let environment = try makeEnvironment()
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let fileURL = try tempDirectory.createFile(name: "Inbox/project-plan.pdf", contents: "plan")
+        let timestamp = Date(timeIntervalSince1970: 5_000)
+
+        let existingRecord = try XCTUnwrap(
+            environment.metadataService.upsertRecord(
+                for: fileURL.path,
+                displayName: fileURL.lastPathComponent,
+                fileExtension: fileURL.pathExtension,
+                timestamp: timestamp
+            )
+        )
+        existingRecord.projectAssociation = "Beta"
+        try environment.context.save()
+
+        let file = FileItem(
+            path: fileURL.path,
+            sizeInBytes: 128,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plannedFile = makePlannedFile(
+            sourcePath: fileURL.path,
+            workingPath: fileURL.path,
+            finalDestinationPath: nil,
+            renameTargetName: fileURL.lastPathComponent,
+            tagIntents: [],
+            projectAssociationTarget: "Alpha"
+        )
+
+        let executor = ProjectAssociationWorkflowStepExecutor()
+
+        let prepared = try executor.prepareExecution(
+            file: file,
+            plannedFile: plannedFile,
+            modelContext: environment.context
+        )
+        XCTAssertEqual(prepared.compensationStatus, WorkflowCompensationStatus.available)
+        XCTAssertEqual(
+            prepared.compensationPayloadDescriptor,
+            WorkflowCompensationPayloadDescriptor.projectAssociationRestore(
+                path: fileURL.path,
+                previousProjectAssociation: "Beta"
+            )
+        )
+
+        let result = try await executor.execute(
+            file: file,
+            plannedFile: plannedFile,
+            modelContext: environment.context
+        )
+
+        var record = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(record.projectAssociation, "Alpha")
+        XCTAssertEqual(result.disposition, WorkflowFileDisposition.pending)
+        XCTAssertEqual(result.compensationStatus, WorkflowCompensationStatus.available)
+        XCTAssertEqual(
+            result.compensationPayloadDescriptor,
+            WorkflowCompensationPayloadDescriptor.projectAssociationRestore(
+                path: fileURL.path,
+                previousProjectAssociation: "Beta"
+            )
+        )
+
+        let compensation = try XCTUnwrap(
+            executor.makeCompensationAction(
+                fileIdentity: record.canonicalIdentity,
+                compensationPayload: result.compensationAuditPayload,
+                file: file,
+                modelContext: environment.context
+            )
+        )
+        try compensation.apply()
+
+        record = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(record.projectAssociation, "Beta")
+    }
+
+    func testWorkflowStatusExecutor_AppliesTargetAndRestoresPreviousValue() async throws {
+        let environment = try makeEnvironment()
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let fileURL = try tempDirectory.createFile(name: "Inbox/project-plan.pdf", contents: "plan")
+        let timestamp = Date(timeIntervalSince1970: 6_000)
+
+        let existingRecord = try XCTUnwrap(
+            environment.metadataService.upsertRecord(
+                for: fileURL.path,
+                displayName: fileURL.lastPathComponent,
+                fileExtension: fileURL.pathExtension,
+                timestamp: timestamp
+            )
+        )
+        existingRecord.workflowStatus = .queued
+        try environment.context.save()
+
+        let file = FileItem(
+            path: fileURL.path,
+            sizeInBytes: 128,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plannedFile = makePlannedFile(
+            sourcePath: fileURL.path,
+            workingPath: fileURL.path,
+            finalDestinationPath: nil,
+            renameTargetName: fileURL.lastPathComponent,
+            tagIntents: [],
+            workflowStatusTarget: .organized
+        )
+
+        let executor = WorkflowStatusWorkflowStepExecutor()
+
+        let prepared = try executor.prepareExecution(
+            file: file,
+            plannedFile: plannedFile,
+            modelContext: environment.context
+        )
+        XCTAssertEqual(prepared.compensationStatus, WorkflowCompensationStatus.available)
+        XCTAssertEqual(
+            prepared.compensationPayloadDescriptor,
+            WorkflowCompensationPayloadDescriptor.workflowStatusRestore(
+                path: fileURL.path,
+                previousWorkflowStatus: MetadataWorkflowStatus.queued
+            )
+        )
+
+        let result = try await executor.execute(
+            file: file,
+            plannedFile: plannedFile,
+            modelContext: environment.context
+        )
+
+        var record = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(record.workflowStatus, .organized)
+        XCTAssertEqual(result.disposition, WorkflowFileDisposition.pending)
+        XCTAssertEqual(result.compensationStatus, WorkflowCompensationStatus.available)
+        XCTAssertEqual(
+            result.compensationPayloadDescriptor,
+            WorkflowCompensationPayloadDescriptor.workflowStatusRestore(
+                path: fileURL.path,
+                previousWorkflowStatus: MetadataWorkflowStatus.queued
+            )
+        )
+
+        let compensation = try XCTUnwrap(
+            executor.makeCompensationAction(
+                fileIdentity: record.canonicalIdentity,
+                compensationPayload: result.compensationAuditPayload,
+                file: file,
+                modelContext: environment.context
+            )
+        )
+        try compensation.apply()
+
+        record = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(record.workflowStatus, .queued)
+    }
+
     private func makePlannedFile(
         sourcePath: String,
         workingPath: String,
         finalDestinationPath: String?,
         renameTargetName: String,
-        tagIntents: [String]
+        tagIntents: [String],
+        projectAssociationTarget: String? = nil,
+        workflowStatusTarget: MetadataWorkflowStatus? = nil
     ) -> WorkflowPlannedFile {
-        WorkflowPlannedFile(
+        var steps: [WorkflowSimulatedStep] = [
+            WorkflowSimulatedStep(
+                kind: .rename,
+                disposition: .planned,
+                blocker: nil,
+                compensationPayload: .renameRollback(originalPath: sourcePath, renamedPath: workingPath)
+            ),
+            WorkflowSimulatedStep(
+                kind: .tag,
+                disposition: .planned,
+                blocker: nil,
+                compensationPayload: .tagRemoval(path: workingPath, tagsToRemove: tagIntents)
+            )
+        ]
+
+        if let projectAssociationTarget {
+            steps.append(
+                WorkflowSimulatedStep(
+                    kind: .projectAssociation,
+                    disposition: .planned,
+                    blocker: nil,
+                    compensationPayload: .projectAssociationRestore(
+                        path: workingPath,
+                        previousProjectAssociation: nil
+                    )
+                )
+            )
+            _ = projectAssociationTarget
+        }
+
+        if let workflowStatusTarget {
+            steps.append(
+                WorkflowSimulatedStep(
+                    kind: .workflowStatus,
+                    disposition: .planned,
+                    blocker: nil,
+                    compensationPayload: .workflowStatusRestore(
+                        path: workingPath,
+                        previousWorkflowStatus: nil
+                    )
+                )
+            )
+            _ = workflowStatusTarget
+        }
+
+        steps.append(
+            WorkflowSimulatedStep(
+                kind: .move,
+                disposition: .planned,
+                blocker: nil,
+                compensationPayload: finalDestinationPath.map {
+                    .moveRollback(originalDestinationPath: $0, rollbackPath: workingPath)
+                }
+            )
+        )
+
+        return WorkflowPlannedFile(
             sourcePath: sourcePath,
             workingPath: workingPath,
             finalDestinationPath: finalDestinationPath,
             renameTargetName: renameTargetName,
             tagIntents: tagIntents,
-            steps: [
-                WorkflowSimulatedStep(
-                    kind: .rename,
-                    disposition: .planned,
-                    blocker: nil,
-                    compensationPayload: .renameRollback(originalPath: sourcePath, renamedPath: workingPath)
-                ),
-                WorkflowSimulatedStep(
-                    kind: .tag,
-                    disposition: .planned,
-                    blocker: nil,
-                    compensationPayload: .tagRemoval(path: workingPath, tagsToRemove: tagIntents)
-                ),
-                WorkflowSimulatedStep(
-                    kind: .move,
-                    disposition: .planned,
-                    blocker: nil,
-                    compensationPayload: finalDestinationPath.map {
-                        .moveRollback(originalDestinationPath: $0, rollbackPath: workingPath)
-                    }
-                )
-            ],
+            projectAssociationTarget: projectAssociationTarget,
+            workflowStatusTarget: workflowStatusTarget,
+            steps: steps,
             blockers: []
         )
     }

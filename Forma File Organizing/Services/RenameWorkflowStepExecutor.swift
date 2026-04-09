@@ -98,7 +98,8 @@ struct RenameWorkflowStepExecutor: WorkflowStepExecutor {
                 destinationPath: destinationPath,
                 compensationStatus: .available,
                 compensationPayloadDescriptor: descriptor,
-                compensationAuditPayload: WorkflowCompensationPayloadCodec.encode(descriptor)
+                compensationAuditPayload: WorkflowCompensationPayloadCodec.encode(descriptor),
+                metadataDelta: nil
             )
         }
 
@@ -129,7 +130,8 @@ struct RenameWorkflowStepExecutor: WorkflowStepExecutor {
             stepKind: .rename,
             fileIdentity: fileIdentity,
             sourcePath: renamedPath,
-            destinationPath: originalPath
+            destinationPath: originalPath,
+            metadataDelta: nil
         ) {
             try fileOperationsService.secureMoveOnDisk(from: renamedPath, to: originalPath)
             _ = file.updatePath(originalPath)
@@ -138,13 +140,11 @@ struct RenameWorkflowStepExecutor: WorkflowStepExecutor {
             let metadataService = FileMetadataFoundationService(
                 modelContext: ModelContext(modelContext.container)
             )
-            _ = try metadataService.recordWorkflowTransition(
+            _ = try metadataService.recordWorkflowRollbackTransition(
                 from: renamedPath,
                 to: originalPath,
                 displayName: URL(fileURLWithPath: originalPath).lastPathComponent,
                 fileExtension: URL(fileURLWithPath: originalPath).pathExtension,
-                eventKind: .undone,
-                sourceSurface: .undo,
                 timestamp: Date()
             )
         }

@@ -263,6 +263,311 @@ final class WorkflowRunnerTests: XCTestCase {
         XCTAssertFalse(fileActions.contains(where: { $0.disposition == .restored }))
     }
 
+    func testRunner_ProjectSpaceInvocation_ExecutesMetadataStepsThroughDefaultRunner() async throws {
+        let environment = try makeEnvironment()
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Drop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects")
+        let sourceURL = try tempDirectory.createFile(name: "Drop/Product Spec.pdf", contents: "project")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Projects")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 100,
+            creationDate: creationDate,
+            modificationDate: creationDate,
+            lastAccessedDate: creationDate,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .projectSpace(projectLabel: "Alpha")
+        )
+        XCTAssertFalse(plan.hasBlockers)
+        XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .projectAssociation, .workflowStatus, .move, .log])
+
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator()
+        )
+
+        _ = try await runner.run(
+            plan: plan,
+            files: [file],
+            scopeID: UUID(),
+            modelContext: environment.context
+        )
+
+        let record = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(record.projectAssociation, "Alpha")
+        XCTAssertEqual(record.workflowStatus, .organized)
+
+        let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
+        let stepRuns = try environment.auditStore.stepRuns(runID: run.id)
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("projectAssociation") && $0.status == .succeeded }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("workflowStatus") && $0.status == .succeeded }))
+    }
+
+    func testRunner_BlockedPlan_PersistsPreflightAuditRows() async throws {
+        let environment = try makeEnvironment()
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Drop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects")
+        let sourceURL = try tempDirectory.createFile(name: "Drop/Product Spec.pdf", contents: "project")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Projects")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 100,
+            creationDate: creationDate,
+            modificationDate: creationDate,
+            lastAccessedDate: creationDate,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .projectSpace(projectLabel: "")
+        )
+        XCTAssertTrue(plan.hasBlockers)
+
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator()
+        )
+
+        do {
+            _ = try await runner.run(
+                plan: plan,
+                files: [file],
+                scopeID: UUID(),
+                modelContext: environment.context
+            )
+            XCTFail("Runner should fail when the plan is blocked")
+        } catch let error as WorkflowRunner.RunnerError {
+            guard case .blockedPlan = error else {
+                XCTFail("Unexpected runner error: \(error)")
+                return
+            }
+        }
+
+        let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
+        XCTAssertEqual(run.primaryStatus, .failed)
+        XCTAssertEqual(run.triggerSurface, .projectSpace)
+
+        let stepRuns = try environment.auditStore.stepRuns(runID: run.id)
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|rename|\(sourceURL.path)" && $0.status == .planned }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|tag|\(sourceURL.path)" && $0.status == .planned }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|projectAssociation|\(sourceURL.path)" && $0.status == .blocked }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|workflowStatus|\(sourceURL.path)" && $0.status == .skipped }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|move|\(sourceURL.path)" && $0.status == .skipped }))
+    }
+
+    func testRunner_ProjectPolicyRun_PersistsAuditContextAndMetadataDeltas() async throws {
+        let environment = try makeEnvironment()
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Drop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects")
+        let sourceURL = try tempDirectory.createFile(name: "Drop/Product Spec.pdf", contents: "project")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Projects")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 100,
+            creationDate: creationDate,
+            modificationDate: creationDate,
+            lastAccessedDate: creationDate,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .projectPolicyManual(
+                projectLabel: "Alpha",
+                policyName: "Project Drop Zone"
+            )
+        )
+        XCTAssertFalse(plan.hasBlockers)
+
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator()
+        )
+
+        _ = try await runner.run(
+            plan: plan,
+            files: [file],
+            scopeID: UUID(),
+            modelContext: environment.context
+        )
+
+        let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
+        XCTAssertEqual(run.triggerSurface, .projectPolicyManual)
+        XCTAssertEqual(run.ownerDisplayName, "Alpha")
+        XCTAssertEqual(run.policyName, "Project Drop Zone")
+
+        let stepRuns = try environment.auditStore.stepRuns(runID: run.id)
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("projectAssociation") && $0.status == .planned }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("projectAssociation") && $0.status == .succeeded }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("workflowStatus") && $0.status == .planned }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("workflowStatus") && $0.status == .succeeded }))
+
+        let fileActions = try environment.auditStore.fileActions(runID: run.id)
+        XCTAssertTrue(fileActions.contains(where: { $0.metadataDelta?.resultingProjectAssociation == "Alpha" }))
+        XCTAssertTrue(fileActions.contains(where: { $0.metadataDelta?.resultingWorkflowStatus == .organized }))
+        XCTAssertTrue(fileActions.contains(where: { Set($0.metadataDelta?.addedTags ?? []) == Set(["project", "context", "intake"]) }))
+    }
+
+    func testRunner_ProjectSpaceInvocation_RollsBackMetadataStepsAfterMoveFailure() async throws {
+        let environment = try makeEnvironment()
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Drop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects")
+        let sourceURL = try tempDirectory.createFile(name: "Drop/Product Spec.pdf", contents: "project")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Projects")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let seededRecord = try XCTUnwrap(
+            FileMetadataFoundationService(modelContext: environment.context).upsertRecord(
+                for: sourceURL.path,
+                displayName: sourceURL.lastPathComponent,
+                fileExtension: sourceURL.pathExtension,
+                timestamp: creationDate
+            )
+        )
+        seededRecord.projectAssociation = "Beta"
+        seededRecord.workflowStatus = .queued
+        try environment.context.save()
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 100,
+            creationDate: creationDate,
+            modificationDate: creationDate,
+            lastAccessedDate: creationDate,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .projectSpace(projectLabel: "Alpha")
+        )
+        XCTAssertFalse(plan.hasBlockers)
+
+        let moveExecutor = FailingMoveExecutor(
+            baseExecutor: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator),
+            failingSourcePath: sourceURL.path
+        )
+
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator(),
+            executorsByKind: [
+                .rename: RenameWorkflowStepExecutor(),
+                .tag: TagWorkflowStepExecutor(),
+                .projectAssociation: ProjectAssociationWorkflowStepExecutor(),
+                .workflowStatus: WorkflowStatusWorkflowStepExecutor(),
+                .move: moveExecutor
+            ]
+        )
+
+        do {
+            _ = try await runner.run(
+                plan: plan,
+                files: [file],
+                scopeID: UUID(),
+                modelContext: environment.context
+            )
+            XCTFail("Runner should fail after the injected move failure")
+        } catch {
+            XCTAssertTrue(error is InjectedMoveFailure)
+        }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path))
+        XCTAssertEqual(file.path, sourceURL.path)
+
+        let record = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(record.projectAssociation, "Beta")
+        XCTAssertEqual(record.workflowStatus, .queued)
+
+        let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
+        XCTAssertEqual(run.primaryStatus, .failed)
+        XCTAssertEqual(run.rollbackStatus, .succeeded)
+
+        let stepRuns = try environment.auditStore.stepRuns(runID: run.id)
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("projectAssociation") && $0.status == .succeeded }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("workflowStatus") && $0.status == .succeeded }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("rollback") && $0.status == .succeeded }))
+
+        let fileActions = try environment.auditStore.fileActions(runID: run.id)
+        XCTAssertTrue(
+            fileActions.contains(where: {
+                $0.disposition == .restored &&
+                Set($0.metadataDelta?.removedTags ?? []) == Set(["project", "context", "intake"])
+            })
+        )
+        XCTAssertTrue(
+            fileActions.contains(where: {
+                $0.disposition == .restored &&
+                $0.metadataDelta?.resultingProjectAssociation == "Beta"
+            })
+        )
+        XCTAssertTrue(
+            fileActions.contains(where: {
+                $0.disposition == .restored &&
+                $0.metadataDelta?.resultingWorkflowStatus == .queued
+            })
+        )
+    }
+
     func testRunner_LogFailure_DoesNotRollbackDurableSuccess() async throws {
         let environment = try makeEnvironment()
         let tempDirectory = try TemporaryDirectory()

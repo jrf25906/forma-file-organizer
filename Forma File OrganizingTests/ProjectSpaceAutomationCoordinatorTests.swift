@@ -14,35 +14,39 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
     private final class WorkflowExecutionSpy {
         private(set) var plannedTemplateIDs: [String] = []
         private(set) var plannedInvocationContexts: [WorkflowInvocationContext] = []
+        private(set) var plannedRequests: [WorkflowExecutionRequest] = []
         private(set) var lastPlannedFilePaths: [String] = []
         private(set) var ranTemplateIDs: [String] = []
+        private(set) var ranRequests: [WorkflowExecutionRequest] = []
         private(set) var lastRunFilePaths: [String] = []
         var runPrimaryStatus: WorkflowRunPrimaryStatus = .succeeded
         var onRun: (() -> Void)?
 
         lazy var client = WorkflowExecutionClient(
-            plan: { [weak self] templateID, files, invocationContext in
-                self?.plannedTemplateIDs.append(templateID)
-                self?.plannedInvocationContexts.append(invocationContext)
+            planRequest: { [weak self] request, files in
+                self?.plannedTemplateIDs.append(request.templateID)
+                self?.plannedInvocationContexts.append(request.invocationContext)
+                self?.plannedRequests.append(request)
                 self?.lastPlannedFilePaths = files.map(\.path)
                 return WorkflowPlanner().plan(
-                    templateID: templateID,
+                    templateID: request.templateID,
                     files: files,
-                    invocationContext: invocationContext
+                    invocationContext: request.invocationContext
                 )
             },
-            run: { [weak self] plan, _, scopeID, modelContext in
+            runRequest: { [weak self] request, plan, _, modelContext in
                 let runPrimaryStatus = await MainActor.run {
                     self?.runPrimaryStatus ?? .succeeded
                 }
                 await MainActor.run {
                     self?.ranTemplateIDs.append(plan.definition.templateID)
+                    self?.ranRequests.append(request)
                     self?.lastRunFilePaths = plan.files.map(\.sourcePath)
                     self?.onRun?()
                 }
 
                 let run = WorkflowRunRecord(
-                    scopeID: scopeID,
+                    scopeID: request.scopeID,
                     workflowTemplateID: plan.definition.templateID,
                     primaryStatus: runPrimaryStatus,
                     startedAt: Date(timeIntervalSince1970: 2_000),
@@ -375,7 +379,7 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         XCTAssertEqual(persistedAutomationRuns.first?.status, .succeeded)
     }
 
-    func testExecutePolicy_DefaultsToGenericProjectSpaceInvocationContext() async throws {
+    func testExecutePolicy_DefaultsToManualProjectPolicyRequest() async throws {
         let environment = try makeEnvironment()
         defer { environment.sourceRoot.cleanup() }
         defer { environment.destinationRoot.cleanup() }
@@ -428,9 +432,19 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
             now: environment.timestamp
         )
 
+        let request = try XCTUnwrap(environment.workflowExecution.plannedRequests.last)
+        guard case let .projectPolicy(policyID, triggerKind, projectLabel, policyName) = request.entryPoint else {
+            XCTFail("Expected manual project-policy execution request")
+            return
+        }
+
+        XCTAssertEqual(policyID, environment.policy.id)
+        XCTAssertEqual(triggerKind, .manual)
+        XCTAssertEqual(projectLabel, "Alpha")
+        XCTAssertEqual(policyName, "Project Drop Zone")
         XCTAssertEqual(
             environment.workflowExecution.plannedInvocationContexts,
-            [.projectSpace(projectLabel: "Alpha")]
+            [.projectPolicyManual(projectLabel: "Alpha", policyName: "Project Drop Zone")]
         )
     }
 
@@ -492,6 +506,73 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
             environment.workflowExecution.plannedInvocationContexts,
             [.projectPolicyManual(projectLabel: "Alpha", policyName: "Project Drop Zone")]
         )
+    }
+
+    func testExecutePolicy_ScheduledTriggerBuildsScheduledProjectPolicyRequest() async throws {
+        let environment = try makeEnvironment()
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let record = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: environment.file.path,
+            displayName: environment.file.name,
+            timestamp: environment.timestamp
+        )
+        record.projectAssociation = "Alpha"
+        try environment.context.save()
+
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    path: environment.file.path,
+                    displayName: environment.file.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: "Alpha"
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-60)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    fileDisplayName: environment.file.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-60),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                )
+            ]
+        )
+
+        _ = try await environment.coordinator.executePolicy(
+            environment.policy,
+            detail: detail,
+            files: [environment.file],
+            triggerKind: .scheduledSweep,
+            now: environment.timestamp
+        )
+
+        let request = try XCTUnwrap(environment.workflowExecution.plannedRequests.last)
+        guard case let .projectPolicy(policyID, triggerKind, projectLabel, policyName) = request.entryPoint else {
+            XCTFail("Expected scheduled project-policy execution request")
+            return
+        }
+
+        XCTAssertEqual(request.templateID, environment.policy.workflowTemplateID)
+        XCTAssertEqual(policyID, environment.policy.id)
+        XCTAssertEqual(triggerKind, .scheduledSweep)
+        XCTAssertEqual(projectLabel, "Alpha")
+        XCTAssertEqual(policyName, "Project Drop Zone")
+        XCTAssertEqual(request.invocationContext, .projectPolicyScheduled(projectLabel: "Alpha", policyName: "Project Drop Zone"))
     }
 
     func testExecutePolicy_CompletedWithIssuesPersistsNonFailureRunStatus() async throws {

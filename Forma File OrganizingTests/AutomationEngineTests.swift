@@ -97,6 +97,7 @@ final class AutomationEngineTests: XCTestCase {
     private final class WorkflowExecutionSpy {
         private(set) var plannedTemplateIDs: [String] = []
         private(set) var plannedInvocationContexts: [WorkflowInvocationContext] = []
+        private(set) var plannedRequests: [WorkflowExecutionRequest] = []
         private(set) var ranTemplateIDs: [String] = []
         private(set) var lastPlannedFilePaths: [String] = []
         private(set) var lastRunFilePaths: [String] = []
@@ -105,18 +106,19 @@ final class AutomationEngineTests: XCTestCase {
         var onPlan: (() -> Void)?
 
         lazy var client = WorkflowExecutionClient(
-            plan: { [weak self] templateID, files, invocationContext in
-                self?.plannedTemplateIDs.append(templateID)
-                self?.plannedInvocationContexts.append(invocationContext)
+            planRequest: { [weak self] request, files in
+                self?.plannedTemplateIDs.append(request.templateID)
+                self?.plannedInvocationContexts.append(request.invocationContext)
+                self?.plannedRequests.append(request)
                 self?.lastPlannedFilePaths = files.map(\.path)
                 self?.onPlan?()
                 return WorkflowPlanner().plan(
-                    templateID: templateID,
+                    templateID: request.templateID,
                     files: files,
-                    invocationContext: invocationContext
+                    invocationContext: request.invocationContext
                 )
             },
-            run: { [weak self] plan, files, scopeID, _ in
+            runRequest: { [weak self] request, plan, files, _ in
                 let filePaths = files.map(\.path)
                 await MainActor.run {
                     self?.ranTemplateIDs.append(plan.definition.templateID)
@@ -129,7 +131,7 @@ final class AutomationEngineTests: XCTestCase {
                     self?.runPrimaryStatus ?? .succeeded
                 }
                 return WorkflowRunRecord(
-                    scopeID: scopeID,
+                    scopeID: request.scopeID,
                     workflowTemplateID: plan.definition.templateID,
                     primaryStatus: runPrimaryStatus,
                     startedAt: Date(timeIntervalSince1970: 1_000),
@@ -1075,7 +1077,7 @@ final class AutomationEngineTests: XCTestCase {
             destination: destination,
             selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
         )
-        _ = try automationService.createOrUpdatePolicy(
+        let policy = try automationService.createOrUpdatePolicy(
             normalizedProjectLabel: "Alpha",
             workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
             triggerKinds: [.manual],
@@ -1099,6 +1101,15 @@ final class AutomationEngineTests: XCTestCase {
             workflowExecution.plannedInvocationContexts,
             [.projectPolicyManual(projectLabel: "Alpha", policyName: "Project Drop Zone")]
         )
+        let request = try XCTUnwrap(workflowExecution.plannedRequests.last)
+        guard case let .projectPolicy(policyID, triggerKind, projectLabel, policyName) = request.entryPoint else {
+            XCTFail("Expected project-policy execution request")
+            return
+        }
+        XCTAssertEqual(policyID, policy.id)
+        XCTAssertEqual(triggerKind, .manual)
+        XCTAssertEqual(projectLabel, "Alpha")
+        XCTAssertEqual(policyName, "Project Drop Zone")
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [file.path])
         XCTAssertEqual(engine.state.lastPreflightSummary?.eligibleCount, 1)

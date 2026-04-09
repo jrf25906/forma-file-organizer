@@ -73,7 +73,7 @@ final class WorkflowPlannerTests: XCTestCase {
         XCTAssertEqual(invocationContext, "dashboardReview")
     }
 
-    func testPlan_ProjectSpaceInvocation_AppendsLogButNotNotify() throws {
+    func testPlan_ProjectSpaceInvocation_AppendsMetadataStepsButNotNotify() throws {
         let sourceURL = try sourceDirectory.createFile(name: "Project Plan.pdf")
         let destinationURL = try destinationDirectory.createDirectory(name: "ProjectDrop")
         let destination = try Destination.folder(from: destinationURL)
@@ -86,8 +86,68 @@ final class WorkflowPlannerTests: XCTestCase {
             invocationContext: .projectSpace(projectLabel: "Project Drop")
         )
 
-        XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log"])
-        XCTAssertEqual(plan.files.first?.steps.map(\.kind.rawValue), ["rename", "tag", "move", "log"])
+        XCTAssertEqual(
+            plan.definition.stepKinds.map(\.rawValue),
+            ["rename", "tag", "projectAssociation", "workflowStatus", "move", "log"]
+        )
+        XCTAssertEqual(
+            plan.files.first?.steps.map(\.kind.rawValue),
+            ["rename", "tag", "projectAssociation", "workflowStatus", "move", "log"]
+        )
+        XCTAssertEqual(
+            plan.files.first?.steps.map(\.disposition),
+            [.planned, .planned, .planned, .planned, .planned, .planned]
+        )
+    }
+
+    func testPlan_ProjectSpaceInvocationWithoutProjectLabel_BlocksMetadataStepAndSkipsDependentSteps() throws {
+        let sourceURL = try sourceDirectory.createFile(name: "Project Plan.pdf")
+        let destinationURL = try destinationDirectory.createDirectory(name: "ProjectDrop")
+        let destination = try Destination.folder(from: destinationURL)
+        let file = makeFile(path: sourceURL.path, destination: destination)
+
+        let planner = WorkflowPlanner()
+        let plan = planner.plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .projectSpace(projectLabel: "")
+        )
+
+        let plannedFile = try XCTUnwrap(plan.files.first)
+        let simulationFile = try XCTUnwrap(plan.simulation.files.first)
+
+        XCTAssertEqual(
+            plan.definition.stepKinds.map(\.rawValue),
+            ["rename", "tag", "projectAssociation", "workflowStatus", "move", "log"]
+        )
+        XCTAssertTrue(plannedFile.isBlocked)
+        XCTAssertEqual(
+            simulationFile.steps.map(\.disposition),
+            [.planned, .planned, .blocked, .skipped, .skipped, .skipped]
+        )
+        XCTAssertEqual(simulationFile.steps[2].kind.rawValue, "projectAssociation")
+        XCTAssertNotNil(simulationFile.steps[2].blocker)
+    }
+
+    func testPlan_ProjectSpaceInvocation_MetadataStepsEmitCompensationPayloadDescriptors() throws {
+        let sourceURL = try sourceDirectory.createFile(name: "Project Plan.pdf")
+        let destinationURL = try destinationDirectory.createDirectory(name: "ProjectDrop")
+        let destination = try Destination.folder(from: destinationURL)
+        let file = makeFile(path: sourceURL.path, destination: destination)
+
+        let planner = WorkflowPlanner()
+        let plan = planner.plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .projectSpace(projectLabel: "Alpha")
+        )
+
+        let steps = try XCTUnwrap(plan.files.first?.steps)
+        XCTAssertEqual(steps.count, 6)
+        XCTAssertEqual(steps[2].kind.rawValue, "projectAssociation")
+        XCTAssertEqual(steps[3].kind.rawValue, "workflowStatus")
+        XCTAssertNotNil(steps[2].compensationPayload)
+        XCTAssertNotNil(steps[3].compensationPayload)
     }
 
     func testPlan_TrustedScopeInvocation_AppendsNotifyOnlyForOptedInTemplate() throws {

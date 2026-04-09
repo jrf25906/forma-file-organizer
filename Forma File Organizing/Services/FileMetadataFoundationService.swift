@@ -68,6 +68,24 @@ struct ProjectSpaceAdmissionFileSnapshot: Sendable, Hashable {
     let sourceFolderHint: String?
 }
 
+struct WorkflowProjectAssociationMutationPreview: Sendable, Hashable {
+    let previousProjectAssociation: String?
+    let targetProjectAssociation: String
+
+    var willChange: Bool {
+        previousProjectAssociation != targetProjectAssociation
+    }
+}
+
+struct WorkflowStatusMutationPreview: Sendable, Hashable {
+    let previousWorkflowStatus: MetadataWorkflowStatus?
+    let targetWorkflowStatus: MetadataWorkflowStatus
+
+    var willChange: Bool {
+        previousWorkflowStatus != targetWorkflowStatus
+    }
+}
+
 @MainActor
 final class FileMetadataFoundationService {
     typealias IgnoredHistoryPreparationResult = (
@@ -414,6 +432,34 @@ final class FileMetadataFoundationService {
     }
 
     @discardableResult
+    func recordWorkflowRollbackTransition(
+        from sourcePath: String,
+        to destinationPath: String,
+        displayName: String,
+        fileExtension: String,
+        detailsSummary: String? = nil,
+        timestamp: Date
+    ) throws -> FileMetadataRecord? {
+        guard isEnabled else { return nil }
+
+        return try recordTransition(
+            from: sourcePath,
+            to: destinationPath,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            eventKind: .noted,
+            sourceSurface: .undo,
+            destinationDisplayName: nil,
+            projectAssociationWriteContext: nil,
+            matchedRuleID: nil,
+            detailsSummary: detailsSummary
+                ?? "Workflow rollback restored the original file path.",
+            timestamp: timestamp,
+            shouldApplyContentTags: false
+        )
+    }
+
+    @discardableResult
     private func recordTransition(
         from sourcePath: String,
         to destinationPath: String,
@@ -696,6 +742,244 @@ final class FileMetadataFoundationService {
         }
     }
 
+    func previewWorkflowProjectAssociation(
+        path: String,
+        targetProjectAssociation: String
+    ) throws -> WorkflowProjectAssociationMutationPreview? {
+        guard isProjectSpaceWriteEnabled,
+              let normalizedTarget = FileMetadataRecord.normalizedOptionalText(targetProjectAssociation) else {
+            return nil
+        }
+
+        let identity = resolveIdentity(for: path)
+        let previousProjectAssociation = try record(matching: identity.canonicalIdentity)
+            .flatMap { FileMetadataRecord.normalizedOptionalText($0.projectAssociation) }
+
+        return WorkflowProjectAssociationMutationPreview(
+            previousProjectAssociation: previousProjectAssociation,
+            targetProjectAssociation: normalizedTarget
+        )
+    }
+
+    @discardableResult
+    func applyWorkflowProjectAssociation(
+        path: String,
+        displayName: String,
+        fileExtension: String,
+        targetProjectAssociation: String,
+        timestamp: Date
+    ) throws -> WorkflowProjectAssociationMutationPreview? {
+        guard isProjectSpaceWriteEnabled,
+              let normalizedTarget = FileMetadataRecord.normalizedOptionalText(targetProjectAssociation) else {
+            return nil
+        }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+
+        do {
+            guard let record = try upsertRecordWithoutSaving(
+                for: normalizedPath,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                timestamp: timestamp
+            ) else {
+                return nil
+            }
+
+            let preview = WorkflowProjectAssociationMutationPreview(
+                previousProjectAssociation: FileMetadataRecord.normalizedOptionalText(record.projectAssociation),
+                targetProjectAssociation: normalizedTarget
+            )
+
+            guard preview.willChange else {
+                return preview
+            }
+
+            record.projectAssociation = normalizedTarget
+            _ = try appendHistoryEntryWithoutSaving(
+                for: record,
+                eventKind: .noted,
+                sourceSurface: .organize,
+                fromPath: normalizedPath,
+                toPath: normalizedPath,
+                destinationDisplayName: nil,
+                matchedRuleID: nil,
+                detailsSummary: workflowProjectAssociationDetailsSummary(
+                    from: preview.previousProjectAssociation,
+                    to: normalizedTarget,
+                    isRollback: false
+                ),
+                timestamp: timestamp
+            )
+            try modelContext.save()
+            return preview
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
+    @discardableResult
+    func restoreWorkflowProjectAssociation(
+        canonicalIdentity: String,
+        path: String,
+        previousProjectAssociation: String?,
+        timestamp: Date
+    ) throws -> Bool {
+        guard isProjectSpaceWriteEnabled else { return false }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+        let normalizedPreviousProjectAssociation = FileMetadataRecord.normalizedOptionalText(previousProjectAssociation)
+
+        do {
+            guard let record = try record(matching: canonicalIdentity) else {
+                return false
+            }
+
+            let currentProjectAssociation = FileMetadataRecord.normalizedOptionalText(record.projectAssociation)
+            guard currentProjectAssociation != normalizedPreviousProjectAssociation else {
+                return false
+            }
+
+            record.projectAssociation = normalizedPreviousProjectAssociation
+            _ = try appendHistoryEntryWithoutSaving(
+                for: record,
+                eventKind: .noted,
+                sourceSurface: .undo,
+                fromPath: normalizedPath,
+                toPath: normalizedPath,
+                destinationDisplayName: nil,
+                matchedRuleID: nil,
+                detailsSummary: workflowProjectAssociationDetailsSummary(
+                    from: currentProjectAssociation,
+                    to: normalizedPreviousProjectAssociation,
+                    isRollback: true
+                ),
+                timestamp: timestamp
+            )
+            try modelContext.save()
+            return true
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
+    func previewWorkflowStatus(
+        path: String,
+        targetWorkflowStatus: MetadataWorkflowStatus
+    ) throws -> WorkflowStatusMutationPreview? {
+        guard isWorkflowStatusWriteEnabled else { return nil }
+
+        let identity = resolveIdentity(for: path)
+        let previousWorkflowStatus = try record(matching: identity.canonicalIdentity)?.workflowStatus
+
+        return WorkflowStatusMutationPreview(
+            previousWorkflowStatus: previousWorkflowStatus,
+            targetWorkflowStatus: targetWorkflowStatus
+        )
+    }
+
+    @discardableResult
+    func applyWorkflowStatus(
+        path: String,
+        displayName: String,
+        fileExtension: String,
+        targetWorkflowStatus: MetadataWorkflowStatus,
+        timestamp: Date
+    ) throws -> WorkflowStatusMutationPreview? {
+        guard isWorkflowStatusWriteEnabled else { return nil }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+
+        do {
+            guard let record = try upsertRecordWithoutSaving(
+                for: normalizedPath,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                timestamp: timestamp
+            ) else {
+                return nil
+            }
+
+            let preview = WorkflowStatusMutationPreview(
+                previousWorkflowStatus: record.workflowStatus,
+                targetWorkflowStatus: targetWorkflowStatus
+            )
+
+            guard preview.willChange else {
+                return preview
+            }
+
+            record.workflowStatus = targetWorkflowStatus
+            _ = try appendHistoryEntryWithoutSaving(
+                for: record,
+                eventKind: .noted,
+                sourceSurface: .organize,
+                fromPath: normalizedPath,
+                toPath: normalizedPath,
+                destinationDisplayName: nil,
+                matchedRuleID: nil,
+                detailsSummary: workflowStatusDetailsSummary(
+                    from: preview.previousWorkflowStatus,
+                    to: targetWorkflowStatus,
+                    isRollback: false
+                ),
+                timestamp: timestamp
+            )
+            try modelContext.save()
+            return preview
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
+    @discardableResult
+    func restoreWorkflowStatus(
+        canonicalIdentity: String,
+        path: String,
+        previousWorkflowStatus: MetadataWorkflowStatus?,
+        timestamp: Date
+    ) throws -> Bool {
+        guard isWorkflowStatusWriteEnabled else { return false }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+
+        do {
+            guard let record = try record(matching: canonicalIdentity) else {
+                return false
+            }
+
+            let currentWorkflowStatus = record.workflowStatus
+            guard currentWorkflowStatus != previousWorkflowStatus else {
+                return false
+            }
+
+            record.workflowStatus = previousWorkflowStatus
+            _ = try appendHistoryEntryWithoutSaving(
+                for: record,
+                eventKind: .noted,
+                sourceSurface: .undo,
+                fromPath: normalizedPath,
+                toPath: normalizedPath,
+                destinationDisplayName: nil,
+                matchedRuleID: nil,
+                detailsSummary: workflowStatusDetailsSummary(
+                    from: currentWorkflowStatus,
+                    to: previousWorkflowStatus,
+                    isRollback: true
+                ),
+                timestamp: timestamp
+            )
+            try modelContext.save()
+            return true
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
     func fetchProjectSpaceSummaries() -> [ProjectSpaceSummary] {
         guard isProjectSpaceReadEnabled else { return [] }
 
@@ -917,6 +1201,62 @@ final class FileMetadataFoundationService {
     private var isWorkflowStatusWriteEnabled: Bool {
         featureFlags.isEnabled(.metadataFoundation) &&
         featureFlags.isEnabled(.durableWorkflowStatus)
+    }
+
+    private func workflowProjectAssociationDetailsSummary(
+        from previousProjectAssociation: String?,
+        to nextProjectAssociation: String?,
+        isRollback: Bool
+    ) -> String {
+        if isRollback {
+            switch (previousProjectAssociation, nextProjectAssociation) {
+            case let (current?, previous?):
+                return "Workflow restored project association from \(current) to \(previous)."
+            case let (current?, nil):
+                return "Workflow cleared project association \(current)."
+            case let (nil, previous?):
+                return "Workflow restored project association to \(previous)."
+            case (nil, nil):
+                return "Workflow project association rollback made no changes."
+            }
+        }
+
+        switch (previousProjectAssociation, nextProjectAssociation) {
+        case let (previous?, next?):
+            return "Workflow set project association from \(previous) to \(next)."
+        case (nil, let next?):
+            return "Workflow set project association to \(next)."
+        default:
+            return "Workflow project association step made no changes."
+        }
+    }
+
+    private func workflowStatusDetailsSummary(
+        from previousWorkflowStatus: MetadataWorkflowStatus?,
+        to nextWorkflowStatus: MetadataWorkflowStatus?,
+        isRollback: Bool
+    ) -> String {
+        if isRollback {
+            switch (previousWorkflowStatus, nextWorkflowStatus) {
+            case let (current?, previous?):
+                return "Workflow restored status from \(current.rawValue) to \(previous.rawValue)."
+            case let (current?, nil):
+                return "Workflow cleared status \(current.rawValue)."
+            case (nil, let previous?):
+                return "Workflow restored status to \(previous.rawValue)."
+            case (nil, nil):
+                return "Workflow status rollback made no changes."
+            }
+        }
+
+        switch (previousWorkflowStatus, nextWorkflowStatus) {
+        case let (previous?, next?):
+            return "Workflow set status from \(previous.rawValue) to \(next.rawValue)."
+        case (nil, let next?):
+            return "Workflow set status to \(next.rawValue)."
+        default:
+            return "Workflow status step made no changes."
+        }
     }
 
     private func record(matching canonicalIdentity: String) throws -> FileMetadataRecord? {

@@ -13,6 +13,7 @@ final class WorkflowRollbackCoordinatorTests: XCTestCase {
                 fileIdentity: "file-1",
                 sourcePath: "/tmp/working-1",
                 destinationPath: "/tmp/source-1",
+                metadataDelta: nil,
                 apply: { log.append("rename-1") }
             ),
             WorkflowCompensationAction(
@@ -20,6 +21,7 @@ final class WorkflowRollbackCoordinatorTests: XCTestCase {
                 fileIdentity: "file-1",
                 sourcePath: "/tmp/working-1",
                 destinationPath: "/tmp/working-1",
+                metadataDelta: nil,
                 apply: { log.append("tag-1") }
             ),
             WorkflowCompensationAction(
@@ -27,6 +29,7 @@ final class WorkflowRollbackCoordinatorTests: XCTestCase {
                 fileIdentity: "file-1",
                 sourcePath: "/tmp/destination-1",
                 destinationPath: "/tmp/working-1",
+                metadataDelta: nil,
                 apply: { log.append("move-1") }
             ),
             WorkflowCompensationAction(
@@ -34,6 +37,7 @@ final class WorkflowRollbackCoordinatorTests: XCTestCase {
                 fileIdentity: "file-2",
                 sourcePath: "/tmp/working-2",
                 destinationPath: "/tmp/source-2",
+                metadataDelta: nil,
                 apply: { log.append("rename-2") }
             ),
             WorkflowCompensationAction(
@@ -41,6 +45,7 @@ final class WorkflowRollbackCoordinatorTests: XCTestCase {
                 fileIdentity: "file-2",
                 sourcePath: "/tmp/working-2",
                 destinationPath: "/tmp/working-2",
+                metadataDelta: nil,
                 apply: { log.append("tag-2") }
             ),
             WorkflowCompensationAction(
@@ -48,6 +53,7 @@ final class WorkflowRollbackCoordinatorTests: XCTestCase {
                 fileIdentity: "file-2",
                 sourcePath: "/tmp/destination-2",
                 destinationPath: "/tmp/working-2",
+                metadataDelta: nil,
                 apply: { log.append("move-2") }
             )
         ]
@@ -71,6 +77,7 @@ final class WorkflowRollbackCoordinatorTests: XCTestCase {
                 fileIdentity: "file-1",
                 sourcePath: "/tmp/destination",
                 destinationPath: "/tmp/working",
+                metadataDelta: nil,
                 apply: { throw InjectedFailure() }
             ),
             WorkflowCompensationAction(
@@ -78,6 +85,7 @@ final class WorkflowRollbackCoordinatorTests: XCTestCase {
                 fileIdentity: "file-1",
                 sourcePath: "/tmp/working",
                 destinationPath: "/tmp/source",
+                metadataDelta: nil,
                 apply: { log.append("rename") }
             )
         ])

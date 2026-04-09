@@ -1059,18 +1059,27 @@ final class AutomationEngine: ObservableObject {
             )
         }
 
-        let plan = workflowExecution.plan(
-            templateID,
-            group.eligibleFiles,
-            workflowInvocationContext(
+        let executionRequest = WorkflowExecutionRequest(
+            templateID: templateID,
+            scopeID: group.scope.id,
+            invocationContext: workflowInvocationContext(
                 for: triggerSource,
                 scopeDisplayName: group.scope.displayName
             )
         )
+        let plan = workflowExecution.plan(
+            executionRequest,
+            group.eligibleFiles
+        )
         let plannedWorkflowNotify = plan.definition.stepKinds.contains(.notify)
 
         do {
-            try await workflowExecution.run(plan, group.eligibleFiles, group.scope.id, context)
+            _ = try await workflowExecution.run(
+                executionRequest,
+                plan,
+                group.eligibleFiles,
+                context
+            )
             return ScopedAutomationExecutionResult(
                 successCount: group.eligibleFiles.count,
                 failedCount: 0,
@@ -1112,18 +1121,11 @@ final class AutomationEngine: ObservableObject {
         )
 
         do {
-            let policyName = WorkflowTemplateCatalog.template(for: group.policy.workflowTemplateID)?.displayName
-                ?? group.policy.workflowTemplateID
             let runRecord = try await coordinator.executePolicy(
                 group.policy,
                 detail: group.detail,
                 files: group.eligibleFiles,
                 triggerKind: group.triggerKind,
-                invocationContext: workflowInvocationContext(
-                    for: triggerSource,
-                    projectLabel: group.detail.projectLabel,
-                    policyName: policyName
-                ),
                 now: clock.now
             )
             let successCountStatuses: Set<ProjectSpaceAutomationRunStatus> = [.succeeded, .completedWithIssues]

@@ -3,6 +3,8 @@ import Foundation
 enum WorkflowStepKind: String, Codable, Sendable, Hashable, CaseIterable {
     case rename
     case tag
+    case projectAssociation
+    case workflowStatus
     case move
     case log
     case notify
@@ -27,6 +29,8 @@ enum WorkflowPlanBlockerReason: Sendable, Hashable {
 enum WorkflowCompensationPayloadDescriptor: Sendable, Hashable {
     case renameRollback(originalPath: String, renamedPath: String)
     case tagRemoval(path: String, tagsToRemove: [String])
+    case projectAssociationRestore(path: String, previousProjectAssociation: String?)
+    case workflowStatusRestore(path: String, previousWorkflowStatus: MetadataWorkflowStatus?)
     case moveRollback(originalDestinationPath: String, rollbackPath: String)
 }
 
@@ -36,6 +40,8 @@ struct WorkflowDefinition: Sendable, Hashable {
     let invocationContext: WorkflowInvocationContext
     let renamePreset: BuiltInWorkflowTemplate.RenamePreset?
     let tagPolicy: BuiltInWorkflowTemplate.TagPolicy?
+    let projectAssociationPolicy: BuiltInWorkflowTemplate.ProjectAssociationPolicy?
+    let workflowStatusPolicy: BuiltInWorkflowTemplate.WorkflowStatusPolicy?
     let stepKinds: [WorkflowStepKind]
 }
 
@@ -52,8 +58,32 @@ struct WorkflowPlannedFile: Sendable, Hashable {
     let finalDestinationPath: String?
     let renameTargetName: String
     let tagIntents: [String]
+    let projectAssociationTarget: String?
+    let workflowStatusTarget: MetadataWorkflowStatus?
     let steps: [WorkflowSimulatedStep]
     let blockers: [WorkflowPlanBlockerReason]
+
+    init(
+        sourcePath: String,
+        workingPath: String,
+        finalDestinationPath: String?,
+        renameTargetName: String,
+        tagIntents: [String],
+        projectAssociationTarget: String? = nil,
+        workflowStatusTarget: MetadataWorkflowStatus? = nil,
+        steps: [WorkflowSimulatedStep],
+        blockers: [WorkflowPlanBlockerReason]
+    ) {
+        self.sourcePath = sourcePath
+        self.workingPath = workingPath
+        self.finalDestinationPath = finalDestinationPath
+        self.renameTargetName = renameTargetName
+        self.tagIntents = tagIntents
+        self.projectAssociationTarget = projectAssociationTarget
+        self.workflowStatusTarget = workflowStatusTarget
+        self.steps = steps
+        self.blockers = blockers
+    }
 
     var isBlocked: Bool {
         !blockers.isEmpty

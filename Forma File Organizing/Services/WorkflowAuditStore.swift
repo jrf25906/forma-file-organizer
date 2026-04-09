@@ -38,6 +38,9 @@ final class WorkflowAuditStore {
     func createRun(
         scopeID: UUID,
         workflowTemplateID: String?,
+        triggerSurface: ActivityItem.WorkflowTriggerSurface? = nil,
+        ownerDisplayName: String? = nil,
+        policyName: String? = nil,
         startedAt: Date = Date(),
         primaryStatus: WorkflowRunPrimaryStatus = .running,
         rollbackStatus: WorkflowRunRollbackStatus = .notRequested
@@ -45,6 +48,9 @@ final class WorkflowAuditStore {
         let run = WorkflowRunRecord(
             scopeID: scopeID,
             workflowTemplateID: workflowTemplateID,
+            triggerSurface: triggerSurface,
+            ownerDisplayName: ownerDisplayName,
+            policyName: policyName,
             primaryStatus: primaryStatus,
             rollbackStatus: rollbackStatus,
             startedAt: startedAt
@@ -133,6 +139,7 @@ final class WorkflowAuditStore {
         disposition: WorkflowFileDisposition,
         compensationStatus: WorkflowCompensationStatus = .notNeeded,
         compensationPayload: [String: String]? = nil,
+        metadataDelta: WorkflowFileMetadataDelta? = nil,
         failureReason: String? = nil,
         recordedAt: Date = Date()
     ) throws -> WorkflowFileActionRecord {
@@ -155,6 +162,7 @@ final class WorkflowAuditStore {
             disposition: disposition,
             compensationStatus: compensationStatus,
             compensationPayload: compensationPayload,
+            metadataDelta: metadataDelta,
             failureReason: failureReason,
             recordedAt: recordedAt
         )

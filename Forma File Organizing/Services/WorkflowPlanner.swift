@@ -10,6 +10,8 @@ final class WorkflowPlanner {
         let finalDestinationPath: String?
         let renameTargetName: String
         let tagIntents: [String]
+        let projectAssociationTarget: String?
+        let workflowStatusTarget: MetadataWorkflowStatus?
         var blockers: [WorkflowPlanBlockerReason]
     }
 
@@ -91,7 +93,9 @@ final class WorkflowPlanner {
                 sourcePath: preliminaryFile.sourcePath,
                 workingPath: preliminaryFile.workingPath,
                 finalDestinationPath: preliminaryFile.finalDestinationPath,
-                tagIntents: preliminaryFile.tagIntents
+                tagIntents: preliminaryFile.tagIntents,
+                projectAssociationTarget: preliminaryFile.projectAssociationTarget,
+                workflowStatusTarget: preliminaryFile.workflowStatusTarget
             )
 
             return WorkflowPlannedFile(
@@ -100,6 +104,8 @@ final class WorkflowPlanner {
                 finalDestinationPath: preliminaryFile.finalDestinationPath,
                 renameTargetName: preliminaryFile.renameTargetName,
                 tagIntents: preliminaryFile.tagIntents,
+                projectAssociationTarget: preliminaryFile.projectAssociationTarget,
+                workflowStatusTarget: preliminaryFile.workflowStatusTarget,
                 steps: steps,
                 blockers: uniqueBlockers
             )
@@ -130,6 +136,11 @@ final class WorkflowPlanner {
             template: template,
             invocationContext: invocationContext
         )
+        let metadataStepKinds = metadataStepKinds(
+            template: template,
+            invocationContext: invocationContext
+        )
+        let orderedStepKinds = canonicalStepKinds.inserting(contentsOf: metadataStepKinds, after: .tag)
 
         return WorkflowDefinition(
             templateID: templateID,
@@ -137,7 +148,9 @@ final class WorkflowPlanner {
             invocationContext: invocationContext,
             renamePreset: template?.renamePreset,
             tagPolicy: template?.tagPolicy,
-            stepKinds: shouldPlanNotify ? canonicalStepKinds + [.notify] : canonicalStepKinds
+            projectAssociationPolicy: template?.projectAssociationPolicy,
+            workflowStatusPolicy: template?.workflowStatusPolicy,
+            stepKinds: shouldPlanNotify ? orderedStepKinds + [.notify] : orderedStepKinds
         )
     }
 
@@ -172,6 +185,23 @@ final class WorkflowPlanner {
         }
 
         var blockers: [WorkflowPlanBlockerReason] = []
+
+        let plannedProjectAssociationTarget: String?
+        if definition.stepKinds.contains(.projectAssociation) {
+            plannedProjectAssociationTarget = projectAssociationTarget(
+                for: definition,
+                blockers: &blockers
+            )
+        } else {
+            plannedProjectAssociationTarget = nil
+        }
+
+        let plannedWorkflowStatusTarget: MetadataWorkflowStatus?
+        if definition.stepKinds.contains(.workflowStatus) {
+            plannedWorkflowStatusTarget = workflowStatusTarget(for: definition.workflowStatusPolicy)
+        } else {
+            plannedWorkflowStatusTarget = nil
+        }
 
         if template == nil {
             blockers.append(.templateUnavailable(templateID: definition.templateID))
@@ -220,6 +250,8 @@ final class WorkflowPlanner {
             finalDestinationPath: finalDestinationPath,
             renameTargetName: plannedRenameTargetName,
             tagIntents: plannedTagIntents,
+            projectAssociationTarget: plannedProjectAssociationTarget,
+            workflowStatusTarget: plannedWorkflowStatusTarget,
             blockers: blockers
         )
     }
@@ -262,7 +294,9 @@ final class WorkflowPlanner {
         sourcePath: String,
         workingPath: String,
         finalDestinationPath: String?,
-        tagIntents: [String]
+        tagIntents: [String],
+        projectAssociationTarget: String?,
+        workflowStatusTarget: MetadataWorkflowStatus?
     ) -> [WorkflowSimulatedStep] {
         var earlierStepBlocker: WorkflowPlanBlockerReason?
 
@@ -300,7 +334,9 @@ final class WorkflowPlanner {
                     sourcePath: sourcePath,
                     workingPath: workingPath,
                     finalDestinationPath: finalDestinationPath,
-                    tagIntents: tagIntents
+                    tagIntents: tagIntents,
+                    projectAssociationTarget: projectAssociationTarget,
+                    workflowStatusTarget: workflowStatusTarget
                 )
             )
         }
@@ -328,7 +364,9 @@ final class WorkflowPlanner {
         sourcePath: String,
         workingPath: String,
         finalDestinationPath: String?,
-        tagIntents: [String]
+        tagIntents: [String],
+        projectAssociationTarget: String?,
+        workflowStatusTarget: MetadataWorkflowStatus?
     ) -> WorkflowCompensationPayloadDescriptor? {
         guard disposition == .planned else {
             return nil
@@ -339,6 +377,22 @@ final class WorkflowPlanner {
             return .renameRollback(originalPath: sourcePath, renamedPath: workingPath)
         case .tag:
             return .tagRemoval(path: workingPath, tagsToRemove: tagIntents)
+        case .projectAssociation:
+            guard projectAssociationTarget != nil else {
+                return nil
+            }
+            return .projectAssociationRestore(
+                path: workingPath,
+                previousProjectAssociation: nil
+            )
+        case .workflowStatus:
+            guard workflowStatusTarget != nil else {
+                return nil
+            }
+            return .workflowStatusRestore(
+                path: workingPath,
+                previousWorkflowStatus: nil
+            )
         case .move:
             guard let finalDestinationPath else {
                 return nil
@@ -367,6 +421,61 @@ final class WorkflowPlanner {
         }
 
         return template.notificationPolicy == .trustedScopeOnly
+    }
+
+    private func metadataStepKinds(
+        template: BuiltInWorkflowTemplate?,
+        invocationContext: WorkflowInvocationContext
+    ) -> [WorkflowStepKind] {
+        guard invocationContext.supportsProjectMetadataSteps,
+              let template else {
+            return []
+        }
+
+        var stepKinds: [WorkflowStepKind] = []
+        if template.projectAssociationPolicy != nil {
+            stepKinds.append(.projectAssociation)
+        }
+        if template.workflowStatusPolicy != nil {
+            stepKinds.append(.workflowStatus)
+        }
+        return stepKinds
+    }
+
+    private func projectAssociationTarget(
+        for definition: WorkflowDefinition,
+        blockers: inout [WorkflowPlanBlockerReason]
+    ) -> String? {
+        guard let projectAssociationPolicy = definition.projectAssociationPolicy else {
+            return nil
+        }
+
+        switch projectAssociationPolicy {
+        case .invocationProjectLabel:
+            guard let projectLabel = definition.invocationContext.workflowProjectLabel else {
+                blockers.append(
+                    .compensationPreconditionMissing(
+                        stepKind: .projectAssociation,
+                        detail: "Workflow project-association steps require a non-empty project label."
+                    )
+                )
+                return nil
+            }
+            return projectLabel
+        }
+    }
+
+    private func workflowStatusTarget(
+        for policy: BuiltInWorkflowTemplate.WorkflowStatusPolicy?
+    ) -> MetadataWorkflowStatus? {
+        guard let policy else {
+            return nil
+        }
+
+        switch policy {
+        case .organized:
+            return .organized
+        }
     }
 
     private func renameTargetName(
@@ -464,5 +573,21 @@ final class WorkflowPlanner {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         return formatter
+    }
+}
+
+private extension Array where Element == WorkflowStepKind {
+    func inserting(contentsOf newElements: [WorkflowStepKind], after marker: WorkflowStepKind) -> [WorkflowStepKind] {
+        guard !newElements.isEmpty else {
+            return self
+        }
+
+        guard let markerIndex = firstIndex(of: marker) else {
+            return self + newElements
+        }
+
+        var copy = self
+        copy.insert(contentsOf: newElements, at: copy.index(after: markerIndex))
+        return copy
     }
 }

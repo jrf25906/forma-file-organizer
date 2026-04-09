@@ -132,26 +132,28 @@ final class AutomationEngineNotificationTests: XCTestCase {
     @MainActor
     private final class WorkflowExecutionSpy {
         private(set) var plannedInvocationContexts: [WorkflowInvocationContext] = []
+        private(set) var plannedRequests: [WorkflowExecutionRequest] = []
         var failingFileNames: Set<String> = []
         var runError: Error?
 
         lazy var client = WorkflowExecutionClient(
-            plan: { templateID, files, invocationContext in
-                self.plannedInvocationContexts.append(invocationContext)
+            planRequest: { request, files in
+                self.plannedInvocationContexts.append(request.invocationContext)
+                self.plannedRequests.append(request)
                 return WorkflowPlanner().plan(
-                    templateID: templateID,
+                    templateID: request.templateID,
                     files: files,
-                    invocationContext: invocationContext
+                    invocationContext: request.invocationContext
                 )
             },
-            run: { [weak self] plan, files, scopeID, _ in
+            runRequest: { [weak self] request, plan, files, _ in
                 let fileNames = files.map(\.name)
                 let shouldFail = await MainActor.run {
                     fileNames.contains { self?.failingFileNames.contains($0) == true }
                 }
                 guard shouldFail else {
                     return WorkflowRunRecord(
-                        scopeID: scopeID,
+                        scopeID: request.scopeID,
                         workflowTemplateID: plan.definition.templateID,
                         primaryStatus: .succeeded,
                         startedAt: Date(timeIntervalSince1970: 1_000),
@@ -164,7 +166,7 @@ final class AutomationEngineNotificationTests: XCTestCase {
                 }
 
                 return WorkflowRunRecord(
-                    scopeID: scopeID,
+                    scopeID: request.scopeID,
                     workflowTemplateID: plan.definition.templateID,
                     primaryStatus: .completedWithIssues,
                     startedAt: Date(timeIntervalSince1970: 1_000),
@@ -639,7 +641,7 @@ final class AutomationEngineNotificationTests: XCTestCase {
         )
 
         let automationService = ProjectSpaceAutomationService(modelContext: context)
-        _ = try automationService.createOrUpdatePolicy(
+        let projectPolicy = try automationService.createOrUpdatePolicy(
             normalizedProjectLabel: "Alpha",
             workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
             triggerKinds: [.folderWatch],
@@ -712,6 +714,20 @@ final class AutomationEngineNotificationTests: XCTestCase {
                 .projectPolicyRealtime(projectLabel: "Alpha", policyName: "Project Drop Zone")
             )
         )
+        let request = try XCTUnwrap(
+            workflowExecution.plannedRequests.first(where: {
+                if case .projectPolicy = $0.entryPoint { return true }
+                return false
+            })
+        )
+        guard case let .projectPolicy(policyID, triggerKind, projectLabel, policyName) = request.entryPoint else {
+            XCTFail("Expected realtime project-policy execution request")
+            return
+        }
+        XCTAssertEqual(policyID, projectPolicy.id)
+        XCTAssertEqual(triggerKind, .folderWatch)
+        XCTAssertEqual(projectLabel, "Alpha")
+        XCTAssertEqual(policyName, "Project Drop Zone")
     }
 
     func testExecutionFailureStillSendsGroupedAttentionNotificationForMixedScopeRun() async throws {

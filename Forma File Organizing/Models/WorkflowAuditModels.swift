@@ -19,6 +19,8 @@ enum WorkflowRunRollbackStatus: String, Codable, Sendable, Hashable {
 }
 
 enum WorkflowStepStatus: String, Codable, Sendable, Hashable {
+    case planned
+    case blocked
     case pending
     case running
     case succeeded
@@ -45,11 +47,48 @@ enum WorkflowCompensationStatus: String, Codable, Sendable, Hashable {
     case failed
 }
 
+struct WorkflowFileMetadataDelta: Codable, Sendable, Hashable {
+    let addedTags: [String]
+    let removedTags: [String]
+    let previousProjectAssociation: String?
+    let resultingProjectAssociation: String?
+    let previousWorkflowStatus: MetadataWorkflowStatus?
+    let resultingWorkflowStatus: MetadataWorkflowStatus?
+
+    init(
+        addedTags: [String] = [],
+        removedTags: [String] = [],
+        previousProjectAssociation: String? = nil,
+        resultingProjectAssociation: String? = nil,
+        previousWorkflowStatus: MetadataWorkflowStatus? = nil,
+        resultingWorkflowStatus: MetadataWorkflowStatus? = nil
+    ) {
+        self.addedTags = addedTags
+        self.removedTags = removedTags
+        self.previousProjectAssociation = WorkflowRunRecord.normalizedOptionalText(previousProjectAssociation)
+        self.resultingProjectAssociation = WorkflowRunRecord.normalizedOptionalText(resultingProjectAssociation)
+        self.previousWorkflowStatus = previousWorkflowStatus
+        self.resultingWorkflowStatus = resultingWorkflowStatus
+    }
+
+    var isEmpty: Bool {
+        addedTags.isEmpty &&
+        removedTags.isEmpty &&
+        previousProjectAssociation == nil &&
+        resultingProjectAssociation == nil &&
+        previousWorkflowStatus == nil &&
+        resultingWorkflowStatus == nil
+    }
+}
+
 @Model
 final class WorkflowRunRecord {
     var id: UUID
     var scopeID: UUID
     var workflowTemplateID: String?
+    private var triggerSurfaceRaw: String?
+    var ownerDisplayName: String?
+    var policyName: String?
     private var primaryStatusRaw: String
     private var rollbackStatusRaw: String
     var startedAt: Date
@@ -69,10 +108,23 @@ final class WorkflowRunRecord {
         set { rollbackStatusRaw = newValue.rawValue }
     }
 
+    var triggerSurface: ActivityItem.WorkflowTriggerSurface? {
+        get {
+            guard let triggerSurfaceRaw else { return nil }
+            return ActivityItem.WorkflowTriggerSurface(rawValue: triggerSurfaceRaw)
+        }
+        set {
+            triggerSurfaceRaw = newValue?.rawValue
+        }
+    }
+
     init(
         id: UUID = UUID(),
         scopeID: UUID,
         workflowTemplateID: String?,
+        triggerSurface: ActivityItem.WorkflowTriggerSurface? = nil,
+        ownerDisplayName: String? = nil,
+        policyName: String? = nil,
         primaryStatus: WorkflowRunPrimaryStatus,
         rollbackStatus: WorkflowRunRollbackStatus = .notRequested,
         startedAt: Date,
@@ -85,6 +137,9 @@ final class WorkflowRunRecord {
         self.id = id
         self.scopeID = scopeID
         self.workflowTemplateID = Self.normalizedOptionalText(workflowTemplateID)
+        self.triggerSurfaceRaw = triggerSurface?.rawValue
+        self.ownerDisplayName = Self.normalizedOptionalText(ownerDisplayName)
+        self.policyName = Self.normalizedOptionalText(policyName)
         self.primaryStatusRaw = primaryStatus.rawValue
         self.rollbackStatusRaw = rollbackStatus.rawValue
         self.startedAt = startedAt
@@ -154,6 +209,7 @@ final class WorkflowFileActionRecord {
     private var dispositionRaw: String
     private var compensationStatusRaw: String
     private var compensationPayloadData: Data
+    private var metadataDeltaData: Data
     var failureReason: String?
     var recordedAt: Date
 
@@ -177,6 +233,20 @@ final class WorkflowFileActionRecord {
         }
     }
 
+    var metadataDelta: WorkflowFileMetadataDelta? {
+        get {
+            guard !metadataDeltaData.isEmpty else { return nil }
+            return Self.decode(WorkflowFileMetadataDelta.self, from: metadataDeltaData)
+        }
+        set {
+            guard let newValue, !newValue.isEmpty else {
+                metadataDeltaData = Data()
+                return
+            }
+            metadataDeltaData = Self.encode(newValue) ?? Data()
+        }
+    }
+
     init(
         id: UUID = UUID(),
         runID: UUID,
@@ -187,6 +257,7 @@ final class WorkflowFileActionRecord {
         disposition: WorkflowFileDisposition,
         compensationStatus: WorkflowCompensationStatus = .notNeeded,
         compensationPayload: [String: String]? = nil,
+        metadataDelta: WorkflowFileMetadataDelta? = nil,
         failureReason: String? = nil,
         recordedAt: Date = Date()
     ) {
@@ -199,6 +270,7 @@ final class WorkflowFileActionRecord {
         self.dispositionRaw = disposition.rawValue
         self.compensationStatusRaw = compensationStatus.rawValue
         self.compensationPayloadData = Self.encode(compensationPayload) ?? Data()
+        self.metadataDeltaData = metadataDelta.flatMap { Self.encode($0) } ?? Data()
         self.failureReason = WorkflowRunRecord.normalizedOptionalText(failureReason)
         self.recordedAt = recordedAt
     }

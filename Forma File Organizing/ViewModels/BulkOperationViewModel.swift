@@ -30,6 +30,7 @@ class BulkOperationViewModel: ObservableObject {
 
     struct PreparedWorkflowExecution {
         let template: BuiltInWorkflowTemplate
+        let request: WorkflowExecutionRequest
         let plan: WorkflowPlan
         let partition: WorkflowExecutionPartition
     }
@@ -450,10 +451,26 @@ class BulkOperationViewModel: ObservableObject {
         template: BuiltInWorkflowTemplate,
         invocationContext: WorkflowInvocationContext
     ) -> PreparedWorkflowExecution {
-        let plan = workflowExecution.plan(template.id, files, invocationContext)
+        prepareWorkflowExecution(
+            files,
+            template: template,
+            request: WorkflowExecutionRequest(
+                templateID: template.id,
+                invocationContext: invocationContext
+            )
+        )
+    }
+
+    func prepareWorkflowExecution(
+        _ files: [FileItem],
+        template: BuiltInWorkflowTemplate,
+        request: WorkflowExecutionRequest
+    ) -> PreparedWorkflowExecution {
+        let plan = workflowExecution.plan(request, files)
         let partition = partitionWorkflowPlan(plan, files: files)
         return PreparedWorkflowExecution(
             template: template,
+            request: request,
             plan: plan,
             partition: partition
         )
@@ -461,13 +478,14 @@ class BulkOperationViewModel: ObservableObject {
 
     func runPreparedWorkflowExecution(
         _ execution: PreparedWorkflowExecution,
-        scopeID: UUID = UUID(),
+        scopeID: UUID? = nil,
         context: ModelContext
     ) async throws -> WorkflowRunRecord {
+        let executionRequest = execution.request.replacingScopeID(scopeID ?? execution.request.scopeID)
         let runRecord = try await workflowExecution.run(
+            executionRequest,
             execution.partition.runnablePlan,
             execution.partition.runnableFiles,
-            scopeID,
             context
         )
 

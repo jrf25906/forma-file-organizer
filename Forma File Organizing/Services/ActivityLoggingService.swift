@@ -339,8 +339,17 @@ final class ActivityLoggingService {
         case .canceled:
             statusSummary = "canceled"
         }
+        let ownershipContext = [run.ownerDisplayName, run.policyName]
+            .compactMap { value -> String? in
+                guard let value else { return nil }
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }
+        let ownershipSummary = ownershipContext.isEmpty
+            ? ""
+            : " (\(ownershipContext.joined(separator: " • ")))"
         let details = [
-            "\(triggerSurfaceLabel) workflow run \(statusSummary) for \(fileSummary)",
+            "\(triggerSurfaceLabel) workflow run \(statusSummary) for \(fileSummary)\(ownershipSummary)",
             ActivityItem.workflowRollbackText(
                 primaryStatus: run.primaryStatus,
                 rollbackStatus: run.rollbackStatus

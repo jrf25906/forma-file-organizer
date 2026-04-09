@@ -33,13 +33,15 @@ struct WorkflowPreparedStepExecution {
     let compensationStatus: WorkflowCompensationStatus
     let compensationPayloadDescriptor: WorkflowCompensationPayloadDescriptor?
     let compensationAuditPayload: [String: String]?
+    let metadataDelta: WorkflowFileMetadataDelta?
 
     init(
         sourcePath: String?,
         destinationPath: String?,
         compensationStatus: WorkflowCompensationStatus,
         compensationPayloadDescriptor: WorkflowCompensationPayloadDescriptor?,
-        compensationAuditPayload: [String: String]? = nil
+        compensationAuditPayload: [String: String]? = nil,
+        metadataDelta: WorkflowFileMetadataDelta? = nil
     ) {
         self.sourcePath = sourcePath
         self.destinationPath = destinationPath
@@ -47,6 +49,7 @@ struct WorkflowPreparedStepExecution {
         self.compensationPayloadDescriptor = compensationPayloadDescriptor
         self.compensationAuditPayload = compensationAuditPayload
             ?? WorkflowCompensationPayloadCodec.encode(compensationPayloadDescriptor)
+        self.metadataDelta = metadataDelta?.isEmpty == false ? metadataDelta : nil
     }
 }
 
@@ -57,6 +60,7 @@ struct WorkflowStepExecutionResult {
     let compensationStatus: WorkflowCompensationStatus
     let compensationPayloadDescriptor: WorkflowCompensationPayloadDescriptor?
     let compensationAuditPayload: [String: String]?
+    let metadataDelta: WorkflowFileMetadataDelta?
 
     init(
         sourcePath: String?,
@@ -64,7 +68,8 @@ struct WorkflowStepExecutionResult {
         disposition: WorkflowFileDisposition,
         compensationStatus: WorkflowCompensationStatus,
         compensationPayloadDescriptor: WorkflowCompensationPayloadDescriptor?,
-        compensationAuditPayload: [String: String]? = nil
+        compensationAuditPayload: [String: String]? = nil,
+        metadataDelta: WorkflowFileMetadataDelta? = nil
     ) {
         self.sourcePath = sourcePath
         self.destinationPath = destinationPath
@@ -73,6 +78,7 @@ struct WorkflowStepExecutionResult {
         self.compensationPayloadDescriptor = compensationPayloadDescriptor
         self.compensationAuditPayload = compensationAuditPayload
             ?? WorkflowCompensationPayloadCodec.encode(compensationPayloadDescriptor)
+        self.metadataDelta = metadataDelta?.isEmpty == false ? metadataDelta : nil
     }
 }
 
@@ -83,6 +89,7 @@ struct WorkflowStepExecutionFailure: Error, LocalizedError {
     let compensationStatus: WorkflowCompensationStatus
     let compensationPayloadDescriptor: WorkflowCompensationPayloadDescriptor?
     let compensationAuditPayload: [String: String]?
+    let metadataDelta: WorkflowFileMetadataDelta?
 
     var errorDescription: String? {
         underlyingError.localizedDescription
@@ -95,6 +102,8 @@ enum WorkflowCompensationPayloadCodec {
     private static let renamedPathKey = "renamedPath"
     private static let pathKey = "path"
     private static let tagsJSONKey = "tagsJSON"
+    private static let previousProjectAssociationKey = "previousProjectAssociation"
+    private static let previousWorkflowStatusKey = "previousWorkflowStatus"
     private static let originalDestinationPathKey = "originalDestinationPath"
     private static let rollbackPathKey = "rollbackPath"
 
@@ -119,6 +128,20 @@ enum WorkflowCompensationPayloadCodec {
                 pathKey: path,
                 tagsJSONKey: tagsJSON
             ]
+        case .projectAssociationRestore(let path, let previousProjectAssociation):
+            var payload = [
+                kindKey: WorkflowStepKind.projectAssociation.rawValue,
+                pathKey: path
+            ]
+            payload[previousProjectAssociationKey] = previousProjectAssociation
+            return payload
+        case .workflowStatusRestore(let path, let previousWorkflowStatus):
+            var payload = [
+                kindKey: WorkflowStepKind.workflowStatus.rawValue,
+                pathKey: path
+            ]
+            payload[previousWorkflowStatusKey] = previousWorkflowStatus?.rawValue
+            return payload
         case .moveRollback(let originalDestinationPath, let rollbackPath):
             return [
                 kindKey: WorkflowStepKind.move.rawValue,
@@ -148,6 +171,24 @@ enum WorkflowCompensationPayloadCodec {
                 return nil
             }
             return .tagRemoval(path: path, tagsToRemove: tags)
+        case WorkflowStepKind.projectAssociation.rawValue:
+            guard let path = payload[pathKey] else {
+                return nil
+            }
+            return .projectAssociationRestore(
+                path: path,
+                previousProjectAssociation: payload[previousProjectAssociationKey]
+            )
+        case WorkflowStepKind.workflowStatus.rawValue:
+            guard let path = payload[pathKey] else {
+                return nil
+            }
+            let previousWorkflowStatus = payload[previousWorkflowStatusKey]
+                .flatMap(MetadataWorkflowStatus.init(rawValue:))
+            return .workflowStatusRestore(
+                path: path,
+                previousWorkflowStatus: previousWorkflowStatus
+            )
         case WorkflowStepKind.move.rawValue:
             guard let originalDestinationPath = payload[originalDestinationPathKey],
                   let rollbackPath = payload[rollbackPathKey] else {
@@ -184,6 +225,7 @@ final class WorkflowRunner {
         let disposition: WorkflowFileDisposition
         let compensationStatus: WorkflowCompensationStatus
         let compensationPayload: [String: String]?
+        let metadataDelta: WorkflowFileMetadataDelta?
         let failureReason: String?
         let recordedAt: Date
     }
@@ -225,6 +267,9 @@ final class WorkflowRunner {
         private var createRunImpl: @MainActor (
             _ scopeID: UUID,
             _ workflowTemplateID: String?,
+            _ triggerSurface: ActivityItem.WorkflowTriggerSurface?,
+            _ ownerDisplayName: String?,
+            _ policyName: String?,
             _ startedAt: Date,
             _ primaryStatus: WorkflowRunPrimaryStatus
         ) throws -> WorkflowRunRecord
@@ -250,10 +295,13 @@ final class WorkflowRunner {
 
         static func live(store: WorkflowAuditStore) -> AuditOperations {
             AuditOperations(
-                createRunImpl: { scopeID, workflowTemplateID, startedAt, primaryStatus in
+                createRunImpl: { scopeID, workflowTemplateID, triggerSurface, ownerDisplayName, policyName, startedAt, primaryStatus in
                     try store.createRun(
                         scopeID: scopeID,
                         workflowTemplateID: workflowTemplateID,
+                        triggerSurface: triggerSurface,
+                        ownerDisplayName: ownerDisplayName,
+                        policyName: policyName,
                         startedAt: startedAt,
                         primaryStatus: primaryStatus
                     )
@@ -292,6 +340,7 @@ final class WorkflowRunner {
                         disposition: request.disposition,
                         compensationStatus: request.compensationStatus,
                         compensationPayload: request.compensationPayload,
+                        metadataDelta: request.metadataDelta,
                         failureReason: request.failureReason,
                         recordedAt: request.recordedAt
                     )
@@ -303,10 +352,21 @@ final class WorkflowRunner {
         func createRun(
             scopeID: UUID,
             workflowTemplateID: String?,
+            triggerSurface: ActivityItem.WorkflowTriggerSurface?,
+            ownerDisplayName: String?,
+            policyName: String?,
             startedAt: Date,
             primaryStatus: WorkflowRunPrimaryStatus
         ) throws -> WorkflowRunRecord {
-            try createRunImpl(scopeID, workflowTemplateID, startedAt, primaryStatus)
+            try createRunImpl(
+                scopeID,
+                workflowTemplateID,
+                triggerSurface,
+                ownerDisplayName,
+                policyName,
+                startedAt,
+                primaryStatus
+            )
         }
 
         @MainActor
@@ -439,6 +499,7 @@ final class WorkflowRunner {
         let file: FileItem
         let fileIdentity: String
         let compensationRecordID: UUID
+        let rollbackMetadataDelta: WorkflowFileMetadataDelta?
     }
 
     private let auditOperations: AuditOperations
@@ -460,6 +521,8 @@ final class WorkflowRunner {
         self.executorsByKind = executorsByKind ?? [
             .rename: RenameWorkflowStepExecutor(),
             .tag: TagWorkflowStepExecutor(),
+            .projectAssociation: ProjectAssociationWorkflowStepExecutor(),
+            .workflowStatus: WorkflowStatusWorkflowStepExecutor(),
             .move: MoveWorkflowStepExecutor()
         ]
         self.sideEffectExecutorsByKind = sideEffectExecutorsByKind ?? [
@@ -471,17 +534,22 @@ final class WorkflowRunner {
 
     @discardableResult
     func run(
+        request: WorkflowExecutionRequest,
         plan: WorkflowPlan,
         files: [FileItem],
-        scopeID: UUID,
         modelContext: ModelContext
     ) async throws -> WorkflowRunRecord {
         let runRecord = try auditOperations.createRun(
-            scopeID: scopeID,
-            workflowTemplateID: plan.definition.templateID,
+            scopeID: request.scopeID,
+            workflowTemplateID: request.templateID,
+            triggerSurface: request.triggerSurface,
+            ownerDisplayName: request.auditOwnerDisplayName,
+            policyName: request.auditPolicyName,
             startedAt: clock(),
             primaryStatus: .running
         )
+
+        recordPreflightAudit(runID: runRecord.id, plan: plan)
 
         guard !plan.hasBlockers else {
             try auditOperations.updateRunStatus(
@@ -538,6 +606,7 @@ final class WorkflowRunner {
                             disposition: .pending,
                             compensationStatus: prepared.compensationStatus,
                             compensationPayload: prepared.compensationAuditPayload,
+                            metadataDelta: prepared.metadataDelta,
                             failureReason: nil,
                             recordedAt: startedAt
                         )
@@ -554,7 +623,8 @@ final class WorkflowRunner {
                         file: file,
                         fileIdentity: fileIdentity,
                         compensationStatus: result.compensationStatus,
-                        compensationRecordID: preparedAction?.id
+                        compensationRecordID: preparedAction?.id,
+                        metadataDelta: result.metadataDelta
                     ) {
                         executedActions.append(executedAction)
                     }
@@ -565,7 +635,8 @@ final class WorkflowRunner {
                         fileIdentity: fileIdentity,
                         result: result,
                         startedAt: startedAt,
-                        endedAt: endedAt
+                        endedAt: endedAt,
+                        metadataDelta: result.metadataDelta
                     )
                 } catch let failure as WorkflowStepExecutionFailure {
                     if let executedAction = executedAction(
@@ -573,7 +644,8 @@ final class WorkflowRunner {
                         file: file,
                         fileIdentity: fileIdentity,
                         compensationStatus: failure.compensationStatus,
-                        compensationRecordID: preparedAction?.id
+                        compensationRecordID: preparedAction?.id,
+                        metadataDelta: failure.metadataDelta
                     ) {
                         executedActions.append(executedAction)
                     }
@@ -587,6 +659,7 @@ final class WorkflowRunner {
                         destinationPath: failure.destinationPath,
                         compensationStatus: failure.compensationStatus,
                         compensationPayload: failure.compensationAuditPayload,
+                        metadataDelta: failure.metadataDelta,
                         failureReason: failure.localizedDescription,
                         startedAt: startedAt,
                         endedAt: endedAt
@@ -610,6 +683,7 @@ final class WorkflowRunner {
                         destinationPath: file.path,
                         compensationStatus: .notNeeded,
                         compensationPayload: nil,
+                        metadataDelta: nil,
                         failureReason: error.localizedDescription,
                         startedAt: startedAt,
                         endedAt: endedAt
@@ -658,6 +732,25 @@ final class WorkflowRunner {
         return runRecord
     }
 
+    @discardableResult
+    func run(
+        plan: WorkflowPlan,
+        files: [FileItem],
+        scopeID: UUID,
+        modelContext: ModelContext
+    ) async throws -> WorkflowRunRecord {
+        try await run(
+            request: WorkflowExecutionRequest(
+                templateID: plan.definition.templateID,
+                scopeID: scopeID,
+                invocationContext: plan.definition.invocationContext
+            ),
+            plan: plan,
+            files: files,
+            modelContext: modelContext
+        )
+    }
+
     private func handleFailure(
         error: Error,
         runID: UUID,
@@ -675,7 +768,7 @@ final class WorkflowRunner {
             // Rollback must continue when audit status persistence fails.
         }
 
-        let compensationActions = try executedActions.compactMap { executedAction in
+        let compensationActions: [WorkflowCompensationAction] = try executedActions.compactMap { executedAction in
             guard let executor = executorsByKind[executedAction.stepKind] else {
                 throw RunnerError.missingExecutor(executedAction.stepKind)
             }
@@ -684,11 +777,22 @@ final class WorkflowRunner {
                 for: executedAction.compensationRecordID,
                 modelContext: modelContext
             )
-            return try executor.makeCompensationAction(
+            guard let compensationAction = try executor.makeCompensationAction(
                 fileIdentity: executedAction.fileIdentity,
                 compensationPayload: compensationPayload,
                 file: executedAction.file,
                 modelContext: modelContext
+            ) else {
+                return nil
+            }
+
+            return WorkflowCompensationAction(
+                stepKind: compensationAction.stepKind,
+                fileIdentity: compensationAction.fileIdentity,
+                sourcePath: compensationAction.sourcePath,
+                destinationPath: compensationAction.destinationPath,
+                metadataDelta: executedAction.rollbackMetadataDelta ?? compensationAction.metadataDelta,
+                apply: compensationAction.apply
             )
         }
 
@@ -727,7 +831,7 @@ final class WorkflowRunner {
         do {
             try auditOperations.updateRollbackStatus(
                 runID: runID,
-                rollbackStatus: outcomes.allSatisfy(\.succeeded) ? .succeeded : .failed,
+                rollbackStatus: outcomes.allSatisfy { $0.succeeded } ? .succeeded : .failed,
                 rollbackReason: error.localizedDescription,
                 rollbackCompletedAt: rollbackCompletedAt,
                 updatedAt: rollbackCompletedAt
@@ -807,13 +911,42 @@ final class WorkflowRunner {
         return resolvedPrimaryStatus
     }
 
+    private func recordPreflightAudit(runID: UUID, plan: WorkflowPlan) {
+        let recordedAt = clock()
+
+        for plannedFile in plan.files {
+            for plannedStep in plannedFile.steps where !Self.isSideEffectStep(plannedStep.kind) {
+                do {
+                    _ = try auditOperations.recordStepStatus(
+                        AuditStepStatusRequest(
+                            runID: runID,
+                            stepID: Self.stepID(
+                                phase: "execute",
+                                stepKind: plannedStep.kind,
+                                filePath: plannedFile.sourcePath
+                            ),
+                            status: Self.preflightStatus(for: plannedStep.disposition),
+                            startedAt: nil,
+                            endedAt: recordedAt,
+                            errorMessage: plannedStep.blocker.map { String(describing: $0) },
+                            recordedAt: recordedAt
+                        )
+                    )
+                } catch {
+                    // Preflight audit failures must not block execution or rollback.
+                }
+            }
+        }
+    }
+
     private func recordSuccessfulStepAudit(
         runID: UUID,
         stepID: String,
         fileIdentity: String,
         result: WorkflowStepExecutionResult,
         startedAt: Date,
-        endedAt: Date
+        endedAt: Date,
+        metadataDelta: WorkflowFileMetadataDelta?
     ) {
         do {
             let stepRun = try auditOperations.recordStepStatus(
@@ -837,6 +970,7 @@ final class WorkflowRunner {
                     disposition: result.disposition,
                     compensationStatus: result.compensationStatus,
                     compensationPayload: result.compensationAuditPayload,
+                    metadataDelta: metadataDelta,
                     failureReason: nil,
                     recordedAt: endedAt
                 )
@@ -880,13 +1014,14 @@ final class WorkflowRunner {
                         fileIdentity: fileIdentity,
                         sourcePath: file.path,
                         destinationPath: file.path,
-                        disposition: disposition,
-                        compensationStatus: .notNeeded,
-                        compensationPayload: nil,
-                        failureReason: nil,
-                        recordedAt: endedAt
-                    )
+                    disposition: disposition,
+                    compensationStatus: .notNeeded,
+                    compensationPayload: nil,
+                    metadataDelta: nil,
+                    failureReason: nil,
+                    recordedAt: endedAt
                 )
+            )
             }
         } catch {
             // Side-effect audit failures must not surface as workflow execution failures.
@@ -925,6 +1060,7 @@ final class WorkflowRunner {
                     disposition: outcome.succeeded ? .restored : .failed,
                     compensationStatus: outcome.succeeded ? .applied : .failed,
                     compensationPayload: nil,
+                    metadataDelta: rollbackMetadataDelta(for: outcome),
                     failureReason: outcome.error?.localizedDescription,
                     recordedAt: recordedAt
                 )
@@ -967,13 +1103,14 @@ final class WorkflowRunner {
                         fileIdentity: fileIdentity,
                         sourcePath: file.path,
                         destinationPath: file.path,
-                        disposition: .failed,
-                        compensationStatus: .notNeeded,
-                        compensationPayload: nil,
-                        failureReason: failureReason,
-                        recordedAt: endedAt
-                    )
+                    disposition: .failed,
+                    compensationStatus: .notNeeded,
+                    compensationPayload: nil,
+                    metadataDelta: nil,
+                    failureReason: failureReason,
+                    recordedAt: endedAt
                 )
+            )
             }
         } catch {
             // Side-effect audit failures must not surface as workflow execution failures.
@@ -994,6 +1131,17 @@ final class WorkflowRunner {
 
     private static func isSideEffectStep(_ stepKind: WorkflowStepKind) -> Bool {
         stepKind == .log || stepKind == .notify
+    }
+
+    private static func preflightStatus(for disposition: WorkflowStepDisposition) -> WorkflowStepStatus {
+        switch disposition {
+        case .planned:
+            return .planned
+        case .blocked:
+            return .blocked
+        case .skipped:
+            return .skipped
+        }
     }
 
     private func orderedSideEffectStepKinds(from stepKinds: [WorkflowStepKind]) -> [WorkflowStepKind] {
@@ -1018,7 +1166,8 @@ final class WorkflowRunner {
         file: FileItem,
         fileIdentity: String,
         compensationStatus: WorkflowCompensationStatus,
-        compensationRecordID: UUID?
+        compensationRecordID: UUID?,
+        metadataDelta: WorkflowFileMetadataDelta?
     ) -> ExecutedFileAction? {
         guard compensationStatus == .available,
               let compensationRecordID else {
@@ -1029,7 +1178,8 @@ final class WorkflowRunner {
             stepKind: stepKind,
             file: file,
             fileIdentity: fileIdentity,
-            compensationRecordID: compensationRecordID
+            compensationRecordID: compensationRecordID,
+            rollbackMetadataDelta: inverseMetadataDelta(for: metadataDelta)
         )
     }
 
@@ -1052,6 +1202,27 @@ final class WorkflowRunner {
         return compensationPayload
     }
 
+    private func rollbackMetadataDelta(for outcome: WorkflowCompensationOutcome) -> WorkflowFileMetadataDelta? {
+        outcome.action.metadataDelta
+    }
+
+    private func inverseMetadataDelta(for metadataDelta: WorkflowFileMetadataDelta?) -> WorkflowFileMetadataDelta? {
+        guard let metadataDelta else {
+            return nil
+        }
+
+        let inverted = WorkflowFileMetadataDelta(
+            addedTags: metadataDelta.removedTags,
+            removedTags: metadataDelta.addedTags,
+            previousProjectAssociation: metadataDelta.resultingProjectAssociation,
+            resultingProjectAssociation: metadataDelta.previousProjectAssociation,
+            previousWorkflowStatus: metadataDelta.resultingWorkflowStatus,
+            resultingWorkflowStatus: metadataDelta.previousWorkflowStatus
+        )
+
+        return inverted.isEmpty ? nil : inverted
+    }
+
     private func recordFailureAudit(
         runID: UUID,
         stepID: String,
@@ -1060,6 +1231,7 @@ final class WorkflowRunner {
         destinationPath: String?,
         compensationStatus: WorkflowCompensationStatus,
         compensationPayload: [String: String]?,
+        metadataDelta: WorkflowFileMetadataDelta?,
         failureReason: String,
         startedAt: Date,
         endedAt: Date
@@ -1086,6 +1258,7 @@ final class WorkflowRunner {
                     disposition: .failed,
                     compensationStatus: compensationStatus,
                     compensationPayload: compensationPayload,
+                    metadataDelta: metadataDelta,
                     failureReason: failureReason,
                     recordedAt: endedAt
                 )

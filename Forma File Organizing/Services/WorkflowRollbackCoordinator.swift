@@ -5,6 +5,7 @@ struct WorkflowCompensationAction {
     let fileIdentity: String
     let sourcePath: String?
     let destinationPath: String?
+    let metadataDelta: WorkflowFileMetadataDelta?
     let apply: @MainActor () throws -> Void
 }
 

@@ -295,6 +295,15 @@ struct FileInspectorView: View {
             metadataRow(label: "Template", value: summary.templateDisplayName)
             metadataRow(label: "Status", value: summary.statusText)
             metadataRow(label: "Rollback", value: summary.rollbackText)
+            metadataRow(label: "Trigger", value: summary.triggerSurfaceLabel)
+
+            if let ownerDisplayName = summary.ownerDisplayName {
+                metadataRow(label: "Owner", value: ownerDisplayName)
+            }
+
+            if let policyName = summary.policyName {
+                metadataRow(label: "Policy", value: policyName)
+            }
 
             if let renameResultFileName = summary.renameResultFileName {
                 metadataRow(label: "Rename", value: renameResultFileName)
@@ -302,6 +311,14 @@ struct FileInspectorView: View {
 
             if !summary.appliedTags.isEmpty {
                 metadataRow(label: "Tags", value: summary.appliedTags.joined(separator: ", "))
+            }
+
+            if let projectAssociationDisplayName = summary.projectAssociationDisplayName {
+                metadataRow(label: "Project", value: projectAssociationDisplayName)
+            }
+
+            if let workflowStatusDisplayName = summary.workflowStatusDisplayName {
+                metadataRow(label: "Workflow", value: workflowStatusDisplayName)
             }
 
             if let moveDestinationDisplayName = summary.moveDestinationDisplayName {

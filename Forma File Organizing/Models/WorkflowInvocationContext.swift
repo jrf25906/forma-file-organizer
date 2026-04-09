@@ -72,6 +72,10 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
         }
     }
 
+    var auditOwnerDisplayName: String? {
+        notificationDisplayName
+    }
+
     var notificationPolicyName: String? {
         switch self {
         case .projectPolicyManual(_, let policyName),
@@ -88,6 +92,55 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
              .trustedScopeInspection:
             return nil
         }
+    }
+
+    var auditPolicyName: String? {
+        notificationPolicyName
+    }
+
+    var supportsProjectMetadataSteps: Bool {
+        switch self {
+        case .projectSpace,
+             .projectPolicyManual,
+             .projectPolicyScheduled,
+             .projectPolicyRealtime:
+            return true
+        case .dashboardReview,
+             .reviewView,
+             .inspector,
+             .bulkOrganize,
+             .trustedScopeScheduled,
+             .trustedScopeRealtime,
+             .trustedScopeInspection:
+            return false
+        }
+    }
+
+    var workflowProjectLabel: String? {
+        let rawValue: String?
+
+        switch self {
+        case .projectSpace(let projectLabel),
+             .projectPolicyManual(let projectLabel, _),
+             .projectPolicyScheduled(let projectLabel, _),
+             .projectPolicyRealtime(let projectLabel, _):
+            rawValue = projectLabel
+        case .dashboardReview,
+             .reviewView,
+             .inspector,
+             .bulkOrganize,
+             .trustedScopeScheduled,
+             .trustedScopeRealtime,
+             .trustedScopeInspection:
+            rawValue = nil
+        }
+
+        guard let rawValue else {
+            return nil
+        }
+
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     var description: String {

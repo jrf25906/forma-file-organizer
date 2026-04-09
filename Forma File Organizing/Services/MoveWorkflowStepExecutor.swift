@@ -123,7 +123,8 @@ struct MoveWorkflowStepExecutor: WorkflowStepExecutor {
                 destinationPath: workflowMoveError.result.destinationPath,
                 compensationStatus: .available,
                 compensationPayloadDescriptor: descriptor,
-                compensationAuditPayload: auditPayload
+                compensationAuditPayload: auditPayload,
+                metadataDelta: nil
             )
         } catch {
             guard let completedMove else {
@@ -143,7 +144,8 @@ struct MoveWorkflowStepExecutor: WorkflowStepExecutor {
                 destinationPath: completedMove.destinationPath,
                 compensationStatus: .available,
                 compensationPayloadDescriptor: descriptor,
-                compensationAuditPayload: auditPayload
+                compensationAuditPayload: auditPayload,
+                metadataDelta: nil
             )
         }
     }
@@ -170,7 +172,8 @@ struct MoveWorkflowStepExecutor: WorkflowStepExecutor {
             stepKind: .move,
             fileIdentity: fileIdentity,
             sourcePath: originalDestinationPath,
-            destinationPath: rollbackPath
+            destinationPath: rollbackPath,
+            metadataDelta: nil
         ) {
             let fileOperationsService = FileOperationsService()
             try fileOperationsService.secureMoveOnDisk(from: originalDestinationPath, to: rollbackPath)
@@ -183,13 +186,11 @@ struct MoveWorkflowStepExecutor: WorkflowStepExecutor {
             let metadataService = FileMetadataFoundationService(
                 modelContext: ModelContext(modelContext.container)
             )
-            _ = try metadataService.recordWorkflowTransition(
+            _ = try metadataService.recordWorkflowRollbackTransition(
                 from: originalDestinationPath,
                 to: rollbackPath,
                 displayName: file.name,
                 fileExtension: file.fileExtension,
-                eventKind: .undone,
-                sourceSurface: .undo,
                 timestamp: Date()
             )
         }

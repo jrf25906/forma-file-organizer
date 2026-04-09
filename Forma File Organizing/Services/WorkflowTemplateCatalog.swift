@@ -9,6 +9,8 @@ enum WorkflowTemplateCatalog {
             renamePreset: .keepBaseNameWithDatePrefix,
             tagPolicy: .financialDocuments,
             notificationPolicy: .never,
+            projectAssociationPolicy: nil,
+            workflowStatusPolicy: nil,
             allowedActions: BuiltInWorkflowTemplate.requiredActionShape
         ),
         BuiltInWorkflowTemplate(
@@ -18,6 +20,8 @@ enum WorkflowTemplateCatalog {
             renamePreset: .screenshotTimestamp,
             tagPolicy: .visualReference,
             notificationPolicy: .never,
+            projectAssociationPolicy: nil,
+            workflowStatusPolicy: nil,
             allowedActions: BuiltInWorkflowTemplate.requiredActionShape
         ),
         BuiltInWorkflowTemplate(
@@ -27,6 +31,8 @@ enum WorkflowTemplateCatalog {
             renamePreset: .projectIntakeSlug,
             tagPolicy: .projectContext,
             notificationPolicy: .trustedScopeOnly,
+            projectAssociationPolicy: .invocationProjectLabel,
+            workflowStatusPolicy: .organized,
             allowedActions: BuiltInWorkflowTemplate.requiredActionShape
         )
     ]

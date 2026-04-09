@@ -59,6 +59,26 @@ struct ProjectSpaceAutomationService {
         existingPolicy(id: id)
     }
 
+    func workflowExecutionRequest(
+        for policy: ProjectSpaceAutomationPolicy,
+        projectLabel: String,
+        triggerKind: ProjectSpaceAutomationTriggerKind,
+        scopeID: UUID = UUID()
+    ) -> WorkflowExecutionRequest {
+        let policyName = WorkflowTemplateCatalog.template(for: policy.workflowTemplateID)?.displayName
+            ?? policy.workflowTemplateID
+        return WorkflowExecutionRequest(
+            templateID: policy.workflowTemplateID,
+            scopeID: scopeID,
+            entryPoint: .projectPolicy(
+                policyID: policy.id,
+                triggerKind: triggerKind,
+                projectLabel: projectLabel,
+                policyName: policyName
+            )
+        )
+    }
+
     func latestRun(policyID: UUID) -> ProjectSpaceAutomationRunRecord? {
         let descriptor = FetchDescriptor<ProjectSpaceAutomationRunRecord>(
             predicate: #Predicate<ProjectSpaceAutomationRunRecord> { run in

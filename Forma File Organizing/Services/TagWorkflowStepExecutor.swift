@@ -31,12 +31,16 @@ struct TagWorkflowStepExecutor: WorkflowStepExecutor {
         let descriptor: WorkflowCompensationPayloadDescriptor? = appendedTags.isEmpty
             ? nil
             : .tagRemoval(path: plannedFile.workingPath, tagsToRemove: appendedTags)
+        let metadataDelta = appendedTags.isEmpty
+            ? nil
+            : WorkflowFileMetadataDelta(addedTags: appendedTags)
 
         return WorkflowPreparedStepExecution(
             sourcePath: plannedFile.workingPath,
             destinationPath: plannedFile.workingPath,
             compensationStatus: appendedTags.isEmpty ? .notNeeded : .available,
-            compensationPayloadDescriptor: descriptor
+            compensationPayloadDescriptor: descriptor,
+            metadataDelta: metadataDelta
         )
     }
 
@@ -59,13 +63,17 @@ struct TagWorkflowStepExecutor: WorkflowStepExecutor {
         let descriptor: WorkflowCompensationPayloadDescriptor? = appendedTags.isEmpty
             ? nil
             : .tagRemoval(path: plannedFile.workingPath, tagsToRemove: appendedTags)
+        let metadataDelta = appendedTags.isEmpty
+            ? nil
+            : WorkflowFileMetadataDelta(addedTags: appendedTags)
 
         return WorkflowStepExecutionResult(
             sourcePath: plannedFile.workingPath,
             destinationPath: plannedFile.workingPath,
             disposition: .pending,
             compensationStatus: appendedTags.isEmpty ? .notNeeded : .available,
-            compensationPayloadDescriptor: descriptor
+            compensationPayloadDescriptor: descriptor,
+            metadataDelta: metadataDelta
         )
     }
 
@@ -88,7 +96,8 @@ struct TagWorkflowStepExecutor: WorkflowStepExecutor {
             stepKind: .tag,
             fileIdentity: fileIdentity,
             sourcePath: path,
-            destinationPath: path
+            destinationPath: path,
+            metadataDelta: nil
         ) {
             let metadataService = FileMetadataFoundationService(
                 modelContext: ModelContext(modelContext.container)

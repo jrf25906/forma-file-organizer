@@ -76,6 +76,67 @@ final class WorkflowAuditStoreTests: XCTestCase {
         }
     }
 
+    func testCreateRun_PersistsAuditContextAndMetadataDeltas() throws {
+        try withStore { context, store in
+            let run = try store.createRun(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerSurface: .projectPolicyManual,
+                ownerDisplayName: "Alpha",
+                policyName: "Project Drop Zone",
+                startedAt: Date(timeIntervalSince1970: 1_700),
+                primaryStatus: .running
+            )
+
+            let step = try store.recordStepStatus(
+                runID: run.id,
+                stepID: "execute|projectAssociation|/Users/example/Drop/Product Spec.pdf",
+                status: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 1_705),
+                endedAt: Date(timeIntervalSince1970: 1_706)
+            )
+
+            _ = try store.recordFileAction(
+                runID: run.id,
+                stepRunID: step.id,
+                fileIdentity: "resource|diskA|project-file-001",
+                sourcePath: "/Users/example/Drop/Product Spec.pdf",
+                destinationPath: "/Users/example/Drop/Product Spec.pdf",
+                disposition: .pending,
+                compensationStatus: .available,
+                compensationPayload: WorkflowCompensationPayloadCodec.encode(
+                    .projectAssociationRestore(
+                        path: "/Users/example/Drop/Product Spec.pdf",
+                        previousProjectAssociation: nil
+                    )
+                ),
+                metadataDelta: WorkflowFileMetadataDelta(
+                    addedTags: ["project", "context", "intake"],
+                    removedTags: [],
+                    previousProjectAssociation: nil,
+                    resultingProjectAssociation: "Alpha",
+                    previousWorkflowStatus: .queued,
+                    resultingWorkflowStatus: .organized
+                )
+            )
+
+            let persistedRun = try XCTUnwrap(
+                context.fetch(FetchDescriptor<WorkflowRunRecord>()).first(where: { $0.id == run.id })
+            )
+            let persistedAction = try XCTUnwrap(
+                context.fetch(FetchDescriptor<WorkflowFileActionRecord>()).first(where: { $0.runID == run.id })
+            )
+
+            XCTAssertEqual(persistedRun.triggerSurface, .projectPolicyManual)
+            XCTAssertEqual(persistedRun.ownerDisplayName, "Alpha")
+            XCTAssertEqual(persistedRun.policyName, "Project Drop Zone")
+            XCTAssertEqual(persistedAction.metadataDelta?.addedTags, ["project", "context", "intake"])
+            XCTAssertEqual(persistedAction.metadataDelta?.resultingProjectAssociation, "Alpha")
+            XCTAssertEqual(persistedAction.metadataDelta?.previousWorkflowStatus, .queued)
+            XCTAssertEqual(persistedAction.metadataDelta?.resultingWorkflowStatus, .organized)
+        }
+    }
+
     func testLatestRunSummary_ReturnsNewestRunForTrustedScope() throws {
         try withStore { _, store in
             let scopeA = UUID()
