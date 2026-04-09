@@ -215,7 +215,7 @@ struct InlineRuleBuilderView: View {
             // Fixed header with context-aware labels
             HStack {
                 // Icon and title with optional subtitle
-                HStack(spacing: 8) {
+                HStack(spacing: FormaSpacing.tight) {
                     Image(systemName: headerConfig.icon)
                         .foregroundColor(fileContext != nil ? .formaSage : .formaSteelBlue)
                         .font(.formaBodySemibold)
@@ -274,7 +274,7 @@ struct InlineRuleBuilderView: View {
             // Scrollable content
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                         // 1. Rule Name (Cleaner)
                         TextField("Name your rule...", text: $formState.name)
                             .font(.formaH3)
@@ -361,7 +361,7 @@ struct InlineRuleBuilderView: View {
     }
 
     private var persistentActionBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             HStack(alignment: .top, spacing: FormaSpacing.tight) {
                 Image(systemName: impactTone.icon)
                     .font(.formaCompactSemibold)
@@ -492,10 +492,10 @@ struct InlineRuleBuilderView: View {
         content()
             .padding(20)
             .background(ruleCardBackground)
-            .cornerRadius(12)
+            .cornerRadius(FormaRadius.card)
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(ruleCardBorder, lineWidth: 1)
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .strokeBorder(ruleCardBorder, lineWidth: FormaBorderWidth.thin)
             )
             .shadow(color: ruleCardShadow, radius: 6, x: 0, y: 2)
     }
@@ -553,7 +553,7 @@ struct InlineRuleBuilderView: View {
                             .menuStyle(.borderlessButton)
                         }
 
-                        VStack(spacing: 8) {
+                        VStack(spacing: FormaSpacing.tight) {
                             ForEach(Array(formState.conditions.enumerated()), id: \.offset) { index, _ in
                                 editableConditionRow(at: index)
                             }
@@ -600,12 +600,12 @@ struct InlineRuleBuilderView: View {
                     TextField(conditionPlaceholder, text: $formState.conditionValue)
                         .font(.formaBodyLarge)
                         .textFieldStyle(.plain)
-                        .padding(8)
+                        .padding(FormaSpacing.tight)
                         .background(Color.formaControlBackground)
-                        .cornerRadius(8)
+                        .cornerRadius(FormaRadius.control)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(whenValidationMessage == nil ? Color.formaSeparator : Color.formaWarmOrange, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: FormaRadius.control)
+                                .stroke(whenValidationMessage == nil ? Color.formaSeparator : Color.formaWarmOrange, lineWidth: FormaBorderWidth.thin)
                         )
                         .onChange(of: formState.conditionValue) { _, _ in
                             updatePreview()
@@ -685,12 +685,12 @@ struct InlineRuleBuilderView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
                         .background(Color.formaControlBackground)
-                        .cornerRadius(8)
+                        .cornerRadius(FormaRadius.control)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: FormaRadius.control)
                                 .stroke(
                                     thenValidationMessage == nil ? Color.formaSeparator : Color.formaWarmOrange,
-                                    lineWidth: 1
+                                    lineWidth: FormaBorderWidth.thin
                                 )
                         )
                     }
@@ -741,10 +741,10 @@ struct InlineRuleBuilderView: View {
                 )
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FormaSpacing.tight) {
                         ForEach(sortedCategories) { category in
                             Button(action: { formState.categoryID = category.id }) {
-                                HStack(spacing: 4) {
+                                HStack(spacing: FormaSpacing.micro) {
                                     if formState.categoryID == category.id {
                                         Image(systemName: "checkmark")
                                             .font(.caption2)
@@ -760,7 +760,7 @@ struct InlineRuleBuilderView: View {
                                         : Color.formaControlBackground
                                 )
                                 .foregroundColor(formState.categoryID == category.id ? category.color : .formaSecondaryLabelHigh)
-                                .cornerRadius(12)
+                                .cornerRadius(FormaRadius.card)
                             }
                             .buttonStyle(.plain)
                         }
@@ -818,7 +818,7 @@ struct InlineRuleBuilderView: View {
         .cornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(colorScheme == .dark ? 0.55 : Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(colorScheme == .dark ? 0.55 : Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
         )
     }
 
@@ -868,7 +868,7 @@ struct InlineRuleBuilderView: View {
         builderSectionCard {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 HStack(alignment: .top, spacing: FormaSpacing.standard) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: FormaSpacing.micro) {
                         HStack(spacing: 6) {
                             Image(systemName: impactTone.icon)
                                 .foregroundColor(impactTone.color)
@@ -983,7 +983,7 @@ struct InlineRuleBuilderView: View {
         dashboardViewModel.returnToDefaultPanel()
 
         // Open the modal with a slight delay for smooth transition
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(.easeInOut(duration: FormaEasing.Duration.fast)) {
             nav.presentRuleDraftModal()
         }
     }
@@ -1057,7 +1057,7 @@ struct InlineRuleBuilderView: View {
         previewTask?.cancel()
 
         guard hasValidConditionInput else {
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(.easeInOut(duration: FormaEasing.Duration.micro)) {
                 previewFiles = []
                 matchedFilesCount = 0
                 isLoadingPreview = false
@@ -1080,7 +1080,7 @@ struct InlineRuleBuilderView: View {
             guard !Task.isCancelled else { return }
 
             // Update state on completion
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.easeInOut(duration: FormaEasing.Duration.fast)) {
                 previewFiles = Array(files.prefix(3))
                 matchedFilesCount = files.count
                 isLoadingPreview = false
@@ -1145,7 +1145,7 @@ struct InlineRuleBuilderView: View {
         guard let parsed = parsed, !parsed.hasBlockingError else { return }
 
         // Map action (animate the change for visual feedback)
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(.easeInOut(duration: FormaEasing.Duration.fast)) {
             if let action = parsed.primaryAction {
                 formState.actionType = action
             }

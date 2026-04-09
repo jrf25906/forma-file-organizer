@@ -183,7 +183,7 @@ struct ProductivityReportView: View {
                     colorScheme == .dark
                         ? Color.formaBoneWhite.opacity(0.16)
                         : Color.formaObsidian.opacity(Color.FormaOpacity.light),
-                    lineWidth: 1
+                    lineWidth: FormaBorderWidth.thin
                 )
         )
     }
@@ -216,7 +216,7 @@ struct ProductivityReportView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
         )
     }
 
@@ -268,19 +268,19 @@ struct ProductivityReportView: View {
     private var impactMetricPlaceholder: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             HStack {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
                     .fill(Color.formaObsidian.opacity(0.1))
                     .frame(width: 24, height: 24)
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
                     .fill(Color.formaObsidian.opacity(0.1))
                     .frame(width: 80, height: 16)
             }
 
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
                 .fill(Color.formaObsidian.opacity(0.1))
                 .frame(width: 100, height: 36)
 
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
                 .fill(Color.formaObsidian.opacity(0.1))
                 .frame(width: 60, height: 14)
         }
@@ -292,7 +292,7 @@ struct ProductivityReportView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: FormaBorderWidth.thin)
         )
     }
 
@@ -426,7 +426,7 @@ private struct ProductivityEmptyState: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: FormaBorderWidth.thin)
         )
     }
 }

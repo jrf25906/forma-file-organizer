@@ -198,7 +198,7 @@ struct FileInspectorView: View {
             .formaCornerRadius(FormaRadius.card)
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                    .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
             )
             
             // Quick Look button
@@ -222,7 +222,7 @@ struct FileInspectorView: View {
                     RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
                         .stroke(
                             quickLookBorderColor,
-                            lineWidth: 1
+                            lineWidth: FormaBorderWidth.thin
                         )
                 )
             }
@@ -322,7 +322,7 @@ struct FileInspectorView: View {
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
         )
     }
     
@@ -378,7 +378,7 @@ struct FileInspectorView: View {
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
         )
     }
     
@@ -538,7 +538,7 @@ struct FileInspectorView: View {
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
         )
     }
     
@@ -584,7 +584,7 @@ struct FileInspectorView: View {
                     .background(Color.clear)
                     .overlay(
                         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                            .stroke(Color.formaWarmOrange.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                            .stroke(Color.formaWarmOrange.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
                     )
                     .foregroundColor(.formaWarmOrange)
                     .help("Delete File")
@@ -597,7 +597,7 @@ struct FileInspectorView: View {
                         returnTarget: .inspector(filePath: file.path)
                     )
                 }) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FormaSpacing.tight) {
                         Image(systemName: matchingRule == nil ? "wand.and.stars" : "slider.horizontal.3")
                             .font(.formaBodySemibold)
                         Text(matchingRule == nil ? "Create Rule from This" : "Adjust This Rule")
@@ -610,7 +610,7 @@ struct FileInspectorView: View {
                     .background(Color.clear)
                     .overlay(
                         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                            .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                            .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
                     )
                 }
                 .buttonStyle(.plain)
@@ -708,7 +708,7 @@ struct FileInspectorView: View {
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
         )
     }
     
@@ -736,12 +736,12 @@ struct FileInspectorView: View {
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
         )
     }
     
     private func previewThumbnail(_ file: FileItem) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: FormaSpacing.micro) {
             ZStack {
                 Color.formaControlBackground
 
@@ -774,7 +774,7 @@ struct FileInspectorView: View {
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
         )
     }
     
@@ -809,7 +809,7 @@ struct FileInspectorView: View {
             Button(action: {
                 openRuleBuilderPanel(returnTarget: .defaultPanel)
             }) {
-                HStack(spacing: 8) {
+                HStack(spacing: FormaSpacing.tight) {
                     Image(systemName: "wand.and.stars")
                         .font(.formaBodySemibold)
                     Text("Create Rule for These")
@@ -822,7 +822,7 @@ struct FileInspectorView: View {
                 .background(Color.clear)
                 .overlay(
                     RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                        .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                        .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
                 )
             }
             .buttonStyle(.plain)
@@ -832,7 +832,7 @@ struct FileInspectorView: View {
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
         )
     }
     
@@ -992,7 +992,7 @@ struct FileInspectorView: View {
     }
 
     private func openRuleEditor(for rule: Rule, file: FileItem) {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(.easeInOut(duration: FormaEasing.Duration.fast)) {
             nav.beginRuleDraft(
                 editingRule: rule,
                 fileContext: file,
