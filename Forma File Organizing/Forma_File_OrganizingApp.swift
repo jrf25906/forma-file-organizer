@@ -111,6 +111,9 @@ struct Forma_File_OrganizingApp: App {
         LearnedPattern.self,
         ProjectCluster.self,
         ProjectSpaceWorkflowProfile.self,
+        ProjectSpaceAutomationProfile.self,
+        ProjectSpaceAutomationPolicy.self,
+        ProjectSpaceAutomationRunRecord.self,
         MLTrainingHistory.self
     ])
 

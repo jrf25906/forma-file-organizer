@@ -25,6 +25,7 @@ struct SmartFeaturesSection: View {
     @AppStorage(FeatureFlagService.Feature.projectSpaceMemory.rawValue) private var projectSpaceMemory = FeatureFlagService.Feature.projectSpaceMemory.defaultValue
     @AppStorage(FeatureFlagService.Feature.durableWorkflowStatus.rawValue) private var durableWorkflowStatus = FeatureFlagService.Feature.durableWorkflowStatus.defaultValue
     @AppStorage(FeatureFlagService.Feature.workflowEngineV2.rawValue) private var workflowEngineV2 = FeatureFlagService.Feature.workflowEngineV2.defaultValue
+    @AppStorage(FeatureFlagService.Feature.projectSpaceAutomationBoard.rawValue) private var projectSpaceAutomationBoard = FeatureFlagService.Feature.projectSpaceAutomationBoard.defaultValue
     @AppStorage(FeatureFlagService.Feature.backgroundMonitoring.rawValue) private var backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
     @AppStorage(FeatureFlagService.Feature.autoOrganize.rawValue) private var autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
     @AppStorage(FeatureFlagService.Feature.automationReminders.rawValue) private var automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue
@@ -334,6 +335,16 @@ struct SmartFeaturesSection: View {
                             masterEnabled: masterAIEnabled,
                             dependencyMet: metadataFoundation,
                             requiresFeature: .metadataFoundation
+                        )
+
+                        Divider().padding(.leading, FormaSpacing.extraLarge + FormaSpacing.tight)
+
+                        SmartFeatureRow(
+                            feature: .projectSpaceAutomationBoard,
+                            isEnabled: $projectSpaceAutomationBoard,
+                            masterEnabled: masterAIEnabled,
+                            dependencyMet: metadataFoundation && projectSpaces && projectSpaceMemory && workflowEngineV2 && backgroundMonitoring && autoOrganize,
+                            dependencySummary: "Requires Metadata foundation, Project spaces, Project space memory, Workflow engine v2 templates, Background monitoring, and Auto-organize files."
                         )
                     }
                 }
@@ -653,6 +664,7 @@ struct SmartFeaturesSection: View {
         projectSpaceMemory = FeatureFlagService.Feature.projectSpaceMemory.defaultValue
         durableWorkflowStatus = FeatureFlagService.Feature.durableWorkflowStatus.defaultValue
         workflowEngineV2 = FeatureFlagService.Feature.workflowEngineV2.defaultValue
+        projectSpaceAutomationBoard = FeatureFlagService.Feature.projectSpaceAutomationBoard.defaultValue
         backgroundMonitoring = FeatureFlagService.Feature.backgroundMonitoring.defaultValue
         autoOrganize = FeatureFlagService.Feature.autoOrganize.defaultValue
         automationReminders = FeatureFlagService.Feature.automationReminders.defaultValue
@@ -758,6 +770,7 @@ struct SmartFeaturesSection: View {
         projectSpaceMemory = FeatureFlagService.shared.getRawValue(.projectSpaceMemory)
         durableWorkflowStatus = FeatureFlagService.shared.getRawValue(.durableWorkflowStatus)
         workflowEngineV2 = FeatureFlagService.shared.getRawValue(.workflowEngineV2)
+        projectSpaceAutomationBoard = FeatureFlagService.shared.getRawValue(.projectSpaceAutomationBoard)
         backgroundMonitoring = FeatureFlagService.shared.getRawValue(.backgroundMonitoring)
         autoOrganize = FeatureFlagService.shared.getRawValue(.autoOrganize)
         automationReminders = FeatureFlagService.shared.getRawValue(.automationReminders)

@@ -77,6 +77,19 @@ struct ProjectSpaceWorkflowProfileService {
         try modelContext.save()
     }
 
+    func preferredTemplateBootstrapCandidate(
+        normalizedProjectLabel: String
+    ) -> (templateID: String, updatedAt: Date)? {
+        let normalizedProjectLabel = ProjectSpaceWorkflowProfile.normalizedProjectLabelValue(normalizedProjectLabel)
+        guard !normalizedProjectLabel.isEmpty,
+              let profile = existingProfile(for: normalizedProjectLabel),
+              let templateID = ProjectSpaceWorkflowProfile.normalizedOptionalText(profile.preferredWorkflowTemplateID) else {
+            return nil
+        }
+
+        return (templateID, profile.updatedAt)
+    }
+
     private func existingProfile(for normalizedProjectLabel: String) -> ProjectSpaceWorkflowProfile? {
         let descriptor = FetchDescriptor<ProjectSpaceWorkflowProfile>(
             predicate: #Predicate<ProjectSpaceWorkflowProfile> { profile in

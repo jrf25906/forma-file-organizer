@@ -37,6 +37,7 @@ struct FeatureFlagService: Sendable {
         case projectSpaceMemory = "feature.projectSpaceMemory"
         case durableWorkflowStatus = "feature.durableWorkflowStatus"
         case workflowEngineV2 = "feature.workflowEngineV2"
+        case projectSpaceAutomationBoard = "feature.projectSpaceAutomationBoard"
 
         // Automation (v1.4)
         case backgroundMonitoring = "feature.backgroundMonitoring"
@@ -72,6 +73,7 @@ struct FeatureFlagService: Sendable {
             case .projectSpaceMemory: return false
             case .durableWorkflowStatus: return false
             case .workflowEngineV2: return false
+            case .projectSpaceAutomationBoard: return false
             // Automation (v1.4)
             case .backgroundMonitoring: return true
             case .autoOrganize: return false  // Opt-in for initial release
@@ -105,6 +107,7 @@ struct FeatureFlagService: Sendable {
             case .projectSpaceMemory: return "Project space memory"
             case .durableWorkflowStatus: return "Durable workflow status"
             case .workflowEngineV2: return "Workflow engine v2 templates"
+            case .projectSpaceAutomationBoard: return "Project space automation board"
             // Automation (v1.4)
             case .backgroundMonitoring: return "Background monitoring"
             case .autoOrganize: return "Auto-organize files"
@@ -157,6 +160,8 @@ struct FeatureFlagService: Sendable {
                 return "Persist queued, organized, recovered, and ignored workflow states in the local metadata foundation."
             case .workflowEngineV2:
                 return "Enable built-in rename/tag/move workflow templates for trusted automation scopes."
+            case .projectSpaceAutomationBoard:
+                return "Store project-owned automation policies that bridge legacy workflow picks into the new automation board."
             // Automation (v1.4)
             case .backgroundMonitoring:
                 return "Live-watch folders while the app is running, with scheduled sweeps as a fallback."
@@ -196,6 +201,7 @@ struct FeatureFlagService: Sendable {
             case .projectSpaceMemory: return "books.vertical"
             case .durableWorkflowStatus: return "clock.arrow.circlepath"
             case .workflowEngineV2: return "square.stack.3d.up.badge.a"
+            case .projectSpaceAutomationBoard: return "rectangle.3.group.bubble"
             // Automation (v1.4)
             case .backgroundMonitoring: return "eye.circle"
             case .autoOrganize: return "bolt.circle"
@@ -240,6 +246,15 @@ struct FeatureFlagService: Sendable {
                 return [.metadataFoundation]
             case .workflowEngineV2:
                 return [.metadataFoundation]
+            case .projectSpaceAutomationBoard:
+                return [
+                    .metadataFoundation,
+                    .projectSpaces,
+                    .projectSpaceMemory,
+                    .workflowEngineV2,
+                    .backgroundMonitoring,
+                    .autoOrganize
+                ]
             // Automation (v1.4)
             case .backgroundMonitoring:
                 return []  // Base automation feature

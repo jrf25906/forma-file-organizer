@@ -7,6 +7,9 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
     private func makeService() throws -> (ModelContainer, ModelContext, ProjectSpaceWorkflowProfileService) {
         let schema = Schema([
             ProjectSpaceWorkflowProfile.self,
+            ProjectSpaceAutomationProfile.self,
+            ProjectSpaceAutomationPolicy.self,
+            ProjectSpaceAutomationRunRecord.self,
             WorkflowRunRecord.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -146,6 +149,25 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
             XCTAssertEqual(profile.preferredWorkflowTemplateID, "builtin.workflow.screenshots.v1")
             XCTAssertEqual(profile.lastWorkflowRunID, run.id)
             XCTAssertEqual(profile.lastWorkflowCompletedAt, Date(timeIntervalSince1970: 2_950))
+        }
+    }
+
+    func testPreferredTemplateBootstrapCandidate_NormalizesTemplateWithoutMutatingLegacyProfile() throws {
+        try withService { context, service in
+            let timestamp = Date(timeIntervalSince1970: 4_000)
+            try service.upsertPreferredTemplate(
+                " \(BuiltInWorkflowTemplate.StableID.projectDrop) ",
+                for: " Alpha ",
+                at: timestamp
+            )
+
+            let candidate = service.preferredTemplateBootstrapCandidate(normalizedProjectLabel: "Alpha")
+            XCTAssertEqual(candidate?.templateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(candidate?.updatedAt, timestamp)
+
+            let profiles = try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>())
+            XCTAssertEqual(profiles.count, 1)
+            XCTAssertEqual(profiles.first?.preferredWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
         }
     }
 }
