@@ -15,13 +15,7 @@ struct ProjectSpaceWorkflowProfileService {
             return nil
         }
 
-        if let existing = existingProfile(for: normalizedProjectLabel) {
-            return existing
-        }
-
-        let profile = ProjectSpaceWorkflowProfile(normalizedProjectLabel: normalizedProjectLabel)
-        modelContext.insert(profile)
-        return profile
+        return existingProfile(for: normalizedProjectLabel)
     }
 
     func upsertPreferredTemplate(
@@ -29,7 +23,7 @@ struct ProjectSpaceWorkflowProfileService {
         for normalizedProjectLabel: String,
         at timestamp: Date
     ) throws {
-        guard let profile = profile(normalizedProjectLabel: normalizedProjectLabel) else {
+        guard let profile = profileOrCreate(normalizedProjectLabel: normalizedProjectLabel) else {
             return
         }
 
@@ -43,7 +37,7 @@ struct ProjectSpaceWorkflowProfileService {
         for normalizedProjectLabel: String,
         at timestamp: Date
     ) throws {
-        guard let profile = profile(normalizedProjectLabel: normalizedProjectLabel) else {
+        guard let profile = profileOrCreate(normalizedProjectLabel: normalizedProjectLabel) else {
             return
         }
 
@@ -60,5 +54,20 @@ struct ProjectSpaceWorkflowProfileService {
             }
         )
         return try? modelContext.fetch(descriptor).first
+    }
+
+    private func profileOrCreate(normalizedProjectLabel: String) -> ProjectSpaceWorkflowProfile? {
+        let normalizedProjectLabel = ProjectSpaceWorkflowProfile.normalizedProjectLabelValue(normalizedProjectLabel)
+        guard !normalizedProjectLabel.isEmpty else {
+            return nil
+        }
+
+        if let existing = existingProfile(for: normalizedProjectLabel) {
+            return existing
+        }
+
+        let profile = ProjectSpaceWorkflowProfile(normalizedProjectLabel: normalizedProjectLabel)
+        modelContext.insert(profile)
+        return profile
     }
 }
