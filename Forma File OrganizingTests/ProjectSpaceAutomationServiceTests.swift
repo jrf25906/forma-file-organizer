@@ -26,32 +26,42 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
         }
     }
 
-    func testProfileFetch_BootstrapsRecommendedPolicyFromLegacyWorkflowProfile() throws {
+    func testProfileFetch_BootstrapsRecommendedPolicyFromWorkflowMemoryRecommendation() throws {
         try withService { context, service in
-            let legacyProfile = ProjectSpaceWorkflowProfile(
+            let timestamp = Date()
+            let workflowProfile = ProjectSpaceWorkflowProfile(
                 normalizedProjectLabel: " Alpha ",
-                preferredWorkflowTemplateID: " \(BuiltInWorkflowTemplate.StableID.projectDrop) ",
-                updatedAt: Date(timeIntervalSince1970: 1_000)
+                preferredWorkflowTemplateID: " \(BuiltInWorkflowTemplate.StableID.receipts) ",
+                successfulTemplateID: " \(BuiltInWorkflowTemplate.StableID.projectDrop) ",
+                successfulTemplateCount: 4,
+                successfulTemplateLastSucceededAt: timestamp.addingTimeInterval(-120),
+                dominantTriggerSurface: .projectPolicyScheduled,
+                dominantTriggerSurfaceCount: 4,
+                dominantTriggerSurfaceLastSeenAt: timestamp.addingTimeInterval(-120),
+                workflowMemoryStatus: .stable,
+                updatedAt: timestamp
             )
-            context.insert(legacyProfile)
+            context.insert(workflowProfile)
             try context.save()
 
             let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
             let policies = try context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>())
 
             XCTAssertEqual(profile.normalizedProjectLabel, "Alpha")
+            XCTAssertEqual(profile.lastLegacyBootstrapAt, timestamp.addingTimeInterval(-120))
             XCTAssertEqual(policies.count, 1)
 
             let policy = try XCTUnwrap(policies.first)
             XCTAssertEqual(policy.profileID, profile.id)
             XCTAssertEqual(policy.workflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
             XCTAssertEqual(policy.state, .recommended)
-            XCTAssertEqual(policy.triggerKinds, [.manual])
+            XCTAssertEqual(policy.triggerKinds, [.scheduledSweep])
+            XCTAssertEqual(policy.admissionMode, .automatic)
 
-            let preservedLegacyProfile = try XCTUnwrap(
+            let preservedWorkflowProfile = try XCTUnwrap(
                 context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).first
             )
-            XCTAssertEqual(preservedLegacyProfile.preferredWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(preservedWorkflowProfile.preferredWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
         }
     }
 
@@ -317,52 +327,72 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
         }
     }
 
-    func testProfileFetch_BootstrapReusesSingleRecommendedPolicyWhenLegacyTemplateChanges() throws {
+    func testProfileFetch_BootstrapReusesSingleRecommendedPolicyWhenWorkflowMemoryTemplateChanges() throws {
         try withService { context, service in
-            let firstTimestamp = Date(timeIntervalSince1970: 5_000)
+            let firstTimestamp = Date().addingTimeInterval(-300)
             let secondTimestamp = firstTimestamp.addingTimeInterval(120)
 
-            let legacyProfile = ProjectSpaceWorkflowProfile(
+            let workflowProfile = ProjectSpaceWorkflowProfile(
                 normalizedProjectLabel: "Alpha",
                 preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                successfulTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                successfulTemplateCount: 3,
+                successfulTemplateLastSucceededAt: firstTimestamp.addingTimeInterval(-60),
+                dominantTriggerSurface: .projectPolicyManual,
+                dominantTriggerSurfaceCount: 3,
+                dominantTriggerSurfaceLastSeenAt: firstTimestamp.addingTimeInterval(-60),
+                workflowMemoryStatus: .stable,
                 updatedAt: firstTimestamp
             )
-            context.insert(legacyProfile)
+            context.insert(workflowProfile)
             try context.save()
 
             let firstProfile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
-            XCTAssertEqual(firstProfile.lastLegacyBootstrapAt, firstTimestamp)
+            XCTAssertEqual(firstProfile.lastLegacyBootstrapAt, firstTimestamp.addingTimeInterval(-60))
             XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>()).count, 1)
 
-            legacyProfile.preferredWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.projectDrop
-            legacyProfile.updatedAt = secondTimestamp
+            workflowProfile.successfulTemplateID = BuiltInWorkflowTemplate.StableID.projectDrop
+            workflowProfile.successfulTemplateCount = 5
+            workflowProfile.successfulTemplateLastSucceededAt = secondTimestamp.addingTimeInterval(-30)
+            workflowProfile.dominantTriggerSurface = .projectPolicyScheduled
+            workflowProfile.dominantTriggerSurfaceCount = 5
+            workflowProfile.dominantTriggerSurfaceLastSeenAt = secondTimestamp.addingTimeInterval(-30)
+            workflowProfile.updatedAt = secondTimestamp
             try context.save()
 
             let secondProfile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
             let policies = try context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>())
 
             XCTAssertEqual(secondProfile.id, firstProfile.id)
-            XCTAssertEqual(secondProfile.lastLegacyBootstrapAt, secondTimestamp)
+            XCTAssertEqual(secondProfile.lastLegacyBootstrapAt, secondTimestamp.addingTimeInterval(-30))
             XCTAssertEqual(policies.count, 1)
 
             let bridgedPolicy = try XCTUnwrap(policies.first)
             XCTAssertEqual(bridgedPolicy.workflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
             XCTAssertEqual(bridgedPolicy.state, .recommended)
-            XCTAssertEqual(bridgedPolicy.triggerKinds, [.manual])
+            XCTAssertEqual(bridgedPolicy.triggerKinds, [.scheduledSweep])
+            XCTAssertEqual(bridgedPolicy.admissionMode, .automatic)
         }
     }
 
-    func testProfileFetch_DoesNotCreateDuplicateBridgePolicyAfterRecommendedPolicyBecomesActive() throws {
+    func testProfileFetch_DoesNotCreateDuplicateBridgePolicyAfterWorkflowRecommendationBecomesActive() throws {
         try withService { context, service in
-            let bootstrapAt = Date(timeIntervalSince1970: 6_000)
+            let bootstrapAt = Date()
             let activatedAt = bootstrapAt.addingTimeInterval(60)
 
-            let legacyProfile = ProjectSpaceWorkflowProfile(
+            let workflowProfile = ProjectSpaceWorkflowProfile(
                 normalizedProjectLabel: "Alpha",
                 preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                successfulTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                successfulTemplateCount: 4,
+                successfulTemplateLastSucceededAt: bootstrapAt.addingTimeInterval(-30),
+                dominantTriggerSurface: .projectPolicyManual,
+                dominantTriggerSurfaceCount: 4,
+                dominantTriggerSurfaceLastSeenAt: bootstrapAt.addingTimeInterval(-30),
+                workflowMemoryStatus: .stable,
                 updatedAt: bootstrapAt
             )
-            context.insert(legacyProfile)
+            context.insert(workflowProfile)
             try context.save()
 
             _ = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
@@ -393,7 +423,7 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
         }
     }
 
-    func testProfileFetch_DoesNotRewriteMultipleRecommendedPoliciesAsLegacyBridge() throws {
+    func testProfileFetch_DoesNotRewriteMultipleRecommendedPoliciesWhenWorkflowRecommendationUnavailable() throws {
         try withService { context, service in
             let bootstrapAt = Date(timeIntervalSince1970: 6_500)
             let updateAt = bootstrapAt.addingTimeInterval(60)
@@ -435,7 +465,7 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
             let policies = try context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>())
 
             XCTAssertEqual(resolvedProfile.id, profile.id)
-            XCTAssertEqual(resolvedProfile.lastLegacyBootstrapAt, updateAt)
+            XCTAssertNil(resolvedProfile.lastLegacyBootstrapAt)
             XCTAssertEqual(policies.count, 2)
             XCTAssertEqual(
                 Set(policies.map(\.workflowTemplateID)),
