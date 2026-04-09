@@ -39,9 +39,6 @@ struct ProjectSpaceWorkflowProfileService {
             }
 
             profile.preferredWorkflowTemplateID = nil
-            profile.successfulTemplateID = nil
-            profile.successfulTemplateCount = 0
-            profile.successfulTemplateLastSucceededAt = nil
 
             if isEffectivelyEmpty(profile) {
                 try modelContext.delete(
@@ -146,7 +143,8 @@ struct ProjectSpaceWorkflowProfileService {
             .normalizedTriggerSurfaceSignal(profile.dominantTriggerSurface)
 
         if profile.successfulTemplateID == nil,
-           let legacyTemplateID = profile.preferredWorkflowTemplateID {
+           let legacyTemplateID = profile.preferredWorkflowTemplateID,
+           profile.lastWorkflowRunID != nil || profile.lastWorkflowCompletedAt != nil {
             profile.successfulTemplateID = legacyTemplateID
             profile.successfulTemplateCount = max(profile.successfulTemplateCount, 1)
             profile.successfulTemplateLastSucceededAt =
@@ -179,6 +177,23 @@ struct ProjectSpaceWorkflowProfileService {
             previousTemplateSignal != templateSignal &&
             isWithinConflictWindow(previousTemplateTimestamp, comparedTo: completedAt)
 
+        let triggerSignal = ProjectSpaceWorkflowProfile.normalizedTriggerSurfaceSignal(run.triggerSurface)
+        let previousTriggerSignal = profile.dominantTriggerSurface
+        let previousTriggerTimestamp = profile.dominantTriggerSurfaceLastSeenAt
+        let triggerConflict = previousTriggerSignal != nil &&
+            triggerSignal != nil &&
+            previousTriggerSignal != triggerSignal &&
+            isWithinConflictWindow(previousTriggerTimestamp, comparedTo: completedAt)
+
+        if templateConflict || triggerConflict {
+            if let destinationSignal = latestDestinationSignal(forRunID: run.id) {
+                profile.latestSuccessfulDestinationSignal = destinationSignal
+                profile.latestSuccessfulDestinationAt = completedAt
+            }
+            profile.workflowMemoryStatus = .conflicted
+            return
+        }
+
         if let templateSignal {
             if profile.successfulTemplateID == templateSignal {
                 profile.successfulTemplateCount = max(1, profile.successfulTemplateCount + 1)
@@ -188,14 +203,6 @@ struct ProjectSpaceWorkflowProfileService {
             }
             profile.successfulTemplateLastSucceededAt = completedAt
         }
-
-        let triggerSignal = ProjectSpaceWorkflowProfile.normalizedTriggerSurfaceSignal(run.triggerSurface)
-        let previousTriggerSignal = profile.dominantTriggerSurface
-        let previousTriggerTimestamp = profile.dominantTriggerSurfaceLastSeenAt
-        let triggerConflict = previousTriggerSignal != nil &&
-            triggerSignal != nil &&
-            previousTriggerSignal != triggerSignal &&
-            isWithinConflictWindow(previousTriggerTimestamp, comparedTo: completedAt)
 
         if let triggerSignal {
             if profile.dominantTriggerSurface == triggerSignal {
@@ -212,7 +219,7 @@ struct ProjectSpaceWorkflowProfileService {
             profile.latestSuccessfulDestinationAt = completedAt
         }
 
-        profile.workflowMemoryStatus = (templateConflict || triggerConflict) ? .conflicted : .stable
+        profile.workflowMemoryStatus = .stable
         applyStaleStatusIfNeeded(to: profile, referenceDate: completedAt)
     }
 

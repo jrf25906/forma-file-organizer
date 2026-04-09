@@ -84,6 +84,50 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
         }
     }
 
+    func testClearingPreferredTemplate_PreservesRunDerivedMemoryFacts() throws {
+        try withService { context, service in
+            let initialTimestamp = Date(timeIntervalSince1970: 1_500)
+            try service.upsertPreferredTemplate(
+                BuiltInWorkflowTemplate.StableID.projectDrop,
+                for: "Alpha",
+                at: initialTimestamp
+            )
+
+            let run = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 1_600),
+                endedAt: Date(timeIntervalSince1970: 1_610)
+            )
+            context.insert(run)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: run.id,
+                    fileIdentity: "resource|diskA|preferred-clear-file-001",
+                    sourcePath: "/Users/example/Inbox/file.pdf",
+                    destinationPath: "/Users/example/Projects/Alpha/file.pdf",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 1_609)
+                )
+            )
+            try context.save()
+            try service.recordLatestRun(run, for: "Alpha", at: Date(timeIntervalSince1970: 1_611))
+
+            try service.upsertPreferredTemplate(nil, for: "Alpha", at: Date(timeIntervalSince1970: 1_620))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertNil(profile.preferredWorkflowTemplateID)
+            XCTAssertEqual(profile.successfulTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(profile.successfulTemplateCount, 1)
+            XCTAssertEqual(profile.dominantTriggerSurface, .projectPolicyManual)
+            XCTAssertEqual(profile.dominantTriggerSurfaceCount, 1)
+            XCTAssertEqual(profile.latestSuccessfulDestinationSignal, "/Users/example/Projects/Alpha/file.pdf")
+            XCTAssertEqual(profile.workflowMemoryStatus, .stable)
+        }
+    }
+
     func testProfileReusesExistingRecordForWhitespaceVariants() throws {
         try withService { context, service in
             let timestamp = Date(timeIntervalSince1970: 1_000)
@@ -357,7 +401,10 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
             XCTAssertEqual(profile.lastWorkflowRunID, secondRun.id)
             XCTAssertEqual(profile.lastWorkflowCompletedAt, Date(timeIntervalSince1970: 3_050))
             XCTAssertEqual(profile.latestSuccessfulDestinationSignal, "/Users/example/Documents/Receipts/B.txt")
-            XCTAssertNotEqual(profile.successfulTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(profile.successfulTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(profile.successfulTemplateCount, 1)
+            XCTAssertEqual(profile.dominantTriggerSurface, .projectPolicyManual)
+            XCTAssertEqual(profile.dominantTriggerSurfaceCount, 1)
         }
     }
 }
