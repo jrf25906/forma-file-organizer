@@ -1,0 +1,140 @@
+{
+  "surface": {
+    "window": {
+      "value": "{color.brand.boneWhite}",
+      "type": "color"
+    },
+    "control": {
+      "value": "#FFFFFF",
+      "type": "color"
+    },
+    "textField": {
+      "value": "#FFFFFF",
+      "type": "color"
+    },
+    "card": {
+      "value": "#F9F9F9",
+      "type": "color"
+    },
+    "listRow": {
+      "value": "rgba(255,255,255,0.86)",
+      "type": "color"
+    }
+  },
+  "text": {
+    "primary": {
+      "value": "{color.brand.obsidian}",
+      "type": "color"
+    },
+    "secondary": {
+      "value": "rgba({color.brand.obsidian}, 0.68)",
+      "type": "color"
+    },
+    "tertiary": {
+      "value": "rgba({color.brand.obsidian}, 0.5)",
+      "type": "color"
+    },
+    "quaternary": {
+      "value": "rgba({color.brand.obsidian}, 0.28)",
+      "type": "color"
+    }
+  },
+  "border": {
+    "separator": {
+      "value": "rgba({color.brand.obsidian}, 0.1)",
+      "type": "color"
+    }
+  },
+  "state": {
+    "success": {
+      "value": "#34C759",
+      "type": "color"
+    },
+    "warning": {
+      "value": "#FF9500",
+      "type": "color"
+    },
+    "error": {
+      "value": "#FF3B30",
+      "type": "color"
+    },
+    "info": {
+      "value": "#007AFF",
+      "type": "color"
+    }
+  },
+  "glass": {
+    "blue": {
+      "value": "rgba({color.brand.steelBlue}, 0.45)",
+      "type": "color"
+    },
+    "green": {
+      "value": "rgba({color.brand.sage}, 0.35)",
+      "type": "color"
+    },
+    "orange": {
+      "value": "rgba({color.category.media}, 0.35)",
+      "type": "color"
+    },
+    "mutedBlue": {
+      "value": "rgba({color.category.documents}, 0.35)",
+      "type": "color"
+    },
+    "softGreen": {
+      "value": "rgba({color.category.downloads}, 0.35)",
+      "type": "color"
+    }
+  },
+  "fileSurface": {
+    "hoverOverlay": {
+      "value": "rgba({color.brand.obsidian}, 0.03)",
+      "type": "color"
+    },
+    "selectionOverlay": {
+      "value": "rgba({color.brand.steelBlue}, 0.12)",
+      "type": "color"
+    },
+    "pendingOverlay": {
+      "value": "rgba({state.warning}, 0.12)",
+      "type": "color"
+    },
+    "processingOverlay": {
+      "value": "rgba({state.info}, 0.14)",
+      "type": "color"
+    },
+    "errorOverlay": {
+      "value": "rgba({state.error}, 0.14)",
+      "type": "color"
+    },
+    "border": {
+      "rest": {
+        "value": "rgba({color.brand.obsidian}, 0.1)",
+        "type": "color"
+      },
+      "hover": {
+        "value": "rgba({color.brand.obsidian}, 0.16)",
+        "type": "color"
+      },
+      "selected": {
+        "value": "rgba({color.brand.steelBlue}, 0.42)",
+        "type": "color"
+      },
+      "focused": {
+        "value": "rgba({color.brand.steelBlue}, 0.7)",
+        "type": "color"
+      },
+      "pending": {
+        "value": "rgba({state.warning}, 0.46)",
+        "type": "color"
+      },
+      "processing": {
+        "value": "rgba({state.info}, 0.5)",
+        "type": "color"
+      },
+      "error": {
+        "value": "rgba({state.error}, 0.54)",
+        "type": "color"
+      }
+    }
+  }
+}

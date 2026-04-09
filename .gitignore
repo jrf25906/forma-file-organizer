@@ -39,6 +39,7 @@ Thumbs.db
 *.tmp
 *.temp
 claude-oracle/
+.superpowers/
 
 # Worktrees
 .worktrees/

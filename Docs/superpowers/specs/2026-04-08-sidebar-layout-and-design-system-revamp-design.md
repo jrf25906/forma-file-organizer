@@ -209,6 +209,30 @@ Applied as: `.formaFocusRing()` view modifier that responds to `@FocusState`.
 
 #### FormaColors — Tighten the Palette
 
+**Color role separation:** The current palette has collision problems where colors for different roles are visually indistinguishable:
+
+*Problem 1: Interactive accent vs document category.*
+`formaSteelBlue` (#5B7C99, 208° 25% 48%) and `formaMutedBlue` (#6B8CA8, 208° 24% 54%) are the same hue, same saturation, 6% lightness apart. Users can't distinguish "clickable" from "document label."
+
+*Fix:* Shift `formaSteelBlue` toward indigo (220-225°) and bump saturation to 30-35%. Target: a blue that clearly reads as "interactive" without being loud. Reference: Things 3's accent blue (#4A89DC, 215° 65% 58%) — we don't need that much saturation, but hue shift + moderate saturation increase (to ~35%) creates the necessary separation while preserving the muted personality.
+
+Proposed: `formaSteelBlue` → ~#4E6F96 (222° 32% 45%) — noticeably more indigo, reads as "action" against the cooler `formaMutedBlue`.
+
+*Problem 2: Success vs downloads category.*
+`formaSage` (#7A9D7E, 126° 17% 55%) and `formaSoftGreen` (#8BA688, ~126° 11% 59%) share hue and lightness. "Did this succeed, or is it a download?"
+
+*Fix:* Shift `formaSoftGreen` toward olive/chartreuse (~98°) to give downloads their own hue lane. Proposed: `formaSoftGreen` → ~#96A67E (98° 17% 57%) — reads as olive-green rather than true-green, creating ~28° separation from `formaSage` (126°). This keeps `formaSage` as the clear "green = success" signal while downloads get their own distinct warm-green lane.
+
+*Problem 3: Warm orange is isolated.*
+`formaWarmOrange` is the only warm-toned color. It reads as an outlier rather than part of a system.
+
+*Fix:* No action needed on the orange itself — it should feel special as the one warm accent. But ensure it's only used for media content (its intended role), never for warnings or errors (those use system semantic colors). The contrast with the cool palette is a feature, not a bug, when applied consistently.
+
+**Color relationship rules (enforce during implementation):**
+- Interactive colors (`formaSteelBlue`) must have ≥15° hue separation from any content/category color
+- Category colors must have ≥25° hue separation from each other
+- Semantic state colors (`formaSuccess`, `formaWarning`, `formaError`) remain system-provided for platform consistency — never use brand colors for semantic states
+
 **Label hierarchy consolidation:** Collapse 6 label colors to 4 clear tiers:
 - `formaPrimary` (currently `formaLabel`)
 - `formaSecondary` (consolidate `formaSecondaryLabel` + `formaSecondaryLabelHigh`)
@@ -243,17 +267,115 @@ Updated scale: micro (4) → tight (8) → compact (12) → standard (16) → ge
 
 #### FormaMicroanimations — Expand Duration Coverage
 
-Add missing duration constants:
+Add missing duration constants to **FormaEasing** (not FormaMicroanimations — per section 2a, all timing constants consolidate into FormaEasing, while FormaMicroanimations retains only its animated ViewModifier types):
 - `standardTransition`: 0.3s — page-level changes
 - `modalPresentation`: 0.35s — sheet/modal appearance
 - `panelSlide`: 0.25s — right panel open/close
 - `contentFade`: 0.2s — content swaps within a container
 
-**File:** `Forma File Organizing/DesignSystem/FormaMicroanimations.swift`
+FormaMicroanimations' existing duration constants (`hoverDuration`, `pressDuration`, etc.) also migrate to FormaEasing. FormaMicroanimations imports from FormaEasing for its timing values.
 
-### 2c. Component-Level Composite Tokens
+**Files:** `Forma File Organizing/DesignSystem/FormaEasing.swift` (new constants), `Forma File Organizing/DesignSystem/FormaMicroanimations.swift` (remove duration constants, import FormaEasing)
 
-Create `ViewModifier` implementations that compose primitive tokens for high-frequency patterns. These prevent views from assembling 4-5 tokens every time they render a common element.
+### 2c. Component Craft Guidelines
+
+These details separate "functional" from "someone really cared." They apply across all Forma components.
+
+#### Buttons: Physical depth
+
+Current `FormaPrimaryButton` is flat fill + text + shadow. Refinements:
+
+- **Inner light edge:** 1px lighter stroke at the top of the button, creating the illusion of a top-lit surface. Not a gradient — a thin overlay or inner border.
+- **Hover warmth:** On hover, the fill lightens by ~8% rather than gaining a border. The button *glows into* its hover state.
+- **Press depth:** Replace the current scale-only press (0.985 + 0.92 opacity) with: slight darkening (~5%) + 1px inset shadow + subtle scale (0.98). The button should feel like it physically depressed.
+- **Disabled polish:** Disabled buttons currently use opacity alone. Add desaturation to the fill color so disabled buttons look washed-out rather than just transparent.
+
+Apply consistently to `FormaPrimaryButton`, `FormaSecondaryButton`, and `FormaActionButton`.
+
+#### Shadows: Differentiate by role
+
+Current `FormaShadowLevel.card` and `.button` use identical values (radius 4, y 2, same opacity). They should feel distinct:
+
+- **Card shadows:** Broader, softer, more diffuse — they represent a surface floating above the background. Radius 6-8, y 3, lower opacity.
+- **Button shadows:** Tighter, more directional — they represent a small pressable element. Radius 3-4, y 1-2, slightly higher opacity.
+- **Selected card shadows:** Add a colored component — a faint tint of `formaSteelBlue` in the shadow, not just darker obsidian. This makes selection feel warm rather than heavy.
+
+#### Borders: Two-layer standard
+
+`FormaChromeSurface` already implements inner + outer borders at different opacities — this is the standard all bordered components should follow. Components that bypass it (FormaCard, FormaTextField, FormaBadge outlined) should adopt the two-layer approach:
+
+- **Outer edge:** Darker, defines the shape boundary
+- **Inner edge:** Lighter, creates a highlight that implies light direction
+
+This is what makes Apple's own controls feel real. One border = flat graphic. Two borders = physical surface.
+
+#### Badges: Subtle as default
+
+`FormaBadge`'s `.subtle` style (tinted background + darker text) reads more refined than `.filled` (solid color + white text). Make `.subtle` the default style. `.filled` becomes the high-emphasis override. This shifts the default toward sophistication.
+
+#### State completeness
+
+Every interactive component must handle all applicable states with distinct visual treatments:
+
+```
+resting → hover → focused → pressed → disabled
+                                    → active/selected
+                                    → dragging (where applicable)
+```
+
+Specific gaps to fix:
+- `FormaPrimaryButton` has no hover state — goes straight from resting to pressed
+- `FormaSecondaryButton` has no hover state
+- `FormaCard` has no hover state (only selected/unselected)
+- `FormaListButton` has hover but no focused or pressed distinction
+
+Each state transition should use `FormaEasing.interactive` timing.
+
+#### Icon optical weight
+
+SF Symbols have inconsistent optical weights at small sizes. All icons rendered in Forma components should:
+- Use `.fontWeight(.medium)` as the baseline (not the SF Symbol default of `.regular`)
+- Use consistent sizing within each context (sidebar icons: 16px, toolbar: 18px, content: 20px) via `FormaIconSize` tokens
+- Never mix filled and outlined variants in the same visual context — pick one style per surface
+
+### 2d. Dark Mode Calibration
+
+The craft details from 2c (two-layer borders, physical buttons, shadow differentiation, surface tints) need mode-specific tuning — they can't simply be inverted.
+
+**Two-layer borders flip polarity:**
+- Light: outer = black at 10%, inner highlight = white at 65%
+- Dark: outer = white at 12% (defines shape on dark), inner highlight = white at 6% (very subtle specular)
+
+**Shadows intensify 2-3x:**
+- Dark backgrounds absorb shadows. Card shadow opacity: 0.06 → 0.30. Button: 0.10 → 0.35.
+
+**Accent and category colors brighten:**
+- `formaSteelBlue`: #4E6F96 (light) → #5A82AD (dark) for equal perceived brightness
+- Category colors also lift slightly to maintain contrast against dark surfaces
+
+**Surface tints increase saturation:**
+- Warm tint: 0.025 → 0.035, cool tint: 0.02 → 0.03 (more saturated to remain perceptible on dark)
+
+**Button gradients narrow range:**
+- Still lighter-at-top for "top-lit" model, but narrower lightness span — wide spans on dark surfaces look banded
+
+**Disabled state adds brightness reduction:**
+- Light mode: desaturation only. Dark mode: desaturation + `brightness(0.7)` since desaturation alone doesn't read as disabled on dark backgrounds
+
+All existing `formaDynamicColor` infrastructure in `FormaColors.swift` supports this — new tokens follow the same pattern.
+
+### 2e. Reduced Motion Support
+
+All animation tokens from `FormaEasing` must respect `@Environment(\.accessibilityReduceMotion)`. When reduce motion is enabled:
+- Spring and bouncy animations fall back to instant (`Animation.none` or duration 0)
+- `enter`/`exit` easing curves fall back to a single-frame crossfade (0.01s)
+- `standardTransition` and `panelSlide` durations halve (0.15s / 0.12s) rather than disappearing entirely — keeps spatial orientation without causing motion discomfort
+
+Implement as a `formaAnimation(_ animation:)` view modifier that wraps `withAnimation` and checks the environment value. Components use this instead of calling `withAnimation` directly.
+
+### 2f. Component-Level Composite Tokens
+
+Create `ViewModifier` implementations that compose primitive tokens for high-frequency patterns. These prevent views from assembling 4-5 tokens every time they render a common element. All composite tokens should implement the craft guidelines from 2c (two-layer borders, state completeness, physical depth).
 
 #### FormaCardStyle
 Combines background + radius + shadow + border with hover/selected/default variants.
@@ -274,7 +396,7 @@ Border + radius + padding + background + focus ring for text fields and inputs.
 
 **File:** `Forma File Organizing/DesignSystem/FormaComponentStyles.swift` (new)
 
-### 2d. Component Layer Reorganization
+### 2g. Component Layer Reorganization
 
 The component layer is currently disorganized:
 
@@ -292,7 +414,8 @@ Existing (extracted from FormaComponents.swift):
 - `FormaCard.swift` (FormaCard, FormaListCard)
 - `FormaTextField.swift`
 - `FormaProgressBar.swift`
-- `FormaStatusPill.swift` (FormaStatusPill, FormaFileBadge, FormaBadge, FormaStatBadge)
+- `FormaBadge.swift` (FormaBadge absorbs FormaFileBadge — they differ only in default style/sizing, merge into one component with configuration variants; also contains FormaStatBadge)
+- `FormaStatusPill.swift`
 - `FormaEmptyState.swift` (FormaEmptyState, FormaActionableEmptyState)
 - `FormaSegmentedControl.swift` (FormaSegmentedControl, FormaSegmentButton, FormaSegmentedIconButton, FormaSegmentedBackground)
 - `FormaLogo.swift`
