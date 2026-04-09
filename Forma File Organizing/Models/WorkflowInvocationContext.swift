@@ -10,14 +10,6 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
     case trustedScopeRealtime(scopeDisplayName: String?)
     case trustedScopeInspection(scopeDisplayName: String?)
 
-    // Compatibility shims for older call sites and tests that still reference the
-    // original coarse contexts while the rest of the workflow engine migrates.
-    static let reviewAdHoc: Self = .dashboardReview
-
-    static func trustedScopeAutomation(scopeDisplayName: String?) -> Self {
-        .trustedScopeScheduled(scopeDisplayName: scopeDisplayName)
-    }
-
     var triggerSurface: ActivityItem.WorkflowTriggerSurface {
         switch self {
         case .dashboardReview:

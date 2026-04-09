@@ -142,7 +142,7 @@ final class WorkflowRunnerTests: XCTestCase {
         let plan = WorkflowPlanner().plan(
             templateID: BuiltInWorkflowTemplate.StableID.receipts,
             files: [file],
-            invocationContext: .reviewAdHoc
+            invocationContext: .dashboardReview
         )
         XCTAssertFalse(plan.hasBlockers)
 
@@ -182,7 +182,7 @@ final class WorkflowRunnerTests: XCTestCase {
             environment.context.fetch(FetchDescriptor<ActivityItem>()).last
         )
         XCTAssertEqual(activity.activityType, .workflowRunCompleted)
-        XCTAssertTrue(activity.details.contains("Review"))
+        XCTAssertTrue(activity.details.contains("Dashboard review"))
 
         let stepRuns = try environment.auditStore.stepRuns(
             runID: try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first).id
@@ -219,7 +219,7 @@ final class WorkflowRunnerTests: XCTestCase {
         let plan = WorkflowPlanner().plan(
             templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
             files: [file],
-            invocationContext: .trustedScopeAutomation(scopeDisplayName: "Design Assets")
+            invocationContext: .trustedScopeScheduled(scopeDisplayName: "Design Assets")
         )
         XCTAssertFalse(plan.hasBlockers)
         XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .move, .log, .notify])
@@ -291,7 +291,7 @@ final class WorkflowRunnerTests: XCTestCase {
         let plan = WorkflowPlanner().plan(
             templateID: BuiltInWorkflowTemplate.StableID.receipts,
             files: [file],
-            invocationContext: .reviewAdHoc
+            invocationContext: .dashboardReview
         )
         XCTAssertFalse(plan.hasBlockers)
 
@@ -358,7 +358,7 @@ final class WorkflowRunnerTests: XCTestCase {
         let plan = WorkflowPlanner().plan(
             templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
             files: [file],
-            invocationContext: .trustedScopeAutomation(scopeDisplayName: "Design Assets")
+            invocationContext: .trustedScopeScheduled(scopeDisplayName: "Design Assets")
         )
         XCTAssertFalse(plan.hasBlockers)
 
