@@ -29,7 +29,11 @@ extension Font {
     /// H3 for subsections
     /// 17pt Semibold - Use for subsection headers
     static let formaH3 = Font.system(size: 17, weight: .semibold, design: .default)
-    
+
+    /// Callout text — bridges Body(13pt) and H3(17pt)
+    /// 15pt Semibold - Use for sub-section labels, prominent metadata
+    static let formaCallout = Font.system(size: 15, weight: .semibold, design: .default)
+
     /// Large body text
     /// 15pt Regular - Use for emphasized body content
     static let formaBodyLarge = Font.system(size: 15, weight: .regular, design: .default)
@@ -155,6 +159,20 @@ extension Font {
     /// Small monospace
     /// 11pt Regular SF Mono
     static let formaMonoSmall = Font.system(size: 11, weight: .regular, design: .monospaced)
+
+    // MARK: - Tabular Digits (for aligned numeric columns)
+
+    /// Tabular body digits — 13pt with fixed-width numerals
+    static let formaBodyTabular = Font.system(size: 13, weight: .regular, design: .default)
+        .monospacedDigit()
+
+    /// Tabular compact digits — 12pt with fixed-width numerals
+    static let formaCompactTabular = Font.system(size: 12, weight: .medium, design: .default)
+        .monospacedDigit()
+
+    /// Tabular small digits — 11pt with fixed-width numerals
+    static let formaSmallTabular = Font.system(size: 11, weight: .regular, design: .default)
+        .monospacedDigit()
 }
 
 // MARK: - Text Modifiers
