@@ -30,6 +30,18 @@ enum FileRecoveryState {
     }
 }
 
+#Preview {
+    MainContentView(
+        selection: .home,
+        searchText: "",
+        activeChips: [],
+        availableWidth: 1200,
+        showKeyboardHelp: .constant(false)
+    )
+    .environmentObject(DashboardViewModel())
+    .environmentObject(NavigationViewModel())
+}
+
 struct MainContentView: View {
     private enum PrimaryActionSource {
         case floatingActionBar
@@ -210,7 +222,7 @@ struct MainContentView: View {
                         }
                         .mask(scrollFadeMask)
                         .guidedTourRegion(.mainFileList)
-                        .animation(.easeInOut(duration: 0.2), value: dashboardViewModel.currentViewMode)
+                        .animation(.easeInOut(duration: FormaEasing.Duration.fast), value: dashboardViewModel.currentViewMode)
                     }
                 }
 
@@ -719,7 +731,7 @@ struct MainContentView: View {
     }
 
     private func presentRuleEditor(for file: FileItem) {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(.easeInOut(duration: FormaEasing.Duration.fast)) {
             nav.openRuleEditor(
                 fileContext: file,
                 returnTarget: .defaultPanel

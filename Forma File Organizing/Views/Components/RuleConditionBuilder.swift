@@ -6,7 +6,7 @@ struct RuleConditionBuilder: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             HStack {
                 Text("Matches")
                     .font(.formaBodyLarge)
@@ -43,7 +43,7 @@ struct RuleConditionBuilder: View {
         if formState.showExclusionConditions || !formState.exclusionConditions.isEmpty {
             Divider().padding(.vertical, 4)
 
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 HStack {
                     Text("Except when")
                         .font(.formaBodyLarge)
@@ -102,12 +102,12 @@ struct RuleConditionBuilder: View {
             TextField(conditionPlaceholder, text: $formState.conditionValue)
                 .font(.formaBodyLarge)
                 .textFieldStyle(.plain)
-                .padding(8)
+                .padding(FormaSpacing.tight)
                 .background(Color.formaControlBackground)
-                .cornerRadius(8)
+                .cornerRadius(FormaRadius.control)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.formaSeparator, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: FormaRadius.control)
+                        .stroke(Color.formaSeparator, lineWidth: FormaBorderWidth.thin)
                 )
                 .frame(maxWidth: .infinity)
         }
@@ -133,7 +133,7 @@ struct RuleConditionBuilder: View {
                 .menuStyle(.borderlessButton)
             }
 
-            VStack(spacing: 8) {
+            VStack(spacing: FormaSpacing.tight) {
                 ForEach(Array(formState.conditions.enumerated()), id: \.offset) { index, _ in
                     conditionRow(at: index)
                 }
@@ -291,7 +291,7 @@ struct RuleConditionBuilder: View {
             .cornerRadius(FormaRadius.card)
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                    .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
             )
         }
     }

@@ -23,7 +23,9 @@ enum NavigationSelection: Hashable {
     case pictures
     case music
     case nestedFolder(base: BookmarkFolder.FolderType, relativePath: String, includeSubfolders: Bool)
+    @available(*, deprecated, message: "Smart Rules now opens via right panel action")
     case rules  // View and manage all saved rules
+    @available(*, deprecated, message: "Analytics now opens via right panel action")
     case analytics
     case category(FileTypeCategory)
 

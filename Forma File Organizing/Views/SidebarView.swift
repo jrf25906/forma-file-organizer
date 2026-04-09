@@ -47,19 +47,6 @@ struct SidebarView: View {
                         }
                     }
                     .guidedTourRegion(.sidebarLocations)
-
-
-
-                    // TOOLS SECTION (Grouped per user feedback)
-                    sectionHeader("TOOLS")
-                    
-                    // Smart Rules
-                    sidebarItem("Smart Rules", icon: "list.bullet.rectangle.fill", selection: .rules)
-
-                    // Analytics (if enabled)
-                    if services.featureFlags.isEnabled(.analyticsAndInsights) {
-                        sidebarItem("Analytics", icon: "chart.pie.fill", selection: .analytics)
-                    }
                 }
                 .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
             }
@@ -84,6 +71,20 @@ struct SidebarView: View {
                 }
                 .disabled(isAddingFolder)
                 .help("Add a new location")
+
+                // Smart Rules — opens right panel in rules list mode
+                SidebarActionRow(title: "Smart Rules", icon: "list.bullet.rectangle") {
+                    dashboardViewModel.rightPanelMode = .ruleBuilder(editingRule: nil, fileContext: nil)
+                }
+                .help("View and manage organization rules")
+
+                // Analytics — opens right panel in analytics mode
+                if services.featureFlags.isEnabled(.analyticsAndInsights) {
+                    SidebarActionRow(title: "Analytics", icon: "chart.bar") {
+                        dashboardViewModel.rightPanelMode = .analytics
+                    }
+                    .help("View activity and insights")
+                }
             }
             .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
             .padding(.bottom, FormaSpacing.tight)
@@ -97,16 +98,16 @@ struct SidebarView: View {
                 SettingsLink {
                     HStack(spacing: 6) {
                         Image(systemName: "gearshape")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.formaBodyMedium)
 
                         Text("Settings")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.formaBodyMedium)
                     }
                     .foregroundColor(isSettingsHovered ? .formaLabel : .formaSecondaryLabelHigh)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                             .fill(isSettingsHovered ? footerHoverFill : Color.clear)
                     )
                 }
@@ -125,7 +126,7 @@ struct SidebarView: View {
                         .foregroundColor(isHelpHovered ? .formaLabel : .formaSecondaryLabelHigh)
                         .frame(width: 26, height: 26)
                         .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                                 .fill(isHelpHovered ? footerHoverFill : Color.clear)
                         )
                 }
@@ -235,7 +236,7 @@ struct SidebarView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.formaCaptionSemibold)
                             .foregroundStyle(Color.formaTertiaryLabel)
                         Text("Subfolders")
                             .font(.formaCaption)
@@ -474,7 +475,7 @@ struct SidebarView: View {
             if let firstRemaining = folderService.availableFolders.first {
                 nav.select(.from(folderType: firstRemaining.folderType))
             } else {
-                nav.select(.rules) // Fallback to rules if no locations remain
+                nav.select(.home) // Fallback to home if no locations remain
             }
         }
 
@@ -497,18 +498,18 @@ private struct SidebarNativeRow: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
 
-    private let rowRadius: CGFloat = 7
+    private let rowRadius: CGFloat = FormaRadius.small
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 9) {
+            HStack(spacing: FormaSpacing.tight) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.formaBodyMedium)
                     .foregroundColor(iconColor)
                     .frame(width: 18, alignment: .center)
 
                 Text(title)
-                    .font(.system(size: 13, weight: isSelected ? .medium : .regular))
+                    .font(isSelected ? .formaBodyMedium : .formaBody)
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
@@ -535,7 +536,7 @@ private struct SidebarNativeRow: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: rowRadius, style: .continuous)
-                    .strokeBorder(selectedBorder, lineWidth: isSelected ? 0.5 : 0)
+                    .strokeBorder(selectedBorder, lineWidth: isSelected ? FormaBorderWidth.hairline : 0)
             )
             .contentShape(RoundedRectangle(cornerRadius: rowRadius, style: .continuous))
         }
@@ -543,7 +544,7 @@ private struct SidebarNativeRow: View {
         .onHover { hovering in
             isHovered = hovering
         }
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .animation(FormaEasing.microFeedback, value: isHovered)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -593,14 +594,14 @@ private struct SidebarActionRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 9) {
+            HStack(spacing: FormaSpacing.tight) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.formaBodyMedium)
                     .foregroundColor(.formaSecondaryLabelHigh)
                     .frame(width: 18, alignment: .center)
 
                 Text(title)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.formaBody)
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
@@ -611,12 +612,12 @@ private struct SidebarActionRow: View {
             .frame(minHeight: 30)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                     .fill(isHovered
                         ? Color.formaControlBackground.opacity(colorScheme == .dark ? 0.65 : 0.9)
                         : Color.clear)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hovering in

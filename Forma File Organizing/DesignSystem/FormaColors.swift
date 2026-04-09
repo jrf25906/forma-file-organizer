@@ -56,8 +56,9 @@ extension Color {
     static let formaWarmOrange = Color(red: 201/255, green: 126/255, blue: 102/255)
     
     /// Downloads/Archives category color
-    /// HEX: #8BA688 | RGB: 139, 166, 136
-    static let formaSoftGreen = Color(red: 139/255, green: 166/255, blue: 136/255)
+    /// HEX: #96A67E | RGB: 150, 166, 126 | HSL: 98° 17% 57%
+    // #96A67E (98° 17% 57%) — olive-green, ≥15° hue separation from formaSage
+    static let formaSoftGreen = Color(red: 150/255, green: 166/255, blue: 126/255)
     
     // MARK: - System Colors (Semantic)
     // Use these for UI elements that need automatic dark mode support
@@ -359,7 +360,8 @@ extension NSColor {
     static let formaWarmOrange = NSColor(red: 201/255, green: 126/255, blue: 102/255, alpha: 1.0)
     
     /// Forma Soft Green - Downloads category
-    static let formaSoftGreen = NSColor(red: 139/255, green: 166/255, blue: 136/255, alpha: 1.0)
+    // #96A67E (98° 17% 57%) — olive-green, ≥15° hue separation from formaSage
+    static let formaSoftGreen = NSColor(red: 150/255, green: 166/255, blue: 126/255, alpha: 1.0)
 }
 
 // MARK: - Color Blending

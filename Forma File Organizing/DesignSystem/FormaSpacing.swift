@@ -76,7 +76,7 @@ enum FormaSpacing {
     /// Window sizes
     struct Window {
         /// Minimum window width that preserves the full dashboard layout
-        static let minWidth: CGFloat = 1200
+        static let minWidth: CGFloat = 1280
 
         /// Minimum window height that preserves the main dashboard chrome
         static let minHeight: CGFloat = 600
@@ -90,6 +90,23 @@ enum FormaSpacing {
     struct Toolbar {
         /// Minimal breathing room between window top and toolbar content
         static let topOffset: CGFloat = 12
+    }
+
+    /// Three-column layout constraints
+    struct Column {
+        /// Sidebar: min 220, ideal 260, max 320
+        static let sidebarMin: CGFloat = 220
+        static let sidebarIdeal: CGFloat = 260
+        static let sidebarMax: CGFloat = 320
+
+        /// Center content: min 560 (down from 680 to breathe when right panel opens)
+        static let centerMin: CGFloat = 560
+        static let centerIdeal: CGFloat = 960
+
+        /// Right panel: min 280, ideal 340, max 420
+        static let rightPanelMin: CGFloat = 280
+        static let rightPanelIdeal: CGFloat = 340
+        static let rightPanelMax: CGFloat = 420
     }
 
 }

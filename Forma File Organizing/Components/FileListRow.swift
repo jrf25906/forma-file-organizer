@@ -162,7 +162,7 @@ struct FileListRow: View {
                 disablesEdit: isSelected,
                 disablesSkip: isSelected
             )
-            .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isHovered)
+            .animation(reduceMotion ? .none : FormaEasing.microFeedback, value: isHovered)
         }
         .padding(.leading, FormaSpacing.tight)
         .padding(.trailing, FormaSpacing.tight)
@@ -186,8 +186,8 @@ struct FileListRow: View {
         )
         .shadow(color: rowAmbientShadowColor, radius: rowAmbientShadowRadius, x: 0, y: rowAmbientShadowY)
         .shadow(color: rowContactShadowColor, radius: rowContactShadowRadius, x: 0, y: rowContactShadowY)
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isHovered)
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isFocused)
+        .animation(reduceMotion ? .none : FormaEasing.microFeedback, value: isHovered)
+        .animation(reduceMotion ? .none : FormaEasing.microFeedback, value: isFocused)
         // PERF: Keep stable identity to avoid unnecessary full row recreation.
         .id(file.path)
         .onHover { isHovered = $0 }
@@ -243,10 +243,10 @@ struct FileListRow: View {
 
     private var rowBorderWidth: CGFloat {
         if surfaceStyle.interactionState == .focused {
-            return 1.5
+            return FormaBorderWidth.medium
         }
         if surfaceStyle.interactionState == .selected {
-            return 1.0
+            return FormaBorderWidth.thin
         }
         return colorScheme == .dark ? 0.75 : 0.6
     }
