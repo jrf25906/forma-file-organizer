@@ -244,9 +244,9 @@ struct FileGridItem: View {
                 onToggleSelection()
             }
         }
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isFocused)
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isHovered)
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.15), value: isSelected)
+        .animation(reduceMotion ? .none : FormaEasing.microFeedback, value: isFocused)
+        .animation(reduceMotion ? .none : FormaEasing.microFeedback, value: isHovered)
+        .animation(reduceMotion ? .none : FormaEasing.microFeedback, value: isSelected)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(
             FileRowAccessibilityIdentifier.rowIdentifier(
@@ -319,9 +319,9 @@ struct FileGridItem: View {
     private var tileOuterBorderWidth: CGFloat {
         switch surfaceStyle.interactionState {
         case .focused:
-            return 1.5
+            return FormaBorderWidth.medium
         case .selected:
-            return 1.0
+            return FormaBorderWidth.thin
         case .hover, .rest:
             return 0.75
         }

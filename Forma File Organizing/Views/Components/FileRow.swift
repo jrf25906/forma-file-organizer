@@ -226,7 +226,7 @@ struct FileRow: View {
                 searchMatchType: searchMatchType,
                 contentSnippet: contentSnippet
             )
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isHovered)
+            .animation(reduceMotion ? nil : FormaEasing.microFeedback, value: isHovered)
 
             Spacer(minLength: contentSpacing)
 
@@ -268,9 +268,9 @@ struct FileRow: View {
         )
         .shadow(color: cardAmbientShadowColor, radius: cardAmbientShadowRadius, x: 0, y: cardAmbientShadowY)
         .shadow(color: cardContactShadowColor, radius: cardContactShadowRadius, x: 0, y: cardContactShadowY)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isSelected)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isFocused)
+        .animation(reduceMotion ? nil : FormaEasing.microFeedback, value: isHovered)
+        .animation(reduceMotion ? nil : FormaEasing.microFeedback, value: isSelected)
+        .animation(reduceMotion ? nil : FormaEasing.microFeedback, value: isFocused)
         .onHover { hovering in
             isHovered = hovering
         }
@@ -338,9 +338,9 @@ struct FileRow: View {
     private var cardOuterBorderWidth: CGFloat {
         switch surfaceStyle.interactionState {
         case .focused:
-            return 1.5
+            return FormaBorderWidth.medium
         case .selected:
-            return 1.0
+            return FormaBorderWidth.thin
         case .hover, .rest:
             return 0.75
         }
