@@ -24,9 +24,36 @@ struct ProjectSpaceWorkflowProfileService {
         at timestamp: Date
     ) throws {
         let normalizedTemplateID = ProjectSpaceWorkflowProfile.normalizedOptionalText(templateID)
-        guard let profile = normalizedTemplateID == nil
-            ? existingProfile(for: normalizedProjectLabel)
-            : profileOrCreate(normalizedProjectLabel: normalizedProjectLabel) else {
+
+        if normalizedTemplateID == nil {
+            let normalizedProjectLabel = ProjectSpaceWorkflowProfile.normalizedProjectLabelValue(normalizedProjectLabel)
+            guard !normalizedProjectLabel.isEmpty else {
+                return
+            }
+
+            guard let profile = existingProfile(for: normalizedProjectLabel) else {
+                return
+            }
+
+            profile.preferredWorkflowTemplateID = nil
+
+            if profile.lastWorkflowRunID == nil && profile.lastWorkflowCompletedAt == nil {
+                try modelContext.delete(
+                    model: ProjectSpaceWorkflowProfile.self,
+                    where: #Predicate<ProjectSpaceWorkflowProfile> { profile in
+                        profile.normalizedProjectLabel == normalizedProjectLabel
+                    },
+                    includeSubclasses: false
+                )
+            } else {
+                profile.updatedAt = timestamp
+            }
+
+            try modelContext.save()
+            return
+        }
+
+        guard let profile = profileOrCreate(normalizedProjectLabel: normalizedProjectLabel) else {
             return
         }
 

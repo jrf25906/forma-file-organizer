@@ -64,6 +64,22 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
         }
     }
 
+    func testClearingPreferredTemplateDeletesEmptyProfileWhenNoLatestRunExists() throws {
+        try withService { context, service in
+            let timestamp = Date(timeIntervalSince1970: 1_000)
+            try service.upsertPreferredTemplate(
+                "builtin.workflow.receipts.v1",
+                for: "Alpha",
+                at: timestamp
+            )
+
+            try service.upsertPreferredTemplate(nil, for: " Alpha ", at: timestamp.addingTimeInterval(60))
+
+            XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).count, 0)
+            XCTAssertNil(service.profile(normalizedProjectLabel: "Alpha"))
+        }
+    }
+
     func testProfileReusesExistingRecordForWhitespaceVariants() throws {
         try withService { context, service in
             let timestamp = Date(timeIntervalSince1970: 1_000)
