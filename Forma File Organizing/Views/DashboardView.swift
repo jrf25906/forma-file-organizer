@@ -150,7 +150,11 @@ struct DashboardView: View {
             showKeyboardHelp: $showKeyboardHelp
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+        .navigationSplitViewColumnWidth(
+            min: FormaSpacing.Column.sidebarMin,
+            ideal: FormaSpacing.Column.sidebarIdeal,
+            max: FormaSpacing.Column.sidebarMax
+        )
     }
 
     @ViewBuilder
@@ -159,7 +163,10 @@ struct DashboardView: View {
             centerContent(availableWidth: proxy.size.width)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .navigationSplitViewColumnWidth(min: 680, ideal: 960)
+        .navigationSplitViewColumnWidth(
+            min: FormaSpacing.Column.centerMin,
+            ideal: FormaSpacing.Column.centerIdeal
+        )
     }
 
     @ViewBuilder
@@ -172,7 +179,11 @@ struct DashboardView: View {
             } detail: {
                 RightPanelView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 420)
+                    .navigationSplitViewColumnWidth(
+                        min: FormaSpacing.Column.rightPanelMin,
+                        ideal: FormaSpacing.Column.rightPanelIdeal,
+                        max: FormaSpacing.Column.rightPanelMax
+                    )
             }
             .navigationSplitViewStyle(.balanced)
         } else {
