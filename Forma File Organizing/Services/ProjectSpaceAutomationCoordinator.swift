@@ -15,6 +15,18 @@ extension FileMetadataFoundationService: ProjectSpaceAutomationAdmissionWriting 
 
 @MainActor
 struct ProjectSpaceAutomationCoordinator {
+    typealias PersistLatestRun = @MainActor @Sendable (WorkflowRunRecord, String, Date) throws -> Void
+    typealias RecordRun = @MainActor @Sendable (
+        UUID,
+        String,
+        ProjectSpaceAutomationTriggerKind,
+        UUID?,
+        ProjectSpaceAutomationRunStatus,
+        Date,
+        Date?,
+        Date
+    ) throws -> ProjectSpaceAutomationRunRecord
+
     enum CoordinatorError: LocalizedError {
         case noRunnableFiles
 
@@ -31,19 +43,49 @@ struct ProjectSpaceAutomationCoordinator {
     private let automationService: ProjectSpaceAutomationService
     private let workflowExecution: WorkflowExecutionClient
     private let admissionResolver: ProjectSpaceAdmissionResolver
+    private let recommendationService: ProjectSpaceAutomationRecommendationService
+    private let persistLatestRun: PersistLatestRun
+    private let recordRun: RecordRun
 
     init(
         modelContext: ModelContext,
         metadataAdmissionWriter: any ProjectSpaceAutomationAdmissionWriting,
         automationService: ProjectSpaceAutomationService? = nil,
         workflowExecution: WorkflowExecutionClient = .live,
-        admissionResolver: ProjectSpaceAdmissionResolver = ProjectSpaceAdmissionResolver()
+        admissionResolver: ProjectSpaceAdmissionResolver = ProjectSpaceAdmissionResolver(),
+        recommendationService: ProjectSpaceAutomationRecommendationService = ProjectSpaceAutomationRecommendationService(),
+        persistLatestRun: PersistLatestRun? = nil,
+        recordRun: RecordRun? = nil
     ) {
+        let resolvedAutomationService = automationService ?? ProjectSpaceAutomationService(modelContext: modelContext)
+
         self.modelContext = modelContext
         self.metadataAdmissionWriter = metadataAdmissionWriter
-        self.automationService = automationService ?? ProjectSpaceAutomationService(modelContext: modelContext)
+        self.automationService = resolvedAutomationService
         self.workflowExecution = workflowExecution
         self.admissionResolver = admissionResolver
+        self.recommendationService = recommendationService
+        self.persistLatestRun = persistLatestRun ?? { run, projectLabel, timestamp in
+            guard run.primaryStatus != .queued,
+                  run.primaryStatus != .running else {
+                return
+            }
+
+            try ProjectSpaceWorkflowProfileService(modelContext: modelContext)
+                .recordLatestRun(run, for: projectLabel, at: timestamp)
+        }
+        self.recordRun = recordRun ?? { policyID, workflowTemplateID, triggerKind, workflowRunID, status, startedAt, endedAt, createdAt in
+            try resolvedAutomationService.recordRun(
+                policyID: policyID,
+                workflowTemplateID: workflowTemplateID,
+                triggerKind: triggerKind,
+                workflowRunID: workflowRunID,
+                status: status,
+                startedAt: startedAt,
+                endedAt: endedAt,
+                createdAt: createdAt
+            )
+        }
     }
 
     func executePolicy(
@@ -53,68 +95,73 @@ struct ProjectSpaceAutomationCoordinator {
         triggerKind: ProjectSpaceAutomationTriggerKind,
         now: Date
     ) async throws -> ProjectSpaceAutomationRunRecord {
-        try performAdmissionWritesIfNeeded(
+        let eligibleFiles = try eligibleFiles(
             for: policy,
             detail: detail,
             files: files,
             timestamp: now
         )
+        guard !eligibleFiles.isEmpty else {
+            throw CoordinatorError.noRunnableFiles
+        }
 
         let invocationContext = WorkflowInvocationContext.projectSpace(projectLabel: detail.projectLabel)
-        let plan = workflowExecution.plan(policy.workflowTemplateID, files, invocationContext)
-        let partition = partitionWorkflowPlan(plan, files: files)
+        let plan = workflowExecution.plan(policy.workflowTemplateID, eligibleFiles, invocationContext)
+        let partition = partitionWorkflowPlan(plan, files: eligibleFiles)
         guard !partition.runnableFiles.isEmpty else {
             throw CoordinatorError.noRunnableFiles
         }
 
         let scopeID = UUID()
+        let workflowRun: WorkflowRunRecord
 
         do {
-            let workflowRun = try await workflowExecution.run(
+            workflowRun = try await workflowExecution.run(
                 partition.runnablePlan,
                 partition.runnableFiles,
                 scopeID,
                 modelContext
             )
-            try persistLatestRunBestEffort(workflowRun, projectLabel: detail.projectLabel, at: now)
-
-            return try automationService.recordRun(
-                policyID: policy.id,
-                workflowTemplateID: policy.workflowTemplateID,
-                triggerKind: triggerKind,
-                workflowRunID: workflowRun.id,
-                status: workflowRun.primaryStatus == .succeeded ? .succeeded : .failed,
-                startedAt: workflowRun.startedAt,
-                endedAt: workflowRun.endedAt ?? now,
-                createdAt: now
-            )
         } catch {
             if let failedRun = try? WorkflowAuditStore(modelContext: modelContext)
                 .latestRunSummary(scopeID: scopeID, workflowTemplateID: policy.workflowTemplateID) {
-                try? persistLatestRunBestEffort(failedRun, projectLabel: detail.projectLabel, at: now)
-                _ = try? automationService.recordRun(
-                    policyID: policy.id,
-                    workflowTemplateID: policy.workflowTemplateID,
-                    triggerKind: triggerKind,
-                    workflowRunID: failedRun.id,
-                    status: .failed,
-                    startedAt: failedRun.startedAt,
-                    endedAt: failedRun.endedAt ?? now,
-                    createdAt: now
+                try? persistLatestRun(failedRun, detail.projectLabel, now)
+                _ = try? recordRun(
+                    policy.id,
+                    policy.workflowTemplateID,
+                    triggerKind,
+                    failedRun.id,
+                    .failed,
+                    failedRun.startedAt,
+                    failedRun.endedAt ?? now,
+                    now
                 )
             }
             throw error
         }
+
+        try persistLatestRun(workflowRun, detail.projectLabel, now)
+
+        return try recordRun(
+            policy.id,
+            policy.workflowTemplateID,
+            triggerKind,
+            workflowRun.id,
+            workflowRun.primaryStatus == .succeeded ? .succeeded : .failed,
+            workflowRun.startedAt,
+            workflowRun.endedAt ?? now,
+            now
+        )
     }
 
-    private func performAdmissionWritesIfNeeded(
+    private func eligibleFiles(
         for policy: ProjectSpaceAutomationPolicy,
         detail: ProjectSpaceDetail,
         files: [FileItem],
         timestamp: Date
-    ) throws {
+    ) throws -> [FileItem] {
         guard policy.admissionMode == .automatic else {
-            return
+            return files
         }
 
         let rowsByPath = Dictionary(
@@ -122,6 +169,7 @@ struct ProjectSpaceAutomationCoordinator {
                 (URL(fileURLWithPath: $0.normalizedPath).standardizedFileURL.path, $0)
             }
         )
+        var eligibleFiles: [FileItem] = []
 
         for file in files {
             let standardizedPath = URL(fileURLWithPath: file.path).standardizedFileURL.path
@@ -129,27 +177,32 @@ struct ProjectSpaceAutomationCoordinator {
                 continue
             }
 
-            let decision = admissionDecision(for: fileRow, detail: detail)
-            guard case .strongConfirmed = decision else {
+            switch admissionDecision(for: fileRow, detail: detail, now: timestamp) {
+            case .existingMember:
+                eligibleFiles.append(file)
+            case .strongConfirmed:
+                try metadataAdmissionWriter.admitToProjectSpace(
+                    canonicalIdentity: fileRow.canonicalIdentity,
+                    projectLabel: detail.projectLabel,
+                    detailsSummary: "Admitted to project space \(detail.projectLabel) before policy execution.",
+                    timestamp: timestamp
+                )
+                eligibleFiles.append(file)
+            case .insufficient:
                 continue
             }
-
-            try metadataAdmissionWriter.admitToProjectSpace(
-                canonicalIdentity: fileRow.canonicalIdentity,
-                projectLabel: detail.projectLabel,
-                detailsSummary: "Admitted to project space \(detail.projectLabel) before policy execution.",
-                timestamp: timestamp
-            )
         }
+
+        return eligibleFiles
     }
 
     private func admissionDecision(
         for fileRow: ProjectSpaceFileRow,
-        detail: ProjectSpaceDetail
+        detail: ProjectSpaceDetail,
+        now: Date
     ) -> ProjectSpaceAdmissionDecision {
         let dominantDestinationProjectLabel: String? = {
-            guard let first = detail.preferredDestinations.first,
-                  dominantDestinationIsStrong(for: detail),
+            guard let first = recommendationService.dominantDestination(for: detail, now: now),
                   normalized(first.destinationDisplayName) == normalized(detail.projectLabel) else {
                 return nil
             }
@@ -188,20 +241,6 @@ struct ProjectSpaceAutomationCoordinator {
         }).flatMap { _ in detail.projectLabel }
     }
 
-    private func dominantDestinationIsStrong(for detail: ProjectSpaceDetail) -> Bool {
-        guard let first = detail.preferredDestinations.first else {
-            return false
-        }
-
-        let totalEvents = detail.preferredDestinations.reduce(0) { $0 + $1.eventCount }
-        guard first.eventCount >= 2,
-              totalEvents > 0 else {
-            return false
-        }
-
-        return Double(first.eventCount) / Double(totalEvents) >= 0.60
-    }
-
     private func partitionWorkflowPlan(
         _ plan: WorkflowPlan,
         files: [FileItem]
@@ -219,20 +258,6 @@ struct ProjectSpaceAutomationCoordinator {
         )
 
         return (runnablePlan, runnableFiles)
-    }
-
-    private func persistLatestRunBestEffort(
-        _ run: WorkflowRunRecord,
-        projectLabel: String,
-        at timestamp: Date
-    ) throws {
-        guard run.primaryStatus != .queued,
-              run.primaryStatus != .running else {
-            return
-        }
-
-        try ProjectSpaceWorkflowProfileService(modelContext: modelContext)
-            .recordLatestRun(run, for: projectLabel, at: timestamp)
     }
 
     private func normalized(_ value: String?) -> String? {

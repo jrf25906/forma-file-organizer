@@ -49,7 +49,7 @@ struct ProjectSpaceAutomationRecommendationService {
         ]
     }
 
-    private func dominantDestination(
+    func dominantDestination(
         for detail: ProjectSpaceDetail,
         now: Date
     ) -> ProjectSpacePreferredDestination? {

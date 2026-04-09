@@ -6,19 +6,23 @@ import SwiftData
 final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
     private enum InjectedFailure: Error {
         case admissionWrite
+        case recordRun
     }
 
     @MainActor
     private final class WorkflowExecutionSpy {
         private(set) var plannedTemplateIDs: [String] = []
         private(set) var plannedInvocationContexts: [WorkflowInvocationContext] = []
+        private(set) var lastPlannedFilePaths: [String] = []
         private(set) var ranTemplateIDs: [String] = []
+        private(set) var lastRunFilePaths: [String] = []
         var onRun: (() -> Void)?
 
         lazy var client = WorkflowExecutionClient(
             plan: { [weak self] templateID, files, invocationContext in
                 self?.plannedTemplateIDs.append(templateID)
                 self?.plannedInvocationContexts.append(invocationContext)
+                self?.lastPlannedFilePaths = files.map(\.path)
                 return WorkflowPlanner().plan(
                     templateID: templateID,
                     files: files,
@@ -28,6 +32,7 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
             run: { [weak self] plan, _, scopeID, modelContext in
                 await MainActor.run {
                     self?.ranTemplateIDs.append(plan.definition.templateID)
+                    self?.lastRunFilePaths = plan.files.map(\.sourcePath)
                     self?.onRun?()
                 }
 
@@ -365,8 +370,269 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         XCTAssertEqual(persistedAutomationRuns.first?.status, .succeeded)
     }
 
+    func testExecutePolicy_AutomaticAdmissionRunsOnlyEligibleFiles() async throws {
+        let environment = try makeEnvironment()
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let existingURL = try environment.sourceRoot.createFile(name: "Alpha/existing.md", contents: "existing")
+        let strongURL = try environment.sourceRoot.createFile(name: "Alpha/strong.md", contents: "strong")
+        let insufficientURL = try environment.sourceRoot.createFile(name: "Misc/insufficient.md", contents: "insufficient")
+        let unmatchedURL = try environment.sourceRoot.createFile(name: "Loose/unmatched.md", contents: "unmatched")
+        let projectDestination = try Destination.folder(
+            from: environment.destinationRoot.url.appendingPathComponent("Alpha"),
+            displayName: "Alpha"
+        )
+
+        let existingFile = makeFileItem(
+            path: existingURL.path,
+            rootPath: environment.sourceRoot.url.path,
+            relativeParentPath: "Alpha",
+            timestamp: environment.timestamp,
+            destination: projectDestination
+        )
+        let strongFile = makeFileItem(
+            path: strongURL.path,
+            rootPath: environment.sourceRoot.url.path,
+            relativeParentPath: "Alpha",
+            timestamp: environment.timestamp,
+            destination: projectDestination
+        )
+        let insufficientFile = makeFileItem(path: insufficientURL.path, rootPath: environment.sourceRoot.url.path, relativeParentPath: "Misc", timestamp: environment.timestamp)
+        let unmatchedFile = makeFileItem(path: unmatchedURL.path, rootPath: environment.sourceRoot.url.path, relativeParentPath: "Loose", timestamp: environment.timestamp)
+
+        for file in [existingFile, strongFile, insufficientFile, unmatchedFile] {
+            environment.context.insert(file)
+        }
+
+        let existingRecord = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: existingFile.path,
+            displayName: existingFile.name,
+            timestamp: environment.timestamp
+        )
+        existingRecord.projectAssociation = "Alpha"
+
+        let strongRecord = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: strongFile.path,
+            displayName: strongFile.name,
+            timestamp: environment.timestamp
+        )
+        let insufficientRecord = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: insufficientFile.path,
+            displayName: insufficientFile.name,
+            timestamp: environment.timestamp
+        )
+        try environment.context.save()
+
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: existingRecord.canonicalIdentity,
+                    path: existingFile.path,
+                    displayName: existingFile.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: "Alpha"
+                ),
+                ProjectSpaceFileRow(
+                    canonicalIdentity: strongRecord.canonicalIdentity,
+                    path: strongFile.path,
+                    displayName: strongFile.name,
+                    sourceFolderHint: "Alpha"
+                ),
+                ProjectSpaceFileRow(
+                    canonicalIdentity: insufficientRecord.canonicalIdentity,
+                    path: insufficientFile.path,
+                    displayName: insufficientFile.name,
+                    sourceFolderHint: nil
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-60)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: strongRecord.canonicalIdentity,
+                    fileDisplayName: strongFile.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-60),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                ),
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: existingRecord.canonicalIdentity,
+                    fileDisplayName: existingFile.name,
+                    eventKind: .rekeyed,
+                    timestamp: environment.timestamp.addingTimeInterval(-120),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Renamed into Alpha."
+                )
+            ]
+        )
+
+        _ = try await environment.coordinator.executePolicy(
+            environment.policy,
+            detail: detail,
+            files: [existingFile, strongFile, insufficientFile, unmatchedFile],
+            triggerKind: .manual,
+            now: environment.timestamp
+        )
+
+        XCTAssertEqual(
+            environment.workflowExecution.lastPlannedFilePaths.sorted(),
+            [existingFile.path, strongFile.path].sorted()
+        )
+        XCTAssertEqual(
+            environment.workflowExecution.lastRunFilePaths.sorted(),
+            [existingFile.path, strongFile.path].sorted()
+        )
+        XCTAssertEqual(existingRecord.projectAssociation, "Alpha")
+        XCTAssertEqual(strongRecord.projectAssociation, "Alpha")
+        XCTAssertNil(insufficientRecord.projectAssociation)
+        XCTAssertTrue(existingRecord.historyEntries.filter { $0.eventKind == .noted }.isEmpty)
+        XCTAssertEqual(strongRecord.historyEntries.filter { $0.eventKind == .noted }.count, 1)
+        XCTAssertTrue(insufficientRecord.historyEntries.filter { $0.eventKind == .noted }.isEmpty)
+    }
+
+    func testExecutePolicy_AutomaticAdmissionRejectsStaleDominantDestinationEvidence() async throws {
+        let environment = try makeEnvironment()
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let record = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: environment.file.path,
+            displayName: environment.file.name,
+            timestamp: environment.timestamp
+        )
+
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    path: environment.file.path,
+                    displayName: environment.file.name,
+                    sourceFolderHint: "Alpha"
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-(31 * 24 * 60 * 60))
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    fileDisplayName: environment.file.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-(31 * 24 * 60 * 60)),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Old move into Alpha."
+                )
+            ]
+        )
+
+        do {
+            _ = try await environment.coordinator.executePolicy(
+                environment.policy,
+                detail: detail,
+                files: [environment.file],
+                triggerKind: .manual,
+                now: environment.timestamp
+            )
+            XCTFail("Expected stale automatic-admission evidence to reject execution")
+        } catch {
+        }
+
+        XCTAssertTrue(environment.workflowExecution.ranTemplateIDs.isEmpty)
+        XCTAssertNil(record.projectAssociation)
+        XCTAssertEqual(try environment.context.fetch(FetchDescriptor<ProjectSpaceAutomationRunRecord>()).count, 0)
+    }
+
+    func testExecutePolicy_PostSuccessRunRecordPersistenceFailureDoesNotCreateFailedAutomationRun() async throws {
+        let environment = try makeEnvironment(
+            recordRun: { _, _, _, _, _, _, _, _ in
+                throw InjectedFailure.recordRun
+            }
+        )
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let record = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: environment.file.path,
+            displayName: environment.file.name,
+            timestamp: environment.timestamp
+        )
+        record.projectAssociation = "Alpha"
+        try environment.context.save()
+
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    path: environment.file.path,
+                    displayName: environment.file.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: "Alpha"
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-60)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    fileDisplayName: environment.file.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-60),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                )
+            ]
+        )
+
+        do {
+            _ = try await environment.coordinator.executePolicy(
+                environment.policy,
+                detail: detail,
+                files: [environment.file],
+                triggerKind: .manual,
+                now: environment.timestamp
+            )
+            XCTFail("Expected bookkeeping failure after successful workflow run")
+        } catch {
+        }
+
+        XCTAssertEqual(environment.workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(try environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).count, 1)
+        XCTAssertEqual(try environment.context.fetch(FetchDescriptor<ProjectSpaceAutomationRunRecord>()).count, 0)
+    }
+
     private func makeEnvironment(
-        admissionWriter: (any ProjectSpaceAutomationAdmissionWriting)? = nil
+        admissionWriter: (any ProjectSpaceAutomationAdmissionWriting)? = nil,
+        persistLatestRun: (@Sendable (WorkflowRunRecord, String, Date) throws -> Void)? = nil,
+        recordRun: (@Sendable (UUID, String, ProjectSpaceAutomationTriggerKind, UUID?, ProjectSpaceAutomationRunStatus, Date, Date?, Date) throws -> ProjectSpaceAutomationRunRecord)? = nil
     ) throws -> (
         container: ModelContainer,
         context: ModelContext,
@@ -406,8 +672,8 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
             updatedAt: timestamp
         )
 
-        let sourceRoot = try TemporaryDirectory()
-        let destinationRoot = try TemporaryDirectory()
+        let sourceRoot = try TemporaryDirectory(cleanupOnDeinit: false)
+        let destinationRoot = try TemporaryDirectory(cleanupOnDeinit: false)
         let sourceURL = try sourceRoot.createFile(name: "Alpha/spec.md", contents: "spec")
         let destinationURL = try destinationRoot.createDirectory(name: "Alpha")
         let file = FileItem(
@@ -429,7 +695,9 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
             modelContext: context,
             metadataAdmissionWriter: admissionWriter ?? metadataService,
             automationService: automationService,
-            workflowExecution: workflowExecution.client
+            workflowExecution: workflowExecution.client,
+            persistLatestRun: persistLatestRun,
+            recordRun: recordRun
         )
 
         return (
@@ -464,6 +732,27 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         )
         try context.save()
         return record
+    }
+
+    private func makeFileItem(
+        path: String,
+        rootPath: String,
+        relativeParentPath: String,
+        timestamp: Date,
+        destination: Destination? = nil
+    ) -> FileItem {
+        FileItem(
+            path: path,
+            sizeInBytes: 32,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: rootPath,
+            relativeParentPath: relativeParentPath,
+            destination: destination,
+            status: .ready
+        )
     }
 
     private func makeProjectSpaceDetail(
