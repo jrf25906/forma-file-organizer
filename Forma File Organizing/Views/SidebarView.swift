@@ -47,19 +47,6 @@ struct SidebarView: View {
                         }
                     }
                     .guidedTourRegion(.sidebarLocations)
-
-
-
-                    // TOOLS SECTION (Grouped per user feedback)
-                    sectionHeader("TOOLS")
-                    
-                    // Smart Rules
-                    sidebarItem("Smart Rules", icon: "list.bullet.rectangle.fill", selection: .rules)
-
-                    // Analytics (if enabled)
-                    if services.featureFlags.isEnabled(.analyticsAndInsights) {
-                        sidebarItem("Analytics", icon: "chart.pie.fill", selection: .analytics)
-                    }
                 }
                 .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
             }
@@ -84,6 +71,20 @@ struct SidebarView: View {
                 }
                 .disabled(isAddingFolder)
                 .help("Add a new location")
+
+                // Smart Rules — opens right panel in rules list mode
+                SidebarActionRow(title: "Smart Rules", icon: "list.bullet.rectangle") {
+                    dashboardViewModel.rightPanelMode = .ruleBuilder(editingRule: nil, fileContext: nil)
+                }
+                .help("View and manage organization rules")
+
+                // Analytics — opens right panel in analytics mode
+                if services.featureFlags.isEnabled(.analyticsAndInsights) {
+                    SidebarActionRow(title: "Analytics", icon: "chart.bar") {
+                        dashboardViewModel.rightPanelMode = .analytics
+                    }
+                    .help("View activity and insights")
+                }
             }
             .padding(.horizontal, FormaLayout.Sidebar.expandedHorizontalPadding)
             .padding(.bottom, FormaSpacing.tight)
@@ -474,7 +475,7 @@ struct SidebarView: View {
             if let firstRemaining = folderService.availableFolders.first {
                 nav.select(.from(folderType: firstRemaining.folderType))
             } else {
-                nav.select(.rules) // Fallback to rules if no locations remain
+                nav.select(.home) // Fallback to home if no locations remain
             }
         }
 

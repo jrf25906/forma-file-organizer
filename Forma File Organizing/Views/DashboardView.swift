@@ -129,7 +129,7 @@ struct DashboardView: View {
     }
 
     private var showsInspectorColumn: Bool {
-        dashboardViewModel.isRightPanelVisible && nav.selection != .analytics
+        dashboardViewModel.isRightPanelVisible
     }
 
     private var splitLayoutMode: String {
@@ -198,26 +198,14 @@ struct DashboardView: View {
 
     @ViewBuilder
     private func centerContent(availableWidth: CGFloat) -> some View {
-        if nav.selection == .rules {
-            RulesManagementView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if nav.selection == .analytics {
-            ProductivityReportView(
-                modelContext: modelContext,
-                navigation: nav,
-                dashboardViewModel: dashboardViewModel
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            MainContentView(
-                selection: nav.selection,
-                searchText: nav.searchText,
-                activeChips: nav.activeChips,
-                availableWidth: availableWidth,
-                showKeyboardHelp: $showKeyboardHelp
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
+        MainContentView(
+            selection: nav.selection,
+            searchText: nav.searchText,
+            activeChips: nav.activeChips,
+            availableWidth: availableWidth,
+            showKeyboardHelp: $showKeyboardHelp
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Body
@@ -340,12 +328,7 @@ struct DashboardView: View {
                 QuickLookSheet(url: url)
             }
         }
-        .onChange(of: nav.selection) { _, newSelection in
-            if newSelection == .analytics {
-                dashboardViewModel.rightPanelMode = .analytics
-            } else if case .analytics = dashboardViewModel.rightPanelMode {
-                dashboardViewModel.rightPanelMode = .default
-            }
-        }
+        // Analytics is now triggered directly via the sidebar ACTIONS section,
+        // not as a navigation selection. No nav.selection sync needed.
     }
 }
