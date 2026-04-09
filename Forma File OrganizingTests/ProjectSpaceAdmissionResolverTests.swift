@@ -3,6 +3,8 @@ import XCTest
 
 final class ProjectSpaceAdmissionResolverTests: XCTestCase {
     private let resolver = ProjectSpaceAdmissionResolver()
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
 
     func testResolveAdmission_ReturnsExistingMemberForMatchingProjectAssociation() {
         let decision = resolver.resolveAdmission(
@@ -68,5 +70,46 @@ final class ProjectSpaceAdmissionResolverTests: XCTestCase {
         XCTAssertEqual(snapshot.alignedSignalCount, 1)
         XCTAssertEqual(snapshot.genericHintCount, 1)
         XCTAssertEqual(snapshot.conflictingProjectLabels, ["Beta"])
+    }
+
+    func testResolveAdmission_ReturnsInsufficientForGenericDestinationHintAlone() {
+        let decision = resolver.resolveAdmission(
+            projectLabel: "Alpha",
+            evidence: ProjectSpaceAdmissionEvidence(
+                existingProjectAssociation: nil,
+                dominantDestinationProjectLabel: "Alpha",
+                dominantDestinationIsGenericHint: true,
+                sourceFolderProjectLabel: nil,
+                relatedFileProjectLabel: nil
+            )
+        )
+
+        guard case let .insufficient(snapshot) = decision else {
+            return XCTFail("Expected insufficient, got \(decision)")
+        }
+
+        XCTAssertEqual(snapshot.projectLabel, "Alpha")
+        XCTAssertEqual(snapshot.alignedSignalCount, 0)
+        XCTAssertEqual(snapshot.genericHintCount, 1)
+        XCTAssertEqual(snapshot.supportingSignals, [.genericDestinationHint])
+        XCTAssertTrue(snapshot.conflictingProjectLabels.isEmpty)
+    }
+
+    func testAdmissionDecision_RoundTripsThroughCodableSerialization() throws {
+        let decision = ProjectSpaceAdmissionDecision.strongConfirmed(
+            .init(
+                projectLabel: "Alpha",
+                existingProjectAssociation: nil,
+                alignedSignalCount: 2,
+                genericHintCount: 0,
+                conflictingProjectLabels: [],
+                supportingSignals: [.dominantDestination, .sourceFolder]
+            )
+        )
+
+        let data = try encoder.encode(decision)
+        let decoded = try decoder.decode(ProjectSpaceAdmissionDecision.self, from: data)
+
+        XCTAssertEqual(decoded, decision)
     }
 }

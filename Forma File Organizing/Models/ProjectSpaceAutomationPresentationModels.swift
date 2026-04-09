@@ -20,7 +20,7 @@ struct ProjectSpaceAutomationBoardSnapshot: Sendable, Hashable {
     let generatedAt: Date
 }
 
-struct ProjectSpaceAdmissionEvidence: Sendable, Hashable {
+struct ProjectSpaceAdmissionEvidence: Codable, Sendable, Hashable {
     let existingProjectAssociation: String?
     let dominantDestinationProjectLabel: String?
     let dominantDestinationIsGenericHint: Bool
@@ -28,7 +28,7 @@ struct ProjectSpaceAdmissionEvidence: Sendable, Hashable {
     let relatedFileProjectLabel: String?
 }
 
-enum ProjectSpaceAdmissionSignal: String, Sendable, Hashable {
+enum ProjectSpaceAdmissionSignal: String, Codable, Sendable, Hashable {
     case existingProjectAssociation
     case dominantDestination
     case genericDestinationHint
@@ -36,7 +36,7 @@ enum ProjectSpaceAdmissionSignal: String, Sendable, Hashable {
     case relatedFile
 }
 
-struct ProjectSpaceAdmissionEvidenceSnapshot: Sendable, Hashable {
+struct ProjectSpaceAdmissionEvidenceSnapshot: Codable, Sendable, Hashable {
     let projectLabel: String
     let existingProjectAssociation: String?
     let alignedSignalCount: Int
@@ -49,7 +49,7 @@ struct ProjectSpaceAdmissionEvidenceSnapshot: Sendable, Hashable {
     }
 }
 
-enum ProjectSpaceAdmissionDecision: Sendable, Hashable {
+enum ProjectSpaceAdmissionDecision: Codable, Sendable, Hashable {
     case existingMember(ProjectSpaceAdmissionEvidenceSnapshot)
     case strongConfirmed(ProjectSpaceAdmissionEvidenceSnapshot)
     case insufficient(ProjectSpaceAdmissionEvidenceSnapshot)
