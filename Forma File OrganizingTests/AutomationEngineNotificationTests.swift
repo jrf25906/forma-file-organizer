@@ -4,6 +4,11 @@ import SwiftData
 
 @MainActor
 final class AutomationEngineNotificationTests: XCTestCase {
+    override func tearDown() {
+        FeatureFlagService.shared.resetToDefaults()
+        super.tearDown()
+    }
+
     func testWorkflowInvocationContext_ProjectPolicyScheduledAllowsNotify() {
         XCTAssertTrue(
             WorkflowInvocationContext.projectPolicyScheduled(
@@ -60,6 +65,7 @@ final class AutomationEngineNotificationTests: XCTestCase {
         private(set) var staleRuleAlerts: [(ruleNames: [String], thresholdDays: Int)] = []
         var clearedFolderHealthAlerts: [BookmarkFolder.FolderType] = []
         var clearedStaleRuleAlertCount = 0
+        var onScopedSummary: (() -> Void)?
 
         func notifyAutoOrganizeSummary(successCount: Int, failedCount: Int, skippedCount: Int) {
             autoOrganizeSummaries.append((successCount, failedCount, skippedCount))
@@ -79,6 +85,7 @@ final class AutomationEngineNotificationTests: XCTestCase {
                 scopeDisplayName,
                 groupedScopeCount
             ))
+            onScopedSummary?()
         }
 
         func notifyTrustedAutomationScopeAttention(scopeDisplayName: String, reason: String) {
@@ -124,12 +131,14 @@ final class AutomationEngineNotificationTests: XCTestCase {
 
     @MainActor
     private final class WorkflowExecutionSpy {
+        private(set) var plannedInvocationContexts: [WorkflowInvocationContext] = []
         var failingFileNames: Set<String> = []
         var runError: Error?
 
         lazy var client = WorkflowExecutionClient(
             plan: { templateID, files, invocationContext in
-                WorkflowPlanner().plan(
+                self.plannedInvocationContexts.append(invocationContext)
+                return WorkflowPlanner().plan(
                     templateID: templateID,
                     files: files,
                     invocationContext: invocationContext
@@ -163,6 +172,34 @@ final class AutomationEngineNotificationTests: XCTestCase {
                 )
             }
         )
+    }
+
+    @MainActor
+    private final class MockFileMonitor: FileMonitoring {
+        private(set) var isMonitoring = false
+        private var onChange: (@MainActor (Set<FolderLocation>) -> Void)?
+
+        func startMonitoring(
+            folders: [WatchedFolderDescriptor],
+            onChange: @escaping @MainActor (Set<FolderLocation>) -> Void
+        ) {
+            isMonitoring = true
+            self.onChange = onChange
+        }
+
+        func updateMonitoredFolders(_ folders: [WatchedFolderDescriptor]) {}
+
+        func stopMonitoring() {
+            isMonitoring = false
+            onChange = nil
+        }
+
+        func simulateChange(_ folders: Set<FolderLocation>) async {
+            guard let onChange else { return }
+            await MainActor.run {
+                onChange(folders)
+            }
+        }
     }
 
     func testBacklogThresholdSendsReminderWhenNotificationsEnabled() {
@@ -483,6 +520,198 @@ final class AutomationEngineNotificationTests: XCTestCase {
         XCTAssertEqual(notificationService.trustedScopeAttentionNotifications.count, 1)
         XCTAssertNil(notificationService.trustedScopeAttentionNotifications.first?.scopeDisplayName)
         XCTAssertEqual(notificationService.trustedScopeAttentionNotifications.first?.groupedScopeCount, 2)
+    }
+
+    func testRealtimeProjectPolicyNotifyDoesNotSuppressTrustedScopeSummary() async throws {
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+        FeatureFlagService.shared.setEnabled(.backgroundMonitoring, true)
+        FeatureFlagService.shared.setEnabled(.autoOrganize, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceAutomationBoard, true)
+
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let trustedDestinationURL = try destinationRoot.createDirectory(name: "Receipts Archive")
+        let projectDestinationURL = try destinationRoot.createDirectory(name: "Projects")
+        let trustedDestination = try Destination.folder(from: trustedDestinationURL, displayName: "Receipts Archive")
+        let projectDestination = try Destination.folder(from: projectDestinationURL, displayName: "Projects")
+
+        let policy = AutomationPolicy(
+            userMode: .scanAndOrganize,
+            effectiveMode: .scanAndOrganize,
+            scanIntervalMinutes: 30,
+            scanOnLaunch: false,
+            backlogThreshold: FormaConfig.Automation.backlogThreshold,
+            ageThresholdDays: FormaConfig.Automation.ageThresholdDays,
+            mlConfidenceThreshold: FormaConfig.Automation.mlAutoOrganizeConfidenceMinimum,
+            maxConsecutiveFailures: FormaConfig.Automation.maxConsecutiveFailures,
+            notificationsEnabled: true,
+            backlogReminderCooldownHours: FormaConfig.Automation.backlogReminderCooldownHours,
+            errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
+        )
+        let notificationService = MockNotificationService()
+        let summaryExpectation = expectation(description: "trusted summary emitted")
+        notificationService.onScopedSummary = {
+            summaryExpectation.fulfill()
+        }
+        let workflowExecution = WorkflowExecutionSpy()
+        let fileMonitor = MockFileMonitor()
+
+        let trustedFileURL = try sourceRoot.createFile(name: "receipts/Receipt-June.pdf")
+        let trustedFile = FileItem(
+            path: trustedFileURL.path,
+            sizeInBytes: 128,
+            creationDate: Date(timeIntervalSince1970: 1_700_000_000),
+            location: .downloads,
+            scanRootPath: sourceRoot.url.path,
+            relativeParentPath: "receipts",
+            destination: trustedDestination,
+            originalSuggestedDestination: trustedDestination,
+            status: .pending
+        )
+        trustedFile.confidenceScore = 0.99
+
+        let projectFileURL = try sourceRoot.createFile(name: "projects/brief.md")
+        let projectFile = FileItem(
+            path: projectFileURL.path,
+            sizeInBytes: 128,
+            creationDate: Date(timeIntervalSince1970: 1_700_000_000),
+            location: .downloads,
+            scanRootPath: sourceRoot.url.path,
+            relativeParentPath: "projects",
+            destination: projectDestination,
+            originalSuggestedDestination: projectDestination,
+            status: .pending
+        )
+        projectFile.confidenceScore = 0.99
+
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            ActivityItem.self,
+            TrustedAutomationScope.self,
+            TrustedAutomationScopeRunRecord.self,
+            FileMetadataRecord.self,
+            FileOrganizationHistoryEntry.self,
+            ProjectSpaceWorkflowProfile.self,
+            ProjectSpaceAutomationProfile.self,
+            ProjectSpaceAutomationPolicy.self,
+            ProjectSpaceAutomationRunRecord.self,
+            WorkflowRunRecord.self,
+            WorkflowStepRunRecord.self,
+            WorkflowFileActionRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        context.insert(trustedFile)
+        context.insert(projectFile)
+
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        _ = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "\(sourceRoot.url.path)|receipts",
+            displayName: "Receipts",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: sourceRoot.url.path,
+                    relativeParentPath: "receipts"
+                ),
+                destination: .init(trustedDestination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 4,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.95,
+            rationaleSummary: "Trusted after repeated review approvals.",
+            allowedActions: [.move],
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+
+        let automationService = ProjectSpaceAutomationService(modelContext: context)
+        _ = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.folderWatch],
+            admissionMode: .manualReview,
+            state: .active,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_100)
+        )
+
+        let projectSpaceDetail = ProjectSpaceDetail(
+            summary: ProjectSpaceSummary(
+                normalizedLabel: "Alpha",
+                fileCount: 1,
+                lastActivityAt: Date(timeIntervalSince1970: 1_700_000_000),
+                sourceFolderHints: ["Alpha"]
+            ),
+            files: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: "alpha-existing",
+                    path: projectFile.path,
+                    displayName: projectFile.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: "Alpha"
+                )
+            ],
+            overview: ProjectSpaceOverview(
+                currentFileCount: 1,
+                activeFolderCount: 1,
+                activeFolderHints: ["Alpha"]
+            ),
+            preferredDestinations: [],
+            recentActivity: []
+        )
+
+        let engine = makeEngine(
+            policy: policy,
+            notificationService: notificationService,
+            workflowExecution: workflowExecution.client,
+            fileMonitor: fileMonitor,
+            watchedFoldersProvider: {
+                [
+                    WatchedFolderDescriptor(
+                        location: .downloads,
+                        rootURL: sourceRoot.url
+                    )
+                ]
+            },
+            projectSpaceDetailReader: { _, normalizedProjectLabel in
+                normalizedProjectLabel == "Alpha" ? projectSpaceDetail : nil
+            }
+        )
+
+        let coordinator = RecordingOrganizationCoordinator()
+        let provider = MockFileScanProvider()
+        provider.autoOrganizeCandidates = [trustedFile, projectFile]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+        engine.start()
+
+        await fileMonitor.simulateChange([.downloads])
+        await fulfillment(of: [summaryExpectation], timeout: 1.0)
+
+        XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.count, 1)
+        XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.first?.scopeDisplayName, "Receipts")
+        XCTAssertEqual(notificationService.scopedAutoOrganizeSummaries.first?.groupedScopeCount, 1)
+        XCTAssertTrue(
+            workflowExecution.plannedInvocationContexts.contains(
+                .projectPolicyRealtime(projectLabel: "Alpha", policyName: "Project Drop Zone")
+            )
+        )
     }
 
     func testExecutionFailureStillSendsGroupedAttentionNotificationForMixedScopeRun() async throws {
@@ -976,13 +1205,19 @@ final class AutomationEngineNotificationTests: XCTestCase {
     private func makeEngine(
         policy: AutomationPolicy,
         notificationService: AutomationNotificationServing,
-        workflowExecution: WorkflowExecutionClient = .live
+        workflowExecution: WorkflowExecutionClient = .live,
+        fileMonitor: FileMonitoring = FileMonitorService(),
+        watchedFoldersProvider: (@MainActor () -> [WatchedFolderDescriptor])? = nil,
+        projectSpaceDetailReader: (@MainActor (ModelContext, String) -> ProjectSpaceDetail?)? = nil
     ) -> AutomationEngine {
         AutomationEngine(
             notificationService: notificationService,
             clock: FixedClock(now: Date(timeIntervalSince1970: 1_700_000_000)),
             policyResolver: { policy },
-            workflowExecution: workflowExecution
+            fileMonitor: fileMonitor,
+            watchedFoldersProvider: watchedFoldersProvider,
+            workflowExecution: workflowExecution,
+            projectSpaceDetailReader: projectSpaceDetailReader
         )
     }
 

@@ -100,6 +100,7 @@ final class AutomationEngineTests: XCTestCase {
         private(set) var ranTemplateIDs: [String] = []
         private(set) var lastPlannedFilePaths: [String] = []
         private(set) var lastRunFilePaths: [String] = []
+        var runPrimaryStatus: WorkflowRunPrimaryStatus = .succeeded
         var runError: Error?
         var onPlan: (() -> Void)?
 
@@ -124,10 +125,13 @@ final class AutomationEngineTests: XCTestCase {
                 if let runError = await MainActor.run(resultType: Error?.self, body: { self?.runError }) {
                     throw runError
                 }
+                let runPrimaryStatus = await MainActor.run(resultType: WorkflowRunPrimaryStatus.self) {
+                    self?.runPrimaryStatus ?? .succeeded
+                }
                 return WorkflowRunRecord(
                     scopeID: scopeID,
                     workflowTemplateID: plan.definition.templateID,
-                    primaryStatus: .succeeded,
+                    primaryStatus: runPrimaryStatus,
                     startedAt: Date(timeIntervalSince1970: 1_000),
                     endedAt: Date(timeIntervalSince1970: 1_001)
                 )
@@ -1096,6 +1100,175 @@ final class AutomationEngineTests: XCTestCase {
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [file.path])
         XCTAssertEqual(engine.state.lastPreflightSummary?.eligibleCount, 1)
         XCTAssertEqual(engine.state.lastPreflightSummary?.skippedExcludedFromAutomation, 0)
+    }
+
+    @MainActor
+    func testPerformAutoOrganize_SameProjectMultipleActivePoliciesUseDeterministicProjectWinner() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Projects"),
+            displayName: "Projects"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let automationService = ProjectSpaceAutomationService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "notes.md",
+            destination: destination
+        )
+        let projectSpaceDetailReader = ProjectSpaceDetailStubReader(
+            detailsByProjectLabel: [
+                "Alpha": makeProjectSpaceDetail(
+                    projectLabel: "Alpha",
+                    fileRows: [
+                        ProjectSpaceFileRow(
+                            canonicalIdentity: "alpha-existing",
+                            path: file.path,
+                            displayName: file.name,
+                            projectAssociation: "Alpha",
+                            sourceFolderHint: "Alpha"
+                        )
+                    ]
+                )
+            ]
+        )
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            projectSpaceDetailReader: { _, normalizedProjectLabel in
+                projectSpaceDetailReader.detail(for: normalizedProjectLabel)
+            }
+        )
+
+        context.insert(file)
+
+        _ = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Generic Intake",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+        _ = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.screenshots,
+            triggerKinds: [.manual],
+            admissionMode: .manualReview,
+            state: .active,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        _ = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual],
+            admissionMode: .manualReview,
+            state: .active,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_100)
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(
+            workflowExecution.plannedInvocationContexts,
+            [.projectPolicyManual(projectLabel: "Alpha", policyName: "Project Drop Zone")]
+        )
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(workflowExecution.lastRunFilePaths, [file.path])
+    }
+
+    @MainActor
+    func testPerformAutoOrganize_ProjectPolicyCompletedWithIssuesDoesNotCountAsFullFailure() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Projects"),
+            displayName: "Projects"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let automationService = ProjectSpaceAutomationService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        workflowExecution.runPrimaryStatus = .completedWithIssues
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "project",
+            fileName: "handoff.md",
+            destination: destination
+        )
+        let projectSpaceDetailReader = ProjectSpaceDetailStubReader(
+            detailsByProjectLabel: [
+                "Alpha": makeProjectSpaceDetail(
+                    projectLabel: "Alpha",
+                    fileRows: [
+                        ProjectSpaceFileRow(
+                            canonicalIdentity: "alpha-existing",
+                            path: file.path,
+                            displayName: file.name,
+                            projectAssociation: "Alpha",
+                            sourceFolderHint: "Alpha"
+                        )
+                    ]
+                )
+            ]
+        )
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            projectSpaceDetailReader: { _, normalizedProjectLabel in
+                projectSpaceDetailReader.detail(for: normalizedProjectLabel)
+            }
+        )
+
+        context.insert(file)
+        _ = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual],
+            admissionMode: .manualReview,
+            state: .active,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        let runRecords = try context.fetch(FetchDescriptor<ProjectSpaceAutomationRunRecord>())
+        XCTAssertEqual(engine.state.lastRunSuccessCount, 1)
+        XCTAssertEqual(engine.state.lastRunFailedCount, 0)
+        XCTAssertEqual(runRecords.first?.status, .completedWithIssues)
     }
 
     @MainActor

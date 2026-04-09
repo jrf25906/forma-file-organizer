@@ -485,7 +485,7 @@ final class AutomationEngine: ObservableObject {
         var trustedPostPreflightSkippedCount = 0
         var firstExecutionError: Error?
         var attentionSignals = preflightPlan.attentionSignals
-        var plannedWorkflowNativeNotify = false
+        var trustedPlannedWorkflowNativeNotify = false
 
         for group in preflightPlan.trustedScopeGroups {
             guard !group.eligibleFiles.isEmpty else {
@@ -504,7 +504,7 @@ final class AutomationEngine: ObservableObject {
             trustedSuccess += executionResult.successCount
             trustedFailed += executionResult.failedCount
             trustedPostPreflightSkippedCount += executionResult.skippedCount
-            plannedWorkflowNativeNotify = plannedWorkflowNativeNotify || executionResult.plannedWorkflowNotify
+            trustedPlannedWorkflowNativeNotify = trustedPlannedWorkflowNativeNotify || executionResult.plannedWorkflowNotify
 
             if firstExecutionError == nil {
                 firstExecutionError = executionResult.error
@@ -557,7 +557,6 @@ final class AutomationEngine: ObservableObject {
             totalSuccess += executionResult.successCount
             totalFailed += executionResult.failedCount
             postPreflightSkippedCount += executionResult.skippedCount
-            plannedWorkflowNativeNotify = plannedWorkflowNativeNotify || executionResult.plannedWorkflowNotify
 
             if firstExecutionError == nil {
                 firstExecutionError = executionResult.error
@@ -585,7 +584,7 @@ final class AutomationEngine: ObservableObject {
             undoAvailable: false
         )
 
-        if trustedSuccess > 0 && !plannedWorkflowNativeNotify {
+        if trustedSuccess > 0 && !trustedPlannedWorkflowNativeNotify {
             sendAutoOrganizeSummary(
                 successCount: trustedSuccess,
                 failedCount: trustedFailed,
@@ -1106,7 +1105,8 @@ final class AutomationEngine: ObservableObject {
                 ),
                 now: clock.now
             )
-            let successCount = runRecord.status == .succeeded ? group.eligibleFiles.count : 0
+            let successCountStatuses: Set<ProjectSpaceAutomationRunStatus> = [.succeeded, .completedWithIssues]
+            let successCount = successCountStatuses.contains(runRecord.status) ? group.eligibleFiles.count : 0
             let failedCount = runRecord.status == .failed ? group.eligibleFiles.count : 0
 
             return ProjectPolicyAutomationExecutionResult(

@@ -119,6 +119,46 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
         }
     }
 
+    func testPoliciesMatchingTriggerKind_CollapsesSameProjectToMostRecentActivePolicy() throws {
+        try withService { _, service in
+            _ = try service.createOrUpdatePolicy(
+                normalizedProjectLabel: "Alpha",
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.screenshots,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .active,
+                updatedAt: Date(timeIntervalSince1970: 2_050)
+            )
+            _ = try service.createOrUpdatePolicy(
+                normalizedProjectLabel: "Alpha",
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .active,
+                updatedAt: Date(timeIntervalSince1970: 2_150)
+            )
+            _ = try service.createOrUpdatePolicy(
+                normalizedProjectLabel: "Beta",
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .active,
+                updatedAt: Date(timeIntervalSince1970: 2_250)
+            )
+
+            let matches = service.policies(
+                matching: .manual,
+                states: [.active]
+            )
+
+            XCTAssertEqual(matches.map(\.normalizedProjectLabel), ["Alpha", "Beta"])
+            XCTAssertEqual(
+                matches.map(\.policy.workflowTemplateID),
+                [BuiltInWorkflowTemplate.StableID.projectDrop, BuiltInWorkflowTemplate.StableID.receipts]
+            )
+        }
+    }
+
     func testCreatePolicy_BlankProjectLabelFailsClosedWithoutPersistingRows() throws {
         try withService { context, service in
             XCTAssertThrowsError(

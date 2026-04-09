@@ -5,6 +5,7 @@ enum ProjectSpaceAutomationRunStatus: String, Codable, Sendable, CaseIterable {
     case queued
     case running
     case succeeded
+    case completedWithIssues
     case failed
     case revoked
 }

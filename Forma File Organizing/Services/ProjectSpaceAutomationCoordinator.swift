@@ -146,7 +146,7 @@ struct ProjectSpaceAutomationCoordinator {
             policy.workflowTemplateID,
             triggerKind,
             workflowRun.id,
-            workflowRun.primaryStatus == .succeeded ? .succeeded : .failed,
+            automationRunStatus(for: workflowRun.primaryStatus),
             workflowRun.startedAt,
             workflowRun.endedAt ?? now,
             now
@@ -155,6 +155,23 @@ struct ProjectSpaceAutomationCoordinator {
         try? persistLatestRun(workflowRun, detail.projectLabel, now)
 
         return automationRun
+    }
+
+    private func automationRunStatus(for primaryStatus: WorkflowRunPrimaryStatus) -> ProjectSpaceAutomationRunStatus {
+        switch primaryStatus {
+        case .queued:
+            return .queued
+        case .running:
+            return .running
+        case .succeeded:
+            return .succeeded
+        case .completedWithIssues:
+            return .completedWithIssues
+        case .failed:
+            return .failed
+        case .canceled:
+            return .failed
+        }
     }
 
     private func eligibleFiles(

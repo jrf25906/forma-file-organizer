@@ -54,11 +54,11 @@ struct ProjectSpaceAutomationService {
         }
 
         let profilesByID = Dictionary(uniqueKeysWithValues: allProfiles().map { ($0.id, $0) })
-        return allPolicies()
+        let candidates: [ProjectSpaceAutomationResolvedPolicy] = allPolicies()
             .filter { policy in
                 states.contains(policy.state) && policy.triggerKinds.contains(triggerKind)
             }
-            .compactMap { policy in
+            .compactMap { policy -> ProjectSpaceAutomationResolvedPolicy? in
                 guard let profile = profilesByID[policy.profileID] else {
                     return nil
                 }
@@ -67,15 +67,18 @@ struct ProjectSpaceAutomationService {
                     policy: policy
                 )
             }
-            .sorted { lhs, rhs in
-                if lhs.normalizedProjectLabel != rhs.normalizedProjectLabel {
-                    return lhs.normalizedProjectLabel < rhs.normalizedProjectLabel
+
+        var winnersByProjectLabel: [String: ProjectSpaceAutomationResolvedPolicy] = [:]
+        for candidate in candidates {
+            if let existing = winnersByProjectLabel[candidate.normalizedProjectLabel] {
+                if policySortKey(for: existing.policy) < policySortKey(for: candidate.policy) {
+                    winnersByProjectLabel[candidate.normalizedProjectLabel] = candidate
                 }
-                if lhs.policy.updatedAt != rhs.policy.updatedAt {
-                    return lhs.policy.updatedAt < rhs.policy.updatedAt
-                }
-                return lhs.policy.id.uuidString < rhs.policy.id.uuidString
+            } else {
+                winnersByProjectLabel[candidate.normalizedProjectLabel] = candidate
             }
+        }
+        return winnersByProjectLabel.keys.sorted().compactMap { winnersByProjectLabel[$0] }
     }
 
     @discardableResult
@@ -279,6 +282,30 @@ struct ProjectSpaceAutomationService {
 
     private func allProfiles() -> [ProjectSpaceAutomationProfile] {
         (try? modelContext.fetch(FetchDescriptor<ProjectSpaceAutomationProfile>())) ?? []
+    }
+
+    private func policySortKey(for policy: ProjectSpaceAutomationPolicy) -> (Int, Date, Date, String) {
+        (
+            policyStateRank(policy.state),
+            policy.updatedAt,
+            policy.createdAt,
+            policy.id.uuidString
+        )
+    }
+
+    private func policyStateRank(_ state: ProjectSpaceAutomationPolicyState) -> Int {
+        switch state {
+        case .active:
+            return 3
+        case .recommended:
+            return 2
+        case .paused:
+            return 1
+        case .revoked:
+            return 0
+        case .draft:
+            return -1
+        }
     }
 
     private func profileOrCreate(normalizedProjectLabel: String, at timestamp: Date) throws -> ProjectSpaceAutomationProfile {

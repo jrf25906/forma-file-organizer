@@ -17,6 +17,7 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         private(set) var lastPlannedFilePaths: [String] = []
         private(set) var ranTemplateIDs: [String] = []
         private(set) var lastRunFilePaths: [String] = []
+        var runPrimaryStatus: WorkflowRunPrimaryStatus = .succeeded
         var onRun: (() -> Void)?
 
         lazy var client = WorkflowExecutionClient(
@@ -31,6 +32,9 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
                 )
             },
             run: { [weak self] plan, _, scopeID, modelContext in
+                let runPrimaryStatus = await MainActor.run {
+                    self?.runPrimaryStatus ?? .succeeded
+                }
                 await MainActor.run {
                     self?.ranTemplateIDs.append(plan.definition.templateID)
                     self?.lastRunFilePaths = plan.files.map(\.sourcePath)
@@ -40,7 +44,7 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
                 let run = WorkflowRunRecord(
                     scopeID: scopeID,
                     workflowTemplateID: plan.definition.templateID,
-                    primaryStatus: .succeeded,
+                    primaryStatus: runPrimaryStatus,
                     startedAt: Date(timeIntervalSince1970: 2_000),
                     endedAt: Date(timeIntervalSince1970: 2_005)
                 )
@@ -490,6 +494,65 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         )
     }
 
+    func testExecutePolicy_CompletedWithIssuesPersistsNonFailureRunStatus() async throws {
+        let environment = try makeEnvironment(workflowRunPrimaryStatus: .completedWithIssues)
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let record = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: environment.file.path,
+            displayName: environment.file.name,
+            timestamp: environment.timestamp
+        )
+        record.projectAssociation = "Alpha"
+        try environment.context.save()
+
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    path: environment.file.path,
+                    displayName: environment.file.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: "Alpha"
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-60)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    fileDisplayName: environment.file.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-60),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                )
+            ]
+        )
+
+        let runRecord = try await environment.coordinator.executePolicy(
+            environment.policy,
+            detail: detail,
+            files: [environment.file],
+            triggerKind: .manual,
+            invocationContext: .projectPolicyManual(projectLabel: "Alpha", policyName: "Project Drop Zone"),
+            now: environment.timestamp
+        )
+
+        XCTAssertEqual(runRecord.status, .completedWithIssues)
+        let persistedAutomationRuns = try environment.context.fetch(FetchDescriptor<ProjectSpaceAutomationRunRecord>())
+        XCTAssertEqual(persistedAutomationRuns.first?.status, .completedWithIssues)
+    }
+
     func testExecutePolicy_AutomaticAdmissionRunsOnlyEligibleFiles() async throws {
         let environment = try makeEnvironment()
         defer { environment.sourceRoot.cleanup() }
@@ -884,7 +947,8 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
     private func makeEnvironment(
         admissionWriter: (any ProjectSpaceAutomationAdmissionWriting)? = nil,
         persistLatestRun: (@Sendable (WorkflowRunRecord, String, Date) throws -> Void)? = nil,
-        recordRun: (@Sendable (UUID, String, ProjectSpaceAutomationTriggerKind, UUID?, ProjectSpaceAutomationRunStatus, Date, Date?, Date) throws -> ProjectSpaceAutomationRunRecord)? = nil
+        recordRun: (@Sendable (UUID, String, ProjectSpaceAutomationTriggerKind, UUID?, ProjectSpaceAutomationRunStatus, Date, Date?, Date) throws -> ProjectSpaceAutomationRunRecord)? = nil,
+        workflowRunPrimaryStatus: WorkflowRunPrimaryStatus = .succeeded
     ) throws -> (
         container: ModelContainer,
         context: ModelContext,
@@ -914,6 +978,7 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         let metadataService = FileMetadataFoundationService(modelContext: context)
         let automationService = ProjectSpaceAutomationService(modelContext: context)
         let workflowExecution = WorkflowExecutionSpy()
+        workflowExecution.runPrimaryStatus = workflowRunPrimaryStatus
         let timestamp = Date(timeIntervalSince1970: 5_000)
         let policy = try automationService.createOrUpdatePolicy(
             normalizedProjectLabel: "Alpha",
