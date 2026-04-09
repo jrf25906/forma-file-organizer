@@ -151,13 +151,13 @@ struct ProjectSpaceWorkflowProfileService {
 
         if profile.successfulTemplateID == nil,
            let legacyTemplateID = profile.preferredWorkflowTemplateID,
-           profile.lastWorkflowRunID != nil || profile.lastWorkflowCompletedAt != nil {
+           let legacySuccessTimestamp = legacySuccessfulRunTimestamp(
+               for: profile,
+               fallbackTimestamp: fallbackTimestamp
+           ) {
             profile.successfulTemplateID = legacyTemplateID
             profile.successfulTemplateCount = max(profile.successfulTemplateCount, 1)
-            profile.successfulTemplateLastSucceededAt =
-                profile.successfulTemplateLastSucceededAt ??
-                profile.lastWorkflowCompletedAt ??
-                fallbackTimestamp
+            profile.successfulTemplateLastSucceededAt = profile.successfulTemplateLastSucceededAt ?? legacySuccessTimestamp
         }
 
         if profile.successfulTemplateID == nil {
@@ -172,6 +172,29 @@ struct ProjectSpaceWorkflowProfileService {
 
         profile.workflowMemorySchemaVersion =
             profile.workflowMemorySchemaVersion ?? ProjectSpaceWorkflowProfile.currentMemorySchemaVersion
+    }
+
+    private func legacySuccessfulRunTimestamp(
+        for profile: ProjectSpaceWorkflowProfile,
+        fallbackTimestamp: Date
+    ) -> Date? {
+        guard let lastWorkflowRunID = profile.lastWorkflowRunID,
+              let run = runRecord(id: lastWorkflowRunID),
+              isSuccessfulMemoryOutcome(run.primaryStatus) else {
+            return nil
+        }
+
+        return run.endedAt ?? profile.lastWorkflowCompletedAt ?? fallbackTimestamp
+    }
+
+    private func runRecord(id: UUID) -> WorkflowRunRecord? {
+        let descriptor = FetchDescriptor<WorkflowRunRecord>(
+            predicate: #Predicate<WorkflowRunRecord> { run in
+                run.id == id
+            }
+        )
+
+        return try? modelContext.fetch(descriptor).first
     }
 
     private func applySuccessfulRunMemory(

@@ -276,6 +276,17 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
             let legacyTemplate = BuiltInWorkflowTemplate.StableID.projectDrop
             let userUpdatedTemplate = BuiltInWorkflowTemplate.StableID.receipts
 
+            let legacyRun = WorkflowRunRecord(
+                id: legacyRunID,
+                scopeID: UUID(),
+                workflowTemplateID: legacyTemplate,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 1_650),
+                endedAt: legacyCompletedAt
+            )
+            context.insert(legacyRun)
+
             let legacyProfile = ProjectSpaceWorkflowProfile(
                 normalizedProjectLabel: "Alpha",
                 preferredWorkflowTemplateID: " \(legacyTemplate) ",
@@ -312,6 +323,44 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
             XCTAssertEqual(profile.successfulTemplateID, legacyTemplate)
             XCTAssertEqual(profile.successfulTemplateLastSucceededAt, legacyCompletedAt)
             XCTAssertGreaterThanOrEqual(profile.successfulTemplateCount, 1)
+        }
+    }
+
+    func testProfileService_LegacyFailedLatestRun_DoesNotBackfillSuccessMemory() throws {
+        try withService { context, service in
+            let legacyRunID = UUID()
+            let legacyTemplate = BuiltInWorkflowTemplate.StableID.projectDrop
+
+            let failedLegacyRun = WorkflowRunRecord(
+                id: legacyRunID,
+                scopeID: UUID(),
+                workflowTemplateID: legacyTemplate,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .failed,
+                startedAt: Date(timeIntervalSince1970: 1_850),
+                endedAt: Date(timeIntervalSince1970: 1_900)
+            )
+            context.insert(failedLegacyRun)
+
+            let legacyProfile = ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: " \(legacyTemplate) ",
+                lastWorkflowRunID: legacyRunID,
+                lastWorkflowCompletedAt: Date(timeIntervalSince1970: 1_900),
+                workflowMemoryStatus: nil,
+                workflowMemorySchemaVersion: nil,
+                updatedAt: Date(timeIntervalSince1970: 1_950)
+            )
+            context.insert(legacyProfile)
+            try context.save()
+
+            try service.upsertPreferredTemplate(legacyTemplate, for: "Alpha", at: Date(timeIntervalSince1970: 2_000))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(profile.preferredWorkflowTemplateID, legacyTemplate)
+            XCTAssertNil(profile.successfulTemplateID)
+            XCTAssertEqual(profile.successfulTemplateCount, 0)
+            XCTAssertNil(profile.successfulTemplateLastSucceededAt)
         }
     }
 
