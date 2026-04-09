@@ -34,7 +34,7 @@ struct FormaPrimaryButton: View {
         }
         .background(isEnabled ? tint : tint.opacity(Color.FormaOpacity.light * 4))
         .formaCornerRadius(cornerRadius)
-        .formaShadow(.button)
+        .formaShadow(.resting)
         .disabled(!isEnabled)
         .buttonStyle(PlainButtonStyle())
     }

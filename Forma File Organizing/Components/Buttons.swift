@@ -27,7 +27,7 @@ struct PrimaryButton: View {
             .frame(maxWidth: .infinity)
             .background(Color.formaSteelBlue)
             .formaCornerRadius(FormaRadius.control)
-            .formaShadow(.button)
+            .formaShadow(.resting)
         }
         .buttonStyle(.plain)
     }
@@ -85,7 +85,7 @@ struct PrimaryButtonStyle: ButtonStyle {
                         )
                     )
             )
-            .formaShadow(.button)
+            .formaShadow(.resting)
     }
 }
 

@@ -31,7 +31,7 @@ struct FormaCard<Content: View>: View {
                         lineWidth: isSelected ? 2 : 1
                     )
             )
-            .formaShadow(isSelected ? .cardSelected : .card)
+            .formaShadow(isSelected ? .raised : .resting)
     }
 }
 
@@ -74,7 +74,7 @@ struct FormaListCard: ViewModifier {
                         lineWidth: isSelected ? 1.5 : 0.5
                     )
             )
-            .formaShadow(isSelected ? .cardSelected : .card)
+            .formaShadow(isSelected ? .raised : .resting)
     }
 }
 

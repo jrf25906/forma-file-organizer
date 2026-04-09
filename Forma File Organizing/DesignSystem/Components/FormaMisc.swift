@@ -131,43 +131,6 @@ struct FormaFileListItem: View {
     }
 }
 
-// MARK: - Shadow Standardization System
-// Apple Design Award refinement: Consistent shadow treatment for proper depth and elevation
-
-/// Shadow levels for consistent elevation hierarchy
-enum FormaShadowLevel {
-    /// Resting card state - subtle depth
-    case card
-    /// Selected/active card - enhanced elevation
-    case cardSelected
-    /// Floating elements (action bars, popovers) - prominent elevation
-    case floating
-    /// Primary button depth
-    case button
-    /// No shadow
-    case none
-}
-
-extension View {
-    /// Apply standardized shadow based on elevation level
-    /// - Parameter level: The shadow level to apply (defaults to .card)
-    /// - Returns: View with appropriate shadow for its elevation
-    func formaShadow(_ level: FormaShadowLevel = .card) -> some View {
-        switch level {
-        case .card:
-            return AnyView(self.shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.light), radius: 4, x: 0, y: 2))
-        case .cardSelected:
-            return AnyView(self.shadow(color: Color.formaSteelBlue.opacity(Color.FormaOpacity.medium), radius: 8, x: 0, y: 3))
-        case .floating:
-            return AnyView(self.shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.medium), radius: 16, x: 0, y: 4))
-        case .button:
-            return AnyView(self.shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.light), radius: 4, x: 0, y: 2))
-        case .none:
-            return AnyView(self)
-        }
-    }
-}
-
 // MARK: - Corner Radius Standardization
 // Apple Design Award refinement: Enforce .continuous style for premium, smooth curves
 

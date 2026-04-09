@@ -900,7 +900,7 @@ private struct UsageExamplesSection: View {
                             cornerRadius: FormaRadius.pill,
                             style: .continuous
                         ))
-                        .formaShadow(.floating)
+                        .formaShadow(FormaShadow.floating)
                         """
                     )
                 }
