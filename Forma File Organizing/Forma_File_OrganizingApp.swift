@@ -110,6 +110,7 @@ struct Forma_File_OrganizingApp: App {
         PersonalMemoryPreference.self,
         LearnedPattern.self,
         ProjectCluster.self,
+        ProjectSpaceWorkflowProfile.self,
         MLTrainingHistory.self
     ])
 
