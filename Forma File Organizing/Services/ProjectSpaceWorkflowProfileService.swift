@@ -23,11 +23,14 @@ struct ProjectSpaceWorkflowProfileService {
         for normalizedProjectLabel: String,
         at timestamp: Date
     ) throws {
-        guard let profile = profileOrCreate(normalizedProjectLabel: normalizedProjectLabel) else {
+        let normalizedTemplateID = ProjectSpaceWorkflowProfile.normalizedOptionalText(templateID)
+        guard let profile = normalizedTemplateID == nil
+            ? existingProfile(for: normalizedProjectLabel)
+            : profileOrCreate(normalizedProjectLabel: normalizedProjectLabel) else {
             return
         }
 
-        profile.preferredWorkflowTemplateID = ProjectSpaceWorkflowProfile.normalizedOptionalText(templateID)
+        profile.preferredWorkflowTemplateID = normalizedTemplateID
         profile.updatedAt = timestamp
         try modelContext.save()
     }

@@ -55,6 +55,15 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
         }
     }
 
+    func testUpsertPreferredTemplateNilOnMissDoesNotCreateRow() throws {
+        try withService { context, service in
+            try service.upsertPreferredTemplate(nil, for: "Alpha", at: Date(timeIntervalSince1970: 1_000))
+
+            XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).count, 0)
+            XCTAssertNil(service.profile(normalizedProjectLabel: "Alpha"))
+        }
+    }
+
     func testProfileReusesExistingRecordForWhitespaceVariants() throws {
         try withService { context, service in
             let timestamp = Date(timeIntervalSince1970: 1_000)
