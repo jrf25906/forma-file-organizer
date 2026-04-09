@@ -1683,6 +1683,70 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(recommendedGroup.policies.map(\.state), [.recommended])
     }
 
+    func testDashboardProjectSpaceSummary_ShowsConflictedWorkflowMemoryState() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+        FeatureFlagService.shared.setEnabled(.backgroundMonitoring, true)
+        FeatureFlagService.shared.setEnabled(.autoOrganize, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceAutomationBoard, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let timestamp = Date(timeIntervalSince1970: 2_000)
+        let alphaURL = try tempDirectory.createFile(name: "Desktop/alpha.txt", contents: "alpha")
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        context.insert(
+            ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                successfulTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                successfulTemplateCount: 4,
+                successfulTemplateLastSucceededAt: timestamp.addingTimeInterval(-120),
+                dominantTriggerSurface: .projectPolicyManual,
+                dominantTriggerSurfaceCount: 4,
+                dominantTriggerSurfaceLastSeenAt: timestamp.addingTimeInterval(-120),
+                workflowMemoryStatus: .conflicted,
+                updatedAt: timestamp
+            )
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+        viewModel.refreshProjectSpaces()
+
+        let alphaSummary = try XCTUnwrap(
+            viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }) ??
+                FileMetadataFoundationService(modelContext: context).fetchProjectSpaceSummaries()
+                .first(where: { $0.normalizedLabel == "Alpha" })
+        )
+        viewModel.selectProjectSpace(alphaSummary)
+        await waitForProjectSpaceAutomationBoard(in: viewModel)
+        await waitForProjectSpaceWorkflowPreparationToSettle(in: viewModel)
+
+        let board = try XCTUnwrap(viewModel.selectedProjectSpaceAutomationBoard)
+        XCTAssertTrue(board.subtitle.localizedCaseInsensitiveContains("conflicted"))
+        XCTAssertTrue(board.subtitle.localizedCaseInsensitiveContains("receipt"))
+
+        let recommendedGroup = try XCTUnwrap(board.groups.first(where: { $0.kind == .recommended }))
+        let recommendedPolicy = try XCTUnwrap(recommendedGroup.policies.first)
+        XCTAssertTrue(recommendedPolicy.healthMessageText.localizedCaseInsensitiveContains("conflicted"))
+        XCTAssertTrue(recommendedPolicy.healthMessageText.localizedCaseInsensitiveContains("receipt"))
+    }
+
     func testCreateProjectSpacePolicy_FromPresetComposerPersistsDraft() async throws {
         let (container, context, service) = try makeMetadataService()
         _ = container

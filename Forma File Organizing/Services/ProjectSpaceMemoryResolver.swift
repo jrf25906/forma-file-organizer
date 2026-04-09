@@ -30,6 +30,7 @@ struct ProjectSpaceMemoryResolver {
     private static let dominantSuggestionThreshold = 0.60
     private static let dominantSuggestionMinimumCount = 2
     private static let dominantSuggestionWindow: TimeInterval = 30 * 24 * 60 * 60
+    private static let staleWorkflowWindow: TimeInterval = 30 * 24 * 60 * 60
 
     func buildOverview(
         for memberContexts: [MemberContext],
@@ -108,6 +109,34 @@ struct ProjectSpaceMemoryResolver {
 
             return lhs.canonicalIdentity < rhs.canonicalIdentity
         }
+    }
+
+    func resolveWorkflowMemoryProjection(
+        for detail: ProjectSpaceDetail,
+        profile: ProjectSpaceWorkflowProfile?,
+        now: Date = Date()
+    ) -> ProjectSpaceWorkflowMemoryProjection? {
+        if let profileProjection = workflowBackedProjection(profile: profile, now: now) {
+            return profileProjection
+        }
+
+        guard let normalizedProjectLabel = normalized(detail.projectLabel),
+              let dominantDestination = dominantDestination(for: detail, now: now),
+              normalized(dominantDestination.destinationDisplayName) == normalizedProjectLabel else {
+            return nil
+        }
+
+        let totalMoves = max(1, detail.preferredDestinations.reduce(0) { $0 + $1.eventCount })
+        let summaryText = "Workflow memory is unavailable, so recommendations fall back to destination history favoring \(dominantDestination.destinationDisplayName) in \(dominantDestination.eventCount) of \(totalMoves) moves."
+
+        return ProjectSpaceWorkflowMemoryProjection(
+            state: .destinationFallback,
+            successfulTemplateID: nil,
+            successfulTemplateCount: 0,
+            successfulTemplateLastSucceededAt: nil,
+            dominantTriggerKind: nil,
+            summaryText: summaryText
+        )
     }
 
     func suggestDominantDestination(
@@ -255,8 +284,8 @@ struct ProjectSpaceMemoryResolver {
                 return lhs.lastUsedAt > rhs.lastUsedAt
             }
 
-                return lhs.destinationDisplayName.localizedCaseInsensitiveCompare(rhs.destinationDisplayName) == .orderedAscending
-            }
+            return lhs.destinationDisplayName.localizedCaseInsensitiveCompare(rhs.destinationDisplayName) == .orderedAscending
+        }
     }
 
     private func destinationDisplayName(for entry: FileOrganizationHistoryEntry) -> String? {
@@ -289,4 +318,137 @@ struct ProjectSpaceMemoryResolver {
         return folderName
     }
 
+    private func workflowBackedProjection(
+        profile: ProjectSpaceWorkflowProfile?,
+        now: Date
+    ) -> ProjectSpaceWorkflowMemoryProjection? {
+        guard let profile,
+              let successfulTemplateID = normalized(profile.successfulTemplateID) else {
+            return nil
+        }
+
+        let successfulTemplateCount = max(0, profile.successfulTemplateCount)
+        let dominantTriggerKind = triggerKind(for: profile.dominantTriggerSurface)
+        let state = workflowState(for: profile, now: now)
+        let templateDisplayName = WorkflowTemplateCatalog.template(for: successfulTemplateID)?.displayName ?? successfulTemplateID
+        let summaryText: String
+
+        switch state {
+        case .stable:
+            let recencyText = relativeTimeText(
+                for: profile.successfulTemplateLastSucceededAt ?? profile.updatedAt,
+                now: now
+            )
+            let triggerText = triggerPatternText(for: dominantTriggerKind)
+            summaryText = "Workflow memory is stable: \(templateDisplayName) succeeded \(successfulTemplateCount) times, most recently \(recencyText), mostly through \(triggerText)."
+        case .stale:
+            let recencyText = relativeTimeText(
+                for: profile.successfulTemplateLastSucceededAt ?? profile.updatedAt,
+                now: now
+            )
+            summaryText = "Workflow memory is stale: \(templateDisplayName) was successful \(successfulTemplateCount) times but last succeeded \(recencyText)."
+        case .conflicted:
+            summaryText = "Workflow memory is conflicted: latest successful template is \(templateDisplayName), but recent outcomes disagree."
+        case .destinationFallback:
+            return nil
+        }
+
+        return ProjectSpaceWorkflowMemoryProjection(
+            state: state,
+            successfulTemplateID: successfulTemplateID,
+            successfulTemplateCount: successfulTemplateCount,
+            successfulTemplateLastSucceededAt: profile.successfulTemplateLastSucceededAt,
+            dominantTriggerKind: dominantTriggerKind,
+            summaryText: summaryText
+        )
+    }
+
+    private func workflowState(
+        for profile: ProjectSpaceWorkflowProfile,
+        now: Date
+    ) -> ProjectSpaceWorkflowMemoryProjectionState {
+        if profile.workflowMemoryStatus == .conflicted {
+            return .conflicted
+        }
+
+        if profile.workflowMemoryStatus == .stale {
+            return .stale
+        }
+
+        if let lastSucceededAt = profile.successfulTemplateLastSucceededAt,
+           now >= lastSucceededAt,
+           now.timeIntervalSince(lastSucceededAt) > Self.staleWorkflowWindow {
+            return .stale
+        }
+
+        return .stable
+    }
+
+    private func dominantDestination(
+        for detail: ProjectSpaceDetail,
+        now: Date
+    ) -> ProjectSpacePreferredDestination? {
+        guard let first = detail.preferredDestinations.first else {
+            return nil
+        }
+
+        let totalEvents = detail.preferredDestinations.reduce(0) { $0 + $1.eventCount }
+        guard first.eventCount >= Self.dominantSuggestionMinimumCount,
+              totalEvents > 0,
+              now >= first.lastUsedAt,
+              now.timeIntervalSince(first.lastUsedAt) <= Self.dominantSuggestionWindow else {
+            return nil
+        }
+
+        let dominance = Double(first.eventCount) / Double(totalEvents)
+        guard dominance >= Self.dominantSuggestionThreshold else {
+            return nil
+        }
+
+        return first
+    }
+
+    private func triggerKind(
+        for surface: ActivityItem.WorkflowTriggerSurface?
+    ) -> ProjectSpaceAutomationTriggerKind? {
+        switch surface {
+        case .projectPolicyScheduled, .scheduledAutomationPass:
+            return .scheduledSweep
+        case .projectPolicyRealtime, .realtimeAutomationPass:
+            return .folderWatch
+        case .reviewFlow,
+             .inspector,
+             .bulkOrganize,
+             .reviewView,
+             .projectSpace,
+             .projectPolicyManual,
+             .manualRefreshInspection:
+            return .manual
+        case .none:
+            return nil
+        }
+    }
+
+    private func triggerPatternText(for triggerKind: ProjectSpaceAutomationTriggerKind?) -> String {
+        switch triggerKind {
+        case .manual:
+            return "manual runs"
+        case .folderWatch:
+            return "realtime triggers"
+        case .scheduledSweep:
+            return "scheduled sweeps"
+        case .none:
+            return "mixed triggers"
+        }
+    }
+
+    private func relativeTimeText(for date: Date, now: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: now)
+    }
+
+    private func normalized(_ value: String?) -> String? {
+        FileMetadataRecord.normalizedOptionalText(value)
+    }
 }

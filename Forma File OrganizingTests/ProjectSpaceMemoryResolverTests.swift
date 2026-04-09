@@ -536,4 +536,75 @@ final class ProjectSpaceMemoryResolverTests: XCTestCase {
 
         XCTAssertNil(resolver.resolveDestination(for: suggestion))
     }
+
+    func testMemoryResolver_FallsBackToDestinationDominanceWhenWorkflowMemoryMissing() throws {
+        let now = Date(timeIntervalSince1970: 30_000)
+        let detail = ProjectSpaceDetail(
+            summary: ProjectSpaceSummary(
+                normalizedLabel: "Alpha",
+                fileCount: 1,
+                lastActivityAt: now.addingTimeInterval(-200),
+                sourceFolderHints: ["Inbox"]
+            ),
+            files: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: "alpha-1",
+                    path: "/tmp/alpha/brief.md",
+                    displayName: "brief.md",
+                    lastActivityAt: now.addingTimeInterval(-200),
+                    sourceFolderHint: "Inbox"
+                )
+            ],
+            overview: ProjectSpaceOverview(
+                currentFileCount: 1,
+                activeFolderCount: 1,
+                activeFolderHints: ["Inbox"],
+                preferredDestinationCount: 2,
+                recentActivityCount: 2,
+                lastActivityAt: now.addingTimeInterval(-200)
+            ),
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: now.addingTimeInterval(-200)
+                ),
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Reference",
+                    eventCount: 1,
+                    lastUsedAt: now.addingTimeInterval(-1_800)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: "alpha-1",
+                    fileDisplayName: "brief.md",
+                    eventKind: .organized,
+                    timestamp: now.addingTimeInterval(-200),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                ),
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: "alpha-2",
+                    fileDisplayName: "outline.md",
+                    eventKind: .rekeyed,
+                    timestamp: now.addingTimeInterval(-800),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Retargeted into Alpha."
+                )
+            ]
+        )
+
+        let projection = resolver.resolveWorkflowMemoryProjection(
+            for: detail,
+            profile: nil,
+            now: now
+        )
+
+        XCTAssertEqual(projection?.state, .destinationFallback)
+        XCTAssertNil(projection?.successfulTemplateID)
+        XCTAssertNil(projection?.dominantTriggerKind)
+        XCTAssertTrue(projection?.summaryText.localizedCaseInsensitiveContains("fall back") == true)
+        XCTAssertTrue(projection?.summaryText.contains("Alpha") == true)
+    }
 }

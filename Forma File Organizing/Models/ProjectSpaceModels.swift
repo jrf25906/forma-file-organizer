@@ -61,6 +61,22 @@ struct ProjectSpaceAutomationComposerDraft: Hashable, Sendable {
     }
 }
 
+enum ProjectSpaceWorkflowMemoryProjectionState: String, Hashable, Sendable {
+    case stable
+    case stale
+    case conflicted
+    case destinationFallback
+}
+
+struct ProjectSpaceWorkflowMemoryProjection: Hashable, Sendable {
+    let state: ProjectSpaceWorkflowMemoryProjectionState
+    let successfulTemplateID: String?
+    let successfulTemplateCount: Int
+    let successfulTemplateLastSucceededAt: Date?
+    let dominantTriggerKind: ProjectSpaceAutomationTriggerKind?
+    let summaryText: String
+}
+
 struct ProjectSpaceSummary: Identifiable, Hashable, Sendable {
     let projectLabel: String
     let fileCount: Int
@@ -146,6 +162,7 @@ struct ProjectSpaceDetail: Identifiable, Hashable, Sendable {
     let overview: ProjectSpaceOverview
     let preferredDestinations: [ProjectSpacePreferredDestination]
     let recentActivity: [ProjectSpaceRecentActivityRow]
+    let workflowMemory: ProjectSpaceWorkflowMemoryProjection?
 
     var id: String { summary.id }
 
@@ -162,12 +179,14 @@ struct ProjectSpaceDetail: Identifiable, Hashable, Sendable {
         files: [ProjectSpaceFileRow],
         overview: ProjectSpaceOverview = ProjectSpaceOverview(),
         preferredDestinations: [ProjectSpacePreferredDestination] = [],
-        recentActivity: [ProjectSpaceRecentActivityRow] = []
+        recentActivity: [ProjectSpaceRecentActivityRow] = [],
+        workflowMemory: ProjectSpaceWorkflowMemoryProjection? = nil
     ) {
         self.summary = summary
         self.files = files
         self.overview = overview
         self.preferredDestinations = preferredDestinations
         self.recentActivity = recentActivity
+        self.workflowMemory = workflowMemory
     }
 }

@@ -10,6 +10,7 @@ struct ProjectSpaceAutomationRecommendation: Sendable, Hashable {
 struct ProjectSpaceAutomationRecommendationService {
     private static let dominantThreshold = 0.60
     private static let minimumDominantEvents = 2
+    private static let minimumWorkflowSuccesses = 2
     private static let recencyWindow: TimeInterval = 30 * 24 * 60 * 60
     private static let qualifyingActivityKinds: Set<FileOrganizationHistoryEntry.EventKind> = [
         .organized,
@@ -20,33 +21,15 @@ struct ProjectSpaceAutomationRecommendationService {
         for detail: ProjectSpaceDetail,
         now: Date
     ) -> [ProjectSpaceAutomationRecommendation] {
-        guard let normalizedProjectLabel = normalized(detail.projectLabel),
-              let dominantDestination = dominantDestination(for: detail, now: now),
-              normalized(dominantDestination.destinationDisplayName) == normalizedProjectLabel else {
-            return []
-        }
-
-        let supportingActivity = detail.recentActivity.filter { row in
-            guard let destinationDisplayName = normalized(row.destinationDisplayName) else {
-                return false
-            }
-
-            return destinationDisplayName == normalizedProjectLabel &&
-                Self.qualifyingActivityKinds.contains(row.eventKind)
-        }
-
-        guard supportingActivity.count >= Self.minimumDominantEvents else {
-            return []
-        }
-
-        return [
-            ProjectSpaceAutomationRecommendation(
-                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
-                triggerKinds: [.manual],
-                admissionMode: .automatic,
-                reasonSummary: "Recent project activity consistently moved files into \(normalizedProjectLabel)."
+        if let workflowMemory = detail.workflowMemory,
+           workflowMemory.state != .destinationFallback {
+            return workflowBackedRecommendation(
+                for: workflowMemory,
+                now: now
             )
-        ]
+        }
+
+        return dominantDestinationFallbackRecommendation(for: detail, now: now)
     }
 
     func dominantDestination(
@@ -75,5 +58,84 @@ struct ProjectSpaceAutomationRecommendationService {
 
     private func normalized(_ value: String?) -> String? {
         FileMetadataRecord.normalizedOptionalText(value)
+    }
+
+    private func workflowBackedRecommendation(
+        for workflowMemory: ProjectSpaceWorkflowMemoryProjection,
+        now: Date
+    ) -> [ProjectSpaceAutomationRecommendation] {
+        guard workflowMemory.state == .stable,
+              let templateID = normalized(workflowMemory.successfulTemplateID),
+              workflowMemory.successfulTemplateCount >= Self.minimumWorkflowSuccesses,
+              let lastSucceededAt = workflowMemory.successfulTemplateLastSucceededAt,
+              now >= lastSucceededAt,
+              now.timeIntervalSince(lastSucceededAt) <= Self.recencyWindow else {
+            return []
+        }
+
+        let triggerKinds = workflowMemory.dominantTriggerKind.map { [$0] } ?? [.manual]
+        let recencyText = relativeTimeText(for: lastSucceededAt, now: now)
+        let triggerPatternText = triggerPatternText(for: workflowMemory.dominantTriggerKind)
+
+        return [
+            ProjectSpaceAutomationRecommendation(
+                workflowTemplateID: templateID,
+                triggerKinds: triggerKinds,
+                admissionMode: .automatic,
+                reasonSummary: "Workflow memory is stable: \(workflowMemory.successfulTemplateCount) successful runs, last \(recencyText), mostly \(triggerPatternText)."
+            )
+        ]
+    }
+
+    private func dominantDestinationFallbackRecommendation(
+        for detail: ProjectSpaceDetail,
+        now: Date
+    ) -> [ProjectSpaceAutomationRecommendation] {
+        guard let normalizedProjectLabel = normalized(detail.projectLabel),
+              let dominantDestination = dominantDestination(for: detail, now: now),
+              normalized(dominantDestination.destinationDisplayName) == normalizedProjectLabel else {
+            return []
+        }
+
+        let supportingActivity = detail.recentActivity.filter { row in
+            guard let destinationDisplayName = normalized(row.destinationDisplayName) else {
+                return false
+            }
+
+            return destinationDisplayName == normalizedProjectLabel &&
+                Self.qualifyingActivityKinds.contains(row.eventKind)
+        }
+
+        guard supportingActivity.count >= Self.minimumDominantEvents else {
+            return []
+        }
+
+        return [
+            ProjectSpaceAutomationRecommendation(
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerKinds: [.manual],
+                admissionMode: .automatic,
+                reasonSummary: "Workflow memory is unavailable, so recommendations fall back to destination history that consistently moved files into \(normalizedProjectLabel)."
+            )
+        ]
+    }
+
+    private func triggerPatternText(for triggerKind: ProjectSpaceAutomationTriggerKind?) -> String {
+        switch triggerKind {
+        case .manual:
+            return "manual runs"
+        case .folderWatch:
+            return "realtime triggers"
+        case .scheduledSweep:
+            return "scheduled sweeps"
+        case .none:
+            return "mixed triggers"
+        }
+    }
+
+    private func relativeTimeText(for date: Date, now: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: now)
     }
 }

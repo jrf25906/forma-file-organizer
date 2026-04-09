@@ -3007,6 +3007,19 @@ class DashboardViewModel: ObservableObject {
 
         let profileService = ProjectSpaceWorkflowProfileService(modelContext: modelContext)
         let profile = profileService.profile(normalizedProjectLabel: detail.summary.normalizedLabel)
+        let memoryResolver = ProjectSpaceMemoryResolver()
+        let projectedDetail = ProjectSpaceDetail(
+            summary: detail.summary,
+            files: detail.files,
+            overview: detail.overview,
+            preferredDestinations: detail.preferredDestinations,
+            recentActivity: detail.recentActivity,
+            workflowMemory: memoryResolver.resolveWorkflowMemoryProjection(
+                for: detail,
+                profile: profile
+            )
+        )
+
         isSynchronizingProjectSpaceWorkflowState = true
         selectedProjectSpaceWorkflowTemplateID = featureFlags.isEnabled(.workflowEngineV2)
             ? profile?.preferredWorkflowTemplateID
@@ -3015,7 +3028,8 @@ class DashboardViewModel: ObservableObject {
         selectedProjectSpaceWorkflowLatestRunSummary = profile?.lastWorkflowRunID.flatMap { runID in
             projectSpaceWorkflowRunSummary(runID: runID, context: modelContext)
         }
-        loadProjectSpaceAutomationState(for: detail)
+        selectedProjectSpaceDetail = projectedDetail
+        loadProjectSpaceAutomationState(for: projectedDetail)
 
         if featureFlags.isEnabled(.workflowEngineV2) {
             scheduleProjectSpaceWorkflowPreparation()
@@ -3055,6 +3069,7 @@ class DashboardViewModel: ObservableObject {
                     makeProjectSpaceAutomationPolicyDetail(
                         $0,
                         projectLabel: detail.projectLabel,
+                        workflowMemory: detail.workflowMemory,
                         service: automationService
                     )
                 }
@@ -3063,7 +3078,7 @@ class DashboardViewModel: ObservableObject {
 
         selectedProjectSpaceAutomationBoard = ProjectSpaceAutomationBoard(
             title: "Automation Board",
-            subtitle: "Manage project-owned policies without leaving this project space.",
+            subtitle: projectSpaceAutomationBoardSubtitle(for: detail.workflowMemory),
             composerButtonTitle: "New Policy",
             groups: groups
         )
@@ -3088,6 +3103,7 @@ class DashboardViewModel: ObservableObject {
         selectedProjectSpaceAutomationPolicyDetail = makeProjectSpaceAutomationPolicyDetail(
             policy,
             projectLabel: selectedProjectSpaceDetail.projectLabel,
+            workflowMemory: selectedProjectSpaceDetail.workflowMemory,
             service: automationService
         )
 
@@ -3099,6 +3115,7 @@ class DashboardViewModel: ObservableObject {
     private func makeProjectSpaceAutomationPolicyDetail(
         _ policy: ProjectSpaceAutomationPolicy,
         projectLabel: String,
+        workflowMemory: ProjectSpaceWorkflowMemoryProjection?,
         service: ProjectSpaceAutomationService
     ) -> ProjectSpaceAutomationPolicyDetail {
         let template = WorkflowTemplateCatalog.template(for: policy.workflowTemplateID)
@@ -3118,9 +3135,19 @@ class DashboardViewModel: ObservableObject {
                 admissionMode: policy.admissionMode
             ),
             healthBadgeText: automationHealthBadgeText(policy: policy, latestRun: latestRun),
-            healthMessageText: automationHealthMessageText(policy: policy, latestRun: latestRun),
+            healthMessageText: automationHealthMessageText(
+                policy: policy,
+                latestRun: latestRun,
+                workflowMemory: workflowMemory
+            ),
             latestRunSummaryText: automationLatestRunSummaryText(latestRun, fallbackTemplateName: template?.displayName ?? "Workflow")
         )
+    }
+
+    private func projectSpaceAutomationBoardSubtitle(
+        for workflowMemory: ProjectSpaceWorkflowMemoryProjection?
+    ) -> String {
+        workflowMemory?.summaryText ?? "Manage project-owned policies without leaving this project space."
     }
 
     private func automationGroupKind(
@@ -3245,10 +3272,12 @@ class DashboardViewModel: ObservableObject {
 
     private func automationHealthMessageText(
         policy: ProjectSpaceAutomationPolicy,
-        latestRun: ProjectSpaceAutomationRunRecord?
+        latestRun: ProjectSpaceAutomationRunRecord?,
+        workflowMemory: ProjectSpaceWorkflowMemoryProjection?
     ) -> String {
         if policy.state == .recommended {
-            return "Bootstrapped from the legacy project workflow selection."
+            return workflowMemory?.summaryText
+                ?? "Bootstrapped from the legacy project workflow selection."
         }
 
         if policy.state == .draft {
