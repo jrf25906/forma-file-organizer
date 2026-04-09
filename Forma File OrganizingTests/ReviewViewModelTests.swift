@@ -235,6 +235,18 @@ final class ReviewViewModelTests: XCTestCase {
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.reviewView])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(
+            workflowExecution.plannedRequests.map(\.entryPoint),
+            [.invocationContext(.reviewView)]
+        )
+        XCTAssertEqual(
+            workflowExecution.runRequests.map(\.entryPoint),
+            [.invocationContext(.reviewView)]
+        )
+        XCTAssertEqual(
+            workflowExecution.runRequests.map(\.scopeID),
+            workflowExecution.plannedRequests.map(\.scopeID)
+        )
         XCTAssertTrue(try modelContext.fetch(FetchDescriptor<ActivityItem>()).isEmpty)
         XCTAssertTrue(viewModel.files.isEmpty)
     }
@@ -387,6 +399,10 @@ final class ReviewViewModelTests: XCTestCase {
 
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(
+            workflowExecution.runRequests.map(\.scopeID),
+            workflowExecution.plannedRequests.map(\.scopeID)
+        )
         XCTAssertEqual(viewModel.files.map(\.path), [blockedURL.path])
         XCTAssertNotNil(viewModel.successMessage)
         XCTAssertNotNil(viewModel.errorMessage)
@@ -851,27 +867,31 @@ private final class MockReviewFileOrganizationCoordinator: FileOrganizationCoord
 private final class WorkflowExecutionSpy {
     var plannedTemplateIDs: [String] = []
     var plannedInvocationContexts: [WorkflowInvocationContext] = []
+    var plannedRequests: [WorkflowExecutionRequest] = []
     var ranTemplateIDs: [String] = []
+    var runRequests: [WorkflowExecutionRequest] = []
     var onRun: (() -> Void)?
 
     lazy var client = WorkflowExecutionClient(
-        plan: { [weak self] templateID, files, invocationContext in
-            self?.plannedTemplateIDs.append(templateID)
-            self?.plannedInvocationContexts.append(invocationContext)
+        planRequest: { [weak self] request, files in
+            self?.plannedTemplateIDs.append(request.templateID)
+            self?.plannedInvocationContexts.append(request.invocationContext)
+            self?.plannedRequests.append(request)
             return WorkflowPlanner().plan(
-                templateID: templateID,
+                templateID: request.templateID,
                 files: files,
-                invocationContext: invocationContext
+                invocationContext: request.invocationContext
             )
         },
-        run: { [weak self] plan, _, scopeID, _ in
+        runRequest: { [weak self] request, plan, _, _ in
             let templateID = plan.definition.templateID
             await MainActor.run {
                 self?.ranTemplateIDs.append(templateID)
+                self?.runRequests.append(request)
                 self?.onRun?()
             }
             return WorkflowRunRecord(
-                scopeID: scopeID,
+                scopeID: request.scopeID,
                 workflowTemplateID: templateID,
                 primaryStatus: .succeeded,
                 startedAt: Date(timeIntervalSince1970: 1_000),

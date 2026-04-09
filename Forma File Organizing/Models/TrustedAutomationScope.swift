@@ -40,7 +40,46 @@ enum TrustedAutomationAllowedAction: String, Codable, Sendable, CaseIterable {
     case move
     case rename
     case tag
+    case projectAssociation
+    case workflowStatus
+    case notesSummary
     case notify
+
+    var displayName: String {
+        switch self {
+        case .rename:
+            return "Rename"
+        case .tag:
+            return "Tag"
+        case .projectAssociation:
+            return "Project Association"
+        case .workflowStatus:
+            return "Workflow Status"
+        case .notesSummary:
+            return "Notes Summary"
+        case .move:
+            return "Move"
+        case .notify:
+            return "Notify"
+        }
+    }
+
+    static let workflowDisplayOrder: [TrustedAutomationAllowedAction] = [
+        .rename,
+        .tag,
+        .projectAssociation,
+        .workflowStatus,
+        .notesSummary,
+        .move,
+        .notify
+    ]
+
+    static func workflowStepShapeText(
+        for actions: [TrustedAutomationAllowedAction]
+    ) -> String {
+        let orderedActions = workflowDisplayOrder.filter(actions.contains)
+        return orderedActions.map(\.displayName).joined(separator: " -> ")
+    }
 }
 
 @Model

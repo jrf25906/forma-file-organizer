@@ -279,6 +279,18 @@ final class DashboardOrganizationControllerTests: XCTestCase {
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.inspector])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(
+            workflowExecution.plannedRequests.map(\.entryPoint),
+            [.invocationContext(.inspector)]
+        )
+        XCTAssertEqual(
+            workflowExecution.runRequests.map(\.entryPoint),
+            [.invocationContext(.inspector)]
+        )
+        XCTAssertEqual(
+            workflowExecution.runRequests.map(\.scopeID),
+            workflowExecution.plannedRequests.map(\.scopeID)
+        )
         XCTAssertEqual(workflowExecution.lastPlannedFilePaths, [sourceURL.path])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [sourceURL.path])
         XCTAssertTrue(try modelContext.fetch(FetchDescriptor<ActivityItem>()).isEmpty)
@@ -525,32 +537,36 @@ private final class MockFileOrganizationCoordinator: FileOrganizationCoordinator
 private final class WorkflowExecutionSpy {
     var plannedTemplateIDs: [String] = []
     var plannedInvocationContexts: [WorkflowInvocationContext] = []
+    var plannedRequests: [WorkflowExecutionRequest] = []
     var ranTemplateIDs: [String] = []
+    var runRequests: [WorkflowExecutionRequest] = []
     var lastPlannedFilePaths: [String] = []
     var lastRunFilePaths: [String] = []
     var onRun: (() -> Void)?
 
     lazy var client = WorkflowExecutionClient(
-        plan: { [weak self] templateID, files, invocationContext in
-            self?.plannedTemplateIDs.append(templateID)
-            self?.plannedInvocationContexts.append(invocationContext)
+        planRequest: { [weak self] request, files in
+            self?.plannedTemplateIDs.append(request.templateID)
+            self?.plannedInvocationContexts.append(request.invocationContext)
+            self?.plannedRequests.append(request)
             self?.lastPlannedFilePaths = files.map(\.path)
             return WorkflowPlanner().plan(
-                templateID: templateID,
+                templateID: request.templateID,
                 files: files,
-                invocationContext: invocationContext
+                invocationContext: request.invocationContext
             )
         },
-        run: { [weak self] plan, files, scopeID, _ in
+        runRequest: { [weak self] request, plan, files, _ in
             let templateID = plan.definition.templateID
             let filePaths = files.map(\.path)
             await MainActor.run {
                 self?.ranTemplateIDs.append(templateID)
+                self?.runRequests.append(request)
                 self?.lastRunFilePaths = filePaths
                 self?.onRun?()
             }
             return WorkflowRunRecord(
-                scopeID: scopeID,
+                scopeID: request.scopeID,
                 workflowTemplateID: templateID,
                 primaryStatus: .succeeded,
                 startedAt: Date(timeIntervalSince1970: 1_000),

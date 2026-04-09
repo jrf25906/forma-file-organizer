@@ -54,6 +54,8 @@ struct WorkflowFileMetadataDelta: Codable, Sendable, Hashable {
     let resultingProjectAssociation: String?
     let previousWorkflowStatus: MetadataWorkflowStatus?
     let resultingWorkflowStatus: MetadataWorkflowStatus?
+    let previousNotesSummary: String?
+    let resultingNotesSummary: String?
 
     init(
         addedTags: [String] = [],
@@ -61,7 +63,9 @@ struct WorkflowFileMetadataDelta: Codable, Sendable, Hashable {
         previousProjectAssociation: String? = nil,
         resultingProjectAssociation: String? = nil,
         previousWorkflowStatus: MetadataWorkflowStatus? = nil,
-        resultingWorkflowStatus: MetadataWorkflowStatus? = nil
+        resultingWorkflowStatus: MetadataWorkflowStatus? = nil,
+        previousNotesSummary: String? = nil,
+        resultingNotesSummary: String? = nil
     ) {
         self.addedTags = addedTags
         self.removedTags = removedTags
@@ -69,6 +73,8 @@ struct WorkflowFileMetadataDelta: Codable, Sendable, Hashable {
         self.resultingProjectAssociation = WorkflowRunRecord.normalizedOptionalText(resultingProjectAssociation)
         self.previousWorkflowStatus = previousWorkflowStatus
         self.resultingWorkflowStatus = resultingWorkflowStatus
+        self.previousNotesSummary = WorkflowRunRecord.normalizedOptionalText(previousNotesSummary)
+        self.resultingNotesSummary = WorkflowRunRecord.normalizedOptionalText(resultingNotesSummary)
     }
 
     var isEmpty: Bool {
@@ -77,7 +83,9 @@ struct WorkflowFileMetadataDelta: Codable, Sendable, Hashable {
         previousProjectAssociation == nil &&
         resultingProjectAssociation == nil &&
         previousWorkflowStatus == nil &&
-        resultingWorkflowStatus == nil
+        resultingWorkflowStatus == nil &&
+        previousNotesSummary == nil &&
+        resultingNotesSummary == nil
     }
 }
 

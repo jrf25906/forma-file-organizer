@@ -86,6 +86,15 @@ struct WorkflowStatusMutationPreview: Sendable, Hashable {
     }
 }
 
+struct WorkflowNotesSummaryMutationPreview: Sendable, Hashable {
+    let previousNotesSummary: String?
+    let targetNotesSummary: String
+
+    var willChange: Bool {
+        previousNotesSummary != targetNotesSummary
+    }
+}
+
 @MainActor
 final class FileMetadataFoundationService {
     typealias IgnoredHistoryPreparationResult = (
@@ -980,6 +989,129 @@ final class FileMetadataFoundationService {
         }
     }
 
+    func previewWorkflowNotesSummary(
+        path: String,
+        targetNotesSummary: String
+    ) throws -> WorkflowNotesSummaryMutationPreview? {
+        guard isEnabled,
+              let normalizedTarget = FileMetadataRecord.normalizedOptionalText(targetNotesSummary) else {
+            return nil
+        }
+
+        let identity = resolveIdentity(for: path)
+        let previousNotesSummary = try record(matching: identity.canonicalIdentity)
+            .flatMap { FileMetadataRecord.normalizedOptionalText($0.notesSummary) }
+
+        return WorkflowNotesSummaryMutationPreview(
+            previousNotesSummary: previousNotesSummary,
+            targetNotesSummary: normalizedTarget
+        )
+    }
+
+    @discardableResult
+    func applyWorkflowNotesSummary(
+        path: String,
+        displayName: String,
+        fileExtension: String,
+        targetNotesSummary: String,
+        timestamp: Date
+    ) throws -> WorkflowNotesSummaryMutationPreview? {
+        guard isEnabled,
+              let normalizedTarget = FileMetadataRecord.normalizedOptionalText(targetNotesSummary) else {
+            return nil
+        }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+
+        do {
+            guard let record = try upsertRecordWithoutSaving(
+                for: normalizedPath,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                timestamp: timestamp
+            ) else {
+                return nil
+            }
+
+            let preview = WorkflowNotesSummaryMutationPreview(
+                previousNotesSummary: FileMetadataRecord.normalizedOptionalText(record.notesSummary),
+                targetNotesSummary: normalizedTarget
+            )
+
+            guard preview.willChange else {
+                return preview
+            }
+
+            record.notesSummary = normalizedTarget
+            _ = try appendHistoryEntryWithoutSaving(
+                for: record,
+                eventKind: .noted,
+                sourceSurface: .organize,
+                fromPath: normalizedPath,
+                toPath: normalizedPath,
+                destinationDisplayName: nil,
+                matchedRuleID: nil,
+                detailsSummary: workflowNotesSummaryDetailsSummary(
+                    from: preview.previousNotesSummary,
+                    to: normalizedTarget,
+                    isRollback: false
+                ),
+                timestamp: timestamp
+            )
+            try modelContext.save()
+            return preview
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
+    @discardableResult
+    func restoreWorkflowNotesSummary(
+        canonicalIdentity: String,
+        path: String,
+        previousNotesSummary: String?,
+        timestamp: Date
+    ) throws -> Bool {
+        guard isEnabled else { return false }
+
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+        let normalizedPreviousNotesSummary = FileMetadataRecord.normalizedOptionalText(previousNotesSummary)
+
+        do {
+            guard let record = try record(matching: canonicalIdentity) else {
+                return false
+            }
+
+            let currentNotesSummary = FileMetadataRecord.normalizedOptionalText(record.notesSummary)
+            guard currentNotesSummary != normalizedPreviousNotesSummary else {
+                return false
+            }
+
+            record.notesSummary = normalizedPreviousNotesSummary
+            _ = try appendHistoryEntryWithoutSaving(
+                for: record,
+                eventKind: .noted,
+                sourceSurface: .undo,
+                fromPath: normalizedPath,
+                toPath: normalizedPath,
+                destinationDisplayName: nil,
+                matchedRuleID: nil,
+                detailsSummary: workflowNotesSummaryDetailsSummary(
+                    from: currentNotesSummary,
+                    to: normalizedPreviousNotesSummary,
+                    isRollback: true
+                ),
+                timestamp: timestamp
+            )
+            try modelContext.save()
+            return true
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
     func fetchProjectSpaceSummaries() -> [ProjectSpaceSummary] {
         guard isProjectSpaceReadEnabled else { return [] }
 
@@ -1256,6 +1388,34 @@ final class FileMetadataFoundationService {
             return "Workflow set status to \(next.rawValue)."
         default:
             return "Workflow status step made no changes."
+        }
+    }
+
+    private func workflowNotesSummaryDetailsSummary(
+        from previousNotesSummary: String?,
+        to nextNotesSummary: String?,
+        isRollback: Bool
+    ) -> String {
+        if isRollback {
+            switch (previousNotesSummary, nextNotesSummary) {
+            case let (current?, previous?):
+                return "Workflow restored note summary from \(current) to \(previous)."
+            case let (current?, nil):
+                return "Workflow cleared note summary \(current)."
+            case (nil, let previous?):
+                return "Workflow restored note summary to \(previous)."
+            case (nil, nil):
+                return "Workflow note summary rollback made no changes."
+            }
+        }
+
+        switch (previousNotesSummary, nextNotesSummary) {
+        case let (previous?, next?):
+            return "Workflow set note summary from \(previous) to \(next)."
+        case (nil, let next?):
+            return "Workflow set note summary to \(next)."
+        default:
+            return "Workflow note summary step made no changes."
         }
     }
 

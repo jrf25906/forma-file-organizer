@@ -368,4 +368,75 @@ final class TrustedAutomationScopeSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.latestWorkflowStatusText, "Latest workflow run: Succeeded")
         XCTAssertEqual(snapshot.rollbackAvailabilityText, "Rollback available")
     }
+
+    func testTrustedAutomationScopeDetailSheet_ShowsProjectDropWorkflowBackedStepShape() {
+        let detail = TrustedAutomationScopeDetail(
+            id: UUID(),
+            summary: TrustedAutomationScopeSummary(
+                id: UUID(),
+                scopeType: .folder,
+                displayName: "Design Intake",
+                boundarySummary: "Design Intake -> Projects/Alpha",
+                allowedActions: [.rename, .tag, .projectAssociation, .workflowStatus, .notesSummary, .move, .notify],
+                selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary(
+                    id: BuiltInWorkflowTemplate.StableID.projectDrop,
+                    displayName: "Project Drop Zone",
+                    summaryText: "Rename project intake files, write project metadata, and move them into the active drop zone.",
+                    allowedActions: [.rename, .tag, .projectAssociation, .workflowStatus, .notesSummary, .move, .notify],
+                    assignedAt: Date(timeIntervalSince1970: 100)
+                ),
+                lifecycle: TrustedAutomationScopeLifecycleSummary(
+                    status: .active,
+                    createdAt: Date(timeIntervalSince1970: 100),
+                    updatedAt: Date(timeIntervalSince1970: 300),
+                    lastEvidenceAt: Date(timeIntervalSince1970: 250),
+                    pausedAt: nil,
+                    lastRunAt: Date(timeIntervalSince1970: 290),
+                    revokedAt: nil
+                ),
+                health: TrustedAutomationScopeHealthSummary(
+                    state: .healthy,
+                    messages: [],
+                    lastSuccessfulRunAt: Date(timeIntervalSince1970: 290),
+                    lastBlockedRunAt: nil
+                ),
+                lastRun: nil
+            ),
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Design Intake"
+                ),
+                destination: .init(.mockFolder("Projects/Alpha"))
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.96,
+            rationaleSummary: "Project intake is consistently approved.",
+            selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary(
+                id: BuiltInWorkflowTemplate.StableID.projectDrop,
+                displayName: "Project Drop Zone",
+                summaryText: "Rename project intake files, write project metadata, and move them into the active drop zone.",
+                allowedActions: [.rename, .tag, .projectAssociation, .workflowStatus, .notesSummary, .move, .notify],
+                assignedAt: Date(timeIntervalSince1970: 100)
+            ),
+            latestWorkflowRun: nil,
+            recentRuns: []
+        )
+
+        let snapshot = TrustedAutomationScopeDetailSheet.Snapshot(
+            detail: detail,
+            now: Date(timeIntervalSince1970: 300),
+            relativeDateProvider: { _, _ in "just now" }
+        )
+
+        XCTAssertEqual(
+            snapshot.workflowStepShapeText,
+            "Rename -> Tag -> Project Association -> Workflow Status -> Notes Summary -> Move -> Notify"
+        )
+    }
 }

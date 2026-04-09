@@ -8,6 +8,11 @@ enum WorkflowExecutionEntryPoint: Sendable, Hashable {
         projectLabel: String,
         policyName: String
     )
+    case trustedScope(
+        scopeID: UUID,
+        triggerSource: TrustedAutomationScopeRunTriggerSource,
+        scopeDisplayName: String?
+    )
 
     var invocationContext: WorkflowInvocationContext {
         switch self {
@@ -22,6 +27,15 @@ enum WorkflowExecutionEntryPoint: Sendable, Hashable {
             case .scheduledSweep:
                 return .projectPolicyScheduled(projectLabel: projectLabel, policyName: policyName)
             }
+        case .trustedScope(_, let triggerSource, let scopeDisplayName):
+            switch triggerSource {
+            case .promotionPreview, .manualRefreshInspection:
+                return .trustedScopeInspection(scopeDisplayName: scopeDisplayName)
+            case .scheduledAutomationPass:
+                return .trustedScopeScheduled(scopeDisplayName: scopeDisplayName)
+            case .realtimeAutomationPass:
+                return .trustedScopeRealtime(scopeDisplayName: scopeDisplayName)
+            }
         }
     }
 
@@ -35,6 +49,8 @@ enum WorkflowExecutionEntryPoint: Sendable, Hashable {
             return invocationContext.auditOwnerDisplayName
         case .projectPolicy(_, _, let projectLabel, _):
             return WorkflowRunRecord.normalizedOptionalText(projectLabel)
+        case .trustedScope(_, _, let scopeDisplayName):
+            return WorkflowRunRecord.normalizedOptionalText(scopeDisplayName)
         }
     }
 
@@ -44,6 +60,8 @@ enum WorkflowExecutionEntryPoint: Sendable, Hashable {
             return invocationContext.auditPolicyName
         case .projectPolicy(_, _, _, let policyName):
             return WorkflowRunRecord.normalizedOptionalText(policyName)
+        case .trustedScope:
+            return nil
         }
     }
 
@@ -53,6 +71,8 @@ enum WorkflowExecutionEntryPoint: Sendable, Hashable {
             return invocationContext.notificationDisplayName
         case .projectPolicy(_, _, let projectLabel, _):
             return WorkflowRunRecord.normalizedOptionalText(projectLabel)
+        case .trustedScope(_, _, let scopeDisplayName):
+            return WorkflowRunRecord.normalizedOptionalText(scopeDisplayName)
         }
     }
 
@@ -62,6 +82,14 @@ enum WorkflowExecutionEntryPoint: Sendable, Hashable {
         }
 
         return policyID
+    }
+
+    var trustedScopeID: UUID? {
+        guard case .trustedScope(let scopeID, _, _) = self else {
+            return nil
+        }
+
+        return scopeID
     }
 }
 
@@ -112,6 +140,10 @@ struct WorkflowExecutionRequest: Sendable, Hashable {
 
     var projectPolicyID: UUID? {
         entryPoint.projectPolicyID
+    }
+
+    var trustedScopeID: UUID? {
+        entryPoint.trustedScopeID
     }
 
     func replacingScopeID(_ scopeID: UUID) -> WorkflowExecutionRequest {

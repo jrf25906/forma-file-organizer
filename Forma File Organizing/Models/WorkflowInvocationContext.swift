@@ -143,6 +143,18 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    var workflowNotesSummaryTarget: String? {
+        guard let projectLabel = workflowProjectLabel else {
+            return nil
+        }
+
+        if let policyName = auditPolicyName {
+            return "Project: \(projectLabel) | Policy: \(policyName)"
+        }
+
+        return "Project: \(projectLabel)"
+    }
+
     var description: String {
         switch self {
         case .dashboardReview:

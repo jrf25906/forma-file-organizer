@@ -27,7 +27,7 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 - [x] Extend the shipped metadata-backed project spaces slice beyond read-only retrieval and plan workflow-memory expansion before broad cloud or chatbot-style AI expansion.
 
 ### Later (4-8+ Months)
-- [ ] Expand the shipped `workflow-engine-v2` slice beyond the current built-in `rename -> tag -> projectAssociation -> workflowStatus -> move -> log` executed path, shipped run/step/file audit depth, template-gated trusted-scope `notify`, and current shared workflow execution-request layer into additional metadata-backed step kinds and broader automation entry points.
+- [ ] Expand the shipped `workflow-engine-v2` slice beyond the current built-in `rename -> tag -> projectAssociation -> workflowStatus -> notesSummary -> move -> log` executed path, shipped run/step/file audit depth, template-backed trusted-scope action shapes plus template-gated `notify`, and the current shared workflow execution-request layer into additional metadata-backed step kinds and broader workflow-memory layers.
 - [ ] Deepen macOS integration beyond current Finder Services, Spotlight, App Intents, and menu bar entry points.
 - [ ] Plan backup, sync, and portability for rules, settings, metadata, and organization memory.
 - [ ] Evaluate collaboration and shared conventions only after the solo local workflow is stronger.
@@ -64,6 +64,16 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Persist file-level metadata deltas for tags, project association, and workflow status, then project that context back into `WorkflowRunDetailSheet`, `DashboardViewModel.latestWorkflowInspectorSummary(...)`, `FileInspectorView`, and workflow activity wording.
 - [x] Preserve rollback metadata summaries on restored file-action rows by inverting forward metadata deltas, so rollback audit explains removed tags and restored project/workflow state instead of dropping that context.
 
+## Workflow Engine v2 Notes Summary + Request Adoption (April 9, 2026)
+- [x] Extend the built-in workflow schema with a constrained `notesSummary` step and let `Project Drop Zone` plan `rename -> tag -> projectAssociation -> workflowStatus -> notesSummary -> move -> log` from project-space and project-policy contexts.
+- [x] Add `NotesSummaryWorkflowStepExecutor` plus workflow-owned notes-summary preview/apply/restore helpers in `FileMetadataFoundationService`, and persist forward/rollback notes-summary audit deltas through the shared runner path.
+- [x] Migrate the remaining review and inspector ad hoc workflow-v2 callers onto explicit `WorkflowExecutionRequest` launches so `ReviewViewModel` and `DashboardOrganizationController` no longer rely on the legacy bare template + invocation-context overloads.
+
+## Trusted-Scope Workflow Entry Points (April 9, 2026)
+- [x] Add a trusted-scope-specific `WorkflowExecutionEntryPoint` so automatic scope runs preserve scope identity, trigger source, and display name through planning, execution, notification, and audit.
+- [x] Expand trusted-scope action shapes beyond the old move-first model by surfacing template-backed workflow actions, including `projectAssociation`, `workflowStatus`, and `notesSummary` for `Project Drop Zone`.
+- [x] Keep trusted automation UI honest by projecting the selected template's real workflow step shape in recommendation/detail surfaces instead of implying every scope still runs the same fixed `rename -> tag -> move -> notify` path.
+
 ## Progressive Automation Upgrades (April 8, 2026)
 - [x] Promote review-earned folder, rule, and category trust into explicit autopilot boundaries backed by `TrustedAutomationScopeBoundaryDescriptor`, `TrustedAutomationScopeRunRecord`, and `TrustedAutomationScopeResolver`.
 - [x] Ship first-class autopilot scope UI in the default panel and Smart Features, including active/paused/revoked grouping, derived health, recent runs, and pause/resume/revoke lifecycle controls.
@@ -90,8 +100,8 @@ The sections below capture dated implementation slices that have already shipped
 ## Metadata Foundation v1 (April 3, 2026)
 - [x] Ship the durable local metadata foundation for scan, organize, undo, redo, and inspector proof surfaces with `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService`.
 - [x] Complete durable workflow status v1 so scan discovery seeds `queued`, organize/undo/ignore lifecycle writes persist `organized` / `recovered` / `ignored`, skip actions capture durable-status snapshots for undo/redo, and inspector proof exposes one read-only workflow-status line behind `FeatureFlagService.Feature.durableWorkflowStatus`.
-- [ ] Build on the shipped `workflow-engine-v2` slice with broader metadata-backed step kinds and broader workflow-memory layers beyond the current built-in `rename -> tag -> projectAssociation -> workflowStatus -> move -> log` executed path plus shipped run/step/file audit depth, richer shared workflow execution requests, and template-gated trusted-scope `notify`.
-- [ ] Keep metadata-backed workflow-memory expansion open beyond v1; the shipped slices now include read-only project-space retrieval, richer project-space detail/correction, narrow project-memory destination suggestions, manual project-space workflow execution with remembered templates/latest-run summaries, and the project-space automation board with constrained manual/realtime/scheduled policy triggers, while broader editing, automation entry points, and richer memory layers remain later work.
+- [ ] Build on the shipped `workflow-engine-v2` slice with broader metadata-backed step kinds and broader workflow-memory layers beyond the current built-in `rename -> tag -> projectAssociation -> workflowStatus -> notesSummary -> move -> log` executed path plus shipped run/step/file audit depth, shared workflow execution requests across review, inspector, project-policy, and trusted-scope callers, and template-backed trusted-scope `notify`/action-shape projection.
+- [ ] Keep metadata-backed workflow-memory expansion open beyond v1; the shipped slices now include read-only project-space retrieval, richer project-space detail/correction, narrow project-memory destination suggestions, manual project-space workflow execution with remembered templates/latest-run summaries, the project-space automation board with constrained manual/realtime/scheduled policy triggers, and the first workflow-owned `notesSummary` step, while broader editing, additional metadata step kinds, and richer memory layers remain later work.
 
 ## Auto-Applied Project Association v1 (April 6, 2026)
 - [x] Add the feature-gated `autoProjectAssociation` resolver layer with `ProjectAssociationWriteContext`, `MetadataProjectAssociationResolver`, exact `Projects/...` explicit qualification, cluster-organize explicit opt-in, and strong-winner inferred fallback.

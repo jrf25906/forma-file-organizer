@@ -488,6 +488,97 @@ final class WorkflowStepExecutorTests: XCTestCase {
         XCTAssertEqual(record.workflowStatus, .queued)
     }
 
+    func testNotesSummaryExecutor_AppliesTargetAndRestoresPreviousValue() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let fileURL = try tempDirectory.createFile(name: "Inbox/project-plan.pdf", contents: "plan")
+        let timestamp = Date(timeIntervalSince1970: 7_000)
+
+        let existingRecord = try XCTUnwrap(
+            environment.metadataService.upsertRecord(
+                for: fileURL.path,
+                displayName: fileURL.lastPathComponent,
+                fileExtension: fileURL.pathExtension,
+                timestamp: timestamp
+            )
+        )
+        existingRecord.notesSummary = "Project: Beta"
+        try environment.context.save()
+
+        let file = FileItem(
+            path: fileURL.path,
+            sizeInBytes: 128,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plannedFile = makePlannedFile(
+            sourcePath: fileURL.path,
+            workingPath: fileURL.path,
+            finalDestinationPath: nil,
+            renameTargetName: fileURL.lastPathComponent,
+            tagIntents: [],
+            notesSummaryTarget: "Project: Alpha | Policy: Project Drop Zone"
+        )
+
+        let executor = NotesSummaryWorkflowStepExecutor()
+
+        let prepared = try executor.prepareExecution(
+            file: file,
+            plannedFile: plannedFile,
+            modelContext: environment.context
+        )
+        XCTAssertEqual(prepared.compensationStatus, .available)
+        XCTAssertEqual(
+            prepared.compensationPayloadDescriptor,
+            .notesSummaryRestore(
+                path: fileURL.path,
+                previousNotesSummary: "Project: Beta"
+            )
+        )
+
+        let result = try await executor.execute(
+            file: file,
+            plannedFile: plannedFile,
+            modelContext: environment.context
+        )
+
+        var record = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(record.notesSummary, "Project: Alpha | Policy: Project Drop Zone")
+        XCTAssertEqual(result.disposition, .pending)
+        XCTAssertEqual(result.compensationStatus, .available)
+        XCTAssertEqual(
+            result.compensationPayloadDescriptor,
+            .notesSummaryRestore(
+                path: fileURL.path,
+                previousNotesSummary: "Project: Beta"
+            )
+        )
+
+        let compensation = try XCTUnwrap(
+            executor.makeCompensationAction(
+                fileIdentity: record.canonicalIdentity,
+                compensationPayload: result.compensationAuditPayload,
+                file: file,
+                modelContext: environment.context
+            )
+        )
+        try compensation.apply()
+
+        record = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(record.notesSummary, "Project: Beta")
+    }
+
     private func makePlannedFile(
         sourcePath: String,
         workingPath: String,
@@ -495,7 +586,8 @@ final class WorkflowStepExecutorTests: XCTestCase {
         renameTargetName: String,
         tagIntents: [String],
         projectAssociationTarget: String? = nil,
-        workflowStatusTarget: MetadataWorkflowStatus? = nil
+        workflowStatusTarget: MetadataWorkflowStatus? = nil,
+        notesSummaryTarget: String? = nil
     ) -> WorkflowPlannedFile {
         var steps: [WorkflowSimulatedStep] = [
             WorkflowSimulatedStep(
@@ -542,6 +634,21 @@ final class WorkflowStepExecutorTests: XCTestCase {
             _ = workflowStatusTarget
         }
 
+        if let notesSummaryTarget {
+            steps.append(
+                WorkflowSimulatedStep(
+                    kind: .notesSummary,
+                    disposition: .planned,
+                    blocker: nil,
+                    compensationPayload: .notesSummaryRestore(
+                        path: workingPath,
+                        previousNotesSummary: nil
+                    )
+                )
+            )
+            _ = notesSummaryTarget
+        }
+
         steps.append(
             WorkflowSimulatedStep(
                 kind: .move,
@@ -561,6 +668,7 @@ final class WorkflowStepExecutorTests: XCTestCase {
             tagIntents: tagIntents,
             projectAssociationTarget: projectAssociationTarget,
             workflowStatusTarget: workflowStatusTarget,
+            notesSummaryTarget: notesSummaryTarget,
             steps: steps,
             blockers: []
         )

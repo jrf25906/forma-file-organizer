@@ -38,7 +38,20 @@ struct BuiltInWorkflowTemplate: Identifiable, Sendable, Hashable {
         case organized
     }
 
+    enum NotesSummaryPolicy: String, Sendable, CaseIterable {
+        case projectContextLine
+    }
+
     static let requiredActionShape: [TrustedAutomationAllowedAction] = [.rename, .tag, .move]
+    static let projectDropActionShape: [TrustedAutomationAllowedAction] = [
+        .rename,
+        .tag,
+        .projectAssociation,
+        .workflowStatus,
+        .notesSummary,
+        .move,
+        .notify
+    ]
 
     let id: String
     let displayName: String
@@ -48,5 +61,6 @@ struct BuiltInWorkflowTemplate: Identifiable, Sendable, Hashable {
     let notificationPolicy: NotificationPolicy
     let projectAssociationPolicy: ProjectAssociationPolicy?
     let workflowStatusPolicy: WorkflowStatusPolicy?
+    let notesSummaryPolicy: NotesSummaryPolicy?
     let allowedActions: [TrustedAutomationAllowedAction]
 }

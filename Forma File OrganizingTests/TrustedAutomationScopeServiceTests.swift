@@ -357,6 +357,31 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         }
     }
 
+    func testCreateOrReactivateScope_ProjectDropTemplateCopiesWorkflowBackedActionShape() throws {
+        try withService { _, service in
+            let scope = try service.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Projects",
+                displayName: "Projects",
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 5,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.94,
+                rationaleSummary: "Project intake is consistently trusted.",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                templateAssignedAt: Date(timeIntervalSince1970: 1_000)
+            )
+
+            XCTAssertEqual(
+                scope.allowedActions,
+                [.rename, .tag, .projectAssociation, .workflowStatus, .notesSummary, .move, .notify]
+            )
+        }
+    }
+
     func testRecommendedScope_FolderEvidenceStaysBoundToReviewedSubtree() throws {
         try withRecommendationServices { _, service, memoryService, _ in
             let destination = Destination.mockFolder("Documents/Exports")

@@ -965,6 +965,17 @@ final class AutomationEngine: ObservableObject {
         }
     }
 
+    func workflowExecutionEntryPoint(
+        for triggerSource: TrustedAutomationScopeRunTriggerSource,
+        scope: TrustedAutomationScope
+    ) -> WorkflowExecutionEntryPoint {
+        .trustedScope(
+            scopeID: scope.id,
+            triggerSource: triggerSource,
+            scopeDisplayName: scope.displayName
+        )
+    }
+
     func workflowInvocationContext(
         for triggerSource: TrustedAutomationScopeRunTriggerSource,
         projectLabel: String,
@@ -1062,9 +1073,9 @@ final class AutomationEngine: ObservableObject {
         let executionRequest = WorkflowExecutionRequest(
             templateID: templateID,
             scopeID: group.scope.id,
-            invocationContext: workflowInvocationContext(
+            entryPoint: workflowExecutionEntryPoint(
                 for: triggerSource,
-                scopeDisplayName: group.scope.displayName
+                scope: group.scope
             )
         )
         let plan = workflowExecution.plan(

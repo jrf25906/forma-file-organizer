@@ -11,6 +11,7 @@ enum WorkflowTemplateCatalog {
             notificationPolicy: .never,
             projectAssociationPolicy: nil,
             workflowStatusPolicy: nil,
+            notesSummaryPolicy: nil,
             allowedActions: BuiltInWorkflowTemplate.requiredActionShape
         ),
         BuiltInWorkflowTemplate(
@@ -22,18 +23,20 @@ enum WorkflowTemplateCatalog {
             notificationPolicy: .never,
             projectAssociationPolicy: nil,
             workflowStatusPolicy: nil,
+            notesSummaryPolicy: nil,
             allowedActions: BuiltInWorkflowTemplate.requiredActionShape
         ),
         BuiltInWorkflowTemplate(
             id: BuiltInWorkflowTemplate.StableID.projectDrop,
             displayName: "Project Drop Zone",
-            summaryText: "Rename project intake files, apply project tags, and move them into the active project drop folder.",
+            summaryText: "Rename project intake files, apply project tags, write project metadata, and move them into the active project drop folder.",
             renamePreset: .projectIntakeSlug,
             tagPolicy: .projectContext,
             notificationPolicy: .trustedScopeOnly,
             projectAssociationPolicy: .invocationProjectLabel,
             workflowStatusPolicy: .organized,
-            allowedActions: BuiltInWorkflowTemplate.requiredActionShape
+            notesSummaryPolicy: .projectContextLine,
+            allowedActions: BuiltInWorkflowTemplate.projectDropActionShape
         )
     ]
 

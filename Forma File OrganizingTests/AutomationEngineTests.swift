@@ -331,6 +331,14 @@ final class AutomationEngineTests: XCTestCase {
             workflowExecution.plannedInvocationContexts,
             [.trustedScopeInspection(scopeDisplayName: "Receipts")]
         )
+        let request = try XCTUnwrap(workflowExecution.plannedRequests.last)
+        guard case let .trustedScope(scopeID, triggerSource, scopeDisplayName) = request.entryPoint else {
+            XCTFail("Expected trusted-scope execution request")
+            return
+        }
+        XCTAssertEqual(scopeID, activeScope.id)
+        XCTAssertEqual(triggerSource, .manualRefreshInspection)
+        XCTAssertEqual(scopeDisplayName, "Receipts")
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [trustedFile.path])
         XCTAssertEqual(engine.state.lastPreflightSummary?.eligibleCount, 1)
@@ -786,6 +794,14 @@ final class AutomationEngineTests: XCTestCase {
             workflowExecution.plannedInvocationContexts,
             [.trustedScopeScheduled(scopeDisplayName: "Design Assets")]
         )
+        let request = try XCTUnwrap(workflowExecution.plannedRequests.last)
+        guard case let .trustedScope(scopeID, triggerSource, scopeDisplayName) = request.entryPoint else {
+            XCTFail("Expected trusted-scope execution request")
+            return
+        }
+        XCTAssertEqual(scopeID, scope.id)
+        XCTAssertEqual(triggerSource, .scheduledAutomationPass)
+        XCTAssertEqual(scopeDisplayName, "Design Assets")
         XCTAssertTrue(notificationService.scopedAutoOrganizeSummaries.isEmpty)
         engine.stop()
     }

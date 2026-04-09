@@ -17,13 +17,23 @@ final class WorkflowTemplateCatalogTests: XCTestCase {
         )
     }
 
-    func testBuiltInCatalog_AllTemplatesUseRenameTagMoveShape() {
-        let templates = WorkflowTemplateCatalog.shippedTemplates
+    func testBuiltInCatalog_UsesExpectedActionShapePerTemplate() throws {
+        let templatesByID = Dictionary(
+            uniqueKeysWithValues: WorkflowTemplateCatalog.shippedTemplates.map { ($0.id, $0) }
+        )
 
-        XCTAssertFalse(templates.isEmpty)
-        for template in templates {
-            XCTAssertEqual(template.allowedActions, [.rename, .tag, .move])
-        }
+        XCTAssertEqual(
+            try XCTUnwrap(templatesByID[BuiltInWorkflowTemplate.StableID.receipts]).allowedActions,
+            [.rename, .tag, .move]
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(templatesByID[BuiltInWorkflowTemplate.StableID.screenshots]).allowedActions,
+            [.rename, .tag, .move]
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(templatesByID[BuiltInWorkflowTemplate.StableID.projectDrop]).allowedActions,
+            [.rename, .tag, .projectAssociation, .workflowStatus, .notesSummary, .move, .notify]
+        )
     }
 
     func testBuiltInCatalog_OnlyProjectDropUsesTrustedScopeNotificationPolicy() {

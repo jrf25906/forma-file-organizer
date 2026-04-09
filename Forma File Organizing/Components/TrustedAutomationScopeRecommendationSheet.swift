@@ -79,6 +79,10 @@ struct TrustedAutomationScopeRecommendationSheet: View {
     @State private var selectedScopeType: TrustedAutomationScopeType
     @State private var selectedWorkflowTemplateID: String?
 
+    private var selectedWorkflowTemplate: BuiltInWorkflowTemplate? {
+        WorkflowTemplateCatalog.template(for: selectedWorkflowTemplateID)
+    }
+
     init(
         recommendation: TrustedAutomationScopeRecommendation,
         previewSummariesByType: [TrustedAutomationScopeType: TrustedAutomationScopeRecommendationPreviewSummary]? = nil,
@@ -136,15 +140,15 @@ struct TrustedAutomationScopeRecommendationSheet: View {
                 VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                     WorkflowTemplatePicker(selectedTemplateID: $selectedWorkflowTemplateID)
 
-                    Text("Trusted automation uses the fixed workflow step shape: \(workflowStepShapeText).")
-                        .font(.formaCaption)
-                        .foregroundColor(.formaSecondaryLabel)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if selectedWorkflowTemplateID == nil {
+                    if let selectedWorkflowTemplate {
+                        Text("Trusted automation will run: \(workflowStepShapeText(for: selectedWorkflowTemplate.allowedActions)).")
+                            .font(.formaCaption)
+                            .foregroundColor(.formaSecondaryLabel)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
                         Text("Choose a built-in template before enabling trust.")
-                            .font(.formaCaptionSemibold)
-                            .foregroundColor(.formaWarmOrange)
+                        .font(.formaCaptionSemibold)
+                        .foregroundColor(.formaWarmOrange)
                     }
                 }
             }
@@ -288,22 +292,9 @@ struct TrustedAutomationScopeRecommendationSheet: View {
         return previewSummariesByType?[selectedOption.scopeType]
     }
 
-    private var workflowStepShapeText: String {
-        let orderedActions: [TrustedAutomationAllowedAction] = [.rename, .tag, .move, .notify]
-        return orderedActions
-            .filter(BuiltInWorkflowTemplate.requiredActionShape.contains)
-            .map {
-                switch $0 {
-                case .rename:
-                    return "Rename"
-                case .tag:
-                    return "Tag"
-                case .move:
-                    return "Move"
-                case .notify:
-                    return "Notify"
-                }
-            }
-            .joined(separator: " -> ")
+    private func workflowStepShapeText(
+        for actions: [TrustedAutomationAllowedAction]
+    ) -> String {
+        TrustedAutomationAllowedAction.workflowStepShapeText(for: actions)
     }
 }

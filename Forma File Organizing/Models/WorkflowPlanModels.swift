@@ -5,6 +5,7 @@ enum WorkflowStepKind: String, Codable, Sendable, Hashable, CaseIterable {
     case tag
     case projectAssociation
     case workflowStatus
+    case notesSummary
     case move
     case log
     case notify
@@ -31,6 +32,7 @@ enum WorkflowCompensationPayloadDescriptor: Sendable, Hashable {
     case tagRemoval(path: String, tagsToRemove: [String])
     case projectAssociationRestore(path: String, previousProjectAssociation: String?)
     case workflowStatusRestore(path: String, previousWorkflowStatus: MetadataWorkflowStatus?)
+    case notesSummaryRestore(path: String, previousNotesSummary: String?)
     case moveRollback(originalDestinationPath: String, rollbackPath: String)
 }
 
@@ -42,6 +44,7 @@ struct WorkflowDefinition: Sendable, Hashable {
     let tagPolicy: BuiltInWorkflowTemplate.TagPolicy?
     let projectAssociationPolicy: BuiltInWorkflowTemplate.ProjectAssociationPolicy?
     let workflowStatusPolicy: BuiltInWorkflowTemplate.WorkflowStatusPolicy?
+    let notesSummaryPolicy: BuiltInWorkflowTemplate.NotesSummaryPolicy?
     let stepKinds: [WorkflowStepKind]
 }
 
@@ -60,6 +63,7 @@ struct WorkflowPlannedFile: Sendable, Hashable {
     let tagIntents: [String]
     let projectAssociationTarget: String?
     let workflowStatusTarget: MetadataWorkflowStatus?
+    let notesSummaryTarget: String?
     let steps: [WorkflowSimulatedStep]
     let blockers: [WorkflowPlanBlockerReason]
 
@@ -71,6 +75,7 @@ struct WorkflowPlannedFile: Sendable, Hashable {
         tagIntents: [String],
         projectAssociationTarget: String? = nil,
         workflowStatusTarget: MetadataWorkflowStatus? = nil,
+        notesSummaryTarget: String? = nil,
         steps: [WorkflowSimulatedStep],
         blockers: [WorkflowPlanBlockerReason]
     ) {
@@ -81,6 +86,7 @@ struct WorkflowPlannedFile: Sendable, Hashable {
         self.tagIntents = tagIntents
         self.projectAssociationTarget = projectAssociationTarget
         self.workflowStatusTarget = workflowStatusTarget
+        self.notesSummaryTarget = notesSummaryTarget
         self.steps = steps
         self.blockers = blockers
     }

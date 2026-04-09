@@ -77,23 +77,29 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `NotificationPolicy`
     - `ProjectAssociationPolicy`
     - `WorkflowStatusPolicy`
+    - `NotesSummaryPolicy`
     - `requiredActionShape`
+    - `projectDropActionShape`
   - `WorkflowInvocationContext`
     - `.projectSpace(projectLabel:)`
+    - `.trustedScopeScheduled(scopeDisplayName:)`
     - `.trustedScopeRealtime(scopeDisplayName:)`
     - `.trustedScopeInspection(scopeDisplayName:)`
     - `auditOwnerDisplayName`
     - `auditPolicyName`
     - `supportsProjectMetadataSteps`
     - `workflowProjectLabel`
+    - `workflowNotesSummaryTarget`
   - `WorkflowExecutionEntryPoint`
     - `.invocationContext(_:)`
     - `.projectPolicy(policyID:triggerKind:projectLabel:policyName:)`
+    - `.trustedScope(scopeID:triggerSource:scopeDisplayName:)`
     - `triggerSurface`
     - `auditOwnerDisplayName`
     - `auditPolicyName`
     - `notificationDisplayName`
     - `projectPolicyID`
+    - `trustedScopeID`
   - `WorkflowExecutionRequest`
     - `templateID`
     - `scopeID`
@@ -104,6 +110,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `auditPolicyName`
     - `notificationDisplayName`
     - `projectPolicyID`
+    - `trustedScopeID`
     - `replacingScopeID(_:)`
   - `WorkflowTemplateCatalog`
     - `shippedTemplates`
@@ -111,16 +118,20 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `WorkflowStepKind`
     - `.projectAssociation`
     - `.workflowStatus`
+    - `.notesSummary`
     - `.log`
     - `.notify`
   - `WorkflowCompensationPayloadDescriptor`
     - `.projectAssociationRestore(path:previousProjectAssociation:)`
     - `.workflowStatusRestore(path:previousWorkflowStatus:)`
+    - `.notesSummaryRestore(path:previousNotesSummary:)`
   - `WorkflowPlannedFile`
     - `projectAssociationTarget`
     - `workflowStatusTarget`
+    - `notesSummaryTarget`
   - `ProjectAssociationWorkflowStepExecutor`
   - `WorkflowStatusWorkflowStepExecutor`
+  - `NotesSummaryWorkflowStepExecutor`
   - `WorkflowPlanner`
     - `plan(templateID:files:invocationContext:)`
   - `WorkflowRunRecord`
@@ -137,6 +148,8 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `resultingProjectAssociation`
     - `previousWorkflowStatus`
     - `resultingWorkflowStatus`
+    - `previousNotesSummary`
+    - `resultingNotesSummary`
   - `WorkflowRunPrimaryStatus`
     - `.completedWithIssues`
   - `WorkflowFileDisposition`
@@ -172,6 +185,9 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `previewWorkflowStatus(path:targetWorkflowStatus:)`
     - `applyWorkflowStatus(path:displayName:fileExtension:targetWorkflowStatus:timestamp:)`
     - `restoreWorkflowStatus(canonicalIdentity:path:previousWorkflowStatus:timestamp:)`
+    - `previewWorkflowNotesSummary(path:targetNotesSummary:)`
+    - `applyWorkflowNotesSummary(path:displayName:fileExtension:targetNotesSummary:timestamp:)`
+    - `restoreWorkflowNotesSummary(canonicalIdentity:path:previousNotesSummary:timestamp:)`
     - `recordWorkflowRollbackTransition(from:to:displayName:fileExtension:detailsSummary:timestamp:)`
   - `ProjectSpaceAutomationService`
     - `workflowExecutionRequest(for:projectLabel:triggerKind:scopeID:)`
@@ -180,6 +196,11 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `NotifyWorkflowStepExecutor`
   - `TrustedAutomationScope.selectedWorkflowTemplateID`
   - `TrustedAutomationScope.templateAssignedAt`
+  - `TrustedAutomationAllowedAction`
+    - `.projectAssociation`
+    - `.workflowStatus`
+    - `.notesSummary`
+    - `workflowStepShapeText(for:)`
   - `TrustedAutomationScopeWorkflowTemplateSummary`
   - `TrustedAutomationScopeWorkflowRunSummary`
   - `TrustedAutomationScopeSummary.selectedWorkflowTemplate`
@@ -201,12 +222,13 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `projectAssociationDisplayName`
     - `workflowStatusDisplayName`
   - `DashboardViewModel.latestWorkflowInspectorSummary(for:context:)`
-  - Workflow Engine v2 now ships the built-in `rename -> tag -> move -> log` planner/runner path end to end, with template-gated trusted-scope `notify` for opted-in templates such as `Project Drop Zone`.
-  - Project-scoped templates can now opt into metadata-backed `projectAssociation` and `workflowStatus` planning, so `Project Drop Zone` project-space and project-policy runs plan `rename -> tag -> projectAssociation -> workflowStatus -> move -> log` while non-project invocations stay on the existing path.
+  - Workflow Engine v2 now ships the built-in `rename -> tag -> move -> log` planner/runner path end to end for the base templates, while `Project Drop Zone` extends that path into `rename -> tag -> projectAssociation -> workflowStatus -> notesSummary -> move -> log` plus template-gated trusted-scope `notify`.
+  - Project-scoped templates can now opt into metadata-backed `projectAssociation`, `workflowStatus`, and constrained `notesSummary` planning, so `Project Drop Zone` project-space and project-policy runs derive those targets from the invocation context while non-project invocations stay on the existing path.
   - Project-scoped invocations without a usable project label now block at the planned `projectAssociation` step and skip later dependent steps in simulation rather than silently planning metadata writes with empty state.
-  - Those metadata-backed steps now execute through the shared runner and compensation path as well: explicit project-association and workflow-status writes persist through `FileMetadataFoundationService`, and rollback restores those fields without later path compensation clobbering the restored workflow status.
+  - Those metadata-backed steps now execute through the shared runner and compensation path as well: explicit project-association, workflow-status, and notes-summary writes persist through `FileMetadataFoundationService`, and rollback restores those fields without later path compensation clobbering the restored workflow status.
   - Workflow audit semantics are explicit: primary run status and rollback status stay separate, per-step outcomes and per-file actions are persisted independently, side-effect failures surface `completedWithIssues` without rolling back durable success, and rollback state is projected back into trusted-scope detail, activity, and inspector surfaces without flattening failures into generic success copy.
   - Workflow audit depth now also includes run-level trigger/owner/policy context, preflight `planned` / `blocked` / `skipped` step rows, and file-level metadata deltas on both forward and rollback rows so `WorkflowRunDetailSheet`, inspector summaries, and activity text can explain who launched a run and what metadata changed, not just which path mutation succeeded.
+  - `WorkflowExecutionRequest` is now the shared launch model across project-policy, trusted-scope, review, and inspector workflow-v2 entry points, and trusted automation surfaces now project the selected template's real step shape instead of treating every trusted scope as the same fixed move-first recipe.
 - Project-space workflow profiles and manual workflow execution
   - `ProjectSpaceWorkflowProfile`
     - `normalizedProjectLabel`

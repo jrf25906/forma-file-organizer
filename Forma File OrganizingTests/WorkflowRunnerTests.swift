@@ -296,7 +296,7 @@ final class WorkflowRunnerTests: XCTestCase {
             invocationContext: .projectSpace(projectLabel: "Alpha")
         )
         XCTAssertFalse(plan.hasBlockers)
-        XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .projectAssociation, .workflowStatus, .move, .log])
+        XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .projectAssociation, .workflowStatus, .notesSummary, .move, .log])
 
         let runner = WorkflowRunner(
             auditStore: environment.auditStore,
@@ -315,11 +315,16 @@ final class WorkflowRunnerTests: XCTestCase {
         )
         XCTAssertEqual(record.projectAssociation, "Alpha")
         XCTAssertEqual(record.workflowStatus, .organized)
+        XCTAssertEqual(record.notesSummary, "Project: Alpha")
 
         let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
         let stepRuns = try environment.auditStore.stepRuns(runID: run.id)
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("projectAssociation") && $0.status == .succeeded }))
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("workflowStatus") && $0.status == .succeeded }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("notesSummary") && $0.status == .succeeded }))
+
+        let fileActions = try environment.auditStore.fileActions(runID: run.id)
+        XCTAssertTrue(fileActions.contains(where: { $0.metadataDelta?.resultingNotesSummary == "Project: Alpha" }))
     }
 
     func testRunner_BlockedPlan_PersistsPreflightAuditRows() async throws {
@@ -385,6 +390,7 @@ final class WorkflowRunnerTests: XCTestCase {
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|tag|\(sourceURL.path)" && $0.status == .planned }))
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|projectAssociation|\(sourceURL.path)" && $0.status == .blocked }))
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|workflowStatus|\(sourceURL.path)" && $0.status == .skipped }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|notesSummary|\(sourceURL.path)" && $0.status == .skipped }))
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "execute|move|\(sourceURL.path)" && $0.status == .skipped }))
     }
 
@@ -447,10 +453,13 @@ final class WorkflowRunnerTests: XCTestCase {
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("projectAssociation") && $0.status == .succeeded }))
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("workflowStatus") && $0.status == .planned }))
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("workflowStatus") && $0.status == .succeeded }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("notesSummary") && $0.status == .planned }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("notesSummary") && $0.status == .succeeded }))
 
         let fileActions = try environment.auditStore.fileActions(runID: run.id)
         XCTAssertTrue(fileActions.contains(where: { $0.metadataDelta?.resultingProjectAssociation == "Alpha" }))
         XCTAssertTrue(fileActions.contains(where: { $0.metadataDelta?.resultingWorkflowStatus == .organized }))
+        XCTAssertTrue(fileActions.contains(where: { $0.metadataDelta?.resultingNotesSummary == "Project: Alpha | Policy: Project Drop Zone" }))
         XCTAssertTrue(fileActions.contains(where: { Set($0.metadataDelta?.addedTags ?? []) == Set(["project", "context", "intake"]) }))
     }
 
@@ -477,6 +486,7 @@ final class WorkflowRunnerTests: XCTestCase {
         )
         seededRecord.projectAssociation = "Beta"
         seededRecord.workflowStatus = .queued
+        seededRecord.notesSummary = "Project: Beta"
         try environment.context.save()
 
         let file = FileItem(
@@ -513,6 +523,7 @@ final class WorkflowRunnerTests: XCTestCase {
                 .tag: TagWorkflowStepExecutor(),
                 .projectAssociation: ProjectAssociationWorkflowStepExecutor(),
                 .workflowStatus: WorkflowStatusWorkflowStepExecutor(),
+                .notesSummary: NotesSummaryWorkflowStepExecutor(),
                 .move: moveExecutor
             ]
         )
@@ -537,6 +548,7 @@ final class WorkflowRunnerTests: XCTestCase {
         )
         XCTAssertEqual(record.projectAssociation, "Beta")
         XCTAssertEqual(record.workflowStatus, .queued)
+        XCTAssertEqual(record.notesSummary, "Project: Beta")
 
         let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
         XCTAssertEqual(run.primaryStatus, .failed)
@@ -545,6 +557,7 @@ final class WorkflowRunnerTests: XCTestCase {
         let stepRuns = try environment.auditStore.stepRuns(runID: run.id)
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("projectAssociation") && $0.status == .succeeded }))
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("workflowStatus") && $0.status == .succeeded }))
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("notesSummary") && $0.status == .succeeded }))
         XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("rollback") && $0.status == .succeeded }))
 
         let fileActions = try environment.auditStore.fileActions(runID: run.id)
@@ -564,6 +577,12 @@ final class WorkflowRunnerTests: XCTestCase {
             fileActions.contains(where: {
                 $0.disposition == .restored &&
                 $0.metadataDelta?.resultingWorkflowStatus == .queued
+            })
+        )
+        XCTAssertTrue(
+            fileActions.contains(where: {
+                $0.disposition == .restored &&
+                $0.metadataDelta?.resultingNotesSummary == "Project: Beta"
             })
         )
     }

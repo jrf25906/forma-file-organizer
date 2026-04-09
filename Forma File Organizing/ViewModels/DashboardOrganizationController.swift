@@ -134,14 +134,17 @@ final class DashboardOrganizationController {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let memorySnapshot = self.makeWorkflowMemorySnapshot(for: file)
-            let workflowScopeID = UUID()
+            let executionRequest = WorkflowExecutionRequest(
+                templateID: template.id,
+                invocationContext: .inspector
+            )
 
             do {
-                let plan = self.workflowExecution.plan(template.id, [file], .inspector)
-                try await self.workflowExecution.run(
+                let plan = self.workflowExecution.plan(executionRequest, [file])
+                _ = try await self.workflowExecution.run(
+                    executionRequest,
                     plan,
                     [file],
-                    workflowScopeID,
                     context
                 )
                 file.status = .completed

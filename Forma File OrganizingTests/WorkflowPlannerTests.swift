@@ -88,15 +88,15 @@ final class WorkflowPlannerTests: XCTestCase {
 
         XCTAssertEqual(
             plan.definition.stepKinds.map(\.rawValue),
-            ["rename", "tag", "projectAssociation", "workflowStatus", "move", "log"]
+            ["rename", "tag", "projectAssociation", "workflowStatus", "notesSummary", "move", "log"]
         )
         XCTAssertEqual(
             plan.files.first?.steps.map(\.kind.rawValue),
-            ["rename", "tag", "projectAssociation", "workflowStatus", "move", "log"]
+            ["rename", "tag", "projectAssociation", "workflowStatus", "notesSummary", "move", "log"]
         )
         XCTAssertEqual(
             plan.files.first?.steps.map(\.disposition),
-            [.planned, .planned, .planned, .planned, .planned, .planned]
+            [.planned, .planned, .planned, .planned, .planned, .planned, .planned]
         )
     }
 
@@ -118,12 +118,12 @@ final class WorkflowPlannerTests: XCTestCase {
 
         XCTAssertEqual(
             plan.definition.stepKinds.map(\.rawValue),
-            ["rename", "tag", "projectAssociation", "workflowStatus", "move", "log"]
+            ["rename", "tag", "projectAssociation", "workflowStatus", "notesSummary", "move", "log"]
         )
         XCTAssertTrue(plannedFile.isBlocked)
         XCTAssertEqual(
             simulationFile.steps.map(\.disposition),
-            [.planned, .planned, .blocked, .skipped, .skipped, .skipped]
+            [.planned, .planned, .blocked, .skipped, .skipped, .skipped, .skipped]
         )
         XCTAssertEqual(simulationFile.steps[2].kind.rawValue, "projectAssociation")
         XCTAssertNotNil(simulationFile.steps[2].blocker)
@@ -143,11 +143,13 @@ final class WorkflowPlannerTests: XCTestCase {
         )
 
         let steps = try XCTUnwrap(plan.files.first?.steps)
-        XCTAssertEqual(steps.count, 6)
+        XCTAssertEqual(steps.count, 7)
         XCTAssertEqual(steps[2].kind.rawValue, "projectAssociation")
         XCTAssertEqual(steps[3].kind.rawValue, "workflowStatus")
+        XCTAssertEqual(steps[4].kind.rawValue, "notesSummary")
         XCTAssertNotNil(steps[2].compensationPayload)
         XCTAssertNotNil(steps[3].compensationPayload)
+        XCTAssertNotNil(steps[4].compensationPayload)
     }
 
     func testPlan_TrustedScopeInvocation_AppendsNotifyOnlyForOptedInTemplate() throws {

@@ -12,6 +12,7 @@ final class WorkflowPlanner {
         let tagIntents: [String]
         let projectAssociationTarget: String?
         let workflowStatusTarget: MetadataWorkflowStatus?
+        let notesSummaryTarget: String?
         var blockers: [WorkflowPlanBlockerReason]
     }
 
@@ -95,7 +96,8 @@ final class WorkflowPlanner {
                 finalDestinationPath: preliminaryFile.finalDestinationPath,
                 tagIntents: preliminaryFile.tagIntents,
                 projectAssociationTarget: preliminaryFile.projectAssociationTarget,
-                workflowStatusTarget: preliminaryFile.workflowStatusTarget
+                workflowStatusTarget: preliminaryFile.workflowStatusTarget,
+                notesSummaryTarget: preliminaryFile.notesSummaryTarget
             )
 
             return WorkflowPlannedFile(
@@ -106,6 +108,7 @@ final class WorkflowPlanner {
                 tagIntents: preliminaryFile.tagIntents,
                 projectAssociationTarget: preliminaryFile.projectAssociationTarget,
                 workflowStatusTarget: preliminaryFile.workflowStatusTarget,
+                notesSummaryTarget: preliminaryFile.notesSummaryTarget,
                 steps: steps,
                 blockers: uniqueBlockers
             )
@@ -150,6 +153,7 @@ final class WorkflowPlanner {
             tagPolicy: template?.tagPolicy,
             projectAssociationPolicy: template?.projectAssociationPolicy,
             workflowStatusPolicy: template?.workflowStatusPolicy,
+            notesSummaryPolicy: template?.notesSummaryPolicy,
             stepKinds: shouldPlanNotify ? orderedStepKinds + [.notify] : orderedStepKinds
         )
     }
@@ -203,6 +207,16 @@ final class WorkflowPlanner {
             plannedWorkflowStatusTarget = nil
         }
 
+        let plannedNotesSummaryTarget: String?
+        if definition.stepKinds.contains(.notesSummary) {
+            plannedNotesSummaryTarget = notesSummaryTarget(
+                for: definition,
+                blockers: &blockers
+            )
+        } else {
+            plannedNotesSummaryTarget = nil
+        }
+
         if template == nil {
             blockers.append(.templateUnavailable(templateID: definition.templateID))
         }
@@ -252,6 +266,7 @@ final class WorkflowPlanner {
             tagIntents: plannedTagIntents,
             projectAssociationTarget: plannedProjectAssociationTarget,
             workflowStatusTarget: plannedWorkflowStatusTarget,
+            notesSummaryTarget: plannedNotesSummaryTarget,
             blockers: blockers
         )
     }
@@ -296,7 +311,8 @@ final class WorkflowPlanner {
         finalDestinationPath: String?,
         tagIntents: [String],
         projectAssociationTarget: String?,
-        workflowStatusTarget: MetadataWorkflowStatus?
+        workflowStatusTarget: MetadataWorkflowStatus?,
+        notesSummaryTarget: String?
     ) -> [WorkflowSimulatedStep] {
         var earlierStepBlocker: WorkflowPlanBlockerReason?
 
@@ -336,7 +352,8 @@ final class WorkflowPlanner {
                     finalDestinationPath: finalDestinationPath,
                     tagIntents: tagIntents,
                     projectAssociationTarget: projectAssociationTarget,
-                    workflowStatusTarget: workflowStatusTarget
+                    workflowStatusTarget: workflowStatusTarget,
+                    notesSummaryTarget: notesSummaryTarget
                 )
             )
         }
@@ -366,7 +383,8 @@ final class WorkflowPlanner {
         finalDestinationPath: String?,
         tagIntents: [String],
         projectAssociationTarget: String?,
-        workflowStatusTarget: MetadataWorkflowStatus?
+        workflowStatusTarget: MetadataWorkflowStatus?,
+        notesSummaryTarget: String?
     ) -> WorkflowCompensationPayloadDescriptor? {
         guard disposition == .planned else {
             return nil
@@ -392,6 +410,14 @@ final class WorkflowPlanner {
             return .workflowStatusRestore(
                 path: workingPath,
                 previousWorkflowStatus: nil
+            )
+        case .notesSummary:
+            guard notesSummaryTarget != nil else {
+                return nil
+            }
+            return .notesSummaryRestore(
+                path: workingPath,
+                previousNotesSummary: nil
             )
         case .move:
             guard let finalDestinationPath else {
@@ -439,6 +465,9 @@ final class WorkflowPlanner {
         if template.workflowStatusPolicy != nil {
             stepKinds.append(.workflowStatus)
         }
+        if template.notesSummaryPolicy != nil {
+            stepKinds.append(.notesSummary)
+        }
         return stepKinds
     }
 
@@ -475,6 +504,29 @@ final class WorkflowPlanner {
         switch policy {
         case .organized:
             return .organized
+        }
+    }
+
+    private func notesSummaryTarget(
+        for definition: WorkflowDefinition,
+        blockers: inout [WorkflowPlanBlockerReason]
+    ) -> String? {
+        guard let notesSummaryPolicy = definition.notesSummaryPolicy else {
+            return nil
+        }
+
+        switch notesSummaryPolicy {
+        case .projectContextLine:
+            guard let notesSummary = definition.invocationContext.workflowNotesSummaryTarget else {
+                blockers.append(
+                    .compensationPreconditionMissing(
+                        stepKind: .notesSummary,
+                        detail: "Workflow note-summary steps require a non-empty project label."
+                    )
+                )
+                return nil
+            }
+            return notesSummary
         }
     }
 

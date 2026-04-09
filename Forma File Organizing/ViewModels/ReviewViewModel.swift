@@ -303,7 +303,11 @@ class ReviewViewModel: ObservableObject {
             return
         }
 
-        let plan = workflowExecution.plan(template.id, filesToMove, .reviewView)
+        let executionRequest = WorkflowExecutionRequest(
+            templateID: template.id,
+            invocationContext: .reviewView
+        )
+        let plan = workflowExecution.plan(executionRequest, filesToMove)
         let runnablePaths = Set(plan.files.filter { !$0.isBlocked }.map(\.sourcePath))
         let blockedPaths = Set(plan.files.filter(\.isBlocked).map(\.sourcePath))
         let runnableFiles = filesToMove.filter { runnablePaths.contains(standardizedPath(for: $0)) }
@@ -322,10 +326,13 @@ class ReviewViewModel: ObservableObject {
                 files: plan.simulation.files.filter { runnablePaths.contains($0.sourcePath) }
             )
         )
-        let workflowScopeID = UUID()
-
         do {
-            try await workflowExecution.run(runnablePlan, runnableFiles, workflowScopeID, modelContext)
+            _ = try await workflowExecution.run(
+                executionRequest,
+                runnablePlan,
+                runnableFiles,
+                modelContext
+            )
             for file in runnableFiles {
                 file.status = .completed
             }

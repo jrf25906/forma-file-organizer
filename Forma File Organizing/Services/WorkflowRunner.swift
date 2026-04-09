@@ -104,6 +104,7 @@ enum WorkflowCompensationPayloadCodec {
     private static let tagsJSONKey = "tagsJSON"
     private static let previousProjectAssociationKey = "previousProjectAssociation"
     private static let previousWorkflowStatusKey = "previousWorkflowStatus"
+    private static let previousNotesSummaryKey = "previousNotesSummary"
     private static let originalDestinationPathKey = "originalDestinationPath"
     private static let rollbackPathKey = "rollbackPath"
 
@@ -141,6 +142,13 @@ enum WorkflowCompensationPayloadCodec {
                 pathKey: path
             ]
             payload[previousWorkflowStatusKey] = previousWorkflowStatus?.rawValue
+            return payload
+        case .notesSummaryRestore(let path, let previousNotesSummary):
+            var payload = [
+                kindKey: WorkflowStepKind.notesSummary.rawValue,
+                pathKey: path
+            ]
+            payload[previousNotesSummaryKey] = previousNotesSummary
             return payload
         case .moveRollback(let originalDestinationPath, let rollbackPath):
             return [
@@ -188,6 +196,14 @@ enum WorkflowCompensationPayloadCodec {
             return .workflowStatusRestore(
                 path: path,
                 previousWorkflowStatus: previousWorkflowStatus
+            )
+        case WorkflowStepKind.notesSummary.rawValue:
+            guard let path = payload[pathKey] else {
+                return nil
+            }
+            return .notesSummaryRestore(
+                path: path,
+                previousNotesSummary: payload[previousNotesSummaryKey]
             )
         case WorkflowStepKind.move.rawValue:
             guard let originalDestinationPath = payload[originalDestinationPathKey],
@@ -523,6 +539,7 @@ final class WorkflowRunner {
             .tag: TagWorkflowStepExecutor(),
             .projectAssociation: ProjectAssociationWorkflowStepExecutor(),
             .workflowStatus: WorkflowStatusWorkflowStepExecutor(),
+            .notesSummary: NotesSummaryWorkflowStepExecutor(),
             .move: MoveWorkflowStepExecutor()
         ]
         self.sideEffectExecutorsByKind = sideEffectExecutorsByKind ?? [
@@ -1217,7 +1234,9 @@ final class WorkflowRunner {
             previousProjectAssociation: metadataDelta.resultingProjectAssociation,
             resultingProjectAssociation: metadataDelta.previousProjectAssociation,
             previousWorkflowStatus: metadataDelta.resultingWorkflowStatus,
-            resultingWorkflowStatus: metadataDelta.previousWorkflowStatus
+            resultingWorkflowStatus: metadataDelta.previousWorkflowStatus,
+            previousNotesSummary: metadataDelta.resultingNotesSummary,
+            resultingNotesSummary: metadataDelta.previousNotesSummary
         )
 
         return inverted.isEmpty ? nil : inverted

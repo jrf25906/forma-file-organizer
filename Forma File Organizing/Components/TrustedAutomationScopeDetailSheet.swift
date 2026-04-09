@@ -217,22 +217,7 @@ struct TrustedAutomationScopeDetailSheet: View {
         private static func workflowStepShapeText(
             for actions: [TrustedAutomationAllowedAction]
         ) -> String {
-            let orderedActions: [TrustedAutomationAllowedAction] = [.rename, .tag, .move, .notify]
-            return orderedActions
-                .filter(actions.contains)
-                .map {
-                    switch $0 {
-                    case .rename:
-                        return "Rename"
-                    case .tag:
-                        return "Tag"
-                    case .move:
-                        return "Move"
-                    case .notify:
-                        return "Notify"
-                    }
-                }
-                .joined(separator: " -> ")
+            TrustedAutomationAllowedAction.workflowStepShapeText(for: actions)
         }
 
         private static func latestWorkflowStatusText(
