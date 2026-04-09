@@ -129,6 +129,11 @@ final class AutomationEngine: ObservableObject {
     private let watchedFoldersProvider: @MainActor () -> [WatchedFolderDescriptor]
     private let workflowExecution: WorkflowExecutionClient
     private let projectSpaceDetailReader: @MainActor (ModelContext, String) -> ProjectSpaceDetail?
+    private let projectPolicyCoordinatorFactory: @MainActor (
+        ModelContext,
+        ProjectSpaceAutomationService,
+        WorkflowExecutionClient
+    ) -> ProjectSpaceAutomationCoordinator
     private var modelContext: ModelContext?
 
     // Lazy initialization to avoid circular dependencies
@@ -157,7 +162,12 @@ final class AutomationEngine: ObservableObject {
         fileMonitor: FileMonitoring = FileMonitorService(),
         watchedFoldersProvider: (@MainActor () -> [WatchedFolderDescriptor])? = nil,
         workflowExecution: WorkflowExecutionClient = .live,
-        projectSpaceDetailReader: (@MainActor (ModelContext, String) -> ProjectSpaceDetail?)? = nil
+        projectSpaceDetailReader: (@MainActor (ModelContext, String) -> ProjectSpaceDetail?)? = nil,
+        projectPolicyCoordinatorFactory: (@MainActor (
+            ModelContext,
+            ProjectSpaceAutomationService,
+            WorkflowExecutionClient
+        ) -> ProjectSpaceAutomationCoordinator)? = nil
     ) {
         self.featureFlags = featureFlags
         self.notificationService = notificationService
@@ -168,6 +178,14 @@ final class AutomationEngine: ObservableObject {
         self.projectSpaceDetailReader = projectSpaceDetailReader ?? { context, normalizedProjectLabel in
             FileMetadataFoundationService(modelContext: context)
                 .fetchProjectSpaceDetail(for: normalizedProjectLabel)
+        }
+        self.projectPolicyCoordinatorFactory = projectPolicyCoordinatorFactory ?? { context, automationService, workflowExecution in
+            ProjectSpaceAutomationCoordinator(
+                modelContext: context,
+                metadataAdmissionWriter: FileMetadataFoundationService(modelContext: context),
+                automationService: automationService,
+                workflowExecution: workflowExecution
+            )
         }
         self.policyResolver = policyResolver ?? {
             AutomationPolicy.resolve(flags: featureFlags, userSettings: .current)
@@ -608,7 +626,11 @@ final class AutomationEngine: ObservableObject {
         }
 
         if let firstExecutionError {
-            Log.error("AutomationEngine: Auto-organize had failures - \(firstExecutionError.localizedDescription)", category: .automation)
+            if totalFailed > 0 {
+                Log.error("AutomationEngine: Auto-organize had failures - \(firstExecutionError.localizedDescription)", category: .automation)
+            } else {
+                Log.warning("AutomationEngine: Auto-organize completed with bookkeeping warnings - \(firstExecutionError.localizedDescription)", category: .automation)
+            }
         }
     }
 
@@ -1083,11 +1105,10 @@ final class AutomationEngine: ObservableObject {
         context: ModelContext,
         automationService: ProjectSpaceAutomationService
     ) async -> ProjectPolicyAutomationExecutionResult {
-        let coordinator = ProjectSpaceAutomationCoordinator(
-            modelContext: context,
-            metadataAdmissionWriter: FileMetadataFoundationService(modelContext: context),
-            automationService: automationService,
-            workflowExecution: workflowExecution
+        let coordinator = projectPolicyCoordinatorFactory(
+            context,
+            automationService,
+            workflowExecution
         )
 
         do {
@@ -1116,14 +1137,29 @@ final class AutomationEngine: ObservableObject {
                 error: nil,
                 plannedWorkflowNotify: projectPolicyPlansWorkflowNotify(group, triggerSource: triggerSource)
             )
-        } catch ProjectSpaceAutomationCoordinator.CoordinatorError.noRunnableFiles {
-            return ProjectPolicyAutomationExecutionResult(
-                successCount: 0,
-                failedCount: 0,
-                skippedCount: group.eligibleFiles.count,
-                error: nil,
-                plannedWorkflowNotify: false
-            )
+        } catch let bookkeepingError as ProjectSpaceAutomationCoordinator.CoordinatorError {
+            switch bookkeepingError {
+            case let .bookkeepingFailedAfterWorkflowRun(status, _):
+                let successCountStatuses: Set<ProjectSpaceAutomationRunStatus> = [.succeeded, .completedWithIssues]
+                let successCount = successCountStatuses.contains(status) ? group.eligibleFiles.count : 0
+                let failedCount = status == .failed ? group.eligibleFiles.count : 0
+
+                return ProjectPolicyAutomationExecutionResult(
+                    successCount: successCount,
+                    failedCount: failedCount,
+                    skippedCount: 0,
+                    error: bookkeepingError,
+                    plannedWorkflowNotify: projectPolicyPlansWorkflowNotify(group, triggerSource: triggerSource)
+                )
+            case .noRunnableFiles:
+                return ProjectPolicyAutomationExecutionResult(
+                    successCount: 0,
+                    failedCount: 0,
+                    skippedCount: group.eligibleFiles.count,
+                    error: nil,
+                    plannedWorkflowNotify: false
+                )
+            }
         } catch {
             return ProjectPolicyAutomationExecutionResult(
                 successCount: 0,

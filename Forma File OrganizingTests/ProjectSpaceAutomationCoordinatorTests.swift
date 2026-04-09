@@ -4,7 +4,7 @@ import SwiftData
 
 @MainActor
 final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
-    private enum InjectedFailure: Error {
+    private enum InjectedFailure: Error, Equatable {
         case admissionWrite
         case persistLatestRun
         case recordRun
@@ -870,7 +870,11 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
                 now: environment.timestamp
             )
             XCTFail("Expected bookkeeping failure after successful workflow run")
+        } catch let ProjectSpaceAutomationCoordinator.CoordinatorError.bookkeepingFailedAfterWorkflowRun(status, underlyingError as InjectedFailure) {
+            XCTAssertEqual(status, .succeeded)
+            XCTAssertEqual(underlyingError, .recordRun)
         } catch {
+            XCTFail("Expected bookkeeping failure after workflow run, got \(error)")
         }
 
         XCTAssertEqual(environment.workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])

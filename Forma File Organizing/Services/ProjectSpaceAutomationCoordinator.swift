@@ -29,11 +29,17 @@ struct ProjectSpaceAutomationCoordinator {
 
     enum CoordinatorError: LocalizedError {
         case noRunnableFiles
+        case bookkeepingFailedAfterWorkflowRun(
+            status: ProjectSpaceAutomationRunStatus,
+            underlyingError: Error
+        )
 
         var errorDescription: String? {
             switch self {
             case .noRunnableFiles:
                 return "No runnable files were available for this project-space automation policy."
+            case let .bookkeepingFailedAfterWorkflowRun(status, underlyingError):
+                return "Project-space automation bookkeeping failed after the workflow completed with status \(status.rawValue): \(underlyingError.localizedDescription)"
             }
         }
     }
@@ -141,16 +147,25 @@ struct ProjectSpaceAutomationCoordinator {
             throw error
         }
 
-        let automationRun = try recordRun(
-            policy.id,
-            policy.workflowTemplateID,
-            triggerKind,
-            workflowRun.id,
-            automationRunStatus(for: workflowRun.primaryStatus),
-            workflowRun.startedAt,
-            workflowRun.endedAt ?? now,
-            now
-        )
+        let runStatus = automationRunStatus(for: workflowRun.primaryStatus)
+        let automationRun: ProjectSpaceAutomationRunRecord
+        do {
+            automationRun = try recordRun(
+                policy.id,
+                policy.workflowTemplateID,
+                triggerKind,
+                workflowRun.id,
+                runStatus,
+                workflowRun.startedAt,
+                workflowRun.endedAt ?? now,
+                now
+            )
+        } catch {
+            throw CoordinatorError.bookkeepingFailedAfterWorkflowRun(
+                status: runStatus,
+                underlyingError: error
+            )
+        }
 
         try? persistLatestRun(workflowRun, detail.projectLabel, now)
 

@@ -140,6 +140,9 @@ final class AutomationEngineTests: XCTestCase {
     }
 
     private struct WorkflowExecutionFailure: Error {}
+    private enum ProjectPolicyBookkeepingFailure: Error {
+        case recordRun
+    }
 
     private struct ProjectSpaceDetailStubReader {
         var detailsByProjectLabel: [String: ProjectSpaceDetail]
@@ -1272,6 +1275,90 @@ final class AutomationEngineTests: XCTestCase {
     }
 
     @MainActor
+    func testPerformAutoOrganize_ProjectPolicyBookkeepingFailureAfterSuccessfulWorkflowDoesNotCountAsBatchFailure() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Projects"),
+            displayName: "Projects"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let automationService = ProjectSpaceAutomationService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "project",
+            fileName: "handoff.md",
+            destination: destination
+        )
+        let projectSpaceDetailReader = ProjectSpaceDetailStubReader(
+            detailsByProjectLabel: [
+                "Alpha": makeProjectSpaceDetail(
+                    projectLabel: "Alpha",
+                    fileRows: [
+                        ProjectSpaceFileRow(
+                            canonicalIdentity: "alpha-existing",
+                            path: file.path,
+                            displayName: file.name,
+                            projectAssociation: "Alpha",
+                            sourceFolderHint: "Alpha"
+                        )
+                    ]
+                )
+            ]
+        )
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            projectSpaceDetailReader: { _, normalizedProjectLabel in
+                projectSpaceDetailReader.detail(for: normalizedProjectLabel)
+            },
+            projectPolicyCoordinatorFactory: { context, automationService, workflowExecution in
+                ProjectSpaceAutomationCoordinator(
+                    modelContext: context,
+                    metadataAdmissionWriter: FileMetadataFoundationService(modelContext: context),
+                    automationService: automationService,
+                    workflowExecution: workflowExecution,
+                    recordRun: { _, _, _, _, _, _, _, _ in
+                        throw ProjectPolicyBookkeepingFailure.recordRun
+                    }
+                )
+            }
+        )
+
+        context.insert(file)
+        _ = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual],
+            admissionMode: .manualReview,
+            state: .active,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(engine.state.lastRunSuccessCount, 1)
+        XCTAssertEqual(engine.state.lastRunFailedCount, 0)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceAutomationRunRecord>()).count, 0)
+    }
+
+    @MainActor
     func testPerformAutoOrganize_AmbiguousProjectClaimFallsBackToTrustedScopeOrReview() async throws {
         let sourceRoot = try TemporaryDirectory()
         defer { sourceRoot.cleanup() }
@@ -1445,14 +1532,20 @@ final class AutomationEngineTests: XCTestCase {
         workflowExecution: WorkflowExecutionClient = .live,
         notificationService: AutomationNotificationServing = SilentNotificationService(),
         notificationsEnabled: Bool = false,
-        projectSpaceDetailReader: (@MainActor (ModelContext, String) -> ProjectSpaceDetail?)? = nil
+        projectSpaceDetailReader: (@MainActor (ModelContext, String) -> ProjectSpaceDetail?)? = nil,
+        projectPolicyCoordinatorFactory: (@MainActor (
+            ModelContext,
+            ProjectSpaceAutomationService,
+            WorkflowExecutionClient
+        ) -> ProjectSpaceAutomationCoordinator)? = nil
     ) -> AutomationEngine {
         AutomationEngine(
             notificationService: notificationService,
             clock: FixedClock(now: Date(timeIntervalSince1970: 1_700_000_000)),
             policyResolver: { self.makePolicy(notificationsEnabled: notificationsEnabled) },
             workflowExecution: workflowExecution,
-            projectSpaceDetailReader: projectSpaceDetailReader
+            projectSpaceDetailReader: projectSpaceDetailReader,
+            projectPolicyCoordinatorFactory: projectPolicyCoordinatorFactory
         )
     }
 
