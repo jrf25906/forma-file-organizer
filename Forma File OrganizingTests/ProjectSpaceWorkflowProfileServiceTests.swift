@@ -1,0 +1,124 @@
+import XCTest
+import SwiftData
+@testable import Forma_File_Organizing
+
+@MainActor
+final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
+    private func makeService() throws -> (ModelContainer, ModelContext, ProjectSpaceWorkflowProfileService) {
+        let schema = Schema([
+            ProjectSpaceWorkflowProfile.self,
+            WorkflowRunRecord.self
+        ])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+        return (container, context, ProjectSpaceWorkflowProfileService(modelContext: context))
+    }
+
+    private func withService(
+        _ body: (_ context: ModelContext, _ service: ProjectSpaceWorkflowProfileService) throws -> Void
+    ) throws {
+        let (container, context, service) = try makeService()
+        try withExtendedLifetime(container) {
+            try body(context, service)
+        }
+    }
+
+    func testProfileLazilyCreatesRecordForNormalizedLabel() throws {
+        try withService { context, service in
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "  Alpha  "))
+
+            XCTAssertEqual(profile.normalizedProjectLabel, "Alpha")
+            XCTAssertNil(profile.preferredWorkflowTemplateID)
+            XCTAssertNil(profile.lastWorkflowRunID)
+            XCTAssertNil(profile.lastWorkflowCompletedAt)
+
+            let storedProfiles = try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>())
+            XCTAssertEqual(storedProfiles.count, 1)
+            XCTAssertEqual(storedProfiles.first?.normalizedProjectLabel, "Alpha")
+        }
+    }
+
+    func testProfileReusesExistingRecordForWhitespaceVariants() throws {
+        try withService { context, service in
+            let first = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            let second = try XCTUnwrap(service.profile(normalizedProjectLabel: " Alpha "))
+
+            XCTAssertEqual(first.id, second.id)
+            XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).count, 1)
+        }
+    }
+
+    func testUpsertPreferredTemplateRecallsTemplateForTheSameProjectLabel() throws {
+        try withService { context, service in
+            let timestamp = Date(timeIntervalSince1970: 1_000)
+
+            try service.upsertPreferredTemplate(
+                " builtin.workflow.receipts.v1 ",
+                for: "Alpha",
+                at: timestamp
+            )
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+
+            XCTAssertEqual(profile.preferredWorkflowTemplateID, "builtin.workflow.receipts.v1")
+            XCTAssertEqual(profile.updatedAt, timestamp)
+
+            let storedProfile = try XCTUnwrap(
+                context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).first
+            )
+            XCTAssertEqual(storedProfile.preferredWorkflowTemplateID, "builtin.workflow.receipts.v1")
+        }
+    }
+
+    func testRecordLatestRunLinksLatestRunForTheSameProjectLabel() throws {
+        try withService { context, service in
+            let timestamp = Date(timeIntervalSince1970: 2_000)
+            let runEndedAt = Date(timeIntervalSince1970: 1_950)
+            let run = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: "builtin.workflow.project-drop.v1",
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 1_900),
+                endedAt: runEndedAt
+            )
+            context.insert(run)
+
+            try service.recordLatestRun(run, for: "Alpha", at: timestamp)
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+
+            XCTAssertEqual(profile.lastWorkflowRunID, run.id)
+            XCTAssertEqual(profile.lastWorkflowCompletedAt, runEndedAt)
+            XCTAssertEqual(profile.updatedAt, timestamp)
+        }
+    }
+
+    func testRecordLatestRunPreservesPreferredTemplate() throws {
+        try withService { context, service in
+            let timestamp = Date(timeIntervalSince1970: 3_000)
+            try service.upsertPreferredTemplate(
+                "builtin.workflow.screenshots.v1",
+                for: "Alpha",
+                at: timestamp
+            )
+
+            let run = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: "builtin.workflow.project-drop.v1",
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 2_900),
+                endedAt: Date(timeIntervalSince1970: 2_950)
+            )
+            context.insert(run)
+
+            try service.recordLatestRun(run, for: "Alpha", at: timestamp.addingTimeInterval(60))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+
+            XCTAssertEqual(profile.preferredWorkflowTemplateID, "builtin.workflow.screenshots.v1")
+            XCTAssertEqual(profile.lastWorkflowRunID, run.id)
+            XCTAssertEqual(profile.lastWorkflowCompletedAt, Date(timeIntervalSince1970: 2_950))
+        }
+    }
+}
