@@ -324,8 +324,23 @@ final class ActivityLoggingService {
         let triggerSurfaceLabel = ActivityItem.workflowTriggerSurfaceLabel(triggerSurface)
         let fileSummary = "\(affectedFileCount) file\(affectedFileCount == 1 ? "" : "s")"
         let isSuccessful = run.primaryStatus == .succeeded && run.rollbackStatus != .failed
+        let statusSummary: String
+        switch run.primaryStatus {
+        case .queued:
+            statusSummary = "queued"
+        case .running:
+            statusSummary = "running"
+        case .succeeded:
+            statusSummary = "succeeded"
+        case .completedWithIssues:
+            statusSummary = "completed with issues"
+        case .failed:
+            statusSummary = "failed"
+        case .canceled:
+            statusSummary = "canceled"
+        }
         let details = [
-            "\(triggerSurfaceLabel) workflow run \(isSuccessful ? "succeeded" : "failed") for \(fileSummary)",
+            "\(triggerSurfaceLabel) workflow run \(statusSummary) for \(fileSummary)",
             ActivityItem.workflowRollbackText(
                 primaryStatus: run.primaryStatus,
                 rollbackStatus: run.rollbackStatus
@@ -388,25 +403,5 @@ extension ActivityLoggingService {
     static func create(from context: ModelContext?) -> ActivityLoggingService? {
         guard let context = context else { return nil }
         return ActivityLoggingService(modelContext: context)
-    }
-
-    static func logWorkflowRunSummaryIfAvailable(
-        from context: ModelContext?,
-        scopeID: UUID,
-        workflowTemplateID: String?,
-        triggerSurface: ActivityItem.WorkflowTriggerSurface,
-        affectedFileCount: Int
-    ) {
-        guard let context = context,
-              let run = try? WorkflowAuditStore(modelContext: context)
-                .latestRunSummary(scopeID: scopeID, workflowTemplateID: workflowTemplateID) else {
-            return
-        }
-
-        ActivityLoggingService(modelContext: context).logWorkflowRunSummary(
-            run: run,
-            triggerSurface: triggerSurface,
-            affectedFileCount: affectedFileCount
-        )
     }
 }

@@ -79,16 +79,22 @@ final class AutomationEngineTests: XCTestCase {
     @MainActor
     private final class WorkflowExecutionSpy {
         private(set) var plannedTemplateIDs: [String] = []
+        private(set) var plannedInvocationContexts: [WorkflowInvocationContext] = []
         private(set) var ranTemplateIDs: [String] = []
         private(set) var lastPlannedFilePaths: [String] = []
         private(set) var lastRunFilePaths: [String] = []
         var runError: Error?
 
         lazy var client = WorkflowExecutionClient(
-            plan: { [weak self] templateID, files in
+            plan: { [weak self] templateID, files, invocationContext in
                 self?.plannedTemplateIDs.append(templateID)
+                self?.plannedInvocationContexts.append(invocationContext)
                 self?.lastPlannedFilePaths = files.map(\.path)
-                return WorkflowPlanner().plan(templateID: templateID, files: files)
+                return WorkflowPlanner().plan(
+                    templateID: templateID,
+                    files: files,
+                    invocationContext: invocationContext
+                )
             },
             run: { [weak self] plan, files, _, _ in
                 let filePaths = files.map(\.path)
@@ -278,6 +284,10 @@ final class AutomationEngineTests: XCTestCase {
 
         XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(
+            workflowExecution.plannedInvocationContexts,
+            [.trustedScopeAutomation(scopeDisplayName: "Receipts")]
+        )
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [trustedFile.path])
         XCTAssertEqual(engine.state.lastPreflightSummary?.eligibleCount, 1)
@@ -634,6 +644,126 @@ final class AutomationEngineTests: XCTestCase {
         XCTAssertEqual(summary.failed, 0)
         XCTAssertEqual(summary.skipped, 1)
         XCTAssertEqual(summary.groupedScopeCount, 2)
+    }
+
+    @MainActor
+    func testPerformAutoOrganize_SuppressesGenericSummaryWhenPlannedWorkflowNotifyExists() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Project Archive"),
+            displayName: "Project Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let notificationService = RecordingNotificationService()
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            notificationService: notificationService,
+            notificationsEnabled: true
+        )
+
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "project-drop",
+            fileName: "UI Kit.sketch",
+            destination: destination
+        )
+        context.insert(file)
+
+        _ = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "project-drop",
+            displayName: "Design Assets",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(
+            workflowExecution.plannedInvocationContexts,
+            [.trustedScopeAutomation(scopeDisplayName: "Design Assets")]
+        )
+        XCTAssertTrue(notificationService.scopedAutoOrganizeSummaries.isEmpty)
+    }
+
+    @MainActor
+    func testPerformAutoOrganize_KeepsGenericSummaryWhenTemplateDoesNotPlanNotify() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let notificationService = RecordingNotificationService()
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            notificationService: notificationService,
+            notificationsEnabled: true
+        )
+
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "receipts",
+            fileName: "Receipt-October.pdf",
+            destination: destination
+        )
+        context.insert(file)
+
+        _ = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "receipts",
+            displayName: "Receipts",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        let summary = try XCTUnwrap(notificationService.scopedAutoOrganizeSummaries.first)
+        XCTAssertEqual(summary.success, 1)
+        XCTAssertEqual(summary.failed, 0)
+        XCTAssertEqual(summary.skipped, 0)
+        XCTAssertEqual(summary.scopeDisplayName, "Receipts")
+        XCTAssertEqual(summary.groupedScopeCount, 1)
     }
 
     @MainActor

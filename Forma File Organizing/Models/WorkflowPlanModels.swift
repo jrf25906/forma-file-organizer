@@ -4,6 +4,8 @@ enum WorkflowStepKind: String, Codable, Sendable, Hashable, CaseIterable {
     case rename
     case tag
     case move
+    case log
+    case notify
 }
 
 enum WorkflowStepDisposition: String, Codable, Sendable, Hashable {
@@ -31,6 +33,7 @@ enum WorkflowCompensationPayloadDescriptor: Sendable, Hashable {
 struct WorkflowDefinition: Sendable, Hashable {
     let templateID: String
     let templateDisplayName: String
+    let invocationContext: WorkflowInvocationContext
     let renamePreset: BuiltInWorkflowTemplate.RenamePreset?
     let tagPolicy: BuiltInWorkflowTemplate.TagPolicy?
     let stepKinds: [WorkflowStepKind]

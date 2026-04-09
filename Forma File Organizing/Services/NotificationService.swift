@@ -197,6 +197,7 @@ final class NotificationService: Sendable {
         static let trustedScopeAttention = "forma.automation.trusted-scope-attention"
         static let backlogReminder = "forma.automation.backlog-reminder"
         static let ageReminder = "forma.automation.age-reminder"
+        static let workflowRunPrefix = "forma.workflow.run"
         static let folderHealthPrefix = "forma.automation.folder-health"
         static let staleRules = "forma.automation.stale-rules"
         static let ruleHighlight = "forma.automation.rule-highlight"
@@ -212,6 +213,10 @@ final class NotificationService: Sendable {
 
         static func folderHealth(folderType: BookmarkFolder.FolderType) -> String {
             "\(folderHealthPrefix).\(folderType.rawValue)"
+        }
+
+        static func workflowRun(templateID: String) -> String {
+            "\(workflowRunPrefix).\(templateID)"
         }
     }
 
@@ -286,6 +291,32 @@ final class NotificationService: Sendable {
                     category: .automation
                 )
             }
+        }
+    }
+
+    func notifyWorkflowCompletion(
+        templateID: String,
+        scopeDisplayName: String?,
+        organizedFileCount: Int
+    ) async throws -> WorkflowFileDisposition {
+        guard UserDefaults.standard.bool(forKey: "showNotifications") else {
+            return .skipped
+        }
+        guard let payload = Self.workflowNotificationPayload(
+            templateID: templateID,
+            scopeDisplayName: scopeDisplayName,
+            organizedFileCount: organizedFileCount
+        ) else {
+            return .skipped
+        }
+
+        do {
+            try await enqueue(payload)
+            Log.info("Workflow notification shown: \(templateID)", category: .automation)
+            return .notified
+        } catch {
+            Log.error("Error showing workflow notification: \(error)", category: .automation)
+            throw error
         }
     }
 
@@ -583,6 +614,31 @@ final class NotificationService: Sendable {
         )
     }
 
+    static func workflowNotificationPayload(
+        templateID: String,
+        scopeDisplayName: String?,
+        organizedFileCount: Int
+    ) -> AutomationNotificationPayload? {
+        guard organizedFileCount > 0 else { return nil }
+
+        let templateDisplayName = WorkflowTemplateCatalog.template(for: templateID)?.displayName ?? "Workflow"
+        let fileSummary = "\(organizedFileCount) file\(organizedFileCount == 1 ? "" : "s")"
+        let scopeSummary: String
+        if let scopeDisplayName = WorkflowRunRecord.normalizedOptionalText(scopeDisplayName) {
+            scopeSummary = " in the \(scopeDisplayName) trusted scope"
+        } else {
+            scopeSummary = ""
+        }
+
+        return AutomationNotificationPayload(
+            category: .progressWin,
+            identifier: AutomationNotificationID.workflowRun(templateID: templateID),
+            title: "\(templateDisplayName) Made Progress",
+            body: "Forma organized \(fileSummary)\(scopeSummary) using \(templateDisplayName).",
+            categoryIdentifier: nil
+        )
+    }
+
     private func enqueue(
         _ payload: AutomationNotificationPayload,
         completion: @escaping @Sendable (Error?) -> Void
@@ -593,6 +649,18 @@ final class NotificationService: Sendable {
             trigger: nil
         )
         UNUserNotificationCenter.current().add(request, withCompletionHandler: completion)
+    }
+
+    private func enqueue(_ payload: AutomationNotificationPayload) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            enqueue(payload) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
     }
 
     private static func notificationContent(from payload: AutomationNotificationPayload) -> UNMutableNotificationContent {
@@ -640,3 +708,5 @@ private extension String {
         return self + "."
     }
 }
+
+extension NotificationService: WorkflowNotificationServing {}

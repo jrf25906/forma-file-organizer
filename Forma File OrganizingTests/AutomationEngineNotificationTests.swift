@@ -93,8 +93,12 @@ final class AutomationEngineNotificationTests: XCTestCase {
         var runError: Error?
 
         lazy var client = WorkflowExecutionClient(
-            plan: { templateID, files in
-                WorkflowPlanner().plan(templateID: templateID, files: files)
+            plan: { templateID, files, invocationContext in
+                WorkflowPlanner().plan(
+                    templateID: templateID,
+                    files: files,
+                    invocationContext: invocationContext
+                )
             },
             run: { [weak self] _, files, _, _ in
                 let fileNames = files.map(\.name)

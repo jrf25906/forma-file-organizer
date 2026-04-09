@@ -2,7 +2,7 @@ import Foundation
 
 final class WorkflowPlanner {
     private let fileManager: FileManager
-    private let canonicalStepKinds: [WorkflowStepKind] = [.rename, .tag, .move]
+    private let canonicalStepKinds: [WorkflowStepKind] = [.rename, .tag, .move, .log]
 
     private struct PreliminaryPlannedFile {
         let sourcePath: String
@@ -18,8 +18,24 @@ final class WorkflowPlanner {
     }
 
     func plan(templateID: String, files: [FileItem]) -> WorkflowPlan {
+        plan(
+            templateID: templateID,
+            files: files,
+            invocationContext: .reviewAdHoc
+        )
+    }
+
+    func plan(
+        templateID: String,
+        files: [FileItem],
+        invocationContext: WorkflowInvocationContext
+    ) -> WorkflowPlan {
         let template = WorkflowTemplateCatalog.template(for: templateID)
-        let definition = makeDefinition(templateID: templateID, template: template)
+        let definition = makeDefinition(
+            templateID: templateID,
+            template: template,
+            invocationContext: invocationContext
+        )
 
         var preliminaryFiles = files.map { file in
             makePreliminaryPlannedFile(file: file, template: template, definition: definition)
@@ -70,6 +86,7 @@ final class WorkflowPlanner {
         let plannedFiles = preliminaryFiles.map { preliminaryFile in
             let uniqueBlockers = uniqueBlockers(preliminaryFile.blockers)
             let steps = simulatedSteps(
+                stepKinds: definition.stepKinds,
                 blockers: uniqueBlockers,
                 sourcePath: preliminaryFile.sourcePath,
                 workingPath: preliminaryFile.workingPath,
@@ -106,14 +123,21 @@ final class WorkflowPlanner {
 
     private func makeDefinition(
         templateID: String,
-        template: BuiltInWorkflowTemplate?
+        template: BuiltInWorkflowTemplate?,
+        invocationContext: WorkflowInvocationContext
     ) -> WorkflowDefinition {
-        WorkflowDefinition(
+        let shouldPlanNotify = shouldPlanNotify(
+            template: template,
+            invocationContext: invocationContext
+        )
+
+        return WorkflowDefinition(
             templateID: templateID,
             templateDisplayName: template?.displayName ?? "Unknown Workflow Template",
+            invocationContext: invocationContext,
             renamePreset: template?.renamePreset,
             tagPolicy: template?.tagPolicy,
-            stepKinds: canonicalStepKinds
+            stepKinds: shouldPlanNotify ? canonicalStepKinds + [.notify] : canonicalStepKinds
         )
     }
 
@@ -233,6 +257,7 @@ final class WorkflowPlanner {
     }
 
     private func simulatedSteps(
+        stepKinds: [WorkflowStepKind],
         blockers: [WorkflowPlanBlockerReason],
         sourcePath: String,
         workingPath: String,
@@ -241,7 +266,7 @@ final class WorkflowPlanner {
     ) -> [WorkflowSimulatedStep] {
         var earlierStepBlocker: WorkflowPlanBlockerReason?
 
-        return canonicalStepKinds.map { stepKind in
+        return stepKinds.map { stepKind in
             let directBlocker = blockers.first(where: { blocker in
                 blockerAffectsStep(blocker, stepKind: stepKind)
             })
@@ -287,7 +312,7 @@ final class WorkflowPlanner {
     ) -> Bool {
         switch blocker {
         case .templateUnavailable, .sourceFileMissing:
-            return true
+            return stepKind != .log && stepKind != .notify
         case .renameTargetCollision:
             return stepKind == .rename
         case .finalDestinationCollision, .destinationMissing, .destinationUnavailable:
@@ -322,7 +347,26 @@ final class WorkflowPlanner {
                 originalDestinationPath: finalDestinationPath,
                 rollbackPath: workingPath
             )
+        case .log:
+            return nil
+        case .notify:
+            return nil
         }
+    }
+
+    private func shouldPlanNotify(
+        template: BuiltInWorkflowTemplate?,
+        invocationContext: WorkflowInvocationContext
+    ) -> Bool {
+        guard case .trustedScopeAutomation = invocationContext else {
+            return false
+        }
+
+        guard let template else {
+            return false
+        }
+
+        return template.notificationPolicy == .trustedScopeOnly
     }
 
     private func renameTargetName(

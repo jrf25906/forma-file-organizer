@@ -25,4 +25,20 @@ final class WorkflowTemplateCatalogTests: XCTestCase {
             XCTAssertEqual(template.allowedActions, [.rename, .tag, .move])
         }
     }
+
+    func testBuiltInCatalog_OnlyProjectDropUsesTrustedScopeNotificationPolicy() {
+        let templates = WorkflowTemplateCatalog.shippedTemplates
+        let policiesByID = Dictionary(
+            uniqueKeysWithValues: templates.map { template in
+                let policy = Mirror(reflecting: template).children
+                    .first(where: { $0.label == "notificationPolicy" })
+                    .map { String(describing: $0.value) }
+                return (template.id, policy)
+            }
+        )
+
+        XCTAssertEqual(policiesByID[BuiltInWorkflowTemplate.StableID.receipts] ?? nil, "never")
+        XCTAssertEqual(policiesByID[BuiltInWorkflowTemplate.StableID.screenshots] ?? nil, "never")
+        XCTAssertEqual(policiesByID[BuiltInWorkflowTemplate.StableID.projectDrop] ?? nil, "trustedScopeOnly")
+    }
 }

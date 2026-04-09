@@ -4,21 +4,31 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
-- Workflow Engine v2 shared templates, audit, and rollback
+- Workflow Engine v2 shared templates, audit, rollback, and notify/log follow-up
   - `FeatureFlagService.Feature.workflowEngineV2`
   - `BuiltInWorkflowTemplate`
     - `StableID.receipts`
     - `StableID.screenshots`
     - `StableID.projectDrop`
+    - `NotificationPolicy`
     - `requiredActionShape`
+  - `WorkflowInvocationContext`
   - `WorkflowTemplateCatalog`
     - `shippedTemplates`
     - `template(for:)`
+  - `WorkflowStepKind`
+    - `.log`
+    - `.notify`
   - `WorkflowPlanner`
-    - `plan(templateID:files:)`
+    - `plan(templateID:files:invocationContext:)`
   - `WorkflowRunRecord`
   - `WorkflowStepRunRecord`
   - `WorkflowFileActionRecord`
+  - `WorkflowRunPrimaryStatus`
+    - `.completedWithIssues`
+  - `WorkflowFileDisposition`
+    - `.logged`
+    - `.notified`
   - `WorkflowAuditStore`
     - `createRun(scopeID:workflowTemplateID:startedAt:primaryStatus:rollbackStatus:)`
     - `updateRunStatus(runID:primaryStatus:endedAt:updatedAt:)`
@@ -35,6 +45,9 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `run(plan:files:scopeID:modelContext:)`
   - `WorkflowRollbackCoordinator`
     - `rollback(_:)`
+  - `WorkflowNotificationServing`
+  - `LogWorkflowStepExecutor`
+  - `NotifyWorkflowStepExecutor`
   - `TrustedAutomationScope.selectedWorkflowTemplateID`
   - `TrustedAutomationScope.templateAssignedAt`
   - `TrustedAutomationScopeWorkflowTemplateSummary`
@@ -47,15 +60,17 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `WorkflowActivityProjection`
   - `ActivityLoggingService`
     - `logWorkflowRunSummary(run:triggerSurface:affectedFileCount:)`
-    - `logWorkflowRunSummaryIfAvailable(from:scopeID:workflowTemplateID:triggerSurface:affectedFileCount:)`
+  - `NotificationService`
+    - `notifyWorkflowCompletion(templateID:scopeDisplayName:organizedFileCount:)`
+    - `workflowNotificationPayload(templateID:scopeDisplayName:organizedFileCount:)`
   - `WorkflowRunDetailSheet`
   - `WorkflowInspectorRunSummary`
   - `DashboardViewModel.latestWorkflowInspectorSummary(for:context:)`
-  - Workflow Engine v2 now ships the built-in `rename -> tag -> move` planner/runner path end to end: review, bulk, inspector, and selected trusted-automation scopes all share the same template catalog, audit store, and rollback coordinator under the feature flag.
-  - Workflow audit semantics are explicit: primary run status and rollback status stay separate, per-step outcomes and per-file actions are persisted independently, and rollback state is projected back into trusted-scope detail, activity, and inspector surfaces without flattening failures into generic success copy.
+  - Workflow Engine v2 now ships the built-in `rename -> tag -> move -> log` planner/runner path end to end, with template-gated trusted-scope `notify` for opted-in templates such as `Project Drop Zone`.
+  - Workflow audit semantics are explicit: primary run status and rollback status stay separate, per-step outcomes and per-file actions are persisted independently, side-effect failures surface `completedWithIssues` without rolling back durable success, and rollback state is projected back into trusted-scope detail, activity, and inspector surfaces without flattening failures into generic success copy.
 - Workflow Engine v2 Task 5 ad hoc organize routing
   - `WorkflowExecutionClient`
-    - `plan(templateID:files:)`
+    - `plan(templateID:files:invocationContext:)`
     - `run(plan:files:scopeID:modelContext:)`
   - `WorkflowTemplateSimulationPreview`
   - `WorkflowTemplatePicker`

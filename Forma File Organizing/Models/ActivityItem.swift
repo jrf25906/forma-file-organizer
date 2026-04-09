@@ -318,6 +318,8 @@ final class ActivityItem {
             return "Running"
         case .succeeded:
             return "Succeeded"
+        case .completedWithIssues:
+            return "Completed with issues"
         case .failed:
             if rollbackStatus == .succeeded {
                 return "Failed, changes rolled back"
@@ -334,7 +336,9 @@ final class ActivityItem {
     ) -> String {
         switch rollbackStatus {
         case .notRequested:
-            return primaryStatus == .succeeded ? "Rollback available" : "Rollback unavailable"
+            return primaryStatus == .succeeded || primaryStatus == .completedWithIssues
+                ? "Rollback available"
+                : "Rollback unavailable"
         case .requested:
             return "Rollback requested"
         case .inProgress:

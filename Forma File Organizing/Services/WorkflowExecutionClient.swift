@@ -3,7 +3,11 @@ import SwiftData
 
 @MainActor
 struct WorkflowExecutionClient {
-    var plan: (_ templateID: String, _ files: [FileItem]) -> WorkflowPlan
+    var plan: (
+        _ templateID: String,
+        _ files: [FileItem],
+        _ invocationContext: WorkflowInvocationContext
+    ) -> WorkflowPlan
     var run: (
         _ plan: WorkflowPlan,
         _ files: [FileItem],
@@ -14,8 +18,12 @@ struct WorkflowExecutionClient {
 
 extension WorkflowExecutionClient {
     static let live = WorkflowExecutionClient(
-        plan: { templateID, files in
-            WorkflowPlanner().plan(templateID: templateID, files: files)
+        plan: { templateID, files, invocationContext in
+            WorkflowPlanner().plan(
+                templateID: templateID,
+                files: files,
+                invocationContext: invocationContext
+            )
         },
         run: { plan, files, scopeID, modelContext in
             let runner = WorkflowRunner(

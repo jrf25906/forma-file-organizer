@@ -233,7 +233,9 @@ final class ReviewViewModelTests: XCTestCase {
 
         await fulfillment(of: [runExpectation], timeout: 1.0)
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.reviewAdHoc])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertTrue(try modelContext.fetch(FetchDescriptor<ActivityItem>()).isEmpty)
         XCTAssertTrue(viewModel.files.isEmpty)
     }
 
@@ -840,13 +842,19 @@ private final class MockReviewFileOrganizationCoordinator: FileOrganizationCoord
 @MainActor
 private final class WorkflowExecutionSpy {
     var plannedTemplateIDs: [String] = []
+    var plannedInvocationContexts: [WorkflowInvocationContext] = []
     var ranTemplateIDs: [String] = []
     var onRun: (() -> Void)?
 
     lazy var client = WorkflowExecutionClient(
-        plan: { [weak self] templateID, files in
+        plan: { [weak self] templateID, files, invocationContext in
             self?.plannedTemplateIDs.append(templateID)
-            return WorkflowPlanner().plan(templateID: templateID, files: files)
+            self?.plannedInvocationContexts.append(invocationContext)
+            return WorkflowPlanner().plan(
+                templateID: templateID,
+                files: files,
+                invocationContext: invocationContext
+            )
         },
         run: { [weak self] plan, _, _, _ in
             let templateID = plan.definition.templateID

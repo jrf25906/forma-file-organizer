@@ -204,6 +204,65 @@ final class WorkflowAuditStoreTests: XCTestCase {
         }
     }
 
+    func testWorkflowRunPrimaryStatus_CompletedWithIssuesRoundTrips() throws {
+        try withStore { context, store in
+            let run = try store.createRun(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                startedAt: Date(timeIntervalSince1970: 1_500),
+                primaryStatus: .running
+            )
+
+            try store.updateRunStatus(
+                runID: run.id,
+                primaryStatus: .completedWithIssues,
+                endedAt: Date(timeIntervalSince1970: 1_560)
+            )
+
+            let persisted = try XCTUnwrap(
+                context.fetch(FetchDescriptor<WorkflowRunRecord>())
+                    .first(where: { $0.id == run.id })
+            )
+
+            XCTAssertEqual(persisted.primaryStatus, .completedWithIssues)
+            XCTAssertEqual(persisted.workflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+        }
+    }
+
+    func testWorkflowFileDisposition_LoggedAndNotifiedRoundTrips() throws {
+        try withStore { context, store in
+            let run = try store.createRun(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                startedAt: Date(timeIntervalSince1970: 1_600),
+                primaryStatus: .running
+            )
+
+            _ = try store.recordFileAction(
+                runID: run.id,
+                fileIdentity: "resource|diskA|file-logged",
+                sourcePath: "/Users/example/Desktop/Shot.png",
+                destinationPath: "/Users/example/Desktop/Shot.png",
+                disposition: .logged,
+                recordedAt: Date(timeIntervalSince1970: 1_610)
+            )
+
+            _ = try store.recordFileAction(
+                runID: run.id,
+                fileIdentity: "resource|diskA|file-notified",
+                sourcePath: "/Users/example/Desktop/Shot.png",
+                destinationPath: "/Users/example/Projects/Design/Shot.png",
+                disposition: .notified,
+                recordedAt: Date(timeIntervalSince1970: 1_620)
+            )
+
+            let fileActions = try context.fetch(FetchDescriptor<WorkflowFileActionRecord>())
+                .sorted(by: { $0.recordedAt < $1.recordedAt })
+
+            XCTAssertEqual(fileActions.map(\.disposition), [.logged, .notified])
+        }
+    }
+
     func testLatestRunForFile_ReturnsNewestRunWhenFileAppearsAcrossRuns() throws {
         try withStore { _, store in
             let sharedFileIdentity = "resource|diskA|shared-file-001"

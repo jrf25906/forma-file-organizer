@@ -97,4 +97,25 @@ final class WorkflowActivityProjectionTests: XCTestCase {
             XCTAssertTrue(activity.details.localizedCaseInsensitiveContains("rollback failed"))
         }
     }
+
+    func testWorkflowStatusText_CompletedWithIssuesUsesAttentionLanguage() throws {
+        let activity = ActivityItem(
+            activityType: .workflowRunAttentionNeeded,
+            fileName: "Project Drop Zone",
+            details: "Workflow completed with issues.",
+            affectedFileCount: 3,
+            workflowRunID: UUID(),
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            workflowTriggerSurface: .scheduledAutomationPass,
+            workflowPrimaryStatus: .completedWithIssues,
+            workflowRollbackStatus: .notRequested
+        )
+
+        let projection = try XCTUnwrap(activity.workflowProjection)
+
+        XCTAssertEqual(projection.templateDisplayName, "Project Drop Zone")
+        XCTAssertEqual(projection.triggerSurfaceLabel, "Scheduled trusted scope")
+        XCTAssertEqual(projection.statusText, "Completed with issues")
+        XCTAssertEqual(projection.rollbackText, "Rollback available")
+    }
 }

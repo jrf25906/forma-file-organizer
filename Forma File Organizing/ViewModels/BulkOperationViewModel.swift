@@ -402,7 +402,7 @@ class BulkOperationViewModel: ObservableObject {
             return .notAttempted
         }
 
-        let plan = workflowExecution.plan(template.id, files)
+        let plan = workflowExecution.plan(template.id, files, .reviewAdHoc)
         let partition = partitionWorkflowPlan(plan, files: files)
         lastFailedFilesWorkflowTemplateID = template.id
 
@@ -431,13 +431,6 @@ class BulkOperationViewModel: ObservableObject {
                 workflowScopeID,
                 context
             )
-            ActivityLoggingService.logWorkflowRunSummaryIfAvailable(
-                from: context,
-                scopeID: workflowScopeID,
-                workflowTemplateID: template.id,
-                triggerSurface: .bulkOrganize,
-                affectedFileCount: partition.runnableFiles.count
-            )
             bulkOperationProgress = 1.0
             for file in partition.runnableFiles {
                 file.status = .completed
@@ -452,13 +445,6 @@ class BulkOperationViewModel: ObservableObject {
             onOperationComplete?(partition.runnableFiles.count, partition.blockedFiles.count)
             return .executionAttempted
         } catch {
-            ActivityLoggingService.logWorkflowRunSummaryIfAvailable(
-                from: context,
-                scopeID: workflowScopeID,
-                workflowTemplateID: template.id,
-                triggerSurface: .bulkOrganize,
-                affectedFileCount: partition.runnableFiles.count
-            )
             let failedFiles = partition.blockedFiles + partition.runnableFiles
             lastBatchFailedFiles = failedFiles
             showFailedFilesSheet = !failedFiles.isEmpty

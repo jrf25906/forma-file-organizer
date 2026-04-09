@@ -5,6 +5,7 @@ enum WorkflowRunPrimaryStatus: String, Codable, Sendable, Hashable {
     case queued
     case running
     case succeeded
+    case completedWithIssues
     case failed
     case canceled
 }
@@ -29,6 +30,8 @@ enum WorkflowFileDisposition: String, Codable, Sendable, Hashable {
     case pending
     case moved
     case held
+    case logged
+    case notified
     case skipped
     case failed
     case restored

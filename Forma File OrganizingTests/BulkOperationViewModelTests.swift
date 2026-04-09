@@ -14,6 +14,7 @@ final class BulkOperationViewModelTests: XCTestCase {
         try await super.setUp()
 
         let schema = Schema([
+            ActivityItem.self,
             FileItem.self,
             Rule.self,
             FileMetadataRecord.self,
@@ -115,8 +116,10 @@ final class BulkOperationViewModelTests: XCTestCase {
 
         await fulfillment(of: [runExpectation], timeout: 1.0)
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.reviewAdHoc])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [sourceURL.path])
+        XCTAssertTrue(try modelContext.fetch(FetchDescriptor<ActivityItem>()).isEmpty)
         XCTAssertEqual(coordinator.organizeMultipleFilesCallCount, 0)
     }
 
@@ -238,14 +241,20 @@ private final class MockBulkFileOrganizationCoordinator: FileOrganizationCoordin
 @MainActor
 private final class WorkflowExecutionSpy {
     var plannedTemplateIDs: [String] = []
+    var plannedInvocationContexts: [WorkflowInvocationContext] = []
     var ranTemplateIDs: [String] = []
     var lastRunFilePaths: [String] = []
     var onRun: (() -> Void)?
 
     lazy var client = WorkflowExecutionClient(
-        plan: { [weak self] templateID, files in
+        plan: { [weak self] templateID, files, invocationContext in
             self?.plannedTemplateIDs.append(templateID)
-            return WorkflowPlanner().plan(templateID: templateID, files: files)
+            self?.plannedInvocationContexts.append(invocationContext)
+            return WorkflowPlanner().plan(
+                templateID: templateID,
+                files: files,
+                invocationContext: invocationContext
+            )
         },
         run: { [weak self] plan, files, _, _ in
             let templateID = plan.definition.templateID

@@ -277,9 +277,11 @@ final class DashboardOrganizationControllerTests: XCTestCase {
 
         await fulfillment(of: [runExpectation], timeout: 1.0)
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.reviewAdHoc])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.lastPlannedFilePaths, [sourceURL.path])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [sourceURL.path])
+        XCTAssertTrue(try modelContext.fetch(FetchDescriptor<ActivityItem>()).isEmpty)
         XCTAssertEqual(coordinator.organizeFileCallCount, 0)
         XCTAssertFalse(panelManager.celebrationStyle.showsUndo)
     }
@@ -522,16 +524,22 @@ private final class MockFileOrganizationCoordinator: FileOrganizationCoordinator
 @MainActor
 private final class WorkflowExecutionSpy {
     var plannedTemplateIDs: [String] = []
+    var plannedInvocationContexts: [WorkflowInvocationContext] = []
     var ranTemplateIDs: [String] = []
     var lastPlannedFilePaths: [String] = []
     var lastRunFilePaths: [String] = []
     var onRun: (() -> Void)?
 
     lazy var client = WorkflowExecutionClient(
-        plan: { [weak self] templateID, files in
+        plan: { [weak self] templateID, files, invocationContext in
             self?.plannedTemplateIDs.append(templateID)
+            self?.plannedInvocationContexts.append(invocationContext)
             self?.lastPlannedFilePaths = files.map(\.path)
-            return WorkflowPlanner().plan(templateID: templateID, files: files)
+            return WorkflowPlanner().plan(
+                templateID: templateID,
+                files: files,
+                invocationContext: invocationContext
+            )
         },
         run: { [weak self] plan, files, _, _ in
             let templateID = plan.definition.templateID
