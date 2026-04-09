@@ -3,6 +3,8 @@ import XCTest
 
 final class ProjectAutomationOwnershipResolverTests: XCTestCase {
     private let resolver = ProjectAutomationOwnershipResolver()
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
 
     func testResolveOwner_ProjectPolicyExistingMemberBeatsGenericCategoryScope() {
         let scope = makeTrustedScope(type: .category, status: .active)
@@ -68,6 +70,40 @@ final class ProjectAutomationOwnershipResolverTests: XCTestCase {
         )
 
         XCTAssertEqual(decision, ProjectAutomationOwnerDecision.none)
+    }
+
+    func testResolveOwner_MalformedStrongConfirmedClaimFailsClosed() {
+        let decision = resolver.resolveOwner(
+            projectDecision: .strongConfirmed(
+                .init(
+                    projectLabel: "Alpha",
+                    existingProjectAssociation: nil,
+                    alignedSignalCount: 1,
+                    genericHintCount: 0,
+                    conflictingProjectLabels: ["Beta"],
+                    supportingSignals: [.dominantDestination]
+                )
+            ),
+            trustedScope: nil
+        )
+
+        XCTAssertEqual(decision, ProjectAutomationOwnerDecision.none)
+    }
+
+    func testOwnerDecision_RoundTripsThroughCodableSerialization() throws {
+        let decision = ProjectAutomationOwnerDecision.trustedScope(
+            .init(
+                id: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!,
+                scopeType: .folder,
+                displayName: "Folder Scope",
+                status: .active
+            )
+        )
+
+        let data = try encoder.encode(decision)
+        let decoded = try decoder.decode(ProjectAutomationOwnerDecision.self, from: data)
+
+        XCTAssertEqual(decoded, decision)
     }
 
     private func makeTrustedScope(

@@ -64,14 +64,14 @@ enum ProjectSpaceAdmissionDecision: Codable, Sendable, Hashable {
     }
 }
 
-struct ProjectAutomationTrustedScopeOwner: Sendable, Hashable {
+struct ProjectAutomationTrustedScopeOwner: Codable, Sendable, Hashable {
     let id: UUID
     let scopeType: TrustedAutomationScopeType
     let displayName: String
     let status: TrustedAutomationScopeStatus
 }
 
-enum ProjectAutomationOwnerDecision: Sendable, Hashable {
+enum ProjectAutomationOwnerDecision: Codable, Sendable, Hashable {
     case projectPolicy(ProjectSpaceAdmissionEvidenceSnapshot)
     case trustedScope(ProjectAutomationTrustedScopeOwner)
     case none

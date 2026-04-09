@@ -20,6 +20,13 @@ struct ProjectAutomationOwnershipResolver {
             return .projectPolicy(snapshot)
 
         case let .strongConfirmed(snapshot):
+            guard isValidStrongConfirmedSnapshot(snapshot) else {
+                if let activeTrustedScope {
+                    return .trustedScope(activeTrustedScope)
+                }
+                return .none
+            }
+
             if let activeTrustedScope,
                trustedScopeRank(activeTrustedScope.scopeType) >= projectDecisionRank(.strongConfirmed(snapshot)) {
                 return .trustedScope(activeTrustedScope)
@@ -73,5 +80,9 @@ struct ProjectAutomationOwnershipResolver {
         case .insufficient:
             return -1
         }
+    }
+
+    private func isValidStrongConfirmedSnapshot(_ snapshot: ProjectSpaceAdmissionEvidenceSnapshot) -> Bool {
+        snapshot.isUnambiguous && snapshot.alignedSignalCount >= 2
     }
 }
