@@ -274,6 +274,56 @@ Border + radius + padding + background + focus ring for text fields and inputs.
 
 **File:** `Forma File Organizing/DesignSystem/FormaComponentStyles.swift` (new)
 
+### 2d. Component Layer Reorganization
+
+The component layer is currently disorganized:
+
+- **`FormaComponents.swift`** is a 1,276-line monolith with 20+ components — needs to be split into individual files.
+- **`Components/` directory** has 80+ files, most not Forma-prefixed, with no clear boundary between reusable primitives and app-specific feature components.
+- **`Components/Shared/`** is inconsistently populated — some generic components are Forma-prefixed, others aren't.
+- **DesignSystem/** has additional components scattered across FormaControlChrome.swift, FormaAnimation.swift, and FormaShaderEffects.swift.
+
+#### Two tiers of components
+
+**Design system components** — Forma-prefixed, generic, reusable, no business logic. These are the primary consumers of design tokens. They live in `DesignSystem/Components/` as individual files.
+
+Existing (extracted from FormaComponents.swift):
+- `FormaPrimaryButton`, `FormaSecondaryButton` → combine into `FormaButton.swift` with style variants
+- `FormaCard.swift` (FormaCard, FormaListCard)
+- `FormaTextField.swift`
+- `FormaProgressBar.swift`
+- `FormaStatusPill.swift` (FormaStatusPill, FormaFileBadge, FormaBadge, FormaStatBadge)
+- `FormaEmptyState.swift` (FormaEmptyState, FormaActionableEmptyState)
+- `FormaSegmentedControl.swift` (FormaSegmentedControl, FormaSegmentButton, FormaSegmentedIconButton, FormaSegmentedBackground)
+- `FormaLogo.swift`
+- `FormaCategoryIcon.swift`
+- `FormaHeroIcon.swift`
+- `FormaFolderPicker.swift`
+- `FormaListButton.swift`
+- `FormaFileListItem.swift`
+
+Promoted from Components/ (generic primitives that should be design system components):
+- `StatusIndicator` → `FormaStatusIndicator.swift`
+- `CollapsibleSection` → `FormaCollapsibleSection.swift`
+- `Toast` → `FormaToast.swift`
+
+**Feature components** — app-specific UI, no prefix, stays in `Components/`. These compose Forma design system components and should not hardcode design tokens directly. Examples: RulePreviewCard, FileListRow, ActivityFeed, WorkflowRunDetailSheet.
+
+#### The split
+
+1. Create `DesignSystem/Components/` directory
+2. Extract each component from `FormaComponents.swift` into its own file
+3. Move FormaCheckbox, FormaActionButton, FormaThumbnail from `Components/Shared/` to `DesignSystem/Components/`
+4. Promote generic primitives from `Components/` to `DesignSystem/Components/` with Forma prefix
+5. Delete `FormaComponents.swift` once empty
+6. Remove `Components/Shared/` once empty (its contents have moved to DesignSystem/Components/)
+
+**Files affected:**
+- `DesignSystem/FormaComponents.swift` — deleted (split into individual files)
+- `DesignSystem/Components/*.swift` — ~18 new individual component files
+- `Components/Shared/*` — contents moved to DesignSystem/Components/
+- `Components/StatusIndicator.swift`, `Components/CollapsibleSection.swift`, `Components/Toast.swift` — promoted and renamed
+
 ---
 
 ## Part 3: Consistency Enforcement
@@ -320,6 +370,7 @@ Fix files in order of user-facing impact:
 - `DesignSystem/FormaEasing.swift`
 - `DesignSystem/FormaFocusRing.swift`
 - `DesignSystem/FormaComponentStyles.swift`
+- `DesignSystem/Components/` — ~18 individual component files extracted from FormaComponents.swift + promoted from Components/Shared/
 
 ### Modified files
 - `DesignSystem/FormaColors.swift` — label consolidation, surface tints
@@ -331,9 +382,12 @@ Fix files in order of user-facing impact:
 - `ViewModels/NavigationViewModel.swift` — remove/deprecate rules/analytics selections
 - `ViewModels/DashboardViewModel.swift` — right panel mode updates
 - `Forma_File_OrganizingApp.swift` — window presentation sizes
+- `Components/StatusIndicator.swift`, `Components/CollapsibleSection.swift`, `Components/Toast.swift` — promoted to DesignSystem/Components/ with Forma prefix
 - Wave 2/3 files as listed in consistency enforcement
 
 ### Removed/deprecated
+- `DesignSystem/FormaComponents.swift` — deleted (split into individual files in DesignSystem/Components/)
+- `Components/Shared/` — contents moved to DesignSystem/Components/
 - `RulesManagementView` as center-column state (functionality consolidated to right panel)
 - `ProductivityReportView` as center-column state (functionality consolidated to right panel)
 - `formaSecondaryLabelHigh`, `formaTertiaryLabelHigh` color tokens (deprecated, replaced by updated base values)
