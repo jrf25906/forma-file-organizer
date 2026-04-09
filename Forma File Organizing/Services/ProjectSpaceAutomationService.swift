@@ -155,6 +155,15 @@ struct ProjectSpaceAutomationService {
         try modelContext.save()
     }
 
+    func activatePolicy(id: UUID, at timestamp: Date = Date()) throws {
+        guard let policy = existingPolicy(id: id) else {
+            return
+        }
+
+        applyLifecycle(state: .active, timestamp: timestamp, to: policy)
+        try modelContext.save()
+    }
+
     func resumePolicy(id: UUID, at timestamp: Date = Date()) throws {
         guard let policy = existingPolicy(id: id) else {
             return
@@ -226,6 +235,10 @@ struct ProjectSpaceAutomationService {
             )
         }
         let policies = policies(profileID: profile.id)
+        guard policies.isEmpty else {
+            return profile
+        }
+
         let recommendedPolicies = policies.filter { $0.state == .recommended }
         if let bridgedPolicy = recommendedPolicies.first {
             bridgedPolicy.workflowTemplateID = bootstrapCandidate.templateID

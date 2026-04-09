@@ -200,6 +200,9 @@ struct DefaultPanelView: View {
                             await dashboardViewModel.runSelectedProjectSpaceAutomationPolicyManually()
                         }
                     },
+                    onActivate: [.draft, .recommended].contains(policy.state) ? {
+                        dashboardViewModel.activateSelectedProjectSpaceAutomationPolicy()
+                    } : nil,
                     onPause: policy.state == .active ? {
                         dashboardViewModel.pauseSelectedProjectSpaceAutomationPolicy()
                     } : nil,

@@ -395,7 +395,11 @@ class DashboardViewModel: ObservableObject {
     private var modelContext: ModelContext?
     private var rules: [Rule] = []
     private var cancellables = Set<AnyCancellable>()
-    private var lastObservedProjectSpaceFeatureState: (metadataFoundation: Bool, projectSpaces: Bool)
+    private var lastObservedProjectSpaceFeatureState: (
+        metadataFoundation: Bool,
+        projectSpaces: Bool,
+        automationBoard: Bool
+    )
     private var bulkOperationTask: Task<Void, Never>?
     private var permissionRefreshTask: Task<Void, Never>?
     private var projectSpaceWorkflowPreparationTask: Task<Void, Never>?
@@ -434,7 +438,8 @@ class DashboardViewModel: ObservableObject {
         self.userDefaults = userDefaults
         self.lastObservedProjectSpaceFeatureState = (
             featureFlags.isEnabled(.metadataFoundation),
-            featureFlags.isEnabled(.projectSpaces)
+            featureFlags.isEnabled(.projectSpaces),
+            featureFlags.isEnabled(.projectSpaceAutomationBoard)
         )
         self.contentSearchController = DashboardContentSearchController(
             contentSearchService: contentSearchService
@@ -961,6 +966,24 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
+    func activateSelectedProjectSpaceAutomationPolicy() {
+        guard isProjectSpaceAutomationBoardEnabled,
+              let modelContext,
+              let policyID = selectedProjectSpaceAutomationPolicyID else {
+            return
+        }
+
+        do {
+            try ProjectSpaceAutomationService(modelContext: modelContext).activatePolicy(id: policyID, at: Date())
+            if let detail = selectedProjectSpaceDetail {
+                loadProjectSpaceAutomationState(for: detail)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+        }
+    }
+
     func resumeSelectedProjectSpaceAutomationPolicy() {
         guard isProjectSpaceAutomationBoardEnabled,
               let modelContext,
@@ -994,20 +1017,8 @@ class DashboardViewModel: ObservableObject {
 
         isProjectSpaceWorkflowInProgress = true
         defer { isProjectSpaceWorkflowInProgress = false }
-
         let now = Date()
         let profileService = ProjectSpaceWorkflowProfileService(modelContext: modelContext)
-        do {
-            try profileService.upsertPreferredTemplate(
-                template.id,
-                for: detail.summary.normalizedLabel,
-                at: now
-            )
-        } catch {
-            errorMessage = error.localizedDescription
-            showToast(message: error.localizedDescription, canUndo: false)
-            return
-        }
 
         let preparedFiles = await prepareProjectSpaceWorkflowCandidateFiles(
             for: detail,
@@ -1383,6 +1394,10 @@ class DashboardViewModel: ObservableObject {
         guard let policy = selectedProjectSpaceAutomationPolicyDetail,
               WorkflowTemplateCatalog.template(for: policy.workflowTemplateID) != nil else {
             return "Choose a project policy before running it."
+        }
+
+        if policy.state == .revoked {
+            return "Revoked policies cannot run until they are recreated."
         }
 
         if isPreparingProjectSpaceWorkflowPreview {
@@ -2977,7 +2992,13 @@ class DashboardViewModel: ObservableObject {
             return ProjectSpaceAutomationBoardGroup(
                 kind: kind,
                 title: automationGroupTitle(for: kind),
-                policies: policies.map { makeProjectSpaceAutomationPolicyDetail($0, service: automationService) }
+                policies: policies.map {
+                    makeProjectSpaceAutomationPolicyDetail(
+                        $0,
+                        projectLabel: detail.projectLabel,
+                        service: automationService
+                    )
+                }
             )
         }
 
@@ -3007,6 +3028,7 @@ class DashboardViewModel: ObservableObject {
 
         selectedProjectSpaceAutomationPolicyDetail = makeProjectSpaceAutomationPolicyDetail(
             policy,
+            projectLabel: selectedProjectSpaceDetail.projectLabel,
             service: automationService
         )
 
@@ -3017,18 +3039,25 @@ class DashboardViewModel: ObservableObject {
 
     private func makeProjectSpaceAutomationPolicyDetail(
         _ policy: ProjectSpaceAutomationPolicy,
+        projectLabel: String,
         service: ProjectSpaceAutomationService
     ) -> ProjectSpaceAutomationPolicyDetail {
         let template = WorkflowTemplateCatalog.template(for: policy.workflowTemplateID)
         let latestRun = service.latestRun(policyID: policy.id)
         return ProjectSpaceAutomationPolicyDetail(
             id: policy.id,
+            projectLabel: projectLabel,
             workflowTemplateID: policy.workflowTemplateID,
             workflowTemplateDisplayName: template?.displayName ?? policy.workflowTemplateID,
             state: policy.state,
             stateText: automationStateText(for: policy.state),
             triggerSummaryText: automationTriggerSummaryText(for: policy.triggerKinds),
             admissionSummaryText: automationAdmissionSummaryText(for: policy.admissionMode),
+            admissionExplanationText: automationAdmissionExplanationText(
+                projectLabel: projectLabel,
+                workflowTemplateDisplayName: template?.displayName ?? policy.workflowTemplateID,
+                admissionMode: policy.admissionMode
+            ),
             healthBadgeText: automationHealthBadgeText(policy: policy, latestRun: latestRun),
             healthMessageText: automationHealthMessageText(policy: policy, latestRun: latestRun),
             latestRunSummaryText: automationLatestRunSummaryText(latestRun, fallbackTemplateName: template?.displayName ?? "Workflow")
@@ -3045,8 +3074,10 @@ class DashboardViewModel: ObservableObject {
             return .draft
         case .active:
             return .active
-        case .paused, .revoked:
+        case .paused:
             return .paused
+        case .revoked:
+            return .revoked
         }
     }
 
@@ -3060,6 +3091,8 @@ class DashboardViewModel: ObservableObject {
             return "Active Policies"
         case .paused:
             return "Paused Policies"
+        case .revoked:
+            return "Revoked Policies"
         }
     }
 
@@ -3108,6 +3141,19 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
+    private func automationAdmissionExplanationText(
+        projectLabel: String,
+        workflowTemplateDisplayName: String,
+        admissionMode: ProjectSpaceAutomationAdmissionMode
+    ) -> String {
+        switch admissionMode {
+        case .manualReview:
+            return "Runs \(workflowTemplateDisplayName) on files already in \(projectLabel), and only admits unlabeled files after you confirm they belong to this project."
+        case .automatic:
+            return "Runs \(workflowTemplateDisplayName) on files already in \(projectLabel) and automatically admits unlabeled files when project association is strong enough to write safely first."
+        }
+    }
+
     private func automationHealthBadgeText(
         policy: ProjectSpaceAutomationPolicy,
         latestRun: ProjectSpaceAutomationRunRecord?
@@ -3118,6 +3164,10 @@ class DashboardViewModel: ObservableObject {
 
         if policy.state == .draft {
             return "Draft"
+        }
+
+        if policy.state == .revoked {
+            return "Revoked"
         }
 
         if policy.state == .paused {
@@ -3144,6 +3194,10 @@ class DashboardViewModel: ObservableObject {
 
         if policy.state == .draft {
             return "Draft policy. Inspect it before enabling or relying on it."
+        }
+
+        if policy.state == .revoked {
+            return "Revoked policies stay visible for audit history but no longer run in the background."
         }
 
         if policy.state == .paused {
@@ -3422,10 +3476,15 @@ class DashboardViewModel: ObservableObject {
         )
     }
 
-    private func currentProjectSpaceFeatureState() -> (metadataFoundation: Bool, projectSpaces: Bool) {
+    private func currentProjectSpaceFeatureState() -> (
+        metadataFoundation: Bool,
+        projectSpaces: Bool,
+        automationBoard: Bool
+    ) {
         (
             featureFlags.isEnabled(.metadataFoundation),
-            featureFlags.isEnabled(.projectSpaces)
+            featureFlags.isEnabled(.projectSpaces),
+            featureFlags.isEnabled(.projectSpaceAutomationBoard)
         )
     }
 

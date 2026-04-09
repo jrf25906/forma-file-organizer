@@ -6,6 +6,7 @@ struct ProjectSpaceAutomationPolicySheet: View {
     let manualRunDisabledReason: String?
     let isManualRunInProgress: Bool
     let onRunNow: () -> Void
+    let onActivate: (() -> Void)?
     let onPause: (() -> Void)?
     let onResume: (() -> Void)?
     let onClose: () -> Void
@@ -19,7 +20,14 @@ struct ProjectSpaceAutomationPolicySheet: View {
                     labeledValue("Workflow", policy.workflowTemplateDisplayName)
                     labeledValue("Status", policy.stateText)
                     labeledValue("Triggers", policy.triggerSummaryText)
-                    labeledValue("Admission", policy.admissionSummaryText)
+                }
+
+                Section("Admission") {
+                    labeledValue("Mode", policy.admissionSummaryText)
+                    Text(policy.admissionExplanationText)
+                        .font(.formaBody)
+                        .foregroundStyle(Color.formaLabel)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Section("Health") {
@@ -107,6 +115,11 @@ struct ProjectSpaceAutomationPolicySheet: View {
 
     private var footer: some View {
         HStack(spacing: FormaSpacing.tight) {
+            if let onActivate {
+                Button("Activate", action: onActivate)
+                    .buttonStyle(.bordered)
+            }
+
             if let onPause {
                 Button("Pause", action: onPause)
                     .buttonStyle(.bordered)

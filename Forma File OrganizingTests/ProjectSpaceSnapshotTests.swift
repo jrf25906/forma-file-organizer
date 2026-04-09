@@ -450,4 +450,39 @@ final class ProjectSpaceSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.automationSection?.composerButtonTitle, "New Policy")
         XCTAssertEqual(snapshot.automationSection?.title, "Automation Board")
     }
+
+    func testProjectSpaceDetailSnapshot_ShowsRevokedPoliciesInDistinctGroup() {
+        let snapshot = ProjectSpaceDetailView.Snapshot(
+            detail: makeProjectSpaceDetail(),
+            automationSection: .init(
+                title: "Automation Board",
+                subtitle: "Revoked policies remain visible for audit context.",
+                composerButtonTitle: "New Policy",
+                groups: [
+                    .init(
+                        kind: .revoked,
+                        title: "Revoked Policies",
+                        policies: [
+                            .init(
+                                id: UUID(),
+                                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                                workflowTemplateDisplayName: "Project Drop",
+                                state: .revoked,
+                                stateText: "Revoked",
+                                triggerSummaryText: "Manual run, realtime ingress",
+                                admissionSummaryText: "Automatic admission",
+                                healthBadgeText: "Revoked",
+                                healthMessageText: "Revoked policies stay visible for audit history but no longer run in the background.",
+                                latestRunSummaryText: "Latest run: Project Drop succeeded 2 days ago."
+                            )
+                        ]
+                    )
+                ]
+            )
+        )
+
+        XCTAssertEqual(snapshot.automationSection?.groups.map { $0.title }, ["Revoked Policies"])
+        XCTAssertEqual(snapshot.automationSection?.groups.first?.policies.first?.stateText, "Revoked")
+        XCTAssertEqual(snapshot.automationSection?.groups.first?.policies.first?.healthBadgeText, "Revoked")
+    }
 }

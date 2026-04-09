@@ -5,16 +5,19 @@ enum ProjectSpaceAutomationBoardGroupKind: String, CaseIterable, Hashable, Senda
     case draft
     case active
     case paused
+    case revoked
 }
 
 struct ProjectSpaceAutomationPolicyDetail: Identifiable, Hashable, Sendable {
     let id: UUID
+    let projectLabel: String
     let workflowTemplateID: String
     let workflowTemplateDisplayName: String
     let state: ProjectSpaceAutomationPolicyState
     let stateText: String
     let triggerSummaryText: String
     let admissionSummaryText: String
+    let admissionExplanationText: String
     let healthBadgeText: String
     let healthMessageText: String
     let latestRunSummaryText: String?
