@@ -468,6 +468,7 @@ final class AutomationEngine: ObservableObject {
         var postPreflightSkippedCount = 0
         var firstExecutionError: Error?
         var attentionSignals = preflightPlan.attentionSignals
+        var plannedWorkflowNativeNotify = false
 
         for group in preflightPlan.groups {
             guard !group.eligibleFiles.isEmpty else {
@@ -476,12 +477,14 @@ final class AutomationEngine: ObservableObject {
 
             let executionResult = await executeScopedAutoOrganizeGroup(
                 group,
+                triggerSource: triggerSource,
                 context: context
             )
 
             totalSuccess += executionResult.successCount
             totalFailed += executionResult.failedCount
             postPreflightSkippedCount += executionResult.skippedCount
+            plannedWorkflowNativeNotify = plannedWorkflowNativeNotify || executionResult.plannedWorkflowNotify
 
             if firstExecutionError == nil {
                 firstExecutionError = executionResult.error
@@ -540,7 +543,7 @@ final class AutomationEngine: ObservableObject {
             undoAvailable: false
         )
 
-        if totalSuccess > 0 {
+        if totalSuccess > 0 && !plannedWorkflowNativeNotify {
             sendAutoOrganizeSummary(
                 successCount: totalSuccess,
                 failedCount: totalFailed,
@@ -870,6 +873,22 @@ final class AutomationEngine: ObservableObject {
         }
     }
 
+    func workflowInvocationContext(
+        for triggerSource: TrustedAutomationScopeRunTriggerSource,
+        scopeDisplayName: String?
+    ) -> WorkflowInvocationContext {
+        switch triggerSource {
+        case .promotionPreview:
+            return .trustedScopeInspection(scopeDisplayName: scopeDisplayName)
+        case .scheduledAutomationPass:
+            return .trustedScopeScheduled(scopeDisplayName: scopeDisplayName)
+        case .realtimeAutomationPass:
+            return .trustedScopeRealtime(scopeDisplayName: scopeDisplayName)
+        case .manualRefreshInspection:
+            return .trustedScopeInspection(scopeDisplayName: scopeDisplayName)
+        }
+    }
+
     private func recordScopedPreflightRuns(
         groups: [ScopedAutomationGroup],
         triggerSource: TrustedAutomationScopeRunTriggerSource,
@@ -928,6 +947,7 @@ final class AutomationEngine: ObservableObject {
 
     private func executeScopedAutoOrganizeGroup(
         _ group: ScopedAutomationGroup,
+        triggerSource: TrustedAutomationScopeRunTriggerSource,
         context: ModelContext
     ) async -> ScopedAutomationExecutionResult {
         guard let templateID = group.scope.selectedWorkflowTemplateID,
@@ -943,11 +963,20 @@ final class AutomationEngine: ObservableObject {
                 status: .held,
                 error: nil,
                 didExecuteWorkflow: false,
+                plannedWorkflowNotify: false,
                 summaryText: group.configurationRequiredSummaryText
             )
         }
 
-        let plan = workflowExecution.plan(templateID, group.eligibleFiles)
+        let plan = workflowExecution.plan(
+            templateID,
+            group.eligibleFiles,
+            workflowInvocationContext(
+                for: triggerSource,
+                scopeDisplayName: group.scope.displayName
+            )
+        )
+        let plannedWorkflowNotify = plan.definition.stepKinds.contains(.notify)
 
         do {
             try await workflowExecution.run(plan, group.eligibleFiles, group.scope.id, context)
@@ -960,6 +989,7 @@ final class AutomationEngine: ObservableObject {
                 status: .executed,
                 error: nil,
                 didExecuteWorkflow: true,
+                plannedWorkflowNotify: plannedWorkflowNotify,
                 summaryText: nil
             )
         } catch {
@@ -972,6 +1002,7 @@ final class AutomationEngine: ObservableObject {
                 status: .failed,
                 error: error,
                 didExecuteWorkflow: true,
+                plannedWorkflowNotify: plannedWorkflowNotify,
                 summaryText: nil
             )
         }
@@ -1017,6 +1048,7 @@ private struct ScopedAutomationExecutionResult {
     let status: TrustedAutomationScopeRunStatus
     let error: Error?
     let didExecuteWorkflow: Bool
+    let plannedWorkflowNotify: Bool
     let summaryText: String?
 
     var shouldRecordRun: Bool {

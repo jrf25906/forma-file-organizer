@@ -243,6 +243,16 @@ struct WorkflowInspectorRunSummary: Equatable {
     var canOpenRunDetail: Bool { true }
 }
 
+struct ProjectSpaceWorkflowRunSummary: Equatable {
+    let templateDisplayName: String
+    let statusText: String
+    let completedText: String
+
+    var summaryText: String {
+        "Latest run: \(templateDisplayName) \(statusText.lowercased()) \(completedText)."
+    }
+}
+
 /// Coordinator ViewModel that composes focused ViewModels.
 /// This is the main entry point for the Dashboard, delegating responsibilities
 /// to specialized ViewModels for scanning, filtering, selection, analytics, and bulk operations.
@@ -332,10 +342,27 @@ class DashboardViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var shouldRequestAppReview: Bool = false
     @Published var selectedWorkflowTemplateID: String?
+    @Published var selectedProjectSpaceWorkflowTemplateID: String? {
+        didSet {
+            guard !isSynchronizingProjectSpaceWorkflowState,
+                  selectedProjectSpaceWorkflowTemplateID != oldValue else { return }
+            persistSelectedProjectSpaceWorkflowTemplate()
+            refreshProjectSpaceWorkflowPreview()
+            if featureFlags.isEnabled(.workflowEngineV2),
+               selectedProjectSpaceDetail != nil,
+               projectSpaceWorkflowCandidateFiles.isEmpty {
+                scheduleProjectSpaceWorkflowPreparation()
+            }
+        }
+    }
     @Published private(set) var projectSpaces: [ProjectSpaceSummary] = []
     @Published private(set) var selectedProjectSpace: ProjectSpaceSummary?
     @Published private(set) var selectedProjectSpaceDetail: ProjectSpaceDetail?
     @Published private(set) var isShowingProjectSpaceDetail: Bool = false
+    @Published private(set) var isProjectSpaceWorkflowInProgress: Bool = false
+    @Published private(set) var isPreparingProjectSpaceWorkflowPreview: Bool = false
+    @Published private(set) var projectSpaceWorkflowSimulationPreview: WorkflowTemplateSimulationPreview?
+    @Published private(set) var selectedProjectSpaceWorkflowLatestRunSummary: ProjectSpaceWorkflowRunSummary?
     @Published private(set) var projectSpaceAssociationCorrectionFileRow: ProjectSpaceFileRow?
     @Published var projectSpaceAssociationCorrectionProposedLabel: String = ""
     @Published private(set) var projectSpaceAssociationSuggestedLabels: [String] = []
@@ -350,6 +377,7 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Services
     private let fileSystemService: FileSystemServiceProtocol
+    private let fileScanPipeline: FileScanPipelineProtocol
     private let storageService: StorageService
     private let ruleEngine = RuleEngine()
     private let fileOperationsService = FileOperationsService()
@@ -365,8 +393,11 @@ class DashboardViewModel: ObservableObject {
     private var lastObservedProjectSpaceFeatureState: (metadataFoundation: Bool, projectSpaces: Bool)
     private var bulkOperationTask: Task<Void, Never>?
     private var permissionRefreshTask: Task<Void, Never>?
+    private var projectSpaceWorkflowPreparationTask: Task<Void, Never>?
     private var lastPresentedExternalSessionID: UUID?
     private var deferredReviewPathsByScope: [ReviewChunkScopeKey: Set<String>] = [:]
+    private var projectSpaceWorkflowCandidateFiles: [FileItem] = []
+    private var isSynchronizingProjectSpaceWorkflowState = false
 
     // MARK: - Initialization
 
@@ -374,6 +405,7 @@ class DashboardViewModel: ObservableObject {
         services: AppServices,
         fileSystemService: FileSystemServiceProtocol,
         fileScanPipeline: FileScanPipelineProtocol,
+        workflowExecution: WorkflowExecutionClient = .live,
         contentSearchService: ContentSearchServing = ContentSearchService.shared,
         windowPresentationStore: WindowPresentationStore = WindowPresentationStore(),
         userDefaults: UserDefaults = .standard,
@@ -388,6 +420,7 @@ class DashboardViewModel: ObservableObject {
         self.windowPresentationStore = windowPresentationStore
         self.isRightPanelVisible = windowPresentationStore.savedInspectorVisibility ?? launchPresentation.defaultInspectorVisibility
         self.fileSystemService = fileSystemService
+        self.fileScanPipeline = fileScanPipeline
         self.storageService = services.storageService
         self.notificationService = services.notificationService
         self.quickLookService = services.quickLookService
@@ -414,7 +447,8 @@ class DashboardViewModel: ObservableObject {
         )
         let bulkOperationViewModel = BulkOperationViewModel(
             organizationCoordinator: coordinator,
-            notificationService: notificationService
+            notificationService: notificationService,
+            workflowExecution: workflowExecution
         )
         let scanRefreshController = DashboardScanRefreshController(
             scanViewModel: scanViewModel,
@@ -483,6 +517,7 @@ class DashboardViewModel: ObservableObject {
     deinit {
         bulkOperationTask?.cancel()
         permissionRefreshTask?.cancel()
+        projectSpaceWorkflowPreparationTask?.cancel()
     }
 
     func setModelContext(_ context: ModelContext) {
@@ -713,6 +748,7 @@ class DashboardViewModel: ObservableObject {
         selectedProjectSpaceDetail = detail
         isShowingProjectSpaceDetail = true
         reconcileProjectSpaceAssociationCorrection(with: detail)
+        loadProjectSpaceWorkflowState(for: detail)
     }
 
     func selectProjectSpace(_ summary: ProjectSpaceSummary) {
@@ -737,6 +773,113 @@ class DashboardViewModel: ObservableObject {
         selectedProjectSpace = projectSpaces.first(where: { $0.id == detail.summary.id }) ?? detail.summary
         selectedProjectSpaceDetail = detail
         isShowingProjectSpaceDetail = true
+        loadProjectSpaceWorkflowState(for: detail)
+    }
+
+    func organizeSelectedProjectSpace() async {
+        guard let modelContext,
+              featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.projectSpaces),
+              featureFlags.isEnabled(.workflowEngineV2) else {
+            return
+        }
+
+        guard let detail = resolveCurrentProjectSpaceDetail(for: modelContext) else {
+            refreshProjectSpaces()
+            return
+        }
+
+        guard let template = WorkflowTemplateCatalog.template(for: selectedProjectSpaceWorkflowTemplateID) else {
+            showToast(
+                message: "Choose a built-in workflow template before organizing this project space.",
+                canUndo: false
+            )
+            return
+        }
+
+        isProjectSpaceWorkflowInProgress = true
+        defer { isProjectSpaceWorkflowInProgress = false }
+
+        let profileService = ProjectSpaceWorkflowProfileService(modelContext: modelContext)
+        do {
+            try profileService.upsertPreferredTemplate(
+                template.id,
+                for: detail.summary.normalizedLabel,
+                at: Date()
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+            return
+        }
+
+        let preparedFiles = await prepareProjectSpaceWorkflowCandidateFiles(
+            for: detail,
+            context: modelContext,
+            showsErrors: true
+        )
+        projectSpaceWorkflowCandidateFiles = preparedFiles
+        refreshProjectSpaceWorkflowPreview()
+
+        let execution = bulkOperationViewModel.prepareWorkflowExecution(
+            preparedFiles,
+            template: template,
+            invocationContext: .projectSpace(projectLabel: detail.projectLabel)
+        )
+        let workflowScopeID = UUID()
+
+        guard !execution.partition.runnableFiles.isEmpty else {
+            if preparedFiles.isEmpty {
+                showToast(
+                    message: "No reachable files in this project space are available to organize.",
+                    canUndo: false
+                )
+            } else {
+                bulkOperationViewModel.presentPreparedWorkflowExecutionFeedback(
+                    execution,
+                    totalCount: preparedFiles.count
+                )
+            }
+            refreshProjectSpaces()
+            return
+        }
+
+        do {
+            let runRecord = try await bulkOperationViewModel.runPreparedWorkflowExecution(
+                execution,
+                scopeID: workflowScopeID,
+                context: modelContext
+            )
+
+            persistProjectSpaceLatestRunBestEffort(
+                runRecord,
+                profileService: profileService,
+                normalizedProjectLabel: detail.summary.normalizedLabel,
+                at: Date()
+            )
+            bulkOperationViewModel.presentPreparedWorkflowExecutionFeedback(
+                execution,
+                totalCount: preparedFiles.count
+            )
+            handleMetadataMutationCompletion()
+        } catch {
+            if let failedRun = latestWorkflowRun(
+                scopeID: workflowScopeID,
+                workflowTemplateID: template.id,
+                context: modelContext
+            ) {
+                persistProjectSpaceLatestRunBestEffort(
+                    failedRun,
+                    profileService: profileService,
+                    normalizedProjectLabel: detail.summary.normalizedLabel,
+                    at: Date()
+                )
+            }
+
+            bulkOperationViewModel.presentPreparedWorkflowExecutionFailure(execution, error: error)
+            errorMessage = error.localizedDescription
+            handleMetadataMutationCompletion()
+        }
     }
 
     func openFileFromProjectSpace(_ fileRow: ProjectSpaceFileRow) {
@@ -796,6 +939,7 @@ class DashboardViewModel: ObservableObject {
 
     func closeProjectSpaceDetail() {
         clearProjectSpaceAssociationCorrection()
+        clearProjectSpaceWorkflowState()
         selectedProjectSpace = nil
         selectedProjectSpaceDetail = nil
         isShowingProjectSpaceDetail = false
@@ -963,7 +1107,8 @@ class DashboardViewModel: ObservableObject {
 
         return WorkflowTemplateSimulationPreview.make(
             templateID: selectedWorkflowTemplateID,
-            files: dashboardWorkflowCandidateFiles
+            files: dashboardWorkflowCandidateFiles,
+            invocationContext: .dashboardReview
         )
     }
     var inspectorWorkflowSimulationPreview: WorkflowTemplateSimulationPreview? {
@@ -973,8 +1118,47 @@ class DashboardViewModel: ObservableObject {
 
         return WorkflowTemplateSimulationPreview.make(
             templateID: selectedWorkflowTemplateID,
-            files: selectedFiles
+            files: selectedFiles,
+            invocationContext: .inspector
         )
+    }
+    var isProjectSpaceWorkflowTemplatePickerEnabled: Bool {
+        featureFlags.isEnabled(.workflowEngineV2) && !isProjectSpaceWorkflowInProgress
+    }
+    var projectSpaceWorkflowDisabledReason: String? {
+        guard selectedProjectSpaceDetail != nil else {
+            return nil
+        }
+
+        guard featureFlags.isEnabled(.workflowEngineV2) else {
+            return "Workflow templates are unavailable right now."
+        }
+
+        if isProjectSpaceWorkflowInProgress {
+            return "Project space organization is already running."
+        }
+
+        guard WorkflowTemplateCatalog.template(for: selectedProjectSpaceWorkflowTemplateID) != nil else {
+            return "Choose a built-in workflow template to organize this project space."
+        }
+
+        if isPreparingProjectSpaceWorkflowPreview {
+            return "Preparing reachable files for this project space."
+        }
+
+        if let preview = projectSpaceWorkflowSimulationPreview {
+            if preview.readyToRunCount == 0 {
+                return preview.blockedCount > 0
+                    ? "All reachable files in this project space are blocked in simulation."
+                    : "No reachable files in this project space are available to organize."
+            }
+
+            return nil
+        }
+
+        return projectSpaceWorkflowCandidateFiles.isEmpty
+            ? "No reachable files in this project space are available to organize."
+            : nil
     }
     func latestWorkflowInspectorSummary(
         for filePath: String,
@@ -2425,6 +2609,19 @@ class DashboardViewModel: ObservableObject {
         closeProjectSpaceDetail()
     }
 
+    private func clearProjectSpaceWorkflowState() {
+        projectSpaceWorkflowPreparationTask?.cancel()
+        projectSpaceWorkflowPreparationTask = nil
+        projectSpaceWorkflowCandidateFiles = []
+        isSynchronizingProjectSpaceWorkflowState = true
+        selectedProjectSpaceWorkflowTemplateID = nil
+        isSynchronizingProjectSpaceWorkflowState = false
+        isPreparingProjectSpaceWorkflowPreview = false
+        projectSpaceWorkflowSimulationPreview = nil
+        selectedProjectSpaceWorkflowLatestRunSummary = nil
+        isProjectSpaceWorkflowInProgress = false
+    }
+
     private func clearProjectSpaceAssociationCorrection() {
         projectSpaceAssociationCorrectionFileRow = nil
         projectSpaceAssociationCorrectionProposedLabel = ""
@@ -2442,6 +2639,244 @@ class DashboardViewModel: ObservableObject {
         }
 
         projectSpaceAssociationCorrectionFileRow = refreshedFileRow
+    }
+
+    private func loadProjectSpaceWorkflowState(for detail: ProjectSpaceDetail) {
+        guard let modelContext else {
+            clearProjectSpaceWorkflowState()
+            return
+        }
+
+        let profileService = ProjectSpaceWorkflowProfileService(modelContext: modelContext)
+        let profile = profileService.profile(normalizedProjectLabel: detail.summary.normalizedLabel)
+        isSynchronizingProjectSpaceWorkflowState = true
+        selectedProjectSpaceWorkflowTemplateID = featureFlags.isEnabled(.workflowEngineV2)
+            ? profile?.preferredWorkflowTemplateID
+            : nil
+        isSynchronizingProjectSpaceWorkflowState = false
+        selectedProjectSpaceWorkflowLatestRunSummary = profile?.lastWorkflowRunID.flatMap { runID in
+            projectSpaceWorkflowRunSummary(runID: runID, context: modelContext)
+        }
+
+        if featureFlags.isEnabled(.workflowEngineV2) {
+            scheduleProjectSpaceWorkflowPreparation()
+        } else {
+            projectSpaceWorkflowPreparationTask?.cancel()
+            projectSpaceWorkflowPreparationTask = nil
+            projectSpaceWorkflowCandidateFiles = []
+            isPreparingProjectSpaceWorkflowPreview = false
+            refreshProjectSpaceWorkflowPreview()
+        }
+    }
+
+    private func scheduleProjectSpaceWorkflowPreparation() {
+        projectSpaceWorkflowPreparationTask?.cancel()
+        projectSpaceWorkflowPreparationTask = nil
+        projectSpaceWorkflowCandidateFiles = []
+        isPreparingProjectSpaceWorkflowPreview = false
+        refreshProjectSpaceWorkflowPreview()
+
+        guard featureFlags.isEnabled(.workflowEngineV2),
+              let detail = selectedProjectSpaceDetail,
+              let modelContext else {
+            return
+        }
+
+        isPreparingProjectSpaceWorkflowPreview = true
+        projectSpaceWorkflowPreparationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let preparedFiles = await self.prepareProjectSpaceWorkflowCandidateFiles(
+                for: detail,
+                context: modelContext,
+                showsErrors: false
+            )
+
+            guard !Task.isCancelled,
+                  self.selectedProjectSpaceDetail?.id == detail.id else {
+                return
+            }
+
+            self.projectSpaceWorkflowCandidateFiles = preparedFiles
+            self.isPreparingProjectSpaceWorkflowPreview = false
+            self.refreshProjectSpaceWorkflowPreview()
+        }
+    }
+
+    private func prepareProjectSpaceWorkflowCandidateFiles(
+        for detail: ProjectSpaceDetail,
+        context: ModelContext,
+        showsErrors: Bool
+    ) async -> [FileItem] {
+        let candidateURLs = detail.files
+            .map { URL(fileURLWithPath: $0.normalizedPath).standardizedFileURL }
+
+        guard !candidateURLs.isEmpty else {
+            return []
+        }
+
+        let explicitSelection: ExplicitSelectionScanResult
+        do {
+            explicitSelection = try await fileSystemService.scanExplicitSelection(
+                urls: candidateURLs,
+                options: .defaults
+            )
+        } catch {
+            if showsErrors {
+                errorMessage = error.localizedDescription
+                showToast(message: error.localizedDescription, canUndo: false)
+            }
+            return []
+        }
+
+        let enabledRules = loadRules(from: context)
+        let pipelineResult = await fileScanPipeline.evaluateAndPersistExplicitFiles(
+            files: explicitSelection.files,
+            scannedRootPaths: explicitSelection.scannedRootPaths,
+            reconcileMissingFiles: false,
+            ruleEngine: ruleEngine,
+            rules: enabledRules,
+            context: context
+        )
+
+        if showsErrors, let summary = pipelineResult.errorSummary {
+            errorMessage = summary
+            showToast(message: summary, canUndo: false)
+        }
+
+        let fileRowsByPath = Dictionary(
+            uniqueKeysWithValues: detail.files.map { ($0.normalizedPath, $0) }
+        )
+        let skippedFiles = explicitSelection.skippedItems.map { skippedItem in
+            makeProjectSpaceSkippedWorkflowCandidate(
+                skippedItem,
+                fileRow: fileRowsByPath[skippedItem.path]
+            )
+        }
+
+        return pipelineResult.files + skippedFiles
+    }
+
+    private func refreshProjectSpaceWorkflowPreview() {
+        guard featureFlags.isEnabled(.workflowEngineV2),
+              let detail = selectedProjectSpaceDetail else {
+            projectSpaceWorkflowSimulationPreview = nil
+            return
+        }
+
+        projectSpaceWorkflowSimulationPreview = WorkflowTemplateSimulationPreview.make(
+            templateID: selectedProjectSpaceWorkflowTemplateID,
+            files: projectSpaceWorkflowCandidateFiles,
+            invocationContext: .projectSpace(projectLabel: detail.projectLabel)
+        )
+    }
+
+    private func persistSelectedProjectSpaceWorkflowTemplate() {
+        guard featureFlags.isEnabled(.workflowEngineV2),
+              let selectedProjectSpace,
+              let modelContext else {
+            return
+        }
+
+        do {
+            try ProjectSpaceWorkflowProfileService(modelContext: modelContext).upsertPreferredTemplate(
+                selectedProjectSpaceWorkflowTemplateID,
+                for: selectedProjectSpace.normalizedLabel,
+                at: Date()
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func resolveCurrentProjectSpaceDetail(for context: ModelContext) -> ProjectSpaceDetail? {
+        guard let selectedProjectSpace else {
+            closeProjectSpaceDetail()
+            return nil
+        }
+
+        let metadataService = FileMetadataFoundationService(modelContext: context)
+        guard let detail = metadataService.fetchProjectSpaceDetail(for: selectedProjectSpace.normalizedLabel) else {
+            closeProjectSpaceDetail()
+            return nil
+        }
+
+        self.selectedProjectSpace = projectSpaces.first(where: { $0.id == detail.summary.id }) ?? detail.summary
+        selectedProjectSpaceDetail = detail
+        isShowingProjectSpaceDetail = true
+        reconcileProjectSpaceAssociationCorrection(with: detail)
+        return detail
+    }
+
+    private func latestWorkflowRun(
+        scopeID: UUID,
+        workflowTemplateID: String,
+        context: ModelContext
+    ) -> WorkflowRunRecord? {
+        let store = WorkflowAuditStore(modelContext: context)
+        return try? store.latestRunSummary(scopeID: scopeID, workflowTemplateID: workflowTemplateID)
+    }
+
+    private func persistProjectSpaceLatestRunBestEffort(
+        _ runRecord: WorkflowRunRecord,
+        profileService: ProjectSpaceWorkflowProfileService,
+        normalizedProjectLabel: String,
+        at timestamp: Date
+    ) {
+        guard runRecord.primaryStatus != .queued,
+              runRecord.primaryStatus != .running else {
+            return
+        }
+
+        do {
+            try profileService.recordLatestRun(
+                runRecord,
+                for: normalizedProjectLabel,
+                at: timestamp
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func projectSpaceWorkflowRunSummary(
+        runID: UUID,
+        context: ModelContext
+    ) -> ProjectSpaceWorkflowRunSummary? {
+        let store = WorkflowAuditStore(modelContext: context)
+        guard let run = try? store.run(id: runID) else {
+            return nil
+        }
+
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        let completedAt = run.endedAt ?? run.updatedAt
+
+        return ProjectSpaceWorkflowRunSummary(
+            templateDisplayName: WorkflowTemplateCatalog.template(for: run.workflowTemplateID)?.displayName ?? "Workflow",
+            statusText: ActivityItem.workflowStatusText(
+                primaryStatus: run.primaryStatus,
+                rollbackStatus: run.rollbackStatus
+            ),
+            completedText: formatter.localizedString(for: completedAt, relativeTo: Date())
+        )
+    }
+
+    private func makeProjectSpaceSkippedWorkflowCandidate(
+        _ skippedItem: ExternalIngressSkippedItem,
+        fileRow: ProjectSpaceFileRow?
+    ) -> FileItem {
+        let timestamp = fileRow?.lastActivityAt ?? Date()
+        return FileItem(
+            path: skippedItem.path,
+            sizeInBytes: 0,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: URL(fileURLWithPath: skippedItem.path).deletingLastPathComponent().path,
+            destination: nil,
+            status: .pending
+        )
     }
 
     private func currentProjectSpaceFeatureState() -> (metadataFoundation: Bool, projectSpaces: Bool) {

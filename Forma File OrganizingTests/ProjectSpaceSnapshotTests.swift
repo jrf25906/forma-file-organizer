@@ -3,6 +3,35 @@ import XCTest
 
 @MainActor
 final class ProjectSpaceSnapshotTests: XCTestCase {
+    private func makeProjectSpaceDetail(now: Date = Date(timeIntervalSince1970: 1_710_000_000)) -> ProjectSpaceDetail {
+        ProjectSpaceDetail(
+            summary: ProjectSpaceSummary(
+                projectLabel: "Alpha",
+                fileCount: 2,
+                lastActivityAt: now.addingTimeInterval(-3_600),
+                sourceFolderHints: ["Desktop", "Projects"]
+            ),
+            files: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: "alpha-brief",
+                    path: "/Users/test/Desktop/Alpha Brief.pdf",
+                    displayName: "Alpha Brief.pdf",
+                    fileExtension: "pdf",
+                    lastActivityAt: now.addingTimeInterval(-1_800)
+                ),
+                ProjectSpaceFileRow(
+                    canonicalIdentity: "alpha-notes",
+                    path: "/Users/test/Projects/Alpha Notes.txt",
+                    displayName: "Alpha Notes.txt",
+                    fileExtension: "txt",
+                    lastActivityAt: now.addingTimeInterval(-900),
+                    workflowStatus: .organized,
+                    tags: ["notes", "client"]
+                )
+            ]
+        )
+    }
+
     func testProjectSpaceCardSnapshot_IsNilWhenNoSummariesExist() {
         XCTAssertNil(ProjectSpacesSection.Snapshot(summaries: []))
     }
@@ -316,5 +345,102 @@ final class ProjectSpaceSnapshotTests: XCTestCase {
         XCTAssertEqual(file?.projectAssociationText, "Alpha")
         XCTAssertEqual(file?.sourceFolderText, "Downloads")
         XCTAssertEqual(file?.correctionButtonTitle, "Correct Label")
+    }
+
+    func testProjectSpaceDetailSnapshot_ShowsWorkflowEmptyStateWhenNoTemplateSelected() {
+        let snapshot = ProjectSpaceDetailView.Snapshot(
+            detail: makeProjectSpaceDetail(),
+            workflowSection: .init(
+                sectionTitle: "Workflow",
+                selectedTemplateText: "No workflow template selected",
+                helperText: "Pick a built-in workflow template, preview it here, then run it manually for this project space.",
+                previewText: nil,
+                organizeButtonTitle: "Organize Project Space",
+                isOrganizeButtonEnabled: false,
+                disabledReasonText: "Choose a built-in workflow template to organize this project space.",
+                latestRunSummaryText: nil
+            )
+        )
+
+        XCTAssertEqual(snapshot.workflowSection?.sectionTitle, "Workflow")
+        XCTAssertEqual(snapshot.workflowSection?.selectedTemplateText, "No workflow template selected")
+        XCTAssertEqual(
+            snapshot.workflowSection?.helperText,
+            "Pick a built-in workflow template, preview it here, then run it manually for this project space."
+        )
+        XCTAssertEqual(snapshot.workflowSection?.organizeButtonTitle, "Organize Project Space")
+        XCTAssertEqual(
+            snapshot.workflowSection?.disabledReasonText,
+            "Choose a built-in workflow template to organize this project space."
+        )
+        XCTAssertEqual(snapshot.workflowSection?.isOrganizeButtonEnabled, false)
+    }
+
+    func testProjectSpaceDetailSnapshot_ShowsWorkflowPreviewAndPrimaryAction() {
+        let snapshot = ProjectSpaceDetailView.Snapshot(
+            detail: makeProjectSpaceDetail(),
+            workflowSection: .init(
+                sectionTitle: "Workflow",
+                selectedTemplateText: "Project Drop",
+                helperText: "Run this workflow manually for the files currently reachable in this project space.",
+                previewText: "2 selected, 1 ready to run, 1 blocked in simulation",
+                organizeButtonTitle: "Organize Project Space",
+                isOrganizeButtonEnabled: true,
+                disabledReasonText: nil,
+                latestRunSummaryText: nil
+            )
+        )
+
+        XCTAssertEqual(snapshot.workflowSection?.selectedTemplateText, "Project Drop")
+        XCTAssertEqual(
+            snapshot.workflowSection?.previewText,
+            "2 selected, 1 ready to run, 1 blocked in simulation"
+        )
+        XCTAssertNil(snapshot.workflowSection?.disabledReasonText)
+        XCTAssertEqual(snapshot.workflowSection?.isOrganizeButtonEnabled, true)
+    }
+
+    func testProjectSpaceDetailSnapshot_ShowsWorkflowDisabledReasonWhenNoReachableFiles() {
+        let snapshot = ProjectSpaceDetailView.Snapshot(
+            detail: makeProjectSpaceDetail(),
+            workflowSection: .init(
+                sectionTitle: "Workflow",
+                selectedTemplateText: "Receipts",
+                helperText: "Run this workflow manually for the files currently reachable in this project space.",
+                previewText: nil,
+                organizeButtonTitle: "Organize Project Space",
+                isOrganizeButtonEnabled: false,
+                disabledReasonText: "No reachable files in this project space are available to organize.",
+                latestRunSummaryText: nil
+            )
+        )
+
+        XCTAssertEqual(snapshot.workflowSection?.selectedTemplateText, "Receipts")
+        XCTAssertEqual(
+            snapshot.workflowSection?.disabledReasonText,
+            "No reachable files in this project space are available to organize."
+        )
+        XCTAssertEqual(snapshot.workflowSection?.isOrganizeButtonEnabled, false)
+    }
+
+    func testProjectSpaceDetailSnapshot_ShowsLatestWorkflowRunSummary() {
+        let snapshot = ProjectSpaceDetailView.Snapshot(
+            detail: makeProjectSpaceDetail(),
+            workflowSection: .init(
+                sectionTitle: "Workflow",
+                selectedTemplateText: "Project Drop",
+                helperText: "Run this workflow manually for the files currently reachable in this project space.",
+                previewText: "2 selected, 2 ready to run",
+                organizeButtonTitle: "Organize Project Space",
+                isOrganizeButtonEnabled: true,
+                disabledReasonText: nil,
+                latestRunSummaryText: "Latest run: Project Drop succeeded 5 minutes ago."
+            )
+        )
+
+        XCTAssertEqual(
+            snapshot.workflowSection?.latestRunSummaryText,
+            "Latest run: Project Drop succeeded 5 minutes ago."
+        )
     }
 }

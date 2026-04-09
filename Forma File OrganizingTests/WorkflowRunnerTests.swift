@@ -8,6 +8,21 @@ final class WorkflowRunnerTests: XCTestCase {
     private struct InjectedAuditFailure: Error {}
     private struct InjectedRunStatusFailure: Error {}
     private struct InjectedRollbackStatusFailure: Error {}
+    private struct InjectedLogFailure: Error {}
+    private struct InjectedNotifyFailure: Error {}
+
+    private struct StubRunSideEffectExecutor: WorkflowRunSideEffectExecutor {
+        let stepKind: WorkflowStepKind
+        let onExecute: @MainActor (
+            WorkflowRunSideEffectExecutionContext
+        ) async throws -> WorkflowRunSideEffectExecutionResult
+
+        func execute(
+            context: WorkflowRunSideEffectExecutionContext
+        ) async throws -> WorkflowRunSideEffectExecutionResult {
+            try await onExecute(context)
+        }
+    }
 
     private struct FailingMoveExecutor: WorkflowStepExecutor {
         let baseExecutor: MoveWorkflowStepExecutor
@@ -69,6 +84,7 @@ final class WorkflowRunnerTests: XCTestCase {
         auditStore: WorkflowAuditStore
     ) {
         let schema = Schema([
+            ActivityItem.self,
             FileItem.self,
             FileMetadataRecord.self,
             FileOrganizationHistoryEntry.self,
@@ -96,6 +112,294 @@ final class WorkflowRunnerTests: XCTestCase {
     override func tearDown() {
         FeatureFlagService.shared.resetToDefaults()
         super.tearDown()
+    }
+
+    func testRunner_ReviewInvocation_LogsWorkflowSummaryWithoutNotify() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let sourceURL = try tempDirectory.createFile(name: "Inbox/July Receipt.pdf", contents: "receipt")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 100,
+            creationDate: creationDate,
+            modificationDate: creationDate,
+            lastAccessedDate: creationDate,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.receipts,
+            files: [file],
+            invocationContext: .dashboardReview
+        )
+        XCTAssertFalse(plan.hasBlockers)
+
+        var notifyExecutionCount = 0
+        let notifyExecutor = StubRunSideEffectExecutor(stepKind: .notify) { _ in
+            notifyExecutionCount += 1
+            return WorkflowRunSideEffectExecutionResult(
+                stepStatus: .succeeded,
+                disposition: .notified
+            )
+        }
+
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator(),
+            executorsByKind: [
+                .rename: RenameWorkflowStepExecutor(),
+                .tag: TagWorkflowStepExecutor(),
+                .move: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator)
+            ],
+            sideEffectExecutorsByKind: [
+                .log: LogWorkflowStepExecutor(),
+                .notify: notifyExecutor
+            ]
+        )
+
+        _ = try await runner.run(
+            plan: plan,
+            files: [file],
+            scopeID: UUID(),
+            modelContext: environment.context
+        )
+
+        XCTAssertEqual(notifyExecutionCount, 0)
+
+        let activity = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<ActivityItem>()).last
+        )
+        XCTAssertEqual(activity.activityType, .workflowRunCompleted)
+        XCTAssertTrue(activity.details.contains("Review"))
+
+        let stepRuns = try environment.auditStore.stepRuns(
+            runID: try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first).id
+        )
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "finalize|log" && $0.status == .succeeded }))
+        XCTAssertFalse(stepRuns.contains(where: { $0.stepID == "finalize|notify" }))
+    }
+
+    func testRunner_TrustedScopeNotifyFailure_MarksCompletedWithIssuesWithoutRollback() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Drop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects")
+        let sourceURL = try tempDirectory.createFile(name: "Drop/Product Spec.pdf", contents: "project")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Projects")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 100,
+            creationDate: creationDate,
+            modificationDate: creationDate,
+            lastAccessedDate: creationDate,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .trustedScopeScheduled(scopeDisplayName: "Design Assets")
+        )
+        XCTAssertFalse(plan.hasBlockers)
+        XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .move, .log, .notify])
+
+        let notifyExecutor = StubRunSideEffectExecutor(stepKind: .notify) { _ in
+            throw InjectedNotifyFailure()
+        }
+
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator(),
+            executorsByKind: [
+                .rename: RenameWorkflowStepExecutor(),
+                .tag: TagWorkflowStepExecutor(),
+                .move: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator)
+            ],
+            sideEffectExecutorsByKind: [
+                .log: LogWorkflowStepExecutor(),
+                .notify: notifyExecutor
+            ]
+        )
+
+        _ = try await runner.run(
+            plan: plan,
+            files: [file],
+            scopeID: UUID(),
+            modelContext: environment.context
+        )
+
+        let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
+        XCTAssertEqual(run.primaryStatus, .completedWithIssues)
+        XCTAssertEqual(run.rollbackStatus, .notRequested)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sourceURL.path))
+        XCTAssertEqual(file.status, .completed)
+
+        let stepRuns = try environment.auditStore.stepRuns(runID: run.id)
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID == "finalize|notify" && $0.status == .failed }))
+
+        let fileActions = try environment.auditStore.fileActions(runID: run.id)
+        XCTAssertTrue(fileActions.contains(where: { $0.disposition == .notified || $0.disposition == .logged }))
+        XCTAssertFalse(fileActions.contains(where: { $0.disposition == .restored }))
+    }
+
+    func testRunner_LogFailure_DoesNotRollbackDurableSuccess() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let sourceURL = try tempDirectory.createFile(name: "Inbox/August Receipt.pdf", contents: "receipt")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 100,
+            creationDate: creationDate,
+            modificationDate: creationDate,
+            lastAccessedDate: creationDate,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.receipts,
+            files: [file],
+            invocationContext: .dashboardReview
+        )
+        XCTAssertFalse(plan.hasBlockers)
+
+        let logExecutor = StubRunSideEffectExecutor(stepKind: .log) { _ in
+            throw InjectedLogFailure()
+        }
+
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator(),
+            executorsByKind: [
+                .rename: RenameWorkflowStepExecutor(),
+                .tag: TagWorkflowStepExecutor(),
+                .move: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator)
+            ],
+            sideEffectExecutorsByKind: [
+                .log: logExecutor
+            ]
+        )
+
+        _ = try await runner.run(
+            plan: plan,
+            files: [file],
+            scopeID: UUID(),
+            modelContext: environment.context
+        )
+
+        let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
+        XCTAssertEqual(run.primaryStatus, .completedWithIssues)
+        XCTAssertEqual(run.rollbackStatus, .notRequested)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sourceURL.path))
+        XCTAssertEqual(file.status, .completed)
+
+        let fileActions = try environment.auditStore.fileActions(runID: run.id)
+        XCTAssertFalse(fileActions.contains(where: { $0.disposition == .restored }))
+        XCTAssertTrue(fileActions.contains(where: { $0.disposition == .failed }))
+    }
+
+    func testRunner_TrustedScopeNotifySuccess_RecordsNotifiedDisposition() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Drop")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects")
+        let sourceURL = try tempDirectory.createFile(name: "Drop/UI Mockup.png", contents: "mockup")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Projects")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 100,
+            creationDate: creationDate,
+            modificationDate: creationDate,
+            lastAccessedDate: creationDate,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .trustedScopeScheduled(scopeDisplayName: "Design Assets")
+        )
+        XCTAssertFalse(plan.hasBlockers)
+
+        var notifiedCount = 0
+        let notifyExecutor = StubRunSideEffectExecutor(stepKind: .notify) { _ in
+            notifiedCount += 1
+            return WorkflowRunSideEffectExecutionResult(
+                stepStatus: .succeeded,
+                disposition: .notified
+            )
+        }
+
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator(),
+            executorsByKind: [
+                .rename: RenameWorkflowStepExecutor(),
+                .tag: TagWorkflowStepExecutor(),
+                .move: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator)
+            ],
+            sideEffectExecutorsByKind: [
+                .log: LogWorkflowStepExecutor(),
+                .notify: notifyExecutor
+            ]
+        )
+
+        _ = try await runner.run(
+            plan: plan,
+            files: [file],
+            scopeID: UUID(),
+            modelContext: environment.context
+        )
+
+        XCTAssertEqual(notifiedCount, 1)
+
+        let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
+        XCTAssertEqual(run.primaryStatus, .succeeded)
+        XCTAssertEqual(run.rollbackStatus, .notRequested)
+
+        let fileActions = try environment.auditStore.fileActions(runID: run.id)
+        XCTAssertTrue(fileActions.contains(where: { $0.disposition == .notified }))
     }
 
     func testRunner_RollsBackMoveTagRenameInReverseOrderAfterLateFailure() async throws {

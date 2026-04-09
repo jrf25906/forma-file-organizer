@@ -19,7 +19,7 @@ final class WorkflowPlannerTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    func testPlan_TemplateProducesRenameTagMoveStepsInOrder() throws {
+    func testPlan_TemplateProducesRenameTagMoveLogStepsInOrder() throws {
         let sourceURL = try sourceDirectory.createFile(name: "April Receipt.pdf")
         let destinationURL = try destinationDirectory.createDirectory(name: "Receipts")
         let destination = try Destination.folder(from: destinationURL)
@@ -31,14 +31,14 @@ final class WorkflowPlannerTests: XCTestCase {
             files: [file]
         )
 
-        XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .move])
+        XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log"])
         XCTAssertEqual(plan.files.count, 1)
 
         let plannedFile = try XCTUnwrap(plan.files.first)
         XCTAssertFalse(plannedFile.isBlocked)
         XCTAssertTrue(plannedFile.blockers.isEmpty)
-        XCTAssertEqual(plannedFile.steps.map(\.kind), [.rename, .tag, .move])
-        XCTAssertEqual(plannedFile.steps.map(\.disposition), [.planned, .planned, .planned])
+        XCTAssertEqual(plannedFile.steps.map(\.kind.rawValue), ["rename", "tag", "move", "log"])
+        XCTAssertEqual(plannedFile.steps.map(\.disposition), [.planned, .planned, .planned, .planned])
         let tagStep = try XCTUnwrap(plannedFile.steps.first(where: { $0.kind == .tag }))
         XCTAssertEqual(
             tagStep.compensationPayload,
@@ -52,6 +52,76 @@ final class WorkflowPlannerTests: XCTestCase {
         )
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path), "Planning must be read-only")
+    }
+
+    func testPlan_DefaultInvocationContextIsDashboardReview() throws {
+        let sourceURL = try sourceDirectory.createFile(name: "April Receipt.pdf")
+        let destinationURL = try destinationDirectory.createDirectory(name: "Receipts")
+        let destination = try Destination.folder(from: destinationURL)
+        let file = makeFile(path: sourceURL.path, destination: destination)
+
+        let planner = WorkflowPlanner()
+        let plan = planner.plan(
+            templateID: BuiltInWorkflowTemplate.StableID.receipts,
+            files: [file]
+        )
+
+        let invocationContext = Mirror(reflecting: plan.definition).children
+            .first(where: { $0.label == "invocationContext" })
+            .map { String(describing: $0.value) }
+
+        XCTAssertEqual(invocationContext, "dashboardReview")
+    }
+
+    func testPlan_ProjectSpaceInvocation_AppendsLogButNotNotify() throws {
+        let sourceURL = try sourceDirectory.createFile(name: "Project Plan.pdf")
+        let destinationURL = try destinationDirectory.createDirectory(name: "ProjectDrop")
+        let destination = try Destination.folder(from: destinationURL)
+        let file = makeFile(path: sourceURL.path, destination: destination)
+
+        let planner = WorkflowPlanner()
+        let plan = planner.plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .projectSpace(projectLabel: "Project Drop")
+        )
+
+        XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log"])
+        XCTAssertEqual(plan.files.first?.steps.map(\.kind.rawValue), ["rename", "tag", "move", "log"])
+    }
+
+    func testPlan_TrustedScopeInvocation_AppendsNotifyOnlyForOptedInTemplate() throws {
+        let sourceURL = try sourceDirectory.createFile(name: "Project Plan.pdf")
+        let destinationURL = try destinationDirectory.createDirectory(name: "ProjectDrop")
+        let destination = try Destination.folder(from: destinationURL)
+        let file = makeFile(path: sourceURL.path, destination: destination)
+
+        let planner = WorkflowPlanner()
+        let plan = planner.plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .trustedScopeScheduled(scopeDisplayName: "Project Drop")
+        )
+
+        XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log", "notify"])
+        XCTAssertEqual(plan.files.first?.steps.map(\.kind.rawValue), ["rename", "tag", "move", "log", "notify"])
+    }
+
+    func testPlan_TrustedScopeInspectionInvocation_SkipsNotifyEvenForOptedInTemplate() throws {
+        let sourceURL = try sourceDirectory.createFile(name: "Project Plan.pdf")
+        let destinationURL = try destinationDirectory.createDirectory(name: "ProjectDrop")
+        let destination = try Destination.folder(from: destinationURL)
+        let file = makeFile(path: sourceURL.path, destination: destination)
+
+        let planner = WorkflowPlanner()
+        let plan = planner.plan(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            files: [file],
+            invocationContext: .trustedScopeInspection(scopeDisplayName: "Project Drop")
+        )
+
+        XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log"])
+        XCTAssertEqual(plan.files.first?.steps.map(\.kind.rawValue), ["rename", "tag", "move", "log"])
     }
 
     func testPlan_BlocksWhenRenameTargetCollides() throws {
@@ -83,8 +153,8 @@ final class WorkflowPlannerTests: XCTestCase {
             simulatedFile.blockers.contains(.renameTargetCollision(path: collidingURL.path)),
             "Expected collision blocker for pre-existing rename target"
         )
-        XCTAssertEqual(simulatedFile.steps.map(\.kind), [.rename, .tag, .move])
-        XCTAssertEqual(simulatedFile.steps.map(\.disposition), [.blocked, .skipped, .skipped])
+        XCTAssertEqual(simulatedFile.steps.map(\.kind.rawValue), ["rename", "tag", "move", "log"])
+        XCTAssertEqual(simulatedFile.steps.map(\.disposition), [.blocked, .skipped, .skipped, .skipped])
         XCTAssertTrue(plannedFile.isBlocked)
         XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path), "Planning must not rename source files")
         XCTAssertTrue(FileManager.default.fileExists(atPath: collidingURL.path), "Planning must not mutate colliding files")
@@ -149,7 +219,7 @@ final class WorkflowPlannerTests: XCTestCase {
         XCTAssertEqual(plan.definition.templateDisplayName, "Unknown Workflow Template")
         XCTAssertNil(plan.definition.renamePreset)
         XCTAssertNil(plan.definition.tagPolicy)
-        XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .move])
+        XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log"])
 
         let plannedFile = try XCTUnwrap(plan.files.first)
         let simulatedFile = try XCTUnwrap(plan.simulation.files.first)
@@ -163,7 +233,7 @@ final class WorkflowPlannerTests: XCTestCase {
         XCTAssertTrue(
             simulatedFile.blockers.contains(.templateUnavailable(templateID: "builtin.workflow.unknown.v1"))
         )
-        XCTAssertEqual(simulatedFile.steps.map(\.disposition), [.blocked, .skipped, .skipped])
+        XCTAssertEqual(simulatedFile.steps.map(\.disposition), [.blocked, .skipped, .skipped, .skipped])
     }
 
     func testPlan_BlocksWhenTwoBatchInputsCanonicalizeToSameWorkingPath() throws {
@@ -191,7 +261,7 @@ final class WorkflowPlannerTests: XCTestCase {
                 simulationFile.blockers.contains(.renameTargetCollision(path: expectedWorkingPath)),
                 "Expected same-batch collision for canonical rename path"
             )
-            XCTAssertEqual(simulationFile.steps.map(\.disposition), [.blocked, .skipped, .skipped])
+            XCTAssertEqual(simulationFile.steps.map(\.disposition), [.blocked, .skipped, .skipped, .skipped])
         }
     }
 
@@ -222,7 +292,7 @@ final class WorkflowPlannerTests: XCTestCase {
             simulationFile.blockers.contains(.finalDestinationCollision(path: existingFinalPath)),
             "Expected destination collision blocker when target move path already exists"
         )
-        XCTAssertEqual(simulationFile.steps.map(\.disposition), [.planned, .planned, .blocked])
+        XCTAssertEqual(simulationFile.steps.map(\.disposition), [.planned, .planned, .blocked, .skipped])
     }
 
     func testPlan_DoesNotBlockWhenFileAlreadyOccupiesFinalDestinationPath() throws {
@@ -289,7 +359,7 @@ final class WorkflowPlannerTests: XCTestCase {
                 simulationFile.blockers.contains(.finalDestinationCollision(path: finalDestinationPath)),
                 "Expected same-batch collision on final destination path"
             )
-            XCTAssertEqual(simulationFile.steps.map(\.disposition), [.planned, .planned, .blocked])
+            XCTAssertEqual(simulationFile.steps.map(\.disposition), [.planned, .planned, .blocked, .skipped])
         }
     }
 

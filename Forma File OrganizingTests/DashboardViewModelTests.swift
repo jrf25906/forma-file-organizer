@@ -59,7 +59,9 @@ final class DashboardViewModelTests: XCTestCase {
             RuleCategory.self,
             FileMetadataRecord.self,
             FileOrganizationHistoryEntry.self,
-            ProjectCluster.self
+            ProjectCluster.self,
+            ProjectSpaceWorkflowProfile.self,
+            WorkflowRunRecord.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
@@ -98,6 +100,19 @@ final class DashboardViewModelTests: XCTestCase {
             destination: nil,
             status: .pending
         )
+    }
+
+    private func waitForProjectSpaceWorkflowPreview(
+        in viewModel: DashboardViewModel,
+        timeoutNanoseconds: UInt64 = 500_000_000
+    ) async {
+        let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))
+        while ContinuousClock.now < deadline {
+            if viewModel.projectSpaceWorkflowSimulationPreview != nil {
+                return
+            }
+            await Task.yield()
+        }
     }
 
     func testInitialPermissionsCheck() {
@@ -1002,6 +1017,569 @@ final class DashboardViewModelTests: XCTestCase {
             viewModel.selectedProjectSpaceDetail?.files.map(\.displayName).sorted(),
             ["alpha-plan.txt", "alpha.txt"]
         )
+    }
+
+    func testSelectProjectSpace_LoadsRememberedWorkflowTemplateFromProfile() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        context.insert(
+            ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+            )
+        )
+        try context.save()
+
+        mockService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [
+                FileMetadata(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: nil,
+                    status: .pending
+                )
+            ],
+            skippedItems: [],
+            scannedRootPaths: [sourceFolder.path]
+        )
+        mockPipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [
+                FileItem(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: try Destination.folder(from: destinationFolder, displayName: "Projects/Alpha"),
+                    status: .ready
+                )
+            ],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [sourceFolder.path]
+        )
+
+        viewModel.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.projectDrop
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        viewModel.selectProjectSpace(alphaSummary)
+        await waitForProjectSpaceWorkflowPreview(in: viewModel)
+
+        XCTAssertEqual(viewModel.selectedProjectSpaceWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
+        XCTAssertEqual(viewModel.selectedWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+    }
+
+    func testProjectSpaceWorkflowPreview_UsesExplicitSelectionEvaluationResult() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        context.insert(
+            ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop
+            )
+        )
+        try context.save()
+
+        mockService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [
+                FileMetadata(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: nil,
+                    status: .pending
+                )
+            ],
+            skippedItems: [],
+            scannedRootPaths: [sourceFolder.path]
+        )
+        mockPipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [
+                FileItem(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: try Destination.folder(from: destinationFolder, displayName: "Projects/Alpha"),
+                    status: .ready
+                )
+            ],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [sourceFolder.path]
+        )
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        viewModel.selectProjectSpace(alphaSummary)
+        await waitForProjectSpaceWorkflowPreview(in: viewModel)
+
+        XCTAssertGreaterThanOrEqual(mockService.explicitSelectionCallCount, 1)
+        XCTAssertGreaterThanOrEqual(mockPipeline.explicitScanCallCount, 1)
+        XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.selectedFileCount, 1)
+        XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.readyToRunCount, 1)
+        XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.blockedCount, 0)
+    }
+
+    func testOrganizeProjectSpace_UsesProjectSpaceInvocationContextAndPersistsLatestRun() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        try context.save()
+
+        let workflowExecution = WorkflowExecutionSpy()
+        workflowExecution.runPrimaryStatus = .completedWithIssues
+        workflowExecution.runEndedAt = Date(timeIntervalSince1970: 2_000)
+
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline,
+            workflowExecution: workflowExecution.client
+        )
+        localViewModel.setModelContext(context)
+
+        mockService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [
+                FileMetadata(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: nil,
+                    status: .pending
+                )
+            ],
+            skippedItems: [],
+            scannedRootPaths: [sourceFolder.path]
+        )
+        mockPipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [
+                FileItem(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: try Destination.folder(from: destinationFolder, displayName: "Projects/Alpha"),
+                    status: .ready
+                )
+            ],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [sourceFolder.path]
+        )
+
+        localViewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+
+        let alphaSummary = try XCTUnwrap(localViewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        localViewModel.selectProjectSpace(alphaSummary)
+        localViewModel.selectedProjectSpaceWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.projectDrop
+        await waitForProjectSpaceWorkflowPreview(in: localViewModel)
+        await localViewModel.organizeSelectedProjectSpace()
+
+        XCTAssertEqual(
+            workflowExecution.plannedInvocationContexts,
+            [.projectSpace(projectLabel: "Alpha")]
+        )
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(workflowExecution.lastRunFilePaths, [alphaURL.path])
+
+        let profile = try XCTUnwrap(
+            ProjectSpaceWorkflowProfileService(modelContext: context).profile(normalizedProjectLabel: "Alpha")
+        )
+        XCTAssertEqual(profile.preferredWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+        XCTAssertEqual(profile.lastWorkflowRunID, workflowExecution.runID)
+        XCTAssertEqual(profile.lastWorkflowCompletedAt, workflowExecution.runEndedAt)
+    }
+
+    func testOrganizeProjectSpace_ClosesSelectionWhenDetailNoLongerResolves() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let alphaRecord = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        try context.save()
+
+        let workflowExecution = WorkflowExecutionSpy()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline,
+            workflowExecution: workflowExecution.client
+        )
+        localViewModel.setModelContext(context)
+        localViewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+
+        let alphaSummary = try XCTUnwrap(localViewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        localViewModel.selectProjectSpace(alphaSummary)
+        localViewModel.selectedProjectSpaceWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.receipts
+
+        alphaRecord.projectAssociation = nil
+        try context.save()
+
+        await localViewModel.organizeSelectedProjectSpace()
+
+        XCTAssertNil(localViewModel.selectedProjectSpace)
+        XCTAssertNil(localViewModel.selectedProjectSpaceDetail)
+        XCTAssertFalse(localViewModel.isShowingProjectSpaceDetail)
+        XCTAssertTrue(workflowExecution.ranTemplateIDs.isEmpty)
+    }
+
+    func testOrganizeProjectSpace_PersistsLatestFailedRunWhenWorkflowThrowsAfterAuditFinalization() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        try context.save()
+
+        let workflowExecution = WorkflowExecutionSpy()
+        workflowExecution.runPrimaryStatus = .failed
+        workflowExecution.runEndedAt = Date(timeIntervalSince1970: 2_000)
+        workflowExecution.persistRunRecordBeforeThrow = true
+        workflowExecution.runError = WorkflowExecutionTestError.failed
+
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline,
+            workflowExecution: workflowExecution.client
+        )
+        localViewModel.setModelContext(context)
+
+        mockService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [
+                FileMetadata(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: nil,
+                    status: .pending
+                )
+            ],
+            skippedItems: [],
+            scannedRootPaths: [sourceFolder.path]
+        )
+        mockPipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [
+                FileItem(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: try Destination.folder(from: destinationFolder, displayName: "Projects/Alpha"),
+                    status: .ready
+                )
+            ],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [sourceFolder.path]
+        )
+
+        localViewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+
+        let alphaSummary = try XCTUnwrap(localViewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        localViewModel.selectProjectSpace(alphaSummary)
+        localViewModel.selectedProjectSpaceWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.projectDrop
+        await waitForProjectSpaceWorkflowPreview(in: localViewModel)
+        await localViewModel.organizeSelectedProjectSpace()
+
+        let profile = try XCTUnwrap(
+            ProjectSpaceWorkflowProfileService(modelContext: context).profile(normalizedProjectLabel: "Alpha")
+        )
+        XCTAssertEqual(profile.preferredWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+        XCTAssertEqual(profile.lastWorkflowRunID, workflowExecution.runID)
+        XCTAssertEqual(profile.lastWorkflowCompletedAt, workflowExecution.runEndedAt)
+        XCTAssertEqual(localViewModel.lastBatchFailedFiles.map(\.path), [alphaURL.path])
+        XCTAssertTrue(localViewModel.showFailedFilesSheet)
+    }
+
+    func testOrganizeProjectSpace_UsesSharedWorkflowFeedbackForBlockedFiles() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
+        let runnableURL = try tempDirectory.createFile(name: "Inbox/alpha-ready.txt", contents: "ready")
+        let blockedURL = try tempDirectory.createFile(name: "Inbox/alpha-blocked.txt", contents: "blocked")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: runnableURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: blockedURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp.addingTimeInterval(1)
+        )
+        try context.save()
+
+        let workflowExecution = WorkflowExecutionSpy()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline,
+            workflowExecution: workflowExecution.client
+        )
+        localViewModel.setModelContext(context)
+
+        mockService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [
+                FileMetadata(
+                    path: runnableURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: nil,
+                    status: .pending
+                ),
+                FileMetadata(
+                    path: blockedURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: nil,
+                    status: .pending
+                )
+            ],
+            skippedItems: [],
+            scannedRootPaths: [sourceFolder.path]
+        )
+        mockPipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [
+                FileItem(
+                    path: runnableURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: try Destination.folder(from: destinationFolder, displayName: "Projects/Alpha"),
+                    status: .ready
+                ),
+                FileItem(
+                    path: blockedURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: nil,
+                    status: .pending
+                )
+            ],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [sourceFolder.path]
+        )
+
+        localViewModel._testSetFiles([
+            makeProjectSpaceFile(at: runnableURL, timestamp: timestamp),
+            makeProjectSpaceFile(at: blockedURL, timestamp: timestamp)
+        ])
+
+        let alphaSummary = try XCTUnwrap(localViewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        localViewModel.selectProjectSpace(alphaSummary)
+        localViewModel.selectedProjectSpaceWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.projectDrop
+        await waitForProjectSpaceWorkflowPreview(in: localViewModel)
+        await localViewModel.organizeSelectedProjectSpace()
+
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(workflowExecution.lastRunFilePaths, [runnableURL.path])
+        XCTAssertEqual(localViewModel.lastBatchFailedFiles.map(\.path), [blockedURL.path])
+        XCTAssertTrue(localViewModel.showFailedFilesSheet)
+    }
+
+    func testProjectSpaceWorkflowPreview_CountsSkippedSelectionMembersAsBlocked() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha-inaccessible.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        try context.save()
+
+        mockService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [],
+            skippedItems: [
+                ExternalIngressSkippedItem(
+                    path: alphaURL.path,
+                    reason: .inaccessibleSelection,
+                    message: "Forma couldn't access the selected file."
+                )
+            ],
+            scannedRootPaths: [sourceFolder.path]
+        )
+        mockPipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [sourceFolder.path]
+        )
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+
+        let alphaSummary = try XCTUnwrap(viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }))
+        viewModel.selectProjectSpace(alphaSummary)
+        viewModel.selectedProjectSpaceWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.projectDrop
+        await waitForProjectSpaceWorkflowPreview(in: viewModel)
+
+        XCTAssertGreaterThanOrEqual(mockService.explicitSelectionCallCount, 1)
+        XCTAssertGreaterThanOrEqual(mockPipeline.explicitScanCallCount, 1)
+        XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.selectedFileCount, 1)
+        XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.readyToRunCount, 0)
+        XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.blockedCount, 1)
     }
     
     func testFirstRunQuickWinPrefersLargestReadyFolderBatch() {
@@ -3427,4 +4005,80 @@ final class DashboardViewModelTests: XCTestCase {
     private func waitForContentSearchDebounce() async {
         try? await Task.sleep(nanoseconds: 500_000_000)
     }
+}
+
+@MainActor
+private final class WorkflowExecutionSpy {
+    var plannedTemplateIDs: [String] = []
+    var plannedInvocationContexts: [WorkflowInvocationContext] = []
+    var ranTemplateIDs: [String] = []
+    var lastRunFilePaths: [String] = []
+    var runID = UUID()
+    var runPrimaryStatus: WorkflowRunPrimaryStatus = .succeeded
+    var runEndedAt = Date(timeIntervalSince1970: 1_500)
+    var persistRunRecordBeforeThrow = false
+    var runError: Error?
+
+    lazy var client = WorkflowExecutionClient(
+        plan: { [weak self] templateID, files, invocationContext in
+            self?.plannedTemplateIDs.append(templateID)
+            self?.plannedInvocationContexts.append(invocationContext)
+            return WorkflowPlanner().plan(
+                templateID: templateID,
+                files: files,
+                invocationContext: invocationContext
+            )
+        },
+        run: { [weak self] plan, files, scopeID, modelContext in
+            let filePaths = files.map(\.path)
+            await MainActor.run {
+                self?.ranTemplateIDs.append(plan.definition.templateID)
+                self?.lastRunFilePaths = filePaths
+            }
+            let runID = await MainActor.run { self?.runID ?? UUID() }
+            let primaryStatus = await MainActor.run { self?.runPrimaryStatus ?? .succeeded }
+            let endedAt = await MainActor.run { self?.runEndedAt }
+            let runRecord = WorkflowRunRecord(
+                id: runID,
+                scopeID: scopeID,
+                workflowTemplateID: plan.definition.templateID,
+                primaryStatus: primaryStatus,
+                startedAt: Date(timeIntervalSince1970: 1_000),
+                endedAt: endedAt,
+                updatedAt: endedAt
+            )
+
+            let persistRunRecordBeforeThrow = await MainActor.run { self?.persistRunRecordBeforeThrow ?? false }
+            let runError = await MainActor.run { self?.runError }
+
+            if persistRunRecordBeforeThrow {
+                let templateID = plan.definition.templateID
+                let container = modelContext.container
+                await MainActor.run {
+                    let persistenceContext = ModelContext(container)
+                    let persistedRunRecord = WorkflowRunRecord(
+                        id: runID,
+                        scopeID: scopeID,
+                        workflowTemplateID: templateID,
+                        primaryStatus: primaryStatus,
+                        startedAt: Date(timeIntervalSince1970: 1_000),
+                        endedAt: endedAt,
+                        updatedAt: endedAt
+                    )
+                    persistenceContext.insert(persistedRunRecord)
+                    try? persistenceContext.save()
+                }
+            }
+
+            if let runError {
+                throw runError
+            }
+
+            return runRecord
+        }
+    )
+}
+
+private enum WorkflowExecutionTestError: Error {
+    case failed
 }

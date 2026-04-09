@@ -55,7 +55,8 @@ struct TrustedAutomationScopeWorkflowRunSummary: Sendable, Hashable {
     let completedAt: Date?
 
     var isRollbackAvailable: Bool {
-        primaryStatus == .succeeded && rollbackStatus == .notRequested
+        (primaryStatus == .succeeded || primaryStatus == .completedWithIssues) &&
+            rollbackStatus == .notRequested
     }
 }
 

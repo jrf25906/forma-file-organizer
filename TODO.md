@@ -27,7 +27,7 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 - [x] Extend the shipped metadata-backed project spaces slice beyond read-only retrieval and plan workflow-memory expansion before broad cloud or chatbot-style AI expansion.
 
 ### Later (4-8+ Months)
-- [ ] Expand the shipped `workflow-engine-v2` slice beyond built-in `rename -> tag -> move` into broader multi-step automations such as notify/log steps and project-space-triggered flows.
+- [ ] Expand the shipped `workflow-engine-v2` slice beyond the current built-in `rename -> tag -> move -> log` path, template-gated trusted-scope `notify`, and manual project-space organize entry into project-space-owned automation triggers and broader metadata-backed automation entry points.
 - [ ] Deepen macOS integration beyond current Finder Services, Spotlight, App Intents, and menu bar entry points.
 - [ ] Plan backup, sync, and portability for rules, settings, metadata, and organization memory.
 - [ ] Evaluate collaboration and shared conventions only after the solo local workflow is stronger.
@@ -37,6 +37,11 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
+
+## Workflow Engine v2 Notify + Log (April 8, 2026)
+- [x] Add `WorkflowInvocationContext` and template-level notification policy so review-driven runs always plan `log`, while trusted-scope `Project Drop Zone` runs can append workflow-native `notify`.
+- [x] Add `LogWorkflowStepExecutor`, `NotifyWorkflowStepExecutor`, `WorkflowNotificationServing`, and honest `completedWithIssues` audit semantics so non-blocking side-effect failures do not rollback successful durable file mutations.
+- [x] Centralize workflow summary emission in `WorkflowRunner`, remove caller-side duplicate activity logging from dashboard/review/bulk entry points, and suppress generic automation summaries when a workflow-native notify step is already planned.
 
 ## Progressive Automation Upgrades (April 8, 2026)
 - [x] Promote review-earned folder, rule, and category trust into explicit autopilot boundaries backed by `TrustedAutomationScopeBoundaryDescriptor`, `TrustedAutomationScopeRunRecord`, and `TrustedAutomationScopeResolver`.
@@ -64,8 +69,8 @@ The sections below capture dated implementation slices that have already shipped
 ## Metadata Foundation v1 (April 3, 2026)
 - [x] Ship the durable local metadata foundation for scan, organize, undo, redo, and inspector proof surfaces with `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService`.
 - [x] Complete durable workflow status v1 so scan discovery seeds `queued`, organize/undo/ignore lifecycle writes persist `organized` / `recovered` / `ignored`, skip actions capture durable-status snapshots for undo/redo, and inspector proof exposes one read-only workflow-status line behind `FeatureFlagService.Feature.durableWorkflowStatus`.
-- [ ] Build on the shipped `workflow-engine-v2` slice with additional metadata-backed step kinds, broader audit projections, and richer workflow-memory layers beyond the built-in `rename -> tag -> move` path.
-- [ ] Keep metadata-backed workflow-memory expansion open beyond v1; the shipped slices now include read-only project-space retrieval, richer project-space detail/correction, and narrow project-memory destination suggestions, while broader editing, workflow execution, and richer memory layers remain later work.
+- [ ] Build on the shipped `workflow-engine-v2` slice with additional metadata-backed step kinds, broader audit projections, and richer workflow-memory layers beyond the current built-in `rename -> tag -> move -> log` path plus template-gated trusted-scope `notify`.
+- [ ] Keep metadata-backed workflow-memory expansion open beyond v1; the shipped slices now include read-only project-space retrieval, richer project-space detail/correction, narrow project-memory destination suggestions, and manual project-space workflow execution with remembered templates/latest-run summaries, while broader editing, automation triggers, and richer memory layers remain later work.
 
 ## Auto-Applied Project Association v1 (April 6, 2026)
 - [x] Add the feature-gated `autoProjectAssociation` resolver layer with `ProjectAssociationWriteContext`, `MetadataProjectAssociationResolver`, exact `Projects/...` explicit qualification, cluster-organize explicit opt-in, and strong-winner inferred fallback.
@@ -83,6 +88,11 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Expand project-space detail beyond membership-only retrieval with overview, preferred destinations, and recent activity derived from durable metadata/history through `ProjectSpaceMemoryResolver`.
 - [x] Add a narrow project-space correction flow so one file's durable `projectAssociation` can be corrected from project-space detail without opening broad metadata editing.
 - [x] Feed dominant recent project destination memory into the scan pipeline ahead of learned patterns and ML only for files that already have a durable project association, and label those suggestions as `Project` in the dashboard UI.
+
+## Project Space Workflow Profiles (April 8, 2026)
+- [x] Add lightweight durable `ProjectSpaceWorkflowProfile` state plus `ProjectSpaceWorkflowProfileService` so project spaces can remember a preferred built-in workflow template and their latest workflow run by normalized project label without introducing a separate project entity.
+- [x] Ship manual-only `Organize Project Space` execution in `DashboardViewModel`, reusing explicit-selection workflow preparation so all reachable files in the selected project space can preview, run, and audit through `WorkflowRunner`.
+- [x] Surface the remembered template, simulation preview, disabled-state guidance, and latest workflow run summary directly in `ProjectSpaceDetailView` / `DefaultPanelView`, while making workflow activity labels explicitly distinguish project-space-triggered runs from review, bulk, inspector, and trusted-scope automation.
 
 ## Auto-Applied Content Tags v1 (April 6, 2026)
 - [x] Add the feature-gated durable content-tag layer with a small built-in vocabulary, explicit-signal-first resolution, and conservative inference through `MetadataContentTag`, `MetadataContentTagResolver`, and metadata-foundation write paths.

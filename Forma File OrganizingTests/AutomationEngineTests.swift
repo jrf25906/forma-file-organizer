@@ -79,18 +79,26 @@ final class AutomationEngineTests: XCTestCase {
     @MainActor
     private final class WorkflowExecutionSpy {
         private(set) var plannedTemplateIDs: [String] = []
+        private(set) var plannedInvocationContexts: [WorkflowInvocationContext] = []
         private(set) var ranTemplateIDs: [String] = []
         private(set) var lastPlannedFilePaths: [String] = []
         private(set) var lastRunFilePaths: [String] = []
         var runError: Error?
+        var onPlan: (() -> Void)?
 
         lazy var client = WorkflowExecutionClient(
-            plan: { [weak self] templateID, files in
+            plan: { [weak self] templateID, files, invocationContext in
                 self?.plannedTemplateIDs.append(templateID)
+                self?.plannedInvocationContexts.append(invocationContext)
                 self?.lastPlannedFilePaths = files.map(\.path)
-                return WorkflowPlanner().plan(templateID: templateID, files: files)
+                self?.onPlan?()
+                return WorkflowPlanner().plan(
+                    templateID: templateID,
+                    files: files,
+                    invocationContext: invocationContext
+                )
             },
-            run: { [weak self] plan, files, _, _ in
+            run: { [weak self] plan, files, scopeID, _ in
                 let filePaths = files.map(\.path)
                 await MainActor.run {
                     self?.ranTemplateIDs.append(plan.definition.templateID)
@@ -99,6 +107,13 @@ final class AutomationEngineTests: XCTestCase {
                 if let runError = await MainActor.run(resultType: Error?.self, body: { self?.runError }) {
                     throw runError
                 }
+                return WorkflowRunRecord(
+                    scopeID: scopeID,
+                    workflowTemplateID: plan.definition.templateID,
+                    primaryStatus: .succeeded,
+                    startedAt: Date(timeIntervalSince1970: 1_000),
+                    endedAt: Date(timeIntervalSince1970: 1_001)
+                )
             }
         )
     }
@@ -278,6 +293,10 @@ final class AutomationEngineTests: XCTestCase {
 
         XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(
+            workflowExecution.plannedInvocationContexts,
+            [.trustedScopeInspection(scopeDisplayName: "Receipts")]
+        )
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [trustedFile.path])
         XCTAssertEqual(engine.state.lastPreflightSummary?.eligibleCount, 1)
@@ -634,6 +653,194 @@ final class AutomationEngineTests: XCTestCase {
         XCTAssertEqual(summary.failed, 0)
         XCTAssertEqual(summary.skipped, 1)
         XCTAssertEqual(summary.groupedScopeCount, 2)
+    }
+
+    @MainActor
+    func testPerformAutoOrganize_SuppressesGenericSummaryWhenPlannedWorkflowNotifyExists() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Project Archive"),
+            displayName: "Project Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let notificationService = RecordingNotificationService()
+        let planExpectation = expectation(description: "scheduled notify-eligible workflow plan")
+        workflowExecution.onPlan = { planExpectation.fulfill() }
+        let scheduledPolicy = AutomationPolicy(
+            userMode: .scanAndOrganize,
+            effectiveMode: .scanAndOrganize,
+            scanIntervalMinutes: 30,
+            scanOnLaunch: true,
+            backlogThreshold: FormaConfig.Automation.backlogThreshold,
+            ageThresholdDays: FormaConfig.Automation.ageThresholdDays,
+            mlConfidenceThreshold: FormaConfig.Automation.mlAutoOrganizeConfidenceMinimum,
+            maxConsecutiveFailures: FormaConfig.Automation.maxConsecutiveFailures,
+            notificationsEnabled: true,
+            backlogReminderCooldownHours: FormaConfig.Automation.backlogReminderCooldownHours,
+            errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
+        )
+        let engine = AutomationEngine(
+            notificationService: notificationService,
+            clock: FixedClock(now: Date(timeIntervalSince1970: 1_700_000_000)),
+            policyResolver: { scheduledPolicy },
+            workflowExecution: workflowExecution.client
+        )
+
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "project-drop",
+            fileName: "UI Kit.sketch",
+            destination: destination
+        )
+        context.insert(file)
+
+        let scope = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "project-drop",
+            displayName: "Design Assets",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        engine.start()
+        await fulfillment(of: [planExpectation], timeout: 1.0)
+
+        let scheduledRecordsDeadline = Date().addingTimeInterval(1.0)
+        while Date() < scheduledRecordsDeadline {
+            let records = try context.fetch(
+                FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                    sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+                )
+            ).filter { $0.scopeID == scope.id }
+
+            if records.count >= 2 {
+                XCTAssertEqual(records.map(\.status), [.simulated, .executed])
+                break
+            }
+
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        let finalScheduledRecords = try context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+            )
+        ).filter { $0.scopeID == scope.id }
+        XCTAssertEqual(finalScheduledRecords.map(\.status), [.simulated, .executed])
+
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(
+            workflowExecution.plannedInvocationContexts,
+            [.trustedScopeScheduled(scopeDisplayName: "Design Assets")]
+        )
+        XCTAssertTrue(notificationService.scopedAutoOrganizeSummaries.isEmpty)
+        engine.stop()
+    }
+
+    @MainActor
+    func testWorkflowInvocationContext_MapsTrustedScopeTriggerSources() {
+        let engine = makeEngine()
+
+        XCTAssertEqual(
+            engine.workflowInvocationContext(
+                for: .scheduledAutomationPass,
+                scopeDisplayName: "Receipts"
+            ),
+            .trustedScopeScheduled(scopeDisplayName: "Receipts")
+        )
+        XCTAssertEqual(
+            engine.workflowInvocationContext(
+                for: .realtimeAutomationPass,
+                scopeDisplayName: "Receipts"
+            ),
+            .trustedScopeRealtime(scopeDisplayName: "Receipts")
+        )
+        XCTAssertEqual(
+            engine.workflowInvocationContext(
+                for: .manualRefreshInspection,
+                scopeDisplayName: "Receipts"
+            ),
+            .trustedScopeInspection(scopeDisplayName: "Receipts")
+        )
+    }
+
+    @MainActor
+    func testPerformAutoOrganize_KeepsGenericSummaryWhenTemplateDoesNotPlanNotify() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let notificationService = RecordingNotificationService()
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            notificationService: notificationService,
+            notificationsEnabled: true
+        )
+
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "receipts",
+            fileName: "Receipt-October.pdf",
+            destination: destination
+        )
+        context.insert(file)
+
+        _ = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "receipts",
+            displayName: "Receipts",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        let summary = try XCTUnwrap(notificationService.scopedAutoOrganizeSummaries.first)
+        XCTAssertEqual(summary.success, 1)
+        XCTAssertEqual(summary.failed, 0)
+        XCTAssertEqual(summary.skipped, 0)
+        XCTAssertEqual(summary.scopeDisplayName, "Receipts")
+        XCTAssertEqual(summary.groupedScopeCount, 1)
     }
 
     @MainActor

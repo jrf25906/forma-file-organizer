@@ -233,7 +233,9 @@ final class ReviewViewModelTests: XCTestCase {
 
         await fulfillment(of: [runExpectation], timeout: 1.0)
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.reviewView])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertTrue(try modelContext.fetch(FetchDescriptor<ActivityItem>()).isEmpty)
         XCTAssertTrue(viewModel.files.isEmpty)
     }
 
@@ -316,11 +318,19 @@ final class ReviewViewModelTests: XCTestCase {
         viewModel.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.receipts
 
         let preview = try XCTUnwrap(viewModel.workflowSimulationPreview)
+        let explicitPreview = try XCTUnwrap(
+            WorkflowTemplateSimulationPreview.make(
+                templateID: BuiltInWorkflowTemplate.StableID.receipts,
+                files: [fileItem],
+                invocationContext: .reviewView
+            )
+        )
         XCTAssertEqual(viewModel.selectedWorkflowTemplate?.id, BuiltInWorkflowTemplate.StableID.receipts)
         XCTAssertEqual(preview.templateID, BuiltInWorkflowTemplate.StableID.receipts)
         XCTAssertEqual(preview.selectedFileCount, 1)
         XCTAssertEqual(preview.readyToRunCount, 1)
         XCTAssertTrue(preview.summaryText.contains("1 selected"))
+        XCTAssertEqual(explicitPreview.templateID, BuiltInWorkflowTemplate.StableID.receipts)
     }
 
     func testMoveAllFiles_WithMixedRunnableAndBlockedFiles_RunsRunnableSubsetAndKeepsBlockedFilesVisible() async throws {
@@ -840,20 +850,33 @@ private final class MockReviewFileOrganizationCoordinator: FileOrganizationCoord
 @MainActor
 private final class WorkflowExecutionSpy {
     var plannedTemplateIDs: [String] = []
+    var plannedInvocationContexts: [WorkflowInvocationContext] = []
     var ranTemplateIDs: [String] = []
     var onRun: (() -> Void)?
 
     lazy var client = WorkflowExecutionClient(
-        plan: { [weak self] templateID, files in
+        plan: { [weak self] templateID, files, invocationContext in
             self?.plannedTemplateIDs.append(templateID)
-            return WorkflowPlanner().plan(templateID: templateID, files: files)
+            self?.plannedInvocationContexts.append(invocationContext)
+            return WorkflowPlanner().plan(
+                templateID: templateID,
+                files: files,
+                invocationContext: invocationContext
+            )
         },
-        run: { [weak self] plan, _, _, _ in
+        run: { [weak self] plan, _, scopeID, _ in
             let templateID = plan.definition.templateID
             await MainActor.run {
                 self?.ranTemplateIDs.append(templateID)
                 self?.onRun?()
             }
+            return WorkflowRunRecord(
+                scopeID: scopeID,
+                workflowTemplateID: templateID,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 1_000),
+                endedAt: Date(timeIntervalSince1970: 1_001)
+            )
         }
     )
 }

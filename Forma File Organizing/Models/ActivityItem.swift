@@ -281,6 +281,7 @@ final class ActivityItem {
         case inspector
         case bulkOrganize
         case reviewView
+        case projectSpace
         case scheduledAutomationPass
         case realtimeAutomationPass
         case manualRefreshInspection
@@ -295,11 +296,13 @@ final class ActivityItem {
         case .bulkOrganize:
             return "Bulk organize"
         case .reviewView:
-            return "Review"
+            return "Review view"
+        case .projectSpace:
+            return "Project space"
         case .scheduledAutomationPass:
             return "Scheduled trusted scope"
         case .realtimeAutomationPass:
-            return "Live trusted scope"
+            return "Realtime trusted scope"
         case .manualRefreshInspection:
             return "Trusted scope inspection"
         case .none:
@@ -318,6 +321,8 @@ final class ActivityItem {
             return "Running"
         case .succeeded:
             return "Succeeded"
+        case .completedWithIssues:
+            return "Completed with issues"
         case .failed:
             if rollbackStatus == .succeeded {
                 return "Failed, changes rolled back"
@@ -334,7 +339,9 @@ final class ActivityItem {
     ) -> String {
         switch rollbackStatus {
         case .notRequested:
-            return primaryStatus == .succeeded ? "Rollback available" : "Rollback unavailable"
+            return primaryStatus == .succeeded || primaryStatus == .completedWithIssues
+                ? "Rollback available"
+                : "Rollback unavailable"
         case .requested:
             return "Rollback requested"
         case .inProgress:

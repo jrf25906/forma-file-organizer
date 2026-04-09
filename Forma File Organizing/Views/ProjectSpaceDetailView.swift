@@ -3,6 +3,17 @@ import SwiftUI
 
 struct ProjectSpaceDetailView: View {
     struct Snapshot: Hashable {
+        struct WorkflowSectionSnapshot: Hashable {
+            let sectionTitle: String
+            let selectedTemplateText: String
+            let helperText: String
+            let previewText: String?
+            let organizeButtonTitle: String
+            let isOrganizeButtonEnabled: Bool
+            let disabledReasonText: String?
+            let latestRunSummaryText: String?
+        }
+
         struct PreferredDestinationSnapshot: Hashable {
             let destinationDisplayName: String
             let eventCountText: String
@@ -38,6 +49,7 @@ struct ProjectSpaceDetailView: View {
         let closeButtonTitle: String
         let fileCountText: String
         let recencyText: String
+        let workflowSection: WorkflowSectionSnapshot?
         let overviewTitle: String
         let overviewFileCountText: String
         let overviewActiveFoldersText: String
@@ -58,6 +70,7 @@ struct ProjectSpaceDetailView: View {
 
         init(
             detail: ProjectSpaceDetail,
+            workflowSection: WorkflowSectionSnapshot? = nil,
             now: Date = Date(),
             recencyTextProvider: ((Date, Date) -> String)? = nil,
             fileRecencyTextProvider: ((Date, Date) -> String)? = nil,
@@ -75,6 +88,7 @@ struct ProjectSpaceDetailView: View {
             self.closeButtonTitle = "Close"
             self.fileCountText = Self.fileCountText(for: detail.fileCount)
             self.recencyText = detailRecencyText(detail.lastActivityAt, now)
+            self.workflowSection = workflowSection
             self.overviewTitle = "Overview"
             self.overviewFileCountText = Self.countText(
                 count: detail.overview.currentFileCount,
@@ -248,17 +262,33 @@ struct ProjectSpaceDetailView: View {
     }
 
     let snapshot: Snapshot
+    let workflowTemplateID: Binding<String?>?
+    let workflowSimulationPreview: WorkflowTemplateSimulationPreview?
+    let isWorkflowTemplatePickerEnabled: Bool
+    let isOrganizingProjectSpaceWorkflow: Bool
+    let onOrganizeProjectSpace: (() -> Void)?
     let onBack: () -> Void
     let onOpenFile: (ProjectSpaceFileRow) -> Void
     let onCorrectAssociation: (ProjectSpaceFileRow) -> Void
 
     init(
         detail: ProjectSpaceDetail,
+        workflowSection: Snapshot.WorkflowSectionSnapshot? = nil,
+        workflowTemplateID: Binding<String?>? = nil,
+        workflowSimulationPreview: WorkflowTemplateSimulationPreview? = nil,
+        isWorkflowTemplatePickerEnabled: Bool = true,
+        isOrganizingProjectSpaceWorkflow: Bool = false,
+        onOrganizeProjectSpace: (() -> Void)? = nil,
         onBack: @escaping () -> Void,
         onOpenFile: @escaping (ProjectSpaceFileRow) -> Void,
         onCorrectAssociation: @escaping (ProjectSpaceFileRow) -> Void = { _ in }
     ) {
-        self.snapshot = Snapshot(detail: detail)
+        self.snapshot = Snapshot(detail: detail, workflowSection: workflowSection)
+        self.workflowTemplateID = workflowTemplateID
+        self.workflowSimulationPreview = workflowSimulationPreview
+        self.isWorkflowTemplatePickerEnabled = isWorkflowTemplatePickerEnabled
+        self.isOrganizingProjectSpaceWorkflow = isOrganizingProjectSpaceWorkflow
+        self.onOrganizeProjectSpace = onOrganizeProjectSpace
         self.onBack = onBack
         self.onOpenFile = onOpenFile
         self.onCorrectAssociation = onCorrectAssociation
@@ -266,11 +296,21 @@ struct ProjectSpaceDetailView: View {
 
     init(
         snapshot: Snapshot,
+        workflowTemplateID: Binding<String?>? = nil,
+        workflowSimulationPreview: WorkflowTemplateSimulationPreview? = nil,
+        isWorkflowTemplatePickerEnabled: Bool = true,
+        isOrganizingProjectSpaceWorkflow: Bool = false,
+        onOrganizeProjectSpace: (() -> Void)? = nil,
         onBack: @escaping () -> Void,
         onOpenFile: @escaping (ProjectSpaceFileRow) -> Void,
         onCorrectAssociation: @escaping (ProjectSpaceFileRow) -> Void = { _ in }
     ) {
         self.snapshot = snapshot
+        self.workflowTemplateID = workflowTemplateID
+        self.workflowSimulationPreview = workflowSimulationPreview
+        self.isWorkflowTemplatePickerEnabled = isWorkflowTemplatePickerEnabled
+        self.isOrganizingProjectSpaceWorkflow = isOrganizingProjectSpaceWorkflow
+        self.onOrganizeProjectSpace = onOrganizeProjectSpace
         self.onBack = onBack
         self.onOpenFile = onOpenFile
         self.onCorrectAssociation = onCorrectAssociation
@@ -280,6 +320,9 @@ struct ProjectSpaceDetailView: View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             topBar
             headerBlock
+            if let workflowSection = snapshot.workflowSection {
+                workflowBlock(workflowSection)
+            }
             overviewBlock
             sourceFoldersBlock
             preferredDestinationsBlock
@@ -349,6 +392,81 @@ struct ProjectSpaceDetailView: View {
                 overviewRow(text: snapshot.overviewPreferredDestinationsText, iconName: "tray.and.arrow.down")
                 overviewRow(text: snapshot.overviewRecentActivityText, iconName: "clock.arrow.circlepath")
                 overviewRow(text: snapshot.overviewSourceFoldersText, iconName: "square.stack.3d.down.right")
+            }
+        }
+        .padding(FormaSpacing.standard)
+        .background(cardBackground)
+        .overlay(cardBorder)
+    }
+
+    private func workflowBlock(_ workflow: Snapshot.WorkflowSectionSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Text(workflow.sectionTitle)
+                .font(.formaCaptionSemibold)
+                .foregroundStyle(Color.formaSecondaryLabel)
+
+            Text(workflow.helperText)
+                .font(.formaBody)
+                .foregroundStyle(Color.formaLabel)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                Text("Selected Template")
+                    .font(.formaCaptionSemibold)
+                    .foregroundStyle(Color.formaSecondaryLabel)
+
+                Text(workflow.selectedTemplateText)
+                    .font(.formaBodySemibold)
+                    .foregroundStyle(Color.formaLabel)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let workflowTemplateID {
+                WorkflowTemplatePicker(
+                    selectedTemplateID: workflowTemplateID,
+                    preview: workflowSimulationPreview
+                )
+                .disabled(!isWorkflowTemplatePickerEnabled)
+            } else if let previewText = workflow.previewText {
+                metadataPill(
+                    text: previewText,
+                    tint: workflow.isOrganizeButtonEnabled ? .formaSage : .formaWarmOrange
+                )
+            }
+
+            if let latestRunSummaryText = workflow.latestRunSummaryText {
+                Label(latestRunSummaryText, systemImage: "clock.arrow.circlepath")
+                    .font(.formaCaption)
+                    .foregroundStyle(Color.formaSecondaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                onOrganizeProjectSpace?()
+            } label: {
+                HStack(spacing: FormaSpacing.tight) {
+                    if isOrganizingProjectSpaceWorkflow {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    Text(workflow.organizeButtonTitle)
+                        .font(.formaBodySemibold)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(
+                !workflow.isOrganizeButtonEnabled ||
+                    isOrganizingProjectSpaceWorkflow ||
+                    onOrganizeProjectSpace == nil
+            )
+
+            if let disabledReasonText = workflow.disabledReasonText {
+                Text(disabledReasonText)
+                    .font(.formaCaption)
+                    .foregroundStyle(Color.formaSecondaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(FormaSpacing.standard)

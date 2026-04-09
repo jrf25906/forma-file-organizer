@@ -25,6 +25,7 @@ struct WorkflowTemplateSimulationPreview: Equatable, Sendable {
     static func make(
         templateID: String?,
         files: [FileItem],
+        invocationContext: WorkflowInvocationContext = .dashboardReview,
         planner: WorkflowPlanner = WorkflowPlanner()
     ) -> WorkflowTemplateSimulationPreview? {
         guard let template = WorkflowTemplateCatalog.template(for: templateID),
@@ -32,7 +33,11 @@ struct WorkflowTemplateSimulationPreview: Equatable, Sendable {
             return nil
         }
 
-        let plan = planner.plan(templateID: template.id, files: files)
+        let plan = planner.plan(
+            templateID: template.id,
+            files: files,
+            invocationContext: invocationContext
+        )
         let readyToRunCount = plan.files.filter { !$0.isBlocked }.count
         let blockedCount = plan.files.count - readyToRunCount
 

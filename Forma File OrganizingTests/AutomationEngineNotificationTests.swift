@@ -93,21 +93,39 @@ final class AutomationEngineNotificationTests: XCTestCase {
         var runError: Error?
 
         lazy var client = WorkflowExecutionClient(
-            plan: { templateID, files in
-                WorkflowPlanner().plan(templateID: templateID, files: files)
+            plan: { templateID, files, invocationContext in
+                WorkflowPlanner().plan(
+                    templateID: templateID,
+                    files: files,
+                    invocationContext: invocationContext
+                )
             },
-            run: { [weak self] _, files, _, _ in
+            run: { [weak self] plan, files, scopeID, _ in
                 let fileNames = files.map(\.name)
                 let shouldFail = await MainActor.run {
                     fileNames.contains { self?.failingFileNames.contains($0) == true }
                 }
                 guard shouldFail else {
-                    return
+                    return WorkflowRunRecord(
+                        scopeID: scopeID,
+                        workflowTemplateID: plan.definition.templateID,
+                        primaryStatus: .succeeded,
+                        startedAt: Date(timeIntervalSince1970: 1_000),
+                        endedAt: Date(timeIntervalSince1970: 1_001)
+                    )
                 }
 
                 if let runError = await MainActor.run(resultType: Error?.self, body: { self?.runError }) {
                     throw runError
                 }
+
+                return WorkflowRunRecord(
+                    scopeID: scopeID,
+                    workflowTemplateID: plan.definition.templateID,
+                    primaryStatus: .completedWithIssues,
+                    startedAt: Date(timeIntervalSince1970: 1_000),
+                    endedAt: Date(timeIntervalSince1970: 1_001)
+                )
             }
         )
     }

@@ -250,6 +250,8 @@ struct TrustedAutomationScopeDetailSheet: View {
                 statusText = "Running"
             case .succeeded:
                 statusText = "Succeeded"
+            case .completedWithIssues:
+                statusText = "Completed with issues"
             case .failed:
                 statusText = "Failed"
             case .canceled:

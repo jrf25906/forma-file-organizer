@@ -115,4 +115,26 @@ final class NotificationServiceTests: XCTestCase {
             "Forma needs macOS permission before it can keep organizing here. Access to folder denied."
         )
     }
+
+    func testWorkflowNotificationPayload_ProjectDropZoneUsesScopeAwareCopy() {
+        let payload = NotificationService.workflowNotificationPayload(
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            scopeDisplayName: "Design Assets",
+            organizedFileCount: 3
+        )
+
+        XCTAssertNotNil(payload)
+        XCTAssertEqual(payload?.category, .progressWin)
+        XCTAssertEqual(
+            payload?.identifier,
+            NotificationService.AutomationNotificationID.workflowRun(
+                templateID: BuiltInWorkflowTemplate.StableID.projectDrop
+            )
+        )
+        XCTAssertEqual(payload?.title, "Project Drop Zone Made Progress")
+        XCTAssertEqual(
+            payload?.body,
+            "Forma organized 3 files in the Design Assets trusted scope using Project Drop Zone."
+        )
+    }
 }

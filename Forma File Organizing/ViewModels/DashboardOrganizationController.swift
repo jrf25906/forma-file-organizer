@@ -137,19 +137,12 @@ final class DashboardOrganizationController {
             let workflowScopeID = UUID()
 
             do {
-                let plan = self.workflowExecution.plan(template.id, [file])
+                let plan = self.workflowExecution.plan(template.id, [file], .inspector)
                 try await self.workflowExecution.run(
                     plan,
                     [file],
                     workflowScopeID,
                     context
-                )
-                ActivityLoggingService.logWorkflowRunSummaryIfAvailable(
-                    from: context,
-                    scopeID: workflowScopeID,
-                    workflowTemplateID: template.id,
-                    triggerSurface: self.workflowTriggerSurface(for: sourceSurface),
-                    affectedFileCount: 1
                 )
                 file.status = .completed
                 self.handleSuccessfulOrganization(
@@ -170,13 +163,6 @@ final class DashboardOrganizationController {
                 self.scanViewModel.removeFile(at: file.path)
                 self.filterViewModel.updateSourceFiles(self.scanViewModel.allFiles)
             } catch {
-                ActivityLoggingService.logWorkflowRunSummaryIfAvailable(
-                    from: context,
-                    scopeID: workflowScopeID,
-                    workflowTemplateID: template.id,
-                    triggerSurface: self.workflowTriggerSurface(for: sourceSurface),
-                    affectedFileCount: 1
-                )
                 self.onShowError?(error.localizedDescription)
                 self.onShowToast?(error.localizedDescription, false)
             }
@@ -277,21 +263,6 @@ final class DashboardOrganizationController {
             )
         } catch {
             Log.error("Failed to record personal memory decision: \(error.localizedDescription)", category: .analytics)
-        }
-    }
-
-    private func workflowTriggerSurface(
-        for sourceSurface: PersonalMemorySourceSurface
-    ) -> ActivityItem.WorkflowTriggerSurface {
-        switch sourceSurface {
-        case .inspector:
-            return .inspector
-        case .bulkOrganize:
-            return .bulkOrganize
-        case .reviewFlow:
-            return .reviewFlow
-        default:
-            return .reviewFlow
         }
     }
 

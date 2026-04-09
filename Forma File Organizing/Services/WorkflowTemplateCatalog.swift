@@ -8,6 +8,7 @@ enum WorkflowTemplateCatalog {
             summaryText: "Rename incoming receipts, apply finance tags, and move them into your receipts archive.",
             renamePreset: .keepBaseNameWithDatePrefix,
             tagPolicy: .financialDocuments,
+            notificationPolicy: .never,
             allowedActions: BuiltInWorkflowTemplate.requiredActionShape
         ),
         BuiltInWorkflowTemplate(
@@ -16,6 +17,7 @@ enum WorkflowTemplateCatalog {
             summaryText: "Rename screenshots with capture context, apply visual-reference tags, and move them out of Downloads.",
             renamePreset: .screenshotTimestamp,
             tagPolicy: .visualReference,
+            notificationPolicy: .never,
             allowedActions: BuiltInWorkflowTemplate.requiredActionShape
         ),
         BuiltInWorkflowTemplate(
@@ -24,6 +26,7 @@ enum WorkflowTemplateCatalog {
             summaryText: "Rename project intake files, apply project tags, and move them into the active project drop folder.",
             renamePreset: .projectIntakeSlug,
             tagPolicy: .projectContext,
+            notificationPolicy: .trustedScopeOnly,
             allowedActions: BuiltInWorkflowTemplate.requiredActionShape
         )
     ]

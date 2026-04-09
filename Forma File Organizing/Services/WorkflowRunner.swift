@@ -444,12 +444,14 @@ final class WorkflowRunner {
     private let auditOperations: AuditOperations
     private let rollbackCoordinator: WorkflowRollbackCoordinator
     private let executorsByKind: [WorkflowStepKind: any WorkflowStepExecutor]
+    private let sideEffectExecutorsByKind: [WorkflowStepKind: any WorkflowRunSideEffectExecutor]
     private let clock: () -> Date
 
     init(
         auditStore: WorkflowAuditStore,
         rollbackCoordinator: WorkflowRollbackCoordinator = WorkflowRollbackCoordinator(),
         executorsByKind: [WorkflowStepKind: any WorkflowStepExecutor]? = nil,
+        sideEffectExecutorsByKind: [WorkflowStepKind: any WorkflowRunSideEffectExecutor]? = nil,
         clock: @escaping () -> Date = Date.init,
         auditOperations: AuditOperations? = nil
     ) {
@@ -459,6 +461,10 @@ final class WorkflowRunner {
             .rename: RenameWorkflowStepExecutor(),
             .tag: TagWorkflowStepExecutor(),
             .move: MoveWorkflowStepExecutor()
+        ]
+        self.sideEffectExecutorsByKind = sideEffectExecutorsByKind ?? [
+            .log: LogWorkflowStepExecutor(),
+            .notify: NotifyWorkflowStepExecutor()
         ]
         self.clock = clock
     }
@@ -493,15 +499,17 @@ final class WorkflowRunner {
             modelContext: ModelContext(modelContext.container)
         )
         var executedActions: [ExecutedFileAction] = []
+        var terminalError: Error?
 
-        for plannedFile in plan.files {
+        fileLoop: for plannedFile in plan.files {
             guard let file = fileLookup[FileMetadataRecord.normalizedPath(plannedFile.sourcePath)] else {
                 throw RunnerError.missingFile(plannedFile.sourcePath)
             }
 
             let fileIdentity = metadataService.resolveIdentity(for: plannedFile.sourcePath).canonicalIdentity
 
-            for plannedStep in plannedFile.steps where plannedStep.disposition == .planned {
+            for plannedStep in plannedFile.steps
+            where plannedStep.disposition == .planned && !Self.isSideEffectStep(plannedStep.kind) {
                 guard let executor = executorsByKind[plannedStep.kind] else {
                     throw RunnerError.missingExecutor(plannedStep.kind)
                 }
@@ -590,7 +598,8 @@ final class WorkflowRunner {
                         executedActions: executedActions,
                         modelContext: modelContext
                     )
-                    throw failure.underlyingError
+                    terminalError = failure.underlyingError
+                    break fileLoop
                 } catch {
                     let endedAt = clock()
                     recordFailureAudit(
@@ -612,20 +621,40 @@ final class WorkflowRunner {
                         executedActions: executedActions,
                         modelContext: modelContext
                     )
-                    throw error
+                    terminalError = error
+                    break fileLoop
                 }
             }
         }
 
-        do {
-            try auditOperations.updateRunStatus(
-                runID: runRecord.id,
-                primaryStatus: .succeeded,
-                endedAt: clock()
-            )
-        } catch {
-            // Filesystem mutations already completed successfully.
+        var finalPrimaryStatus: WorkflowRunPrimaryStatus
+        if terminalError == nil {
+            finalPrimaryStatus = .succeeded
+            do {
+                try auditOperations.updateRunStatus(
+                    runID: runRecord.id,
+                    primaryStatus: .succeeded,
+                    endedAt: clock()
+                )
+            } catch {
+                // Filesystem mutations already completed successfully.
+            }
+        } else {
+            finalPrimaryStatus = .failed
         }
+
+        finalPrimaryStatus = try await executeSideEffectSteps(
+            runRecord: runRecord,
+            plan: plan,
+            files: files,
+            currentPrimaryStatus: finalPrimaryStatus,
+            modelContext: modelContext
+        )
+
+        if let terminalError {
+            throw terminalError
+        }
+
         return runRecord
     }
 
@@ -708,6 +737,76 @@ final class WorkflowRunner {
         }
     }
 
+    private func executeSideEffectSteps(
+        runRecord: WorkflowRunRecord,
+        plan: WorkflowPlan,
+        files: [FileItem],
+        currentPrimaryStatus: WorkflowRunPrimaryStatus,
+        modelContext: ModelContext
+    ) async throws -> WorkflowRunPrimaryStatus {
+        var resolvedPrimaryStatus = currentPrimaryStatus
+
+        for stepKind in orderedSideEffectStepKinds(from: plan.definition.stepKinds) {
+            if stepKind == .notify && resolvedPrimaryStatus == .failed {
+                continue
+            }
+
+            guard let executor = sideEffectExecutorsByKind[stepKind] else {
+                throw RunnerError.missingExecutor(stepKind)
+            }
+
+            let startedAt = clock()
+            let stepID = Self.finalizeStepID(stepKind)
+            let context = WorkflowRunSideEffectExecutionContext(
+                run: runRecord,
+                plan: plan,
+                files: files,
+                modelContext: modelContext
+            )
+
+            do {
+                let result = try await executor.execute(context: context)
+                let endedAt = clock()
+                recordSideEffectAudit(
+                    runID: runRecord.id,
+                    stepID: stepID,
+                    files: files,
+                    stepStatus: result.stepStatus,
+                    disposition: result.disposition,
+                    startedAt: startedAt,
+                    endedAt: endedAt,
+                    modelContext: modelContext
+                )
+            } catch {
+                let endedAt = clock()
+                recordSideEffectFailureAudit(
+                    runID: runRecord.id,
+                    stepID: stepID,
+                    files: files,
+                    failureReason: error.localizedDescription,
+                    startedAt: startedAt,
+                    endedAt: endedAt,
+                    modelContext: modelContext
+                )
+
+                if resolvedPrimaryStatus != .failed {
+                    resolvedPrimaryStatus = .completedWithIssues
+                    do {
+                        try auditOperations.updateRunStatus(
+                            runID: runRecord.id,
+                            primaryStatus: .completedWithIssues,
+                            endedAt: endedAt
+                        )
+                    } catch {
+                        // Side-effect failure should not recast durable success as a thrown error.
+                    }
+                }
+            }
+        }
+
+        return resolvedPrimaryStatus
+    }
+
     private func recordSuccessfulStepAudit(
         runID: UUID,
         stepID: String,
@@ -744,6 +843,53 @@ final class WorkflowRunner {
             )
         } catch {
             // Successful filesystem work must not be recast as a workflow failure.
+        }
+    }
+
+    private func recordSideEffectAudit(
+        runID: UUID,
+        stepID: String,
+        files: [FileItem],
+        stepStatus: WorkflowStepStatus,
+        disposition: WorkflowFileDisposition,
+        startedAt: Date,
+        endedAt: Date,
+        modelContext: ModelContext
+    ) {
+        do {
+            let stepRun = try auditOperations.recordStepStatus(
+                AuditStepStatusRequest(
+                    runID: runID,
+                    stepID: stepID,
+                    status: stepStatus,
+                    startedAt: startedAt,
+                    endedAt: endedAt,
+                    errorMessage: nil,
+                    recordedAt: endedAt
+                )
+            )
+            let metadataService = FileMetadataFoundationService(
+                modelContext: ModelContext(modelContext.container)
+            )
+            for file in files {
+                let fileIdentity = metadataService.resolveIdentity(for: file.path).canonicalIdentity
+                _ = try auditOperations.recordFileAction(
+                    AuditFileActionRequest(
+                        runID: runID,
+                        stepRunID: stepRun.id,
+                        fileIdentity: fileIdentity,
+                        sourcePath: file.path,
+                        destinationPath: file.path,
+                        disposition: disposition,
+                        compensationStatus: .notNeeded,
+                        compensationPayload: nil,
+                        failureReason: nil,
+                        recordedAt: endedAt
+                    )
+                )
+            }
+        } catch {
+            // Side-effect audit failures must not surface as workflow execution failures.
         }
     }
 
@@ -788,12 +934,83 @@ final class WorkflowRunner {
         }
     }
 
+    private func recordSideEffectFailureAudit(
+        runID: UUID,
+        stepID: String,
+        files: [FileItem],
+        failureReason: String,
+        startedAt: Date,
+        endedAt: Date,
+        modelContext: ModelContext
+    ) {
+        do {
+            let stepRun = try auditOperations.recordStepStatus(
+                AuditStepStatusRequest(
+                    runID: runID,
+                    stepID: stepID,
+                    status: .failed,
+                    startedAt: startedAt,
+                    endedAt: endedAt,
+                    errorMessage: failureReason,
+                    recordedAt: endedAt
+                )
+            )
+            let metadataService = FileMetadataFoundationService(
+                modelContext: ModelContext(modelContext.container)
+            )
+            for file in files {
+                let fileIdentity = metadataService.resolveIdentity(for: file.path).canonicalIdentity
+                _ = try auditOperations.recordFileAction(
+                    AuditFileActionRequest(
+                        runID: runID,
+                        stepRunID: stepRun.id,
+                        fileIdentity: fileIdentity,
+                        sourcePath: file.path,
+                        destinationPath: file.path,
+                        disposition: .failed,
+                        compensationStatus: .notNeeded,
+                        compensationPayload: nil,
+                        failureReason: failureReason,
+                        recordedAt: endedAt
+                    )
+                )
+            }
+        } catch {
+            // Side-effect audit failures must not surface as workflow execution failures.
+        }
+    }
+
     private static func stepID(
         phase: String,
         stepKind: WorkflowStepKind,
         filePath: String
     ) -> String {
         "\(phase)|\(stepKind.rawValue)|\(filePath)"
+    }
+
+    private static func finalizeStepID(_ stepKind: WorkflowStepKind) -> String {
+        "finalize|\(stepKind.rawValue)"
+    }
+
+    private static func isSideEffectStep(_ stepKind: WorkflowStepKind) -> Bool {
+        stepKind == .log || stepKind == .notify
+    }
+
+    private func orderedSideEffectStepKinds(from stepKinds: [WorkflowStepKind]) -> [WorkflowStepKind] {
+        let uniqueKinds = Array(Set(stepKinds.filter(Self.isSideEffectStep)))
+        let priority: [WorkflowStepKind: Int] = [
+            .notify: 0,
+            .log: 1
+        ]
+
+        return uniqueKinds.sorted { lhs, rhs in
+            let lhsPriority = priority[lhs, default: Int.max]
+            let rhsPriority = priority[rhs, default: Int.max]
+            if lhsPriority == rhsPriority {
+                return lhs.rawValue < rhs.rawValue
+            }
+            return lhsPriority < rhsPriority
+        }
     }
 
     private func executedAction(
