@@ -254,6 +254,16 @@ final class WorkflowAuditStore {
             }
     }
 
+    func latestSuccessfulDestinationSignal(runID: UUID) throws -> String? {
+        let latestAction = try fileActions(runID: runID)
+            .filter(Self.isSuccessfulDestinationSignalAction)
+            .max(by: Self.fileActionSortOrder)
+
+        return WorkflowFileActionRecord.normalizedWorkflowMemoryDestinationSignal(
+            latestAction?.destinationPath
+        )
+    }
+
     func run(id: UUID) throws -> WorkflowRunRecord? {
         try modelContext.fetch(FetchDescriptor<WorkflowRunRecord>()).first(where: { $0.id == id })
     }
@@ -286,5 +296,18 @@ final class WorkflowAuditStore {
             return lhs.id.uuidString < rhs.id.uuidString
         }
         return lhs.recordedAt < rhs.recordedAt
+    }
+
+    private static func isSuccessfulDestinationSignalAction(_ action: WorkflowFileActionRecord) -> Bool {
+        guard WorkflowFileActionRecord.normalizedWorkflowMemoryDestinationSignal(action.destinationPath) != nil else {
+            return false
+        }
+
+        switch action.disposition {
+        case .moved:
+            return true
+        default:
+            return false
+        }
     }
 }

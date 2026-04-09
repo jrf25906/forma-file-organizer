@@ -3,6 +3,13 @@ import SwiftData
 
 @MainActor
 struct ProjectSpaceWorkflowProfileService {
+    enum RunMemoryOutcome: Sendable, Hashable {
+        case inferredFromRunStatus
+        case durableSuccess
+        case blockedPreflightOnly
+        case conflictedFailure
+    }
+
     private static let staleMemoryWindow: TimeInterval = 30 * 24 * 60 * 60
     private static let conflictWindow: TimeInterval = 24 * 60 * 60
 
@@ -75,8 +82,13 @@ struct ProjectSpaceWorkflowProfileService {
     func recordLatestRun(
         _ run: WorkflowRunRecord,
         for normalizedProjectLabel: String,
-        at timestamp: Date
+        at timestamp: Date,
+        outcome: RunMemoryOutcome = .inferredFromRunStatus
     ) throws {
+        guard outcome != .blockedPreflightOnly else {
+            return
+        }
+
         guard let profile = profileOrCreate(normalizedProjectLabel: normalizedProjectLabel) else {
             return
         }
@@ -84,13 +96,26 @@ struct ProjectSpaceWorkflowProfileService {
         let completedAt = run.endedAt ?? timestamp
         hydrateLegacyMemoryIfNeeded(profile, fallbackTimestamp: completedAt)
 
+        guard profile.lastWorkflowRunID != run.id else {
+            return
+        }
+
         profile.lastWorkflowRunID = run.id
         profile.lastWorkflowCompletedAt = completedAt
 
-        if isSuccessfulMemoryOutcome(run.primaryStatus) {
+        switch outcome {
+        case .durableSuccess:
             applySuccessfulRunMemory(run, completedAt: completedAt, to: profile)
-        } else {
-            applyStaleStatusIfNeeded(to: profile, referenceDate: completedAt)
+        case .conflictedFailure:
+            applyConflictedRunMemory(to: profile)
+        case .inferredFromRunStatus:
+            if isSuccessfulMemoryOutcome(run.primaryStatus) {
+                applySuccessfulRunMemory(run, completedAt: completedAt, to: profile)
+            } else {
+                applyStaleStatusIfNeeded(to: profile, referenceDate: completedAt)
+            }
+        case .blockedPreflightOnly:
+            return
         }
 
         profile.updatedAt = timestamp
@@ -257,36 +282,13 @@ struct ProjectSpaceWorkflowProfileService {
         applyStaleStatusIfNeeded(to: profile, referenceDate: completedAt)
     }
 
-    private func latestDestinationSignal(forRunID runID: UUID) -> String? {
-        let descriptor = FetchDescriptor<WorkflowFileActionRecord>(
-            predicate: #Predicate<WorkflowFileActionRecord> { action in
-                action.runID == runID
-            }
-        )
-
-        let latestAction = (try? modelContext.fetch(descriptor))?
-            .filter(isSuccessfulDestinationSignalAction)
-            .max(by: { lhs, rhs in
-            if lhs.recordedAt == rhs.recordedAt {
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
-            return lhs.recordedAt < rhs.recordedAt
-        })
-
-        return ProjectSpaceWorkflowProfile.normalizedDestinationSignal(latestAction?.destinationPath)
+    private func applyConflictedRunMemory(to profile: ProjectSpaceWorkflowProfile) {
+        profile.workflowMemoryStatus = .conflicted
     }
 
-    private func isSuccessfulDestinationSignalAction(_ action: WorkflowFileActionRecord) -> Bool {
-        guard ProjectSpaceWorkflowProfile.normalizedDestinationSignal(action.destinationPath) != nil else {
-            return false
-        }
-
-        switch action.disposition {
-        case .moved:
-            return true
-        default:
-            return false
-        }
+    private func latestDestinationSignal(forRunID runID: UUID) -> String? {
+        try? WorkflowAuditStore(modelContext: modelContext)
+            .latestSuccessfulDestinationSignal(runID: runID)
     }
 
     private func isWithinConflictWindow(_ baseline: Date?, comparedTo timestamp: Date) -> Bool {

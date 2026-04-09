@@ -518,6 +518,12 @@ final class WorkflowRunner {
         let rollbackMetadataDelta: WorkflowFileMetadataDelta?
     }
 
+    private enum WorkflowMemoryOutcome {
+        case durableSuccess
+        case blockedPreflightOnly
+        case conflictedFailure
+    }
+
     private let auditOperations: AuditOperations
     private let rollbackCoordinator: WorkflowRollbackCoordinator
     private let executorsByKind: [WorkflowStepKind: any WorkflowStepExecutor]
@@ -573,6 +579,12 @@ final class WorkflowRunner {
                 runID: runRecord.id,
                 primaryStatus: .failed,
                 endedAt: clock()
+            )
+            recordWorkflowMemoryOutcome(
+                request: request,
+                runRecord: runRecord,
+                outcome: .blockedPreflightOnly,
+                modelContext: modelContext
             )
             throw RunnerError.blockedPlan(plan.files.flatMap(\.blockers))
         }
@@ -739,6 +751,13 @@ final class WorkflowRunner {
             plan: plan,
             files: files,
             currentPrimaryStatus: finalPrimaryStatus,
+            modelContext: modelContext
+        )
+
+        recordWorkflowMemoryOutcome(
+            request: request,
+            runRecord: runRecord,
+            outcome: terminalError == nil ? .durableSuccess : .conflictedFailure,
             modelContext: modelContext
         )
 
@@ -926,6 +945,49 @@ final class WorkflowRunner {
         }
 
         return resolvedPrimaryStatus
+    }
+
+    private func recordWorkflowMemoryOutcome(
+        request: WorkflowExecutionRequest,
+        runRecord: WorkflowRunRecord,
+        outcome: WorkflowMemoryOutcome,
+        modelContext: ModelContext
+    ) {
+        guard let memoryAttribution = request.workflowMemoryAttribution else {
+            return
+        }
+
+        runRecord.workflowTemplateID = WorkflowRunRecord.normalizedOptionalText(
+            runRecord.workflowTemplateID ?? memoryAttribution.templateID
+        )
+        runRecord.triggerSurface = runRecord.triggerSurface ?? memoryAttribution.triggerSurface
+        runRecord.ownerDisplayName = WorkflowRunRecord.normalizedOptionalText(
+            runRecord.ownerDisplayName ?? memoryAttribution.ownerDisplayName
+        )
+        runRecord.policyName = WorkflowRunRecord.normalizedOptionalText(
+            runRecord.policyName ?? memoryAttribution.policyName
+        )
+
+        let runMemoryOutcome: ProjectSpaceWorkflowProfileService.RunMemoryOutcome
+        switch outcome {
+        case .durableSuccess:
+            runMemoryOutcome = .durableSuccess
+        case .blockedPreflightOnly:
+            runMemoryOutcome = .blockedPreflightOnly
+        case .conflictedFailure:
+            runMemoryOutcome = .conflictedFailure
+        }
+
+        do {
+            try ProjectSpaceWorkflowProfileService(modelContext: modelContext).recordLatestRun(
+                runRecord,
+                for: memoryAttribution.normalizedProjectLabel,
+                at: clock(),
+                outcome: runMemoryOutcome
+            )
+        } catch {
+            // Workflow memory persistence should not recast execution outcomes.
+        }
     }
 
     private func recordPreflightAudit(runID: UUID, plan: WorkflowPlan) {

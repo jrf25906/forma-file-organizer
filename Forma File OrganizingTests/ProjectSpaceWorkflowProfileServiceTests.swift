@@ -487,6 +487,108 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
         }
     }
 
+    func testRecordLatestRun_DuplicateRunID_DoesNotDoubleCountSuccessfulMemory() throws {
+        try withService { context, service in
+            let run = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 2_300),
+                endedAt: Date(timeIntervalSince1970: 2_320)
+            )
+            context.insert(run)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: run.id,
+                    fileIdentity: "resource|diskA|duplicate-run-file",
+                    sourcePath: "/Users/example/Inbox/source.txt",
+                    destinationPath: "/Users/example/Projects/Alpha/source.txt",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 2_319)
+                )
+            )
+            try context.save()
+
+            try service.recordLatestRun(
+                run,
+                for: "Alpha",
+                at: Date(timeIntervalSince1970: 2_321),
+                outcome: .durableSuccess
+            )
+            try service.recordLatestRun(
+                run,
+                for: "Alpha",
+                at: Date(timeIntervalSince1970: 2_380),
+                outcome: .durableSuccess
+            )
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(profile.lastWorkflowRunID, run.id)
+            XCTAssertEqual(profile.successfulTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(profile.successfulTemplateCount, 1)
+            XCTAssertEqual(profile.dominantTriggerSurface, .projectPolicyManual)
+            XCTAssertEqual(profile.dominantTriggerSurfaceCount, 1)
+        }
+    }
+
+    func testRecordLatestRun_ConflictedFailureOutcome_DoesNotStrengthenSuccessfulMemory() throws {
+        try withService { context, service in
+            let successfulRun = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 2_600),
+                endedAt: Date(timeIntervalSince1970: 2_620)
+            )
+            context.insert(successfulRun)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: successfulRun.id,
+                    fileIdentity: "resource|diskA|successful-run-file",
+                    sourcePath: "/Users/example/Inbox/ok.txt",
+                    destinationPath: "/Users/example/Projects/Alpha/ok.txt",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 2_619)
+                )
+            )
+            try context.save()
+            try service.recordLatestRun(
+                successfulRun,
+                for: "Alpha",
+                at: Date(timeIntervalSince1970: 2_621),
+                outcome: .durableSuccess
+            )
+
+            let failedRun = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .failed,
+                rollbackStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 2_700),
+                endedAt: Date(timeIntervalSince1970: 2_710)
+            )
+            context.insert(failedRun)
+            try context.save()
+            try service.recordLatestRun(
+                failedRun,
+                for: "Alpha",
+                at: Date(timeIntervalSince1970: 2_711),
+                outcome: .conflictedFailure
+            )
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(profile.lastWorkflowRunID, failedRun.id)
+            XCTAssertEqual(profile.successfulTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(profile.successfulTemplateCount, 1)
+            XCTAssertEqual(profile.dominantTriggerSurface, .projectPolicyManual)
+            XCTAssertEqual(profile.dominantTriggerSurfaceCount, 1)
+            XCTAssertEqual(profile.workflowMemoryStatus, .conflicted)
+        }
+    }
+
     func testProfileService_CompletedWithIssues_UsesSuccessfulDestinationActionSignal() throws {
         try withService { context, service in
             let run = WorkflowRunRecord(

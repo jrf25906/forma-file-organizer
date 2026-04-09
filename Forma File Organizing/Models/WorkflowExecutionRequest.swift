@@ -1,5 +1,13 @@
 import Foundation
 
+struct WorkflowMemoryAttributionRequest: Sendable, Hashable {
+    let normalizedProjectLabel: String
+    let templateID: String
+    let triggerSurface: ActivityItem.WorkflowTriggerSurface
+    let ownerDisplayName: String?
+    let policyName: String?
+}
+
 enum WorkflowExecutionEntryPoint: Sendable, Hashable {
     case invocationContext(WorkflowInvocationContext)
     case projectPolicy(
@@ -144,6 +152,21 @@ struct WorkflowExecutionRequest: Sendable, Hashable {
 
     var trustedScopeID: UUID? {
         entryPoint.trustedScopeID
+    }
+
+    var workflowMemoryAttribution: WorkflowMemoryAttributionRequest? {
+        guard let normalizedProjectLabel = ProjectSpaceWorkflowProfile
+            .normalizedProjectLabelValue(invocationContext.workflowProjectLabel) else {
+            return nil
+        }
+
+        return WorkflowMemoryAttributionRequest(
+            normalizedProjectLabel: normalizedProjectLabel,
+            templateID: templateID,
+            triggerSurface: triggerSurface,
+            ownerDisplayName: auditOwnerDisplayName,
+            policyName: auditPolicyName
+        )
     }
 
     func replacingScopeID(_ scopeID: UUID) -> WorkflowExecutionRequest {
