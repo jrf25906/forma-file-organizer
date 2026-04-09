@@ -24,7 +24,6 @@ struct NotifyWorkflowStepExecutor: WorkflowRunSideEffectExecutor {
              .trustedScopeInspection(let providedScopeDisplayName):
             scopeDisplayName = providedScopeDisplayName
         }
-
         let disposition = try await notificationService.notifyWorkflowCompletion(
             templateID: context.plan.definition.templateID,
             scopeDisplayName: scopeDisplayName,
