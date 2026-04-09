@@ -477,6 +477,7 @@ final class AutomationEngine: ObservableObject {
 
             let executionResult = await executeScopedAutoOrganizeGroup(
                 group,
+                triggerSource: triggerSource,
                 context: context
             )
 
@@ -872,6 +873,22 @@ final class AutomationEngine: ObservableObject {
         }
     }
 
+    func workflowInvocationContext(
+        for triggerSource: TrustedAutomationScopeRunTriggerSource,
+        scopeDisplayName: String?
+    ) -> WorkflowInvocationContext {
+        switch triggerSource {
+        case .promotionPreview:
+            return .trustedScopeInspection(scopeDisplayName: scopeDisplayName)
+        case .scheduledAutomationPass:
+            return .trustedScopeScheduled(scopeDisplayName: scopeDisplayName)
+        case .realtimeAutomationPass:
+            return .trustedScopeRealtime(scopeDisplayName: scopeDisplayName)
+        case .manualRefreshInspection:
+            return .trustedScopeInspection(scopeDisplayName: scopeDisplayName)
+        }
+    }
+
     private func recordScopedPreflightRuns(
         groups: [ScopedAutomationGroup],
         triggerSource: TrustedAutomationScopeRunTriggerSource,
@@ -930,6 +947,7 @@ final class AutomationEngine: ObservableObject {
 
     private func executeScopedAutoOrganizeGroup(
         _ group: ScopedAutomationGroup,
+        triggerSource: TrustedAutomationScopeRunTriggerSource,
         context: ModelContext
     ) async -> ScopedAutomationExecutionResult {
         guard let templateID = group.scope.selectedWorkflowTemplateID,
@@ -953,7 +971,10 @@ final class AutomationEngine: ObservableObject {
         let plan = workflowExecution.plan(
             templateID,
             group.eligibleFiles,
-            .trustedScopeAutomation(scopeDisplayName: group.scope.displayName)
+            workflowInvocationContext(
+                for: triggerSource,
+                scopeDisplayName: group.scope.displayName
+            )
         )
         let plannedWorkflowNotify = plan.definition.stepKinds.contains(.notify)
 

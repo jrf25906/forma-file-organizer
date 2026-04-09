@@ -277,7 +277,7 @@ final class DashboardOrganizationControllerTests: XCTestCase {
 
         await fulfillment(of: [runExpectation], timeout: 1.0)
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
-        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.reviewAdHoc])
+        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.inspector])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.lastPlannedFilePaths, [sourceURL.path])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [sourceURL.path])

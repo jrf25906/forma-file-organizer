@@ -137,7 +137,7 @@ final class DashboardOrganizationController {
             let workflowScopeID = UUID()
 
             do {
-                let plan = self.workflowExecution.plan(template.id, [file], .reviewAdHoc)
+                let plan = self.workflowExecution.plan(template.id, [file], .inspector)
                 try await self.workflowExecution.run(
                     plan,
                     [file],
@@ -263,21 +263,6 @@ final class DashboardOrganizationController {
             )
         } catch {
             Log.error("Failed to record personal memory decision: \(error.localizedDescription)", category: .analytics)
-        }
-    }
-
-    private func workflowTriggerSurface(
-        for sourceSurface: PersonalMemorySourceSurface
-    ) -> ActivityItem.WorkflowTriggerSurface {
-        switch sourceSurface {
-        case .inspector:
-            return .inspector
-        case .bulkOrganize:
-            return .bulkOrganize
-        case .reviewFlow:
-            return .reviewFlow
-        default:
-            return .reviewFlow
         }
     }
 

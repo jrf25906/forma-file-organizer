@@ -21,7 +21,7 @@ final class WorkflowPlanner {
         plan(
             templateID: templateID,
             files: files,
-            invocationContext: .reviewAdHoc
+            invocationContext: .dashboardReview
         )
     }
 
@@ -358,7 +358,7 @@ final class WorkflowPlanner {
         template: BuiltInWorkflowTemplate?,
         invocationContext: WorkflowInvocationContext
     ) -> Bool {
-        guard case .trustedScopeAutomation = invocationContext else {
+        guard invocationContext.allowsWorkflowNotify else {
             return false
         }
 

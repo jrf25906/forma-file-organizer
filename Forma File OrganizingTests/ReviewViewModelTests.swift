@@ -233,7 +233,7 @@ final class ReviewViewModelTests: XCTestCase {
 
         await fulfillment(of: [runExpectation], timeout: 1.0)
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
-        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.reviewAdHoc])
+        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.reviewView])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertTrue(try modelContext.fetch(FetchDescriptor<ActivityItem>()).isEmpty)
         XCTAssertTrue(viewModel.files.isEmpty)
@@ -318,11 +318,19 @@ final class ReviewViewModelTests: XCTestCase {
         viewModel.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.receipts
 
         let preview = try XCTUnwrap(viewModel.workflowSimulationPreview)
+        let explicitPreview = try XCTUnwrap(
+            WorkflowTemplateSimulationPreview.make(
+                templateID: BuiltInWorkflowTemplate.StableID.receipts,
+                files: [fileItem],
+                invocationContext: .reviewView
+            )
+        )
         XCTAssertEqual(viewModel.selectedWorkflowTemplate?.id, BuiltInWorkflowTemplate.StableID.receipts)
         XCTAssertEqual(preview.templateID, BuiltInWorkflowTemplate.StableID.receipts)
         XCTAssertEqual(preview.selectedFileCount, 1)
         XCTAssertEqual(preview.readyToRunCount, 1)
         XCTAssertTrue(preview.summaryText.contains("1 selected"))
+        XCTAssertEqual(explicitPreview.templateID, BuiltInWorkflowTemplate.StableID.receipts)
     }
 
     func testMoveAllFiles_WithMixedRunnableAndBlockedFiles_RunsRunnableSubsetAndKeepsBlockedFilesVisible() async throws {

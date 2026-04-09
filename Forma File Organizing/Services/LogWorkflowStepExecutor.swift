@@ -50,7 +50,7 @@ struct LogWorkflowStepExecutor: WorkflowRunSideEffectExecutor {
     ) async throws -> WorkflowRunSideEffectExecutionResult {
         try recordSummary(
             context.run,
-            Self.triggerSurface(for: context.plan.definition.invocationContext),
+            context.plan.definition.invocationContext.triggerSurface,
             context.affectedFileCount,
             context.modelContext
         )
@@ -71,16 +71,5 @@ struct LogWorkflowStepExecutor: WorkflowRunSideEffectExecutor {
             triggerSurface: triggerSurface,
             affectedFileCount: affectedFileCount
         )
-    }
-
-    private static func triggerSurface(
-        for invocationContext: WorkflowInvocationContext
-    ) -> ActivityItem.WorkflowTriggerSurface {
-        switch invocationContext {
-        case .reviewAdHoc:
-            return .reviewFlow
-        case .trustedScopeAutomation:
-            return .scheduledAutomationPass
-        }
     }
 }

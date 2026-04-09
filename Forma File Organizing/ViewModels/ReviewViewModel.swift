@@ -76,7 +76,8 @@ class ReviewViewModel: ObservableObject {
 
         return WorkflowTemplateSimulationPreview.make(
             templateID: selectedWorkflowTemplateID,
-            files: files
+            files: files,
+            invocationContext: .reviewView
         )
     }
 
@@ -302,7 +303,7 @@ class ReviewViewModel: ObservableObject {
             return
         }
 
-        let plan = workflowExecution.plan(template.id, filesToMove, .reviewAdHoc)
+        let plan = workflowExecution.plan(template.id, filesToMove, .reviewView)
         let runnablePaths = Set(plan.files.filter { !$0.isBlocked }.map(\.sourcePath))
         let blockedPaths = Set(plan.files.filter(\.isBlocked).map(\.sourcePath))
         let runnableFiles = filesToMove.filter { runnablePaths.contains(standardizedPath(for: $0)) }

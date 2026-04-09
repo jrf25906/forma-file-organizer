@@ -281,6 +281,7 @@ final class ActivityItem {
         case inspector
         case bulkOrganize
         case reviewView
+        case projectSpace
         case scheduledAutomationPass
         case realtimeAutomationPass
         case manualRefreshInspection
@@ -289,17 +290,19 @@ final class ActivityItem {
     static func workflowTriggerSurfaceLabel(_ surface: WorkflowTriggerSurface?) -> String {
         switch surface {
         case .reviewFlow:
-            return "Review"
+            return "Dashboard review"
         case .inspector:
             return "Inspector"
         case .bulkOrganize:
             return "Bulk organize"
         case .reviewView:
-            return "Review"
+            return "Review view"
+        case .projectSpace:
+            return "Project space"
         case .scheduledAutomationPass:
             return "Scheduled trusted scope"
         case .realtimeAutomationPass:
-            return "Live trusted scope"
+            return "Realtime trusted scope"
         case .manualRefreshInspection:
             return "Trusted scope inspection"
         case .none:

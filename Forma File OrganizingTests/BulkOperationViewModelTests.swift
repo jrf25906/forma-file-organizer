@@ -116,7 +116,7 @@ final class BulkOperationViewModelTests: XCTestCase {
 
         await fulfillment(of: [runExpectation], timeout: 1.0)
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
-        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.reviewAdHoc])
+        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.bulkOrganize])
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [sourceURL.path])
         XCTAssertTrue(try modelContext.fetch(FetchDescriptor<ActivityItem>()).isEmpty)

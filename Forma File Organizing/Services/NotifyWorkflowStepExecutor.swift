@@ -13,17 +13,9 @@ struct NotifyWorkflowStepExecutor: WorkflowRunSideEffectExecutor {
     func execute(
         context: WorkflowRunSideEffectExecutionContext
     ) async throws -> WorkflowRunSideEffectExecutionResult {
-        let scopeDisplayName: String?
-        switch context.plan.definition.invocationContext {
-        case .reviewAdHoc:
-            scopeDisplayName = nil
-        case .trustedScopeAutomation(let providedScopeDisplayName):
-            scopeDisplayName = providedScopeDisplayName
-        }
-
         let disposition = try await notificationService.notifyWorkflowCompletion(
             templateID: context.plan.definition.templateID,
-            scopeDisplayName: scopeDisplayName,
+            scopeDisplayName: context.plan.definition.invocationContext.notificationDisplayName,
             organizedFileCount: context.affectedFileCount
         )
 

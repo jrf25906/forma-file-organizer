@@ -84,12 +84,14 @@ final class AutomationEngineTests: XCTestCase {
         private(set) var lastPlannedFilePaths: [String] = []
         private(set) var lastRunFilePaths: [String] = []
         var runError: Error?
+        var onPlan: (() -> Void)?
 
         lazy var client = WorkflowExecutionClient(
             plan: { [weak self] templateID, files, invocationContext in
                 self?.plannedTemplateIDs.append(templateID)
                 self?.plannedInvocationContexts.append(invocationContext)
                 self?.lastPlannedFilePaths = files.map(\.path)
+                self?.onPlan?()
                 return WorkflowPlanner().plan(
                     templateID: templateID,
                     files: files,
@@ -286,7 +288,7 @@ final class AutomationEngineTests: XCTestCase {
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(
             workflowExecution.plannedInvocationContexts,
-            [.trustedScopeAutomation(scopeDisplayName: "Receipts")]
+            [.trustedScopeInspection(scopeDisplayName: "Receipts")]
         )
         XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
         XCTAssertEqual(workflowExecution.lastRunFilePaths, [trustedFile.path])
@@ -666,10 +668,26 @@ final class AutomationEngineTests: XCTestCase {
         let coordinator = RecordingOrganizationCoordinator()
         let workflowExecution = WorkflowExecutionSpy()
         let notificationService = RecordingNotificationService()
-        let engine = makeEngine(
-            workflowExecution: workflowExecution.client,
+        let planExpectation = expectation(description: "scheduled notify-eligible workflow plan")
+        workflowExecution.onPlan = { planExpectation.fulfill() }
+        let scheduledPolicy = AutomationPolicy(
+            userMode: .scanAndOrganize,
+            effectiveMode: .scanAndOrganize,
+            scanIntervalMinutes: 30,
+            scanOnLaunch: true,
+            backlogThreshold: FormaConfig.Automation.backlogThreshold,
+            ageThresholdDays: FormaConfig.Automation.ageThresholdDays,
+            mlConfidenceThreshold: FormaConfig.Automation.mlAutoOrganizeConfidenceMinimum,
+            maxConsecutiveFailures: FormaConfig.Automation.maxConsecutiveFailures,
+            notificationsEnabled: true,
+            backlogReminderCooldownHours: FormaConfig.Automation.backlogReminderCooldownHours,
+            errorNotificationCooldownMinutes: FormaConfig.Automation.errorNotificationCooldownMinutes
+        )
+        let engine = AutomationEngine(
             notificationService: notificationService,
-            notificationsEnabled: true
+            clock: FixedClock(now: Date(timeIntervalSince1970: 1_700_000_000)),
+            policyResolver: { scheduledPolicy },
+            workflowExecution: workflowExecution.client
         )
 
         let file = try makeFile(
@@ -680,7 +698,7 @@ final class AutomationEngineTests: XCTestCase {
         )
         context.insert(file)
 
-        _ = try makeFolderScope(
+        let scope = try makeFolderScope(
             service: scopeService,
             sourceRoot: sourceRoot,
             relativeParentPath: "project-drop",
@@ -696,14 +714,66 @@ final class AutomationEngineTests: XCTestCase {
             scanProvider: provider
         )
 
-        await engine.triggerAutoOrganize()
+        engine.start()
+        await fulfillment(of: [planExpectation], timeout: 1.0)
+
+        let scheduledRecordsDeadline = Date().addingTimeInterval(1.0)
+        while Date() < scheduledRecordsDeadline {
+            let records = try context.fetch(
+                FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                    sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+                )
+            ).filter { $0.scopeID == scope.id }
+
+            if records.count >= 2 {
+                XCTAssertEqual(records.map(\.status), [.simulated, .executed])
+                break
+            }
+
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        let finalScheduledRecords = try context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+            )
+        ).filter { $0.scopeID == scope.id }
+        XCTAssertEqual(finalScheduledRecords.map(\.status), [.simulated, .executed])
 
         XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
         XCTAssertEqual(
             workflowExecution.plannedInvocationContexts,
-            [.trustedScopeAutomation(scopeDisplayName: "Design Assets")]
+            [.trustedScopeScheduled(scopeDisplayName: "Design Assets")]
         )
         XCTAssertTrue(notificationService.scopedAutoOrganizeSummaries.isEmpty)
+        engine.stop()
+    }
+
+    @MainActor
+    func testWorkflowInvocationContext_MapsTrustedScopeTriggerSources() {
+        let engine = makeEngine()
+
+        XCTAssertEqual(
+            engine.workflowInvocationContext(
+                for: .scheduledAutomationPass,
+                scopeDisplayName: "Receipts"
+            ),
+            .trustedScopeScheduled(scopeDisplayName: "Receipts")
+        )
+        XCTAssertEqual(
+            engine.workflowInvocationContext(
+                for: .realtimeAutomationPass,
+                scopeDisplayName: "Receipts"
+            ),
+            .trustedScopeRealtime(scopeDisplayName: "Receipts")
+        )
+        XCTAssertEqual(
+            engine.workflowInvocationContext(
+                for: .manualRefreshInspection,
+                scopeDisplayName: "Receipts"
+            ),
+            .trustedScopeInspection(scopeDisplayName: "Receipts")
+        )
     }
 
     @MainActor

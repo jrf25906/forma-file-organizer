@@ -54,7 +54,7 @@ final class WorkflowPlannerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path), "Planning must be read-only")
     }
 
-    func testPlan_DefaultInvocationContextIsReviewAdHoc() throws {
+    func testPlan_DefaultInvocationContextIsDashboardReview() throws {
         let sourceURL = try sourceDirectory.createFile(name: "April Receipt.pdf")
         let destinationURL = try destinationDirectory.createDirectory(name: "Receipts")
         let destination = try Destination.folder(from: destinationURL)
@@ -70,10 +70,10 @@ final class WorkflowPlannerTests: XCTestCase {
             .first(where: { $0.label == "invocationContext" })
             .map { String(describing: $0.value) }
 
-        XCTAssertEqual(invocationContext, "reviewAdHoc")
+        XCTAssertEqual(invocationContext, "dashboardReview")
     }
 
-    func testPlan_ReviewInvocation_AppendsLogButNotNotify() throws {
+    func testPlan_ProjectSpaceInvocation_AppendsLogButNotNotify() throws {
         let sourceURL = try sourceDirectory.createFile(name: "Project Plan.pdf")
         let destinationURL = try destinationDirectory.createDirectory(name: "ProjectDrop")
         let destination = try Destination.folder(from: destinationURL)
@@ -83,7 +83,7 @@ final class WorkflowPlannerTests: XCTestCase {
         let plan = planner.plan(
             templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
             files: [file],
-            invocationContext: .reviewAdHoc
+            invocationContext: .projectSpace(projectLabel: "Project Drop")
         )
 
         XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log"])
@@ -100,24 +100,24 @@ final class WorkflowPlannerTests: XCTestCase {
         let plan = planner.plan(
             templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
             files: [file],
-            invocationContext: .trustedScopeAutomation(scopeDisplayName: "Project Drop")
+            invocationContext: .trustedScopeScheduled(scopeDisplayName: "Project Drop")
         )
 
         XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log", "notify"])
         XCTAssertEqual(plan.files.first?.steps.map(\.kind.rawValue), ["rename", "tag", "move", "log", "notify"])
     }
 
-    func testPlan_TrustedScopeInvocation_SkipsNotifyForTemplatesWithoutPolicy() throws {
-        let sourceURL = try sourceDirectory.createFile(name: "April Receipt.pdf")
-        let destinationURL = try destinationDirectory.createDirectory(name: "Receipts")
+    func testPlan_TrustedScopeInspectionInvocation_SkipsNotifyEvenForOptedInTemplate() throws {
+        let sourceURL = try sourceDirectory.createFile(name: "Project Plan.pdf")
+        let destinationURL = try destinationDirectory.createDirectory(name: "ProjectDrop")
         let destination = try Destination.folder(from: destinationURL)
         let file = makeFile(path: sourceURL.path, destination: destination)
 
         let planner = WorkflowPlanner()
         let plan = planner.plan(
-            templateID: BuiltInWorkflowTemplate.StableID.receipts,
+            templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
             files: [file],
-            invocationContext: .trustedScopeAutomation(scopeDisplayName: "Receipts")
+            invocationContext: .trustedScopeInspection(scopeDisplayName: "Project Drop")
         )
 
         XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log"])

@@ -402,7 +402,7 @@ class BulkOperationViewModel: ObservableObject {
             return .notAttempted
         }
 
-        let plan = workflowExecution.plan(template.id, files, .reviewAdHoc)
+        let plan = workflowExecution.plan(template.id, files, .bulkOrganize)
         let partition = partitionWorkflowPlan(plan, files: files)
         lastFailedFilesWorkflowTemplateID = template.id
 
