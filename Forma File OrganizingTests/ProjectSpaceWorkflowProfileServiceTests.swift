@@ -364,6 +364,46 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
         }
     }
 
+    func testProfileService_LegacySuccessfulRun_UsesRunTemplateForSuccessBackfill() throws {
+        try withService { context, service in
+            let successfulLegacyRunID = UUID()
+            let successfulRunTemplate = BuiltInWorkflowTemplate.StableID.projectDrop
+            let changedPreferredTemplate = BuiltInWorkflowTemplate.StableID.receipts
+            let successfulRunEndedAt = Date(timeIntervalSince1970: 2_100)
+
+            let successfulLegacyRun = WorkflowRunRecord(
+                id: successfulLegacyRunID,
+                scopeID: UUID(),
+                workflowTemplateID: successfulRunTemplate,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 2_050),
+                endedAt: successfulRunEndedAt
+            )
+            context.insert(successfulLegacyRun)
+
+            let legacyProfile = ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: changedPreferredTemplate,
+                lastWorkflowRunID: successfulLegacyRunID,
+                lastWorkflowCompletedAt: successfulRunEndedAt,
+                workflowMemoryStatus: nil,
+                workflowMemorySchemaVersion: nil,
+                updatedAt: Date(timeIntervalSince1970: 2_120)
+            )
+            context.insert(legacyProfile)
+            try context.save()
+
+            try service.upsertPreferredTemplate(changedPreferredTemplate, for: "Alpha", at: Date(timeIntervalSince1970: 2_130))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(profile.preferredWorkflowTemplateID, changedPreferredTemplate)
+            XCTAssertEqual(profile.successfulTemplateID, successfulRunTemplate)
+            XCTAssertEqual(profile.successfulTemplateCount, 1)
+            XCTAssertEqual(profile.successfulTemplateLastSucceededAt, successfulRunEndedAt)
+        }
+    }
+
     func testProfileService_RepeatedSuccessfulRuns_StrengthenDominantTemplateMemory() throws {
         try withService { context, service in
             let projectLabel = "Alpha"

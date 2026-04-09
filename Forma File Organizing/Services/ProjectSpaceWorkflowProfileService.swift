@@ -150,14 +150,13 @@ struct ProjectSpaceWorkflowProfileService {
             .normalizedTriggerSurfaceSignal(profile.dominantTriggerSurface)
 
         if profile.successfulTemplateID == nil,
-           let legacyTemplateID = profile.preferredWorkflowTemplateID,
-           let legacySuccessTimestamp = legacySuccessfulRunTimestamp(
+           let legacySuccessMemory = legacySuccessfulRunMemory(
                for: profile,
                fallbackTimestamp: fallbackTimestamp
            ) {
-            profile.successfulTemplateID = legacyTemplateID
+            profile.successfulTemplateID = legacySuccessMemory.templateID
             profile.successfulTemplateCount = max(profile.successfulTemplateCount, 1)
-            profile.successfulTemplateLastSucceededAt = profile.successfulTemplateLastSucceededAt ?? legacySuccessTimestamp
+            profile.successfulTemplateLastSucceededAt = profile.successfulTemplateLastSucceededAt ?? legacySuccessMemory.succeededAt
         }
 
         if profile.successfulTemplateID == nil {
@@ -174,17 +173,19 @@ struct ProjectSpaceWorkflowProfileService {
             profile.workflowMemorySchemaVersion ?? ProjectSpaceWorkflowProfile.currentMemorySchemaVersion
     }
 
-    private func legacySuccessfulRunTimestamp(
+    private func legacySuccessfulRunMemory(
         for profile: ProjectSpaceWorkflowProfile,
         fallbackTimestamp: Date
-    ) -> Date? {
+    ) -> (templateID: String, succeededAt: Date)? {
         guard let lastWorkflowRunID = profile.lastWorkflowRunID,
               let run = runRecord(id: lastWorkflowRunID),
-              isSuccessfulMemoryOutcome(run.primaryStatus) else {
+              isSuccessfulMemoryOutcome(run.primaryStatus),
+              let templateID = ProjectSpaceWorkflowProfile.normalizedTemplateSignal(run.workflowTemplateID) else {
             return nil
         }
 
-        return run.endedAt ?? profile.lastWorkflowCompletedAt ?? fallbackTimestamp
+        let succeededAt = run.endedAt ?? profile.lastWorkflowCompletedAt ?? fallbackTimestamp
+        return (templateID, succeededAt)
     }
 
     private func runRecord(id: UUID) -> WorkflowRunRecord? {
