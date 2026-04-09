@@ -140,9 +140,7 @@ struct ProjectSpaceAutomationCoordinator {
             throw error
         }
 
-        try persistLatestRun(workflowRun, detail.projectLabel, now)
-
-        return try recordRun(
+        let automationRun = try recordRun(
             policy.id,
             policy.workflowTemplateID,
             triggerKind,
@@ -152,6 +150,10 @@ struct ProjectSpaceAutomationCoordinator {
             workflowRun.endedAt ?? now,
             now
         )
+
+        try? persistLatestRun(workflowRun, detail.projectLabel, now)
+
+        return automationRun
     }
 
     private func eligibleFiles(
@@ -164,16 +166,13 @@ struct ProjectSpaceAutomationCoordinator {
             return files
         }
 
-        let rowsByPath = Dictionary(
-            uniqueKeysWithValues: detail.files.map {
-                (URL(fileURLWithPath: $0.normalizedPath).standardizedFileURL.path, $0)
-            }
-        )
+        let rowsByPath = detailRowsByStandardizedPath(detail.files)
         var eligibleFiles: [FileItem] = []
 
         for file in files {
             let standardizedPath = URL(fileURLWithPath: file.path).standardizedFileURL.path
-            guard let fileRow = rowsByPath[standardizedPath] else {
+            guard let fileRows = rowsByPath[standardizedPath],
+                  let fileRow = preferredAdmissionRow(from: fileRows, detail: detail, now: timestamp) else {
                 continue
             }
 
@@ -194,6 +193,50 @@ struct ProjectSpaceAutomationCoordinator {
         }
 
         return eligibleFiles
+    }
+
+    private func detailRowsByStandardizedPath(
+        _ rows: [ProjectSpaceFileRow]
+    ) -> [String: [ProjectSpaceFileRow]] {
+        Dictionary(grouping: rows) { row in
+            URL(fileURLWithPath: row.normalizedPath).standardizedFileURL.path
+        }
+    }
+
+    private func preferredAdmissionRow(
+        from rows: [ProjectSpaceFileRow],
+        detail: ProjectSpaceDetail,
+        now: Date
+    ) -> ProjectSpaceFileRow? {
+        rows.max { lhs, rhs in
+            admissionPreference(
+                for: lhs,
+                detail: detail,
+                now: now
+            ) < admissionPreference(
+                for: rhs,
+                detail: detail,
+                now: now
+            )
+        }
+    }
+
+    private func admissionPreference(
+        for fileRow: ProjectSpaceFileRow,
+        detail: ProjectSpaceDetail,
+        now: Date
+    ) -> (Int, Date, String) {
+        let rank: Int
+        switch admissionDecision(for: fileRow, detail: detail, now: now) {
+        case .existingMember:
+            rank = 2
+        case .strongConfirmed:
+            rank = 1
+        case .insufficient:
+            rank = 0
+        }
+
+        return (rank, fileRow.lastActivityAt, fileRow.canonicalIdentity)
     }
 
     private func admissionDecision(

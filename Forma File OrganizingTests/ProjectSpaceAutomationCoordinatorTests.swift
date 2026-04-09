@@ -6,6 +6,7 @@ import SwiftData
 final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
     private enum InjectedFailure: Error {
         case admissionWrite
+        case persistLatestRun
         case recordRun
     }
 
@@ -563,6 +564,72 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         XCTAssertEqual(try environment.context.fetch(FetchDescriptor<ProjectSpaceAutomationRunRecord>()).count, 0)
     }
 
+    func testExecutePolicy_DuplicateDetailPathsPreferEligibleEvidenceWithoutCrashing() async throws {
+        let environment = try makeEnvironment()
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let record = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: environment.file.path,
+            displayName: environment.file.name,
+            timestamp: environment.timestamp
+        )
+        record.projectAssociation = "Alpha"
+        try environment.context.save()
+
+        let duplicatePathIdentity = "resource|duplicate-volume|duplicate-resource"
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: duplicatePathIdentity,
+                    path: environment.file.path,
+                    displayName: environment.file.name,
+                    sourceFolderHint: nil
+                ),
+                ProjectSpaceFileRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    path: environment.file.path,
+                    displayName: environment.file.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: "Alpha"
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-60)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    fileDisplayName: environment.file.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-60),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                )
+            ]
+        )
+
+        _ = try await environment.coordinator.executePolicy(
+            environment.policy,
+            detail: detail,
+            files: [environment.file],
+            triggerKind: .manual,
+            now: environment.timestamp
+        )
+
+        XCTAssertEqual(environment.workflowExecution.lastPlannedFilePaths, [environment.file.path])
+        XCTAssertEqual(environment.workflowExecution.lastRunFilePaths, [environment.file.path])
+        XCTAssertEqual(record.projectAssociation, "Alpha")
+        XCTAssertTrue(record.historyEntries.filter { $0.eventKind == .noted }.isEmpty)
+    }
+
     func testExecutePolicy_PostSuccessRunRecordPersistenceFailureDoesNotCreateFailedAutomationRun() async throws {
         let environment = try makeEnvironment(
             recordRun: { _, _, _, _, _, _, _, _ in
@@ -627,6 +694,72 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         XCTAssertEqual(environment.workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
         XCTAssertEqual(try environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).count, 1)
         XCTAssertEqual(try environment.context.fetch(FetchDescriptor<ProjectSpaceAutomationRunRecord>()).count, 0)
+    }
+
+    func testExecutePolicy_PostSuccessLatestRunPersistenceFailureStillPersistsRunRecord() async throws {
+        let environment = try makeEnvironment(
+            persistLatestRun: { _, _, _ in
+                throw InjectedFailure.persistLatestRun
+            }
+        )
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let record = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: environment.file.path,
+            displayName: environment.file.name,
+            timestamp: environment.timestamp
+        )
+        record.projectAssociation = "Alpha"
+        try environment.context.save()
+
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    path: environment.file.path,
+                    displayName: environment.file.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: "Alpha"
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-60)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    fileDisplayName: environment.file.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-60),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                )
+            ]
+        )
+
+        let runRecord = try await environment.coordinator.executePolicy(
+            environment.policy,
+            detail: detail,
+            files: [environment.file],
+            triggerKind: .manual,
+            now: environment.timestamp
+        )
+
+        XCTAssertEqual(environment.workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(try environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).count, 1)
+
+        let automationRuns = try environment.context.fetch(FetchDescriptor<ProjectSpaceAutomationRunRecord>())
+        XCTAssertEqual(automationRuns.count, 1)
+        XCTAssertEqual(automationRuns.first?.id, runRecord.id)
+        XCTAssertEqual(automationRuns.first?.status, .succeeded)
     }
 
     private func makeEnvironment(

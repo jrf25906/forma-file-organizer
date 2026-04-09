@@ -720,22 +720,23 @@ final class FileMetadataFoundationService {
             bookmarkBackedRootURLs: bookmarkBackedRootURLs
         )
             .filter { $0.normalizedLabel == selectedLabel }
+        let uniqueMembers = coalescedProjectSpaceMembers(members)
 
-        guard !members.isEmpty else { return nil }
+        guard !uniqueMembers.isEmpty else { return nil }
 
-        let memberContexts = members.map { member in
+        let memberContexts = uniqueMembers.map { member in
             ProjectSpaceMemoryResolver.MemberContext(
                 record: member.record,
                 normalizedPath: member.normalizedPath
             )
         }
         let memoryResolver = ProjectSpaceMemoryResolver()
-        let fallbackSourceFolderHints = sourceFolderHints(for: members)
+        let fallbackSourceFolderHints = sourceFolderHints(for: uniqueMembers)
         let overview: ProjectSpaceOverview = if isProjectSpaceMemoryEnabled {
             memoryResolver.buildOverview(for: memberContexts)
         } else {
             ProjectSpaceOverview(
-                currentFileCount: members.count,
+                currentFileCount: uniqueMembers.count,
                 activeFolderCount: fallbackSourceFolderHints.count,
                 activeFolderHints: fallbackSourceFolderHints
             )
@@ -743,11 +744,11 @@ final class FileMetadataFoundationService {
 
         let summary = ProjectSpaceSummary(
             normalizedLabel: selectedLabel,
-            fileCount: members.count,
-            lastActivityAt: lastActivityAt(for: members.map(\.record)),
+            fileCount: uniqueMembers.count,
+            lastActivityAt: lastActivityAt(for: uniqueMembers.map(\.record)),
             sourceFolderHints: fallbackSourceFolderHints
         )
-        let files = members
+        let files = uniqueMembers
             .map { member in
                 ProjectSpaceFileRow(
                     canonicalIdentity: member.record.canonicalIdentity,
@@ -1142,6 +1143,31 @@ final class FileMetadataFoundationService {
 
     private func sourceFolderHints(for members: [ProjectSpaceMember]) -> [String] {
         projectSpaceSourceFolderHints(for: members.map(\.normalizedPath))
+    }
+
+    private func coalescedProjectSpaceMembers(
+        _ members: [ProjectSpaceMember]
+    ) -> [ProjectSpaceMember] {
+        Dictionary(grouping: members, by: \.normalizedPath)
+            .values
+            .compactMap { group in
+                group.max { lhs, rhs in
+                    projectSpaceMemberPreference(lhs) < projectSpaceMemberPreference(rhs)
+                }
+            }
+            .sorted { lhs, rhs in
+                if lhs.normalizedPath != rhs.normalizedPath {
+                    return lhs.normalizedPath < rhs.normalizedPath
+                }
+                return lhs.record.canonicalIdentity < rhs.record.canonicalIdentity
+            }
+    }
+
+    private func projectSpaceMemberPreference(
+        _ member: ProjectSpaceMember
+    ) -> (Int, Date, String) {
+        let identityRank = member.record.identityKind == .resourceIdentifier ? 1 : 0
+        return (identityRank, lastActivityAt(for: member.record), member.record.canonicalIdentity)
     }
 
     func projectSpaceSourceFolderHints(

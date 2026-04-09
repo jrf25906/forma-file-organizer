@@ -79,6 +79,35 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         return record
     }
 
+    @discardableResult
+    private func insertResourceBackedRecord(
+        in context: ModelContext,
+        path: String,
+        displayName: String,
+        fileExtension: String,
+        resourceIdentifier: String,
+        volumeIdentifier: String,
+        timestamp: Date
+    ) throws -> FileMetadataRecord {
+        let identity = FileMetadataRecord.Identity.resourceBacked(
+            resourceIdentifier: resourceIdentifier,
+            volumeIdentifier: volumeIdentifier,
+            path: path
+        )
+        let record = FileMetadataRecord(
+            canonicalIdentity: identity.canonicalIdentity,
+            identityKind: .resourceIdentifier,
+            lastKnownPath: identity.normalizedPath,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            firstSeenAt: timestamp,
+            lastSeenAt: timestamp
+        )
+        context.insert(record)
+        try context.save()
+        return record
+    }
+
     func testProjectSpaceRetrieval_ReturnsResolvableSummariesAndDetail() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 
@@ -240,6 +269,44 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(notedEntries.count, 1)
         XCTAssertEqual(notedEntries.first?.sourceSurface, .organize)
         XCTAssertEqual(notedEntries.first?.detailsSummary, "Admitted to project space Alpha before policy execution.")
+    }
+
+    func testProjectSpaceDetail_CoalescesDuplicateRowsForSharedPath() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sharedURL = try tempDirectory.createFile(name: "Inbox/shared.txt", contents: "shared")
+        let pathFallbackRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: sharedURL.path,
+            displayName: sharedURL.lastPathComponent,
+            fileExtension: "txt",
+            timestamp: Date(timeIntervalSince1970: 1_000)
+        )
+        pathFallbackRecord.projectAssociation = "Alpha"
+
+        let resourceBackedRecord = try insertResourceBackedRecord(
+            in: environment.context,
+            path: sharedURL.path,
+            displayName: sharedURL.lastPathComponent,
+            fileExtension: "txt",
+            resourceIdentifier: "shared-resource",
+            volumeIdentifier: "shared-volume",
+            timestamp: Date(timeIntervalSince1970: 1_100)
+        )
+        resourceBackedRecord.projectAssociation = "Alpha"
+
+        try environment.context.save()
+
+        let detail = try XCTUnwrap(environment.metadataService.fetchProjectSpaceDetail(for: "Alpha"))
+        XCTAssertEqual(detail.summary.fileCount, 1)
+        XCTAssertEqual(detail.overview.currentFileCount, 1)
+        XCTAssertEqual(detail.files.count, 1)
+        XCTAssertEqual(detail.files.first?.path, sharedURL.path)
+        XCTAssertEqual(detail.files.first?.canonicalIdentity, resourceBackedRecord.canonicalIdentity)
     }
 
     func testOrganizeFile_UpdatesMetadataRecordAndAppendsHistory() async throws {
