@@ -98,16 +98,16 @@ struct SidebarView: View {
                 SettingsLink {
                     HStack(spacing: 6) {
                         Image(systemName: "gearshape")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.formaBodyMedium)
 
                         Text("Settings")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.formaBodyMedium)
                     }
                     .foregroundColor(isSettingsHovered ? .formaLabel : .formaSecondaryLabelHigh)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                             .fill(isSettingsHovered ? footerHoverFill : Color.clear)
                     )
                 }
@@ -126,7 +126,7 @@ struct SidebarView: View {
                         .foregroundColor(isHelpHovered ? .formaLabel : .formaSecondaryLabelHigh)
                         .frame(width: 26, height: 26)
                         .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                                 .fill(isHelpHovered ? footerHoverFill : Color.clear)
                         )
                 }
@@ -236,7 +236,7 @@ struct SidebarView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.formaCaptionSemibold)
                             .foregroundStyle(Color.formaTertiaryLabel)
                         Text("Subfolders")
                             .font(.formaCaption)
@@ -504,12 +504,12 @@ private struct SidebarNativeRow: View {
         Button(action: action) {
             HStack(spacing: 9) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.formaBodyMedium)
                     .foregroundColor(iconColor)
                     .frame(width: 18, alignment: .center)
 
                 Text(title)
-                    .font(.system(size: 13, weight: isSelected ? .medium : .regular))
+                    .font(isSelected ? .formaBodyMedium : .formaBody)
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
@@ -596,12 +596,12 @@ private struct SidebarActionRow: View {
         Button(action: action) {
             HStack(spacing: 9) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.formaBodyMedium)
                     .foregroundColor(.formaSecondaryLabelHigh)
                     .frame(width: 18, alignment: .center)
 
                 Text(title)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.formaBody)
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
@@ -612,12 +612,12 @@ private struct SidebarActionRow: View {
             .frame(minHeight: 30)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                     .fill(isHovered
                         ? Color.formaControlBackground.opacity(colorScheme == .dark ? 0.65 : 0.9)
                         : Color.clear)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hovering in
