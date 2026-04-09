@@ -91,6 +91,25 @@ struct DefaultPanelView: View {
         return dashboardViewModel.selectedProjectSpaceDetail
     }
 
+    private var projectSpaceWorkflowSectionSnapshot: ProjectSpaceDetailView.Snapshot.WorkflowSectionSnapshot? {
+        guard activeProjectSpaceDetail != nil else { return nil }
+
+        let selectedTemplateText = WorkflowTemplateCatalog
+            .template(for: dashboardViewModel.selectedProjectSpaceWorkflowTemplateID)?
+            .displayName ?? "No workflow template selected"
+
+        return .init(
+            sectionTitle: "Workflow",
+            selectedTemplateText: selectedTemplateText,
+            helperText: "Pick a built-in workflow template, preview it here, then run it manually for this project space.",
+            previewText: dashboardViewModel.projectSpaceWorkflowSimulationPreview?.summaryText,
+            organizeButtonTitle: "Organize Project Space",
+            isOrganizeButtonEnabled: dashboardViewModel.projectSpaceWorkflowDisabledReason == nil,
+            disabledReasonText: dashboardViewModel.projectSpaceWorkflowDisabledReason,
+            latestRunSummaryText: dashboardViewModel.selectedProjectSpaceWorkflowLatestRunSummary?.summaryText
+        )
+    }
+
     private var showsProjectSpacesSection: Bool {
         projectSpacesFeatureEnabled && !dashboardViewModel.projectSpaces.isEmpty
     }
@@ -183,7 +202,19 @@ struct DefaultPanelView: View {
 
                     inspectorSectionCard(emphasized: true) {
                         ProjectSpaceDetailView(
-                            detail: detail,
+                            snapshot: ProjectSpaceDetailView.Snapshot(
+                                detail: detail,
+                                workflowSection: projectSpaceWorkflowSectionSnapshot
+                            ),
+                            workflowTemplateID: $dashboardViewModel.selectedProjectSpaceWorkflowTemplateID,
+                            workflowSimulationPreview: dashboardViewModel.projectSpaceWorkflowSimulationPreview,
+                            isWorkflowTemplatePickerEnabled: dashboardViewModel.isProjectSpaceWorkflowTemplatePickerEnabled,
+                            isOrganizingProjectSpaceWorkflow: dashboardViewModel.isProjectSpaceWorkflowInProgress,
+                            onOrganizeProjectSpace: {
+                                Task { @MainActor in
+                                    await dashboardViewModel.organizeSelectedProjectSpace()
+                                }
+                            },
                             onBack: {
                                 dashboardViewModel.closeProjectSpaceDetail()
                             },

@@ -13,6 +13,9 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `NotificationPolicy`
     - `requiredActionShape`
   - `WorkflowInvocationContext`
+    - `.projectSpace(projectLabel:)`
+    - `.trustedScopeRealtime(scopeDisplayName:)`
+    - `.trustedScopeInspection(scopeDisplayName:)`
   - `WorkflowTemplateCatalog`
     - `shippedTemplates`
     - `template(for:)`
@@ -68,6 +71,33 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `DashboardViewModel.latestWorkflowInspectorSummary(for:context:)`
   - Workflow Engine v2 now ships the built-in `rename -> tag -> move -> log` planner/runner path end to end, with template-gated trusted-scope `notify` for opted-in templates such as `Project Drop Zone`.
   - Workflow audit semantics are explicit: primary run status and rollback status stay separate, per-step outcomes and per-file actions are persisted independently, side-effect failures surface `completedWithIssues` without rolling back durable success, and rollback state is projected back into trusted-scope detail, activity, and inspector surfaces without flattening failures into generic success copy.
+- Project-space workflow profiles and manual workflow execution
+  - `ProjectSpaceWorkflowProfile`
+    - `normalizedProjectLabel`
+    - `preferredWorkflowTemplateID`
+    - `lastWorkflowRunID`
+    - `lastWorkflowCompletedAt`
+    - `updatedAt`
+  - `ProjectSpaceWorkflowProfileService`
+    - `profile(normalizedProjectLabel:)`
+    - `upsertPreferredTemplate(_:for:at:)`
+    - `recordLatestRun(_:for:at:)`
+  - `DashboardViewModel`
+    - `selectedProjectSpaceWorkflowTemplateID`
+    - `projectSpaceWorkflowSimulationPreview`
+    - `selectedProjectSpaceWorkflowLatestRunSummary`
+    - `isProjectSpaceWorkflowTemplatePickerEnabled`
+    - `projectSpaceWorkflowDisabledReason`
+    - `organizeSelectedProjectSpace()`
+  - `ProjectSpaceWorkflowRunSummary`
+  - `ProjectSpaceDetailView.Snapshot.WorkflowSectionSnapshot`
+  - `WorkflowInvocationContext`
+    - `.projectSpace(projectLabel:)`
+  - `ActivityItem.WorkflowTriggerSurface`
+    - `.projectSpace`
+  - Project spaces can now remember a preferred built-in workflow template and their latest workflow run without introducing a separate durable project entity.
+  - Project-space detail now exposes a manual-only workflow section with remembered template selection, simulation preview, disabled-state guidance, and latest-run summary, and `Organize Project Space` runs all currently reachable project-space files through the built-in workflow pipeline after explicit-selection preparation.
+  - Project-space-triggered runs now carry their own workflow invocation/activity label instead of collapsing into review or trusted-scope wording.
 - Workflow Engine v2 Task 5 ad hoc organize routing
   - `WorkflowExecutionClient`
     - `plan(templateID:files:invocationContext:)`
@@ -114,7 +144,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `ProjectSpaceDetailView`
   - Project spaces are now a shipped read-only retrieval surface in the dashboard, derived from durable `projectAssociation` labels already stored on `FileMetadataRecord`.
   - Membership is strict: a file appears only when it has a durable `projectAssociation` and still resolves locally through the metadata foundation's existing path/bookmark lookup flow.
-  - This slice does not add manual metadata editing, historical placeholder rows for missing files, or workflow execution from project spaces; broader project-space evolution and workflow-memory expansion remain future work.
+  - The initial retrieval slice does not add manual metadata editing or historical placeholder rows for missing files; later slices layer in richer project-space memory and manual workflow execution separately.
 - Cross-folder project spaces v2
   - `FeatureFlagService.Feature.projectSpaceMemory`
   - `ProjectSpaceOverview`

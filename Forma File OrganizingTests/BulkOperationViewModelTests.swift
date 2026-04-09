@@ -220,6 +220,45 @@ final class BulkOperationViewModelTests: XCTestCase {
         XCTAssertTrue(workflowExecution.ranTemplateIDs.isEmpty)
         XCTAssertEqual(coordinator.organizeMultipleFilesCallCount, 0)
     }
+
+    func testRunPreparedWorkflowExecution_ReturnsRunRecordAndMarksRunnableFilesCompleted() async throws {
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let sourceURL = try tempDirectory.createFile(name: "Inbox/Prepared Receipt.pdf", contents: "receipt")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
+            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+
+        let execution = viewModel.prepareWorkflowExecution(
+            [file],
+            template: try XCTUnwrap(WorkflowTemplateCatalog.template(for: BuiltInWorkflowTemplate.StableID.receipts)),
+            invocationContext: .projectSpace(projectLabel: "Alpha")
+        )
+
+        let runRecord = try await viewModel.runPreparedWorkflowExecution(execution, context: modelContext)
+
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.plannedInvocationContexts, [.projectSpace(projectLabel: "Alpha")])
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(runRecord.id, workflowExecution.runID)
+        XCTAssertEqual(runRecord.primaryStatus, .succeeded)
+        XCTAssertEqual(file.status, .completed)
+    }
 }
 
 @MainActor
@@ -244,6 +283,7 @@ private final class WorkflowExecutionSpy {
     var plannedInvocationContexts: [WorkflowInvocationContext] = []
     var ranTemplateIDs: [String] = []
     var lastRunFilePaths: [String] = []
+    var runID = UUID()
     var onRun: (() -> Void)?
 
     lazy var client = WorkflowExecutionClient(
@@ -265,6 +305,7 @@ private final class WorkflowExecutionSpy {
                 self?.onRun?()
             }
             return WorkflowRunRecord(
+                id: await MainActor.run { self?.runID ?? UUID() },
                 scopeID: scopeID,
                 workflowTemplateID: templateID,
                 primaryStatus: .succeeded,

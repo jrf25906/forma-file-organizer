@@ -416,12 +416,7 @@ class BulkOperationViewModel: ObservableObject {
         lastFailedFilesWorkflowTemplateID = template.id
 
         guard !execution.partition.runnableFiles.isEmpty else {
-            showOrganizeFeedback(
-                successCount: 0,
-                totalCount: totalCount,
-                failedCount: execution.partition.blockedFiles.count,
-                failedFiles: execution.partition.blockedFiles
-            )
+            presentPreparedWorkflowExecutionFeedback(execution, totalCount: totalCount)
             return .notAttempted
         }
 
@@ -436,20 +431,15 @@ class BulkOperationViewModel: ObservableObject {
         do {
             _ = try await runPreparedWorkflowExecution(execution, scopeID: workflowScopeID, context: context)
             bulkOperationProgress = 1.0
-            showOrganizeFeedback(
-                successCount: execution.partition.runnableFiles.count,
+            presentPreparedWorkflowExecutionFeedback(
+                execution,
                 totalCount: totalCount,
-                failedCount: execution.partition.blockedFiles.count,
-                failedFiles: execution.partition.blockedFiles,
                 celebrationStyle: .workflowExecution
             )
             onOperationComplete?(execution.partition.runnableFiles.count, execution.partition.blockedFiles.count)
             return .executionAttempted
         } catch {
-            let failedFiles = execution.partition.blockedFiles + execution.partition.runnableFiles
-            lastBatchFailedFiles = failedFiles
-            showFailedFilesSheet = !failedFiles.isEmpty
-            onShowToast?(error.localizedDescription, false)
+            presentPreparedWorkflowExecutionFailure(execution, error: error)
             onOperationComplete?(0, totalCount)
             return .executionAttempted
         }
@@ -486,6 +476,30 @@ class BulkOperationViewModel: ObservableObject {
         }
 
         return runRecord
+    }
+
+    func presentPreparedWorkflowExecutionFeedback(
+        _ execution: PreparedWorkflowExecution,
+        totalCount: Int,
+        celebrationStyle: CelebrationDisplayStyle = .workflowExecution
+    ) {
+        showOrganizeFeedback(
+            successCount: execution.partition.runnableFiles.count,
+            totalCount: totalCount,
+            failedCount: execution.partition.blockedFiles.count,
+            failedFiles: execution.partition.blockedFiles,
+            celebrationStyle: celebrationStyle
+        )
+    }
+
+    func presentPreparedWorkflowExecutionFailure(
+        _ execution: PreparedWorkflowExecution,
+        error: Error
+    ) {
+        let failedFiles = execution.partition.blockedFiles + execution.partition.runnableFiles
+        lastBatchFailedFiles = failedFiles
+        showFailedFilesSheet = !failedFiles.isEmpty
+        onShowToast?(error.localizedDescription, false)
     }
 
     /// Show appropriate feedback based on operation results
