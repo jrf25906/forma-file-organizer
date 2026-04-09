@@ -1,5 +1,63 @@
 import Foundation
 
+enum ProjectSpaceAutomationBoardGroupKind: String, CaseIterable, Hashable, Sendable {
+    case recommended
+    case draft
+    case active
+    case paused
+}
+
+struct ProjectSpaceAutomationPolicyDetail: Identifiable, Hashable, Sendable {
+    let id: UUID
+    let workflowTemplateID: String
+    let workflowTemplateDisplayName: String
+    let state: ProjectSpaceAutomationPolicyState
+    let stateText: String
+    let triggerSummaryText: String
+    let admissionSummaryText: String
+    let healthBadgeText: String
+    let healthMessageText: String
+    let latestRunSummaryText: String?
+}
+
+struct ProjectSpaceAutomationBoardGroup: Identifiable, Hashable, Sendable {
+    let kind: ProjectSpaceAutomationBoardGroupKind
+    let title: String
+    let policies: [ProjectSpaceAutomationPolicyDetail]
+
+    var id: String { kind.rawValue }
+}
+
+struct ProjectSpaceAutomationBoard: Hashable, Sendable {
+    let title: String
+    let subtitle: String
+    let composerButtonTitle: String
+    let groups: [ProjectSpaceAutomationBoardGroup]
+}
+
+struct ProjectSpaceAutomationComposerDraft: Hashable, Sendable {
+    let normalizedProjectLabel: String
+    var workflowTemplateID: String?
+    var triggerKinds: [ProjectSpaceAutomationTriggerKind]
+    var admissionMode: ProjectSpaceAutomationAdmissionMode
+    var state: ProjectSpaceAutomationPolicyState
+
+    init(
+        normalizedProjectLabel: String,
+        workflowTemplateID: String? = nil,
+        triggerKinds: [ProjectSpaceAutomationTriggerKind] = [.manual],
+        admissionMode: ProjectSpaceAutomationAdmissionMode = .manualReview,
+        state: ProjectSpaceAutomationPolicyState = .draft
+    ) {
+        self.normalizedProjectLabel = normalizedProjectLabel
+        self.workflowTemplateID = workflowTemplateID
+        self.triggerKinds = ProjectSpaceAutomationPolicy.normalizedTriggerKindRaws(triggerKinds)
+            .compactMap(ProjectSpaceAutomationTriggerKind.init(rawValue:))
+        self.admissionMode = admissionMode
+        self.state = state
+    }
+}
+
 struct ProjectSpaceSummary: Identifiable, Hashable, Sendable {
     let projectLabel: String
     let fileCount: Int

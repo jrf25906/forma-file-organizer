@@ -359,6 +359,11 @@ class DashboardViewModel: ObservableObject {
     @Published private(set) var selectedProjectSpace: ProjectSpaceSummary?
     @Published private(set) var selectedProjectSpaceDetail: ProjectSpaceDetail?
     @Published private(set) var isShowingProjectSpaceDetail: Bool = false
+    @Published private(set) var selectedProjectSpaceAutomationBoard: ProjectSpaceAutomationBoard?
+    @Published private(set) var selectedProjectSpaceAutomationPolicyDetail: ProjectSpaceAutomationPolicyDetail?
+    @Published private(set) var isProjectSpaceAutomationPolicySheetPresented: Bool = false
+    @Published private(set) var isProjectSpaceAutomationComposerPresented: Bool = false
+    @Published var projectSpaceAutomationComposerDraft: ProjectSpaceAutomationComposerDraft?
     @Published private(set) var isProjectSpaceWorkflowInProgress: Bool = false
     @Published private(set) var isPreparingProjectSpaceWorkflowPreview: Bool = false
     @Published private(set) var projectSpaceWorkflowSimulationPreview: WorkflowTemplateSimulationPreview?
@@ -398,6 +403,7 @@ class DashboardViewModel: ObservableObject {
     private var deferredReviewPathsByScope: [ReviewChunkScopeKey: Set<String>] = [:]
     private var projectSpaceWorkflowCandidateFiles: [FileItem] = []
     private var isSynchronizingProjectSpaceWorkflowState = false
+    private var selectedProjectSpaceAutomationPolicyID: UUID?
 
     // MARK: - Initialization
 
@@ -882,6 +888,221 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
+    func presentProjectSpaceAutomationComposer() {
+        guard isProjectSpaceAutomationBoardEnabled,
+              let selectedProjectSpace else {
+            return
+        }
+
+        projectSpaceAutomationComposerDraft = ProjectSpaceAutomationComposerDraft(
+            normalizedProjectLabel: selectedProjectSpace.normalizedLabel
+        )
+        isProjectSpaceAutomationComposerPresented = true
+    }
+
+    func dismissProjectSpaceAutomationComposer() {
+        isProjectSpaceAutomationComposerPresented = false
+        projectSpaceAutomationComposerDraft = nil
+    }
+
+    func createProjectSpaceAutomationPolicyFromComposer() {
+        guard isProjectSpaceAutomationBoardEnabled,
+              let modelContext,
+              let draft = projectSpaceAutomationComposerDraft,
+              let selectedProjectSpaceDetail else {
+            return
+        }
+
+        do {
+            let service = ProjectSpaceAutomationService(modelContext: modelContext)
+            _ = try service.createOrUpdatePolicy(
+                normalizedProjectLabel: draft.normalizedProjectLabel,
+                workflowTemplateID: draft.workflowTemplateID ?? "",
+                triggerKinds: draft.triggerKinds,
+                admissionMode: draft.admissionMode,
+                state: draft.state,
+                updatedAt: Date()
+            )
+            dismissProjectSpaceAutomationComposer()
+            loadProjectSpaceAutomationState(for: selectedProjectSpaceDetail)
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+        }
+    }
+
+    func presentProjectSpaceAutomationPolicy(id: UUID) {
+        selectedProjectSpaceAutomationPolicyID = id
+        isProjectSpaceAutomationPolicySheetPresented = true
+        refreshSelectedProjectSpaceAutomationPolicyDetail()
+    }
+
+    func dismissProjectSpaceAutomationPolicy() {
+        isProjectSpaceAutomationPolicySheetPresented = false
+        selectedProjectSpaceAutomationPolicyID = nil
+        selectedProjectSpaceAutomationPolicyDetail = nil
+    }
+
+    func pauseSelectedProjectSpaceAutomationPolicy() {
+        guard isProjectSpaceAutomationBoardEnabled,
+              let modelContext,
+              let policyID = selectedProjectSpaceAutomationPolicyID else {
+            return
+        }
+
+        do {
+            try ProjectSpaceAutomationService(modelContext: modelContext).pausePolicy(id: policyID, at: Date())
+            if let detail = selectedProjectSpaceDetail {
+                loadProjectSpaceAutomationState(for: detail)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+        }
+    }
+
+    func resumeSelectedProjectSpaceAutomationPolicy() {
+        guard isProjectSpaceAutomationBoardEnabled,
+              let modelContext,
+              let policyID = selectedProjectSpaceAutomationPolicyID else {
+            return
+        }
+
+        do {
+            try ProjectSpaceAutomationService(modelContext: modelContext).resumePolicy(id: policyID, at: Date())
+            if let detail = selectedProjectSpaceDetail {
+                loadProjectSpaceAutomationState(for: detail)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+        }
+    }
+
+    func runSelectedProjectSpaceAutomationPolicyManually() async {
+        guard isProjectSpaceAutomationBoardEnabled,
+              let modelContext,
+              featureFlags.isEnabled(.metadataFoundation),
+              featureFlags.isEnabled(.projectSpaces),
+              featureFlags.isEnabled(.workflowEngineV2),
+              let policyID = selectedProjectSpaceAutomationPolicyID,
+              let detail = resolveCurrentProjectSpaceDetail(for: modelContext),
+              let policy = ProjectSpaceAutomationService(modelContext: modelContext).policy(id: policyID),
+              let template = WorkflowTemplateCatalog.template(for: policy.workflowTemplateID) else {
+            return
+        }
+
+        isProjectSpaceWorkflowInProgress = true
+        defer { isProjectSpaceWorkflowInProgress = false }
+
+        let now = Date()
+        let profileService = ProjectSpaceWorkflowProfileService(modelContext: modelContext)
+        do {
+            try profileService.upsertPreferredTemplate(
+                template.id,
+                for: detail.summary.normalizedLabel,
+                at: now
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+            return
+        }
+
+        let preparedFiles = await prepareProjectSpaceWorkflowCandidateFiles(
+            for: detail,
+            context: modelContext,
+            showsErrors: true
+        )
+        projectSpaceWorkflowCandidateFiles = preparedFiles
+        refreshProjectSpaceWorkflowPreview()
+        refreshSelectedProjectSpaceAutomationPolicyDetail()
+
+        let execution = bulkOperationViewModel.prepareWorkflowExecution(
+            preparedFiles,
+            template: template,
+            invocationContext: .projectPolicyManual(
+                projectLabel: detail.projectLabel,
+                policyName: template.displayName
+            )
+        )
+        let workflowScopeID = UUID()
+
+        guard !execution.partition.runnableFiles.isEmpty else {
+            if preparedFiles.isEmpty {
+                showToast(
+                    message: "No reachable files in this project space are available to organize.",
+                    canUndo: false
+                )
+            } else {
+                bulkOperationViewModel.presentPreparedWorkflowExecutionFeedback(
+                    execution,
+                    totalCount: preparedFiles.count
+                )
+            }
+            loadProjectSpaceAutomationState(for: detail)
+            return
+        }
+
+        let automationService = ProjectSpaceAutomationService(modelContext: modelContext)
+
+        do {
+            let runRecord = try await bulkOperationViewModel.runPreparedWorkflowExecution(
+                execution,
+                scopeID: workflowScopeID,
+                context: modelContext
+            )
+            persistProjectSpaceLatestRunBestEffort(
+                runRecord,
+                profileService: profileService,
+                normalizedProjectLabel: detail.summary.normalizedLabel,
+                at: now
+            )
+            _ = try? automationService.recordRun(
+                policyID: policy.id,
+                workflowTemplateID: template.id,
+                triggerKind: .manual,
+                workflowRunID: runRecord.id,
+                status: automationRunStatus(for: runRecord.primaryStatus),
+                startedAt: runRecord.startedAt,
+                endedAt: runRecord.endedAt ?? now,
+                createdAt: now
+            )
+            bulkOperationViewModel.presentPreparedWorkflowExecutionFeedback(
+                execution,
+                totalCount: preparedFiles.count
+            )
+            handleMetadataMutationCompletion()
+        } catch {
+            if let failedRun = latestWorkflowRun(
+                scopeID: workflowScopeID,
+                workflowTemplateID: template.id,
+                context: modelContext
+            ) {
+                persistProjectSpaceLatestRunBestEffort(
+                    failedRun,
+                    profileService: profileService,
+                    normalizedProjectLabel: detail.summary.normalizedLabel,
+                    at: now
+                )
+                _ = try? automationService.recordRun(
+                    policyID: policy.id,
+                    workflowTemplateID: template.id,
+                    triggerKind: .manual,
+                    workflowRunID: failedRun.id,
+                    status: automationRunStatus(for: failedRun.primaryStatus),
+                    startedAt: failedRun.startedAt,
+                    endedAt: failedRun.endedAt ?? now,
+                    createdAt: now
+                )
+            }
+
+            bulkOperationViewModel.presentPreparedWorkflowExecutionFailure(execution, error: error)
+            errorMessage = error.localizedDescription
+            handleMetadataMutationCompletion()
+        }
+    }
+
     func openFileFromProjectSpace(_ fileRow: ProjectSpaceFileRow) {
         if let file = scanViewModel.allFiles.first(where: { $0.path == fileRow.normalizedPath }) {
             openInspector(for: file)
@@ -1122,8 +1343,65 @@ class DashboardViewModel: ObservableObject {
             invocationContext: .inspector
         )
     }
+    var isProjectSpaceAutomationBoardEnabled: Bool {
+        featureFlags.isEnabled(.projectSpaceAutomationBoard)
+    }
     var isProjectSpaceWorkflowTemplatePickerEnabled: Bool {
-        featureFlags.isEnabled(.workflowEngineV2) && !isProjectSpaceWorkflowInProgress
+        featureFlags.isEnabled(.workflowEngineV2) &&
+            !isProjectSpaceWorkflowInProgress &&
+            !isProjectSpaceAutomationBoardEnabled
+    }
+    var selectedProjectSpaceAutomationPolicyPreview: WorkflowTemplateSimulationPreview? {
+        guard isProjectSpaceAutomationBoardEnabled,
+              let detail = selectedProjectSpaceDetail,
+              let policy = selectedProjectSpaceAutomationPolicyDetail else {
+            return nil
+        }
+
+        return WorkflowTemplateSimulationPreview.make(
+            templateID: policy.workflowTemplateID,
+            files: projectSpaceWorkflowCandidateFiles,
+            invocationContext: .projectPolicyManual(
+                projectLabel: detail.projectLabel,
+                policyName: policy.workflowTemplateDisplayName
+            )
+        )
+    }
+    var selectedProjectSpaceAutomationManualRunDisabledReason: String? {
+        guard isProjectSpaceAutomationBoardEnabled else {
+            return nil
+        }
+
+        guard selectedProjectSpaceDetail != nil else {
+            return nil
+        }
+
+        if isProjectSpaceWorkflowInProgress {
+            return "Project policy execution is already running."
+        }
+
+        guard let policy = selectedProjectSpaceAutomationPolicyDetail,
+              WorkflowTemplateCatalog.template(for: policy.workflowTemplateID) != nil else {
+            return "Choose a project policy before running it."
+        }
+
+        if isPreparingProjectSpaceWorkflowPreview {
+            return "Preparing reachable files for this project space."
+        }
+
+        if let preview = selectedProjectSpaceAutomationPolicyPreview {
+            if preview.readyToRunCount == 0 {
+                return preview.blockedCount > 0
+                    ? "All reachable files in this project space are blocked in simulation."
+                    : "No reachable files in this project space are available to organize."
+            }
+
+            return nil
+        }
+
+        return projectSpaceWorkflowCandidateFiles.isEmpty
+            ? "No reachable files in this project space are available to organize."
+            : nil
     }
     var projectSpaceWorkflowDisabledReason: String? {
         guard selectedProjectSpaceDetail != nil else {
@@ -2620,6 +2898,12 @@ class DashboardViewModel: ObservableObject {
         projectSpaceWorkflowSimulationPreview = nil
         selectedProjectSpaceWorkflowLatestRunSummary = nil
         isProjectSpaceWorkflowInProgress = false
+        selectedProjectSpaceAutomationBoard = nil
+        selectedProjectSpaceAutomationPolicyDetail = nil
+        selectedProjectSpaceAutomationPolicyID = nil
+        isProjectSpaceAutomationPolicySheetPresented = false
+        isProjectSpaceAutomationComposerPresented = false
+        projectSpaceAutomationComposerDraft = nil
     }
 
     private func clearProjectSpaceAssociationCorrection() {
@@ -2657,6 +2941,7 @@ class DashboardViewModel: ObservableObject {
         selectedProjectSpaceWorkflowLatestRunSummary = profile?.lastWorkflowRunID.flatMap { runID in
             projectSpaceWorkflowRunSummary(runID: runID, context: modelContext)
         }
+        loadProjectSpaceAutomationState(for: detail)
 
         if featureFlags.isEnabled(.workflowEngineV2) {
             scheduleProjectSpaceWorkflowPreparation()
@@ -2666,6 +2951,264 @@ class DashboardViewModel: ObservableObject {
             projectSpaceWorkflowCandidateFiles = []
             isPreparingProjectSpaceWorkflowPreview = false
             refreshProjectSpaceWorkflowPreview()
+        }
+    }
+
+    private func loadProjectSpaceAutomationState(for detail: ProjectSpaceDetail) {
+        guard isProjectSpaceAutomationBoardEnabled,
+              let modelContext else {
+            selectedProjectSpaceAutomationBoard = nil
+            dismissProjectSpaceAutomationPolicy()
+            dismissProjectSpaceAutomationComposer()
+            return
+        }
+
+        let automationService = ProjectSpaceAutomationService(modelContext: modelContext)
+        let policies = automationService.policies(normalizedProjectLabel: detail.summary.normalizedLabel)
+        let groupedPolicies = Dictionary(grouping: policies) { policy in
+            automationGroupKind(for: policy.state)
+        }
+
+        let groups = ProjectSpaceAutomationBoardGroupKind.allCases.compactMap { kind -> ProjectSpaceAutomationBoardGroup? in
+            guard let policies = groupedPolicies[kind], !policies.isEmpty else {
+                return nil
+            }
+
+            return ProjectSpaceAutomationBoardGroup(
+                kind: kind,
+                title: automationGroupTitle(for: kind),
+                policies: policies.map { makeProjectSpaceAutomationPolicyDetail($0, service: automationService) }
+            )
+        }
+
+        selectedProjectSpaceAutomationBoard = ProjectSpaceAutomationBoard(
+            title: "Automation Board",
+            subtitle: "Manage project-owned policies without leaving this project space.",
+            composerButtonTitle: "New Policy",
+            groups: groups
+        )
+        refreshSelectedProjectSpaceAutomationPolicyDetail()
+    }
+
+    private func refreshSelectedProjectSpaceAutomationPolicyDetail() {
+        guard isProjectSpaceAutomationBoardEnabled,
+              let modelContext,
+              let selectedProjectSpaceDetail,
+              let policyID = selectedProjectSpaceAutomationPolicyID else {
+            selectedProjectSpaceAutomationPolicyDetail = nil
+            return
+        }
+
+        let automationService = ProjectSpaceAutomationService(modelContext: modelContext)
+        guard let policy = automationService.policy(id: policyID) else {
+            dismissProjectSpaceAutomationPolicy()
+            return
+        }
+
+        selectedProjectSpaceAutomationPolicyDetail = makeProjectSpaceAutomationPolicyDetail(
+            policy,
+            service: automationService
+        )
+
+        if selectedProjectSpace?.normalizedLabel != selectedProjectSpaceDetail.summary.normalizedLabel {
+            dismissProjectSpaceAutomationPolicy()
+        }
+    }
+
+    private func makeProjectSpaceAutomationPolicyDetail(
+        _ policy: ProjectSpaceAutomationPolicy,
+        service: ProjectSpaceAutomationService
+    ) -> ProjectSpaceAutomationPolicyDetail {
+        let template = WorkflowTemplateCatalog.template(for: policy.workflowTemplateID)
+        let latestRun = service.latestRun(policyID: policy.id)
+        return ProjectSpaceAutomationPolicyDetail(
+            id: policy.id,
+            workflowTemplateID: policy.workflowTemplateID,
+            workflowTemplateDisplayName: template?.displayName ?? policy.workflowTemplateID,
+            state: policy.state,
+            stateText: automationStateText(for: policy.state),
+            triggerSummaryText: automationTriggerSummaryText(for: policy.triggerKinds),
+            admissionSummaryText: automationAdmissionSummaryText(for: policy.admissionMode),
+            healthBadgeText: automationHealthBadgeText(policy: policy, latestRun: latestRun),
+            healthMessageText: automationHealthMessageText(policy: policy, latestRun: latestRun),
+            latestRunSummaryText: automationLatestRunSummaryText(latestRun, fallbackTemplateName: template?.displayName ?? "Workflow")
+        )
+    }
+
+    private func automationGroupKind(
+        for state: ProjectSpaceAutomationPolicyState
+    ) -> ProjectSpaceAutomationBoardGroupKind {
+        switch state {
+        case .recommended:
+            return .recommended
+        case .draft:
+            return .draft
+        case .active:
+            return .active
+        case .paused, .revoked:
+            return .paused
+        }
+    }
+
+    private func automationGroupTitle(for kind: ProjectSpaceAutomationBoardGroupKind) -> String {
+        switch kind {
+        case .recommended:
+            return "Recommended Policies"
+        case .draft:
+            return "Draft Policies"
+        case .active:
+            return "Active Policies"
+        case .paused:
+            return "Paused Policies"
+        }
+    }
+
+    private func automationStateText(for state: ProjectSpaceAutomationPolicyState) -> String {
+        switch state {
+        case .recommended:
+            return "Recommended"
+        case .draft:
+            return "Draft"
+        case .active:
+            return "Active"
+        case .paused:
+            return "Paused"
+        case .revoked:
+            return "Revoked"
+        }
+    }
+
+    private func automationTriggerSummaryText(
+        for triggerKinds: [ProjectSpaceAutomationTriggerKind]
+    ) -> String {
+        let text = ProjectSpaceAutomationPolicy.normalizedTriggerKindRaws(triggerKinds).compactMap { rawValue -> String? in
+            switch ProjectSpaceAutomationTriggerKind(rawValue: rawValue) {
+            case .manual:
+                return "Manual run"
+            case .folderWatch:
+                return "Realtime ingress"
+            case .scheduledSweep:
+                return "Scheduled sweep"
+            case .none:
+                return nil
+            }
+        }
+
+        return text.joined(separator: ", ")
+    }
+
+    private func automationAdmissionSummaryText(
+        for admissionMode: ProjectSpaceAutomationAdmissionMode
+    ) -> String {
+        switch admissionMode {
+        case .manualReview:
+            return "Manual review"
+        case .automatic:
+            return "Automatic admission"
+        }
+    }
+
+    private func automationHealthBadgeText(
+        policy: ProjectSpaceAutomationPolicy,
+        latestRun: ProjectSpaceAutomationRunRecord?
+    ) -> String {
+        if policy.state == .recommended {
+            return "Recommended"
+        }
+
+        if policy.state == .draft {
+            return "Draft"
+        }
+
+        if policy.state == .paused {
+            return latestRun?.status == .completedWithIssues ? "Needs Attention" : "Paused"
+        }
+
+        switch latestRun?.status {
+        case .failed:
+            return "Needs Attention"
+        case .completedWithIssues:
+            return "Needs Attention"
+        default:
+            return "Healthy"
+        }
+    }
+
+    private func automationHealthMessageText(
+        policy: ProjectSpaceAutomationPolicy,
+        latestRun: ProjectSpaceAutomationRunRecord?
+    ) -> String {
+        if policy.state == .recommended {
+            return "Bootstrapped from the legacy project workflow selection."
+        }
+
+        if policy.state == .draft {
+            return "Draft policy. Inspect it before enabling or relying on it."
+        }
+
+        if policy.state == .paused {
+            if latestRun?.status == .completedWithIssues {
+                return "Last run completed with issues. Review before resuming."
+            }
+
+            return "Automatic runs are paused for this policy."
+        }
+
+        switch latestRun?.status {
+        case .failed:
+            return "Last run failed. Review the policy before running it again."
+        case .completedWithIssues:
+            return "Last run completed with issues. Review before resuming."
+        default:
+            return "Ready for manual and background runs."
+        }
+    }
+
+    private func automationLatestRunSummaryText(
+        _ latestRun: ProjectSpaceAutomationRunRecord?,
+        fallbackTemplateName: String
+    ) -> String? {
+        guard let latestRun else {
+            return nil
+        }
+
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        let referenceDate = latestRun.endedAt ?? latestRun.startedAt
+        let relative = formatter.localizedString(for: referenceDate, relativeTo: Date())
+        let statusText: String
+        switch latestRun.status {
+        case .queued:
+            statusText = "queued"
+        case .running:
+            statusText = "running"
+        case .succeeded:
+            statusText = "succeeded"
+        case .completedWithIssues:
+            statusText = "completed with issues"
+        case .failed:
+            statusText = "failed"
+        case .revoked:
+            statusText = "was revoked"
+        }
+
+        return "Latest run: \(fallbackTemplateName) \(statusText) \(relative)."
+    }
+
+    private func automationRunStatus(
+        for primaryStatus: WorkflowRunPrimaryStatus
+    ) -> ProjectSpaceAutomationRunStatus {
+        switch primaryStatus {
+        case .queued:
+            return .queued
+        case .running:
+            return .running
+        case .succeeded:
+            return .succeeded
+        case .completedWithIssues:
+            return .completedWithIssues
+        case .failed, .canceled:
+            return .failed
         }
     }
 

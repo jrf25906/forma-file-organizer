@@ -347,100 +347,107 @@ final class ProjectSpaceSnapshotTests: XCTestCase {
         XCTAssertEqual(file?.correctionButtonTitle, "Correct Label")
     }
 
-    func testProjectSpaceDetailSnapshot_ShowsWorkflowEmptyStateWhenNoTemplateSelected() {
+    func testProjectSpaceDetailSnapshot_ShowsAutomationSectionsAndRecommendedPolicies() {
         let snapshot = ProjectSpaceDetailView.Snapshot(
             detail: makeProjectSpaceDetail(),
-            workflowSection: .init(
-                sectionTitle: "Workflow",
-                selectedTemplateText: "No workflow template selected",
-                helperText: "Pick a built-in workflow template, preview it here, then run it manually for this project space.",
-                previewText: nil,
-                organizeButtonTitle: "Organize Project Space",
-                isOrganizeButtonEnabled: false,
-                disabledReasonText: "Choose a built-in workflow template to organize this project space.",
-                latestRunSummaryText: nil
+            automationSection: .init(
+                title: "Automation Board",
+                subtitle: "Project-owned policies replace the old single workflow slot when this feature is enabled.",
+                composerButtonTitle: "New Policy",
+                groups: [
+                    .init(
+                        kind: .recommended,
+                        title: "Recommended Policies",
+                        policies: [
+                            .init(
+                                id: UUID(),
+                                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                                workflowTemplateDisplayName: "Project Drop",
+                                state: .recommended,
+                                stateText: "Recommended",
+                                triggerSummaryText: "Manual run",
+                                admissionSummaryText: "Manual review",
+                                healthBadgeText: "Recommended",
+                                healthMessageText: "Bootstrapped from the legacy project workflow selection.",
+                                latestRunSummaryText: nil
+                            )
+                        ]
+                    ),
+                    .init(
+                        kind: .active,
+                        title: "Active Policies",
+                        policies: [
+                            .init(
+                                id: UUID(),
+                                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                                workflowTemplateDisplayName: "Receipts",
+                                state: .active,
+                                stateText: "Active",
+                                triggerSummaryText: "Manual run, scheduled sweep",
+                                admissionSummaryText: "Automatic admission",
+                                healthBadgeText: "Healthy",
+                                healthMessageText: "Ready for manual and background runs.",
+                                latestRunSummaryText: nil
+                            )
+                        ]
+                    )
+                ]
             )
         )
 
-        XCTAssertEqual(snapshot.workflowSection?.sectionTitle, "Workflow")
-        XCTAssertEqual(snapshot.workflowSection?.selectedTemplateText, "No workflow template selected")
-        XCTAssertEqual(
-            snapshot.workflowSection?.helperText,
-            "Pick a built-in workflow template, preview it here, then run it manually for this project space."
-        )
-        XCTAssertEqual(snapshot.workflowSection?.organizeButtonTitle, "Organize Project Space")
-        XCTAssertEqual(
-            snapshot.workflowSection?.disabledReasonText,
-            "Choose a built-in workflow template to organize this project space."
-        )
-        XCTAssertEqual(snapshot.workflowSection?.isOrganizeButtonEnabled, false)
+        XCTAssertEqual(snapshot.automationSection?.groups.map { $0.title }, ["Recommended Policies", "Active Policies"])
+        XCTAssertEqual(snapshot.automationSection?.groups.first?.policies.map { $0.workflowTemplateDisplayName }, ["Project Drop"])
+        XCTAssertEqual(snapshot.automationSection?.groups.first?.policies.first?.healthBadgeText, "Recommended")
     }
 
-    func testProjectSpaceDetailSnapshot_ShowsWorkflowPreviewAndPrimaryAction() {
+    func testProjectSpaceDetailSnapshot_ShowsPolicyHealthAndLatestRunSummary() {
         let snapshot = ProjectSpaceDetailView.Snapshot(
             detail: makeProjectSpaceDetail(),
-            workflowSection: .init(
-                sectionTitle: "Workflow",
-                selectedTemplateText: "Project Drop",
-                helperText: "Run this workflow manually for the files currently reachable in this project space.",
-                previewText: "2 selected, 1 ready to run, 1 blocked in simulation",
-                organizeButtonTitle: "Organize Project Space",
-                isOrganizeButtonEnabled: true,
-                disabledReasonText: nil,
-                latestRunSummaryText: nil
+            automationSection: .init(
+                title: "Automation Board",
+                subtitle: "Monitor health and latest run context before running a project policy.",
+                composerButtonTitle: "New Policy",
+                groups: [
+                    .init(
+                        kind: .paused,
+                        title: "Paused Policies",
+                        policies: [
+                            .init(
+                                id: UUID(),
+                                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                                workflowTemplateDisplayName: "Project Drop",
+                                state: .paused,
+                                stateText: "Paused",
+                                triggerSummaryText: "Manual run",
+                                admissionSummaryText: "Manual review",
+                                healthBadgeText: "Needs Attention",
+                                healthMessageText: "Last run completed with issues. Review before resuming.",
+                                latestRunSummaryText: "Latest run: Project Drop completed with issues 5 minutes ago."
+                            )
+                        ]
+                    )
+                ]
             )
         )
 
-        XCTAssertEqual(snapshot.workflowSection?.selectedTemplateText, "Project Drop")
-        XCTAssertEqual(
-            snapshot.workflowSection?.previewText,
-            "2 selected, 1 ready to run, 1 blocked in simulation"
-        )
-        XCTAssertNil(snapshot.workflowSection?.disabledReasonText)
-        XCTAssertEqual(snapshot.workflowSection?.isOrganizeButtonEnabled, true)
+        let policy = snapshot.automationSection?.groups.first?.policies.first
+        XCTAssertEqual(policy?.healthBadgeText, "Needs Attention")
+        XCTAssertEqual(policy?.healthMessageText, "Last run completed with issues. Review before resuming.")
+        XCTAssertEqual(policy?.latestRunSummaryText, "Latest run: Project Drop completed with issues 5 minutes ago.")
     }
 
-    func testProjectSpaceDetailSnapshot_ShowsWorkflowDisabledReasonWhenNoReachableFiles() {
+    func testProjectSpaceDetailSnapshot_ShowsComposerEntryPointWhenFeatureIsEnabled() {
         let snapshot = ProjectSpaceDetailView.Snapshot(
             detail: makeProjectSpaceDetail(),
-            workflowSection: .init(
-                sectionTitle: "Workflow",
-                selectedTemplateText: "Receipts",
-                helperText: "Run this workflow manually for the files currently reachable in this project space.",
-                previewText: nil,
-                organizeButtonTitle: "Organize Project Space",
-                isOrganizeButtonEnabled: false,
-                disabledReasonText: "No reachable files in this project space are available to organize.",
-                latestRunSummaryText: nil
+            automationSection: .init(
+                title: "Automation Board",
+                subtitle: "Create a constrained policy without leaving the project-space detail flow.",
+                composerButtonTitle: "New Policy",
+                groups: []
             )
         )
 
-        XCTAssertEqual(snapshot.workflowSection?.selectedTemplateText, "Receipts")
-        XCTAssertEqual(
-            snapshot.workflowSection?.disabledReasonText,
-            "No reachable files in this project space are available to organize."
-        )
-        XCTAssertEqual(snapshot.workflowSection?.isOrganizeButtonEnabled, false)
-    }
-
-    func testProjectSpaceDetailSnapshot_ShowsLatestWorkflowRunSummary() {
-        let snapshot = ProjectSpaceDetailView.Snapshot(
-            detail: makeProjectSpaceDetail(),
-            workflowSection: .init(
-                sectionTitle: "Workflow",
-                selectedTemplateText: "Project Drop",
-                helperText: "Run this workflow manually for the files currently reachable in this project space.",
-                previewText: "2 selected, 2 ready to run",
-                organizeButtonTitle: "Organize Project Space",
-                isOrganizeButtonEnabled: true,
-                disabledReasonText: nil,
-                latestRunSummaryText: "Latest run: Project Drop succeeded 5 minutes ago."
-            )
-        )
-
-        XCTAssertEqual(
-            snapshot.workflowSection?.latestRunSummaryText,
-            "Latest run: Project Drop succeeded 5 minutes ago."
-        )
+        XCTAssertEqual(snapshot.automationSection?.composerButtonTitle, "New Policy")
+        XCTAssertEqual(snapshot.automationSection?.title, "Automation Board")
     }
 }

@@ -4,6 +4,40 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Project-space automation board Task 5
+  - `ProjectSpaceAutomationBoardGroupKind`
+  - `ProjectSpaceAutomationPolicyDetail`
+  - `ProjectSpaceAutomationBoardGroup`
+  - `ProjectSpaceAutomationBoard`
+  - `ProjectSpaceAutomationComposerDraft`
+  - `ProjectSpaceAutomationSection`
+  - `ProjectSpaceAutomationPolicySheet`
+  - `ProjectSpaceAutomationComposerSheet`
+  - `ProjectSpaceAutomationService`
+    - `policies(normalizedProjectLabel:)`
+    - `policy(id:)`
+    - `latestRun(policyID:)`
+    - `resumePolicy(id:at:)`
+  - `DashboardViewModel`
+    - `selectedProjectSpaceAutomationBoard`
+    - `selectedProjectSpaceAutomationPolicyDetail`
+    - `isProjectSpaceAutomationPolicySheetPresented`
+    - `isProjectSpaceAutomationComposerPresented`
+    - `projectSpaceAutomationComposerDraft`
+    - `isProjectSpaceAutomationBoardEnabled`
+    - `selectedProjectSpaceAutomationPolicyPreview`
+    - `selectedProjectSpaceAutomationManualRunDisabledReason`
+    - `presentProjectSpaceAutomationComposer()`
+    - `dismissProjectSpaceAutomationComposer()`
+    - `createProjectSpaceAutomationPolicyFromComposer()`
+    - `presentProjectSpaceAutomationPolicy(id:)`
+    - `dismissProjectSpaceAutomationPolicy()`
+    - `pauseSelectedProjectSpaceAutomationPolicy()`
+    - `resumeSelectedProjectSpaceAutomationPolicy()`
+    - `runSelectedProjectSpaceAutomationPolicyManually()`
+  - `ProjectSpaceDetailView.Snapshot`
+    - `automationSection`
+  - Project-space detail now exposes a feature-gated automation board instead of treating the old single workflow-template block as the primary model. The board groups project policies by lifecycle state, surfaces derived health/latest-run context, reuses `WorkflowTemplatePicker` inside a constrained composer sheet, and keeps manual project-policy execution routed through the shared workflow-engine-v2 path during the transition away from the legacy single-template selection flow.
 - Sidebar/right-panel cleanup follow-up
   - `DashboardViewModel`
     - `showAnalyticsPanel()`

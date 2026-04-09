@@ -49,6 +49,7 @@ struct ProjectSpaceDetailView: View {
         let closeButtonTitle: String
         let fileCountText: String
         let recencyText: String
+        let automationSection: ProjectSpaceAutomationSection.Snapshot?
         let workflowSection: WorkflowSectionSnapshot?
         let overviewTitle: String
         let overviewFileCountText: String
@@ -70,6 +71,7 @@ struct ProjectSpaceDetailView: View {
 
         init(
             detail: ProjectSpaceDetail,
+            automationSection: ProjectSpaceAutomationSection.Snapshot? = nil,
             workflowSection: WorkflowSectionSnapshot? = nil,
             now: Date = Date(),
             recencyTextProvider: ((Date, Date) -> String)? = nil,
@@ -88,6 +90,7 @@ struct ProjectSpaceDetailView: View {
             self.closeButtonTitle = "Close"
             self.fileCountText = Self.fileCountText(for: detail.fileCount)
             self.recencyText = detailRecencyText(detail.lastActivityAt, now)
+            self.automationSection = automationSection
             self.workflowSection = workflowSection
             self.overviewTitle = "Overview"
             self.overviewFileCountText = Self.countText(
@@ -262,6 +265,8 @@ struct ProjectSpaceDetailView: View {
     }
 
     let snapshot: Snapshot
+    let onCreatePolicy: (() -> Void)?
+    let onInspectPolicy: ((UUID) -> Void)?
     let workflowTemplateID: Binding<String?>?
     let workflowSimulationPreview: WorkflowTemplateSimulationPreview?
     let isWorkflowTemplatePickerEnabled: Bool
@@ -273,7 +278,10 @@ struct ProjectSpaceDetailView: View {
 
     init(
         detail: ProjectSpaceDetail,
+        automationSection: ProjectSpaceAutomationSection.Snapshot? = nil,
         workflowSection: Snapshot.WorkflowSectionSnapshot? = nil,
+        onCreatePolicy: (() -> Void)? = nil,
+        onInspectPolicy: ((UUID) -> Void)? = nil,
         workflowTemplateID: Binding<String?>? = nil,
         workflowSimulationPreview: WorkflowTemplateSimulationPreview? = nil,
         isWorkflowTemplatePickerEnabled: Bool = true,
@@ -283,7 +291,13 @@ struct ProjectSpaceDetailView: View {
         onOpenFile: @escaping (ProjectSpaceFileRow) -> Void,
         onCorrectAssociation: @escaping (ProjectSpaceFileRow) -> Void = { _ in }
     ) {
-        self.snapshot = Snapshot(detail: detail, workflowSection: workflowSection)
+        self.snapshot = Snapshot(
+            detail: detail,
+            automationSection: automationSection,
+            workflowSection: workflowSection
+        )
+        self.onCreatePolicy = onCreatePolicy
+        self.onInspectPolicy = onInspectPolicy
         self.workflowTemplateID = workflowTemplateID
         self.workflowSimulationPreview = workflowSimulationPreview
         self.isWorkflowTemplatePickerEnabled = isWorkflowTemplatePickerEnabled
@@ -296,6 +310,8 @@ struct ProjectSpaceDetailView: View {
 
     init(
         snapshot: Snapshot,
+        onCreatePolicy: (() -> Void)? = nil,
+        onInspectPolicy: ((UUID) -> Void)? = nil,
         workflowTemplateID: Binding<String?>? = nil,
         workflowSimulationPreview: WorkflowTemplateSimulationPreview? = nil,
         isWorkflowTemplatePickerEnabled: Bool = true,
@@ -306,6 +322,8 @@ struct ProjectSpaceDetailView: View {
         onCorrectAssociation: @escaping (ProjectSpaceFileRow) -> Void = { _ in }
     ) {
         self.snapshot = snapshot
+        self.onCreatePolicy = onCreatePolicy
+        self.onInspectPolicy = onInspectPolicy
         self.workflowTemplateID = workflowTemplateID
         self.workflowSimulationPreview = workflowSimulationPreview
         self.isWorkflowTemplatePickerEnabled = isWorkflowTemplatePickerEnabled
@@ -320,7 +338,15 @@ struct ProjectSpaceDetailView: View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             topBar
             headerBlock
-            if let workflowSection = snapshot.workflowSection {
+            if let automationSection = snapshot.automationSection {
+                ProjectSpaceAutomationSection(
+                    snapshot: automationSection,
+                    onCreatePolicy: onCreatePolicy,
+                    onInspectPolicy: { policyID in
+                        onInspectPolicy?(policyID)
+                    }
+                )
+            } else if let workflowSection = snapshot.workflowSection {
                 workflowBlock(workflowSection)
             }
             overviewBlock

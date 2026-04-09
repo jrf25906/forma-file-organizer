@@ -61,6 +61,9 @@ final class DashboardViewModelTests: XCTestCase {
             FileOrganizationHistoryEntry.self,
             ProjectCluster.self,
             ProjectSpaceWorkflowProfile.self,
+            ProjectSpaceAutomationProfile.self,
+            ProjectSpaceAutomationPolicy.self,
+            ProjectSpaceAutomationRunRecord.self,
             WorkflowRunRecord.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -109,6 +112,32 @@ final class DashboardViewModelTests: XCTestCase {
         let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))
         while ContinuousClock.now < deadline {
             if viewModel.projectSpaceWorkflowSimulationPreview != nil {
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    private func waitForProjectSpaceAutomationBoard(
+        in viewModel: DashboardViewModel,
+        timeoutNanoseconds: UInt64 = 500_000_000
+    ) async {
+        let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))
+        while ContinuousClock.now < deadline {
+            if viewModel.selectedProjectSpaceAutomationBoard != nil {
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    private func waitForProjectSpaceWorkflowPreparationToSettle(
+        in viewModel: DashboardViewModel,
+        timeoutNanoseconds: UInt64 = 500_000_000
+    ) async {
+        let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))
+        while ContinuousClock.now < deadline {
+            if !viewModel.isPreparingProjectSpaceWorkflowPreview {
                 return
             }
             await Task.yield()
@@ -1580,6 +1609,274 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.selectedFileCount, 1)
         XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.readyToRunCount, 0)
         XCTAssertEqual(viewModel.projectSpaceWorkflowSimulationPreview?.blockedCount, 1)
+    }
+
+    func testProjectSpaceAutomationState_BootstrapsFromLegacyWorkflowProfile() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+        FeatureFlagService.shared.setEnabled(.backgroundMonitoring, true)
+        FeatureFlagService.shared.setEnabled(.autoOrganize, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceAutomationBoard, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let alphaURL = try tempDirectory.createFile(name: "Desktop/alpha.txt", contents: "alpha")
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        context.insert(
+            ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+            )
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+        viewModel.refreshProjectSpaces()
+
+        let alphaSummary = try XCTUnwrap(
+            viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }) ??
+                FileMetadataFoundationService(modelContext: context).fetchProjectSpaceSummaries()
+                .first(where: { $0.normalizedLabel == "Alpha" })
+        )
+        viewModel.selectProjectSpace(alphaSummary)
+        await waitForProjectSpaceAutomationBoard(in: viewModel)
+        await waitForProjectSpaceWorkflowPreparationToSettle(in: viewModel)
+
+        let board = try XCTUnwrap(viewModel.selectedProjectSpaceAutomationBoard)
+        let recommendedGroup = try XCTUnwrap(board.groups.first(where: { $0.kind == .recommended }))
+        XCTAssertEqual(recommendedGroup.policies.map(\.workflowTemplateID), [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(recommendedGroup.policies.map(\.state), [.recommended])
+    }
+
+    func testCreateProjectSpacePolicy_FromPresetComposerPersistsDraft() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+        FeatureFlagService.shared.setEnabled(.backgroundMonitoring, true)
+        FeatureFlagService.shared.setEnabled(.autoOrganize, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceAutomationBoard, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let alphaURL = try tempDirectory.createFile(name: "Desktop/alpha.txt", contents: "alpha")
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+        viewModel.refreshProjectSpaces()
+
+        let alphaSummary = try XCTUnwrap(
+            viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }) ??
+                FileMetadataFoundationService(modelContext: context).fetchProjectSpaceSummaries()
+                .first(where: { $0.normalizedLabel == "Alpha" })
+        )
+        viewModel.selectProjectSpace(alphaSummary)
+        await waitForProjectSpaceAutomationBoard(in: viewModel)
+        await waitForProjectSpaceWorkflowPreparationToSettle(in: viewModel)
+
+        viewModel.presentProjectSpaceAutomationComposer()
+        viewModel.projectSpaceAutomationComposerDraft = ProjectSpaceAutomationComposerDraft(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual, .scheduledSweep],
+            admissionMode: .manualReview,
+            state: .draft
+        )
+        viewModel.createProjectSpaceAutomationPolicyFromComposer()
+
+        let policies = ProjectSpaceAutomationService(modelContext: context).policies(normalizedProjectLabel: "Alpha")
+        let createdPolicy = try XCTUnwrap(policies.first(where: { $0.workflowTemplateID == BuiltInWorkflowTemplate.StableID.projectDrop }))
+        XCTAssertEqual(createdPolicy.state, .draft)
+        XCTAssertEqual(Set(createdPolicy.triggerKinds), Set([.manual, .scheduledSweep]))
+    }
+
+    func testRunProjectPolicyManualPreset_UsesSelectedPolicyTemplate() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+        FeatureFlagService.shared.setEnabled(.backgroundMonitoring, true)
+        FeatureFlagService.shared.setEnabled(.autoOrganize, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceAutomationBoard, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        let automationService = ProjectSpaceAutomationService(modelContext: context)
+        let policy = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual],
+            admissionMode: .manualReview,
+            state: .active,
+            updatedAt: timestamp
+        )
+        try context.save()
+
+        let workflowExecution = WorkflowExecutionSpy()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: mockService,
+            fileScanPipeline: mockPipeline,
+            workflowExecution: workflowExecution.client
+        )
+        localViewModel.setModelContext(context)
+
+        mockService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [
+                FileMetadata(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: nil,
+                    status: .pending
+                )
+            ],
+            skippedItems: [],
+            scannedRootPaths: [sourceFolder.path]
+        )
+        mockPipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [
+                FileItem(
+                    path: alphaURL.path,
+                    sizeInBytes: 1_024,
+                    creationDate: timestamp,
+                    modificationDate: timestamp,
+                    lastAccessedDate: timestamp,
+                    location: .custom,
+                    scanRootPath: sourceFolder.path,
+                    destination: try Destination.folder(from: destinationFolder, displayName: "Projects/Alpha"),
+                    status: .ready
+                )
+            ],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [sourceFolder.path]
+        )
+
+        localViewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+        localViewModel.refreshProjectSpaces()
+        let alphaSummary = try XCTUnwrap(
+            localViewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }) ??
+                FileMetadataFoundationService(modelContext: context).fetchProjectSpaceSummaries()
+                .first(where: { $0.normalizedLabel == "Alpha" })
+        )
+        localViewModel.selectProjectSpace(alphaSummary)
+        await waitForProjectSpaceAutomationBoard(in: localViewModel)
+        localViewModel.presentProjectSpaceAutomationPolicy(id: policy.id)
+        await localViewModel.runSelectedProjectSpaceAutomationPolicyManually()
+
+        let expectedPolicyName = WorkflowTemplateCatalog.template(for: BuiltInWorkflowTemplate.StableID.projectDrop)?.displayName
+            ?? "Project Drop"
+        XCTAssertEqual(
+            workflowExecution.plannedInvocationContexts,
+            [.projectPolicyManual(projectLabel: "Alpha", policyName: expectedPolicyName)]
+        )
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+    }
+
+    func testPauseProjectPolicy_RefreshesDetailSections() async throws {
+        let (container, context, service) = try makeMetadataService()
+        _ = container
+
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+        FeatureFlagService.shared.setEnabled(.backgroundMonitoring, true)
+        FeatureFlagService.shared.setEnabled(.autoOrganize, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceAutomationBoard, true)
+
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let alphaURL = try tempDirectory.createFile(name: "Desktop/alpha.txt", contents: "alpha")
+        _ = try insertProjectSpaceRecord(
+            using: service,
+            path: alphaURL.path,
+            projectAssociation: "Alpha",
+            timestamp: timestamp
+        )
+        let automationService = ProjectSpaceAutomationService(modelContext: context)
+        let policy = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual],
+            admissionMode: .manualReview,
+            state: .active,
+            updatedAt: timestamp
+        )
+        try context.save()
+
+        viewModel.setModelContext(context)
+        viewModel._testSetFiles([makeProjectSpaceFile(at: alphaURL, timestamp: timestamp)])
+        viewModel.refreshProjectSpaces()
+
+        let alphaSummary = try XCTUnwrap(
+            viewModel.projectSpaces.first(where: { $0.normalizedLabel == "Alpha" }) ??
+                FileMetadataFoundationService(modelContext: context).fetchProjectSpaceSummaries()
+                .first(where: { $0.normalizedLabel == "Alpha" })
+        )
+        viewModel.selectProjectSpace(alphaSummary)
+        await waitForProjectSpaceAutomationBoard(in: viewModel)
+        await waitForProjectSpaceWorkflowPreparationToSettle(in: viewModel)
+        viewModel.presentProjectSpaceAutomationPolicy(id: policy.id)
+        viewModel.pauseSelectedProjectSpaceAutomationPolicy()
+
+        let board = try XCTUnwrap(viewModel.selectedProjectSpaceAutomationBoard)
+        XCTAssertFalse(board.groups.contains(where: { $0.kind == .active && !$0.policies.isEmpty }))
+        XCTAssertEqual(board.groups.first(where: { $0.kind == .paused })?.policies.map(\.id), [policy.id])
     }
     
     func testFirstRunQuickWinPrefersLargestReadyFolderBatch() {

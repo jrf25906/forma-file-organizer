@@ -92,7 +92,8 @@ struct DefaultPanelView: View {
     }
 
     private var projectSpaceWorkflowSectionSnapshot: ProjectSpaceDetailView.Snapshot.WorkflowSectionSnapshot? {
-        guard activeProjectSpaceDetail != nil else { return nil }
+        guard activeProjectSpaceDetail != nil,
+              !dashboardViewModel.isProjectSpaceAutomationBoardEnabled else { return nil }
 
         let selectedTemplateText = WorkflowTemplateCatalog
             .template(for: dashboardViewModel.selectedProjectSpaceWorkflowTemplateID)?
@@ -108,6 +109,15 @@ struct DefaultPanelView: View {
             disabledReasonText: dashboardViewModel.projectSpaceWorkflowDisabledReason,
             latestRunSummaryText: dashboardViewModel.selectedProjectSpaceWorkflowLatestRunSummary?.summaryText
         )
+    }
+
+    private var projectSpaceAutomationSectionSnapshot: ProjectSpaceAutomationSection.Snapshot? {
+        guard dashboardViewModel.isProjectSpaceAutomationBoardEnabled,
+              let board = dashboardViewModel.selectedProjectSpaceAutomationBoard else {
+            return nil
+        }
+
+        return ProjectSpaceAutomationSection.Snapshot(board: board)
     }
 
     private var showsProjectSpacesSection: Bool {
@@ -162,6 +172,46 @@ struct DefaultPanelView: View {
                 )
             }
         }
+        .sheet(isPresented: projectSpaceAutomationComposerSheetBinding) {
+            if let draft = dashboardViewModel.projectSpaceAutomationComposerDraft {
+                ProjectSpaceAutomationComposerSheet(
+                    draft: Binding(
+                        get: { dashboardViewModel.projectSpaceAutomationComposerDraft ?? draft },
+                        set: { dashboardViewModel.projectSpaceAutomationComposerDraft = $0 }
+                    ),
+                    onSave: {
+                        dashboardViewModel.createProjectSpaceAutomationPolicyFromComposer()
+                    },
+                    onCancel: {
+                        dashboardViewModel.dismissProjectSpaceAutomationComposer()
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: projectSpaceAutomationPolicySheetBinding) {
+            if let policy = dashboardViewModel.selectedProjectSpaceAutomationPolicyDetail {
+                ProjectSpaceAutomationPolicySheet(
+                    policy: policy,
+                    preview: dashboardViewModel.selectedProjectSpaceAutomationPolicyPreview,
+                    manualRunDisabledReason: dashboardViewModel.selectedProjectSpaceAutomationManualRunDisabledReason,
+                    isManualRunInProgress: dashboardViewModel.isProjectSpaceWorkflowInProgress,
+                    onRunNow: {
+                        Task { @MainActor in
+                            await dashboardViewModel.runSelectedProjectSpaceAutomationPolicyManually()
+                        }
+                    },
+                    onPause: policy.state == .active ? {
+                        dashboardViewModel.pauseSelectedProjectSpaceAutomationPolicy()
+                    } : nil,
+                    onResume: policy.state == .paused ? {
+                        dashboardViewModel.resumeSelectedProjectSpaceAutomationPolicy()
+                    } : nil,
+                    onClose: {
+                        dashboardViewModel.dismissProjectSpaceAutomationPolicy()
+                    }
+                )
+            }
+        }
         .overlay(alignment: .topLeading) {
             if isUITesting {
                 Color.clear
@@ -204,8 +254,15 @@ struct DefaultPanelView: View {
                         ProjectSpaceDetailView(
                             snapshot: ProjectSpaceDetailView.Snapshot(
                                 detail: detail,
+                                automationSection: projectSpaceAutomationSectionSnapshot,
                                 workflowSection: projectSpaceWorkflowSectionSnapshot
                             ),
+                            onCreatePolicy: dashboardViewModel.isProjectSpaceAutomationBoardEnabled ? {
+                                dashboardViewModel.presentProjectSpaceAutomationComposer()
+                            } : nil,
+                            onInspectPolicy: dashboardViewModel.isProjectSpaceAutomationBoardEnabled ? { policyID in
+                                dashboardViewModel.presentProjectSpaceAutomationPolicy(id: policyID)
+                            } : nil,
                             workflowTemplateID: $dashboardViewModel.selectedProjectSpaceWorkflowTemplateID,
                             workflowSimulationPreview: dashboardViewModel.projectSpaceWorkflowSimulationPreview,
                             isWorkflowTemplatePickerEnabled: dashboardViewModel.isProjectSpaceWorkflowTemplatePickerEnabled,
@@ -807,6 +864,28 @@ struct DefaultPanelView: View {
             set: { isPresented in
                 if !isPresented {
                     dashboardViewModel.dismissTrustedAutomationScopeDetail()
+                }
+            }
+        )
+    }
+
+    private var projectSpaceAutomationComposerSheetBinding: Binding<Bool> {
+        Binding(
+            get: { dashboardViewModel.isProjectSpaceAutomationComposerPresented },
+            set: { isPresented in
+                if !isPresented {
+                    dashboardViewModel.dismissProjectSpaceAutomationComposer()
+                }
+            }
+        )
+    }
+
+    private var projectSpaceAutomationPolicySheetBinding: Binding<Bool> {
+        Binding(
+            get: { dashboardViewModel.isProjectSpaceAutomationPolicySheetPresented },
+            set: { isPresented in
+                if !isPresented {
+                    dashboardViewModel.dismissProjectSpaceAutomationPolicy()
                 }
             }
         )

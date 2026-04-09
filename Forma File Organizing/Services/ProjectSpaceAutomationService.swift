@@ -45,6 +45,34 @@ struct ProjectSpaceAutomationService {
         return try? bootstrapFromLegacyWorkflowProfileIfNeeded(normalizedProjectLabel: normalizedProjectLabel)
     }
 
+    func policies(normalizedProjectLabel: String) -> [ProjectSpaceAutomationPolicy] {
+        guard let profile = profile(normalizedProjectLabel: normalizedProjectLabel) else {
+            return []
+        }
+
+        return policies(profileID: profile.id).sorted { lhs, rhs in
+            policySortKey(for: lhs) > policySortKey(for: rhs)
+        }
+    }
+
+    func policy(id: UUID) -> ProjectSpaceAutomationPolicy? {
+        existingPolicy(id: id)
+    }
+
+    func latestRun(policyID: UUID) -> ProjectSpaceAutomationRunRecord? {
+        let descriptor = FetchDescriptor<ProjectSpaceAutomationRunRecord>(
+            predicate: #Predicate<ProjectSpaceAutomationRunRecord> { run in
+                run.policyID == policyID
+            }
+        )
+
+        return (try? modelContext.fetch(descriptor))?
+            .sorted { lhs, rhs in
+                runSortKey(for: lhs) > runSortKey(for: rhs)
+            }
+            .first
+    }
+
     func policies(
         matching triggerKind: ProjectSpaceAutomationTriggerKind,
         states: Set<ProjectSpaceAutomationPolicyState>
@@ -124,6 +152,15 @@ struct ProjectSpaceAutomationService {
         }
 
         applyLifecycle(state: .paused, timestamp: timestamp, to: policy)
+        try modelContext.save()
+    }
+
+    func resumePolicy(id: UUID, at timestamp: Date = Date()) throws {
+        guard let policy = existingPolicy(id: id) else {
+            return
+        }
+
+        applyLifecycle(state: .active, timestamp: timestamp, to: policy)
         try modelContext.save()
     }
 
@@ -306,6 +343,14 @@ struct ProjectSpaceAutomationService {
         case .draft:
             return -1
         }
+    }
+
+    private func runSortKey(for run: ProjectSpaceAutomationRunRecord) -> (Date, Date, String) {
+        (
+            run.endedAt ?? run.startedAt,
+            run.startedAt,
+            run.id.uuidString
+        )
     }
 
     private func profileOrCreate(normalizedProjectLabel: String, at timestamp: Date) throws -> ProjectSpaceAutomationProfile {

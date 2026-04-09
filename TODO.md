@@ -99,6 +99,9 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Ship manual-only `Organize Project Space` execution in `DashboardViewModel`, reusing explicit-selection workflow preparation so all reachable files in the selected project space can preview, run, and audit through `WorkflowRunner`.
 - [x] Surface the remembered template, simulation preview, disabled-state guidance, and latest workflow run summary directly in `ProjectSpaceDetailView` / `DefaultPanelView`, while making workflow activity labels explicitly distinguish project-space-triggered runs from review, bulk, inspector, and trusted-scope automation.
 
+## Project-space Automation Board Task 5 (April 9, 2026)
+- [x] Replace the old single-template project-space workflow block with a feature-gated automation board in project-space detail, including grouped recommended/active/paused policy sections, health/latest-run context, constrained composer entry, policy inspection, and a policy-centered manual run path that preserves the existing manual project-space execution flow during the transition.
+
 ## Auto-Applied Content Tags v1 (April 6, 2026)
 - [x] Add the feature-gated durable content-tag layer with a small built-in vocabulary, explicit-signal-first resolution, and conservative inference through `MetadataContentTag`, `MetadataContentTagResolver`, and metadata-foundation write paths.
 - [x] Expose metadata-backed content-tag quick filters in the dashboard with `FileFilterManager`, `DashboardViewModel`, `MainContentView`, and `ActiveFiltersBar`, while keeping the slice read-only and avoiding manual tag editing or Finder tag sync.

@@ -15,6 +15,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
   - Added a targeted pre-metadata store migration regression in `Forma File OrganizingTests/AppStoreMigrationTests.swift` covering legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.
 
 ### Added
+- Project-space automation board Task 5 UI cutover:
+  - `ProjectSpaceAutomationBoard`, `ProjectSpaceAutomationBoardGroup`, `ProjectSpaceAutomationPolicyDetail`, and `ProjectSpaceAutomationComposerDraft` now provide lightweight derived read models for grouped project-policy presentation, health, and constrained creation.
+  - `ProjectSpaceAutomationSection`, `ProjectSpaceAutomationPolicySheet`, `ProjectSpaceAutomationComposerSheet`, `DashboardViewModel`, `DefaultPanelView`, and `ProjectSpaceDetailView` now replace the old single-template project-space workflow block with a feature-gated automation board that shows recommended, draft, active, and paused policies plus health/latest-run context, composer entry, policy inspection, and policy-centered manual run.
+  - `ProjectSpaceAutomationService` now exposes project-level policy lookup, latest policy-run lookup, and resume support so the detail surface can stay view-model-driven instead of fetching SwiftData directly from views.
 - Workflow Engine v2 built-in template, audit, and rollback slice:
   - `FeatureFlagService.Feature.workflowEngineV2`, `BuiltInWorkflowTemplate`, `WorkflowTemplateCatalog`, `WorkflowPlanner`, `WorkflowRunner`, `WorkflowRollbackCoordinator`, `RenameWorkflowStepExecutor`, `TagWorkflowStepExecutor`, and `MoveWorkflowStepExecutor` now ship the feature-gated built-in `rename -> tag -> move` workflow pipeline with stable template IDs for receipts, screenshots, and project drop.
   - `WorkflowRunRecord`, `WorkflowStepRunRecord`, `WorkflowFileActionRecord`, and `WorkflowAuditStore` now persist workflow runs, per-step outcomes, per-file actions, latest-run lookup, and rollback state separately from trusted-scope run summaries.
