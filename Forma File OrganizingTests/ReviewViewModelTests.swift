@@ -864,12 +864,19 @@ private final class WorkflowExecutionSpy {
                 invocationContext: invocationContext
             )
         },
-        run: { [weak self] plan, _, _, _ in
+        run: { [weak self] plan, _, scopeID, _ in
             let templateID = plan.definition.templateID
             await MainActor.run {
                 self?.ranTemplateIDs.append(templateID)
                 self?.onRun?()
             }
+            return WorkflowRunRecord(
+                scopeID: scopeID,
+                workflowTemplateID: templateID,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 1_000),
+                endedAt: Date(timeIntervalSince1970: 1_001)
+            )
         }
     )
 }

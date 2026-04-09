@@ -541,7 +541,7 @@ private final class WorkflowExecutionSpy {
                 invocationContext: invocationContext
             )
         },
-        run: { [weak self] plan, files, _, _ in
+        run: { [weak self] plan, files, scopeID, _ in
             let templateID = plan.definition.templateID
             let filePaths = files.map(\.path)
             await MainActor.run {
@@ -549,6 +549,13 @@ private final class WorkflowExecutionSpy {
                 self?.lastRunFilePaths = filePaths
                 self?.onRun?()
             }
+            return WorkflowRunRecord(
+                scopeID: scopeID,
+                workflowTemplateID: templateID,
+                primaryStatus: .succeeded,
+                startedAt: Date(timeIntervalSince1970: 1_000),
+                endedAt: Date(timeIntervalSince1970: 1_001)
+            )
         }
     )
 }

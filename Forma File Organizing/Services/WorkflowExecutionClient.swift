@@ -13,7 +13,7 @@ struct WorkflowExecutionClient {
         _ files: [FileItem],
         _ scopeID: UUID,
         _ modelContext: ModelContext
-    ) async throws -> Void
+    ) async throws -> WorkflowRunRecord
 }
 
 extension WorkflowExecutionClient {
@@ -29,7 +29,7 @@ extension WorkflowExecutionClient {
             let runner = WorkflowRunner(
                 auditStore: WorkflowAuditStore(modelContext: modelContext)
             )
-            _ = try await runner.run(
+            return try await runner.run(
                 plan: plan,
                 files: files,
                 scopeID: scopeID,

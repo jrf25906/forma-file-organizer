@@ -22,10 +22,16 @@ class BulkOperationViewModel: ObservableObject {
         case workflowExecution
     }
 
-    private struct WorkflowExecutionPartition {
+    struct WorkflowExecutionPartition {
         let runnablePlan: WorkflowPlan
         let runnableFiles: [FileItem]
         let blockedFiles: [FileItem]
+    }
+
+    struct PreparedWorkflowExecution {
+        let template: BuiltInWorkflowTemplate
+        let plan: WorkflowPlan
+        let partition: WorkflowExecutionPartition
     }
 
     // MARK: - Published Properties
@@ -402,16 +408,19 @@ class BulkOperationViewModel: ObservableObject {
             return .notAttempted
         }
 
-        let plan = workflowExecution.plan(template.id, files, .bulkOrganize)
-        let partition = partitionWorkflowPlan(plan, files: files)
+        let execution = prepareWorkflowExecution(
+            files,
+            template: template,
+            invocationContext: .bulkOrganize
+        )
         lastFailedFilesWorkflowTemplateID = template.id
 
-        guard !partition.runnableFiles.isEmpty else {
+        guard !execution.partition.runnableFiles.isEmpty else {
             showOrganizeFeedback(
                 successCount: 0,
                 totalCount: totalCount,
-                failedCount: partition.blockedFiles.count,
-                failedFiles: partition.blockedFiles
+                failedCount: execution.partition.blockedFiles.count,
+                failedFiles: execution.partition.blockedFiles
             )
             return .notAttempted
         }
@@ -425,33 +434,58 @@ class BulkOperationViewModel: ObservableObject {
         }
 
         do {
-            try await workflowExecution.run(
-                partition.runnablePlan,
-                partition.runnableFiles,
-                workflowScopeID,
-                context
-            )
+            _ = try await runPreparedWorkflowExecution(execution, scopeID: workflowScopeID, context: context)
             bulkOperationProgress = 1.0
-            for file in partition.runnableFiles {
-                file.status = .completed
-            }
             showOrganizeFeedback(
-                successCount: partition.runnableFiles.count,
+                successCount: execution.partition.runnableFiles.count,
                 totalCount: totalCount,
-                failedCount: partition.blockedFiles.count,
-                failedFiles: partition.blockedFiles,
+                failedCount: execution.partition.blockedFiles.count,
+                failedFiles: execution.partition.blockedFiles,
                 celebrationStyle: .workflowExecution
             )
-            onOperationComplete?(partition.runnableFiles.count, partition.blockedFiles.count)
+            onOperationComplete?(execution.partition.runnableFiles.count, execution.partition.blockedFiles.count)
             return .executionAttempted
         } catch {
-            let failedFiles = partition.blockedFiles + partition.runnableFiles
+            let failedFiles = execution.partition.blockedFiles + execution.partition.runnableFiles
             lastBatchFailedFiles = failedFiles
             showFailedFilesSheet = !failedFiles.isEmpty
             onShowToast?(error.localizedDescription, false)
             onOperationComplete?(0, totalCount)
             return .executionAttempted
         }
+    }
+
+    func prepareWorkflowExecution(
+        _ files: [FileItem],
+        template: BuiltInWorkflowTemplate,
+        invocationContext: WorkflowInvocationContext
+    ) -> PreparedWorkflowExecution {
+        let plan = workflowExecution.plan(template.id, files, invocationContext)
+        let partition = partitionWorkflowPlan(plan, files: files)
+        return PreparedWorkflowExecution(
+            template: template,
+            plan: plan,
+            partition: partition
+        )
+    }
+
+    func runPreparedWorkflowExecution(
+        _ execution: PreparedWorkflowExecution,
+        scopeID: UUID = UUID(),
+        context: ModelContext
+    ) async throws -> WorkflowRunRecord {
+        let runRecord = try await workflowExecution.run(
+            execution.partition.runnablePlan,
+            execution.partition.runnableFiles,
+            scopeID,
+            context
+        )
+
+        for file in execution.partition.runnableFiles {
+            file.status = .completed
+        }
+
+        return runRecord
     }
 
     /// Show appropriate feedback based on operation results
