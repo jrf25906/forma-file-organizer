@@ -96,6 +96,32 @@ struct ProjectSpaceAutomationService {
     }
 
     @discardableResult
+    func recordRun(
+        policyID: UUID,
+        workflowTemplateID: String,
+        triggerKind: ProjectSpaceAutomationTriggerKind,
+        workflowRunID: UUID?,
+        status: ProjectSpaceAutomationRunStatus,
+        startedAt: Date,
+        endedAt: Date?,
+        createdAt: Date = Date()
+    ) throws -> ProjectSpaceAutomationRunRecord {
+        let runRecord = ProjectSpaceAutomationRunRecord(
+            policyID: policyID,
+            workflowRunID: workflowRunID,
+            workflowTemplateID: try normalizedTemplateID(workflowTemplateID),
+            triggerKind: triggerKind,
+            status: status,
+            startedAt: startedAt,
+            endedAt: endedAt,
+            createdAt: createdAt
+        )
+        modelContext.insert(runRecord)
+        try modelContext.save()
+        return runRecord
+    }
+
+    @discardableResult
     func bootstrapFromLegacyWorkflowProfileIfNeeded(
         normalizedProjectLabel: String,
         into existingProfile: ProjectSpaceAutomationProfile? = nil

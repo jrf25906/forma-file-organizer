@@ -1018,6 +1018,69 @@ final class FileMetadataFoundationServiceTests: XCTestCase {
         }
     }
 
+    func testAdmitToProjectSpace_NormalizesLabelAndAppendsHistoryRow() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let alphaURL = try tempDir.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: alphaURL.path,
+                    displayName: alphaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            try context.save()
+
+            try service.admitToProjectSpace(
+                canonicalIdentity: record.canonicalIdentity,
+                projectLabel: "  Alpha  ",
+                detailsSummary: " Admitted to project space Alpha before policy execution. ",
+                timestamp: Date(timeIntervalSince1970: 2_000)
+            )
+
+            XCTAssertEqual(record.projectAssociation, "Alpha")
+            let notedEntries = record.historyEntries
+                .filter { $0.eventKind == .noted }
+                .sorted(by: { $0.timestamp < $1.timestamp })
+
+            XCTAssertEqual(notedEntries.count, 1)
+            XCTAssertEqual(notedEntries.first?.sourceSurface, .organize)
+            XCTAssertEqual(notedEntries.first?.detailsSummary, "Admitted to project space Alpha before policy execution.")
+        }
+    }
+
+    func testAdmitToProjectSpace_NoopsForAlreadyMatchingLabel() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        try withService { context, service in
+            let tempDir = try TemporaryDirectory()
+            let alphaURL = try tempDir.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+            let record = try XCTUnwrap(
+                service.upsertRecord(
+                    for: alphaURL.path,
+                    displayName: alphaURL.lastPathComponent,
+                    fileExtension: "txt",
+                    timestamp: Date(timeIntervalSince1970: 1_000)
+                )
+            )
+            record.projectAssociation = "Alpha"
+            try context.save()
+
+            try service.admitToProjectSpace(
+                canonicalIdentity: record.canonicalIdentity,
+                projectLabel: " Alpha ",
+                detailsSummary: "Should not be written.",
+                timestamp: Date(timeIntervalSince1970: 2_000)
+            )
+
+            XCTAssertEqual(record.projectAssociation, "Alpha")
+            XCTAssertTrue(record.historyEntries.isEmpty)
+        }
+    }
+
     func testProjectSpaceSummaries_ExcludeWhitespacePaddedAbsolutePaths() throws {
         FeatureFlagService.shared.setEnabled(.projectSpaces, true)
 

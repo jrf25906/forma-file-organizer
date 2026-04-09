@@ -206,6 +206,42 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         )
     }
 
+    func testAdmitToProjectSpace_RefreshesProjectSpaceDetailAndHistory() throws {
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+        let alphaRecord = try insertPathFallbackRecord(
+            in: environment.context,
+            path: alphaURL.path,
+            displayName: alphaURL.lastPathComponent,
+            fileExtension: "txt",
+            timestamp: Date(timeIntervalSince1970: 1_000)
+        )
+
+        try environment.metadataService.admitToProjectSpace(
+            canonicalIdentity: alphaRecord.canonicalIdentity,
+            projectLabel: " Alpha ",
+            detailsSummary: "Admitted to project space Alpha before policy execution.",
+            timestamp: Date(timeIntervalSince1970: 2_000)
+        )
+
+        let detail = try XCTUnwrap(environment.metadataService.fetchProjectSpaceDetail(for: "Alpha"))
+        XCTAssertEqual(detail.summary.normalizedLabel, "Alpha")
+        XCTAssertEqual(detail.files.map(\.displayName), ["alpha.txt"])
+        XCTAssertEqual(detail.files.first?.projectAssociation, "Alpha")
+
+        let notedEntries = alphaRecord.historyEntries
+            .filter { $0.eventKind == .noted }
+            .sorted(by: { $0.timestamp < $1.timestamp })
+        XCTAssertEqual(notedEntries.count, 1)
+        XCTAssertEqual(notedEntries.first?.sourceSurface, .organize)
+        XCTAssertEqual(notedEntries.first?.detailsSummary, "Admitted to project space Alpha before policy execution.")
+    }
+
     func testOrganizeFile_UpdatesMetadataRecordAndAppendsHistory() async throws {
         let environment = try makeEnvironment()
         let tempDirectory = try TemporaryDirectory()

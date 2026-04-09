@@ -43,6 +43,22 @@ protocol FileMetadataFoundationServiceProtocol {
         wasCreated: Bool,
         timestamp: Date
     ) throws -> Bool
+
+    func admitToProjectSpace(
+        canonicalIdentity: String,
+        projectLabel: String,
+        detailsSummary: String,
+        timestamp: Date
+    ) throws
+}
+
+extension FileMetadataFoundationServiceProtocol {
+    func admitToProjectSpace(
+        canonicalIdentity: String,
+        projectLabel: String,
+        detailsSummary: String,
+        timestamp: Date
+    ) throws {}
 }
 
 @MainActor
@@ -802,6 +818,46 @@ final class FileMetadataFoundationService {
             )
             try modelContext.save()
             return true
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
+    func admitToProjectSpace(
+        canonicalIdentity: String,
+        projectLabel: String,
+        detailsSummary: String,
+        timestamp: Date
+    ) throws {
+        guard isProjectSpaceWriteEnabled,
+              let normalizedProjectLabel = FileMetadataRecord.normalizedOptionalText(projectLabel),
+              let metadataRecord = try record(matching: canonicalIdentity) else {
+            return
+        }
+
+        let existingLabel = FileMetadataRecord.normalizedOptionalText(metadataRecord.projectAssociation)
+        guard existingLabel != normalizedProjectLabel else {
+            return
+        }
+
+        metadataRecord.projectAssociation = normalizedProjectLabel
+        let normalizedSummary = FileMetadataRecord.normalizedOptionalText(detailsSummary)
+            ?? "Admitted to project space \(normalizedProjectLabel)."
+
+        do {
+            _ = try appendHistoryEntryWithoutSaving(
+                for: metadataRecord,
+                eventKind: .noted,
+                sourceSurface: .organize,
+                fromPath: metadataRecord.lastKnownPath,
+                toPath: metadataRecord.lastKnownPath,
+                destinationDisplayName: nil,
+                matchedRuleID: nil,
+                detailsSummary: normalizedSummary,
+                timestamp: timestamp
+            )
+            try modelContext.save()
         } catch {
             modelContext.rollback()
             throw error

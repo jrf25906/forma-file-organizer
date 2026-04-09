@@ -13,6 +13,7 @@ enum ProjectSpaceAutomationRunStatus: String, Codable, Sendable, CaseIterable {
 final class ProjectSpaceAutomationRunRecord {
     var id: UUID
     var policyID: UUID
+    var workflowRunID: UUID?
     private var workflowTemplateIDValue: String
     private var triggerKindRaw: String
     private var statusRaw: String
@@ -38,6 +39,7 @@ final class ProjectSpaceAutomationRunRecord {
     init(
         id: UUID = UUID(),
         policyID: UUID,
+        workflowRunID: UUID? = nil,
         workflowTemplateID: String,
         triggerKind: ProjectSpaceAutomationTriggerKind,
         status: ProjectSpaceAutomationRunStatus = .succeeded,
@@ -47,6 +49,7 @@ final class ProjectSpaceAutomationRunRecord {
     ) {
         self.id = id
         self.policyID = policyID
+        self.workflowRunID = workflowRunID
         self.workflowTemplateIDValue = ProjectSpaceAutomationPolicy.normalizedTemplateID(workflowTemplateID) ?? workflowTemplateID
         self.triggerKindRaw = triggerKind.rawValue
         self.statusRaw = status.rawValue
