@@ -98,6 +98,10 @@ final class WorkflowActivityProjectionTests: XCTestCase {
         }
     }
 
+    func testWorkflowTriggerSurfaceLabel_ReviewFlow_RemainsReview() {
+        XCTAssertEqual(ActivityItem.workflowTriggerSurfaceLabel(.reviewFlow), "Review")
+    }
+
     func testWorkflowStatusText_CompletedWithIssuesUsesAttentionLanguage() throws {
         let activity = ActivityItem(
             activityType: .workflowRunAttentionNeeded,

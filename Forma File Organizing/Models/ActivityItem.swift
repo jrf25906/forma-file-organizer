@@ -290,7 +290,7 @@ final class ActivityItem {
     static func workflowTriggerSurfaceLabel(_ surface: WorkflowTriggerSurface?) -> String {
         switch surface {
         case .reviewFlow:
-            return "Dashboard review"
+            return "Review"
         case .inspector:
             return "Inspector"
         case .bulkOrganize:

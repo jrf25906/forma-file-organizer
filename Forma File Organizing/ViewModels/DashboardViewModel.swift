@@ -963,7 +963,8 @@ class DashboardViewModel: ObservableObject {
 
         return WorkflowTemplateSimulationPreview.make(
             templateID: selectedWorkflowTemplateID,
-            files: dashboardWorkflowCandidateFiles
+            files: dashboardWorkflowCandidateFiles,
+            invocationContext: .dashboardReview
         )
     }
     var inspectorWorkflowSimulationPreview: WorkflowTemplateSimulationPreview? {
@@ -973,7 +974,8 @@ class DashboardViewModel: ObservableObject {
 
         return WorkflowTemplateSimulationPreview.make(
             templateID: selectedWorkflowTemplateID,
-            files: selectedFiles
+            files: selectedFiles,
+            invocationContext: .inspector
         )
     }
     func latestWorkflowInspectorSummary(
