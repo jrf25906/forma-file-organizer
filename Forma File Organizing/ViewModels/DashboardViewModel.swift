@@ -1019,18 +1019,38 @@ class DashboardViewModel: ObservableObject {
         defer { isProjectSpaceWorkflowInProgress = false }
         let now = Date()
         let profileService = ProjectSpaceWorkflowProfileService(modelContext: modelContext)
+        let automationService = ProjectSpaceAutomationService(modelContext: modelContext)
 
         let preparedFiles = await prepareProjectSpaceWorkflowCandidateFiles(
             for: detail,
             context: modelContext,
             showsErrors: true
         )
-        projectSpaceWorkflowCandidateFiles = preparedFiles
+        let executionCandidateFiles: [FileItem]
+        do {
+            executionCandidateFiles = try ProjectSpaceAutomationCoordinator(
+                modelContext: modelContext,
+                metadataAdmissionWriter: FileMetadataFoundationService(modelContext: modelContext),
+                automationService: automationService
+            ).eligibleFilesForExecution(
+                policy,
+                detail: detail,
+                files: preparedFiles,
+                now: now
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+            showToast(message: error.localizedDescription, canUndo: false)
+            loadProjectSpaceAutomationState(for: detail)
+            return
+        }
+
+        projectSpaceWorkflowCandidateFiles = executionCandidateFiles
         refreshProjectSpaceWorkflowPreview()
         refreshSelectedProjectSpaceAutomationPolicyDetail()
 
         let execution = bulkOperationViewModel.prepareWorkflowExecution(
-            preparedFiles,
+            executionCandidateFiles,
             template: template,
             invocationContext: .projectPolicyManual(
                 projectLabel: detail.projectLabel,
@@ -1045,17 +1065,20 @@ class DashboardViewModel: ObservableObject {
                     message: "No reachable files in this project space are available to organize.",
                     canUndo: false
                 )
+            } else if executionCandidateFiles.isEmpty {
+                showToast(
+                    message: "No files met this policy's project-admission requirements.",
+                    canUndo: false
+                )
             } else {
                 bulkOperationViewModel.presentPreparedWorkflowExecutionFeedback(
                     execution,
-                    totalCount: preparedFiles.count
+                    totalCount: executionCandidateFiles.count
                 )
             }
             loadProjectSpaceAutomationState(for: detail)
             return
         }
-
-        let automationService = ProjectSpaceAutomationService(modelContext: modelContext)
 
         do {
             let runRecord = try await bulkOperationViewModel.runPreparedWorkflowExecution(
@@ -1081,7 +1104,7 @@ class DashboardViewModel: ObservableObject {
             )
             bulkOperationViewModel.presentPreparedWorkflowExecutionFeedback(
                 execution,
-                totalCount: preparedFiles.count
+                totalCount: executionCandidateFiles.count
             )
             handleMetadataMutationCompletion()
         } catch {

@@ -13,10 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Startup migration recovery**: `ProjectCluster.filePathsSearchBlob` now defaults to an empty string for rows created before that denormalized search field existed, allowing older app stores to open and migrate without crashing during container creation.
 - **Regression coverage**: Added `Forma File OrganizingTests/AppStoreMigrationTests.swift` to verify legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows open under the current app schema.
 
-### Added - Cross-Folder Project Spaces
-- **Cross-folder project spaces v1**: Added a feature-gated, read-only dashboard retrieval slice for durable project groupings.
-- **Project-space membership**: `FileMetadataFoundationService.fetchProjectSpaceSummaries()` and `fetchProjectSpaceDetail(for:)` derive project spaces strictly from durable `projectAssociation` labels and only include files that still resolve locally through the existing metadata/bookmark identity paths.
-- **Project-space surfaces**: `DashboardViewModel`, `ProjectSpacesSection`, `ProjectSpaceDetailView`, and `DefaultPanelView` now surface project-space summaries and detail without adding manual editing, historical placeholder rows for missing files, or workflow execution from spaces.
+### Added - Project-Space Automation Board
+- **Project-space automation board**: Added a feature-gated, policy-centered board on top of the shipped project-space retrieval slice, with grouped draft, recommended, active, paused, and revoked policies.
+- **Lifecycle and runs**: `ProjectSpaceAutomationProfile`, `ProjectSpaceAutomationPolicy`, `ProjectSpaceAutomationRunRecord`, `ProjectSpaceAutomationService`, and `ProjectSpaceAutomationRecommendationService` now track policy recommendations, latest runs, resume support, and derived health for project-policy detail.
+- **Project-space surfaces**: `DashboardViewModel`, `ProjectSpacesSection`, `ProjectSpaceDetailView`, and `DefaultPanelView` now surface policy inspection, constrained creation, lifecycle controls, and manual policy runs without replacing the legacy manual project-workflow profile or admitting unlabeled files without strong-confirmed project association.
 
 ### Added - Personal Organization Memory
 - **PersonalMemoryService**: Added a structured local memory layer that records organize, override, defer, undo, and rule-suggestion decisions and turns them into destination preferences keyed by file extension, file category, source location, and relative parent path.

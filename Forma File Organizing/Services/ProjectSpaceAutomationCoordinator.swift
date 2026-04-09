@@ -15,6 +15,12 @@ extension FileMetadataFoundationService: ProjectSpaceAutomationAdmissionWriting 
 
 @MainActor
 struct ProjectSpaceAutomationCoordinator {
+    private struct AdmissionCandidate {
+        let canonicalIdentity: String?
+        let projectAssociation: String?
+        let sourceFolderHint: String?
+    }
+
     typealias PersistLatestRun = @MainActor @Sendable (WorkflowRunRecord, String, Date) throws -> Void
     typealias RecordRun = @MainActor @Sendable (
         UUID,
@@ -92,6 +98,20 @@ struct ProjectSpaceAutomationCoordinator {
                 createdAt: createdAt
             )
         }
+    }
+
+    func eligibleFilesForExecution(
+        _ policy: ProjectSpaceAutomationPolicy,
+        detail: ProjectSpaceDetail,
+        files: [FileItem],
+        now: Date
+    ) throws -> [FileItem] {
+        try eligibleFiles(
+            for: policy,
+            detail: detail,
+            files: files,
+            timestamp: now
+        )
     }
 
     func executePolicy(
@@ -199,22 +219,26 @@ struct ProjectSpaceAutomationCoordinator {
             return files
         }
 
-        let rowsByPath = detailRowsByStandardizedPath(detail.files)
+        let metadataService = FileMetadataFoundationService(modelContext: modelContext)
         var eligibleFiles: [FileItem] = []
 
         for file in files {
-            let standardizedPath = URL(fileURLWithPath: file.path).standardizedFileURL.path
-            guard let fileRows = rowsByPath[standardizedPath],
-                  let fileRow = preferredAdmissionRow(from: fileRows, detail: detail, now: timestamp) else {
-                continue
-            }
+            let candidate = admissionCandidate(
+                for: file,
+                detail: detail,
+                metadataService: metadataService,
+                now: timestamp
+            )
 
-            switch admissionDecision(for: fileRow, detail: detail, now: timestamp) {
+            switch candidate.decision {
             case .existingMember:
                 eligibleFiles.append(file)
             case .strongConfirmed:
+                guard let canonicalIdentity = candidate.value.canonicalIdentity else {
+                    continue
+                }
                 try metadataAdmissionWriter.admitToProjectSpace(
-                    canonicalIdentity: fileRow.canonicalIdentity,
+                    canonicalIdentity: canonicalIdentity,
                     projectLabel: detail.projectLabel,
                     detailsSummary: "Admitted to project space \(detail.projectLabel) before policy execution.",
                     timestamp: timestamp
@@ -228,12 +252,27 @@ struct ProjectSpaceAutomationCoordinator {
         return eligibleFiles
     }
 
-    private func detailRowsByStandardizedPath(
-        _ rows: [ProjectSpaceFileRow]
-    ) -> [String: [ProjectSpaceFileRow]] {
-        Dictionary(grouping: rows) { row in
-            URL(fileURLWithPath: row.normalizedPath).standardizedFileURL.path
+    private func admissionCandidate(
+        for file: FileItem,
+        detail: ProjectSpaceDetail,
+        metadataService: FileMetadataFoundationService,
+        now: Date
+    ) -> (value: AdmissionCandidate, decision: ProjectSpaceAdmissionDecision) {
+        let snapshot = metadataService.projectSpaceAdmissionFileSnapshot(for: file.path)
+        let matchingRows = detail.files.filter { row in
+            URL(fileURLWithPath: row.normalizedPath).standardizedFileURL.path == snapshot.normalizedPath
         }
+        let preferredRow = preferredAdmissionRow(from: matchingRows, detail: detail, now: now)
+        let candidate = AdmissionCandidate(
+            canonicalIdentity: preferredRow?.canonicalIdentity ?? snapshot.canonicalIdentity,
+            projectAssociation: preferredRow?.projectAssociation ?? snapshot.projectAssociation,
+            sourceFolderHint: preferredRow?.sourceFolderHint ?? snapshot.sourceFolderHint
+        )
+
+        return (
+            candidate,
+            admissionDecision(for: candidate, detail: detail, now: now)
+        )
     }
 
     private func preferredAdmissionRow(
@@ -260,7 +299,15 @@ struct ProjectSpaceAutomationCoordinator {
         now: Date
     ) -> (Int, Date, String) {
         let rank: Int
-        switch admissionDecision(for: fileRow, detail: detail, now: now) {
+        switch admissionDecision(
+            for: AdmissionCandidate(
+                canonicalIdentity: fileRow.canonicalIdentity,
+                projectAssociation: fileRow.projectAssociation,
+                sourceFolderHint: fileRow.sourceFolderHint
+            ),
+            detail: detail,
+            now: now
+        ) {
         case .existingMember:
             rank = 2
         case .strongConfirmed:
@@ -273,7 +320,7 @@ struct ProjectSpaceAutomationCoordinator {
     }
 
     private func admissionDecision(
-        for fileRow: ProjectSpaceFileRow,
+        for candidate: AdmissionCandidate,
         detail: ProjectSpaceDetail,
         now: Date
     ) -> ProjectSpaceAdmissionDecision {
@@ -287,13 +334,16 @@ struct ProjectSpaceAutomationCoordinator {
         }()
 
         let evidence = ProjectSpaceAdmissionEvidence(
-            existingProjectAssociation: fileRow.projectAssociation,
+            existingProjectAssociation: candidate.projectAssociation,
             dominantDestinationProjectLabel: dominantDestinationProjectLabel,
             dominantDestinationIsGenericHint: false,
-            sourceFolderProjectLabel: normalized(fileRow.sourceFolderHint) == normalized(detail.projectLabel)
+            sourceFolderProjectLabel: normalized(candidate.sourceFolderHint) == normalized(detail.projectLabel)
                 ? detail.projectLabel
                 : nil,
-            relatedFileProjectLabel: relatedFileProjectLabel(for: fileRow, in: detail)
+            relatedFileProjectLabel: relatedFileProjectLabel(
+                for: candidate.sourceFolderHint,
+                in: detail
+            )
         )
 
         return admissionResolver.resolveAdmission(
@@ -303,15 +353,14 @@ struct ProjectSpaceAutomationCoordinator {
     }
 
     private func relatedFileProjectLabel(
-        for fileRow: ProjectSpaceFileRow,
+        for sourceFolderHint: String?,
         in detail: ProjectSpaceDetail
     ) -> String? {
-        guard let sourceFolderHint = normalized(fileRow.sourceFolderHint) else {
+        guard let sourceFolderHint = normalized(sourceFolderHint) else {
             return nil
         }
 
         return detail.files.first(where: { row in
-            row.canonicalIdentity != fileRow.canonicalIdentity &&
             normalized(row.sourceFolderHint) == sourceFolderHint &&
             normalized(row.projectAssociation) == normalized(detail.projectLabel)
         }).flatMap { _ in detail.projectLabel }

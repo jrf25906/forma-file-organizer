@@ -1713,6 +1713,7 @@ extension AutomationEngine {
             matching: triggerKind,
             states: [.active]
         ) ?? []
+        let metadataService = FileMetadataFoundationService(modelContext: modelContext)
         let projectDetailsByLabel: [String: ProjectSpaceDetail] = Dictionary(uniqueKeysWithValues: projectPolicies.compactMap { resolvedPolicy in
             guard let detail = projectSpaceDetailReader(modelContext, resolvedPolicy.normalizedProjectLabel) else {
                 return nil
@@ -1744,6 +1745,7 @@ extension AutomationEngine {
                 for: file,
                 resolvedPolicies: projectPolicies,
                 detailsByLabel: projectDetailsByLabel,
+                metadataService: metadataService,
                 now: now,
                 admissionResolver: admissionResolver,
                 recommendationService: recommendationService
@@ -1916,6 +1918,7 @@ extension AutomationEngine {
         for file: FileItem,
         resolvedPolicies: [ProjectSpaceAutomationResolvedPolicy],
         detailsByLabel: [String: ProjectSpaceDetail],
+        metadataService: FileMetadataFoundationService,
         now: Date,
         admissionResolver: ProjectSpaceAdmissionResolver,
         recommendationService: ProjectSpaceAutomationRecommendationService
@@ -1925,6 +1928,7 @@ extension AutomationEngine {
                   let decision = projectAdmissionDecision(
                     for: file,
                     detail: detail,
+                    metadataService: metadataService,
                     now: now,
                     admissionResolver: admissionResolver,
                     recommendationService: recommendationService
@@ -1974,17 +1978,18 @@ extension AutomationEngine {
     private static func projectAdmissionDecision(
         for file: FileItem,
         detail: ProjectSpaceDetail,
+        metadataService: FileMetadataFoundationService,
         now: Date,
         admissionResolver: ProjectSpaceAdmissionResolver,
         recommendationService: ProjectSpaceAutomationRecommendationService
     ) -> ProjectSpaceAdmissionDecision? {
-        let standardizedPath = URL(fileURLWithPath: file.path).standardizedFileURL.path
+        let snapshot = metadataService.projectSpaceAdmissionFileSnapshot(for: file.path)
         let matchingRows = detail.files.filter { row in
-            URL(fileURLWithPath: row.normalizedPath).standardizedFileURL.path == standardizedPath
+            URL(fileURLWithPath: row.normalizedPath).standardizedFileURL.path == snapshot.normalizedPath
         }
-        guard let fileRow = preferredAdmissionRow(from: matchingRows, detail: detail, now: now) else {
-            return nil
-        }
+        let preferredRow = preferredAdmissionRow(from: matchingRows, detail: detail, now: now)
+        let projectAssociation = preferredRow?.projectAssociation ?? snapshot.projectAssociation
+        let sourceFolderHint = preferredRow?.sourceFolderHint ?? snapshot.sourceFolderHint
 
         let dominantDestinationProjectLabel: String? = {
             guard let dominantDestination = recommendationService.dominantDestination(for: detail, now: now),
@@ -1995,13 +2000,16 @@ extension AutomationEngine {
         }()
 
         let evidence = ProjectSpaceAdmissionEvidence(
-            existingProjectAssociation: fileRow.projectAssociation,
+            existingProjectAssociation: projectAssociation,
             dominantDestinationProjectLabel: dominantDestinationProjectLabel,
             dominantDestinationIsGenericHint: false,
-            sourceFolderProjectLabel: normalized(fileRow.sourceFolderHint) == normalized(detail.projectLabel)
+            sourceFolderProjectLabel: normalized(sourceFolderHint) == normalized(detail.projectLabel)
                 ? detail.projectLabel
                 : nil,
-            relatedFileProjectLabel: relatedFileProjectLabel(for: fileRow, in: detail)
+            relatedFileProjectLabel: relatedFileProjectLabel(
+                for: sourceFolderHint,
+                in: detail
+            )
         )
 
         return admissionResolver.resolveAdmission(
@@ -2041,15 +2049,14 @@ extension AutomationEngine {
     }
 
     private static func relatedFileProjectLabel(
-        for fileRow: ProjectSpaceFileRow,
+        for sourceFolderHint: String?,
         in detail: ProjectSpaceDetail
     ) -> String? {
-        guard let sourceFolderHint = normalized(fileRow.sourceFolderHint) else {
+        guard let sourceFolderHint = normalized(sourceFolderHint) else {
             return nil
         }
 
         return detail.files.first(where: { row in
-            row.canonicalIdentity != fileRow.canonicalIdentity &&
             normalized(row.sourceFolderHint) == sourceFolderHint &&
             normalized(row.projectAssociation) == normalized(detail.projectLabel)
         }).flatMap { _ in detail.projectLabel }

@@ -1,6 +1,6 @@
 # Forma - Project TODO
 
-**Last Updated:** April 7, 2026
+**Last Updated:** April 8, 2026
 
 Strategic roadmap: [`forma-feature-roadmap.md`](../../forma-feature-roadmap.md). This document is the execution checklist and historical backlog reference.
 
@@ -16,19 +16,21 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 - [x] Ship quick-win onboarding and first-run proof before asking users to configure more rules.
 - [x] Add chunked review sessions with `Done for now` semantics so the core workflow feels finite and forgiving.
 - [x] Build trust infrastructure first: rule simulation, stronger preflight checks, richer explanations, and clearer scoped rollback.
+- [x] Close the Session 2 review follow-up so trust surfaces stay accurate: manual pause/resume events remain manual in audit badges, inspector rule previews invalidate on real snapshot changes, and auto-organize logs enumerate every preflight skip bucket.
 - [x] Rewrite automation notifications around progress and system health instead of backlog guilt.
+- [x] Preserve structured automation error buckets for scan, bookmark, and destination failures so notifications do not fall back to generic scan summaries.
 - [x] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
 - [x] Convert successful one-time Finder/Spotlight review flows into persistent monitored folders.
 - [x] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ### Next (2-4 Months)
 - [x] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.
-- [ ] Plan progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
-- [ ] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
-- [x] Ship metadata-backed project spaces as a read-only retrieval slice, while leaving broader project-space editing and workflow-memory expansion for later.
+- [x] Complete progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
+- [x] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
+- [x] Extend the shipped metadata-backed project spaces slice beyond read-only retrieval and plan workflow-memory expansion before broad cloud or chatbot-style AI expansion.
 
 ### Later (4-8+ Months)
-- [ ] Plan workflow chains with simulation, audit history, and rollback across multi-step automations, including flows like match -> rename -> tag -> move -> notify -> log.
+- [ ] Expand the shipped `workflow-engine-v2` slice beyond the current built-in `rename -> tag -> move -> log` path, template-gated trusted-scope `notify`, and manual project-space organize entry into project-space-owned automation triggers and broader metadata-backed automation entry points.
 - [ ] Deepen macOS integration beyond current Finder Services, Spotlight, App Intents, and menu bar entry points.
 - [ ] Plan backup, sync, and portability for rules, settings, metadata, and organization memory.
 - [ ] Evaluate collaboration and shared conventions only after the solo local workflow is stronger.
@@ -47,6 +49,10 @@ The dated sections below capture shipped work and execution history. Use the roa
 - [x] Build personal-memory preferences keyed by file extension, file category, source location, and relative parent path so user-specific habits can outrank generic learned-pattern and ML suggestions.
 - [x] Preserve the original suggestion on each file, surface a dedicated `Personal Memory` suggestion source in the UI, and keep memory-backed rule suggestions synchronized with analytics pattern detection.
 - [x] Add Smart Features summary/reset controls for learned memory and cover the core behavior with targeted personal-memory, precedence, and suggestion-source persistence tests.
+
+## Project-Space Automation Board (April 8, 2026)
+- [x] Ship the feature-gated project-space automation board as a policy-centered layer over the existing project-space retrieval slice, with grouped recommendations, active/paused/revoked lifecycle controls, derived health/latest-run context, constrained policy creation, and manual policy runs.
+- [x] Keep the legacy manual project-workflow profile as the bridge for existing state, and keep unlabeled files gated behind strong-confirmed project association before workflow execution.
 
 ## External Review Folder Promotion (April 1, 2026)
 - [x] Detect one-time Finder/Spotlight folder reviews that map cleanly onto bookmark-backed standard folders and carry a promotion candidate through the external review session.

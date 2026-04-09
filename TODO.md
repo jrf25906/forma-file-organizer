@@ -75,7 +75,7 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Ship the durable local metadata foundation for scan, organize, undo, redo, and inspector proof surfaces with `FileMetadataRecord`, `FileOrganizationHistoryEntry`, `FileMetadataInspectorSummary`, and `FileMetadataFoundationService`.
 - [x] Complete durable workflow status v1 so scan discovery seeds `queued`, organize/undo/ignore lifecycle writes persist `organized` / `recovered` / `ignored`, skip actions capture durable-status snapshots for undo/redo, and inspector proof exposes one read-only workflow-status line behind `FeatureFlagService.Feature.durableWorkflowStatus`.
 - [ ] Build on the shipped `workflow-engine-v2` slice with additional metadata-backed step kinds, broader audit projections, and richer workflow-memory layers beyond the current built-in `rename -> tag -> move -> log` path plus template-gated trusted-scope `notify`.
-- [ ] Keep metadata-backed workflow-memory expansion open beyond v1; the shipped slices now include read-only project-space retrieval, richer project-space detail/correction, narrow project-memory destination suggestions, and manual project-space workflow execution with remembered templates/latest-run summaries, while broader editing, automation triggers, and richer memory layers remain later work.
+- [ ] Keep metadata-backed workflow-memory expansion open beyond v1; the shipped slices now include read-only project-space retrieval, richer project-space detail/correction, narrow project-memory destination suggestions, manual project-space workflow execution with remembered templates/latest-run summaries, and the project-space automation board with constrained manual/realtime/scheduled policy triggers, while broader editing, automation entry points, and richer memory layers remain later work.
 
 ## Auto-Applied Project Association v1 (April 6, 2026)
 - [x] Add the feature-gated `autoProjectAssociation` resolver layer with `ProjectAssociationWriteContext`, `MetadataProjectAssociationResolver`, exact `Projects/...` explicit qualification, cluster-organize explicit opt-in, and strong-winner inferred fallback.
@@ -99,8 +99,12 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Ship manual-only `Organize Project Space` execution in `DashboardViewModel`, reusing explicit-selection workflow preparation so all reachable files in the selected project space can preview, run, and audit through `WorkflowRunner`.
 - [x] Surface the remembered template, simulation preview, disabled-state guidance, and latest workflow run summary directly in `ProjectSpaceDetailView` / `DefaultPanelView`, while making workflow activity labels explicitly distinguish project-space-triggered runs from review, bulk, inspector, and trusted-scope automation.
 
-## Project-space Automation Board Task 5 (April 9, 2026)
+## Project-space Automation Board Task 5 (April 8, 2026)
 - [x] Replace the old single-template project-space workflow block with a feature-gated automation board in project-space detail, including grouped recommended/active/paused policy sections, health/latest-run context, constrained composer entry, policy inspection, and a policy-centered manual run path that preserves the existing manual project-space execution flow during the transition.
+
+## Project-Space Automation Board (April 8, 2026)
+- [x] Ship the feature-gated project-space automation board as a policy-centered layer on top of the existing project-space retrieval surface, with grouped recommendations, active/paused/revoked lifecycle controls, derived health/latest-run context, constrained policy creation, and manual policy runs.
+- [x] Keep the legacy manual project-workflow profile as the bridge for existing state, and keep unlabeled files gated behind strong-confirmed project association before workflow execution.
 
 ## Auto-Applied Content Tags v1 (April 6, 2026)
 - [x] Add the feature-gated durable content-tag layer with a small built-in vocabulary, explicit-signal-first resolution, and conservative inference through `MetadataContentTag`, `MetadataContentTagResolver`, and metadata-foundation write paths.

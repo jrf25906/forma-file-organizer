@@ -1106,6 +1106,95 @@ final class AutomationEngineTests: XCTestCase {
     }
 
     @MainActor
+    func testPerformAutoOrganize_ProjectPolicyCanClaimUnlabeledFileWithoutMatchingDetailRow() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Alpha"),
+            displayName: "Alpha"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let automationService = ProjectSpaceAutomationService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "spec.md",
+            destination: destination
+        )
+        let metadataService = FileMetadataFoundationService(modelContext: context)
+        let record = try insertMetadataRecord(
+            context: context,
+            path: file.path,
+            timestamp: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let relatedURL = try sourceRoot.createFile(name: "trusted/reference.md")
+        let sourceFolderHint = try XCTUnwrap(
+            metadataService.projectSpaceAdmissionFileSnapshot(for: file.path).sourceFolderHint
+        )
+        let projectSpaceDetailReader = ProjectSpaceDetailStubReader(
+            detailsByProjectLabel: [
+                "Alpha": makeProjectSpaceDetail(
+                    projectLabel: "Alpha",
+                    fileRows: [
+                        ProjectSpaceFileRow(
+                            canonicalIdentity: "alpha-existing",
+                            path: relatedURL.path,
+                            displayName: "reference.md",
+                            projectAssociation: "Alpha",
+                            sourceFolderHint: sourceFolderHint
+                        )
+                    ],
+                    preferredDestinations: [
+                        ProjectSpacePreferredDestination(
+                            destinationDisplayName: "Alpha",
+                            eventCount: 3,
+                            lastUsedAt: Date(timeIntervalSince1970: 1_700_000_000)
+                        )
+                    ]
+                )
+            ]
+        )
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            projectSpaceDetailReader: { _, normalizedProjectLabel in
+                projectSpaceDetailReader.detail(for: normalizedProjectLabel)
+            }
+        )
+
+        context.insert(file)
+        _ = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual],
+            admissionMode: .automatic,
+            state: .active,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_100)
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(workflowExecution.lastRunFilePaths, [file.path])
+        XCTAssertEqual(record.projectAssociation, "Alpha")
+    }
+
+    @MainActor
     func testPerformAutoOrganize_SameProjectMultipleActivePoliciesUseDeterministicProjectWinner() async throws {
         let sourceRoot = try TemporaryDirectory()
         defer { sourceRoot.cleanup() }
@@ -1583,6 +1672,25 @@ final class AutomationEngineTests: XCTestCase {
             WorkflowFileActionRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
+    }
+
+    @MainActor
+    private func insertMetadataRecord(
+        context: ModelContext,
+        path: String,
+        timestamp: Date
+    ) throws -> FileMetadataRecord {
+        let service = FileMetadataFoundationService(modelContext: context)
+        let record = try XCTUnwrap(
+            service.upsertRecord(
+                for: path,
+                displayName: URL(fileURLWithPath: path).lastPathComponent,
+                fileExtension: URL(fileURLWithPath: path).pathExtension,
+                timestamp: timestamp
+            )
+        )
+        try context.save()
+        return record
     }
 
     private func makeFile(

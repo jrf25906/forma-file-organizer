@@ -212,6 +212,36 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
         }
     }
 
+    func testActivatingPolicy_PausesSiblingActivePoliciesForSameProject() throws {
+        try withService { context, service in
+            let first = try service.createOrUpdatePolicy(
+                normalizedProjectLabel: "Alpha",
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .active,
+                updatedAt: Date(timeIntervalSince1970: 3_100)
+            )
+            let second = try service.createOrUpdatePolicy(
+                normalizedProjectLabel: "Alpha",
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .active,
+                updatedAt: Date(timeIntervalSince1970: 3_200)
+            )
+
+            let policies = try context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>())
+            let persistedFirst = try XCTUnwrap(policies.first(where: { $0.id == first.id }))
+            let persistedSecond = try XCTUnwrap(policies.first(where: { $0.id == second.id }))
+
+            XCTAssertEqual(persistedFirst.state, .paused)
+            XCTAssertEqual(persistedFirst.pausedAt, Date(timeIntervalSince1970: 3_200))
+            XCTAssertEqual(persistedSecond.state, .active)
+            XCTAssertNil(persistedSecond.pausedAt)
+        }
+    }
+
     func testCreatePolicy_TerminalStatesStampAndClearLifecycleMetadata() throws {
         try withService { context, service in
             let pausedAt = Date(timeIntervalSince1970: 4_000)
@@ -360,6 +390,60 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
             XCTAssertEqual(persistedPolicy.id, bridgedPolicy.id)
             XCTAssertEqual(persistedPolicy.workflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
             XCTAssertEqual(persistedPolicy.state, .active)
+        }
+    }
+
+    func testProfileFetch_DoesNotRewriteMultipleRecommendedPoliciesAsLegacyBridge() throws {
+        try withService { context, service in
+            let bootstrapAt = Date(timeIntervalSince1970: 6_500)
+            let updateAt = bootstrapAt.addingTimeInterval(60)
+
+            let legacyProfile = ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                updatedAt: updateAt
+            )
+            context.insert(legacyProfile)
+
+            let profile = ProjectSpaceAutomationProfile(
+                normalizedProjectLabel: "Alpha",
+                createdAt: bootstrapAt
+            )
+            context.insert(profile)
+
+            let firstRecommended = ProjectSpaceAutomationPolicy(
+                profileID: profile.id,
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .recommended,
+                createdAt: bootstrapAt
+            )
+            let secondRecommended = ProjectSpaceAutomationPolicy(
+                profileID: profile.id,
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.screenshots,
+                triggerKinds: [.manual],
+                admissionMode: .manualReview,
+                state: .recommended,
+                createdAt: bootstrapAt.addingTimeInterval(1)
+            )
+            context.insert(firstRecommended)
+            context.insert(secondRecommended)
+            try context.save()
+
+            let resolvedProfile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            let policies = try context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>())
+
+            XCTAssertEqual(resolvedProfile.id, profile.id)
+            XCTAssertEqual(resolvedProfile.lastLegacyBootstrapAt, updateAt)
+            XCTAssertEqual(policies.count, 2)
+            XCTAssertEqual(
+                Set(policies.map(\.workflowTemplateID)),
+                Set([
+                    BuiltInWorkflowTemplate.StableID.projectDrop,
+                    BuiltInWorkflowTemplate.StableID.screenshots
+                ])
+            )
         }
     }
 

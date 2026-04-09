@@ -4,7 +4,11 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
-- Project-space automation board Task 5
+- Project-space automation board
+  - `FeatureFlagService.Feature.projectSpaceAutomationBoard`
+  - `ProjectSpaceAutomationProfile`
+  - `ProjectSpaceAutomationPolicy`
+  - `ProjectSpaceAutomationRunRecord`
   - `ProjectSpaceAutomationBoardGroupKind`
   - `ProjectSpaceAutomationPolicyDetail`
   - `ProjectSpaceAutomationBoardGroup`
@@ -13,11 +17,31 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `ProjectSpaceAutomationSection`
   - `ProjectSpaceAutomationPolicySheet`
   - `ProjectSpaceAutomationComposerSheet`
+  - `ProjectSpaceAutomationRecommendationService`
+  - `ProjectSpaceAdmissionResolver`
+  - `ProjectAutomationOwnershipResolver`
+  - `ProjectSpaceAutomationCoordinator`
   - `ProjectSpaceAutomationService`
+    - `profile(normalizedProjectLabel:)`
     - `policies(normalizedProjectLabel:)`
+    - `policies(matching:states:)`
     - `policy(id:)`
     - `latestRun(policyID:)`
+    - `createOrUpdatePolicy(normalizedProjectLabel:workflowTemplateID:triggerKinds:admissionMode:state:updatedAt:)`
+    - `activatePolicy(id:at:)`
+    - `pausePolicy(id:at:)`
     - `resumePolicy(id:at:)`
+    - `revokePolicy(id:at:)`
+    - `recordRun(policyID:workflowTemplateID:triggerKind:workflowRunID:status:startedAt:endedAt:createdAt:)`
+    - `bootstrapFromLegacyWorkflowProfileIfNeeded(normalizedProjectLabel:into:)`
+  - `WorkflowInvocationContext`
+    - `.projectPolicyManual(projectLabel:policyName:)`
+    - `.projectPolicyScheduled(projectLabel:policyName:)`
+    - `.projectPolicyRealtime(projectLabel:policyName:)`
+  - `ActivityItem.WorkflowTriggerSurface`
+    - `.projectPolicyManual`
+    - `.projectPolicyScheduled`
+    - `.projectPolicyRealtime`
   - `DashboardViewModel`
     - `selectedProjectSpaceAutomationBoard`
     - `selectedProjectSpaceAutomationPolicyDetail`
@@ -37,7 +61,8 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `runSelectedProjectSpaceAutomationPolicyManually()`
   - `ProjectSpaceDetailView.Snapshot`
     - `automationSection`
-  - Project-space detail now exposes a feature-gated automation board instead of treating the old single workflow-template block as the primary model. The board groups project policies by lifecycle state, surfaces derived health/latest-run context, reuses `WorkflowTemplatePicker` inside a constrained composer sheet, and keeps manual project-policy execution routed through the shared workflow-engine-v2 path during the transition away from the legacy single-template selection flow.
+  - Project-space detail now exposes a feature-gated policy-centered automation board layered on top of the existing project-space retrieval surface. The board groups draft, recommended, active, paused, and revoked policies, surfaces derived health/latest-run context, reuses `WorkflowTemplatePicker` inside a constrained composer sheet, and keeps manual project-policy execution routed through the shared workflow-engine-v2 path during the transition away from the legacy single-template selection flow.
+  - Project policies can bootstrap from the legacy manual project-workflow profile, and project-policy manual, realtime, and scheduled runs all stay behind strong-confirmed project association before workflow execution.
 - Sidebar/right-panel cleanup follow-up
   - `DashboardViewModel`
     - `showAnalyticsPanel()`
@@ -181,9 +206,9 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `DashboardViewModel.closeProjectSpaceDetail()`
   - `ProjectSpacesSection`
   - `ProjectSpaceDetailView`
-  - Project spaces are now a shipped read-only retrieval surface in the dashboard, derived from durable `projectAssociation` labels already stored on `FileMetadataRecord`.
+  - Project spaces are now a shipped retrieval surface in the dashboard, derived from durable `projectAssociation` labels already stored on `FileMetadataRecord`, and the policy-centered automation board layers on top of this slice instead of replacing it.
   - Membership is strict: a file appears only when it has a durable `projectAssociation` and still resolves locally through the metadata foundation's existing path/bookmark lookup flow.
-  - The initial retrieval slice does not add manual metadata editing or historical placeholder rows for missing files; later slices layer in richer project-space memory and manual workflow execution separately.
+  - The initial retrieval slice does not add manual metadata editing or historical placeholder rows for missing files; later slices layer in richer project-space memory, manual workflow execution, and the policy board separately.
 - Cross-folder project spaces v2
   - `FeatureFlagService.Feature.projectSpaceMemory`
   - `ProjectSpaceOverview`

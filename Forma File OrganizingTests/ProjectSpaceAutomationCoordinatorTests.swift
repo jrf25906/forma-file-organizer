@@ -687,6 +687,98 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         XCTAssertTrue(insufficientRecord.historyEntries.filter { $0.eventKind == .noted }.isEmpty)
     }
 
+    func testEligibleFilesForExecution_ManualPathCanAdmitFileWithoutMatchingDetailRow() throws {
+        let environment = try makeEnvironment()
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let existingURL = try environment.sourceRoot.createFile(name: "trusted/existing.md", contents: "existing")
+        let manualURL = try environment.sourceRoot.createFile(name: "trusted/manual.md", contents: "manual")
+        let projectDestination = try Destination.folder(
+            from: environment.destinationRoot.url.appendingPathComponent("Alpha"),
+            displayName: "Alpha"
+        )
+
+        let existingFile = makeFileItem(
+            path: existingURL.path,
+            rootPath: environment.sourceRoot.url.path,
+            relativeParentPath: "trusted",
+            timestamp: environment.timestamp,
+            destination: projectDestination
+        )
+        let manualFile = makeFileItem(
+            path: manualURL.path,
+            rootPath: environment.sourceRoot.url.path,
+            relativeParentPath: "trusted",
+            timestamp: environment.timestamp,
+            destination: projectDestination
+        )
+
+        environment.context.insert(existingFile)
+        environment.context.insert(manualFile)
+
+        let existingRecord = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: existingFile.path,
+            displayName: existingFile.name,
+            timestamp: environment.timestamp
+        )
+        existingRecord.projectAssociation = "Alpha"
+        let manualRecord = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: manualFile.path,
+            displayName: manualFile.name,
+            timestamp: environment.timestamp
+        )
+        try environment.context.save()
+        let sourceFolderHint = try XCTUnwrap(
+            environment.metadataService.projectSpaceAdmissionFileSnapshot(for: manualFile.path).sourceFolderHint
+        )
+
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: existingRecord.canonicalIdentity,
+                    path: existingFile.path,
+                    displayName: existingFile.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: sourceFolderHint
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-60)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: existingRecord.canonicalIdentity,
+                    fileDisplayName: existingFile.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-60),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                )
+            ]
+        )
+
+        let eligibleFiles = try environment.coordinator.eligibleFilesForExecution(
+            environment.policy,
+            detail: detail,
+            files: [manualFile],
+            now: environment.timestamp
+        )
+
+        XCTAssertEqual(eligibleFiles.map(\.path), [manualFile.path])
+        XCTAssertEqual(manualRecord.projectAssociation, "Alpha")
+        XCTAssertEqual(manualRecord.historyEntries.filter { $0.eventKind == .noted }.count, 1)
+    }
+
     func testExecutePolicy_AutomaticAdmissionRejectsStaleDominantDestinationEvidence() async throws {
         let environment = try makeEnvironment()
         defer { environment.sourceRoot.cleanup() }

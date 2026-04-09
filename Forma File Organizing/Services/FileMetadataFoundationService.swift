@@ -61,6 +61,13 @@ extension FileMetadataFoundationServiceProtocol {
     ) throws {}
 }
 
+struct ProjectSpaceAdmissionFileSnapshot: Sendable, Hashable {
+    let canonicalIdentity: String?
+    let normalizedPath: String
+    let projectAssociation: String?
+    let sourceFolderHint: String?
+}
+
 @MainActor
 final class FileMetadataFoundationService {
     typealias IgnoredHistoryPreparationResult = (
@@ -103,6 +110,18 @@ final class FileMetadataFoundationService {
 
     static func pathFallbackCanonicalIdentity(for path: String) -> String {
         FileMetadataRecord.Identity.pathFallback(path: path).canonicalIdentity
+    }
+
+    func projectSpaceAdmissionFileSnapshot(for path: String) -> ProjectSpaceAdmissionFileSnapshot {
+        let normalizedPath = FileMetadataRecord.normalizedPath(path)
+        let record = try? workflowTagRecord(for: normalizedPath)
+
+        return ProjectSpaceAdmissionFileSnapshot(
+            canonicalIdentity: record?.canonicalIdentity,
+            normalizedPath: normalizedPath,
+            projectAssociation: FileMetadataRecord.normalizedOptionalText(record?.projectAssociation),
+            sourceFolderHint: projectSpaceSourceFolderHintRoot(for: normalizedPath)
+        )
     }
 
     func resolveIdentity(for path: String) -> FileMetadataRecord.Identity {

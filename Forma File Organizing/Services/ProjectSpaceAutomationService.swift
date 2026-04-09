@@ -125,6 +125,9 @@ struct ProjectSpaceAutomationService {
             existing.workflowTemplateID = normalizedTemplateID
             existing.triggerKinds = triggerKinds
             existing.admissionMode = admissionMode
+            if state == .active {
+                pauseSiblingActivePolicies(for: existing, at: updatedAt)
+            }
             applyLifecycle(state: state, timestamp: updatedAt, to: existing)
             profile.updatedAt = updatedAt
             try modelContext.save()
@@ -139,6 +142,9 @@ struct ProjectSpaceAutomationService {
             state: state,
             createdAt: updatedAt
         )
+        if state == .active {
+            pauseSiblingActivePolicies(for: policy, at: updatedAt)
+        }
         applyLifecycle(state: state, timestamp: updatedAt, to: policy)
         modelContext.insert(policy)
         profile.updatedAt = updatedAt
@@ -160,6 +166,7 @@ struct ProjectSpaceAutomationService {
             return
         }
 
+        pauseSiblingActivePolicies(for: policy, at: timestamp)
         applyLifecycle(state: .active, timestamp: timestamp, to: policy)
         try modelContext.save()
     }
@@ -169,6 +176,7 @@ struct ProjectSpaceAutomationService {
             return
         }
 
+        pauseSiblingActivePolicies(for: policy, at: timestamp)
         applyLifecycle(state: .active, timestamp: timestamp, to: policy)
         try modelContext.save()
     }
@@ -235,11 +243,18 @@ struct ProjectSpaceAutomationService {
             )
         }
         let policies = policies(profileID: profile.id)
-        guard policies.isEmpty else {
+        let recommendedPolicies = policies.filter { $0.state == .recommended }
+
+        // Keep the legacy bridge fresh only while the board still consists of the
+        // single bootstrap recommendation. Once any other policy shape exists,
+        // stop mutating recommended rows because they may no longer be the bridge.
+        if !policies.isEmpty && (policies.count != 1 || recommendedPolicies.count != 1) {
+            profile.lastLegacyBootstrapAt = bootstrapCandidate.updatedAt
+            profile.updatedAt = max(profile.updatedAt, bootstrapCandidate.updatedAt)
+            try modelContext.save()
             return profile
         }
 
-        let recommendedPolicies = policies.filter { $0.state == .recommended }
         if let bridgedPolicy = recommendedPolicies.first {
             bridgedPolicy.workflowTemplateID = bootstrapCandidate.templateID
             bridgedPolicy.triggerKinds = [.manual]
@@ -379,6 +394,15 @@ struct ProjectSpaceAutomationService {
         modelContext.insert(profile)
         try modelContext.save()
         return profile
+    }
+
+    private func pauseSiblingActivePolicies(
+        for policy: ProjectSpaceAutomationPolicy,
+        at timestamp: Date
+    ) {
+        for sibling in policies(profileID: policy.profileID) where sibling.id != policy.id && sibling.state == .active {
+            applyLifecycle(state: .paused, timestamp: timestamp, to: sibling)
+        }
     }
 
     private func applyLifecycle(
