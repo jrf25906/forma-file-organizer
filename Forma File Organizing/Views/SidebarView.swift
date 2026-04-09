@@ -498,11 +498,11 @@ private struct SidebarNativeRow: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
 
-    private let rowRadius: CGFloat = 7
+    private let rowRadius: CGFloat = FormaRadius.small
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 9) {
+            HStack(spacing: FormaSpacing.tight) {
                 Image(systemName: icon)
                     .font(.formaBodyMedium)
                     .foregroundColor(iconColor)
@@ -536,7 +536,7 @@ private struct SidebarNativeRow: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: rowRadius, style: .continuous)
-                    .strokeBorder(selectedBorder, lineWidth: isSelected ? 0.5 : 0)
+                    .strokeBorder(selectedBorder, lineWidth: isSelected ? FormaBorderWidth.hairline : 0)
             )
             .contentShape(RoundedRectangle(cornerRadius: rowRadius, style: .continuous))
         }
@@ -544,7 +544,7 @@ private struct SidebarNativeRow: View {
         .onHover { hovering in
             isHovered = hovering
         }
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .animation(FormaEasing.microFeedback, value: isHovered)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -594,7 +594,7 @@ private struct SidebarActionRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 9) {
+            HStack(spacing: FormaSpacing.tight) {
                 Image(systemName: icon)
                     .font(.formaBodyMedium)
                     .foregroundColor(.formaSecondaryLabelHigh)
