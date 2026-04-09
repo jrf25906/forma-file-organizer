@@ -172,7 +172,7 @@ struct FloatingActionBar: View {
         .frame(maxWidth: .infinity)
         .background {
             FormaMaterialSurface(tier: .overlay, cornerRadius: FormaRadius.pill)
-                .formaShadow(.floating)
+                .formaShadow(FormaShadow.floating)
         }
         .padding(.horizontal, FormaSpacing.large)
         .transition(.move(edge: .bottom).combined(with: .opacity))

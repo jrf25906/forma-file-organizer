@@ -3,7 +3,7 @@
 //  Forma - Shadow Elevation Tokens
 //
 //  Consistent shadow levels for depth hierarchy.
-//  Dark mode applies 2-3x intensification per spec.
+//  Dark mode applies 2x radius, 1.5x offset intensification.
 //
 
 import SwiftUI
@@ -59,15 +59,24 @@ extension FormaShadow {
 
 // MARK: - View Modifier
 
-extension View {
-    /// Apply a Forma shadow that automatically adapts to dark mode.
-    func formaShadow(_ shadow: FormaShadow, colorScheme: ColorScheme = .light) -> some View {
+private struct FormaShadowModifier: ViewModifier {
+    let shadow: FormaShadow
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
         let resolved = colorScheme == .dark ? shadow.darkMode : shadow
-        return self.shadow(
+        return content.shadow(
             color: resolved.color,
             radius: resolved.radius,
             x: resolved.x,
             y: resolved.y
         )
+    }
+}
+
+extension View {
+    /// Apply a Forma shadow that automatically adapts to dark mode.
+    func formaShadow(_ shadow: FormaShadow) -> some View {
+        modifier(FormaShadowModifier(shadow: shadow))
     }
 }
