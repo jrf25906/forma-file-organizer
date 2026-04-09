@@ -91,9 +91,7 @@ struct ProjectSpaceAutomationService {
             return
         }
 
-        policy.state = .revoked
-        policy.revokedAt = timestamp
-        policy.updatedAt = timestamp
+        applyLifecycle(state: .revoked, timestamp: timestamp, to: policy)
         try modelContext.save()
     }
 
@@ -123,7 +121,8 @@ struct ProjectSpaceAutomationService {
                 at: bootstrapCandidate.updatedAt
             )
         }
-        let recommendedPolicies = recommendedPolicies(profileID: profile.id)
+        let policies = policies(profileID: profile.id)
+        let recommendedPolicies = policies.filter { $0.state == .recommended }
         if let bridgedPolicy = recommendedPolicies.first {
             bridgedPolicy.workflowTemplateID = bootstrapCandidate.templateID
             bridgedPolicy.triggerKinds = [.manual]
@@ -133,6 +132,9 @@ struct ProjectSpaceAutomationService {
             for duplicatePolicy in recommendedPolicies.dropFirst() {
                 modelContext.delete(duplicatePolicy)
             }
+        } else if policies.contains(where: { $0.workflowTemplateID == bootstrapCandidate.templateID }) {
+            // A previously bootstrapped policy has been promoted or terminally transitioned.
+            // Preserve that row and avoid creating a duplicate recommended bridge.
         } else {
             let policy = ProjectSpaceAutomationPolicy(
                 profileID: profile.id,
@@ -197,15 +199,14 @@ struct ProjectSpaceAutomationService {
         })
     }
 
-    private func recommendedPolicies(profileID: UUID) -> [ProjectSpaceAutomationPolicy] {
+    private func policies(profileID: UUID) -> [ProjectSpaceAutomationPolicy] {
         let descriptor = FetchDescriptor<ProjectSpaceAutomationPolicy>(
             predicate: #Predicate<ProjectSpaceAutomationPolicy> { policy in
                 policy.profileID == profileID
             }
         )
 
-        let policies = (try? modelContext.fetch(descriptor)) ?? []
-        return policies.filter { $0.state == .recommended }
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 
     private func profileOrCreate(normalizedProjectLabel: String, at timestamp: Date) throws -> ProjectSpaceAutomationProfile {
@@ -236,7 +237,6 @@ struct ProjectSpaceAutomationService {
             policy.pausedAt = timestamp
             policy.revokedAt = nil
         case .revoked:
-            policy.pausedAt = nil
             policy.revokedAt = timestamp
         case .draft, .recommended, .active:
             policy.pausedAt = nil
