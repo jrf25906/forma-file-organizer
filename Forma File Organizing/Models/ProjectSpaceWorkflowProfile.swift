@@ -3,19 +3,22 @@ import SwiftData
 
 @Model
 final class ProjectSpaceWorkflowProfile {
+    static let currentMemorySchemaVersion = 2
+
     @Attribute(.unique) var normalizedProjectLabel: String
     var preferredWorkflowTemplateID: String?
     var lastWorkflowRunID: UUID?
     var lastWorkflowCompletedAt: Date?
     var successfulTemplateID: String?
-    var successfulTemplateCount: Int
+    var successfulTemplateCount: Int = 0
     var successfulTemplateLastSucceededAt: Date?
     private var dominantTriggerSurfaceRaw: String?
-    var dominantTriggerSurfaceCount: Int
+    var dominantTriggerSurfaceCount: Int = 0
     var dominantTriggerSurfaceLastSeenAt: Date?
     var latestSuccessfulDestinationSignal: String?
     var latestSuccessfulDestinationAt: Date?
-    private var workflowMemoryStatusRaw: String
+    private var workflowMemoryStatusRaw: String?
+    var workflowMemorySchemaVersion: Int?
     var updatedAt: Date
 
     var dominantTriggerSurface: ActivityItem.WorkflowTriggerSurface? {
@@ -29,7 +32,7 @@ final class ProjectSpaceWorkflowProfile {
     }
 
     var workflowMemoryStatus: WorkflowMemoryStatus {
-        get { WorkflowMemoryStatus(rawValue: workflowMemoryStatusRaw) ?? .stable }
+        get { WorkflowMemoryStatus(rawValue: workflowMemoryStatusRaw ?? "") ?? .stable }
         set { workflowMemoryStatusRaw = newValue.rawValue }
     }
 
@@ -46,7 +49,8 @@ final class ProjectSpaceWorkflowProfile {
         dominantTriggerSurfaceLastSeenAt: Date? = nil,
         latestSuccessfulDestinationSignal: String? = nil,
         latestSuccessfulDestinationAt: Date? = nil,
-        workflowMemoryStatus: WorkflowMemoryStatus = .stable,
+        workflowMemoryStatus: WorkflowMemoryStatus? = .stable,
+        workflowMemorySchemaVersion: Int? = 2,
         updatedAt: Date = Date()
     ) {
         self.normalizedProjectLabel = Self.normalizedProjectLabelValue(normalizedProjectLabel)
@@ -61,7 +65,8 @@ final class ProjectSpaceWorkflowProfile {
         self.dominantTriggerSurfaceLastSeenAt = dominantTriggerSurfaceLastSeenAt
         self.latestSuccessfulDestinationSignal = Self.normalizedDestinationSignal(latestSuccessfulDestinationSignal)
         self.latestSuccessfulDestinationAt = latestSuccessfulDestinationAt
-        self.workflowMemoryStatusRaw = workflowMemoryStatus.rawValue
+        self.workflowMemoryStatusRaw = workflowMemoryStatus?.rawValue
+        self.workflowMemorySchemaVersion = workflowMemorySchemaVersion
         self.updatedAt = updatedAt
     }
 

@@ -225,6 +225,8 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
                 preferredWorkflowTemplateID: " \(BuiltInWorkflowTemplate.StableID.projectDrop) ",
                 lastWorkflowRunID: legacyRunID,
                 lastWorkflowCompletedAt: legacyCompletedAt,
+                workflowMemoryStatus: nil,
+                workflowMemorySchemaVersion: nil,
                 updatedAt: Date(timeIntervalSince1970: 1_100)
             )
             context.insert(legacyProfile)
@@ -350,6 +352,47 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
         }
     }
 
+    func testProfileService_CompletedWithIssues_UsesSuccessfulDestinationActionSignal() throws {
+        try withService { context, service in
+            let run = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .completedWithIssues,
+                startedAt: Date(timeIntervalSince1970: 2_500),
+                endedAt: Date(timeIntervalSince1970: 2_520)
+            )
+            context.insert(run)
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: run.id,
+                    fileIdentity: "resource|diskA|destination-success-file",
+                    sourcePath: "/Users/example/Inbox/source.txt",
+                    destinationPath: "/Users/example/Projects/Alpha/source.txt",
+                    disposition: .moved,
+                    recordedAt: Date(timeIntervalSince1970: 2_510)
+                )
+            )
+            context.insert(
+                WorkflowFileActionRecord(
+                    runID: run.id,
+                    fileIdentity: "resource|diskA|side-effect-failure-file",
+                    sourcePath: "/Users/example/Inbox/source.txt",
+                    destinationPath: "/Users/example/Projects/Alpha/incorrect-side-effect.txt",
+                    disposition: .failed,
+                    failureReason: "Notification delivery failed",
+                    recordedAt: Date(timeIntervalSince1970: 2_519)
+                )
+            )
+            try context.save()
+
+            try service.recordLatestRun(run, for: "Alpha", at: Date(timeIntervalSince1970: 2_521))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(profile.latestSuccessfulDestinationSignal, "/Users/example/Projects/Alpha/source.txt")
+        }
+    }
+
     func testProfileService_ConflictingRecentRuns_MarkProfileConflicted() throws {
         try withService { context, service in
             let firstRun = WorkflowRunRecord(
@@ -405,6 +448,28 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
             XCTAssertEqual(profile.successfulTemplateCount, 1)
             XCTAssertEqual(profile.dominantTriggerSurface, .projectPolicyManual)
             XCTAssertEqual(profile.dominantTriggerSurfaceCount, 1)
+        }
+    }
+
+    func testClearingPreferredTemplate_PreservesBackfillableLegacyMemoryWithoutNewRuns() throws {
+        try withService { context, service in
+            let legacyProfile = ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: " \(BuiltInWorkflowTemplate.StableID.projectDrop) ",
+                workflowMemoryStatus: nil,
+                workflowMemorySchemaVersion: nil,
+                updatedAt: Date(timeIntervalSince1970: 3_500)
+            )
+            context.insert(legacyProfile)
+            try context.save()
+
+            try service.upsertPreferredTemplate(nil, for: "Alpha", at: Date(timeIntervalSince1970: 3_600))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertNil(profile.preferredWorkflowTemplateID)
+            XCTAssertEqual(profile.successfulTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(profile.successfulTemplateCount, 1)
+            XCTAssertEqual(profile.workflowMemorySchemaVersion, ProjectSpaceWorkflowProfile.currentMemorySchemaVersion)
         }
     }
 }
