@@ -24,50 +24,52 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
         }
     }
 
-    func testProfileLazilyCreatesRecordForNormalizedLabel() throws {
+    func testProfileReturnsNilAndDoesNotCreateRowOnMiss() throws {
         try withService { context, service in
-            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "  Alpha  "))
-
-            XCTAssertEqual(profile.normalizedProjectLabel, "Alpha")
-            XCTAssertNil(profile.preferredWorkflowTemplateID)
-            XCTAssertNil(profile.lastWorkflowRunID)
-            XCTAssertNil(profile.lastWorkflowCompletedAt)
-
-            let storedProfiles = try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>())
-            XCTAssertEqual(storedProfiles.count, 1)
-            XCTAssertEqual(storedProfiles.first?.normalizedProjectLabel, "Alpha")
+            XCTAssertNil(service.profile(normalizedProjectLabel: "  Alpha  "))
+            XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).count, 0)
         }
     }
 
-    func testProfileReusesExistingRecordForWhitespaceVariants() throws {
-        try withService { context, service in
-            let first = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
-            let second = try XCTUnwrap(service.profile(normalizedProjectLabel: " Alpha "))
-
-            XCTAssertEqual(first.id, second.id)
-            XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).count, 1)
-        }
-    }
-
-    func testUpsertPreferredTemplateRecallsTemplateForTheSameProjectLabel() throws {
+    func testUpsertPreferredTemplateCreatesRowLazilyAndNormalizesLabel() throws {
         try withService { context, service in
             let timestamp = Date(timeIntervalSince1970: 1_000)
 
             try service.upsertPreferredTemplate(
                 " builtin.workflow.receipts.v1 ",
+                for: " Alpha ",
+                at: timestamp
+            )
+
+            let profiles = try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>())
+            XCTAssertEqual(profiles.count, 1)
+
+            let profile = try XCTUnwrap(profiles.first)
+            XCTAssertEqual(profile.normalizedProjectLabel, "Alpha")
+            XCTAssertEqual(profile.preferredWorkflowTemplateID, "builtin.workflow.receipts.v1")
+            XCTAssertEqual(profile.updatedAt, timestamp)
+
+            let reloaded = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(reloaded.id, profile.id)
+            XCTAssertEqual(reloaded.preferredWorkflowTemplateID, "builtin.workflow.receipts.v1")
+        }
+    }
+
+    func testProfileReusesExistingRecordForWhitespaceVariants() throws {
+        try withService { context, service in
+            let timestamp = Date(timeIntervalSince1970: 1_000)
+
+            try service.upsertPreferredTemplate(
+                "builtin.workflow.receipts.v1",
                 for: "Alpha",
                 at: timestamp
             )
 
-            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            let first = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            let second = try XCTUnwrap(service.profile(normalizedProjectLabel: " Alpha "))
 
-            XCTAssertEqual(profile.preferredWorkflowTemplateID, "builtin.workflow.receipts.v1")
-            XCTAssertEqual(profile.updatedAt, timestamp)
-
-            let storedProfile = try XCTUnwrap(
-                context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).first
-            )
-            XCTAssertEqual(storedProfile.preferredWorkflowTemplateID, "builtin.workflow.receipts.v1")
+            XCTAssertEqual(first.id, second.id)
+            XCTAssertEqual(try context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).count, 1)
         }
     }
 
