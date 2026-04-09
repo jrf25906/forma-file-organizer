@@ -4,6 +4,23 @@ import SwiftData
 
 /// Focused behavior tests for automation helpers.
 final class AutomationEngineTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        FeatureFlagService.shared.resetToDefaults()
+        FeatureFlagService.shared.setEnabled(.metadataFoundation, true)
+        FeatureFlagService.shared.setEnabled(.autoProjectAssociation, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaces, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceMemory, true)
+        FeatureFlagService.shared.setEnabled(.workflowEngineV2, true)
+        FeatureFlagService.shared.setEnabled(.backgroundMonitoring, true)
+        FeatureFlagService.shared.setEnabled(.autoOrganize, true)
+        FeatureFlagService.shared.setEnabled(.projectSpaceAutomationBoard, true)
+    }
+
+    override func tearDown() {
+        FeatureFlagService.shared.resetToDefaults()
+        super.tearDown()
+    }
 
     @MainActor
     private final class SilentNotificationService: AutomationNotificationServing {
@@ -119,6 +136,14 @@ final class AutomationEngineTests: XCTestCase {
     }
 
     private struct WorkflowExecutionFailure: Error {}
+
+    private struct ProjectSpaceDetailStubReader {
+        var detailsByProjectLabel: [String: ProjectSpaceDetail]
+
+        func detail(for normalizedProjectLabel: String) -> ProjectSpaceDetail? {
+            detailsByProjectLabel[normalizedProjectLabel]
+        }
+    }
 
     // MARK: - Backoff Policy
 
@@ -985,16 +1010,276 @@ final class AutomationEngineTests: XCTestCase {
     }
 
     @MainActor
+    func testPerformAutoOrganize_ProjectPolicyWinnerBeatsGenericTrustedScopeWhenProjectClaimIsStronger() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Projects"),
+            displayName: "Projects"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let automationService = ProjectSpaceAutomationService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "spec.md",
+            destination: destination
+        )
+        let projectSpaceDetailReader = ProjectSpaceDetailStubReader(
+            detailsByProjectLabel: [
+                "Alpha": makeProjectSpaceDetail(
+                    projectLabel: "Alpha",
+                    fileRows: [
+                        ProjectSpaceFileRow(
+                            canonicalIdentity: "alpha-existing",
+                            path: file.path,
+                            displayName: "spec.md",
+                            projectAssociation: "Alpha",
+                            sourceFolderHint: "Alpha"
+                        )
+                    ]
+                )
+            ]
+        )
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            projectSpaceDetailReader: { _, normalizedProjectLabel in
+                projectSpaceDetailReader.detail(for: normalizedProjectLabel)
+            }
+        )
+
+        context.insert(file)
+
+        _ = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Generic Intake",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+        _ = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual],
+            admissionMode: .manualReview,
+            state: .active,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(
+            workflowExecution.plannedInvocationContexts,
+            [.projectPolicyManual(projectLabel: "Alpha", policyName: "Project Drop Zone")]
+        )
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.projectDrop])
+        XCTAssertEqual(workflowExecution.lastRunFilePaths, [file.path])
+        XCTAssertEqual(engine.state.lastPreflightSummary?.eligibleCount, 1)
+        XCTAssertEqual(engine.state.lastPreflightSummary?.skippedExcludedFromAutomation, 0)
+    }
+
+    @MainActor
+    func testPerformAutoOrganize_AmbiguousProjectClaimFallsBackToTrustedScopeOrReview() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Projects"),
+            displayName: "Projects"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let automationService = ProjectSpaceAutomationService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "brief.md",
+            destination: destination
+        )
+        let projectSpaceDetailReader = ProjectSpaceDetailStubReader(
+            detailsByProjectLabel: [
+                "Alpha": makeProjectSpaceDetail(
+                    projectLabel: "Alpha",
+                    fileRows: [
+                        ProjectSpaceFileRow(
+                            canonicalIdentity: "shared-alpha",
+                            path: file.path,
+                            displayName: file.name,
+                            sourceFolderHint: "Alpha"
+                        ),
+                        ProjectSpaceFileRow(
+                            canonicalIdentity: "alpha-support",
+                            path: "/tmp/alpha/support.md",
+                            displayName: "support.md",
+                            projectAssociation: "Alpha",
+                            sourceFolderHint: "Alpha"
+                        )
+                    ],
+                    preferredDestinations: [
+                        ProjectSpacePreferredDestination(
+                            destinationDisplayName: "Alpha",
+                            eventCount: 4,
+                            lastUsedAt: Date(timeIntervalSince1970: 1_700_000_000)
+                        )
+                    ],
+                    recentActivity: [
+                        ProjectSpaceRecentActivityRow(
+                            canonicalIdentity: "alpha-support",
+                            fileDisplayName: "support.md",
+                            eventKind: .organized,
+                            timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+                            destinationDisplayName: "Alpha",
+                            detailsSummary: "Moved into Alpha."
+                        ),
+                        ProjectSpaceRecentActivityRow(
+                            canonicalIdentity: "shared-alpha",
+                            fileDisplayName: file.name,
+                            eventKind: .rekeyed,
+                            timestamp: Date(timeIntervalSince1970: 1_699_999_940),
+                            destinationDisplayName: "Alpha",
+                            detailsSummary: "Retitled into Alpha."
+                        )
+                    ]
+                ),
+                "Beta": makeProjectSpaceDetail(
+                    projectLabel: "Beta",
+                    fileRows: [
+                        ProjectSpaceFileRow(
+                            canonicalIdentity: "shared-beta",
+                            path: file.path,
+                            displayName: file.name,
+                            sourceFolderHint: "Beta"
+                        ),
+                        ProjectSpaceFileRow(
+                            canonicalIdentity: "beta-support",
+                            path: "/tmp/beta/support.md",
+                            displayName: "support.md",
+                            projectAssociation: "Beta",
+                            sourceFolderHint: "Beta"
+                        )
+                    ],
+                    preferredDestinations: [
+                        ProjectSpacePreferredDestination(
+                            destinationDisplayName: "Beta",
+                            eventCount: 4,
+                            lastUsedAt: Date(timeIntervalSince1970: 1_700_000_000)
+                        )
+                    ],
+                    recentActivity: [
+                        ProjectSpaceRecentActivityRow(
+                            canonicalIdentity: "beta-support",
+                            fileDisplayName: "support.md",
+                            eventKind: .organized,
+                            timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+                            destinationDisplayName: "Beta",
+                            detailsSummary: "Moved into Beta."
+                        ),
+                        ProjectSpaceRecentActivityRow(
+                            canonicalIdentity: "shared-beta",
+                            fileDisplayName: file.name,
+                            eventKind: .rekeyed,
+                            timestamp: Date(timeIntervalSince1970: 1_699_999_940),
+                            destinationDisplayName: "Beta",
+                            detailsSummary: "Retitled into Beta."
+                        )
+                    ]
+                )
+            ]
+        )
+        let engine = makeEngine(
+            workflowExecution: workflowExecution.client,
+            projectSpaceDetailReader: { _, normalizedProjectLabel in
+                projectSpaceDetailReader.detail(for: normalizedProjectLabel)
+            }
+        )
+
+        context.insert(file)
+
+        _ = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Generic Intake",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+        _ = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Alpha",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual],
+            admissionMode: .automatic,
+            state: .active,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        _ = try automationService.createOrUpdatePolicy(
+            normalizedProjectLabel: "Beta",
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            triggerKinds: [.manual],
+            admissionMode: .automatic,
+            state: .active,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_010)
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(
+            workflowExecution.plannedInvocationContexts,
+            [.trustedScopeInspection(scopeDisplayName: "Generic Intake")]
+        )
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(workflowExecution.lastRunFilePaths, [file.path])
+    }
+
+    @MainActor
     private func makeEngine(
         workflowExecution: WorkflowExecutionClient = .live,
         notificationService: AutomationNotificationServing = SilentNotificationService(),
-        notificationsEnabled: Bool = false
+        notificationsEnabled: Bool = false,
+        projectSpaceDetailReader: (@MainActor (ModelContext, String) -> ProjectSpaceDetail?)? = nil
     ) -> AutomationEngine {
         AutomationEngine(
             notificationService: notificationService,
             clock: FixedClock(now: Date(timeIntervalSince1970: 1_700_000_000)),
             policyResolver: { self.makePolicy(notificationsEnabled: notificationsEnabled) },
-            workflowExecution: workflowExecution
+            workflowExecution: workflowExecution,
+            projectSpaceDetailReader: projectSpaceDetailReader
         )
     }
 
@@ -1021,6 +1306,12 @@ final class AutomationEngineTests: XCTestCase {
             ActivityItem.self,
             TrustedAutomationScope.self,
             TrustedAutomationScopeRunRecord.self,
+            FileMetadataRecord.self,
+            FileOrganizationHistoryEntry.self,
+            ProjectSpaceWorkflowProfile.self,
+            ProjectSpaceAutomationProfile.self,
+            ProjectSpaceAutomationPolicy.self,
+            ProjectSpaceAutomationRunRecord.self,
             WorkflowRunRecord.self,
             WorkflowStepRunRecord.self,
             WorkflowFileActionRecord.self,
@@ -1081,6 +1372,31 @@ final class AutomationEngineTests: XCTestCase {
             rationaleSummary: "Repeated trusted review decisions.",
             allowedActions: [.move],
             selectedWorkflowTemplateID: selectedWorkflowTemplateID
+        )
+    }
+
+    private func makeProjectSpaceDetail(
+        projectLabel: String,
+        fileRows: [ProjectSpaceFileRow],
+        preferredDestinations: [ProjectSpacePreferredDestination] = [],
+        recentActivity: [ProjectSpaceRecentActivityRow] = []
+    ) -> ProjectSpaceDetail {
+        let sourceFolderHints = Array(Set(fileRows.compactMap(\.sourceFolderHint))).sorted()
+        return ProjectSpaceDetail(
+            summary: ProjectSpaceSummary(
+                normalizedLabel: projectLabel,
+                fileCount: fileRows.count,
+                lastActivityAt: Date(timeIntervalSince1970: 1_700_000_000),
+                sourceFolderHints: sourceFolderHints
+            ),
+            files: fileRows,
+            overview: ProjectSpaceOverview(
+                currentFileCount: fileRows.count,
+                activeFolderCount: sourceFolderHints.count,
+                activeFolderHints: sourceFolderHints
+            ),
+            preferredDestinations: preferredDestinations,
+            recentActivity: recentActivity
         )
     }
 }

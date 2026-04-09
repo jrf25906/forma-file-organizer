@@ -4,6 +4,41 @@ import SwiftData
 
 @MainActor
 final class AutomationEngineNotificationTests: XCTestCase {
+    func testWorkflowInvocationContext_ProjectPolicyScheduledAllowsNotify() {
+        XCTAssertTrue(
+            WorkflowInvocationContext.projectPolicyScheduled(
+                projectLabel: "Alpha",
+                policyName: "Project Drop Zone"
+            ).allowsWorkflowNotify
+        )
+    }
+
+    func testWorkflowInvocationContext_ProjectPolicyManualDoesNotAllowNotify() {
+        XCTAssertFalse(
+            WorkflowInvocationContext.projectPolicyManual(
+                projectLabel: "Alpha",
+                policyName: "Project Drop Zone"
+            ).allowsWorkflowNotify
+        )
+    }
+
+    func testWorkflowNotificationPayload_UsesProjectPolicyCopyForScheduledRuns() throws {
+        let payload = try XCTUnwrap(
+            NotificationService.workflowNotificationPayload(
+                templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+                invocationContext: .projectPolicyScheduled(
+                    projectLabel: "Alpha",
+                    policyName: "Project Drop Zone"
+                ),
+                organizedFileCount: 2
+            )
+        )
+
+        XCTAssertEqual(payload.title, "Project Drop Zone Made Progress")
+        XCTAssertTrue(payload.body.contains("for Alpha"))
+        XCTAssertTrue(payload.body.contains("project policy"))
+        XCTAssertFalse(payload.body.localizedCaseInsensitiveContains("trusted scope"))
+    }
 
     private final class MockNotificationService: AutomationNotificationServing {
         private(set) var autoOrganizeSummaries: [(success: Int, failed: Int, skipped: Int)] = []

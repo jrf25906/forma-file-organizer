@@ -5,7 +5,7 @@ import Foundation
 protocol WorkflowNotificationServing: AnyObject {
     func notifyWorkflowCompletion(
         templateID: String,
-        scopeDisplayName: String?,
+        invocationContext: WorkflowInvocationContext,
         organizedFileCount: Int
     ) async throws -> WorkflowFileDisposition
 }

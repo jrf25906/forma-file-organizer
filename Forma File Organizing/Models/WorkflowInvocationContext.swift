@@ -6,6 +6,9 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
     case inspector
     case bulkOrganize
     case projectSpace(projectLabel: String)
+    case projectPolicyManual(projectLabel: String, policyName: String)
+    case projectPolicyScheduled(projectLabel: String, policyName: String)
+    case projectPolicyRealtime(projectLabel: String, policyName: String)
     case trustedScopeScheduled(scopeDisplayName: String?)
     case trustedScopeRealtime(scopeDisplayName: String?)
     case trustedScopeInspection(scopeDisplayName: String?)
@@ -22,6 +25,12 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
             return .bulkOrganize
         case .projectSpace:
             return .projectSpace
+        case .projectPolicyManual:
+            return .projectPolicyManual
+        case .projectPolicyScheduled:
+            return .projectPolicyScheduled
+        case .projectPolicyRealtime:
+            return .projectPolicyRealtime
         case .trustedScopeScheduled:
             return .scheduledAutomationPass
         case .trustedScopeRealtime:
@@ -33,9 +42,15 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
 
     var allowsWorkflowNotify: Bool {
         switch self {
-        case .trustedScopeScheduled, .trustedScopeRealtime:
+        case .projectPolicyScheduled, .projectPolicyRealtime, .trustedScopeScheduled, .trustedScopeRealtime:
             return true
-        case .dashboardReview, .reviewView, .inspector, .bulkOrganize, .projectSpace, .trustedScopeInspection:
+        case .dashboardReview,
+             .reviewView,
+             .inspector,
+             .bulkOrganize,
+             .projectSpace,
+             .projectPolicyManual,
+             .trustedScopeInspection:
             return false
         }
     }
@@ -44,11 +59,33 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
         switch self {
         case .projectSpace(let projectLabel):
             return projectLabel
+        case .projectPolicyManual(let projectLabel, _),
+             .projectPolicyScheduled(let projectLabel, _),
+             .projectPolicyRealtime(let projectLabel, _):
+            return projectLabel
         case .trustedScopeScheduled(let scopeDisplayName),
              .trustedScopeRealtime(let scopeDisplayName),
              .trustedScopeInspection(let scopeDisplayName):
             return scopeDisplayName
         case .dashboardReview, .reviewView, .inspector, .bulkOrganize:
+            return nil
+        }
+    }
+
+    var notificationPolicyName: String? {
+        switch self {
+        case .projectPolicyManual(_, let policyName),
+             .projectPolicyScheduled(_, let policyName),
+             .projectPolicyRealtime(_, let policyName):
+            return policyName
+        case .dashboardReview,
+             .reviewView,
+             .inspector,
+             .bulkOrganize,
+             .projectSpace,
+             .trustedScopeScheduled,
+             .trustedScopeRealtime,
+             .trustedScopeInspection:
             return nil
         }
     }
@@ -65,6 +102,12 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
             return "bulkOrganize"
         case .projectSpace(let projectLabel):
             return "projectSpace(projectLabel: \"\(projectLabel)\")"
+        case .projectPolicyManual(let projectLabel, let policyName):
+            return "projectPolicyManual(projectLabel: \"\(projectLabel)\", policyName: \"\(policyName)\")"
+        case .projectPolicyScheduled(let projectLabel, let policyName):
+            return "projectPolicyScheduled(projectLabel: \"\(projectLabel)\", policyName: \"\(policyName)\")"
+        case .projectPolicyRealtime(let projectLabel, let policyName):
+            return "projectPolicyRealtime(projectLabel: \"\(projectLabel)\", policyName: \"\(policyName)\")"
         case .trustedScopeScheduled(let scopeDisplayName):
             return "trustedScopeScheduled(scopeDisplayName: \(scopeDisplayName.map { "\"\($0)\"" } ?? "nil"))"
         case .trustedScopeRealtime(let scopeDisplayName):

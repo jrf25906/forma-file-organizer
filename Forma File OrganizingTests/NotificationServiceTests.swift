@@ -119,7 +119,7 @@ final class NotificationServiceTests: XCTestCase {
     func testWorkflowNotificationPayload_ProjectDropZoneUsesScopeAwareCopy() {
         let payload = NotificationService.workflowNotificationPayload(
             templateID: BuiltInWorkflowTemplate.StableID.projectDrop,
-            scopeDisplayName: "Design Assets",
+            invocationContext: .trustedScopeScheduled(scopeDisplayName: "Design Assets"),
             organizedFileCount: 3
         )
 

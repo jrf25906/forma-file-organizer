@@ -282,6 +282,9 @@ final class ActivityItem {
         case bulkOrganize
         case reviewView
         case projectSpace
+        case projectPolicyManual
+        case projectPolicyScheduled
+        case projectPolicyRealtime
         case scheduledAutomationPass
         case realtimeAutomationPass
         case manualRefreshInspection
@@ -299,6 +302,12 @@ final class ActivityItem {
             return "Review view"
         case .projectSpace:
             return "Project space"
+        case .projectPolicyManual:
+            return "Project policy manual run"
+        case .projectPolicyScheduled:
+            return "Scheduled project policy"
+        case .projectPolicyRealtime:
+            return "Realtime project policy"
         case .scheduledAutomationPass:
             return "Scheduled trusted scope"
         case .realtimeAutomationPass:

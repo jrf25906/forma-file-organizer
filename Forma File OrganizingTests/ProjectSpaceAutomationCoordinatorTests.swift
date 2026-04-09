@@ -371,6 +371,125 @@ final class ProjectSpaceAutomationCoordinatorTests: XCTestCase {
         XCTAssertEqual(persistedAutomationRuns.first?.status, .succeeded)
     }
 
+    func testExecutePolicy_DefaultsToGenericProjectSpaceInvocationContext() async throws {
+        let environment = try makeEnvironment()
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let record = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: environment.file.path,
+            displayName: environment.file.name,
+            timestamp: environment.timestamp
+        )
+        record.projectAssociation = "Alpha"
+        try environment.context.save()
+
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    path: environment.file.path,
+                    displayName: environment.file.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: "Alpha"
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-60)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    fileDisplayName: environment.file.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-60),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                )
+            ]
+        )
+
+        _ = try await environment.coordinator.executePolicy(
+            environment.policy,
+            detail: detail,
+            files: [environment.file],
+            triggerKind: .manual,
+            now: environment.timestamp
+        )
+
+        XCTAssertEqual(
+            environment.workflowExecution.plannedInvocationContexts,
+            [.projectSpace(projectLabel: "Alpha")]
+        )
+    }
+
+    func testExecutePolicy_UsesSuppliedProjectPolicyInvocationContext() async throws {
+        let environment = try makeEnvironment()
+        defer { environment.sourceRoot.cleanup() }
+        defer { environment.destinationRoot.cleanup() }
+
+        let record = try insertMetadataRecord(
+            in: environment.context,
+            service: environment.metadataService,
+            path: environment.file.path,
+            displayName: environment.file.name,
+            timestamp: environment.timestamp
+        )
+        record.projectAssociation = "Alpha"
+        try environment.context.save()
+
+        let detail = makeProjectSpaceDetail(
+            projectLabel: "Alpha",
+            fileRows: [
+                ProjectSpaceFileRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    path: environment.file.path,
+                    displayName: environment.file.name,
+                    projectAssociation: "Alpha",
+                    sourceFolderHint: "Alpha"
+                )
+            ],
+            preferredDestinations: [
+                ProjectSpacePreferredDestination(
+                    destinationDisplayName: "Alpha",
+                    eventCount: 3,
+                    lastUsedAt: environment.timestamp.addingTimeInterval(-60)
+                )
+            ],
+            recentActivity: [
+                ProjectSpaceRecentActivityRow(
+                    canonicalIdentity: record.canonicalIdentity,
+                    fileDisplayName: environment.file.name,
+                    eventKind: .organized,
+                    timestamp: environment.timestamp.addingTimeInterval(-60),
+                    destinationDisplayName: "Alpha",
+                    detailsSummary: "Moved into Alpha."
+                )
+            ]
+        )
+
+        _ = try await environment.coordinator.executePolicy(
+            environment.policy,
+            detail: detail,
+            files: [environment.file],
+            triggerKind: .manual,
+            invocationContext: .projectPolicyManual(projectLabel: "Alpha", policyName: "Project Drop Zone"),
+            now: environment.timestamp
+        )
+
+        XCTAssertEqual(
+            environment.workflowExecution.plannedInvocationContexts,
+            [.projectPolicyManual(projectLabel: "Alpha", policyName: "Project Drop Zone")]
+        )
+    }
+
     func testExecutePolicy_AutomaticAdmissionRunsOnlyEligibleFiles() async throws {
         let environment = try makeEnvironment()
         defer { environment.sourceRoot.cleanup() }

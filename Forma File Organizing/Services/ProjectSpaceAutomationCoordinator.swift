@@ -93,6 +93,7 @@ struct ProjectSpaceAutomationCoordinator {
         detail: ProjectSpaceDetail,
         files: [FileItem],
         triggerKind: ProjectSpaceAutomationTriggerKind,
+        invocationContext: WorkflowInvocationContext? = nil,
         now: Date
     ) async throws -> ProjectSpaceAutomationRunRecord {
         let eligibleFiles = try eligibleFiles(
@@ -105,8 +106,8 @@ struct ProjectSpaceAutomationCoordinator {
             throw CoordinatorError.noRunnableFiles
         }
 
-        let invocationContext = WorkflowInvocationContext.projectSpace(projectLabel: detail.projectLabel)
-        let plan = workflowExecution.plan(policy.workflowTemplateID, eligibleFiles, invocationContext)
+        let resolvedInvocationContext = invocationContext ?? .projectSpace(projectLabel: detail.projectLabel)
+        let plan = workflowExecution.plan(policy.workflowTemplateID, eligibleFiles, resolvedInvocationContext)
         let partition = partitionWorkflowPlan(plan, files: eligibleFiles)
         guard !partition.runnableFiles.isEmpty else {
             throw CoordinatorError.noRunnableFiles

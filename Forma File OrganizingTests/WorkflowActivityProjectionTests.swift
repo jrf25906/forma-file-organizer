@@ -102,6 +102,24 @@ final class WorkflowActivityProjectionTests: XCTestCase {
         XCTAssertEqual(ActivityItem.workflowTriggerSurfaceLabel(.reviewFlow), "Review")
     }
 
+    func testWorkflowProjection_UsesProjectPolicyRealtimeLabel() throws {
+        let activity = ActivityItem(
+            activityType: .workflowRunCompleted,
+            fileName: "Project Drop Zone",
+            details: "Realtime project policy workflow run succeeded.",
+            affectedFileCount: 2,
+            workflowRunID: UUID(),
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
+            workflowTriggerSurface: .projectPolicyRealtime,
+            workflowPrimaryStatus: .succeeded,
+            workflowRollbackStatus: .notRequested
+        )
+
+        let projection = try XCTUnwrap(activity.workflowProjection)
+
+        XCTAssertEqual(projection.triggerSurfaceLabel, "Realtime project policy")
+    }
+
     func testWorkflowStatusText_CompletedWithIssuesUsesAttentionLanguage() throws {
         let activity = ActivityItem(
             activityType: .workflowRunAttentionNeeded,

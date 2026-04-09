@@ -128,6 +128,7 @@ final class AutomationEngine: ObservableObject {
     private let fileMonitor: FileMonitoring
     private let watchedFoldersProvider: @MainActor () -> [WatchedFolderDescriptor]
     private let workflowExecution: WorkflowExecutionClient
+    private let projectSpaceDetailReader: @MainActor (ModelContext, String) -> ProjectSpaceDetail?
     private var modelContext: ModelContext?
 
     // Lazy initialization to avoid circular dependencies
@@ -155,7 +156,8 @@ final class AutomationEngine: ObservableObject {
         policyResolver: (() -> AutomationPolicy)? = nil,
         fileMonitor: FileMonitoring = FileMonitorService(),
         watchedFoldersProvider: (@MainActor () -> [WatchedFolderDescriptor])? = nil,
-        workflowExecution: WorkflowExecutionClient = .live
+        workflowExecution: WorkflowExecutionClient = .live,
+        projectSpaceDetailReader: (@MainActor (ModelContext, String) -> ProjectSpaceDetail?)? = nil
     ) {
         self.featureFlags = featureFlags
         self.notificationService = notificationService
@@ -163,6 +165,10 @@ final class AutomationEngine: ObservableObject {
         self.clock = clock
         self.fileMonitor = fileMonitor
         self.workflowExecution = workflowExecution
+        self.projectSpaceDetailReader = projectSpaceDetailReader ?? { context, normalizedProjectLabel in
+            FileMetadataFoundationService(modelContext: context)
+                .fetchProjectSpaceDetail(for: normalizedProjectLabel)
+        }
         self.policyResolver = policyResolver ?? {
             AutomationPolicy.resolve(flags: featureFlags, userSettings: .current)
         }
@@ -407,13 +413,21 @@ final class AutomationEngine: ObservableObject {
 
         let scopeResolver = TrustedAutomationScopeResolver(modelContext: context)
         let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let projectAutomationService = featureFlags.isEnabled(.projectSpaceAutomationBoard)
+            ? ProjectSpaceAutomationService(modelContext: context)
+            : nil
 
         let preflightPlan: ScopedAutomationPreflightPlan
         do {
             preflightPlan = try Self.buildScopedPreflightPlan(
+                modelContext: context,
                 candidates: candidates,
                 confidenceThreshold: policy.mlConfidenceThreshold,
-                scopeResolver: scopeResolver
+                scopeResolver: scopeResolver,
+                projectAutomationService: projectAutomationService,
+                projectSpaceDetailReader: projectSpaceDetailReader,
+                triggerKind: projectAutomationTriggerKind(for: triggerSource),
+                now: clock.now
             )
         } catch {
             let errorType = AutomationErrorType.classify(error: error)
@@ -431,20 +445,20 @@ final class AutomationEngine: ObservableObject {
         state.lastRunSkippedCount = preflight.totalSkippedCount
 
         recordScopedPreflightRuns(
-            groups: preflightPlan.groups,
+            groups: preflightPlan.trustedScopeGroups,
             triggerSource: triggerSource,
             scopeService: scopeService
         )
 
         guard !preflight.eligibleFiles.isEmpty else {
             recordHeldScopeRuns(
-                groups: preflightPlan.groups,
+                groups: preflightPlan.trustedScopeGroups,
                 triggerSource: triggerSource,
                 scopeService: scopeService
             )
 
             if let attentionNotification = makeAttentionNotification(
-                touchedScopeCount: preflightPlan.groups.count,
+                touchedScopeCount: preflightPlan.trustedScopeGroups.count,
                 signals: preflightPlan.attentionSignals
             ) {
                 sendTrustedScopeAttention(
@@ -466,11 +480,14 @@ final class AutomationEngine: ObservableObject {
         var totalSuccess = 0
         var totalFailed = 0
         var postPreflightSkippedCount = 0
+        var trustedSuccess = 0
+        var trustedFailed = 0
+        var trustedPostPreflightSkippedCount = 0
         var firstExecutionError: Error?
         var attentionSignals = preflightPlan.attentionSignals
         var plannedWorkflowNativeNotify = false
 
-        for group in preflightPlan.groups {
+        for group in preflightPlan.trustedScopeGroups {
             guard !group.eligibleFiles.isEmpty else {
                 continue
             }
@@ -484,6 +501,9 @@ final class AutomationEngine: ObservableObject {
             totalSuccess += executionResult.successCount
             totalFailed += executionResult.failedCount
             postPreflightSkippedCount += executionResult.skippedCount
+            trustedSuccess += executionResult.successCount
+            trustedFailed += executionResult.failedCount
+            trustedPostPreflightSkippedCount += executionResult.skippedCount
             plannedWorkflowNativeNotify = plannedWorkflowNativeNotify || executionResult.plannedWorkflowNotify
 
             if firstExecutionError == nil {
@@ -522,8 +542,30 @@ final class AutomationEngine: ObservableObject {
             }
         }
 
+        for group in preflightPlan.projectPolicyGroups {
+            guard !group.eligibleFiles.isEmpty else {
+                continue
+            }
+
+            let executionResult = await executeProjectPolicyAutoOrganizeGroup(
+                group,
+                triggerSource: triggerSource,
+                context: context,
+                automationService: projectAutomationService ?? ProjectSpaceAutomationService(modelContext: context)
+            )
+
+            totalSuccess += executionResult.successCount
+            totalFailed += executionResult.failedCount
+            postPreflightSkippedCount += executionResult.skippedCount
+            plannedWorkflowNativeNotify = plannedWorkflowNativeNotify || executionResult.plannedWorkflowNotify
+
+            if firstExecutionError == nil {
+                firstExecutionError = executionResult.error
+            }
+        }
+
         recordHeldScopeRuns(
-            groups: preflightPlan.groups.filter { $0.eligibleFiles.isEmpty },
+            groups: preflightPlan.trustedScopeGroups.filter { $0.eligibleFiles.isEmpty },
             triggerSource: triggerSource,
             scopeService: scopeService
         )
@@ -543,20 +585,20 @@ final class AutomationEngine: ObservableObject {
             undoAvailable: false
         )
 
-        if totalSuccess > 0 && !plannedWorkflowNativeNotify {
+        if trustedSuccess > 0 && !plannedWorkflowNativeNotify {
             sendAutoOrganizeSummary(
-                successCount: totalSuccess,
-                failedCount: totalFailed,
-                skippedCount: preflight.totalSkippedCount + postPreflightSkippedCount,
-                touchedScopeCount: preflightPlan.groups.count,
-                singleScopeDisplayName: preflightPlan.groups.count == 1
-                    ? preflightPlan.groups.first?.scope.displayName
+                successCount: trustedSuccess,
+                failedCount: trustedFailed,
+                skippedCount: preflight.trustedScopeSkippedCount + trustedPostPreflightSkippedCount,
+                touchedScopeCount: preflightPlan.trustedScopeGroups.count,
+                singleScopeDisplayName: preflightPlan.trustedScopeGroups.count == 1
+                    ? preflightPlan.trustedScopeGroups.first?.scope.displayName
                     : nil
             )
         }
 
         if let attentionNotification = makeAttentionNotification(
-            touchedScopeCount: preflightPlan.groups.count,
+            touchedScopeCount: preflightPlan.trustedScopeGroups.count,
             signals: attentionSignals
         ) {
             sendTrustedScopeAttention(
@@ -873,6 +915,19 @@ final class AutomationEngine: ObservableObject {
         }
     }
 
+    private func projectAutomationTriggerKind(
+        for triggerSource: TrustedAutomationScopeRunTriggerSource
+    ) -> ProjectSpaceAutomationTriggerKind {
+        switch triggerSource {
+        case .promotionPreview, .manualRefreshInspection:
+            return .manual
+        case .scheduledAutomationPass:
+            return .scheduledSweep
+        case .realtimeAutomationPass:
+            return .folderWatch
+        }
+    }
+
     func workflowInvocationContext(
         for triggerSource: TrustedAutomationScopeRunTriggerSource,
         scopeDisplayName: String?
@@ -886,6 +941,21 @@ final class AutomationEngine: ObservableObject {
             return .trustedScopeRealtime(scopeDisplayName: scopeDisplayName)
         case .manualRefreshInspection:
             return .trustedScopeInspection(scopeDisplayName: scopeDisplayName)
+        }
+    }
+
+    func workflowInvocationContext(
+        for triggerSource: TrustedAutomationScopeRunTriggerSource,
+        projectLabel: String,
+        policyName: String
+    ) -> WorkflowInvocationContext {
+        switch triggerSource {
+        case .promotionPreview, .manualRefreshInspection:
+            return .projectPolicyManual(projectLabel: projectLabel, policyName: policyName)
+        case .scheduledAutomationPass:
+            return .projectPolicyScheduled(projectLabel: projectLabel, policyName: policyName)
+        case .realtimeAutomationPass:
+            return .projectPolicyRealtime(projectLabel: projectLabel, policyName: policyName)
         }
     }
 
@@ -1008,6 +1078,80 @@ final class AutomationEngine: ObservableObject {
         }
     }
 
+    private func executeProjectPolicyAutoOrganizeGroup(
+        _ group: ProjectPolicyAutomationGroup,
+        triggerSource: TrustedAutomationScopeRunTriggerSource,
+        context: ModelContext,
+        automationService: ProjectSpaceAutomationService
+    ) async -> ProjectPolicyAutomationExecutionResult {
+        let coordinator = ProjectSpaceAutomationCoordinator(
+            modelContext: context,
+            metadataAdmissionWriter: FileMetadataFoundationService(modelContext: context),
+            automationService: automationService,
+            workflowExecution: workflowExecution
+        )
+
+        do {
+            let policyName = WorkflowTemplateCatalog.template(for: group.policy.workflowTemplateID)?.displayName
+                ?? group.policy.workflowTemplateID
+            let runRecord = try await coordinator.executePolicy(
+                group.policy,
+                detail: group.detail,
+                files: group.eligibleFiles,
+                triggerKind: group.triggerKind,
+                invocationContext: workflowInvocationContext(
+                    for: triggerSource,
+                    projectLabel: group.detail.projectLabel,
+                    policyName: policyName
+                ),
+                now: clock.now
+            )
+            let successCount = runRecord.status == .succeeded ? group.eligibleFiles.count : 0
+            let failedCount = runRecord.status == .failed ? group.eligibleFiles.count : 0
+
+            return ProjectPolicyAutomationExecutionResult(
+                successCount: successCount,
+                failedCount: failedCount,
+                skippedCount: 0,
+                error: nil,
+                plannedWorkflowNotify: projectPolicyPlansWorkflowNotify(group, triggerSource: triggerSource)
+            )
+        } catch ProjectSpaceAutomationCoordinator.CoordinatorError.noRunnableFiles {
+            return ProjectPolicyAutomationExecutionResult(
+                successCount: 0,
+                failedCount: 0,
+                skippedCount: group.eligibleFiles.count,
+                error: nil,
+                plannedWorkflowNotify: false
+            )
+        } catch {
+            return ProjectPolicyAutomationExecutionResult(
+                successCount: 0,
+                failedCount: group.eligibleFiles.count,
+                skippedCount: 0,
+                error: error,
+                plannedWorkflowNotify: projectPolicyPlansWorkflowNotify(group, triggerSource: triggerSource)
+            )
+        }
+    }
+
+    private func projectPolicyPlansWorkflowNotify(
+        _ group: ProjectPolicyAutomationGroup,
+        triggerSource: TrustedAutomationScopeRunTriggerSource
+    ) -> Bool {
+        let policyName = WorkflowTemplateCatalog.template(for: group.policy.workflowTemplateID)?.displayName
+            ?? group.policy.workflowTemplateID
+        let invocationContext = workflowInvocationContext(
+            for: triggerSource,
+            projectLabel: group.detail.projectLabel,
+            policyName: policyName
+        )
+        guard invocationContext.allowsWorkflowNotify else {
+            return false
+        }
+        return WorkflowTemplateCatalog.template(for: group.policy.workflowTemplateID)?.notificationPolicy == .trustedScopeOnly
+    }
+
     private func makeAttentionNotification(
         touchedScopeCount: Int,
         signals: [ScopedAutomationAttentionSignal]
@@ -1056,12 +1200,21 @@ private struct ScopedAutomationExecutionResult {
     }
 }
 
+private struct ProjectPolicyAutomationExecutionResult {
+    let successCount: Int
+    let failedCount: Int
+    let skippedCount: Int
+    let error: Error?
+    let plannedWorkflowNotify: Bool
+}
+
 private struct ScopedAutomationPreflightPlan {
     let summary: AutomationPreflightSummary
-    let groups: [ScopedAutomationGroup]
+    let trustedScopeGroups: [ScopedAutomationGroup]
+    let projectPolicyGroups: [ProjectPolicyAutomationGroup]
 
     var attentionSignals: [ScopedAutomationAttentionSignal] {
-        groups.compactMap { group in
+        trustedScopeGroups.compactMap { group in
             guard group.shouldSurfaceAttentionNotification else {
                 return nil
             }
@@ -1199,6 +1352,47 @@ private struct ScopedAutomationGroup {
     }
 }
 
+private struct ProjectPolicyAutomationGroup {
+    let policy: ProjectSpaceAutomationPolicy
+    let detail: ProjectSpaceDetail
+    let triggerKind: ProjectSpaceAutomationTriggerKind
+    var matchedCount: Int = 0
+    var eligibleFiles: [FileItem] = []
+    var skippedMissingDestination: Int = 0
+    var skippedPermissionIssues: Int = 0
+    var skippedConfidenceThreshold: Int = 0
+    var skippedExcludedFromAutomation: Int = 0
+
+    mutating func absorb(_ disposition: AutomationPreflightDisposition, file: FileItem) {
+        matchedCount += 1
+        switch disposition {
+        case .eligible:
+            eligibleFiles.append(file)
+        case .missingDestination:
+            skippedMissingDestination += 1
+        case .permissionIssues:
+            skippedPermissionIssues += 1
+        case .confidenceThreshold:
+            skippedConfidenceThreshold += 1
+        case .excludedFromAutomation:
+            skippedExcludedFromAutomation += 1
+        }
+    }
+}
+
+private struct ProjectPolicyResolvedCandidate {
+    let resolvedPolicy: ProjectSpaceAutomationResolvedPolicy
+    let detail: ProjectSpaceDetail
+    let decision: ProjectSpaceAdmissionDecision
+}
+
+private struct ProjectPolicyOwnershipCandidate {
+    let resolvedPolicy: ProjectSpaceAutomationResolvedPolicy?
+    let detail: ProjectSpaceDetail?
+    let decision: ProjectSpaceAdmissionDecision?
+    let isAmbiguous: Bool
+}
+
 /// Reason for triggering a scan.
 enum ScanReason: String, Sendable {
     case appLaunch = "app_launch"
@@ -1215,6 +1409,7 @@ struct AutomationPreflightSummary {
     let skippedPermissionIssues: Int
     let skippedConfidenceThreshold: Int
     let skippedExcludedFromAutomation: Int
+    let trustedScopeSkippedCount: Int
     let exampleFileNames: [String]
 
     var totalSkippedCount: Int {
@@ -1468,62 +1663,159 @@ private enum AutomationPreflightDisposition {
 extension AutomationEngine {
     @MainActor
     private static func buildScopedPreflightPlan(
+        modelContext: ModelContext,
         candidates: [FileItem],
         confidenceThreshold: Double,
-        scopeResolver: TrustedAutomationScopeResolver
+        scopeResolver: TrustedAutomationScopeResolver,
+        projectAutomationService: ProjectSpaceAutomationService?,
+        projectSpaceDetailReader: @MainActor (ModelContext, String) -> ProjectSpaceDetail?,
+        triggerKind: ProjectSpaceAutomationTriggerKind,
+        now: Date
     ) throws -> ScopedAutomationPreflightPlan {
         let activeScopes = try scopeResolver.activeScopes()
+        let projectPolicies = projectAutomationService?.policies(
+            matching: triggerKind,
+            states: [.active]
+        ) ?? []
+        let projectDetailsByLabel: [String: ProjectSpaceDetail] = Dictionary(uniqueKeysWithValues: projectPolicies.compactMap { resolvedPolicy in
+            guard let detail = projectSpaceDetailReader(modelContext, resolvedPolicy.normalizedProjectLabel) else {
+                return nil
+            }
+            return (resolvedPolicy.normalizedProjectLabel, detail)
+        })
         var eligibleFiles: [FileItem] = []
         var skippedMissingDestination = 0
         var skippedPermissionIssues = 0
         var skippedConfidenceThreshold = 0
         var skippedExcludedFromAutomation = 0
+        var trustedScopeSkippedCount = 0
         var destinationValidationCache: [Data: Bool] = [:]
         var groupsByScopeID: [UUID: ScopedAutomationGroup] = [:]
         var orderedScopeIDs: [UUID] = []
+        var projectGroupsByPolicyID: [UUID: ProjectPolicyAutomationGroup] = [:]
+        var orderedProjectPolicyIDs: [UUID] = []
+        let ownershipResolver = ProjectAutomationOwnershipResolver()
+        let admissionResolver = ProjectSpaceAdmissionResolver()
+        let recommendationService = ProjectSpaceAutomationRecommendationService()
 
         for file in candidates {
-            guard let scope = try scopeResolver.resolveMatch(
+            let trustedScope = try scopeResolver.resolveMatch(
                 for: file,
                 destination: file.destination,
                 within: activeScopes
-            ) else {
-                skippedExcludedFromAutomation += 1
-                continue
+            )
+            let projectCandidate = resolveProjectPolicyCandidate(
+                for: file,
+                resolvedPolicies: projectPolicies,
+                detailsByLabel: projectDetailsByLabel,
+                now: now,
+                admissionResolver: admissionResolver,
+                recommendationService: recommendationService
+            )
+
+            let ownerDecision: ProjectAutomationOwnerDecision
+            if projectCandidate.isAmbiguous {
+                ownerDecision = trustedScope.map {
+                    .trustedScope(
+                        ProjectAutomationTrustedScopeOwner(
+                            id: $0.id,
+                            scopeType: $0.scopeType,
+                            displayName: $0.displayName,
+                            status: $0.status
+                        )
+                    )
+                } ?? .none
+            } else {
+                ownerDecision = ownershipResolver.resolveOwner(
+                    projectDecision: projectCandidate.decision,
+                    trustedScope: trustedScope
+                )
             }
 
-            if groupsByScopeID[scope.id] == nil {
-                groupsByScopeID[scope.id] = ScopedAutomationGroup(scope: scope)
-                orderedScopeIDs.append(scope.id)
-            }
-
-            var group = groupsByScopeID[scope.id] ?? ScopedAutomationGroup(scope: scope)
-            group.matchedCount += 1
-            group.appendExampleName(file.name)
-
-            switch preflightDisposition(
+            let disposition = preflightDisposition(
                 for: file,
                 confidenceThreshold: confidenceThreshold,
                 validationCache: &destinationValidationCache
-            ) {
-            case .eligible:
-                eligibleFiles.append(file)
-                group.eligibleFiles.append(file)
-            case .missingDestination:
-                skippedMissingDestination += 1
-                group.skippedMissingDestination += 1
-            case .permissionIssues:
-                skippedPermissionIssues += 1
-                group.skippedPermissionIssues += 1
-            case .confidenceThreshold:
-                skippedConfidenceThreshold += 1
-                group.skippedConfidenceThreshold += 1
-            case .excludedFromAutomation:
-                skippedExcludedFromAutomation += 1
-                group.skippedExcludedFromAutomation += 1
-            }
+            )
 
-            groupsByScopeID[scope.id] = group
+            switch ownerDecision {
+            case .trustedScope(let owner):
+                guard let scope = activeScopes.first(where: { $0.id == owner.id }) else {
+                    skippedExcludedFromAutomation += 1
+                    continue
+                }
+
+                if groupsByScopeID[scope.id] == nil {
+                    groupsByScopeID[scope.id] = ScopedAutomationGroup(scope: scope)
+                    orderedScopeIDs.append(scope.id)
+                }
+
+                var group = groupsByScopeID[scope.id] ?? ScopedAutomationGroup(scope: scope)
+                group.matchedCount += 1
+                group.appendExampleName(file.name)
+
+                switch disposition {
+                case .eligible:
+                    eligibleFiles.append(file)
+                    group.eligibleFiles.append(file)
+                case .missingDestination:
+                    skippedMissingDestination += 1
+                    trustedScopeSkippedCount += 1
+                    group.skippedMissingDestination += 1
+                case .permissionIssues:
+                    skippedPermissionIssues += 1
+                    trustedScopeSkippedCount += 1
+                    group.skippedPermissionIssues += 1
+                case .confidenceThreshold:
+                    skippedConfidenceThreshold += 1
+                    trustedScopeSkippedCount += 1
+                    group.skippedConfidenceThreshold += 1
+                case .excludedFromAutomation:
+                    skippedExcludedFromAutomation += 1
+                    trustedScopeSkippedCount += 1
+                    group.skippedExcludedFromAutomation += 1
+                }
+
+                groupsByScopeID[scope.id] = group
+
+            case .projectPolicy:
+                guard let resolvedPolicy = projectCandidate.resolvedPolicy,
+                      let detail = projectCandidate.detail else {
+                    skippedExcludedFromAutomation += 1
+                    continue
+                }
+                if projectGroupsByPolicyID[resolvedPolicy.policy.id] == nil {
+                    projectGroupsByPolicyID[resolvedPolicy.policy.id] = ProjectPolicyAutomationGroup(
+                        policy: resolvedPolicy.policy,
+                        detail: detail,
+                        triggerKind: triggerKind
+                    )
+                    orderedProjectPolicyIDs.append(resolvedPolicy.policy.id)
+                }
+
+                var group = projectGroupsByPolicyID[resolvedPolicy.policy.id] ?? ProjectPolicyAutomationGroup(
+                    policy: resolvedPolicy.policy,
+                    detail: detail,
+                    triggerKind: triggerKind
+                )
+                group.absorb(disposition, file: file)
+                switch disposition {
+                case .eligible:
+                    eligibleFiles.append(file)
+                case .missingDestination:
+                    skippedMissingDestination += 1
+                case .permissionIssues:
+                    skippedPermissionIssues += 1
+                case .confidenceThreshold:
+                    skippedConfidenceThreshold += 1
+                case .excludedFromAutomation:
+                    skippedExcludedFromAutomation += 1
+                }
+                projectGroupsByPolicyID[resolvedPolicy.policy.id] = group
+
+            case .none:
+                skippedExcludedFromAutomation += 1
+            }
         }
 
         return ScopedAutomationPreflightPlan(
@@ -1534,9 +1826,11 @@ extension AutomationEngine {
                 skippedPermissionIssues: skippedPermissionIssues,
                 skippedConfidenceThreshold: skippedConfidenceThreshold,
                 skippedExcludedFromAutomation: skippedExcludedFromAutomation,
+                trustedScopeSkippedCount: trustedScopeSkippedCount,
                 exampleFileNames: Array(eligibleFiles.prefix(3).map(\.name))
             ),
-            groups: orderedScopeIDs.compactMap { groupsByScopeID[$0] }
+            trustedScopeGroups: orderedScopeIDs.compactMap { groupsByScopeID[$0] },
+            projectPolicyGroups: orderedProjectPolicyIDs.compactMap { projectGroupsByPolicyID[$0] }
         )
     }
 
@@ -1577,8 +1871,156 @@ extension AutomationEngine {
             skippedPermissionIssues: skippedPermissionIssues,
             skippedConfidenceThreshold: skippedConfidenceThreshold,
             skippedExcludedFromAutomation: skippedExcludedFromAutomation,
+            trustedScopeSkippedCount: 0,
             exampleFileNames: Array(eligibleFiles.prefix(3).map(\.name))
         )
+    }
+
+    private static func resolveProjectPolicyCandidate(
+        for file: FileItem,
+        resolvedPolicies: [ProjectSpaceAutomationResolvedPolicy],
+        detailsByLabel: [String: ProjectSpaceDetail],
+        now: Date,
+        admissionResolver: ProjectSpaceAdmissionResolver,
+        recommendationService: ProjectSpaceAutomationRecommendationService
+    ) -> ProjectPolicyOwnershipCandidate {
+        let explicitCandidates = resolvedPolicies.compactMap { resolvedPolicy -> ProjectPolicyResolvedCandidate? in
+            guard let detail = detailsByLabel[resolvedPolicy.normalizedProjectLabel],
+                  let decision = projectAdmissionDecision(
+                    for: file,
+                    detail: detail,
+                    now: now,
+                    admissionResolver: admissionResolver,
+                    recommendationService: recommendationService
+                  ) else {
+                return nil
+            }
+
+            switch decision {
+            case .existingMember, .strongConfirmed:
+                return ProjectPolicyResolvedCandidate(
+                    resolvedPolicy: resolvedPolicy,
+                    detail: detail,
+                    decision: decision
+                )
+            case .insufficient:
+                return nil
+            }
+        }
+
+        guard !explicitCandidates.isEmpty else {
+            return ProjectPolicyOwnershipCandidate(
+                resolvedPolicy: nil,
+                detail: nil,
+                decision: nil,
+                isAmbiguous: false
+            )
+        }
+
+        guard explicitCandidates.count == 1 else {
+            return ProjectPolicyOwnershipCandidate(
+                resolvedPolicy: nil,
+                detail: nil,
+                decision: nil,
+                isAmbiguous: true
+            )
+        }
+
+        let explicitCandidate = explicitCandidates[0]
+        return ProjectPolicyOwnershipCandidate(
+            resolvedPolicy: explicitCandidate.resolvedPolicy,
+            detail: explicitCandidate.detail,
+            decision: explicitCandidate.decision,
+            isAmbiguous: false
+        )
+    }
+
+    private static func projectAdmissionDecision(
+        for file: FileItem,
+        detail: ProjectSpaceDetail,
+        now: Date,
+        admissionResolver: ProjectSpaceAdmissionResolver,
+        recommendationService: ProjectSpaceAutomationRecommendationService
+    ) -> ProjectSpaceAdmissionDecision? {
+        let standardizedPath = URL(fileURLWithPath: file.path).standardizedFileURL.path
+        let matchingRows = detail.files.filter { row in
+            URL(fileURLWithPath: row.normalizedPath).standardizedFileURL.path == standardizedPath
+        }
+        guard let fileRow = preferredAdmissionRow(from: matchingRows, detail: detail, now: now) else {
+            return nil
+        }
+
+        let dominantDestinationProjectLabel: String? = {
+            guard let dominantDestination = recommendationService.dominantDestination(for: detail, now: now),
+                  normalized(dominantDestination.destinationDisplayName) == normalized(detail.projectLabel) else {
+                return nil
+            }
+            return detail.projectLabel
+        }()
+
+        let evidence = ProjectSpaceAdmissionEvidence(
+            existingProjectAssociation: fileRow.projectAssociation,
+            dominantDestinationProjectLabel: dominantDestinationProjectLabel,
+            dominantDestinationIsGenericHint: false,
+            sourceFolderProjectLabel: normalized(fileRow.sourceFolderHint) == normalized(detail.projectLabel)
+                ? detail.projectLabel
+                : nil,
+            relatedFileProjectLabel: relatedFileProjectLabel(for: fileRow, in: detail)
+        )
+
+        return admissionResolver.resolveAdmission(
+            projectLabel: detail.projectLabel,
+            evidence: evidence
+        )
+    }
+
+    private static func preferredAdmissionRow(
+        from rows: [ProjectSpaceFileRow],
+        detail: ProjectSpaceDetail,
+        now: Date
+    ) -> ProjectSpaceFileRow? {
+        rows.max { lhs, rhs in
+            admissionPreference(for: lhs, detail: detail, now: now) <
+                admissionPreference(for: rhs, detail: detail, now: now)
+        }
+    }
+
+    private static func admissionPreference(
+        for fileRow: ProjectSpaceFileRow,
+        detail: ProjectSpaceDetail,
+        now: Date
+    ) -> (Int, Date, String) {
+        let rank: Int
+        let normalizedProjectLabel = normalized(detail.projectLabel)
+        let normalizedAssociation = normalized(fileRow.projectAssociation)
+        switch normalizedAssociation {
+        case normalizedProjectLabel:
+            rank = 2
+        case nil:
+            rank = 1
+        default:
+            rank = 0
+        }
+        return (rank, fileRow.lastActivityAt, fileRow.canonicalIdentity)
+    }
+
+    private static func relatedFileProjectLabel(
+        for fileRow: ProjectSpaceFileRow,
+        in detail: ProjectSpaceDetail
+    ) -> String? {
+        guard let sourceFolderHint = normalized(fileRow.sourceFolderHint) else {
+            return nil
+        }
+
+        return detail.files.first(where: { row in
+            row.canonicalIdentity != fileRow.canonicalIdentity &&
+            normalized(row.sourceFolderHint) == sourceFolderHint &&
+            normalized(row.projectAssociation) == normalized(detail.projectLabel)
+        }).flatMap { _ in detail.projectLabel }
+    }
+
+    private static func normalized(_ value: String?) -> String? {
+        FileMetadataRecord.normalizedOptionalText(value)
     }
 
     private static func preflightDisposition(

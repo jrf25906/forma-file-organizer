@@ -296,7 +296,7 @@ final class NotificationService: Sendable {
 
     func notifyWorkflowCompletion(
         templateID: String,
-        scopeDisplayName: String?,
+        invocationContext: WorkflowInvocationContext,
         organizedFileCount: Int
     ) async throws -> WorkflowFileDisposition {
         guard UserDefaults.standard.bool(forKey: "showNotifications") else {
@@ -304,7 +304,7 @@ final class NotificationService: Sendable {
         }
         guard let payload = Self.workflowNotificationPayload(
             templateID: templateID,
-            scopeDisplayName: scopeDisplayName,
+            invocationContext: invocationContext,
             organizedFileCount: organizedFileCount
         ) else {
             return .skipped
@@ -616,25 +616,41 @@ final class NotificationService: Sendable {
 
     static func workflowNotificationPayload(
         templateID: String,
-        scopeDisplayName: String?,
+        invocationContext: WorkflowInvocationContext,
         organizedFileCount: Int
     ) -> AutomationNotificationPayload? {
         guard organizedFileCount > 0 else { return nil }
 
         let templateDisplayName = WorkflowTemplateCatalog.template(for: templateID)?.displayName ?? "Workflow"
         let fileSummary = "\(organizedFileCount) file\(organizedFileCount == 1 ? "" : "s")"
-        let scopeSummary: String
-        if let scopeDisplayName = WorkflowRunRecord.normalizedOptionalText(scopeDisplayName) {
-            scopeSummary = " in the \(scopeDisplayName) trusted scope"
-        } else {
-            scopeSummary = ""
+        let body: String
+        switch invocationContext {
+        case .projectPolicyManual(let projectLabel, let policyName),
+             .projectPolicyScheduled(let projectLabel, let policyName),
+             .projectPolicyRealtime(let projectLabel, let policyName):
+            let normalizedProjectLabel = WorkflowRunRecord.normalizedOptionalText(projectLabel) ?? projectLabel
+            let normalizedPolicyName = WorkflowRunRecord.normalizedOptionalText(policyName) ?? templateDisplayName
+            body = "Forma organized \(fileSummary) for \(normalizedProjectLabel) using the \(normalizedPolicyName) project policy."
+        case .projectSpace(let projectLabel):
+            let normalizedProjectLabel = WorkflowRunRecord.normalizedOptionalText(projectLabel) ?? projectLabel
+            body = "Forma organized \(fileSummary) for \(normalizedProjectLabel) using \(templateDisplayName)."
+        case .trustedScopeScheduled(let scopeDisplayName),
+             .trustedScopeRealtime(let scopeDisplayName),
+             .trustedScopeInspection(let scopeDisplayName):
+            if let scopeDisplayName = WorkflowRunRecord.normalizedOptionalText(scopeDisplayName) {
+                body = "Forma organized \(fileSummary) in the \(scopeDisplayName) trusted scope using \(templateDisplayName)."
+            } else {
+                body = "Forma organized \(fileSummary) using \(templateDisplayName)."
+            }
+        case .dashboardReview, .reviewView, .inspector, .bulkOrganize:
+            body = "Forma organized \(fileSummary) using \(templateDisplayName)."
         }
 
         return AutomationNotificationPayload(
             category: .progressWin,
             identifier: AutomationNotificationID.workflowRun(templateID: templateID),
             title: "\(templateDisplayName) Made Progress",
-            body: "Forma organized \(fileSummary)\(scopeSummary) using \(templateDisplayName).",
+            body: body,
             categoryIdentifier: nil
         )
     }

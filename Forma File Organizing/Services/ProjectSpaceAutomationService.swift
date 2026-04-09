@@ -1,6 +1,11 @@
 import Foundation
 import SwiftData
 
+struct ProjectSpaceAutomationResolvedPolicy {
+    let normalizedProjectLabel: String
+    let policy: ProjectSpaceAutomationPolicy
+}
+
 @MainActor
 struct ProjectSpaceAutomationService {
     enum ServiceError: LocalizedError {
@@ -38,6 +43,39 @@ struct ProjectSpaceAutomationService {
         }
 
         return try? bootstrapFromLegacyWorkflowProfileIfNeeded(normalizedProjectLabel: normalizedProjectLabel)
+    }
+
+    func policies(
+        matching triggerKind: ProjectSpaceAutomationTriggerKind,
+        states: Set<ProjectSpaceAutomationPolicyState>
+    ) -> [ProjectSpaceAutomationResolvedPolicy] {
+        guard !states.isEmpty else {
+            return []
+        }
+
+        let profilesByID = Dictionary(uniqueKeysWithValues: allProfiles().map { ($0.id, $0) })
+        return allPolicies()
+            .filter { policy in
+                states.contains(policy.state) && policy.triggerKinds.contains(triggerKind)
+            }
+            .compactMap { policy in
+                guard let profile = profilesByID[policy.profileID] else {
+                    return nil
+                }
+                return ProjectSpaceAutomationResolvedPolicy(
+                    normalizedProjectLabel: profile.normalizedProjectLabel,
+                    policy: policy
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.normalizedProjectLabel != rhs.normalizedProjectLabel {
+                    return lhs.normalizedProjectLabel < rhs.normalizedProjectLabel
+                }
+                if lhs.policy.updatedAt != rhs.policy.updatedAt {
+                    return lhs.policy.updatedAt < rhs.policy.updatedAt
+                }
+                return lhs.policy.id.uuidString < rhs.policy.id.uuidString
+            }
     }
 
     @discardableResult
@@ -233,6 +271,14 @@ struct ProjectSpaceAutomationService {
         )
 
         return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    private func allPolicies() -> [ProjectSpaceAutomationPolicy] {
+        (try? modelContext.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>())) ?? []
+    }
+
+    private func allProfiles() -> [ProjectSpaceAutomationProfile] {
+        (try? modelContext.fetch(FetchDescriptor<ProjectSpaceAutomationProfile>())) ?? []
     }
 
     private func profileOrCreate(normalizedProjectLabel: String, at timestamp: Date) throws -> ProjectSpaceAutomationProfile {
