@@ -1,5 +1,5 @@
 const PLACEHOLDER_MAC_APP_STORE_URL = "https://apps.apple.com/app/forma/id0000000000";
-export const DEFAULT_MAC_APP_STORE_URL =
+const DEFAULT_MAC_APP_STORE_URL =
   "https://apps.apple.com/app/forma-file-organizer/id6759181510";
 
 export type AppStoreLinkLocation =

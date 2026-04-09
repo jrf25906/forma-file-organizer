@@ -16,7 +16,7 @@ type BlogFaqPair = {
   answer: string;
 };
 
-export type BlogFrontmatter = {
+type BlogFrontmatter = {
   slug: string;
   title: string;
   description: string;
@@ -27,12 +27,12 @@ export type BlogFrontmatter = {
   faqPairs?: BlogFaqPair[];
 };
 
-export type BlogPostSummary = BlogFrontmatter & {
+type BlogPostSummary = BlogFrontmatter & {
   canonical: string;
   readingTimeMinutes: number;
 };
 
-export type BlogPost = BlogPostSummary & {
+type BlogPost = BlogPostSummary & {
   content: ReactNode;
 };
 
@@ -218,4 +218,3 @@ export async function getRelatedBlogPosts(slug: string, limit = 2) {
 
   return ranked.slice(0, limit);
 }
-

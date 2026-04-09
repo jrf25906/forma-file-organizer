@@ -33,5 +33,3 @@ export function FormaLogoImage({ size, className, priority }: FormaLogoImageProp
     </span>
   );
 }
-
-export default FormaLogoImage;

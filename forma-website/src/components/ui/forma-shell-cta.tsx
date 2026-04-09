@@ -1,8 +1,4 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { cva } from "class-variance-authority"
 
 const formaShellCtaVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border text-sm font-semibold transition-all duration-200 outline-none select-none disabled:pointer-events-none disabled:opacity-50 active:translate-y-px",
@@ -23,28 +19,4 @@ const formaShellCtaVariants = cva(
   }
 )
 
-type FormaShellCtaProps = Omit<
-  React.ComponentProps<typeof Button>,
-  "variant" | "size"
-> &
-  VariantProps<typeof formaShellCtaVariants>
-
-function FormaShellCta({
-  className,
-  variant,
-  ...props
-}: FormaShellCtaProps) {
-  return (
-    <Button
-      variant="default"
-      className={cn(
-        "h-11 px-5",
-        formaShellCtaVariants({ variant }),
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-export { FormaShellCta, formaShellCtaVariants }
+export { formaShellCtaVariants }

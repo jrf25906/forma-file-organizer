@@ -169,5 +169,3 @@ export function ScrollReveal({
     </div>
   );
 }
-
-export default ScrollReveal;

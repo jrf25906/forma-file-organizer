@@ -1,6 +1,6 @@
 import { WEBSITE_LAST_UPDATED_ISO } from "@/lib/site";
 
-export type FaqEntry = {
+type FaqEntry = {
   id: string;
   question: string;
   answer: string;

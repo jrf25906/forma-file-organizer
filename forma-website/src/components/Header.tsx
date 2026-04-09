@@ -147,5 +147,3 @@ export function Header() {
     </Sheet>
   );
 }
-
-export default Header;

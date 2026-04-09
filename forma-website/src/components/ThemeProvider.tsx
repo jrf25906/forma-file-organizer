@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useEffect, useState, type ReactNode } from "react";
 
 type Theme = "dark" | "light" | "system";
 type ResolvedTheme = "dark" | "light";
@@ -78,17 +78,4 @@ export function ThemeProvider({
       {children}
     </ThemeContext.Provider>
   );
-}
-
-/**
- * useTheme - Access the current theme context
- *
- * Must be used within a ThemeProvider.
- */
-export function useTheme(): ThemeContextType {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return context;
 }

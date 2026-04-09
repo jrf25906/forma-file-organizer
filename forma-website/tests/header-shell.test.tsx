@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: mockUsePathname,
 }))
 
-import Header from "../src/components/Header"
+import { Header } from "../src/components/Header"
 import { HEADER_SHELL_LAYOUT } from "../src/lib/header-shell-layout"
 
 function headerHtml(html: string) {

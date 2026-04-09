@@ -7,7 +7,7 @@ import {
   type HeaderShellMode,
 } from "@/lib/header-shell-layout";
 
-export function getHeaderShellMode(
+function getHeaderShellMode(
   scrollY: number,
   threshold: number
 ): HeaderShellMode {
