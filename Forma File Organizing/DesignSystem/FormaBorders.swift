@@ -88,7 +88,7 @@ struct FormaTwoLayerBorder: ViewModifier {
             .overlay(
                 Group {
                     if showInnerEdge {
-                        RoundedRectangle(cornerRadius: cornerRadius - 1, style: .continuous)
+                        RoundedRectangle(cornerRadius: max(0, cornerRadius - outerStyle.width), style: .continuous)
                             .strokeBorder(
                                 FormaBorderStyle.innerLightEdge.color(for: colorScheme),
                                 lineWidth: FormaBorderWidth.hairline
