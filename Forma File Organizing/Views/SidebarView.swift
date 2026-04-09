@@ -74,14 +74,14 @@ struct SidebarView: View {
 
                 // Smart Rules — opens right panel in rules list mode
                 SidebarActionRow(title: "Smart Rules", icon: "list.bullet.rectangle") {
-                    dashboardViewModel.rightPanelMode = .ruleBuilder(editingRule: nil, fileContext: nil)
+                    dashboardViewModel.showRuleBuilderPanel()
                 }
                 .help("View and manage organization rules")
 
                 // Analytics — opens right panel in analytics mode
                 if services.featureFlags.isEnabled(.analyticsAndInsights) {
                     SidebarActionRow(title: "Analytics", icon: "chart.bar") {
-                        dashboardViewModel.rightPanelMode = .analytics
+                        dashboardViewModel.showAnalyticsPanel()
                     }
                     .help("View activity and insights")
                 }

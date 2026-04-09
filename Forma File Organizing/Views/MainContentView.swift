@@ -459,12 +459,6 @@ struct MainContentView: View {
         case .nestedFolder(let base, let relativePath, let includeSubfolders):
             folder = FolderLocation.from(bookmarkFolderType: base)
             nestedScope = (relativePath: relativePath, includeSubfolders: includeSubfolders)
-        case .rules:
-            // Rules view doesn't need folder filtering
-            return
-        case .analytics:
-            // Analytics view doesn't need folder filtering
-            return
         case .category:
             // Category selection is handled via FilterTabBar / selectedCategory
             folder = .home
@@ -1193,11 +1187,6 @@ struct MainContentView: View {
                 && (!hasRecent || file.creationDate > recentDate)
                 && (!hasLarge || file.sizeInBytes > largeSize)
             }
-        case .analytics:
-            return #Predicate<FileItem> { _ in false }
-        case .rules:
-            // Rules view doesn't show files, return an empty predicate
-            return #Predicate<FileItem> { _ in false }
         }
     }
 }

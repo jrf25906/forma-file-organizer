@@ -4,6 +4,11 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Sidebar/right-panel cleanup follow-up
+  - `DashboardViewModel`
+    - `showAnalyticsPanel()`
+  - Sidebar and default-panel Analytics actions now route through an explicit dashboard-level analytics opener that reveals the right panel before switching modes.
+  - `NavigationSelection.rules` and `NavigationSelection.analytics` have been removed now that Smart Rules and Analytics no longer use navigation selection as an entry point.
 - Workflow Engine v2 shared templates, audit, rollback, and notify/log follow-up
   - `FeatureFlagService.Feature.workflowEngineV2`
   - `BuiltInWorkflowTemplate`

@@ -404,7 +404,7 @@ struct DefaultPanelView: View {
                 // Next actions
                 HStack(spacing: FormaSpacing.tight) {
                     Button(action: {
-                        nav.select(.analytics)
+                        dashboardViewModel.showAnalyticsPanel()
                     }) {
                         HStack(spacing: FormaSpacing.micro) {
                             Image(systemName: "chart.bar")
@@ -423,7 +423,7 @@ struct DefaultPanelView: View {
                     .buttonStyle(.plain)
 
                     Button(action: {
-                        nav.select(.rules)
+                        dashboardViewModel.showRuleBuilderPanel()
                     }) {
                         HStack(spacing: FormaSpacing.micro) {
                             Image(systemName: "gearshape")

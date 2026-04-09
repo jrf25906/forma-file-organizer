@@ -1473,6 +1473,11 @@ class DashboardViewModel: ObservableObject {
         panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
     }
 
+    func showAnalyticsPanel() {
+        isRightPanelVisible = true
+        panelManager.showAnalyticsPanel()
+    }
+
     func showRuleBuilderPanelForInspector(_ file: FileItem, editingRule: Rule? = nil) {
         selectFileForInspector(file)
         panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: file)
@@ -1503,7 +1508,7 @@ class DashboardViewModel: ObservableObject {
     }
 
     func shouldShowDefaultPanelPrimaryAction(
-        for selection: NavigationSelection,
+        for _: NavigationSelection,
         hasActiveRuleDraft: Bool
     ) -> Bool {
         guard !hasActiveRuleDraft else { return false }
@@ -1514,12 +1519,7 @@ class DashboardViewModel: ObservableObject {
             return false
         }
 
-        switch selection {
-        case .rules, .analytics:
-            return false
-        default:
-            return true
-        }
+        return true
     }
 
     func setRightPanelVisible(_ isVisible: Bool) {

@@ -6,6 +6,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Fixed
+- Sidebar/right-panel cleanup:
+  - Sidebar and default-panel Analytics actions now reveal the right panel before switching into analytics mode, matching the Smart Rules path instead of silently updating hidden panel state.
+  - The old navigation-based Smart Rules/Analytics compatibility path has been removed from `NavigationSelection`, `MainContentView`, and the dashboard default-panel CTA logic so those surfaces no longer carry dead center-column routing branches.
+  - `DashboardView` now takes its minimum and preferred window sizing from `FormaSpacing.Window` instead of keeping a stale hardcoded 1200px minimum alongside the newer 1280px layout tokens.
 - Legacy app-store migration recovery:
   - `ProjectCluster.filePathsSearchBlob` now defaults to an empty string for rows created before that denormalized search field existed, so older stores can open and migrate without failing container creation at startup.
   - Added a targeted pre-metadata store migration regression in `Forma File OrganizingTests/AppStoreMigrationTests.swift` covering legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.

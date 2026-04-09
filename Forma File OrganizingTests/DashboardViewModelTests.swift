@@ -3775,6 +3775,21 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isRightPanelVisible, "Opening the inline rule builder should reveal the right panel")
     }
 
+    func testShowAnalyticsPanelRevealsRightPanel() {
+        viewModel.setRightPanelVisible(false)
+        viewModel.showCelebrationPanel(message: "Done!")
+
+        viewModel.showAnalyticsPanel()
+
+        if case .analytics = viewModel.rightPanelMode {
+            // Success
+        } else {
+            XCTFail("Opening analytics should switch the right panel into analytics mode")
+        }
+
+        XCTAssertTrue(viewModel.isRightPanelVisible, "Opening analytics should reveal the right panel")
+    }
+
     func testDefaultPanelPrimaryActionHidesWhileRuleDraftWorkflowIsActive() {
         XCTAssertFalse(
             viewModel.shouldShowDefaultPanelPrimaryAction(for: .home, hasActiveRuleDraft: true),

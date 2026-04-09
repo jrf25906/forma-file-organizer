@@ -38,6 +38,11 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
 
+## Sidebar / Right-Panel Cleanup Follow-Up (April 8, 2026)
+- [x] Route sidebar and default-panel Analytics actions through an explicit right-panel opener so Analytics reliably reveals the inspector column instead of only changing hidden panel mode.
+- [x] Remove the obsolete `NavigationSelection.rules` / `.analytics` compatibility route and the dead `MainContentView` / dashboard CTA branches that still modeled Smart Rules and Analytics as navigation destinations.
+- [x] Align `DashboardView` window sizing with `FormaSpacing.Window` tokens so the shipped 1280px minimum layout no longer competes with a stale hardcoded 1200px frame.
+
 ## Workflow Engine v2 Notify + Log (April 8, 2026)
 - [x] Add `WorkflowInvocationContext` and template-level notification policy so review-driven runs always plan `log`, while trusted-scope `Project Drop Zone` runs can append workflow-native `notify`.
 - [x] Add `LogWorkflowStepExecutor`, `NotifyWorkflowStepExecutor`, `WorkflowNotificationServing`, and honest `completedWithIssues` audit semantics so non-blocking side-effect failures do not rollback successful durable file mutations.

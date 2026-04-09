@@ -245,7 +245,11 @@ struct DashboardView: View {
                 }
             }
             .background(Color.formaBackground)
-            .frame(minWidth: 1200, idealWidth: 1400, minHeight: 600)
+            .frame(
+                minWidth: FormaSpacing.Window.minWidth,
+                idealWidth: FormaSpacing.Window.preferredWidth,
+                minHeight: FormaSpacing.Window.minHeight
+            )
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .category(let cat):

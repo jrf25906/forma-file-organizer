@@ -175,6 +175,12 @@ class PanelStateManager: ObservableObject {
         clearCelebrationState()
         rightPanelMode = .ruleBuilder(editingRule: editingRule, fileContext: fileContext)
     }
+
+    /// Show analytics panel
+    func showAnalyticsPanel() {
+        clearCelebrationState()
+        rightPanelMode = .analytics
+    }
     
     /// Show celebration panel with auto-dismiss
     func showCelebrationPanel(
