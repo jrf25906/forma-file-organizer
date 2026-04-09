@@ -269,6 +269,52 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
         }
     }
 
+    func testProfileService_LegacyRunEvidenceHydratesBeforePreferredTemplateMutation() throws {
+        try withService { context, service in
+            let legacyRunID = UUID()
+            let legacyCompletedAt = Date(timeIntervalSince1970: 1_700)
+            let legacyTemplate = BuiltInWorkflowTemplate.StableID.projectDrop
+            let userUpdatedTemplate = BuiltInWorkflowTemplate.StableID.receipts
+
+            let legacyProfile = ProjectSpaceWorkflowProfile(
+                normalizedProjectLabel: "Alpha",
+                preferredWorkflowTemplateID: " \(legacyTemplate) ",
+                lastWorkflowRunID: legacyRunID,
+                lastWorkflowCompletedAt: legacyCompletedAt,
+                workflowMemoryStatus: nil,
+                workflowMemorySchemaVersion: nil,
+                updatedAt: Date(timeIntervalSince1970: 1_750)
+            )
+            context.insert(legacyProfile)
+            try context.save()
+
+            try service.upsertPreferredTemplate(
+                userUpdatedTemplate,
+                for: "Alpha",
+                at: Date(timeIntervalSince1970: 1_800)
+            )
+
+            let run = WorkflowRunRecord(
+                scopeID: UUID(),
+                workflowTemplateID: userUpdatedTemplate,
+                triggerSurface: .projectPolicyManual,
+                primaryStatus: .failed,
+                startedAt: Date(timeIntervalSince1970: 1_810),
+                endedAt: Date(timeIntervalSince1970: 1_820)
+            )
+            context.insert(run)
+            try context.save()
+
+            try service.recordLatestRun(run, for: "Alpha", at: Date(timeIntervalSince1970: 1_825))
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            XCTAssertEqual(profile.preferredWorkflowTemplateID, userUpdatedTemplate)
+            XCTAssertEqual(profile.successfulTemplateID, legacyTemplate)
+            XCTAssertEqual(profile.successfulTemplateLastSucceededAt, legacyCompletedAt)
+            XCTAssertGreaterThanOrEqual(profile.successfulTemplateCount, 1)
+        }
+    }
+
     func testProfileService_RepeatedSuccessfulRuns_StrengthenDominantTemplateMemory() throws {
         try withService { context, service in
             let projectLabel = "Alpha"
@@ -451,7 +497,7 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
         }
     }
 
-    func testClearingPreferredTemplate_PreservesBackfillableLegacyMemoryWithoutNewRuns() throws {
+    func testClearingPreferredTemplate_DoesNotBackfillSuccessMemoryWithoutRunEvidence() throws {
         try withService { context, service in
             let legacyProfile = ProjectSpaceWorkflowProfile(
                 normalizedProjectLabel: "Alpha",
@@ -465,11 +511,7 @@ final class ProjectSpaceWorkflowProfileServiceTests: XCTestCase {
 
             try service.upsertPreferredTemplate(nil, for: "Alpha", at: Date(timeIntervalSince1970: 3_600))
 
-            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
-            XCTAssertNil(profile.preferredWorkflowTemplateID)
-            XCTAssertEqual(profile.successfulTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
-            XCTAssertEqual(profile.successfulTemplateCount, 1)
-            XCTAssertEqual(profile.workflowMemorySchemaVersion, ProjectSpaceWorkflowProfile.currentMemorySchemaVersion)
+            XCTAssertNil(service.profile(normalizedProjectLabel: "Alpha"))
         }
     }
 }

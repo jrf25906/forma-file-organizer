@@ -38,16 +38,7 @@ struct ProjectSpaceWorkflowProfileService {
                 return
             }
 
-            let preferredTemplateBeforeClear = ProjectSpaceWorkflowProfile
-                .normalizedTemplateSignal(profile.preferredWorkflowTemplateID)
-            if shouldBackfillLegacyPreferenceOnClear(profile),
-               let preferredTemplateBeforeClear {
-                backfillLegacySuccessfulTemplate(
-                    preferredTemplateBeforeClear,
-                    into: profile,
-                    at: timestamp
-                )
-            }
+            hydrateLegacyMemoryIfNeeded(profile, fallbackTimestamp: timestamp)
 
             profile.preferredWorkflowTemplateID = nil
 
@@ -73,6 +64,7 @@ struct ProjectSpaceWorkflowProfileService {
             return
         }
 
+        hydrateLegacyMemoryIfNeeded(profile, fallbackTimestamp: timestamp)
         profile.preferredWorkflowTemplateID = normalizedTemplateID
         profile.workflowMemorySchemaVersion =
             profile.workflowMemorySchemaVersion ?? ProjectSpaceWorkflowProfile.currentMemorySchemaVersion
@@ -271,36 +263,6 @@ struct ProjectSpaceWorkflowProfileService {
         default:
             return false
         }
-    }
-
-    private func shouldBackfillLegacyPreferenceOnClear(_ profile: ProjectSpaceWorkflowProfile) -> Bool {
-        profile.workflowMemorySchemaVersion == nil &&
-        profile.successfulTemplateID == nil &&
-        profile.successfulTemplateCount == 0 &&
-        profile.successfulTemplateLastSucceededAt == nil &&
-        profile.dominantTriggerSurface == nil &&
-        profile.dominantTriggerSurfaceCount == 0 &&
-        profile.dominantTriggerSurfaceLastSeenAt == nil &&
-        profile.latestSuccessfulDestinationSignal == nil &&
-        profile.latestSuccessfulDestinationAt == nil &&
-        profile.lastWorkflowRunID == nil &&
-        profile.lastWorkflowCompletedAt == nil
-    }
-
-    private func backfillLegacySuccessfulTemplate(
-        _ templateID: String,
-        into profile: ProjectSpaceWorkflowProfile,
-        at timestamp: Date
-    ) {
-        profile.successfulTemplateID = templateID
-        profile.successfulTemplateCount = max(1, profile.successfulTemplateCount)
-        profile.successfulTemplateLastSucceededAt =
-            profile.successfulTemplateLastSucceededAt ??
-            profile.lastWorkflowCompletedAt ??
-            profile.updatedAt
-        profile.workflowMemorySchemaVersion = ProjectSpaceWorkflowProfile.currentMemorySchemaVersion
-        profile.workflowMemoryStatus = .stable
-        applyStaleStatusIfNeeded(to: profile, referenceDate: timestamp)
     }
 
     private func isWithinConflictWindow(_ baseline: Date?, comparedTo timestamp: Date) -> Bool {
