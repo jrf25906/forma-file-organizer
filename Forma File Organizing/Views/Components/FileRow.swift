@@ -37,6 +37,18 @@ enum FileRowAccessibilityIdentifier {
         identifier(prefix: "fileSelectionCheckbox", fileName: fileName, filePath: filePath)
     }
 
+    static func primaryActionIdentifier(
+        fileName: String,
+        filePath: String,
+        actionKindSuffix: String
+    ) -> String {
+        identifier(
+            prefix: "filePrimaryAction_\(actionKindSuffix)",
+            fileName: fileName,
+            filePath: filePath
+        )
+    }
+
     private static func identifier(prefix: String, fileName: String, filePath: String) -> String {
         "\(prefix)_\(fileName)__\(encodedPath(filePath))"
     }

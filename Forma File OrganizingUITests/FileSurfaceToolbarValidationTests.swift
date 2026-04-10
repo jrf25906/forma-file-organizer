@@ -32,6 +32,34 @@ final class FileSurfaceToolbarValidationTests: XCTestCase {
             "Dashboard should not show the legacy file management header"
         )
     }
+
+    @MainActor
+    func testGridViewKeepsChooseDestinationPrimaryActionVisibleWithoutHover() throws {
+        let app = launchApp(windowSize: "1440x900")
+        let harness = UITestHarness(app: app)
+        defer { app.terminate() }
+
+        harness.tapAllFilesSegment()
+        harness.tapGridViewSegment()
+        harness.waitForViewMode("grid")
+        waitForRow(in: app)
+
+        let noDestinationRow = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "fileRow_IMG_1042.JPG__")
+        ).firstMatch
+        XCTAssertTrue(
+            noDestinationRow.waitForExistence(timeout: 3),
+            "Expected the no-destination UI test row to be visible in grid view"
+        )
+
+        let chooseDestinationButton = noDestinationRow.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_IMG_1042.JPG__")
+        ).firstMatch
+        XCTAssertTrue(
+            chooseDestinationButton.waitForExistence(timeout: 3),
+            "Grid view should keep the Choose Destination action visible for files that still need setup"
+        )
+    }
 }
 
 @MainActor

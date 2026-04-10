@@ -247,6 +247,14 @@ struct FileAccessoryActions: View {
     var disablesEdit: Bool = false
     var disablesSkip: Bool = false
 
+    private var primaryActionAccessibilityIdentifier: String {
+        FileRowAccessibilityIdentifier.primaryActionIdentifier(
+            fileName: file.name,
+            filePath: file.path,
+            actionKindSuffix: primaryActionKind.accessibilityIdentifierSuffix
+        )
+    }
+
     var body: some View {
         switch layout {
         case .card:
@@ -259,6 +267,8 @@ struct FileAccessoryActions: View {
                         action: onPrimaryAction
                     )
                     .disabled(disablesPrimaryAction)
+                    .accessibilityIdentifier(primaryActionAccessibilityIdentifier)
+                    .accessibilityLabel(primaryActionKind.label)
                 }
 
                 if showsOverflowMenu {
@@ -277,6 +287,8 @@ struct FileAccessoryActions: View {
                         action: onPrimaryAction
                     )
                     .disabled(disablesPrimaryAction)
+                    .accessibilityIdentifier(primaryActionAccessibilityIdentifier)
+                    .accessibilityLabel(primaryActionKind.label)
                 }
 
                 if showsOverflowMenu {
@@ -295,6 +307,8 @@ struct FileAccessoryActions: View {
                         action: onPrimaryAction
                     )
                     .disabled(disablesPrimaryAction)
+                    .accessibilityIdentifier(primaryActionAccessibilityIdentifier)
+                    .accessibilityLabel(primaryActionKind.label)
                 }
 
                 if showsOverflowMenu {
@@ -548,6 +562,29 @@ struct FileRowActionConfig {
     }
 }
 
+enum FileSurfaceActionVisibility {
+    static func shouldShowPrimaryAction(
+        primaryActionKind: FilePrimaryActionKind,
+        showsPrimaryActionButton: Bool,
+        isSelectionMode: Bool,
+        isInteracting: Bool
+    ) -> Bool {
+        guard showsPrimaryActionButton, !isSelectionMode else { return false }
+        if primaryActionKind == .setDestination {
+            return true
+        }
+        return isInteracting
+    }
+
+    static func shouldShowOverflowMenu(
+        isSelectionMode: Bool,
+        isInteracting: Bool
+    ) -> Bool {
+        guard !isSelectionMode else { return false }
+        return isInteracting
+    }
+}
+
 enum FilePrimaryActionKind {
     case organize
     case review
@@ -610,6 +647,17 @@ enum FilePrimaryActionKind {
             return "Review suggestion"
         case .setDestination:
             return "Choose destination"
+        }
+    }
+
+    var accessibilityIdentifierSuffix: String {
+        switch self {
+        case .organize:
+            return "organize"
+        case .review:
+            return "review"
+        case .setDestination:
+            return "chooseDestination"
         }
     }
 }

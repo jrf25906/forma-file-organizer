@@ -3,11 +3,12 @@
 Test plans, validation reports, and coverage summaries for Forma.
 
 **Status:** Current  
-**Last Updated:** 2026-03-05
+**Last Updated:** 2026-04-09
 **Audience:** Developers | QA
 
 ## Documents
 
+- [2026-04-09-app-overnight-qa-first-pass-findings.md](2026-04-09-app-overnight-qa-first-pass-findings.md) - Overnight QA findings log covering file-surface parity fixes, current UI automation blockers, and remaining verification gaps
 - [2026-03-05-app-polish-current-build-capture-checklist.md](2026-03-05-app-polish-current-build-capture-checklist.md) - Concrete baseline capture checklist for the current macOS app build
 - [2026-03-05-app-polish-first-pass-findings.md](2026-03-05-app-polish-first-pass-findings.md) - Populated baseline findings report for the current macOS app build
 - [2026-03-05-app-polish-second-pass-findings.md](2026-03-05-app-polish-second-pass-findings.md) - Post-polish rerun showing closure of the first implementation wave and final visual sign-off

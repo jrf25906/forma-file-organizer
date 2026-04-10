@@ -53,7 +53,7 @@ final class FileRowTests: XCTestCase {
         XCTAssertEqual(config.icon, "slider.horizontal.3")
     }
     
-    func testPrimaryActionConfig_FileWithoutDestination_ReturnsCreateRule() {
+    func testPrimaryActionConfig_FileWithoutDestination_ReturnsChooseDestination() {
         // Given: A file without a suggested destination
         let file = FileItem(
             path: "/test/test.txt",
@@ -71,8 +71,8 @@ final class FileRowTests: XCTestCase {
             onCreateRule: nil
         )
         
-        // Then: Should return Create Rule action
-        XCTAssertEqual(config.label, "Set Destination")
+        // Then: Should return the current destination-choosing action copy
+        XCTAssertEqual(config.label, "Choose Destination")
         XCTAssertEqual(config.icon, "folder.badge.plus")
     }
     
@@ -192,6 +192,28 @@ final class FileRowTests: XCTestCase {
         // Then: Create rule callback should be called
         XCTAssertTrue(createRuleCalled)
         XCTAssertEqual(ruleFile?.path, file.path)
+    }
+
+    func testFileSurfaceActionVisibility_ChooseDestinationStaysVisibleWithoutInteraction() {
+        let showsPrimaryAction = FileSurfaceActionVisibility.shouldShowPrimaryAction(
+            primaryActionKind: .setDestination,
+            showsPrimaryActionButton: true,
+            isSelectionMode: false,
+            isInteracting: false
+        )
+
+        XCTAssertTrue(showsPrimaryAction)
+    }
+
+    func testFileSurfaceActionVisibility_ReviewRequiresInteraction() {
+        let showsPrimaryAction = FileSurfaceActionVisibility.shouldShowPrimaryAction(
+            primaryActionKind: .review,
+            showsPrimaryActionButton: true,
+            isSelectionMode: false,
+            isInteracting: false
+        )
+
+        XCTAssertFalse(showsPrimaryAction)
     }
 
     func testAccessibilityStateValue_IncludesProcessingActivity() {

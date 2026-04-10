@@ -3016,7 +3016,7 @@ final class DashboardViewModelTests: XCTestCase {
         }
     }
 
-    func testReviewChunkUsesStableSizeAndSortOrder() {
+    func testReviewChunkUsesStableSizeAndPriorityOrder() {
         let files = makeReviewFiles(count: 12)
 
         viewModel._testSetFiles(files)

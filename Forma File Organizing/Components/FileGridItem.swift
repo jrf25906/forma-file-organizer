@@ -65,6 +65,34 @@ struct FileGridItem: View {
         FilePrimaryActionKind.resolve(for: file)
     }
 
+    private var isInteracting: Bool {
+        isHovered || isFocused || isSelected
+    }
+
+    private var shouldShowPrimaryAction: Bool {
+        FileSurfaceActionVisibility.shouldShowPrimaryAction(
+            primaryActionKind: primaryActionKind,
+            showsPrimaryActionButton: showsPrimaryActionButton,
+            isSelectionMode: isSelectionMode,
+            isInteracting: isInteracting
+        )
+    }
+
+    private var shouldShowOverflowMenu: Bool {
+        FileSurfaceActionVisibility.shouldShowOverflowMenu(
+            isSelectionMode: isSelectionMode,
+            isInteracting: isInteracting
+        )
+    }
+
+    private var shouldRevealInteractiveOverlay: Bool {
+        shouldShowOverflowMenu || (shouldShowPrimaryAction && isInteracting)
+    }
+
+    private var shouldShowRestingPrimaryAction: Bool {
+        shouldShowPrimaryAction && !isInteracting && !shouldShowOverflowMenu
+    }
+
     private var surfaceStyle: FileSurfaceStyle {
         .resolved(
             kind: .card,
@@ -164,7 +192,7 @@ struct FileGridItem: View {
             .shadow(color: tileAmbientShadowColor, radius: tileAmbientShadowRadius, x: 0, y: tileAmbientShadowY)
             .shadow(color: tileContactShadowColor, radius: tileContactShadowRadius, x: 0, y: tileContactShadowY)
 
-            if (isHovered || isFocused) && !isSelectionMode {
+            if shouldRevealInteractiveOverlay {
                 VStack {
                     Spacer()
 
@@ -195,8 +223,8 @@ struct FileGridItem: View {
                                 file: file,
                                 layout: .overlay,
                                 primaryActionKind: primaryActionKind,
-                                showsPrimaryAction: showsPrimaryActionButton,
-                                showsOverflowMenu: true,
+                                showsPrimaryAction: shouldShowPrimaryAction,
+                                showsOverflowMenu: shouldShowOverflowMenu,
                                 matchingRules: matchingRules,
                                 availableDestinations: availableDestinations,
                                 onPrimaryAction: primaryActionHandler,
@@ -213,6 +241,36 @@ struct FileGridItem: View {
                     }
                     .frame(maxHeight: .infinity, alignment: .bottom)
                     .frame(maxWidth: .infinity)
+                }
+                .transition(.opacity)
+            }
+
+            if shouldShowRestingPrimaryAction {
+                VStack {
+                    Spacer()
+
+                    HStack {
+                        Spacer()
+
+                        FileAccessoryActions(
+                            file: file,
+                            layout: .compact,
+                            primaryActionKind: primaryActionKind,
+                            showsPrimaryAction: true,
+                            showsOverflowMenu: false,
+                            matchingRules: matchingRules,
+                            availableDestinations: availableDestinations,
+                            onPrimaryAction: primaryActionHandler,
+                            onEditDestination: onEdit,
+                            onSkip: onSkip,
+                            onQuickLook: onQuickLook,
+                            onCreateRule: onCreateRule,
+                            onApplyRule: onApplyRule,
+                            onChangeDestination: onChangeDestination
+                        )
+                    }
+                    .padding(.trailing, FormaSpacing.tight)
+                    .padding(.bottom, FormaSpacing.tight)
                 }
                 .transition(.opacity)
             }
