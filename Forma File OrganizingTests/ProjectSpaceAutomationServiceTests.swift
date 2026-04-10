@@ -6,6 +6,8 @@ import SwiftData
 final class ProjectSpaceAutomationServiceTests: XCTestCase {
     private func makeService() throws -> (ModelContainer, ModelContext, ProjectSpaceAutomationService) {
         let schema = Schema([
+            FileMetadataRecord.self,
+            FileOrganizationHistoryEntry.self,
             ProjectSpaceWorkflowProfile.self,
             ProjectSpaceAutomationProfile.self,
             ProjectSpaceAutomationPolicy.self,
@@ -24,6 +26,49 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
         try withExtendedLifetime(container) {
             try body(context, service)
         }
+    }
+
+    @discardableResult
+    private func insertProjectSpaceRecord(
+        using service: FileMetadataFoundationService,
+        path: String,
+        projectAssociation: String,
+        timestamp: Date
+    ) throws -> FileMetadataRecord {
+        let record = try XCTUnwrap(
+            service.upsertRecord(
+                for: path,
+                displayName: URL(fileURLWithPath: path).lastPathComponent,
+                fileExtension: URL(fileURLWithPath: path).pathExtension,
+                timestamp: timestamp
+            )
+        )
+        record.projectAssociation = projectAssociation
+        return record
+    }
+
+    private func addHistory(
+        in context: ModelContext,
+        to record: FileMetadataRecord,
+        eventKind: FileOrganizationHistoryEntry.EventKind,
+        timestamp: Date,
+        toPath: String,
+        destinationDisplayName: String,
+        detailsSummary: String
+    ) {
+        let entry = FileOrganizationHistoryEntry(
+            timestamp: timestamp,
+            metadataRecord: record,
+            fileIdentitySnapshot: record.canonicalIdentity,
+            eventKind: eventKind,
+            sourceSurface: .review,
+            fromPath: record.lastKnownPath,
+            toPath: toPath,
+            destinationDisplayName: destinationDisplayName,
+            detailsSummary: detailsSummary
+        )
+        context.insert(entry)
+        record.historyEntries.append(entry)
     }
 
     func testProfileFetch_BootstrapsRecommendedPolicyFromWorkflowMemoryRecommendation() throws {
@@ -62,6 +107,86 @@ final class ProjectSpaceAutomationServiceTests: XCTestCase {
                 context.fetch(FetchDescriptor<ProjectSpaceWorkflowProfile>()).first
             )
             XCTAssertEqual(preservedWorkflowProfile.preferredWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
+        }
+    }
+
+    func testProfileFetch_BootstrapsRecommendedPolicyFromDestinationFallbackWhenWorkflowMemoryUnavailable() throws {
+        try withService { context, service in
+            let featureFlags = FeatureFlagService.shared
+            featureFlags.resetToDefaults()
+            defer { featureFlags.resetToDefaults() }
+            featureFlags.setEnabled(.metadataFoundation, true)
+            featureFlags.setEnabled(.autoProjectAssociation, true)
+            featureFlags.setEnabled(.projectSpaces, true)
+            featureFlags.setEnabled(.projectSpaceMemory, true)
+
+            let metadataService = FileMetadataFoundationService(modelContext: context)
+            let tempDirectory = try TemporaryDirectory()
+            defer { tempDirectory.cleanup() }
+
+            let timestamp = Date()
+            let fileURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
+            let record = try insertProjectSpaceRecord(
+                using: metadataService,
+                path: fileURL.path,
+                projectAssociation: "Alpha",
+                timestamp: timestamp
+            )
+            addHistory(
+                in: context,
+                to: record,
+                eventKind: .organized,
+                timestamp: timestamp.addingTimeInterval(-120),
+                toPath: tempDirectory.url.appendingPathComponent("Projects/Alpha/alpha.txt").path,
+                destinationDisplayName: "Alpha",
+                detailsSummary: "Moved into Alpha."
+            )
+            addHistory(
+                in: context,
+                to: record,
+                eventKind: .rekeyed,
+                timestamp: timestamp.addingTimeInterval(-60),
+                toPath: tempDirectory.url.appendingPathComponent("Projects/Alpha/alpha.txt").path,
+                destinationDisplayName: "Alpha",
+                detailsSummary: "Renamed into Alpha."
+            )
+            try context.save()
+
+            let detail = try XCTUnwrap(metadataService.fetchProjectSpaceDetail(for: "Alpha"))
+            XCTAssertEqual(detail.preferredDestinations.first?.destinationDisplayName, "Alpha")
+            XCTAssertEqual(detail.preferredDestinations.first?.eventCount, 2)
+            XCTAssertEqual(detail.recentActivity.count, 2)
+
+            let projectedDetail = ProjectSpaceDetail(
+                summary: detail.summary,
+                files: detail.files,
+                overview: detail.overview,
+                preferredDestinations: detail.preferredDestinations,
+                recentActivity: detail.recentActivity,
+                workflowMemory: ProjectSpaceMemoryResolver().resolveWorkflowMemoryProjection(
+                    for: detail,
+                    profile: nil,
+                    now: timestamp
+                )
+            )
+            let recommendation = try XCTUnwrap(
+                ProjectSpaceAutomationRecommendationService()
+                    .recommendedPolicies(for: projectedDetail, now: timestamp)
+                    .first
+            )
+            XCTAssertEqual(recommendation.workflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(recommendation.triggerKinds, [.manual])
+            XCTAssertEqual(recommendation.admissionMode, .automatic)
+
+            let profile = try XCTUnwrap(service.profile(normalizedProjectLabel: "Alpha"))
+            let policy = try XCTUnwrap(context.fetch(FetchDescriptor<ProjectSpaceAutomationPolicy>()).first)
+
+            XCTAssertEqual(profile.normalizedProjectLabel, "Alpha")
+            XCTAssertEqual(profile.lastLegacyBootstrapAt, timestamp.addingTimeInterval(-60))
+            XCTAssertEqual(policy.workflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
+            XCTAssertEqual(policy.triggerKinds, [.manual])
+            XCTAssertEqual(policy.admissionMode, .automatic)
+            XCTAssertEqual(policy.state, .recommended)
         }
     }
 
