@@ -15,6 +15,11 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
   - `DashboardViewModel` now groups the active review pass into explicit `Ready to organize`, `Needs review`, and `Needs destination` sections while preserving the existing chunking and deferral model.
   - `MainContentView`, `FileMetaStrip`, and the shared file-surface actions now use outcome-based review verbs (`Organize`, `Review`, `Choose Destination`), add file size to the metadata strip, and promote rule provenance without treating pre-action ready rows as success states.
   - `UnifiedToolbar`, `FloatingActionBar`, and `SidebarView` now distinguish total pending scope from the current review pass, rename review deferral to `Set Aside`, and surface secondary ready counts plus clearer locked-folder permission affordances in the sidebar.
+- Review-flow follow-up polish:
+  - The Current Task card now measures progress against the active review pass instead of the full backlog, preserving a stable `x of y organized` denominator as files are organized instead of silently backfilling from later pending items.
+  - Review sections now use shorter label-style subtitles, `Needs destination` renders through the same shared badge pill treatment as the other review states, and review-mode selection checkboxes keep persistent full-size hit targets.
+  - The right-panel automation widget now hides idle placeholder chrome and, when shown, uses watched-root plus recent-run or preflight summaries instead of a generic `Watching folders` label.
+  - Locked standard folders now expose an explicit `Request Access` affordance in the sidebar, and review surfaces now surface destination editing through file-row context menus, the command palette, and the focused-row `E` shortcut.
 - Legacy app-store migration recovery:
   - `ProjectCluster.filePathsSearchBlob` now defaults to an empty string for rows created before that denormalized search field existed, so older stores can open and migrate without failing container creation at startup.
   - Added a targeted pre-metadata store migration regression in `Forma File OrganizingTests/AppStoreMigrationTests.swift` covering legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.

@@ -473,7 +473,7 @@ struct FileActionMenuContent: View {
             Divider()
 
             Button(action: onEditDestination) {
-                Label(file.destination == nil ? "Browse Destination" : "Edit Destination", systemImage: "pencil")
+                Label(file.destination == nil ? "Choose Destination" : "Edit Destination", systemImage: "pencil")
             }
             .disabled(disablesEdit)
 

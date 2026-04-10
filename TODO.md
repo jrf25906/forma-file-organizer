@@ -38,6 +38,13 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
 
+## Review-Flow Follow-up Polish (April 9, 2026)
+- [x] Scope Current Task progress to the active review pass and preserve a stable pass denominator after organizing files instead of backfilling from later pending items.
+- [x] Tighten review-section subtitles, normalize `Needs destination` through the shared badge pill treatment, and keep review-surface checkboxes persistently visible with full-size hit targets.
+- [x] Replace the generic automation placeholder card with contextual watched-root / recent-run / preflight summaries, hiding the card entirely when automation has nothing meaningful to say.
+- [x] Add explicit sidebar `Request Access` affordances for locked standard folders plus destination-edit power-user entry points via row context menus, the command palette, and the focused-row `E` shortcut.
+- [x] Verify that the seeded UI-test review dataset still uses synthetic `/Users/test/...` fixture paths, so generic icons there are expected and this pass does not change thumbnail behavior.
+
 ## Review-First Selection App Intent (April 9, 2026)
 - [x] Add a persisted `ExternalIngressExecutionMode` so external requests can distinguish immediate runs from review-first runs without splitting the ingress pipeline.
 - [x] Keep review-first external requests auto-organizing safe selected items while opening Forma only when reviewable items remain, not for skip-only or already-finished outcomes.

@@ -921,11 +921,11 @@ struct MainContentView: View {
     private func reviewSectionDescription(for kind: ReviewFlowSectionKind) -> String {
         switch kind {
         case .ready:
-            return "These files already have a destination and can be organized now."
+            return "Destination set — ready now."
         case .review:
-            return "These files have a destination but still need your confirmation."
+            return "Destination set — confirm to organize."
         case .destination:
-            return "These files still need a destination before they can be organized."
+            return "No destination yet — choose one to continue."
         }
     }
 

@@ -13,6 +13,7 @@ struct AutomationStatusWidget: View {
     let pendingReviewCount: Int
     let activeScopeCount: Int
     let attentionScopeCount: Int
+    let presentation: DashboardAutomationStatusPresentation?
     private let engine = AutomationEngine.shared
     private let automationState = AutomationEngine.shared.state
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -32,11 +33,13 @@ struct AutomationStatusWidget: View {
     init(
         pendingReviewCount: Int = 0,
         activeScopeCount: Int = 0,
-        attentionScopeCount: Int = 0
+        attentionScopeCount: Int = 0,
+        presentation: DashboardAutomationStatusPresentation? = nil
     ) {
         self.pendingReviewCount = pendingReviewCount
         self.activeScopeCount = activeScopeCount
         self.attentionScopeCount = attentionScopeCount
+        self.presentation = presentation
     }
 
     /// Whether the automation is paused (neither running nor scheduled)
@@ -114,13 +117,27 @@ struct AutomationStatusWidget: View {
                         Text(statusMessage)
                             .font(.formaBodyMedium)
                             .foregroundStyle(Color.formaLabel)
-                            .lineLimit(1)
+                            .lineLimit(2)
 
-                        if let lastRun = automationState.lastRunDate {
+                        if let statusDetailText {
+                            Text(statusDetailText)
+                                .font(.formaCaption)
+                                .foregroundStyle(Color.formaSecondaryLabelHigh)
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else if let lastRun = automationState.lastRunDate {
                             Text(lastRun.relativeFormatted)
                                 .font(.formaCaption)
                                 .foregroundStyle(Color.formaSecondaryLabelHigh)
                                 .lineLimit(1)
+                        }
+
+                        if let preflightDetailText {
+                            Text(preflightDetailText)
+                                .font(.formaCaption)
+                                .foregroundStyle(Color.formaTertiaryLabelHigh)
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
 
                         if activeScopeCount > 0 || attentionScopeCount > 0 {
@@ -300,6 +317,10 @@ struct AutomationStatusWidget: View {
     }
 
     private var statusMessage: String {
+        if let presentation {
+            return presentation.headlineText
+        }
+
         if automationState.isRunning {
             return "Scanning files..."
         } else if automationState.isWatchingFolders {
@@ -309,6 +330,18 @@ struct AutomationStatusWidget: View {
         } else {
             return "Automation paused"
         }
+    }
+
+    private var statusDetailText: String? {
+        presentation?.latestMeaningfulRunSummary
+    }
+
+    private var preflightDetailText: String? {
+        guard let presentation else { return nil }
+        guard presentation.latestPreflightSummary != presentation.latestMeaningfulRunSummary else {
+            return nil
+        }
+        return presentation.latestPreflightSummary
     }
 
     // MARK: - Action Buttons

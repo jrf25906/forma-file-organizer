@@ -51,7 +51,7 @@ struct KeyboardShortcutsHelpView: View {
                             ShortcutRow(keys: ["Enter"], description: "Organize focused file")
                             ShortcutRow(keys: ["Cmd", "Enter"], description: "Organize and advance")
                             ShortcutRow(keys: ["S"], description: "Skip")
-                            ShortcutRow(keys: ["E"], description: "Edit destination")
+                            ShortcutRow(keys: ["E"], description: "Edit or choose destination")
                             ShortcutRow(keys: ["R"], description: "Create rule")
                         }
                         

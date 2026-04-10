@@ -19,6 +19,7 @@ final class DashboardOrganizationController {
     var onShowError: ((String) -> Void)?
     var onShouldRequestReview: (() -> Void)?
     var onShowTrustedScopeRecommendation: ((TrustedAutomationScopeRecommendation) -> Void)?
+    var onDidOrganizeFile: ((String) -> Void)?
 
     init(
         coordinator: FileOrganizationCoordinator,
@@ -76,6 +77,7 @@ final class DashboardOrganizationController {
             file.status = .completed
             scanViewModel.removeFile(at: file.path)
             filterViewModel.updateSourceFiles(scanViewModel.allFiles)
+            onDidOrganizeFile?(file.path)
             return
         }
         #endif
@@ -106,6 +108,7 @@ final class DashboardOrganizationController {
             // Update scan ViewModel
             self.scanViewModel.removeFile(at: file.path)
             self.filterViewModel.updateSourceFiles(self.scanViewModel.allFiles)
+            self.onDidOrganizeFile?(file.path)
         }
     }
 
@@ -165,6 +168,7 @@ final class DashboardOrganizationController {
                 )
                 self.scanViewModel.removeFile(at: file.path)
                 self.filterViewModel.updateSourceFiles(self.scanViewModel.allFiles)
+                self.onDidOrganizeFile?(file.path)
             } catch {
                 self.onShowError?(error.localizedDescription)
                 self.onShowToast?(error.localizedDescription, false)

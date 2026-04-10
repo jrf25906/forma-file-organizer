@@ -156,6 +156,22 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `totalPendingCount`
   - Needs-review presentation now keeps the existing chunked review-pass model but groups the active pass into explicit `ready -> review -> destination` sections for list, card, and grid layouts.
   - Shared review surfaces now use outcome-based actions (`Organize`, `Review`, `Choose Destination`), the toolbar distinguishes total pending scope from the current pass, the floating review bar now uses `Set Aside` language, sidebar bookmark rows expose secondary ready counts, and the shared metadata strip now includes file size plus more prominent rule provenance.
+- Review-flow follow-up polish
+  - `DashboardAutomationStatusPresentation`
+    - `watchedRootDisplayNames`
+    - `latestMeaningfulRunSummary`
+    - `latestPreflightSummary`
+    - `headlineText`
+    - `resolve(state:watchedRootDisplayNames:)`
+  - `DashboardViewModel`
+    - `currentPassTotalCount`
+    - `currentPassRemainingCount`
+    - `currentPassOrganizedCount`
+    - `currentPassProgress`
+    - `automationStatusPresentation`
+  - Current Task progress is now pass-scoped, so right-panel progress copy and meters track the active review pass instead of the total pending backlog.
+  - Dashboard automation status is now optional contextual presentation state: idle/generic automation hides the widget, while meaningful states surface watched roots plus recent run or preflight summaries.
+  - Locked standard folders now expose explicit `Request Access` affordances in the sidebar, and destination editing is now reachable from review-surface context menus, the command palette, and the focused-row `E` shortcut without changing the underlying review-flow model.
 - Workflow Engine v2 shared templates, audit, rollback, and notify/log follow-up
   - `FeatureFlagService.Feature.workflowEngineV2`
   - `BuiltInWorkflowTemplate`

@@ -122,9 +122,15 @@ struct FileListRow: View {
                 action: onToggleSelection
             )
             .opacity(selectionControlEmphasisOpacity)
-            .frame(width: 24, height: 24, alignment: .center)
+            .frame(width: 32, height: 32, alignment: .center)
             .contentShape(Rectangle())
             .help(isSelected ? "Deselect file" : "Select file")
+            .accessibilityIdentifier(
+                FileRowAccessibilityIdentifier.selectionCheckboxIdentifier(
+                    fileName: file.name,
+                    filePath: file.path
+                )
+            )
 
             FormaThumbnail(
                 file: file,
@@ -195,6 +201,26 @@ struct FileListRow: View {
         .if(isSelectionMode) { row in
             row.onTapGesture {
                 onToggleSelection()
+            }
+        }
+        .contextMenu {
+            if !isSelectionMode {
+                FileActionMenuContent(
+                    file: file,
+                    primaryActionKind: primaryActionKind,
+                    matchingRules: matchingRules,
+                    availableDestinations: availableDestinations,
+                    onPrimaryAction: primaryActionHandler,
+                    onEditDestination: onEdit,
+                    onSkip: onSkip,
+                    onQuickLook: onQuickLook,
+                    onCreateRule: onCreateRule,
+                    onApplyRule: onApplyRule,
+                    onChangeDestination: onChangeDestination,
+                    disablesPrimaryAction: primaryActionKind == .organize ? (!hasDestination || isSelected) : isSelected,
+                    disablesEdit: isSelected,
+                    disablesSkip: isSelected
+                )
             }
         }
         .accessibilityElement(children: .contain)

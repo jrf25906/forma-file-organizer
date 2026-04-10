@@ -209,6 +209,146 @@ struct ReviewFlowSection: Identifiable {
     var id: ReviewFlowSectionKind { kind }
 }
 
+private struct ReviewPassSnapshotState {
+    let snapshotPaths: [String]
+    let remainingFiles: [FileItem]
+    let organizedPaths: Set<String>
+}
+
+struct DashboardAutomationStatusPresentation: Equatable {
+    let watchedRootDisplayNames: [String]
+    let latestMeaningfulRunSummary: String?
+    let latestPreflightSummary: String?
+
+    var headlineText: String {
+        if !watchedRootDisplayNames.isEmpty {
+            return "Watching \(Self.joinedRootNames(watchedRootDisplayNames))"
+        }
+
+        if latestMeaningfulRunSummary != nil {
+            return "Recent automation activity"
+        }
+
+        if latestPreflightSummary != nil {
+            return "Next automation pass"
+        }
+
+        return "Automation"
+    }
+
+    static func resolve(
+        state: AutomationState,
+        watchedRootDisplayNames: [String]
+    ) -> DashboardAutomationStatusPresentation? {
+        let cleanedRootNames = watchedRootDisplayNames
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        let runSummary = meaningfulRunSummary(from: state)
+        let preflightSummary = meaningfulPreflightSummary(from: state.lastPreflightSummary)
+
+        guard !cleanedRootNames.isEmpty || runSummary != nil || preflightSummary != nil else {
+            return nil
+        }
+
+        return DashboardAutomationStatusPresentation(
+            watchedRootDisplayNames: cleanedRootNames,
+            latestMeaningfulRunSummary: runSummary,
+            latestPreflightSummary: preflightSummary
+        )
+    }
+
+    private static func meaningfulRunSummary(from state: AutomationState) -> String? {
+        guard state.lastRunDate != nil else { return nil }
+
+        var fragments: [String] = []
+
+        if state.lastRunSuccessCount > 0 {
+            fragments.append(
+                state.lastRunSuccessCount == 1
+                    ? "organized 1 file"
+                    : "organized \(state.lastRunSuccessCount) files"
+            )
+        }
+
+        if state.lastRunSkippedCount > 0 {
+            fragments.append(
+                state.lastRunSkippedCount == 1
+                    ? "skipped 1"
+                    : "skipped \(state.lastRunSkippedCount)"
+            )
+        }
+
+        if state.lastRunFailedCount > 0 {
+            fragments.append(
+                state.lastRunFailedCount == 1
+                    ? "failed 1"
+                    : "failed \(state.lastRunFailedCount)"
+            )
+        }
+
+        guard !fragments.isEmpty else { return nil }
+
+        if fragments.count == 1, let fragment = fragments.first {
+            return "Last run \(fragment)"
+        }
+
+        if fragments.count == 2 {
+            return "Last run \(fragments[0]) and \(fragments[1])"
+        }
+
+        let head = fragments.dropLast().joined(separator: ", ")
+        return "Last run \(head), and \(fragments.last ?? "")"
+    }
+
+    private static func meaningfulPreflightSummary(from summary: AutomationPreflightSummary?) -> String? {
+        guard let summary else { return nil }
+
+        var fragments: [String] = []
+
+        if summary.eligibleCount > 0 {
+            fragments.append("\(summary.eligibleCount) ready now")
+        }
+
+        if summary.skippedMissingDestination > 0 {
+            fragments.append(
+                summary.skippedMissingDestination == 1
+                    ? "1 missing destination"
+                    : "\(summary.skippedMissingDestination) missing destinations"
+            )
+        }
+
+        if summary.skippedPermissionIssues > 0 {
+            fragments.append(
+                summary.skippedPermissionIssues == 1
+                    ? "1 waiting for access"
+                    : "\(summary.skippedPermissionIssues) waiting for access"
+            )
+        }
+
+        if summary.skippedConfidenceThreshold > 0 {
+            fragments.append(
+                summary.skippedConfidenceThreshold == 1
+                    ? "1 held for review"
+                    : "\(summary.skippedConfidenceThreshold) held for review"
+            )
+        }
+
+        guard !fragments.isEmpty else { return nil }
+        return Array(fragments.prefix(2)).joined(separator: " · ")
+    }
+
+    private static func joinedRootNames(_ names: [String]) -> String {
+        guard let first = names.first else { return "folders" }
+        guard names.count > 1 else { return first }
+        if names.count == 2 {
+            return "\(names[0]) and \(names[1])"
+        }
+
+        return "\(names.dropLast().joined(separator: ", ")), and \(names.last ?? "")"
+    }
+}
+
 @MainActor
 final class WindowPresentationStore {
     private enum Keys {
@@ -430,6 +570,8 @@ class DashboardViewModel: ObservableObject {
     private var projectSpaceWorkflowPreparationTask: Task<Void, Never>?
     private var lastPresentedExternalSessionID: UUID?
     private var deferredReviewPathsByScope: [ReviewChunkScopeKey: Set<String>] = [:]
+    private var reviewPassPathsByScope: [ReviewChunkScopeKey: [String]] = [:]
+    private var organizedReviewPathsByScope: [ReviewChunkScopeKey: Set<String>] = [:]
     private var projectSpaceWorkflowCandidateFiles: [FileItem] = []
     private var isSynchronizingProjectSpaceWorkflowState = false
     private var selectedProjectSpaceAutomationPolicyID: UUID?
@@ -1695,6 +1837,8 @@ class DashboardViewModel: ObservableObject {
         var existingDeferredPaths = deferredReviewPathsByScope[scopeKey] ?? []
         existingDeferredPaths.formUnion(deferredPaths)
         deferredReviewPathsByScope[scopeKey] = existingDeferredPaths
+        reviewPassPathsByScope.removeValue(forKey: scopeKey)
+        organizedReviewPathsByScope.removeValue(forKey: scopeKey)
 
         deselectAll()
         objectWillChange.send()
@@ -1711,6 +1855,8 @@ class DashboardViewModel: ObservableObject {
             return
         }
 
+        reviewPassPathsByScope.removeValue(forKey: scopeKey)
+        organizedReviewPathsByScope.removeValue(forKey: scopeKey)
         deselectAll()
         objectWillChange.send()
         showToast(
@@ -1786,6 +1932,9 @@ class DashboardViewModel: ObservableObject {
         }
         controller.onShowTrustedScopeRecommendation = { [weak self] recommendation in
             self?.panelManager.stageTrustedScopeRecommendation(recommendation)
+        }
+        controller.onDidOrganizeFile = { [weak self] filePath in
+            self?.markFileOrganizedInCurrentPass(filePath)
         }
         return controller
     }()
@@ -2813,12 +2962,26 @@ class DashboardViewModel: ObservableObject {
             return ReviewFlowSection(kind: kind, files: files)
         }
     }
-    var currentPassCount: Int { currentReviewChunkFiles.count }
+    var currentPassCount: Int { currentPassTotalCount }
+    var currentPassTotalCount: Int { currentReviewPassState.snapshotPaths.count }
+    var currentPassRemainingCount: Int { currentReviewChunkFiles.count }
+    var currentPassOrganizedCount: Int { currentReviewPassState.organizedPaths.count }
+    var currentPassProgress: Double {
+        let total = currentPassTotalCount
+        guard total > 0 else { return 1.0 }
+        return Double(currentPassOrganizedCount) / Double(total)
+    }
     var currentPassReadyCount: Int { readyFiles.count }
     var totalPendingCount: Int { filterViewModel.needsReviewCount }
-    var currentReviewChunkCount: Int { currentPassCount }
+    var currentReviewChunkCount: Int { currentPassTotalCount }
     var currentReviewChunkPaths: [String] { currentReviewChunkFiles.map(\.path) }
     var currentReviewChunkReadyCount: Int { currentPassReadyCount }
+    var automationStatusPresentation: DashboardAutomationStatusPresentation? {
+        DashboardAutomationStatusPresentation.resolve(
+            state: AutomationEngine.shared.state,
+            watchedRootDisplayNames: BookmarkFolderService.shared.enabledFolders.map(\.displayName)
+        )
+    }
     private var dashboardWorkflowCandidateFiles: [FileItem] {
         if isSelectionMode {
             return selectedFiles
@@ -3837,16 +4000,72 @@ class DashboardViewModel: ObservableObject {
         return deferredPaths.intersection(activePaths)
     }
 
-    private var currentReviewChunkFiles: [FileItem] {
+    private var currentReviewPassState: ReviewPassSnapshotState {
+        guard let scopeKey = currentReviewChunkScopeKey else {
+            return ReviewPassSnapshotState(snapshotPaths: [], remainingFiles: [], organizedPaths: [])
+        }
+
         let baseVisibleFiles = filterViewModel.visibleFiles
         let deferredPaths = activeDeferredReviewPaths(in: baseVisibleFiles)
-        let currentPassFiles = Array(
-            baseVisibleFiles
-                .filter { !deferredPaths.contains($0.path) }
-                .prefix(reviewChunkSize)
+        let availableFiles = baseVisibleFiles.filter { !deferredPaths.contains($0.path) }
+        let availablePaths = Set(availableFiles.map(\.path))
+        let allKnownPaths = Set(scanViewModel.allFiles.map(\.path))
+
+        var snapshotPaths = reviewPassPathsByScope[scopeKey] ?? []
+        var organizedPaths = organizedReviewPathsByScope[scopeKey] ?? []
+        snapshotPaths = snapshotPaths.filter { allKnownPaths.contains($0) || organizedPaths.contains($0) }
+        organizedPaths.subtract(availablePaths)
+        organizedPaths.formIntersection(snapshotPaths)
+
+        let hasRemainingSnapshotItems = snapshotPaths.contains(where: availablePaths.contains)
+        if snapshotPaths.isEmpty || (!hasRemainingSnapshotItems && !availableFiles.isEmpty) {
+            snapshotPaths = Array(availableFiles.prefix(reviewChunkSize).map(\.path))
+            reviewPassPathsByScope[scopeKey] = snapshotPaths
+            organizedPaths = []
+            organizedReviewPathsByScope.removeValue(forKey: scopeKey)
+        } else if !hasRemainingSnapshotItems {
+            snapshotPaths = []
+            reviewPassPathsByScope.removeValue(forKey: scopeKey)
+            organizedPaths = []
+            organizedReviewPathsByScope.removeValue(forKey: scopeKey)
+        } else if reviewPassPathsByScope[scopeKey] != snapshotPaths {
+            reviewPassPathsByScope[scopeKey] = snapshotPaths
+        }
+
+        if snapshotPaths.isEmpty || organizedPaths.isEmpty {
+            organizedReviewPathsByScope.removeValue(forKey: scopeKey)
+        } else if organizedReviewPathsByScope[scopeKey] != organizedPaths {
+            organizedReviewPathsByScope[scopeKey] = organizedPaths
+        }
+
+        let availableFilesByPath = Dictionary(uniqueKeysWithValues: availableFiles.map { ($0.path, $0) })
+        let remainingFiles = prioritizedReviewFiles(
+            in: snapshotPaths.compactMap { availableFilesByPath[$0] }
         )
 
-        return prioritizedReviewFiles(in: currentPassFiles)
+        return ReviewPassSnapshotState(
+            snapshotPaths: snapshotPaths,
+            remainingFiles: remainingFiles,
+            organizedPaths: organizedPaths
+        )
+    }
+
+    private var currentReviewChunkFiles: [FileItem] {
+        currentReviewPassState.remainingFiles
+    }
+
+    private func markFileOrganizedInCurrentPass(_ filePath: String) {
+        guard let scopeKey = currentReviewChunkScopeKey else { return }
+
+        let snapshotPaths = reviewPassPathsByScope[scopeKey] ?? currentReviewPassState.snapshotPaths
+        guard snapshotPaths.contains(filePath) else { return }
+
+        var organizedPaths = organizedReviewPathsByScope[scopeKey] ?? []
+        let inserted = organizedPaths.insert(filePath).inserted
+        guard inserted else { return }
+
+        organizedReviewPathsByScope[scopeKey] = organizedPaths
+        objectWillChange.send()
     }
 
     private func prioritizedReviewFiles(in files: [FileItem]) -> [FileItem] {

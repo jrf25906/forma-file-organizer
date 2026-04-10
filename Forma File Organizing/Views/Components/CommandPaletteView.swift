@@ -125,6 +125,15 @@ struct CommandPaletteView: View {
 
     // MARK: - Commands
 
+    private var focusedDestinationCommandName: String {
+        guard let focusedPath = dashboardViewModel.focusedFilePath,
+              let focused = dashboardViewModel.visibleFiles.first(where: { $0.path == focusedPath }) else {
+            return "Edit Destination"
+        }
+
+        return focused.destination == nil ? "Choose Destination" : "Edit Destination"
+    }
+
     private var allCommands: [Command] {
         [
             // View commands
@@ -207,7 +216,7 @@ struct CommandPaletteView: View {
             },
             Command(
                 id: "edit-destination",
-                name: "Edit Destination",
+                name: focusedDestinationCommandName,
                 shortcut: "E",
                 category: .action,
                 icon: "pencil"

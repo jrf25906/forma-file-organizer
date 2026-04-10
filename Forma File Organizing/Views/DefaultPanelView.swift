@@ -669,10 +669,11 @@ struct DefaultPanelView: View {
 
                 Spacer()
 
-                Text("\(organizedFilesCount) of \(totalFilesCount) organized")
+                Text("\(organizedFilesCount) of \(currentPassTotalCount) organized")
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(progressLabelColor)
+                    .accessibilityIdentifier("defaultPanelProgressSummary")
             }
         }
     }
@@ -748,7 +749,7 @@ struct DefaultPanelView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color.formaSoftGreen) // Revert to brand green
+                .tint(Color.formaSteelBlue)
                 .controlSize(.large)
                 .help("Organize all ready files")
             }
@@ -761,11 +762,15 @@ struct DefaultPanelView: View {
     private var automationStatusSection: some View {
         if showsAutomationStatusSection {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                AutomationStatusWidget(
-                    pendingReviewCount: dashboardViewModel.cachedNeedsReviewCount,
-                    activeScopeCount: dashboardViewModel.trustedAutomationActiveScopeCount,
-                    attentionScopeCount: dashboardViewModel.trustedAutomationAttentionScopeCount
-                )
+                if let automationStatusPresentation = dashboardViewModel.automationStatusPresentation {
+                    AutomationStatusWidget(
+                        pendingReviewCount: dashboardViewModel.cachedNeedsReviewCount,
+                        activeScopeCount: dashboardViewModel.trustedAutomationActiveScopeCount,
+                        attentionScopeCount: dashboardViewModel.trustedAutomationAttentionScopeCount,
+                        presentation: automationStatusPresentation
+                    )
+                    .accessibilityIdentifier("defaultPanelAutomationStatusCard")
+                }
 
                 if let trustedAutomationScopeSnapshot {
                     TrustedAutomationScopesSection(snapshot: trustedAutomationScopeSnapshot) { scopeID in
@@ -1182,17 +1187,17 @@ struct DefaultPanelView: View {
     }
 
     private var organizationProgress: Double {
-        let total = totalFilesCount
+        let total = currentPassTotalCount
         guard total > 0 else { return 1.0 }
-        return Double(organizedFilesCount) / Double(total)
+        return dashboardViewModel.currentPassProgress
     }
 
-    private var totalFilesCount: Int {
-        dashboardViewModel.organizationProgressTotalCount
+    private var currentPassTotalCount: Int {
+        dashboardViewModel.currentPassTotalCount
     }
 
     private var organizedFilesCount: Int {
-        dashboardViewModel.organizationProgressOrganizedCount
+        dashboardViewModel.currentPassOrganizedCount
     }
 
     private var currentTaskLabelColor: Color {

@@ -45,6 +45,11 @@ final class BookmarkFolderService: ObservableObject {
     /// Shared instance for app-wide folder state
     static let shared = BookmarkFolderService()
 
+    private static let uiTestAccessibleFolderTypes: Set<BookmarkFolder.FolderType> = [
+        .desktop,
+        .downloads
+    ]
+
     // MARK: - Published Properties
 
     /// All folders that have valid Keychain bookmarks, sorted by priority.
@@ -68,6 +73,13 @@ final class BookmarkFolderService: ObservableObject {
     /// - App returns from background
     /// - User changes folder enabled state
     func refresh() {
+        if Self.isUITesting {
+            availableFolders = Self.uiTestAccessibleFolderTypes
+                .map(BookmarkFolder.init(folderType:))
+                .sorted { $0.sortPriority < $1.sortPriority }
+            return
+        }
+
         var folders: [BookmarkFolder] = []
 
         #if DEBUG
@@ -93,6 +105,11 @@ final class BookmarkFolderService: ObservableObject {
 
     /// Returns the BookmarkFolder for a specific type, if it has a valid bookmark.
     func folder(for type: BookmarkFolder.FolderType) -> BookmarkFolder? {
+        if Self.isUITesting {
+            guard Self.uiTestAccessibleFolderTypes.contains(type) else { return nil }
+            return BookmarkFolder(folderType: type)
+        }
+
         let folder = BookmarkFolder(folderType: type)
         return folder.hasValidBookmark ? folder : nil
     }
@@ -109,7 +126,15 @@ final class BookmarkFolderService: ObservableObject {
 
     /// Checks if a specific folder type has access (valid Keychain bookmark)
     func hasAccess(to folderType: BookmarkFolder.FolderType) -> Bool {
-        BookmarkFolder(folderType: folderType).hasValidBookmark
+        if Self.isUITesting {
+            return Self.uiTestAccessibleFolderTypes.contains(folderType)
+        }
+
+        return BookmarkFolder(folderType: folderType).hasValidBookmark
+    }
+
+    private static var isUITesting: Bool {
+        CommandLine.arguments.contains("--uitesting")
     }
 
     /// Toggle enabled state for a folder and persist to UserDefaults

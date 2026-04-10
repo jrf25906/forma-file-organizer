@@ -204,18 +204,60 @@ struct SidebarView: View {
     @ViewBuilder
     private func lockedFolderItem(_ folder: BookmarkFolder) -> some View {
         let selection = NavigationSelection.from(folderType: folder.folderType)
+        let isSelected = nav.selection == selection
 
-        SidebarNativeRow(
-            title: folder.displayName,
-            icon: folder.iconName,
-            isSelected: nav.selection == selection,
-            trailingIcon: "lock.fill"
-        ) {
-            nav.select(selection)
+        HStack(spacing: FormaSpacing.micro) {
+            SidebarNativeRow(
+                title: folder.displayName,
+                icon: folder.iconName,
+                isSelected: isSelected,
+                accessibilityIdentifier: "sidebarLockedFolder_\(folder.folderType.rawValue)",
+                accessibilityLabel: "\(folder.displayName), Access required",
+                accessibilityValue: "Access required",
+                accessibilityHint: "Select to open the macOS access request flow for this location."
+            ) {
+                nav.select(selection)
+            }
+
+            Button {
+                nav.select(selection)
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("Request Access")
+                        .font(.formaCaptionSemibold)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(
+                    isSelected
+                        ? Color.formaSteelBlue
+                        : Color.formaSecondaryLabelHigh
+                )
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(
+                            (isSelected ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh)
+                                .opacity(Color.FormaOpacity.light)
+                        )
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            (isSelected ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh)
+                                .opacity(Color.FormaOpacity.medium),
+                            lineWidth: 0.75
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("sidebarRequestAccess_\(folder.folderType.rawValue)")
+            .accessibilityLabel("Request Access")
+            .accessibilityHint("Opens the macOS access request flow for \(folder.displayName).")
         }
-        .help("Select \(folder.displayName) to request access.")
-        .accessibilityValue("Access required")
-        .accessibilityHint("Select to open the macOS access request flow for this location.")
+        .help("Select \(folder.displayName) or Request Access to open the macOS access flow.")
     }
 
     // MARK: - Bookmark Folder Item
@@ -298,7 +340,8 @@ struct SidebarView: View {
             icon: folder.iconName,
             isSelected: isSelected,
             badgeCount: actionableCount,
-            readyCount: readyCount
+            readyCount: readyCount,
+            accessibilityIdentifier: "sidebarFolder_\(folder.folderType.rawValue)"
         ) {
             expandedNestedFolders.insert(folder.folderType)
             nav.select(selection)
@@ -527,6 +570,13 @@ private struct SidebarNativeRow: View {
     var badgeCount: Int? = nil
     var readyCount: Int? = nil
     var trailingIcon: String? = nil
+    var trailingAccessoryLabel: String? = nil
+    var trailingAccessorySystemImage: String? = nil
+    var accessibilityIdentifier: String? = nil
+    var trailingAccessoryIdentifier: String? = nil
+    var accessibilityLabel: String? = nil
+    var accessibilityValue: String? = nil
+    var accessibilityHint: String? = nil
     let action: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -548,7 +598,40 @@ private struct SidebarNativeRow: View {
 
                 Spacer(minLength: 0)
 
-                if let trailing = trailingIcon {
+                if let trailingAccessoryLabel {
+                    HStack(spacing: 4) {
+                        if let trailingAccessorySystemImage {
+                            Image(systemName: trailingAccessorySystemImage)
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        Text(trailingAccessoryLabel)
+                            .font(.formaCaptionSemibold)
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(
+                        isSelected
+                            ? Color.formaSteelBlue
+                            : Color.formaSecondaryLabelHigh
+                    )
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(
+                                (isSelected ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh)
+                                    .opacity(Color.FormaOpacity.light)
+                            )
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(
+                                (isSelected ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh)
+                                    .opacity(Color.FormaOpacity.medium),
+                                lineWidth: 0.75
+                            )
+                    )
+                    .accessibilityIdentifier(trailingAccessoryIdentifier ?? "")
+                } else if let trailing = trailingIcon {
                     Image(systemName: trailing)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.formaTertiaryLabel)
@@ -595,7 +678,28 @@ private struct SidebarNativeRow: View {
             isHovered = hovering
         }
         .animation(FormaEasing.microFeedback, value: isHovered)
-        .accessibilityElement(children: .combine)
+        .if(accessibilityIdentifier != nil) { row in
+            row.accessibilityIdentifier(accessibilityIdentifier!)
+        }
+        .accessibilityElement(children: accessibilityLabel != nil ? .ignore : .combine)
+        .if(accessibilityLabel != nil) { row in
+            row.accessibilityLabel(accessibilityLabel!)
+        }
+        .if(accessibilityValue != nil) { row in
+            row.accessibilityValue(accessibilityValue!)
+        }
+        .if(accessibilityHint != nil) { row in
+            row.accessibilityHint(accessibilityHint!)
+        }
+        .if(accessibilityLabel == nil) { row in
+            row.accessibilityChildren {
+                if let trailingAccessoryLabel,
+                   let trailingAccessoryIdentifier {
+                    Text(trailingAccessoryLabel)
+                        .accessibilityIdentifier(trailingAccessoryIdentifier)
+                }
+            }
+        }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 

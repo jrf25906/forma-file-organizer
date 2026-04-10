@@ -121,7 +121,7 @@ struct FormaBadge: View {
         case .outlined:
             Color.clear
         case .subtle:
-            Capsule().fill(color.opacity(Color.FormaOpacity.light))
+            Capsule().fill(color.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle))
         }
     }
 
@@ -130,6 +130,12 @@ struct FormaBadge: View {
         switch style {
         case .outlined:
             Capsule().stroke(color, lineWidth: 1)
+        case .subtle:
+            Capsule()
+                .stroke(
+                    color.opacity(Color.FormaOpacity.medium + Color.FormaOpacity.ultraSubtle),
+                    lineWidth: 0.75
+                )
         default:
             EmptyView()
         }

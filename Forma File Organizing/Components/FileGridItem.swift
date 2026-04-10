@@ -225,9 +225,15 @@ struct FileGridItem: View {
                         action: onToggleSelection
                     )
                     .opacity(selectionControlEmphasisOpacity)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 32, height: 32)
                     .contentShape(Rectangle())
                     .help(isSelected ? "Deselect file" : "Select file")
+                    .accessibilityIdentifier(
+                        FileRowAccessibilityIdentifier.selectionCheckboxIdentifier(
+                            fileName: file.name,
+                            filePath: file.path
+                        )
+                    )
                     .padding(.leading, FormaSpacing.tight)
                     .padding(.top, FormaSpacing.tight)
                     Spacer()
@@ -242,6 +248,23 @@ struct FileGridItem: View {
         .if(isSelectionMode) { tile in
             tile.onTapGesture {
                 onToggleSelection()
+            }
+        }
+        .contextMenu {
+            if !isSelectionMode {
+                FileActionMenuContent(
+                    file: file,
+                    primaryActionKind: primaryActionKind,
+                    matchingRules: matchingRules,
+                    availableDestinations: availableDestinations,
+                    onPrimaryAction: primaryActionHandler,
+                    onEditDestination: onEdit,
+                    onSkip: onSkip,
+                    onQuickLook: onQuickLook,
+                    onCreateRule: onCreateRule,
+                    onApplyRule: onApplyRule,
+                    onChangeDestination: onChangeDestination
+                )
             }
         }
         .animation(reduceMotion ? .none : FormaEasing.microFeedback, value: isFocused)

@@ -3021,10 +3021,13 @@ final class DashboardViewModelTests: XCTestCase {
 
         viewModel._testSetFiles(files)
 
-        let expectedPaths = files
+        let expectedChunk = files
             .sorted { $0.creationDate > $1.creationDate }
             .prefix(viewModel.reviewChunkSize)
-            .map(\.path)
+        let expectedPaths =
+            expectedChunk.filter { $0.status == .ready && $0.destination != nil }.map(\.path)
+            + expectedChunk.filter { $0.status == .pending && $0.destination != nil }.map(\.path)
+            + expectedChunk.filter { $0.status == .pending && $0.destination == nil }.map(\.path)
 
         XCTAssertEqual(viewModel.currentReviewChunkPaths, expectedPaths)
         XCTAssertEqual(viewModel.visibleFiles.map(\.path), expectedPaths)
@@ -3277,6 +3280,10 @@ final class DashboardViewModelTests: XCTestCase {
         viewModel.reviewFilterMode = .needsReview
 
         XCTAssertEqual(viewModel.currentPassCount, 4)
+        XCTAssertEqual(viewModel.currentPassTotalCount, 4)
+        XCTAssertEqual(viewModel.currentPassRemainingCount, 4)
+        XCTAssertEqual(viewModel.currentPassOrganizedCount, 0)
+        XCTAssertEqual(viewModel.currentPassProgress, 0)
         XCTAssertEqual(viewModel.currentPassReadyCount, 1)
         XCTAssertEqual(viewModel.totalPendingCount, 4)
         XCTAssertEqual(viewModel.readyFiles.map(\.path), [ready.path])
@@ -3310,6 +3317,96 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.readyFiles.map(\.path), [readyA.path, readyB.path])
         XCTAssertTrue(viewModel.needsReviewFiles.isEmpty)
         XCTAssertTrue(viewModel.needsDestinationFiles.isEmpty)
+    }
+
+    func testCurrentPassProgressDoesNotBackfillAfterOrganizingAReadyFile() {
+        let files = makeReviewFiles(count: 10)
+
+        viewModel._testSetFiles(files)
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        let initialPassPaths = viewModel.currentReviewChunkPaths
+        let organizedFile = try! XCTUnwrap(viewModel.readyFiles.first)
+
+        viewModel.organizeFile(organizedFile)
+
+        XCTAssertEqual(viewModel.currentPassTotalCount, viewModel.reviewChunkSize)
+        XCTAssertEqual(viewModel.currentPassRemainingCount, viewModel.reviewChunkSize - 1)
+        XCTAssertEqual(viewModel.currentPassOrganizedCount, 1)
+        XCTAssertEqual(viewModel.currentPassProgress, 1.0 / Double(viewModel.reviewChunkSize), accuracy: 0.0001)
+        XCTAssertEqual(
+            viewModel.currentReviewChunkPaths,
+            initialPassPaths.filter { $0 != organizedFile.path }
+        )
+    }
+
+    func testCurrentPassProgressExcludesDeferredPassAndAdvancesToNextBatch() {
+        let files = makeReviewFiles(count: 12)
+
+        viewModel._testSetFiles(files)
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        let initialPassPaths = Set(viewModel.currentReviewChunkPaths)
+        viewModel.doneForNow()
+
+        XCTAssertEqual(viewModel.currentPassTotalCount, 4)
+        XCTAssertEqual(viewModel.currentPassRemainingCount, 4)
+        XCTAssertEqual(viewModel.currentPassOrganizedCount, 0)
+        XCTAssertEqual(viewModel.currentPassProgress, 0)
+        XCTAssertEqual(viewModel.deferredReviewFileCount, viewModel.reviewChunkSize)
+        XCTAssertTrue(initialPassPaths.isDisjoint(with: Set(viewModel.currentReviewChunkPaths)))
+    }
+
+    func testCurrentPassProgressKeepsBacklogSeparateFromPassSize() {
+        let files = makeReviewFiles(count: 12)
+
+        viewModel._testSetFiles(files)
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        XCTAssertEqual(viewModel.totalPendingCount, 12)
+        XCTAssertEqual(viewModel.currentPassTotalCount, viewModel.reviewChunkSize)
+        XCTAssertEqual(viewModel.currentPassRemainingCount, viewModel.reviewChunkSize)
+    }
+
+    func testAutomationStatusPresentationShowsWatchedRootsAndRecentSummaries() {
+        let state = AutomationState(clock: SystemClock())
+        state.isWatchingFolders = true
+        state.lastRunDate = Date()
+        state.lastRunSuccessCount = 3
+        state.lastRunSkippedCount = 1
+        state.lastPreflightSummary = AutomationPreflightSummary(
+            eligibleFiles: [],
+            eligibleCount: 2,
+            skippedMissingDestination: 1,
+            skippedPermissionIssues: 0,
+            skippedConfidenceThreshold: 0,
+            skippedExcludedFromAutomation: 0,
+            trustedScopeSkippedCount: 0,
+            exampleFileNames: []
+        )
+
+        let presentation = DashboardAutomationStatusPresentation.resolve(
+            state: state,
+            watchedRootDisplayNames: ["Downloads", "Desktop"]
+        )
+
+        XCTAssertEqual(presentation?.watchedRootDisplayNames, ["Downloads", "Desktop"])
+        XCTAssertEqual(presentation?.latestMeaningfulRunSummary, "Last run organized 3 files and skipped 1")
+        XCTAssertEqual(presentation?.latestPreflightSummary, "2 ready now · 1 missing destination")
+    }
+
+    func testAutomationStatusPresentationHidesGenericIdleState() {
+        let state = AutomationState(clock: SystemClock())
+
+        let presentation = DashboardAutomationStatusPresentation.resolve(
+            state: state,
+            watchedRootDisplayNames: []
+        )
+
+        XCTAssertNil(presentation)
     }
 
     private func makeReviewFiles(count: Int) -> [FileItem] {

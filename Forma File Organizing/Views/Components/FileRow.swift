@@ -33,6 +33,10 @@ enum FileRowAccessibilityIdentifier {
         identifier(prefix: "fileGridItemState", fileName: fileName, filePath: filePath)
     }
 
+    static func selectionCheckboxIdentifier(fileName: String, filePath: String) -> String {
+        identifier(prefix: "fileSelectionCheckbox", fileName: fileName, filePath: filePath)
+    }
+
     private static func identifier(prefix: String, fileName: String, filePath: String) -> String {
         "\(prefix)_\(fileName)__\(encodedPath(filePath))"
     }
@@ -202,6 +206,12 @@ struct FileRow: View {
                 .frame(width: 32, height: 32, alignment: .center)
                 .contentShape(Rectangle())
                 .help(isSelected ? "Deselect file" : "Select file")
+                .accessibilityIdentifier(
+                    FileRowAccessibilityIdentifier.selectionCheckboxIdentifier(
+                        fileName: file.name,
+                        filePath: file.path
+                    )
+                )
             }
 
             FormaThumbnail.premium(
@@ -277,6 +287,25 @@ struct FileRow: View {
         .if(isSelectionMode && onToggleSelection != nil) { row in
             row.onTapGesture {
                 onToggleSelection?(file)
+            }
+        }
+        .contextMenu {
+            if !isSelectionMode {
+                FileActionMenuContent(
+                    file: file,
+                    primaryActionKind: primaryActionKind,
+                    matchingRules: matchingRules,
+                    availableDestinations: availableDestinations,
+                    onPrimaryAction: primaryActionConfig.action,
+                    onEditDestination: { onEditDestination?(file) },
+                    onSkip: { onSkip?(file) },
+                    onQuickLook: { onQuickLook?(file) },
+                    onCreateRule: onCreateRule.map { action in { action(file) } },
+                    onApplyRule: onApplyRule,
+                    onChangeDestination: onChangeDestination.map { action in { destination in action(file, destination) } },
+                    disablesEdit: onEditDestination == nil,
+                    disablesSkip: onSkip == nil
+                )
             }
         }
         .accessibilityElement(children: .contain)

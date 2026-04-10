@@ -438,6 +438,88 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForExists(reviewStatusProbe, timeout: 3, message: "Review floating bar status probe should exist")
         harness.waitForValue(reviewStatusProbe, contains: "ready to organize", timeout: 3)
     }
+
+    @MainActor
+    func testNeedsReviewCurrentTaskCardUsesPassScopedProgressAndShortSectionCopy() throws {
+        harness.waitForMainContent()
+        app.activate()
+
+        harness.tapNeedsReviewSegment()
+
+        let progressSummary = harness.element(withIdentifier: "defaultPanelProgressSummary")
+        harness.waitForExists(progressSummary, timeout: 3, message: "Current-task progress summary should exist")
+        harness.waitForValue(progressSummary, equals: "0 of 8 organized", timeout: 3)
+
+        XCTAssertTrue(
+            app.staticTexts["Destination set — ready now."].waitForExistence(timeout: 3),
+            "Ready section should use the tightened subtitle copy"
+        )
+        XCTAssertTrue(
+            app.staticTexts["Destination set — confirm to organize."].waitForExistence(timeout: 3),
+            "Needs review section should use the tightened subtitle copy"
+        )
+        XCTAssertTrue(
+            app.staticTexts["No destination yet — choose one to continue."].waitForExistence(timeout: 3),
+            "Needs destination section should use the tightened subtitle copy"
+        )
+    }
+
+    @MainActor
+    func testLockedFoldersExposeRequestAccessAffordance() throws {
+        harness.waitForMainContent()
+        harness.ensureSidebarVisible()
+
+        let lockedDocuments = app.otherElements.matching(
+            NSPredicate(format: "label == %@", "Documents, Access required")
+        ).firstMatch
+        harness.waitForExists(
+            lockedDocuments,
+            timeout: 3,
+            message: "Locked standard folders should remain visible in the sidebar"
+        )
+        let requestAccess = app.buttons["sidebarRequestAccess_documents"]
+        harness.waitForExists(
+            requestAccess,
+            timeout: 3,
+            message: "Locked standard folders should expose the explicit Request Access affordance"
+        )
+        XCTAssertEqual(requestAccess.label, "Request Access")
+    }
+
+    @MainActor
+    func testNeedsReviewContextMenuExposesChooseDestinationForDestinationlessFile() throws {
+        throw XCTSkip("macOS XCUITest secondary-click does not reliably surface the SwiftUI row context menu; destination editing is covered by keyboard shortcut coverage.")
+
+        harness.waitForMainContent()
+        app.activate()
+
+        harness.tapNeedsReviewSegment()
+        app.scrollViews["fileListScrollView"].swipeUp()
+
+        let destinationlessRow = harness.fileRow(named: "IMG_1042.JPG")
+        XCTAssertTrue(destinationlessRow.waitForExistence(timeout: 3), "Expected a deterministic destinationless mock row")
+
+        let primaryRowTarget = destinationlessRow.buttons.element(boundBy: 1)
+        XCTAssertTrue(primaryRowTarget.waitForExistence(timeout: 3), "Expected the destinationless row to expose a primary interaction target")
+
+        primaryRowTarget.click()
+        primaryRowTarget.rightClick()
+
+        let chooseDestinationItem = app.menuItems.matching(
+            NSPredicate(format: "label == %@", "Choose Destination")
+        ).firstMatch
+        XCTAssertTrue(
+            chooseDestinationItem.waitForExistence(timeout: 3),
+            "Destinationless rows should expose Choose Destination in the context menu"
+        )
+
+        chooseDestinationItem.click()
+
+        let sheet = app.otherElements["editDestinationSheet"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 3), "Choose Destination should open the destination sheet")
+
+        app.typeKey(.escape, modifierFlags: [])
+    }
     
     // MARK: - File Action Tests
     

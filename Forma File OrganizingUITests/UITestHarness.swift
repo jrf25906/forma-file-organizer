@@ -17,6 +17,17 @@ final class UITestHarness {
     }
 
     @MainActor
+    func ensureSidebarVisible(timeout: TimeInterval = 4) {
+        let showSidebarButton = app.buttons.matching(NSPredicate(format: "label == %@", "Show Sidebar")).firstMatch
+        if showSidebarButton.waitForExistence(timeout: 0.5) {
+            showSidebarButton.click()
+        }
+
+        let newRuleButton = app.buttons["New Rule"]
+        XCTAssertTrue(newRuleButton.waitForExistence(timeout: timeout), "Sidebar should be visible")
+    }
+
+    @MainActor
     func reviewModePicker() -> XCUIElement {
         element(withIdentifier: "toolbarReviewModePicker")
     }
@@ -64,6 +75,7 @@ final class UITestHarness {
     func tapGridViewSegment(timeout: TimeInterval = 4) {
         tapViewModeSegment(
             identifier: "viewMode_grid",
+            accessibilityLabel: "Grid view",
             fallbackOffset: CGVector(dx: 0.12, dy: 0.5),
             timeout: timeout
         )
@@ -73,6 +85,7 @@ final class UITestHarness {
     func tapListViewSegment(timeout: TimeInterval = 4) {
         tapViewModeSegment(
             identifier: "viewMode_list",
+            accessibilityLabel: "List view",
             fallbackOffset: CGVector(dx: 0.30, dy: 0.5),
             timeout: timeout
         )
@@ -82,18 +95,30 @@ final class UITestHarness {
     func tapCardViewSegment(timeout: TimeInterval = 4) {
         tapViewModeSegment(
             identifier: "viewMode_card",
+            accessibilityLabel: "Card view",
             fallbackOffset: CGVector(dx: 0.50, dy: 0.5),
             timeout: timeout
         )
     }
 
     @MainActor
-    func tapViewModeSegment(identifier: String, fallbackOffset: CGVector, timeout: TimeInterval) {
+    func tapViewModeSegment(
+        identifier: String,
+        accessibilityLabel: String,
+        fallbackOffset: CGVector,
+        timeout: TimeInterval
+    ) {
         let picker = viewModePicker()
         XCTAssertTrue(picker.waitForExistence(timeout: timeout), "View mode picker should exist")
 
+        let labeledButton = app.buttons[accessibilityLabel]
+        if labeledButton.waitForExistence(timeout: 1) {
+            labeledButton.click()
+            return
+        }
+
         let button = element(withIdentifier: identifier)
-        if button.waitForExistence(timeout: 1) {
+        if button.waitForExistence(timeout: 0.5) {
             button.click()
         } else {
             picker.coordinate(withNormalizedOffset: fallbackOffset).click()
@@ -102,7 +127,11 @@ final class UITestHarness {
 
     @MainActor
     func fileRow(named name: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: "fileRow_\(name)").firstMatch
+        let predicate = NSPredicate(
+            format: "identifier BEGINSWITH %@",
+            "fileRow_\(name)__"
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     @MainActor
@@ -116,10 +145,7 @@ final class UITestHarness {
         let firstRow = firstFileRow()
         XCTAssertTrue(firstRow.waitForExistence(timeout: timeout), "Expected at least one visible file row")
 
-        let identifier = firstRow.identifier
-        let prefix = "fileRow_"
-        XCTAssertTrue(identifier.hasPrefix(prefix), "Expected file row identifier to begin with \(prefix)")
-        return String(identifier.dropFirst(prefix.count))
+        return decodedFileName(from: firstRow.identifier)
     }
 
     @MainActor
@@ -128,11 +154,8 @@ final class UITestHarness {
         let query = app.descendants(matching: .any).matching(predicate)
         XCTAssertTrue(query.firstMatch.waitForExistence(timeout: timeout), "Expected at least one visible file row")
 
-        let prefix = "fileRow_"
         return query.allElementsBoundByIndex.compactMap { element in
-            let identifier = element.identifier
-            guard identifier.hasPrefix(prefix) else { return nil }
-            return String(identifier.dropFirst(prefix.count))
+            decodedFileName(from: element.identifier)
         }
     }
 
@@ -196,5 +219,16 @@ final class UITestHarness {
 
         app.activate()
         app.typeKey("i", modifierFlags: .command)
+    }
+
+    private func decodedFileName(from identifier: String) -> String {
+        let prefix = "fileRow_"
+        guard identifier.hasPrefix(prefix) else {
+            XCTFail("Expected file row identifier to begin with \(prefix), got \(identifier)")
+            return identifier
+        }
+
+        let trimmed = String(identifier.dropFirst(prefix.count))
+        return trimmed.components(separatedBy: "__").first ?? trimmed
     }
 }
