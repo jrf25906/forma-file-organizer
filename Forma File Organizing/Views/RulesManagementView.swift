@@ -41,6 +41,14 @@ struct RulesManagementView: View {
         let disabledRules: [Rule]
     }
 
+    private struct ContentRefreshInputs: Equatable {
+        let ruleFingerprints: [String]
+        let searchText: String
+        let selectedCategoryID: UUID?
+        let filterNeedsPermissionOnly: Bool
+        let staleRuleThresholdDaysStorage: Int
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.rightPanelLayout) private var rightPanelLayout
@@ -78,6 +86,8 @@ struct RulesManagementView: View {
     @AppStorage(FolderHealthAlertSettings.Keys.staleRuleThresholdDays) private var staleRuleThresholdDaysStorage = 0
     @State private var showManageCategories = false
     @State private var filterNeedsPermissionOnly = false
+    @State private var contentState: ContentState = Self.makeEmptyContentState()
+    @State private var hasLoadedContentState = false
     @State private var pendingDeletionRuleIDs: Set<UUID> = []
     @State private var duplicateCleanupConfirmationPlan: RuleHealthService.ExactDuplicateCleanupPlan?
     @State private var isDeletingDuplicateCopies = false
@@ -130,13 +140,56 @@ struct RulesManagementView: View {
         healthByID[rule.id] ?? RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
     }
 
-    private func makeContentState() -> ContentState {
+    private static func makeEmptyContentState() -> ContentState {
+        ContentState(
+            healthByID: [:],
+            filteredRules: [],
+            totalEnabledCount: 0,
+            duplicateCount: 0,
+            duplicateCleanupPlan: nil,
+            overlapCount: 0,
+            needsPermissionCount: 0,
+            willCreateCount: 0,
+            disabledCount: 0,
+            recentlyTriggeredCount: 0,
+            staleRuleCount: 0,
+            stableRuleCount: 0,
+            isInitialEmptyState: true,
+            showsOperationalSections: false,
+            duplicateRules: [],
+            overlapRules: [],
+            needsPermissionRules: [],
+            willCreateRules: [],
+            recentlyTriggeredRules: [],
+            staleRules: [],
+            stableRules: [],
+            disabledRules: []
+        )
+    }
+
+    private var contentRefreshInputs: ContentRefreshInputs {
+        let sortedRuleFingerprints = visibleAllRules
+            .sorted(by: ruleRefreshOrdering)
+            .map(ruleRefreshFingerprint)
+
+        return ContentRefreshInputs(
+            ruleFingerprints: sortedRuleFingerprints,
+            searchText: searchText,
+            selectedCategoryID: selectedCategoryID,
+            filterNeedsPermissionOnly: filterNeedsPermissionOnly,
+            staleRuleThresholdDaysStorage: staleRuleThresholdDaysStorage
+        )
+    }
+
+    private func makeContentState(evaluationDate: Date) -> ContentState {
         let sortedRules = sortedAllRules
-        let healthByID = ruleHealthService.classify(
+        let destinationStatuses = ruleHealthService.destinationStatuses(for: sortedRules)
+        let healthByID = ruleHealthService.classifyBatch(
             rules: sortedRules,
             staleRuleThresholdDays: configuredStaleRuleThresholdDays,
-            evaluationDate: Date()
-        )
+            evaluationDate: evaluationDate,
+            destinationStatuses: destinationStatuses
+        ).healthByID
 
         var filteredRules = sortedRules
 
@@ -160,11 +213,11 @@ struct RulesManagementView: View {
         let needsPermissionRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .needsPermission }
         let willCreateRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .willCreate }
         let recentlyTriggeredRules = filteredRules.filter { rule in
-            health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule)
+            health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule, evaluationDate: evaluationDate)
         }
         let staleRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .stale }
         let stableRules = filteredRules.filter { rule in
-            health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule)
+            health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule, evaluationDate: evaluationDate)
         }
         let disabledRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .disabled }
 
@@ -179,11 +232,11 @@ struct RulesManagementView: View {
             willCreateCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .willCreate }.count,
             disabledCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .disabled }.count,
             recentlyTriggeredCount: sortedRules.filter { rule in
-                health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule)
+                health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule, evaluationDate: evaluationDate)
             }.count,
             staleRuleCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .stale }.count,
             stableRuleCount: sortedRules.filter { rule in
-                health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule)
+                health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule, evaluationDate: evaluationDate)
             }.count,
             isInitialEmptyState: sortedRules.isEmpty && searchText.isEmpty,
             showsOperationalSections: searchText.isEmpty && selectedCategoryID == nil && !filterNeedsPermissionOnly && !sortedRules.isEmpty,
@@ -197,10 +250,19 @@ struct RulesManagementView: View {
             disabledRules: disabledRules
         )
     }
+
+    @MainActor
+    private func refreshContentState() async {
+        contentState = makeContentState(evaluationDate: Date())
+        hasLoadedContentState = true
+    }
     
     var body: some View {
-        let content = makeContentState()
-        let smartRulesAccessibilityValue = smartRulesStateValue(content: content)
+        let content = contentState
+        let isBootstrapLoading = !hasLoadedContentState && !sortedAllRules.isEmpty
+        let totalEnabledCount = isBootstrapLoading ? sortedAllRules.filter(\.isEnabled).count : content.totalEnabledCount
+        let isInitialEmptyState = isBootstrapLoading ? false : content.isInitialEmptyState
+        let smartRulesAccessibilityValue = smartRulesStateValue(isInitialEmptyState: isInitialEmptyState)
 
         VStack(spacing: 0) {
             // Align with MainContentView's toolbar position (traffic lights clearance)
@@ -210,45 +272,45 @@ struct RulesManagementView: View {
             VStack(spacing: FormaSpacing.standard) {
                 if rightPanelLayout.isCompact {
                     VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                        rulesHeaderSummary(totalEnabledCount: content.totalEnabledCount)
+                        rulesHeaderSummary(totalEnabledCount: totalEnabledCount)
 
-                        if !content.isInitialEmptyState {
+                        if !isInitialEmptyState {
                             newRuleButton(frameToFill: true)
                         }
                     }
                 } else {
                     HStack(alignment: .center) {
-                        rulesHeaderSummary(totalEnabledCount: content.totalEnabledCount)
+                        rulesHeaderSummary(totalEnabledCount: totalEnabledCount)
 
                         Spacer()
 
-                        if !content.isInitialEmptyState {
+                        if !isInitialEmptyState {
                             newRuleButton(frameToFill: false)
                         }
                     }
                 }
                 
                 // Combined Toolbar (Search + Tabs)
-                if !content.isInitialEmptyState {
+                if !isInitialEmptyState {
                     rulesToolbar
                 }
             }
             .padding(.horizontal, FormaSpacing.standard)
             .padding(.vertical, FormaSpacing.standard)
 
-            if !content.isInitialEmptyState {
+            if !isBootstrapLoading && !content.isInitialEmptyState {
                 rulesOverviewStrip(content: content)
                     .padding(.horizontal, FormaSpacing.generous)
                     .padding(.bottom, FormaSpacing.standard)
             }
 
-            if !content.needsPermissionRules.isEmpty {
+            if !isBootstrapLoading && !content.needsPermissionRules.isEmpty {
                 needsPermissionBanner(count: content.needsPermissionRules.count)
                     .padding(.horizontal, FormaSpacing.generous)
                     .padding(.bottom, FormaSpacing.standard)
             }
 
-            if !content.willCreateRules.isEmpty {
+            if !isBootstrapLoading && !content.willCreateRules.isEmpty {
                 willCreateBanner(
                     count: content.willCreateRules.count,
                     createAction: { createResolvableFoldersNow(rules: content.willCreateRules) }
@@ -261,7 +323,9 @@ struct RulesManagementView: View {
                 .opacity(0.5)
             
             // Rules list
-            if content.filteredRules.isEmpty {
+            if isBootstrapLoading {
+                smartRulesLoadingState
+            } else if content.filteredRules.isEmpty {
                 if searchText.isEmpty {
                     VStack(spacing: FormaSpacing.generous) {
                         FormaEmptyState(
@@ -296,6 +360,9 @@ struct RulesManagementView: View {
         .background(Color.clear) // Allow unified window glass to show through
         .sheet(isPresented: $showManageCategories) {
             ManageCategoriesSheet()
+        }
+        .task(id: contentRefreshInputs) {
+            await refreshContentState()
         }
         .onChange(of: allRules.map(\.id)) { _, remainingRuleIDs in
             pendingDeletionRuleIDs.formIntersection(Set(remainingRuleIDs))
@@ -341,8 +408,8 @@ struct RulesManagementView: View {
         .hoverLift(scale: 1.03, shadowRadius: 8)
     }
 
-    private func smartRulesStateValue(content: ContentState) -> String {
-        "widthClass=\(rightPanelWidthClassText);builderEntry=\(content.isInitialEmptyState ? "emptyState" : "header")"
+    private func smartRulesStateValue(isInitialEmptyState: Bool) -> String {
+        "widthClass=\(rightPanelWidthClassText);builderEntry=\(isInitialEmptyState ? "emptyState" : "header")"
     }
 
     @ViewBuilder
@@ -367,6 +434,18 @@ struct RulesManagementView: View {
                 }
             }
         }
+    }
+
+    private var smartRulesLoadingState: some View {
+        VStack(spacing: FormaSpacing.standard) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Loading Smart Rules health...")
+                .font(.formaCaption)
+                .foregroundColor(.formaSecondaryLabelHigh)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(FormaSpacing.generous)
     }
 
     private var searchField: some View {
@@ -1028,9 +1107,78 @@ struct RulesManagementView: View {
         sortedAllRules.filter { $0.category?.id == category.id }.count
     }
 
-    private func wasTriggeredRecently(_ rule: Rule) -> Bool {
+    private func ruleRefreshOrdering(lhs: Rule, rhs: Rule) -> Bool {
+        if lhs.sortOrder != rhs.sortOrder {
+            return lhs.sortOrder < rhs.sortOrder
+        }
+        if lhs.creationDate != rhs.creationDate {
+            return lhs.creationDate < rhs.creationDate
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    private func ruleRefreshFingerprint(_ rule: Rule) -> String {
+        [
+            rule.id.uuidString,
+            rule.name,
+            rule.conditionValue,
+            String(rule.isEnabled),
+            String(rule.sortOrder),
+            String(rule.creationDate.timeIntervalSinceReferenceDate),
+            String(rule.lastTriggeredDate?.timeIntervalSinceReferenceDate ?? -1),
+            rule.logicalOperator.rawValue,
+            rule.actionType.rawValue,
+            String(describing: rule.conditions),
+            String(describing: rule.exclusionConditions),
+            destinationRefreshFingerprint(rule.destination),
+            categoryRefreshFingerprint(rule.category)
+        ]
+        .joined(separator: "|")
+    }
+
+    private func destinationRefreshFingerprint(_ destination: Destination?) -> String {
+        switch destination {
+        case .trash?:
+            return "trash"
+        case .folder(let bookmark, let displayName)?:
+            return "folder|\(displayName)|\(bookmark.base64EncodedString())"
+        case nil:
+            return "none"
+        }
+    }
+
+    private func categoryRefreshFingerprint(_ category: RuleCategory?) -> String {
+        guard let category else {
+            return "none"
+        }
+
+        return [
+            category.id.uuidString,
+            category.name,
+            String(category.isEnabled),
+            scopeRefreshFingerprint(category.scope)
+        ]
+        .joined(separator: "|")
+    }
+
+    private func scopeRefreshFingerprint(_ scope: CategoryScope) -> String {
+        switch scope {
+        case .global:
+            return "global"
+        case .folders(let folders):
+            let folderFingerprint = folders
+                .map { folder in
+                    "\(folder.displayName)|\(folder.bookmark.base64EncodedString())"
+                }
+                .sorted()
+                .joined(separator: ",")
+            return "folders|\(folderFingerprint)"
+        }
+    }
+
+    private func wasTriggeredRecently(_ rule: Rule, evaluationDate: Date) -> Bool {
         guard let lastTriggeredDate = rule.lastTriggeredDate,
-              let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) else {
+              let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: evaluationDate) else {
             return false
         }
         return lastTriggeredDate >= cutoff
