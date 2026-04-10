@@ -28,4 +28,16 @@ final class DashboardSplitViewPolicyTests: XCTestCase {
             DashboardSplitViewPolicy.isInspectorVisible(for: .all)
         )
     }
+
+    func testExplicitInspectorVisibilityTreatsAutomaticAsHiddenFallback() {
+        XCTAssertFalse(
+            DashboardSplitViewPolicy.explicitInspectorVisibility(for: .automatic) ?? true
+        )
+    }
+
+    func testExplicitInspectorVisibilityIgnoresDetailOnlyVisibility() {
+        XCTAssertNil(
+            DashboardSplitViewPolicy.explicitInspectorVisibility(for: .detailOnly)
+        )
+    }
 }

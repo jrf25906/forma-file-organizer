@@ -6,6 +6,17 @@ struct DashboardSplitViewPolicy {
         isInspectorVisible ? .all : .doubleColumn
     }
 
+    static func explicitInspectorVisibility(for visibility: NavigationSplitViewVisibility) -> Bool? {
+        switch visibility {
+        case .all:
+            true
+        case .doubleColumn:
+            false
+        default:
+            nil
+        }
+    }
+
     static func isInspectorVisible(for visibility: NavigationSplitViewVisibility) -> Bool {
         visibility != .doubleColumn
     }
@@ -160,7 +171,9 @@ struct DashboardView: View {
             },
             set: { newVisibility in
                 guard !showsAnalyticsAsPrimaryDetail else { return }
-                let isInspectorVisible = DashboardSplitViewPolicy.isInspectorVisible(for: newVisibility)
+                guard let isInspectorVisible = DashboardSplitViewPolicy.explicitInspectorVisibility(for: newVisibility) else {
+                    return
+                }
                 guard isInspectorVisible != dashboardViewModel.isRightPanelVisible else { return }
                 dashboardViewModel.setRightPanelVisible(isInspectorVisible)
             }
@@ -228,6 +241,7 @@ struct DashboardView: View {
         } detail: {
             inspectorDetailColumn
         }
+        .navigationSplitViewStyle(.balanced)
     }
 
     @ViewBuilder
