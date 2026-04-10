@@ -170,9 +170,94 @@ final class ExternalIngressCoordinatorTests: XCTestCase {
         XCTAssertEqual(result.autoOrganizedCount, 1)
         XCTAssertEqual(Set(result.needsReviewPaths), Set([reviewFileURL.path, folderChildMetadata.path]))
         XCTAssertEqual(result.skippedItems.count, 1)
+        XCTAssertEqual(
+            result.summary,
+            ExternalIngressOutcomeSummary(
+                source: .finderService,
+                workflowTemplateID: nil,
+                autoOrganizedCount: 1,
+                reviewCount: 2,
+                skippedCount: 1,
+                reauthorizationRequiredCount: 0
+            )
+        )
         XCTAssertEqual(organizedPaths, [autoFileURL.path])
         XCTAssertEqual(activationCount, 1, "Review work should activate the app")
         XCTAssertEqual(Set(publishedSessions.compactMap(\.?.reviewPaths).flatMap { $0 }), Set([reviewFileURL.path, folderChildMetadata.path]))
+        XCTAssertEqual(
+            publishedSessions.last??.summary,
+            ExternalIngressOutcomeSummary(
+                source: .finderService,
+                workflowTemplateID: nil,
+                autoOrganizedCount: 1,
+                reviewCount: 2,
+                skippedCount: 1,
+                reauthorizationRequiredCount: 0
+            )
+        )
+        XCTAssertNil(coordinator.pendingRequest)
+    }
+
+    func testProcessPendingRequestReviewFirstStillActivatesAppWhenReviewRemains() async throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let reviewFileURL = try tempDir.createFile(name: "needs-review.txt")
+        let createdAt = Date(timeIntervalSince1970: 1_000)
+
+        let reviewMetadata = FileMetadata(
+            path: reviewFileURL.path,
+            sizeInBytes: 24,
+            creationDate: createdAt,
+            modificationDate: createdAt,
+            lastAccessedDate: createdAt,
+            location: .custom,
+            scanRootPath: reviewFileURL.deletingLastPathComponent().path
+        )
+
+        fileSystemService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [reviewMetadata],
+            skippedItems: [],
+            scannedRootPaths: [reviewFileURL.deletingLastPathComponent().path]
+        )
+
+        let reviewItem = FileItem.from(reviewMetadata)
+        reviewItem.status = .pending
+
+        pipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [reviewItem],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [reviewFileURL.deletingLastPathComponent().path]
+        )
+
+        var activationCount = 0
+        var publishedSession: ExternalReviewSession?
+
+        let coordinator = makeCoordinator(
+            onboardingCompleted: true,
+            activateApp: { activationCount += 1 },
+            publishReviewSession: { session in publishedSession = session }
+        )
+
+        _ = try coordinator.queueRequest(
+            source: .spotlightIntent,
+            urls: [reviewFileURL],
+            executionMode: .reviewFirst
+        )
+
+        XCTAssertEqual(coordinator.pendingRequest?.executionMode, .reviewFirst)
+
+        let disposition = await coordinator.processPendingRequestIfPossible()
+
+        guard case .processed(let result) = disposition else {
+            return XCTFail("Expected review-first request to be processed")
+        }
+
+        XCTAssertEqual(result.autoOrganizedCount, 0)
+        XCTAssertEqual(result.needsReviewPaths, [reviewFileURL.path])
+        XCTAssertEqual(activationCount, 1)
+        XCTAssertEqual(publishedSession?.reviewPaths, [reviewFileURL.path])
         XCTAssertNil(coordinator.pendingRequest)
     }
 
@@ -482,6 +567,128 @@ final class ExternalIngressCoordinatorTests: XCTestCase {
         XCTAssertNil(coordinator.pendingRequest)
     }
 
+    func testProcessPendingRequestReviewFirstSkippedOnlySelectionKeepsAppClosed() async throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let selectedAlias = try tempDir.createFile(name: "Selected.alias")
+
+        fileSystemService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [],
+            skippedItems: [
+                ExternalIngressSkippedItem(
+                    path: selectedAlias.path,
+                    reason: .aliasSelection,
+                    message: "Alias files need to be resolved before Forma can organize them."
+                )
+            ],
+            scannedRootPaths: []
+        )
+
+        pipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: []
+        )
+
+        var activationCount = 0
+        var publishedSession: ExternalReviewSession?
+
+        let coordinator = makeCoordinator(
+            onboardingCompleted: true,
+            activateApp: { activationCount += 1 },
+            publishReviewSession: { session in publishedSession = session }
+        )
+
+        _ = try coordinator.queueRequest(
+            source: .spotlightIntent,
+            urls: [selectedAlias],
+            executionMode: .reviewFirst
+        )
+
+        let disposition = await coordinator.processPendingRequestIfPossible()
+
+        guard case .processed(let result) = disposition else {
+            return XCTFail("Expected review-first skipped selection to be processed")
+        }
+
+        XCTAssertEqual(result.autoOrganizedCount, 0)
+        XCTAssertTrue(result.needsReviewPaths.isEmpty)
+        XCTAssertEqual(result.skippedItems.map(\.reason), [.aliasSelection])
+        XCTAssertEqual(activationCount, 0)
+        XCTAssertNil(publishedSession)
+        XCTAssertNil(coordinator.pendingRequest)
+    }
+
+    func testProcessPendingRequestReviewFirstFullSuccessKeepsAppClosed() async throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let autoFileURL = try tempDir.createFile(name: "auto.txt")
+        let createdAt = Date(timeIntervalSince1970: 1_200)
+
+        let autoMetadata = FileMetadata(
+            path: autoFileURL.path,
+            sizeInBytes: 42,
+            creationDate: createdAt,
+            modificationDate: createdAt,
+            lastAccessedDate: createdAt,
+            location: .custom,
+            scanRootPath: autoFileURL.deletingLastPathComponent().path
+        )
+
+        fileSystemService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [autoMetadata],
+            skippedItems: [],
+            scannedRootPaths: [autoFileURL.deletingLastPathComponent().path]
+        )
+
+        let autoItem = FileItem.from(autoMetadata)
+        autoItem.status = .ready
+        autoItem.destination = .mockFolder("Documents/Auto")
+        autoItem.confidenceScore = 0.95
+
+        pipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [autoItem],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [autoFileURL.deletingLastPathComponent().path]
+        )
+
+        var activationCount = 0
+        var publishedSession: ExternalReviewSession?
+
+        let coordinator = makeCoordinator(
+            onboardingCompleted: true,
+            activateApp: { activationCount += 1 },
+            publishReviewSession: { session in publishedSession = session },
+            eligibleFiles: { $0 },
+            organizeFile: { file, _, _, _ in
+                file.status = .completed
+                return true
+            }
+        )
+
+        _ = try coordinator.queueRequest(
+            source: .spotlightIntent,
+            urls: [autoFileURL],
+            executionMode: .reviewFirst
+        )
+
+        let disposition = await coordinator.processPendingRequestIfPossible()
+
+        guard case .processed(let result) = disposition else {
+            return XCTFail("Expected review-first success request to be processed")
+        }
+
+        XCTAssertEqual(result.autoOrganizedCount, 1)
+        XCTAssertTrue(result.needsReviewPaths.isEmpty)
+        XCTAssertEqual(activationCount, 0)
+        XCTAssertNil(publishedSession)
+        XCTAssertNil(coordinator.pendingRequest)
+    }
+
     func testProcessPendingRequestBookmarkCaptureFailurePublishesReauthorizationFeedback() async throws {
         let tempDir = try TemporaryDirectory()
         defer { tempDir.cleanup() }
@@ -511,9 +718,31 @@ final class ExternalIngressCoordinatorTests: XCTestCase {
         XCTAssertEqual(fileSystemService.explicitSelectionCallCount, 0)
         XCTAssertEqual(result.skippedItems.count, 1)
         XCTAssertEqual(result.skippedItems.first?.reason, .inaccessibleSelection)
+        XCTAssertEqual(
+            result.summary,
+            ExternalIngressOutcomeSummary(
+                source: .finderService,
+                workflowTemplateID: nil,
+                autoOrganizedCount: 0,
+                reviewCount: 0,
+                skippedCount: 1,
+                reauthorizationRequiredCount: 1
+            )
+        )
         XCTAssertEqual(activationCount, 1)
         XCTAssertEqual(publishedSession?.reviewPaths, [])
         XCTAssertEqual(publishedSession?.skippedItems.first?.reason, .inaccessibleSelection)
+        XCTAssertEqual(
+            publishedSession?.summary,
+            ExternalIngressOutcomeSummary(
+                source: .finderService,
+                workflowTemplateID: nil,
+                autoOrganizedCount: 0,
+                reviewCount: 0,
+                skippedCount: 1,
+                reauthorizationRequiredCount: 1
+            )
+        )
         XCTAssertNil(coordinator.pendingRequest)
     }
 

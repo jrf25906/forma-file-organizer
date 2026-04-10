@@ -172,18 +172,70 @@ struct OrganizeSelectionIntent: AppIntent {
 
         switch disposition {
         case .processed(let result):
-            return .result(value: result.statusText)
+            return .result(value: OrganizeSelectionIntentFeedback.message(for: .processed(result)))
         case .needsOnboarding:
-            return .result(value: "Finish Forma setup in the app, then the selected item will resume automatically.")
+            return .result(value: OrganizeSelectionIntentFeedback.message(for: disposition))
         case .notConfigured:
             throw FormaIntentError.notConfigured
         case .noPendingRequest:
-            return .result(value: "Forma didn't receive a valid selection.")
+            return .result(value: OrganizeSelectionIntentFeedback.message(for: disposition))
         }
     }
 
     static var parameterSummary: some ParameterSummary {
         Summary("Organize a selected file or folder with Forma")
+    }
+}
+
+/// Review-first organization for multiple files or folders handed to Forma from Spotlight or Shortcuts.
+struct ReviewSelectionIntent: AppIntent {
+    static let title: LocalizedStringResource = "Review Selected Items in Forma"
+    static let description = IntentDescription("Organize safe selected items immediately and open Forma only when review is still needed")
+
+    static let openAppWhenRun: Bool = false
+
+    @Parameter(
+        title: "Items",
+        description: "The files or folders to review with Forma",
+        supportedContentTypes: [.item]
+    )
+    var items: [IntentFile]
+
+    @Parameter(
+        title: "Workflow Template",
+        description: "Choose a built-in template or use Forma's saved manual selection",
+        default: .savedSelection
+    )
+    var workflowTemplate: WorkflowTemplateIntentSelection
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        let urls = items.compactMap(\.fileURL).map(\.standardizedFileURL)
+        guard !urls.isEmpty else {
+            throw FormaIntentError.selectionUnavailable
+        }
+
+        let disposition = try await ExternalIngressCoordinator.shared.handleRequest(
+            source: .spotlightIntent,
+            urls: urls,
+            workflowTemplateID: workflowTemplate.resolvedTemplateID,
+            executionMode: .reviewFirst
+        )
+
+        switch disposition {
+        case .processed(let result):
+            return .result(value: ReviewSelectionIntentFeedback.message(for: .processed(result)))
+        case .needsOnboarding:
+            return .result(value: ReviewSelectionIntentFeedback.message(for: disposition))
+        case .notConfigured:
+            throw FormaIntentError.notConfigured
+        case .noPendingRequest:
+            return .result(value: ReviewSelectionIntentFeedback.message(for: disposition))
+        }
+    }
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Review selected files or folders with Forma")
     }
 }
 
@@ -274,6 +326,42 @@ enum FormaIntentError: Error, CustomLocalizedStringResourceConvertible {
     }
 }
 
+enum OrganizeSelectionIntentFeedback {
+    static func message(for disposition: ExternalIngressDisposition) -> String {
+        switch disposition {
+        case .processed(let result):
+            if result.summary.reviewCount > 0 {
+                return "\(result.summary.statusText) Finish review in Forma."
+            }
+            return result.summary.statusText
+        case .needsOnboarding:
+            return "Finish Forma setup in the app, then the selected item will resume automatically."
+        case .notConfigured:
+            return "Forma is not fully configured. Please open the app first."
+        case .noPendingRequest:
+            return "Forma didn't receive a valid selection."
+        }
+    }
+}
+
+enum ReviewSelectionIntentFeedback {
+    static func message(for disposition: ExternalIngressDisposition) -> String {
+        switch disposition {
+        case .processed(let result):
+            if result.summary.reviewCount > 0 {
+                return "\(result.summary.statusText) Forma opened for review."
+            }
+            return result.summary.statusText
+        case .needsOnboarding:
+            return "Finish Forma setup in the app, then the selected items will resume automatically."
+        case .notConfigured:
+            return "Forma is not fully configured. Please open the app first."
+        case .noPendingRequest:
+            return "Forma didn't receive a valid selection."
+        }
+    }
+}
+
 // MARK: - App Shortcuts Provider
 
 /// Registers Forma's intents as App Shortcuts for Siri and Spotlight.
@@ -311,10 +399,21 @@ struct FormaShortcuts: AppShortcutsProvider {
             phrases: [
                 "Organize a selected item with \(.applicationName)",
                 "Send a selected item to \(.applicationName)",
-                "Review a selected item in \(.applicationName)"
+                "Quick organize a selected item with \(.applicationName)"
             ],
             shortTitle: "Organize Selection",
             systemImageName: "sparkles.rectangle.stack"
+        )
+
+        AppShortcut(
+            intent: ReviewSelectionIntent(),
+            phrases: [
+                "Review selected items in \(.applicationName)",
+                "Send selected items to \(.applicationName) for review",
+                "Review a selection in \(.applicationName)"
+            ],
+            shortTitle: "Review Selection",
+            systemImageName: "checklist"
         )
 
         AppShortcut(

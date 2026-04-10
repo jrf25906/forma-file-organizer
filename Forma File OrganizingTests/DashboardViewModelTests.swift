@@ -2877,6 +2877,45 @@ final class DashboardViewModelTests: XCTestCase {
         )
     }
 
+    func testApplyExternalReviewSessionToastUsesStructuredSummaryAndUniqueSkipMessages() {
+        ExternalReviewSessionStore.shared.publish(nil)
+
+        let session = ExternalReviewSession(
+            requestID: UUID(),
+            source: .finderService,
+            reviewPaths: ["/Users/test/Downloads/review.txt"],
+            scannedRootPaths: ["/Users/test/Downloads"],
+            skippedItems: [
+                ExternalIngressSkippedItem(
+                    path: "/Users/test/Downloads/alias-one.alias",
+                    reason: .aliasSelection,
+                    message: "Alias files need to be resolved before Forma can organize them."
+                ),
+                ExternalIngressSkippedItem(
+                    path: "/Users/test/Downloads/alias-two.alias",
+                    reason: .aliasSelection,
+                    message: "Alias files need to be resolved before Forma can organize them."
+                )
+            ],
+            summary: ExternalIngressOutcomeSummary(
+                source: .finderService,
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                autoOrganizedCount: 1,
+                reviewCount: 1,
+                skippedCount: 2,
+                reauthorizationRequiredCount: 0
+            )
+        )
+
+        ExternalReviewSessionStore.shared.publish(session)
+        viewModel.applyExternalReviewSession(session)
+
+        XCTAssertEqual(
+            viewModel.toastState?.message,
+            "Forma organized 1 item, 1 need review, skipped 2. Alias files need to be resolved before Forma can organize them."
+        )
+    }
+
     func testExternalReviewPromotionSuggestionIsHiddenWhenFolderIsAlreadyMonitored() throws {
         let store = InMemoryBookmarkStore()
         let bookmarkData = Data([0x0A, 0x0B, 0x0C])

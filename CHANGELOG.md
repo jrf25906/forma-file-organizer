@@ -16,6 +16,13 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
   - Added a targeted pre-metadata store migration regression in `Forma File OrganizingTests/AppStoreMigrationTests.swift` covering legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.
 
 ### Added
+- macOS integration os-surface adoption:
+  - `ExternalIngressOutcomeSummary` now carries structured OS-ingress outcome state across Finder service, Spotlight/App Intents, dashboard review handoff, and compact workflow surfaces instead of flattening everything into one stored status string.
+  - `ExternalIngressResult.summary` and `ExternalReviewSession.summary` now preserve auto-organized, review-needed, skipped, and reauthorization-required counts while keeping compatibility `statusText` derived from that shared model.
+  - `OrganizeSelectionIntentFeedback` now gives selected-item App Intent runs explicit review-follow-up and onboarding-resume copy, and `MenuBarWorkflowActionGuidance` now explains missing-template and blocked-simulation states in the menu bar before users trigger workflow actions that cannot run cleanly.
+  - `ExternalIngressExecutionMode` now lets the shared Finder service / Spotlight / App Intents ingress pipeline distinguish immediate organize requests from review-first requests without forking request storage or onboarding resume behavior.
+  - `ReviewSelectionIntent` now supports multiple selected items, auto-organizes safe files immediately, and opens Forma only when reviewable items remain instead of always treating skipped or recovery-only outcomes as an app-opening review session.
+  - `ReviewSelectionIntentFeedback` now keeps review-first Shortcut results honest by appending explicit "Forma opened for review" wording only when review remains and by leaving recovery-only or all-success outcomes as non-launching summaries.
 - Project-space automation board:
   - `FeatureFlagService.Feature.projectSpaceAutomationBoard` now gates the policy-centered project-space automation board layered on top of the shipped project-space retrieval slice.
   - `ProjectSpaceAutomationProfile`, `ProjectSpaceAutomationPolicy`, `ProjectSpaceAutomationRunRecord`, `ProjectSpaceAutomationBoard`, `ProjectSpaceAutomationBoardGroup`, `ProjectSpaceAutomationPolicyDetail`, and `ProjectSpaceAutomationComposerDraft` now provide grouped policy read models, lifecycle state, health, and constrained creation.

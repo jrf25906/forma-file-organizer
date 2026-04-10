@@ -193,10 +193,20 @@ struct MenuBarView: View {
     @ViewBuilder
     private var workflowTemplateSection: some View {
         if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
-            WorkflowTemplatePicker(
-                selectedTemplateID: $viewModel.selectedWorkflowTemplateID,
-                preview: viewModel.workflowSimulationPreview
-            )
+            VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                WorkflowTemplatePicker(
+                    selectedTemplateID: $viewModel.selectedWorkflowTemplateID,
+                    preview: viewModel.workflowSimulationPreview
+                )
+
+                if let guidance = viewModel.workflowActionGuidance {
+                    Text(guidance.message)
+                        .font(.formaCaptionSemibold)
+                        .foregroundColor(.formaWarmOrange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, FormaSpacing.standard)
+                }
+            }
         }
     }
 

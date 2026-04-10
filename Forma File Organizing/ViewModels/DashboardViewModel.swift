@@ -1267,10 +1267,10 @@ class DashboardViewModel: ObservableObject {
     private func makeExternalReviewToastMessage(for session: ExternalReviewSession) -> String {
         let uniqueSkipMessages = Array(NSOrderedSet(array: session.skippedItems.map(\.message))) as? [String] ?? []
         guard !uniqueSkipMessages.isEmpty else {
-            return session.statusText
+            return session.summary.statusText
         }
 
-        return ([session.statusText] + uniqueSkipMessages).joined(separator: " ")
+        return ([session.summary.statusText] + uniqueSkipMessages).joined(separator: " ")
     }
 
     func setViewMode(_ mode: ViewMode) {
@@ -2636,7 +2636,7 @@ class DashboardViewModel: ObservableObject {
                 reviewPaths: remainingReviewPaths,
                 scannedRootPaths: session.scannedRootPaths,
                 skippedItems: session.skippedItems,
-                statusText: session.statusText,
+                summary: session.summary,
                 promotionCandidate: session.promotionCandidate
             )
         )

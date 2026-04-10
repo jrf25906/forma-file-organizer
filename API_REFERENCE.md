@@ -4,6 +4,41 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- macOS integration os-surface adoption
+  - `ExternalIngressExecutionMode`
+    - `immediate`
+    - `reviewFirst`
+  - `ExternalIngressOutcomeSummary`
+    - `source`
+    - `workflowTemplateID`
+    - `autoOrganizedCount`
+    - `reviewCount`
+    - `skippedCount`
+    - `reauthorizationRequiredCount`
+    - `statusText`
+    - `inferred(source:workflowTemplateID:autoOrganizedCount:reviewPaths:skippedItems:)`
+  - `ExternalReviewSession`
+    - `summary`
+    - `statusText`
+  - `ExternalIngressResult`
+    - `summary`
+    - `statusText`
+  - `ExternalIngressRequest`
+    - `executionMode`
+  - `OrganizeSelectionIntentFeedback`
+    - `message(for:)`
+  - `ReviewSelectionIntent`
+    - `items`
+    - `workflowTemplate`
+  - `ReviewSelectionIntentFeedback`
+    - `message(for:)`
+  - `MenuBarWorkflowActionGuidance`
+    - `warning(_:)`
+    - `message`
+    - `make(workflowEngineEnabled:selectedTemplateID:preview:)`
+  - `MenuBarViewModel`
+    - `workflowActionGuidance`
+  - Finder service / Spotlight / App Intent review handoff now carries a structured summary model for auto-organized, review-needed, skipped, and reauthorization-required counts, selected-item App Intent feedback now appends explicit review follow-up when Forma opens focused review, the new review-first selection intent auto-organizes safe items before opening Forma only when review remains, and the menu bar now surfaces missing-template plus all-blocked simulation guidance before running workflow actions.
 - Project-space automation board
   - `FeatureFlagService.Feature.projectSpaceAutomationBoard`
   - `ProjectSpaceAutomationProfile`
@@ -617,6 +652,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `SidebarGlassOverlay` now forwards the Reduce Transparency environment setting into the sidebar glass palette so sheen and edge highlights drop to zero under the accessibility preference.
 - External ingress (`Forma File Organizing/Services/ExternalIngressCoordinator.swift`)
   - `ExternalIngressSource`
+  - `ExternalIngressExecutionMode`
   - `ExternalIngressItemKind`
   - `ExternalIngressSkipReason`
   - `ExternalIngressSkippedItem`
@@ -624,15 +660,18 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `ExternalIngressRequestItem`
     - `bookmarkCreationFailed: Bool`
   - `ExternalIngressRequest`
+    - `executionMode`
   - `ExternalIngressResult`
   - `ExternalIngressDisposition`
   - `ExternalReviewSession`
     - `promotionCandidate: ExternalReviewPromotionCandidate?`
   - `ExternalReviewSessionStore`
-  - `ExternalIngressCoordinator.handleRequest(source:urls:)`
+  - `ExternalIngressCoordinator.queueRequest(source:urls:workflowTemplateID:executionMode:)`
+  - `ExternalIngressCoordinator.handleRequest(source:urls:workflowTemplateID:executionMode:)`
   - `ExternalIngressCoordinator.processPendingRequestIfNeeded()`
   - Reauthorization failures are surfaced as skipped-item feedback instead of falling back to raw file paths.
   - Single-folder external reviews that map to bookmark-backed standard folders now preserve a promotion candidate for in-flow monitoring handoff.
+  - Review-first external requests reuse the same resumable ingress storage as immediate requests, but they only activate Forma when reviewable items remain after safe auto-organization.
 - Finder Services registration (`Forma File Organizing/Services/ExternalIngressCoordinator.swift`)
   - `FinderServicesRegistrationController`
   - `FinderServicesRegistrationStatus`
@@ -797,6 +836,8 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `replacesAllFiles`
 - App Intents (`Forma File Organizing/Services/FormaAppIntents.swift`)
   - `OrganizeSelectionIntent`
+  - `ReviewSelectionIntent`
+  - `ReviewSelectionIntentFeedback`
 - Automation status
   - `AutomationState.isWatchingFolders`
   - `AutomationState.lastPreflightSummary`

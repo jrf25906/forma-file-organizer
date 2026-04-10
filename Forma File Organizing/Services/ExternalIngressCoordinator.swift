@@ -13,6 +13,11 @@ enum ExternalIngressItemKind: String, Codable, Sendable {
     case folderURL
 }
 
+enum ExternalIngressExecutionMode: String, Codable, Hashable, Sendable {
+    case immediate
+    case reviewFirst
+}
+
 enum ExternalIngressSkipReason: String, Codable, Sendable {
     case unsupportedSelection
     case packageSelection
@@ -24,6 +29,59 @@ struct ExternalIngressSkippedItem: Codable, Hashable, Sendable {
     let path: String
     let reason: ExternalIngressSkipReason
     let message: String
+}
+
+struct ExternalIngressOutcomeSummary: Codable, Equatable, Sendable {
+    let source: ExternalIngressSource
+    let workflowTemplateID: String?
+    let autoOrganizedCount: Int
+    let reviewCount: Int
+    let skippedCount: Int
+    let reauthorizationRequiredCount: Int
+
+    var statusText: String {
+        if reauthorizationRequiredCount > 0,
+           autoOrganizedCount == 0,
+           reviewCount == 0,
+           skippedCount == reauthorizationRequiredCount {
+            return "Forma needs you to run Organize with Forma again to restore access to the selected items."
+        }
+
+        var parts: [String] = []
+
+        if autoOrganizedCount > 0 {
+            parts.append("organized \(autoOrganizedCount) item" + (autoOrganizedCount == 1 ? "" : "s"))
+        }
+        if reviewCount > 0 {
+            parts.append("\(reviewCount) need review")
+        }
+        if skippedCount > 0 {
+            parts.append("skipped \(skippedCount)")
+        }
+
+        if parts.isEmpty {
+            return "Forma didn't find anything to organize."
+        }
+
+        return "Forma " + parts.joined(separator: ", ") + "."
+    }
+
+    static func inferred(
+        source: ExternalIngressSource,
+        workflowTemplateID: String?,
+        autoOrganizedCount: Int = 0,
+        reviewPaths: [String],
+        skippedItems: [ExternalIngressSkippedItem]
+    ) -> ExternalIngressOutcomeSummary {
+        ExternalIngressOutcomeSummary(
+            source: source,
+            workflowTemplateID: workflowTemplateID,
+            autoOrganizedCount: autoOrganizedCount,
+            reviewCount: reviewPaths.count,
+            skippedCount: skippedItems.count,
+            reauthorizationRequiredCount: skippedItems.filter { $0.reason == .inaccessibleSelection }.count
+        )
+    }
 }
 
 struct ExplicitSelectionScanResult: Sendable {
@@ -49,6 +107,42 @@ struct ExternalIngressRequest: Codable, Hashable, Sendable {
     let source: ExternalIngressSource
     let items: [ExternalIngressRequestItem]
     let workflowTemplateID: String?
+    let executionMode: ExternalIngressExecutionMode
+
+    init(
+        id: UUID,
+        createdAt: Date,
+        source: ExternalIngressSource,
+        items: [ExternalIngressRequestItem],
+        workflowTemplateID: String?,
+        executionMode: ExternalIngressExecutionMode = .immediate
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.source = source
+        self.items = items
+        self.workflowTemplateID = workflowTemplateID
+        self.executionMode = executionMode
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case createdAt
+        case source
+        case items
+        case workflowTemplateID
+        case executionMode
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        source = try container.decode(ExternalIngressSource.self, forKey: .source)
+        items = try container.decode([ExternalIngressRequestItem].self, forKey: .items)
+        workflowTemplateID = try container.decodeIfPresent(String.self, forKey: .workflowTemplateID)
+        executionMode = try container.decodeIfPresent(ExternalIngressExecutionMode.self, forKey: .executionMode) ?? .immediate
+    }
 }
 
 struct ExternalReviewSession: Codable, Equatable, Sendable {
@@ -57,8 +151,30 @@ struct ExternalReviewSession: Codable, Equatable, Sendable {
     let reviewPaths: [String]
     let scannedRootPaths: [String]
     let skippedItems: [ExternalIngressSkippedItem]
-    let statusText: String
+    let summary: ExternalIngressOutcomeSummary
     let promotionCandidate: ExternalReviewPromotionCandidate?
+
+    var statusText: String {
+        summary.statusText
+    }
+
+    init(
+        requestID: UUID,
+        source: ExternalIngressSource,
+        reviewPaths: [String],
+        scannedRootPaths: [String],
+        skippedItems: [ExternalIngressSkippedItem],
+        summary: ExternalIngressOutcomeSummary,
+        promotionCandidate: ExternalReviewPromotionCandidate? = nil
+    ) {
+        self.requestID = requestID
+        self.source = source
+        self.reviewPaths = reviewPaths
+        self.scannedRootPaths = scannedRootPaths
+        self.skippedItems = skippedItems
+        self.summary = summary
+        self.promotionCandidate = promotionCandidate
+    }
 
     init(
         requestID: UUID,
@@ -69,13 +185,21 @@ struct ExternalReviewSession: Codable, Equatable, Sendable {
         statusText: String,
         promotionCandidate: ExternalReviewPromotionCandidate? = nil
     ) {
-        self.requestID = requestID
-        self.source = source
-        self.reviewPaths = reviewPaths
-        self.scannedRootPaths = scannedRootPaths
-        self.skippedItems = skippedItems
-        self.statusText = statusText
-        self.promotionCandidate = promotionCandidate
+        _ = statusText
+        self.init(
+            requestID: requestID,
+            source: source,
+            reviewPaths: reviewPaths,
+            scannedRootPaths: scannedRootPaths,
+            skippedItems: skippedItems,
+            summary: .inferred(
+                source: source,
+                workflowTemplateID: nil,
+                reviewPaths: reviewPaths,
+                skippedItems: skippedItems
+            ),
+            promotionCandidate: promotionCandidate
+        )
     }
 }
 
@@ -89,9 +213,13 @@ struct ExternalIngressResult: Equatable, Sendable {
     let needsReviewPaths: [String]
     let skippedItems: [ExternalIngressSkippedItem]
     let didRequireOnboarding: Bool
-    let statusText: String
+    let summary: ExternalIngressOutcomeSummary
     let scannedPaths: [String]
     let scannedRootPaths: [String]
+
+    var statusText: String {
+        summary.statusText
+    }
 }
 
 enum ExternalIngressDisposition: Sendable {
@@ -218,7 +346,8 @@ final class ExternalIngressCoordinator {
     func queueRequest(
         source: ExternalIngressSource,
         urls: [URL],
-        workflowTemplateID: String? = nil
+        workflowTemplateID: String? = nil,
+        executionMode: ExternalIngressExecutionMode = .immediate
     ) throws -> ExternalIngressRequest {
         guard !urls.isEmpty else {
             throw ExternalIngressError.emptySelection
@@ -230,7 +359,8 @@ final class ExternalIngressCoordinator {
             createdAt: Date(),
             source: source,
             items: items,
-            workflowTemplateID: WorkflowTemplateSelectionStore.validatedTemplateID(workflowTemplateID)
+            workflowTemplateID: WorkflowTemplateSelectionStore.validatedTemplateID(workflowTemplateID),
+            executionMode: executionMode
         )
         savePendingRequest(request)
         return request
@@ -239,9 +369,15 @@ final class ExternalIngressCoordinator {
     func handleRequest(
         source: ExternalIngressSource,
         urls: [URL],
-        workflowTemplateID: String? = nil
+        workflowTemplateID: String? = nil,
+        executionMode: ExternalIngressExecutionMode = .immediate
     ) async throws -> ExternalIngressDisposition {
-        _ = try queueRequest(source: source, urls: urls, workflowTemplateID: workflowTemplateID)
+        _ = try queueRequest(
+            source: source,
+            urls: urls,
+            workflowTemplateID: workflowTemplateID,
+            executionMode: executionMode
+        )
         return await processPendingRequestIfPossible()
     }
 
@@ -270,15 +406,17 @@ final class ExternalIngressCoordinator {
         }
 
         if resolvedURLs.isEmpty {
+            let skippedItems = resolvedSelection.reauthorizationItems
             let result = ExternalIngressResult(
                 autoOrganizedCount: 0,
                 needsReviewPaths: [],
-                skippedItems: resolvedSelection.reauthorizationItems,
+                skippedItems: skippedItems,
                 didRequireOnboarding: false,
-                statusText: makeStatusText(
-                    autoOrganizedCount: 0,
-                    reviewCount: 0,
-                    skippedCount: resolvedSelection.reauthorizationItems.count
+                summary: .inferred(
+                    source: request.source,
+                    workflowTemplateID: request.workflowTemplateID,
+                    reviewPaths: [],
+                    skippedItems: skippedItems
                 ),
                 scannedPaths: [],
                 scannedRootPaths: []
@@ -298,13 +436,17 @@ final class ExternalIngressCoordinator {
             let skippedItems = uniqueSkippedItems(
                 resolvedSelection.reauthorizationItems + request.items.map(makeReauthorizationSkippedItem(for:))
             )
-            let statusText = "Forma needs you to run Organize with Forma again to restore access to the selected items."
             let result = ExternalIngressResult(
                 autoOrganizedCount: 0,
                 needsReviewPaths: [],
                 skippedItems: skippedItems,
                 didRequireOnboarding: false,
-                statusText: statusText,
+                summary: .inferred(
+                    source: request.source,
+                    workflowTemplateID: request.workflowTemplateID,
+                    reviewPaths: [],
+                    skippedItems: skippedItems
+                ),
                 scannedPaths: [],
                 scannedRootPaths: []
             )
@@ -347,18 +489,19 @@ final class ExternalIngressCoordinator {
         let skippedItems = uniqueSkippedItems(
             resolvedSelection.reauthorizationItems + explicitSelection.skippedItems
         )
-        let statusText = makeStatusText(
-            autoOrganizedCount: autoOrganizedCount,
-            reviewCount: reviewPaths.count,
-            skippedCount: skippedItems.count
-        )
 
         let result = ExternalIngressResult(
             autoOrganizedCount: autoOrganizedCount,
             needsReviewPaths: reviewPaths,
             skippedItems: skippedItems,
             didRequireOnboarding: false,
-            statusText: statusText,
+            summary: .inferred(
+                source: request.source,
+                workflowTemplateID: request.workflowTemplateID,
+                autoOrganizedCount: autoOrganizedCount,
+                reviewPaths: reviewPaths,
+                skippedItems: skippedItems
+            ),
             scannedPaths: pipelineResult.files.map(\.path),
             scannedRootPaths: pipelineResult.scannedRootPaths
         )
@@ -533,7 +676,13 @@ final class ExternalIngressCoordinator {
         request: ExternalIngressRequest,
         result: ExternalIngressResult
     ) {
-        let shouldPresentInApp = !result.needsReviewPaths.isEmpty || !result.skippedItems.isEmpty
+        let shouldPresentInApp: Bool
+        switch request.executionMode {
+        case .immediate:
+            shouldPresentInApp = !result.needsReviewPaths.isEmpty || !result.skippedItems.isEmpty
+        case .reviewFirst:
+            shouldPresentInApp = !result.needsReviewPaths.isEmpty
+        }
 
         if shouldPresentInApp {
             activateApp()
@@ -544,7 +693,7 @@ final class ExternalIngressCoordinator {
                     reviewPaths: result.needsReviewPaths,
                     scannedRootPaths: result.scannedRootPaths,
                     skippedItems: result.skippedItems,
-                    statusText: result.statusText,
+                    summary: result.summary,
                     promotionCandidate: makePromotionCandidate(for: request, scannedRootPaths: result.scannedRootPaths)
                 )
             )
@@ -580,29 +729,6 @@ final class ExternalIngressCoordinator {
         )
     }
 
-    private func makeStatusText(
-        autoOrganizedCount: Int,
-        reviewCount: Int,
-        skippedCount: Int
-    ) -> String {
-        var parts: [String] = []
-
-        if autoOrganizedCount > 0 {
-            parts.append("organized \(autoOrganizedCount) item" + (autoOrganizedCount == 1 ? "" : "s"))
-        }
-        if reviewCount > 0 {
-            parts.append("\(reviewCount) need review")
-        }
-        if skippedCount > 0 {
-            parts.append("skipped \(skippedCount)")
-        }
-
-        if parts.isEmpty {
-            return "Forma didn't find anything to organize."
-        }
-
-        return "Forma " + parts.joined(separator: ", ") + "."
-    }
 }
 
 @MainActor

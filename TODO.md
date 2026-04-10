@@ -38,6 +38,11 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
 
+## Review-First Selection App Intent (April 9, 2026)
+- [x] Add a persisted `ExternalIngressExecutionMode` so external requests can distinguish immediate runs from review-first runs without splitting the ingress pipeline.
+- [x] Keep review-first external requests auto-organizing safe selected items while opening Forma only when reviewable items remain, not for skip-only or already-finished outcomes.
+- [x] Add a multi-item `ReviewSelectionIntent` Shortcut/App Intent that routes through the shared external-ingress path and uses honest result copy for review-needed, onboarding-resume, and recovery-only outcomes.
+
 ## Sidebar / Right-Panel Cleanup Follow-Up (April 8, 2026)
 - [x] Route sidebar and default-panel Analytics actions through an explicit right-panel opener so Analytics reliably reveals the inspector column instead of only changing hidden panel mode.
 - [x] Remove the obsolete `NavigationSelection.rules` / `.analytics` compatibility route and the dead `MainContentView` / dashboard CTA branches that still modeled Smart Rules and Analytics as navigation destinations.
@@ -82,6 +87,11 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Add a shared manual-template selection store and entry-point organizer so manual OS-facing workflow launches can all resolve through first-class `WorkflowExecutionRequest` runs.
 - [x] Route menu bar organize actions through workflow-engine-v2 when `Feature.workflowEngineV2` is enabled, including shared template selection, simulation preview, and disabled-state guidance when no template is selected.
 - [x] Route Finder Services / Spotlight external ingress and App Intents organize actions through workflow-engine-v2 requests while preserving template identity, OS-specific trigger-surface audit context, and legacy organize behavior only when the feature flag is off.
+
+## macOS Integration OS Surface Adoption (April 9, 2026)
+- [x] Replace the flattened external-review `statusText` handoff with a shared `ExternalIngressOutcomeSummary` carried by `ExternalIngressResult` and `ExternalReviewSession`, preserving counts for auto-organized, review-needed, skipped, and reauthorization-required outcomes.
+- [x] Use the structured external-ingress outcome model in dashboard review toasts so focused OS-launched review sessions render shared summary copy instead of recomputing status strings ad hoc.
+- [x] Add summary-driven selected-item App Intent feedback and menu bar workflow guidance so Spotlight/Shortcuts users get explicit review follow-up language while the menu bar explains missing-template and all-blocked simulation states before running.
 
 ## Workflow Engine v2 Memory Profiles (April 9, 2026)
 - [x] Expand `ProjectSpaceWorkflowProfile` into workflow-memory v2 with successful-template counts/recency, dominant trigger surface, latest successful destination signal, stable/stale/conflicted status, and legacy-profile hydration instead of only remembering a preferred template plus latest run.

@@ -1,6 +1,46 @@
 import Foundation
 import Combine
 
+enum MenuBarWorkflowActionGuidance: Equatable {
+    case warning(String)
+
+    var message: String {
+        switch self {
+        case .warning(let message):
+            return message
+        }
+    }
+
+    static func make(
+        workflowEngineEnabled: Bool,
+        selectedTemplateID: String?,
+        preview: WorkflowTemplateSimulationPreview?
+    ) -> MenuBarWorkflowActionGuidance? {
+        guard workflowEngineEnabled else {
+            return nil
+        }
+
+        guard selectedTemplateID != nil else {
+            return .warning("Choose a workflow template to organize from the menu bar.")
+        }
+
+        guard let preview else {
+            return nil
+        }
+
+        if preview.readyToRunCount == 0, preview.blockedCount > 0 {
+            return .warning("All selected files are blocked in workflow simulation.")
+        }
+
+        if preview.blockedCount > 0 {
+            let noun = preview.blockedCount == 1 ? "file is" : "files are"
+            return .warning("\(preview.blockedCount) selected \(noun) blocked in simulation. Forma will run the ready items only.")
+        }
+
+        return nil
+    }
+}
+
 /// ViewModel for the enhanced menu bar interface.
 ///
 /// Provides live file counts, file review queue, recent activity,
@@ -133,7 +173,29 @@ final class MenuBarViewModel: ObservableObject {
     }
 
     var canRunWorkflowActions: Bool {
-        !FeatureFlagService.shared.isEnabled(.workflowEngineV2) || selectedWorkflowTemplateID != nil
+        if !FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+            return true
+        }
+
+        guard selectedWorkflowTemplateID != nil else {
+            return false
+        }
+
+        if let preview = workflowSimulationPreview,
+           preview.readyToRunCount == 0,
+           preview.blockedCount > 0 {
+            return false
+        }
+
+        return true
+    }
+
+    var workflowActionGuidance: MenuBarWorkflowActionGuidance? {
+        MenuBarWorkflowActionGuidance.make(
+            workflowEngineEnabled: FeatureFlagService.shared.isEnabled(.workflowEngineV2),
+            selectedTemplateID: selectedWorkflowTemplateID,
+            preview: workflowSimulationPreview
+        )
     }
 
     enum StatusIndicator {
