@@ -272,6 +272,107 @@ final class RuleHealthServiceTests: XCTestCase {
         }
     }
 
+    func testClassifyReturnsStableResultsForDuplicateAndOverlapPairs() throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let documentsRoot = try Destination.folder(from: tempDir.url, displayName: "Documents")
+        let store = InMemoryBookmarkStore()
+        try store.saveBookmark(
+            try XCTUnwrap(documentsRoot.bookmarkData),
+            forKey: FormaConfig.Security.documentsBookmarkKey
+        )
+
+        try BookmarkStoreProvider.$override.withValue(store) {
+            let duplicateA = Rule(
+                name: "Health Records A",
+                conditionType: .nameContains,
+                conditionValue: "health",
+                actionType: .move,
+                destination: .folder(bookmark: Data(), displayName: "Documents/Areas/Health")
+            )
+            let duplicateB = Rule(
+                name: "Health Records B",
+                conditionType: .nameContains,
+                conditionValue: "health",
+                actionType: .move,
+                destination: .folder(bookmark: Data(), displayName: "Documents/Areas/Health")
+            )
+            let overlapA = Rule(
+                name: "Screenshots A",
+                conditionType: .nameStartsWith,
+                conditionValue: "Screenshot",
+                actionType: .move,
+                destination: .folder(bookmark: Data(), displayName: "Documents/Screenshots")
+            )
+            let overlapB = Rule(
+                name: "Screenshots B",
+                conditionType: .nameStartsWith,
+                conditionValue: "Screenshot",
+                actionType: .move,
+                destination: .folder(bookmark: Data(), displayName: "Documents/Review")
+            )
+
+            let rules = [duplicateA, duplicateB, overlapA, overlapB]
+            let service = RuleHealthService()
+            let forwardDestinationStatuses = service.destinationStatuses(for: rules)
+            let reversedRules = Array(rules.reversed())
+            let reversedDestinationStatuses = service.destinationStatuses(for: reversedRules)
+
+            let forward = service.classifyBatch(
+                rules: rules,
+                destinationStatuses: forwardDestinationStatuses
+            ).healthByID
+            let reversed = service.classifyBatch(
+                rules: reversedRules,
+                destinationStatuses: reversedDestinationStatuses
+            ).healthByID
+
+            XCTAssertEqual(healthSnapshot(forward[duplicateA.id]), healthSnapshot(reversed[duplicateA.id]))
+            XCTAssertEqual(healthSnapshot(forward[duplicateB.id]), healthSnapshot(reversed[duplicateB.id]))
+            XCTAssertEqual(healthSnapshot(forward[overlapA.id]), healthSnapshot(reversed[overlapA.id]))
+            XCTAssertEqual(healthSnapshot(forward[overlapB.id]), healthSnapshot(reversed[overlapB.id]))
+        }
+    }
+
+    func testClassifyPreservesNeedsPermissionPriorityOverStale() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let blockedRule = Rule(
+            name: "Blocked Archive",
+            conditionType: .nameContains,
+            conditionValue: "archive",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "ExternalDrive/Archive")
+        )
+        blockedRule.lastTriggeredDate = now.addingTimeInterval(-(60 * 86_400))
+
+        let staleDeleteRule = Rule(
+            name: "Old Trash Rule",
+            conditionType: .nameContains,
+            conditionValue: "tmp",
+            actionType: .delete,
+            destination: .trash
+        )
+        staleDeleteRule.lastTriggeredDate = now.addingTimeInterval(-(60 * 86_400))
+
+        let service = RuleHealthService()
+        let rules = [blockedRule, staleDeleteRule]
+        let healthByID = service.classifyBatch(
+            rules: rules,
+            staleRuleThresholdDays: 30,
+            evaluationDate: now,
+            destinationStatuses: service.destinationStatuses(for: rules)
+        ).healthByID
+
+        guard case .needsPermission? = healthByID[blockedRule.id]?.kind else {
+            return XCTFail("Expected inaccessible destination to stay needsPermission even when stale")
+        }
+
+        guard case .stale? = healthByID[staleDeleteRule.id]?.kind else {
+            return XCTFail("Expected healthy delete rule to remain stale")
+        }
+    }
+
     func testExactDuplicateCleanupPlanKeepsOneRulePerSignature() {
         let original = Rule(
             name: "Health Records A",
@@ -323,5 +424,29 @@ final class RuleHealthServiceTests: XCTestCase {
         guard case .needsPermission? = health?.kind else {
             return XCTFail("Expected needsPermission health state")
         }
+    }
+
+    private func healthSnapshot(_ health: RuleHealthService.RuleHealth?) -> String {
+        let kind: String
+        switch health?.kind {
+        case .duplicate?:
+            kind = "duplicate"
+        case .overlap?:
+            kind = "overlap"
+        case .needsPermission?:
+            kind = "needsPermission"
+        case .willCreate?:
+            kind = "willCreate"
+        case .stale?:
+            kind = "stale"
+        case .ready?:
+            kind = "ready"
+        case .disabled?:
+            kind = "disabled"
+        case nil:
+            kind = "nil"
+        }
+
+        return [kind, health?.badgeLabel ?? "nil", health?.message ?? "nil"].joined(separator: "|")
     }
 }

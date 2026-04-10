@@ -39,6 +39,15 @@ struct RulesManagementView: View {
         let staleRules: [Rule]
         let stableRules: [Rule]
         let disabledRules: [Rule]
+
+    }
+
+    private struct ContentRefreshInputs: Equatable {
+        let ruleFingerprints: [String]
+        let searchText: String
+        let selectedCategoryID: UUID?
+        let filterNeedsPermissionOnly: Bool
+        let staleRuleThresholdDaysStorage: Int
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -78,6 +87,8 @@ struct RulesManagementView: View {
     @AppStorage(FolderHealthAlertSettings.Keys.staleRuleThresholdDays) private var staleRuleThresholdDaysStorage = 0
     @State private var showManageCategories = false
     @State private var filterNeedsPermissionOnly = false
+    @State private var contentState: ContentState = Self.makeEmptyContentState()
+    @State private var contentRefreshToken = 0
     @State private var pendingDeletionRuleIDs: Set<UUID> = []
     @State private var duplicateCleanupConfirmationPlan: RuleHealthService.ExactDuplicateCleanupPlan?
     @State private var isDeletingDuplicateCopies = false
@@ -130,13 +141,56 @@ struct RulesManagementView: View {
         healthByID[rule.id] ?? RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
     }
 
-    private func makeContentState() -> ContentState {
+    private static func makeEmptyContentState() -> ContentState {
+        ContentState(
+            healthByID: [:],
+            filteredRules: [],
+            totalEnabledCount: 0,
+            duplicateCount: 0,
+            duplicateCleanupPlan: nil,
+            overlapCount: 0,
+            needsPermissionCount: 0,
+            willCreateCount: 0,
+            disabledCount: 0,
+            recentlyTriggeredCount: 0,
+            staleRuleCount: 0,
+            stableRuleCount: 0,
+            isInitialEmptyState: true,
+            showsOperationalSections: false,
+            duplicateRules: [],
+            overlapRules: [],
+            needsPermissionRules: [],
+            willCreateRules: [],
+            recentlyTriggeredRules: [],
+            staleRules: [],
+            stableRules: [],
+            disabledRules: []
+        )
+    }
+
+    private var contentRefreshInputs: ContentRefreshInputs {
+        let sortedRuleFingerprints = allRules
+            .sorted(by: ruleRefreshOrdering)
+            .map(ruleRefreshFingerprint)
+
+        return ContentRefreshInputs(
+            ruleFingerprints: sortedRuleFingerprints,
+            searchText: searchText,
+            selectedCategoryID: selectedCategoryID,
+            filterNeedsPermissionOnly: filterNeedsPermissionOnly,
+            staleRuleThresholdDaysStorage: staleRuleThresholdDaysStorage
+        )
+    }
+
+    private func makeContentState(evaluationDate: Date) -> ContentState {
         let sortedRules = sortedAllRules
-        let healthByID = ruleHealthService.classify(
+        let destinationStatuses = ruleHealthService.destinationStatuses(for: sortedRules)
+        let healthByID = ruleHealthService.classifyBatch(
             rules: sortedRules,
             staleRuleThresholdDays: configuredStaleRuleThresholdDays,
-            evaluationDate: Date()
-        )
+            evaluationDate: evaluationDate,
+            destinationStatuses: destinationStatuses
+        ).healthByID
 
         var filteredRules = sortedRules
 
@@ -160,11 +214,11 @@ struct RulesManagementView: View {
         let needsPermissionRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .needsPermission }
         let willCreateRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .willCreate }
         let recentlyTriggeredRules = filteredRules.filter { rule in
-            health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule)
+            health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule, evaluationDate: evaluationDate)
         }
         let staleRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .stale }
         let stableRules = filteredRules.filter { rule in
-            health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule)
+            health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule, evaluationDate: evaluationDate)
         }
         let disabledRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .disabled }
 
@@ -179,11 +233,11 @@ struct RulesManagementView: View {
             willCreateCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .willCreate }.count,
             disabledCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .disabled }.count,
             recentlyTriggeredCount: sortedRules.filter { rule in
-                health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule)
+                health(for: rule, in: healthByID).kind == .ready && wasTriggeredRecently(rule, evaluationDate: evaluationDate)
             }.count,
             staleRuleCount: sortedRules.filter { health(for: $0, in: healthByID).kind == .stale }.count,
             stableRuleCount: sortedRules.filter { rule in
-                health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule)
+                health(for: rule, in: healthByID).kind == .ready && !wasTriggeredRecently(rule, evaluationDate: evaluationDate)
             }.count,
             isInitialEmptyState: sortedRules.isEmpty && searchText.isEmpty,
             showsOperationalSections: searchText.isEmpty && selectedCategoryID == nil && !filterNeedsPermissionOnly && !sortedRules.isEmpty,
@@ -197,9 +251,18 @@ struct RulesManagementView: View {
             disabledRules: disabledRules
         )
     }
+
+    @MainActor
+    private func refreshContentState() async {
+        contentState = makeContentState(evaluationDate: Date())
+    }
+
+    private func scheduleContentRefresh() {
+        contentRefreshToken += 1
+    }
     
     var body: some View {
-        let content = makeContentState()
+        let content = contentState
         let smartRulesAccessibilityValue = smartRulesStateValue(content: content)
 
         VStack(spacing: 0) {
@@ -297,8 +360,18 @@ struct RulesManagementView: View {
         .sheet(isPresented: $showManageCategories) {
             ManageCategoriesSheet()
         }
+        .task(id: contentRefreshToken) {
+            await refreshContentState()
+        }
+        .onChange(of: contentRefreshInputs) { _, _ in
+            scheduleContentRefresh()
+        }
         .onChange(of: allRules.map(\.id)) { _, remainingRuleIDs in
+            let previousPendingDeletionRuleIDs = pendingDeletionRuleIDs
             pendingDeletionRuleIDs.formIntersection(Set(remainingRuleIDs))
+            if pendingDeletionRuleIDs != previousPendingDeletionRuleIDs {
+                scheduleContentRefresh()
+            }
         }
         .accessibilityIdentifier("smartRulesView")
         .accessibilityLabel(isUITesting ? smartRulesAccessibilityValue : "")
@@ -1028,9 +1101,78 @@ struct RulesManagementView: View {
         sortedAllRules.filter { $0.category?.id == category.id }.count
     }
 
-    private func wasTriggeredRecently(_ rule: Rule) -> Bool {
+    private func ruleRefreshOrdering(lhs: Rule, rhs: Rule) -> Bool {
+        if lhs.sortOrder != rhs.sortOrder {
+            return lhs.sortOrder < rhs.sortOrder
+        }
+        if lhs.creationDate != rhs.creationDate {
+            return lhs.creationDate < rhs.creationDate
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    private func ruleRefreshFingerprint(_ rule: Rule) -> String {
+        [
+            rule.id.uuidString,
+            rule.name,
+            rule.conditionValue,
+            String(rule.isEnabled),
+            String(rule.sortOrder),
+            String(rule.creationDate.timeIntervalSinceReferenceDate),
+            String(rule.lastTriggeredDate?.timeIntervalSinceReferenceDate ?? -1),
+            rule.logicalOperator.rawValue,
+            rule.actionType.rawValue,
+            String(describing: rule.conditions),
+            String(describing: rule.exclusionConditions),
+            destinationRefreshFingerprint(rule.destination),
+            categoryRefreshFingerprint(rule.category)
+        ]
+        .joined(separator: "|")
+    }
+
+    private func destinationRefreshFingerprint(_ destination: Destination?) -> String {
+        switch destination {
+        case .trash?:
+            return "trash"
+        case .folder(let bookmark, let displayName)?:
+            return "folder|\(displayName)|\(bookmark.base64EncodedString())"
+        case nil:
+            return "none"
+        }
+    }
+
+    private func categoryRefreshFingerprint(_ category: RuleCategory?) -> String {
+        guard let category else {
+            return "none"
+        }
+
+        return [
+            category.id.uuidString,
+            category.name,
+            String(category.isEnabled),
+            scopeRefreshFingerprint(category.scope)
+        ]
+        .joined(separator: "|")
+    }
+
+    private func scopeRefreshFingerprint(_ scope: CategoryScope) -> String {
+        switch scope {
+        case .global:
+            return "global"
+        case .folders(let folders):
+            let folderFingerprint = folders
+                .map { folder in
+                    "\(folder.displayName)|\(folder.bookmark.base64EncodedString())"
+                }
+                .sorted()
+                .joined(separator: ",")
+            return "folders|\(folderFingerprint)"
+        }
+    }
+
+    private func wasTriggeredRecently(_ rule: Rule, evaluationDate: Date) -> Bool {
         guard let lastTriggeredDate = rule.lastTriggeredDate,
-              let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) else {
+              let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: evaluationDate) else {
             return false
         }
         return lastTriggeredDate >= cutoff
@@ -1170,6 +1312,7 @@ struct RulesManagementView: View {
         guard let rule = liveRule(withID: id) else { return }
 
         pendingDeletionRuleIDs.insert(id)
+        scheduleContentRefresh()
         do {
             let ruleService = RuleService(modelContext: modelContext)
             try ruleService.deleteRule(rule)
@@ -1177,6 +1320,7 @@ struct RulesManagementView: View {
             dashboardViewModel.reEvaluateFilesAgainstRules(context: modelContext)
         } catch {
             pendingDeletionRuleIDs.remove(id)
+            scheduleContentRefresh()
             Log.error("RulesManagementView: Failed to delete rule '\(fallbackName)' - \(error.localizedDescription)", category: .analytics)
         }
     }
@@ -1189,6 +1333,7 @@ struct RulesManagementView: View {
 
         isDeletingDuplicateCopies = true
         pendingDeletionRuleIDs.formUnion(ruleIDsToDelete)
+        scheduleContentRefresh()
 
         do {
             let ruleService = RuleService(modelContext: modelContext)
@@ -1200,6 +1345,7 @@ struct RulesManagementView: View {
             )
         } catch {
             pendingDeletionRuleIDs.subtract(ruleIDsToDelete)
+            scheduleContentRefresh()
             Log.error("RulesManagementView: Failed to bulk delete duplicate rules - \(error.localizedDescription)", category: .analytics)
         }
 
