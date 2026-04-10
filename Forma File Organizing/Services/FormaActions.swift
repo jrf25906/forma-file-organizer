@@ -34,6 +34,8 @@ final class FormaActions: ObservableObject {
     private var organizationCoordinator: FileOrganizationCoordinator?
     private var scanProvider: FileScanProvider?
     private let notificationService: NotificationService
+    private let workflowEntryPointOrganizer: WorkflowEntryPointOrganizer
+    private let workflowTemplateSelectionStore: WorkflowTemplateSelectionStore
 
     // MARK: - Published State
 
@@ -49,6 +51,8 @@ final class FormaActions: ObservableObject {
 
     private init() {
         self.notificationService = .shared
+        self.workflowEntryPointOrganizer = WorkflowEntryPointOrganizer()
+        self.workflowTemplateSelectionStore = WorkflowTemplateSelectionStore()
     }
 
     /// Configure with model context only (for read-only operations like counts and activity).
@@ -111,7 +115,11 @@ final class FormaActions: ObservableObject {
     ///
     /// - Parameter confidenceThreshold: Minimum confidence (0.0-1.0) for auto-organization. Default 0.9 (90%)
     /// - Returns: Result containing organization statistics
-    func organizeHighConfidenceFiles(confidenceThreshold: Double = 0.9) async -> OrganizeResult {
+    func organizeHighConfidenceFiles(
+        confidenceThreshold: Double = 0.9,
+        workflowTemplateID: String? = nil,
+        invocationContext: WorkflowInvocationContext = .bulkOrganize
+    ) async -> OrganizeResult {
         guard let context = modelContext,
               let coordinator = organizationCoordinator,
               let provider = scanProvider else {
@@ -140,6 +148,40 @@ final class FormaActions: ObservableObject {
             let result = OrganizeResult(success: true, organizedCount: 0, message: "No files ready for organization")
             lastActionResult = .organize(result)
             return result
+        }
+
+        if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+            guard let template = selectedWorkflowTemplate(explicitTemplateID: workflowTemplateID) else {
+                let result = OrganizeResult(
+                    success: false,
+                    error: workflowTemplateSelectionErrorMessage
+                )
+                lastActionResult = .organize(result)
+                return result
+            }
+
+            do {
+                let outcome = try await workflowEntryPointOrganizer.execute(
+                    files: eligibleFiles,
+                    template: template,
+                    invocationContext: invocationContext,
+                    modelContext: context
+                )
+                let result = organizeResult(
+                    outcome: outcome,
+                    totalCount: eligibleFiles.count,
+                    template: template
+                )
+                lastActionResult = .organize(result)
+                return result
+            } catch {
+                let result = OrganizeResult(
+                    success: false,
+                    error: error.localizedDescription
+                )
+                lastActionResult = .organize(result)
+                return result
+            }
         }
 
         // Perform organization
@@ -218,10 +260,41 @@ final class FormaActions: ObservableObject {
     ///
     /// - Parameter file: The FileItem to organize
     /// - Returns: true if organization succeeded
-    func organizeFile(_ file: FileItem) async -> Bool {
+    func organizeFile(
+        _ file: FileItem,
+        workflowTemplateID: String? = nil,
+        invocationContext: WorkflowInvocationContext = .reviewView
+    ) async -> Bool {
         guard let context = modelContext, let coordinator = organizationCoordinator else {
             Log.warning("FormaActions: Cannot organize file - not configured", category: .automation)
             return false
+        }
+
+        if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+            guard let template = selectedWorkflowTemplate(explicitTemplateID: workflowTemplateID) else {
+                lastActionResult = .organize(
+                    OrganizeResult(success: false, error: workflowTemplateSelectionErrorMessage)
+                )
+                return false
+            }
+
+            do {
+                let outcome = try await workflowEntryPointOrganizer.execute(
+                    files: [file],
+                    template: template,
+                    invocationContext: invocationContext,
+                    modelContext: context
+                )
+                lastActionResult = .organize(
+                    organizeResult(outcome: outcome, totalCount: 1, template: template)
+                )
+                return !outcome.runnableFiles.isEmpty
+            } catch {
+                lastActionResult = .organize(
+                    OrganizeResult(success: false, error: error.localizedDescription)
+                )
+                return false
+            }
         }
 
         return await withCheckedContinuation { continuation in
@@ -234,6 +307,47 @@ final class FormaActions: ObservableObject {
                 })
             }
         }
+    }
+
+    private var workflowTemplateSelectionErrorMessage: String {
+        "Choose a built-in workflow template before organizing with Workflow Engine v2."
+    }
+
+    private func selectedWorkflowTemplate(explicitTemplateID: String?) -> BuiltInWorkflowTemplate? {
+        WorkflowTemplateCatalog.template(
+            for: workflowTemplateSelectionStore.resolvedTemplateID(explicitTemplateID: explicitTemplateID)
+        )
+    }
+
+    private func organizeResult(
+        outcome: WorkflowEntryPointOrganizer.Outcome,
+        totalCount: Int,
+        template: BuiltInWorkflowTemplate
+    ) -> OrganizeResult {
+        guard !outcome.runnableFiles.isEmpty else {
+            return OrganizeResult(
+                success: false,
+                organizedCount: 0,
+                failedCount: outcome.blockedFiles.count,
+                error: "No files were organized. \(outcome.blockedFiles.count) file\(outcome.blockedFiles.count == 1 ? " is" : "s are") blocked in the workflow plan."
+            )
+        }
+
+        if outcome.blockedFiles.isEmpty {
+            return OrganizeResult(
+                success: true,
+                organizedCount: outcome.runnableFiles.count,
+                failedCount: 0,
+                message: "Organized \(outcome.runnableFiles.count) file\(outcome.runnableFiles.count == 1 ? "" : "s") with \(template.displayName)"
+            )
+        }
+
+        return OrganizeResult(
+            success: true,
+            organizedCount: outcome.runnableFiles.count,
+            failedCount: outcome.blockedFiles.count,
+            message: "Organized \(outcome.runnableFiles.count) of \(totalCount) files with \(template.displayName)"
+        )
     }
 
     /// Skips a single file (marks it as skipped).

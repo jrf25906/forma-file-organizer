@@ -149,7 +149,7 @@ final class ExternalIngressCoordinatorTests: XCTestCase {
             eligibleFiles: { files in
                 files.filter { $0.path == autoFileURL.path }
             },
-            organizeFile: { file, _ in
+            organizeFile: { file, _, _, _ in
                 organizedPaths.append(file.path)
                 file.status = .completed
                 return true
@@ -237,6 +237,72 @@ final class ExternalIngressCoordinatorTests: XCTestCase {
         XCTAssertEqual(result.needsReviewPaths, [childURL.path])
         XCTAssertEqual(publishedSession?.promotionCandidate?.folderType, .downloads)
         XCTAssertEqual(publishedSession?.promotionCandidate?.bookmarkData, bookmarkData)
+    }
+
+    func testProcessPendingRequestPassesQueuedWorkflowTemplateAndFinderInvocationContextToOrganizer() async throws {
+        let tempDir = try TemporaryDirectory()
+        defer { tempDir.cleanup() }
+
+        let autoFileURL = try tempDir.createFile(name: "auto.txt")
+        let createdAt = Date(timeIntervalSince1970: 1_000)
+
+        let autoMetadata = FileMetadata(
+            path: autoFileURL.path,
+            sizeInBytes: 42,
+            creationDate: createdAt,
+            modificationDate: createdAt,
+            lastAccessedDate: createdAt,
+            location: .custom,
+            scanRootPath: autoFileURL.deletingLastPathComponent().path
+        )
+
+        fileSystemService.explicitSelectionResult = ExplicitSelectionScanResult(
+            files: [autoMetadata],
+            skippedItems: [],
+            scannedRootPaths: [autoFileURL.deletingLastPathComponent().path]
+        )
+
+        let autoItem = FileItem.from(autoMetadata)
+        autoItem.status = .ready
+        autoItem.destination = .mockFolder("Documents/Auto")
+        autoItem.confidenceScore = 0.95
+
+        pipeline.explicitSelectionResult = FileScanPipeline.ScanResult(
+            files: [autoItem],
+            errorSummary: nil,
+            rawErrors: [:],
+            scannedRootPaths: [autoFileURL.deletingLastPathComponent().path]
+        )
+
+        var capturedTemplateIDs: [String?] = []
+        var capturedInvocationContexts: [WorkflowInvocationContext] = []
+
+        let coordinator = makeCoordinator(
+            onboardingCompleted: true,
+            eligibleFiles: { $0 },
+            organizeFile: { file, _, templateID, invocationContext in
+                capturedTemplateIDs.append(templateID)
+                capturedInvocationContexts.append(invocationContext)
+                file.status = .completed
+                return true
+            }
+        )
+
+        _ = try coordinator.queueRequest(
+            source: .finderService,
+            urls: [autoFileURL],
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+
+        let disposition = await coordinator.processPendingRequestIfPossible()
+
+        guard case .processed(let result) = disposition else {
+            return XCTFail("Expected coordinator to process queued request")
+        }
+
+        XCTAssertEqual(result.autoOrganizedCount, 1)
+        XCTAssertEqual(capturedTemplateIDs, [BuiltInWorkflowTemplate.StableID.receipts])
+        XCTAssertEqual(capturedInvocationContexts, [WorkflowInvocationContext.finderService])
     }
 
     func testProcessPendingRequestDoesNotPromoteArbitraryFolderNamedLikeStandardFolder() async throws {
@@ -468,7 +534,8 @@ final class ExternalIngressCoordinatorTests: XCTestCase {
                     bookmarkCreationFailed: false,
                     kind: .fileURL
                 )
-            ]
+            ],
+            workflowTemplateID: nil
         )
         defaults.set(try JSONEncoder().encode(request), forKey: "externalIngress.pendingRequest")
 
@@ -500,7 +567,7 @@ final class ExternalIngressCoordinatorTests: XCTestCase {
         activateApp: @escaping @MainActor () -> Void = {},
         publishReviewSession: @escaping @MainActor (ExternalReviewSession?) -> Void = { _ in },
         eligibleFiles: @escaping @MainActor ([FileItem]) -> [FileItem] = { _ in [] },
-        organizeFile: @escaping @MainActor (FileItem, ModelContext) async -> Bool = { _, _ in false },
+        organizeFile: @escaping @MainActor (FileItem, ModelContext, String?, WorkflowInvocationContext) async -> Bool = { _, _, _, _ in false },
         createBookmarkData: @escaping @MainActor (URL) throws -> Data? = { url in
             try url.bookmarkData(
                 options: [.withSecurityScope],

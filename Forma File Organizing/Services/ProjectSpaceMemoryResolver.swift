@@ -416,7 +416,11 @@ struct ProjectSpaceMemoryResolver {
             return .scheduledSweep
         case .projectPolicyRealtime, .realtimeAutomationPass:
             return .folderWatch
-        case .reviewFlow,
+        case .menuBar,
+             .appIntent,
+             .finderService,
+             .spotlightIntent,
+             .reviewFlow,
              .inspector,
              .bulkOrganize,
              .reviewView,

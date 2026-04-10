@@ -13,7 +13,12 @@ class ReviewViewModel: ObservableObject {
     @Published var loadingState: LoadingState = .idle
     @Published var errorMessage: String?
     @Published var successMessage: String?
-    @Published var selectedWorkflowTemplateID: String?
+    @Published var selectedWorkflowTemplateID: String? {
+        didSet {
+            guard selectedWorkflowTemplateID != oldValue else { return }
+            workflowTemplateSelectionStore.selectedTemplateID = selectedWorkflowTemplateID
+        }
+    }
     
     private var modelContext: ModelContext?
 
@@ -35,6 +40,7 @@ class ReviewViewModel: ObservableObject {
     private let fileScanPipeline: FileScanPipelineProtocol
     private let organizationCoordinator: FileOrganizationCoordinator
     private let workflowExecution: WorkflowExecutionClient
+    private let workflowTemplateSelectionStore: WorkflowTemplateSelectionStore
 
     // MARK: - Initialization
 
@@ -42,12 +48,15 @@ class ReviewViewModel: ObservableObject {
         fileSystemService: FileSystemServiceProtocol,
         fileScanPipeline: FileScanPipelineProtocol,
         organizationCoordinator: FileOrganizationCoordinator = FileOrganizationCoordinator(),
-        workflowExecution: WorkflowExecutionClient = .live
+        workflowExecution: WorkflowExecutionClient = .live,
+        workflowTemplateSelectionStore: WorkflowTemplateSelectionStore = WorkflowTemplateSelectionStore()
     ) {
         self.fileSystemService = fileSystemService
         self.fileScanPipeline = fileScanPipeline
         self.organizationCoordinator = organizationCoordinator
         self.workflowExecution = workflowExecution
+        self.workflowTemplateSelectionStore = workflowTemplateSelectionStore
+        self.selectedWorkflowTemplateID = workflowTemplateSelectionStore.selectedTemplateID
         // We defer scanning until setModelContext is called
     }
 

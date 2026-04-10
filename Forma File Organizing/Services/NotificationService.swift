@@ -642,7 +642,14 @@ final class NotificationService: Sendable {
             } else {
                 body = "Forma organized \(fileSummary) using \(templateDisplayName)."
             }
-        case .dashboardReview, .reviewView, .inspector, .bulkOrganize:
+        case .menuBar,
+             .appIntent,
+             .finderService,
+             .spotlightIntent,
+             .dashboardReview,
+             .reviewView,
+             .inspector,
+             .bulkOrganize:
             body = "Forma organized \(fileSummary) using \(templateDisplayName)."
         }
 

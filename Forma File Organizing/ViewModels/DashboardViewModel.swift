@@ -346,7 +346,12 @@ class DashboardViewModel: ObservableObject {
     @Published var isRightPanelVisible: Bool = true
     @Published var errorMessage: String?
     @Published var shouldRequestAppReview: Bool = false
-    @Published var selectedWorkflowTemplateID: String?
+    @Published var selectedWorkflowTemplateID: String? {
+        didSet {
+            guard selectedWorkflowTemplateID != oldValue else { return }
+            WorkflowTemplateSelectionStore(defaults: userDefaults).selectedTemplateID = selectedWorkflowTemplateID
+        }
+    }
     @Published var selectedProjectSpaceWorkflowTemplateID: String? {
         didSet {
             guard !isSynchronizingProjectSpaceWorkflowState,
@@ -441,6 +446,7 @@ class DashboardViewModel: ObservableObject {
         self.quickLookService = services.quickLookService
         self.insightsService = services.insightsService
         self.userDefaults = userDefaults
+        self.selectedWorkflowTemplateID = WorkflowTemplateSelectionStore(defaults: userDefaults).selectedTemplateID
         self.lastObservedProjectSpaceFeatureState = (
             featureFlags.isEnabled(.metadataFoundation),
             featureFlags.isEnabled(.projectSpaces),

@@ -48,6 +48,7 @@ struct ExternalIngressRequest: Codable, Hashable, Sendable {
     let createdAt: Date
     let source: ExternalIngressSource
     let items: [ExternalIngressRequestItem]
+    let workflowTemplateID: String?
 }
 
 struct ExternalReviewSession: Codable, Equatable, Sendable {
@@ -155,7 +156,7 @@ final class ExternalIngressCoordinator {
     private let activateApp: @MainActor () -> Void
     private let publishReviewSession: @MainActor (ExternalReviewSession?) -> Void
     private let eligibleFilesForAutoOrganize: @MainActor ([FileItem]) -> [FileItem]
-    private let organizeFile: @MainActor (FileItem, ModelContext) async -> Bool
+    private let organizeFile: @MainActor (FileItem, ModelContext, String?, WorkflowInvocationContext) async -> Bool
     private let createBookmarkData: @MainActor (URL) throws -> Data?
 
     private var modelContext: ModelContext?
@@ -174,8 +175,12 @@ final class ExternalIngressCoordinator {
         eligibleFilesForAutoOrganize: @escaping @MainActor ([FileItem]) -> [FileItem] = { files in
             DashboardFileScanProvider.autoOrganizeEligibleFiles(from: files)
         },
-        organizeFile: @escaping @MainActor (FileItem, ModelContext) async -> Bool = { file, _ in
-            await FormaActions.shared.organizeFile(file)
+        organizeFile: @escaping @MainActor (FileItem, ModelContext, String?, WorkflowInvocationContext) async -> Bool = { file, _, workflowTemplateID, invocationContext in
+            await FormaActions.shared.organizeFile(
+                file,
+                workflowTemplateID: workflowTemplateID,
+                invocationContext: invocationContext
+            )
         },
         createBookmarkData: @escaping @MainActor (URL) throws -> Data? = { url in
             try url.bookmarkData(
@@ -212,7 +217,8 @@ final class ExternalIngressCoordinator {
     @discardableResult
     func queueRequest(
         source: ExternalIngressSource,
-        urls: [URL]
+        urls: [URL],
+        workflowTemplateID: String? = nil
     ) throws -> ExternalIngressRequest {
         guard !urls.isEmpty else {
             throw ExternalIngressError.emptySelection
@@ -223,7 +229,8 @@ final class ExternalIngressCoordinator {
             id: UUID(),
             createdAt: Date(),
             source: source,
-            items: items
+            items: items,
+            workflowTemplateID: WorkflowTemplateSelectionStore.validatedTemplateID(workflowTemplateID)
         )
         savePendingRequest(request)
         return request
@@ -231,9 +238,10 @@ final class ExternalIngressCoordinator {
 
     func handleRequest(
         source: ExternalIngressSource,
-        urls: [URL]
+        urls: [URL],
+        workflowTemplateID: String? = nil
     ) async throws -> ExternalIngressDisposition {
-        _ = try queueRequest(source: source, urls: urls)
+        _ = try queueRequest(source: source, urls: urls, workflowTemplateID: workflowTemplateID)
         return await processPendingRequestIfPossible()
     }
 
@@ -318,8 +326,14 @@ final class ExternalIngressCoordinator {
         let eligibleFiles = eligibleFilesForAutoOrganize(pipelineResult.files)
         var autoOrganizedCount = 0
 
+        let invocationContext = workflowInvocationContext(for: request.source)
         for file in eligibleFiles {
-            if await organizeFile(file, modelContext) {
+            if await organizeFile(
+                file,
+                modelContext,
+                request.workflowTemplateID,
+                invocationContext
+            ) {
                 autoOrganizedCount += 1
             }
         }
@@ -381,6 +395,15 @@ final class ExternalIngressCoordinator {
                 AutomationScanNotificationUserInfo.errorSummary: Optional<String>.none as Any
             ]
         )
+    }
+
+    private func workflowInvocationContext(for source: ExternalIngressSource) -> WorkflowInvocationContext {
+        switch source {
+        case .finderService:
+            return .finderService
+        case .spotlightIntent:
+            return .spotlightIntent
+        }
     }
 
     private func makeRequestItem(from url: URL) -> ExternalIngressRequestItem {

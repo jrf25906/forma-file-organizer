@@ -2,6 +2,34 @@ import AppIntents
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum WorkflowTemplateIntentSelection: String, AppEnum {
+    case savedSelection
+    case receiptIntake
+    case screenshotCleanup
+    case projectDropZone
+
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Workflow Template")
+    static let caseDisplayRepresentations: [WorkflowTemplateIntentSelection: DisplayRepresentation] = [
+        .savedSelection: "Saved Selection",
+        .receiptIntake: "Receipt Intake",
+        .screenshotCleanup: "Screenshot Cleanup",
+        .projectDropZone: "Project Drop Zone"
+    ]
+
+    var resolvedTemplateID: String? {
+        switch self {
+        case .savedSelection:
+            return nil
+        case .receiptIntake:
+            return BuiltInWorkflowTemplate.StableID.receipts
+        case .screenshotCleanup:
+            return BuiltInWorkflowTemplate.StableID.screenshots
+        case .projectDropZone:
+            return BuiltInWorkflowTemplate.StableID.projectDrop
+        }
+    }
+}
+
 // MARK: - Scan Files Intent
 
 /// Scans all monitored folders for files that need organization.
@@ -55,10 +83,21 @@ struct OrganizeFilesIntent: AppIntent {
     )
     var confidencePercent: Int
 
+    @Parameter(
+        title: "Workflow Template",
+        description: "Choose a built-in template or use Forma's saved manual selection",
+        default: .savedSelection
+    )
+    var workflowTemplate: WorkflowTemplateIntentSelection
+
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
         let threshold = Double(confidencePercent) / 100.0
-        let result = await FormaActions.shared.organizeHighConfidenceFiles(confidenceThreshold: threshold)
+        let result = await FormaActions.shared.organizeHighConfidenceFiles(
+            confidenceThreshold: threshold,
+            workflowTemplateID: workflowTemplate.resolvedTemplateID,
+            invocationContext: .appIntent
+        )
 
         if result.success {
             return .result(value: result.summary)
@@ -112,6 +151,13 @@ struct OrganizeSelectionIntent: AppIntent {
     )
     var item: IntentFile
 
+    @Parameter(
+        title: "Workflow Template",
+        description: "Choose a built-in template or use Forma's saved manual selection",
+        default: .savedSelection
+    )
+    var workflowTemplate: WorkflowTemplateIntentSelection
+
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
         guard let url = item.fileURL else {
@@ -120,7 +166,8 @@ struct OrganizeSelectionIntent: AppIntent {
 
         let disposition = try await ExternalIngressCoordinator.shared.handleRequest(
             source: .spotlightIntent,
-            urls: [url]
+            urls: [url],
+            workflowTemplateID: workflowTemplate.resolvedTemplateID
         )
 
         switch disposition {

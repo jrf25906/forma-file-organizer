@@ -16,6 +16,7 @@ private final class MockContentSearchService: ContentSearchServing {
 final class DashboardViewModelTests: XCTestCase {
     private let downloadsEnabledKey = "BookmarkFolder.isEnabled.\(FormaConfig.Security.downloadsBookmarkKey)"
     private let downloadsExcludedKey = "BookmarkFolder.excludeAutomation.\(FormaConfig.Security.downloadsBookmarkKey)"
+    private let manualTemplateKey = WorkflowTemplateSelectionStore.Keys.manualTemplateID
 
 	    var viewModel: DashboardViewModel!
 	    var mockService: MockFileSystemService!
@@ -24,6 +25,7 @@ final class DashboardViewModelTests: XCTestCase {
 	    override func setUp() async throws {
 	        try await super.setUp()
 	        UserDefaults.standard.removeObject(forKey: "dismissedFirstRunQuickWinCandidateKeys")
+            UserDefaults.standard.removeObject(forKey: manualTemplateKey)
             FeatureFlagService.shared.resetToDefaults()
 	
 	        await MainActor.run {
@@ -55,6 +57,7 @@ final class DashboardViewModelTests: XCTestCase {
 	        UserDefaults.standard.removeObject(forKey: "dismissedFirstRunQuickWinCandidateKeys")
             UserDefaults.standard.removeObject(forKey: downloadsEnabledKey)
             UserDefaults.standard.removeObject(forKey: downloadsExcludedKey)
+            UserDefaults.standard.removeObject(forKey: manualTemplateKey)
             FeatureFlagService.shared.resetToDefaults()
 	        try await super.tearDown()
 	    }
@@ -222,6 +225,28 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Then
         XCTAssertEqual(localPipeline.scanCallCount, 1, "Multiple grants should coalesce into one refresh")
+    }
+
+    func testInit_LoadsPersistedWorkflowTemplateSelection() {
+        let suiteName = "DashboardViewModelTests.Selection.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(
+            BuiltInWorkflowTemplate.StableID.projectDrop,
+            forKey: WorkflowTemplateSelectionStore.Keys.manualTemplateID
+        )
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let viewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline(),
+            userDefaults: defaults
+        )
+
+        XCTAssertEqual(viewModel.selectedWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.projectDrop)
     }
 
     func testPermissionGrantSkipsAutoRefreshDuringOnboarding() async throws {

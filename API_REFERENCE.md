@@ -63,6 +63,42 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `automationSection`
   - Project-space detail now exposes a feature-gated policy-centered automation board layered on top of the existing project-space retrieval surface. The board groups draft, recommended, active, paused, and revoked policies, surfaces derived health/latest-run context, reuses `WorkflowTemplatePicker` inside a constrained composer sheet, and keeps manual project-policy execution routed through the shared workflow-engine-v2 path during the transition away from the legacy single-template selection flow.
   - Project policies can bootstrap from the legacy manual project-workflow profile, and project-policy manual, realtime, and scheduled runs all stay behind strong-confirmed project association before workflow execution.
+- Workflow Engine v2 OS entry-point adoption
+  - `WorkflowTemplateSelectionStore`
+    - `selectedTemplateID`
+    - `resolvedTemplateID(explicitTemplateID:)`
+    - `validatedTemplateID(_:)`
+  - `WorkflowEntryPointOrganizer`
+    - `execute(files:template:invocationContext:modelContext:scopeID:)`
+  - `WorkflowInvocationContext`
+    - `.menuBar`
+    - `.appIntent`
+    - `.finderService`
+    - `.spotlightIntent`
+  - `ActivityItem.WorkflowTriggerSurface`
+    - `.menuBar`
+    - `.appIntent`
+    - `.finderService`
+    - `.spotlightIntent`
+  - `FormaActions`
+    - `organizeHighConfidenceFiles(confidenceThreshold:workflowTemplateID:invocationContext:)`
+    - `organizeFile(_:workflowTemplateID:invocationContext:)`
+  - `ExternalIngressRequest`
+    - `workflowTemplateID`
+  - `ExternalIngressCoordinator`
+    - `queueRequest(source:urls:workflowTemplateID:)`
+    - `handleRequest(source:urls:workflowTemplateID:)`
+  - `WorkflowTemplateIntentSelection`
+    - `resolvedTemplateID`
+  - `OrganizeFilesIntent`
+    - `workflowTemplate`
+  - `OrganizeSelectionIntent`
+    - `workflowTemplate`
+  - `MenuBarViewModel`
+    - `selectedWorkflowTemplateID`
+    - `workflowSimulationPreview`
+    - `canRunWorkflowActions`
+  - Menu bar, App Intents, Finder Services, and Spotlight/external-ingress organize entry points now resolve through first-class workflow execution requests when `FeatureFlagService.Feature.workflowEngineV2` is enabled, preserve template identity and OS-specific trigger-surface audit labels, and fall back to the legacy organize helpers only when the feature flag is off.
 - Sidebar/right-panel cleanup follow-up
   - `DashboardViewModel`
     - `showAnalyticsPanel()`
@@ -235,7 +271,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - Those metadata-backed steps now execute through the shared runner and compensation path as well: explicit project-association, workflow-status, and notes-summary writes persist through `FileMetadataFoundationService`, and rollback restores those fields without later path compensation clobbering the restored workflow status.
   - Workflow audit semantics are explicit: primary run status and rollback status stay separate, per-step outcomes and per-file actions are persisted independently, side-effect failures surface `completedWithIssues` without rolling back durable success, and rollback state is projected back into trusted-scope detail, activity, and inspector surfaces without flattening failures into generic success copy.
   - Workflow audit depth now also includes run-level trigger/owner/policy context, preflight `planned` / `blocked` / `skipped` step rows, and file-level metadata deltas on both forward and rollback rows so `WorkflowRunDetailSheet`, inspector summaries, and activity text can explain who launched a run and what metadata changed, not just which path mutation succeeded.
-  - `WorkflowExecutionRequest` is now the shared launch model across project-policy, trusted-scope, review, and inspector workflow-v2 entry points, and trusted automation surfaces now project the selected template's real step shape instead of treating every trusted scope as the same fixed move-first recipe.
+  - `WorkflowExecutionRequest` is now the shared launch model across project-policy, trusted-scope, review, inspector, menu bar, App Intents, Finder Services, and Spotlight workflow-v2 entry points, and trusted automation surfaces now project the selected template's real step shape instead of treating every trusted scope as the same fixed move-first recipe.
   - `WorkflowExecutionRequest.workflowMemoryAttribution` now gives the shared runner one normalized project-label/template/trigger attribution path for durable workflow-memory updates, so only project-scoped runs with real execution context strengthen `ProjectSpaceWorkflowProfile`.
 - Project-space workflow profiles and manual workflow execution
   - `WorkflowMemoryStatus`

@@ -1,6 +1,10 @@
 import Foundation
 
 enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
+    case menuBar
+    case appIntent
+    case finderService
+    case spotlightIntent
     case dashboardReview
     case reviewView
     case inspector
@@ -15,6 +19,14 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
 
     var triggerSurface: ActivityItem.WorkflowTriggerSurface {
         switch self {
+        case .menuBar:
+            return .menuBar
+        case .appIntent:
+            return .appIntent
+        case .finderService:
+            return .finderService
+        case .spotlightIntent:
+            return .spotlightIntent
         case .dashboardReview:
             return .reviewFlow
         case .reviewView:
@@ -44,7 +56,11 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
         switch self {
         case .projectPolicyScheduled, .projectPolicyRealtime, .trustedScopeScheduled, .trustedScopeRealtime:
             return true
-        case .dashboardReview,
+        case .menuBar,
+             .appIntent,
+             .finderService,
+             .spotlightIntent,
+             .dashboardReview,
              .reviewView,
              .inspector,
              .bulkOrganize,
@@ -67,7 +83,7 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
              .trustedScopeRealtime(let scopeDisplayName),
              .trustedScopeInspection(let scopeDisplayName):
             return scopeDisplayName
-        case .dashboardReview, .reviewView, .inspector, .bulkOrganize:
+        case .menuBar, .appIntent, .finderService, .spotlightIntent, .dashboardReview, .reviewView, .inspector, .bulkOrganize:
             return nil
         }
     }
@@ -82,7 +98,11 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
              .projectPolicyScheduled(_, let policyName),
              .projectPolicyRealtime(_, let policyName):
             return policyName
-        case .dashboardReview,
+        case .menuBar,
+             .appIntent,
+             .finderService,
+             .spotlightIntent,
+             .dashboardReview,
              .reviewView,
              .inspector,
              .bulkOrganize,
@@ -105,7 +125,11 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
              .projectPolicyScheduled,
              .projectPolicyRealtime:
             return true
-        case .dashboardReview,
+        case .menuBar,
+             .appIntent,
+             .finderService,
+             .spotlightIntent,
+             .dashboardReview,
              .reviewView,
              .inspector,
              .bulkOrganize,
@@ -125,7 +149,11 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
              .projectPolicyScheduled(let projectLabel, _),
              .projectPolicyRealtime(let projectLabel, _):
             rawValue = projectLabel
-        case .dashboardReview,
+        case .menuBar,
+             .appIntent,
+             .finderService,
+             .spotlightIntent,
+             .dashboardReview,
              .reviewView,
              .inspector,
              .bulkOrganize,
@@ -157,6 +185,14 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
 
     var description: String {
         switch self {
+        case .menuBar:
+            return "menuBar"
+        case .appIntent:
+            return "appIntent"
+        case .finderService:
+            return "finderService"
+        case .spotlightIntent:
+            return "spotlightIntent"
         case .dashboardReview:
             return "dashboardReview"
         case .reviewView:

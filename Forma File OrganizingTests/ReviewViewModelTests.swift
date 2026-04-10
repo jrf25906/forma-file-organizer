@@ -9,6 +9,7 @@ import SwiftData
 /// file list manipulation, and error handling paths that can be tested without filesystem access.
 @MainActor
 final class ReviewViewModelTests: XCTestCase {
+    private let manualTemplateKey = WorkflowTemplateSelectionStore.Keys.manualTemplateID
 
     var viewModel: ReviewViewModel!
     var modelContainer: ModelContainer!
@@ -19,6 +20,7 @@ final class ReviewViewModelTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         FeatureFlagService.shared.resetToDefaults()
+        UserDefaults.standard.removeObject(forKey: manualTemplateKey)
 
         // Create in-memory model container with required models
         let schema = Schema([FileItem.self, Rule.self, ActivityItem.self])
@@ -40,6 +42,7 @@ final class ReviewViewModelTests: XCTestCase {
 
     override func tearDown() async throws {
         FeatureFlagService.shared.resetToDefaults()
+        UserDefaults.standard.removeObject(forKey: manualTemplateKey)
         await MainActor.run {
             viewModel = nil
             mockService = nil
@@ -70,6 +73,27 @@ final class ReviewViewModelTests: XCTestCase {
         // Then: Should remain idle until context is set
         XCTAssertEqual(vm.loadingState, .idle)
         XCTAssertTrue(vm.files.isEmpty)
+    }
+
+    func testInit_LoadsPersistedWorkflowTemplateSelection() {
+        let suiteName = "ReviewViewModelTests.Selection.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(
+            BuiltInWorkflowTemplate.StableID.receipts,
+            forKey: WorkflowTemplateSelectionStore.Keys.manualTemplateID
+        )
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let viewModel = ReviewViewModel(
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline(),
+            workflowTemplateSelectionStore: WorkflowTemplateSelectionStore(defaults: defaults)
+        )
+
+        XCTAssertEqual(viewModel.selectedWorkflowTemplateID, BuiltInWorkflowTemplate.StableID.receipts)
     }
 
     // MARK: - Loading State Tests

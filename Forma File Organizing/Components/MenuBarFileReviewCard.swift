@@ -26,6 +26,7 @@ struct MenuBarFileReviewCard: View {
     let file: FileItem
     let paginationText: String
     let isOrganizing: Bool
+    let canOrganize: Bool
     let canGoBack: Bool
     let canGoForward: Bool
 
@@ -177,9 +178,21 @@ struct MenuBarFileReviewCard: View {
                 }
             }
             .buttonStyle(MenuBarButtonStyle(kind: .primary(.formaSage)))
-            .disabled(isOrganizing || !file.hasDestination)
-            .help(file.hasDestination ? "Move this file to its destination" : "Set a destination before organizing")
+            .disabled(isOrganizing || !canOrganize)
+            .help(organizeButtonHelpText)
         }
+    }
+
+    private var organizeButtonHelpText: String {
+        if !file.hasDestination {
+            return "Set a destination before organizing"
+        }
+
+        if !canOrganize {
+            return "Choose a workflow template before organizing from the menu bar"
+        }
+
+        return "Move this file to its destination"
     }
 
     private var paginationRow: some View {
@@ -236,6 +249,7 @@ struct MenuBarFileReviewCard: View {
             file: mockFile,
             paginationText: "1 of 5",
             isOrganizing: false,
+            canOrganize: true,
             canGoBack: false,
             canGoForward: true,
             onOrganize: {},
@@ -254,6 +268,7 @@ struct MenuBarFileReviewCard: View {
             ),
             paginationText: "3 of 8",
             isOrganizing: false,
+            canOrganize: false,
             canGoBack: true,
             canGoForward: true,
             onOrganize: {},

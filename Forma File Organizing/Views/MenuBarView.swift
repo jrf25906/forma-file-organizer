@@ -31,6 +31,7 @@ struct MenuBarView: View {
             ) {
                 VStack(alignment: .leading, spacing: FormaSpacing.tight) {
                     headerSection
+                    workflowTemplateSection
 
                     if FeatureFlagService.shared.isEnabled(.menuBarFileReview), viewModel.hasPendingFiles {
                         reviewQueueSection
@@ -161,6 +162,7 @@ struct MenuBarView: View {
                     file: file,
                     paginationText: viewModel.reviewPaginationText,
                     isOrganizing: viewModel.isOrganizingCurrent,
+                    canOrganize: file.hasDestination && viewModel.canRunWorkflowActions,
                     canGoBack: viewModel.currentReviewIndex > 0,
                     canGoForward: viewModel.currentReviewIndex < viewModel.pendingFiles.count - 1,
                     onOrganize: {
@@ -186,6 +188,16 @@ struct MenuBarView: View {
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.82), value: viewModel.currentReviewFile?.path)
+    }
+
+    @ViewBuilder
+    private var workflowTemplateSection: some View {
+        if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
+            WorkflowTemplatePicker(
+                selectedTemplateID: $viewModel.selectedWorkflowTemplateID,
+                preview: viewModel.workflowSimulationPreview
+            )
+        }
     }
 
     private var allClearSection: some View {
@@ -417,6 +429,7 @@ struct MenuBarView: View {
                         MenuBarDivider()
                     }
                 }
+                .disabled(!viewModel.canRunWorkflowActions)
             }
         }
     }

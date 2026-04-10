@@ -277,6 +277,10 @@ final class ActivityItem {
     }
 
     enum WorkflowTriggerSurface: String, Codable {
+        case menuBar
+        case appIntent
+        case finderService
+        case spotlightIntent
         case reviewFlow
         case inspector
         case bulkOrganize
@@ -292,6 +296,14 @@ final class ActivityItem {
 
     static func workflowTriggerSurfaceLabel(_ surface: WorkflowTriggerSurface?) -> String {
         switch surface {
+        case .menuBar:
+            return "Menu bar"
+        case .appIntent:
+            return "App Intent"
+        case .finderService:
+            return "Finder Service"
+        case .spotlightIntent:
+            return "Spotlight"
         case .reviewFlow:
             return "Review"
         case .inspector:

@@ -26,6 +26,14 @@ final class MenuBarViewModel: ObservableObject {
     /// Loading state for single-file organize action
     @Published private(set) var isOrganizingCurrent: Bool = false
 
+    /// Selected workflow template for menu bar-triggered workflow runs
+    @Published var selectedWorkflowTemplateID: String? {
+        didSet {
+            guard selectedWorkflowTemplateID != oldValue else { return }
+            workflowTemplateSelectionStore.selectedTemplateID = selectedWorkflowTemplateID
+        }
+    }
+
     /// Brief confirmation toast after "Organize All"
     @Published var showOrganizeAllConfirmation: Bool = false
 
@@ -112,6 +120,22 @@ final class MenuBarViewModel: ObservableObject {
         pendingFiles.filter { ($0.confidenceScore ?? 0) >= 0.9 && $0.hasDestination }.count
     }
 
+    var workflowSimulationPreview: WorkflowTemplateSimulationPreview? {
+        guard FeatureFlagService.shared.isEnabled(.workflowEngineV2) else {
+            return nil
+        }
+
+        return WorkflowTemplateSimulationPreview.make(
+            templateID: selectedWorkflowTemplateID,
+            files: pendingFiles,
+            invocationContext: .menuBar
+        )
+    }
+
+    var canRunWorkflowActions: Bool {
+        !FeatureFlagService.shared.isEnabled(.workflowEngineV2) || selectedWorkflowTemplateID != nil
+    }
+
     enum StatusIndicator {
         case clear   // No pending files - green/none
         case low     // 1-10 files - subtle
@@ -122,6 +146,7 @@ final class MenuBarViewModel: ObservableObject {
     // MARK: - Dependencies
 
     private let actions: FormaActions
+    private let workflowTemplateSelectionStore: WorkflowTemplateSelectionStore
     nonisolated(unsafe) private var refreshTimer: Timer?
     private var automationStateObservationTask: Task<Void, Never>?
     private var actionResultObservationTask: Task<Void, Never>?
@@ -137,8 +162,14 @@ final class MenuBarViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init(actions: FormaActions = .shared, observeExternalState: Bool = true) {
+    init(
+        actions: FormaActions = .shared,
+        workflowTemplateSelectionStore: WorkflowTemplateSelectionStore = WorkflowTemplateSelectionStore(),
+        observeExternalState: Bool = true
+    ) {
         self.actions = actions
+        self.workflowTemplateSelectionStore = workflowTemplateSelectionStore
+        self.selectedWorkflowTemplateID = workflowTemplateSelectionStore.selectedTemplateID
         if observeExternalState {
             setupObservers()
         }
@@ -202,7 +233,11 @@ final class MenuBarViewModel: ObservableObject {
         guard let file = currentReviewFile else { return }
 
         isOrganizingCurrent = true
-        let success = await actions.organizeFile(file)
+        let success = await actions.organizeFile(
+            file,
+            workflowTemplateID: selectedWorkflowTemplateID,
+            invocationContext: .menuBar
+        )
         isOrganizingCurrent = false
 
         if success {
@@ -241,7 +276,10 @@ final class MenuBarViewModel: ObservableObject {
 
     /// Organize all high-confidence files at once
     func organizeAllHighConfidence() async {
-        let result = await actions.organizeHighConfidenceFiles()
+        let result = await actions.organizeHighConfidenceFiles(
+            workflowTemplateID: selectedWorkflowTemplateID,
+            invocationContext: .menuBar
+        )
         if result.success && result.organizedCount > 0 {
             showOrganizeAllConfirmation = true
             await refresh()
@@ -264,7 +302,10 @@ final class MenuBarViewModel: ObservableObject {
 
     /// Organize all high-confidence files (legacy wrapper)
     func organizeHighConfidenceFiles() async -> FormaActions.OrganizeResult {
-        let result = await actions.organizeHighConfidenceFiles()
+        let result = await actions.organizeHighConfidenceFiles(
+            workflowTemplateID: selectedWorkflowTemplateID,
+            invocationContext: .menuBar
+        )
         await refresh()
         return result
     }
