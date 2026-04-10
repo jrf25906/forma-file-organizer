@@ -78,11 +78,14 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `StableID.receipts`
     - `StableID.screenshots`
     - `StableID.projectDrop`
+    - `StableID.datedArchive`
     - `NotificationPolicy`
+    - `TagPolicy`
     - `ProjectAssociationPolicy`
     - `WorkflowStatusPolicy`
     - `NotesSummaryPolicy`
     - `requiredActionShape`
+    - `metadataArchiveActionShape`
     - `projectDropActionShape`
   - `WorkflowInvocationContext`
     - `.projectSpace(projectLabel:)`
@@ -91,7 +94,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `.trustedScopeInspection(scopeDisplayName:)`
     - `auditOwnerDisplayName`
     - `auditPolicyName`
-    - `supportsProjectMetadataSteps`
+    - `supportsProjectContextMetadataSteps`
     - `workflowProjectLabel`
     - `workflowNotesSummaryTarget`
   - `WorkflowExecutionEntryPoint`
@@ -226,8 +229,8 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `projectAssociationDisplayName`
     - `workflowStatusDisplayName`
   - `DashboardViewModel.latestWorkflowInspectorSummary(for:context:)`
-  - Workflow Engine v2 now ships the built-in `rename -> tag -> move -> log` planner/runner path end to end for the base templates, while `Project Drop Zone` extends that path into `rename -> tag -> projectAssociation -> workflowStatus -> notesSummary -> move -> log` plus template-gated trusted-scope `notify`.
-  - Project-scoped templates can now opt into metadata-backed `projectAssociation`, `workflowStatus`, and constrained `notesSummary` planning, so `Project Drop Zone` project-space and project-policy runs derive those targets from the invocation context while non-project invocations stay on the existing path.
+  - Workflow Engine v2 now ships the built-in `rename -> tag -> move -> log` planner/runner path end to end for the base templates, while `Dated Archive` extends that path into `rename -> tag -> workflowStatus -> move -> log` and `Project Drop Zone` extends it into `rename -> tag -> projectAssociation -> workflowStatus -> notesSummary -> move -> log` plus template-gated trusted-scope `notify`.
+  - Templates can now opt into metadata-backed `workflowStatus` planning outside project-only contexts, while `projectAssociation` and constrained `notesSummary` remain project-scoped. `Project Drop Zone` project-space and project-policy runs still derive project-backed targets from the invocation context, while `Dated Archive` and trusted-scope `Project Drop Zone` runs can carry reusable workflow-status writes without project metadata.
   - Project-scoped invocations without a usable project label now block at the planned `projectAssociation` step and skip later dependent steps in simulation rather than silently planning metadata writes with empty state.
   - Those metadata-backed steps now execute through the shared runner and compensation path as well: explicit project-association, workflow-status, and notes-summary writes persist through `FileMetadataFoundationService`, and rollback restores those fields without later path compensation clobbering the restored workflow status.
   - Workflow audit semantics are explicit: primary run status and rollback status stay separate, per-step outcomes and per-file actions are persisted independently, side-effect failures surface `completedWithIssues` without rolling back durable success, and rollback state is projected back into trusted-scope detail, activity, and inspector surfaces without flattening failures into generic success copy.
@@ -426,7 +429,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `upsertRecordForDiscoveryWithoutSaving(for:displayName:fileExtension:timestamp:)`
     - `applyWorkflowStatusForDiscoveryWithoutSaving(to:wasCreated:timestamp:)`
   - Durable metadata now persists best-effort during scan and explicit-selection evaluation, survives organize/undo/redo transitions, and powers both the read-only inspector proof/history section and the shipped project-space retrieval slice without exposing metadata authoring UI yet.
-  - Durable workflow status layers on top of the metadata foundation: discovery writes `queued` only for newly created records, organize writes `organized`, undo writes `recovered`, ignored review actions write `.ignored` plus one `.ignored` history row from `.review`, and inspector proof exposes a read-only `workflowStatusSummary` line when the flag is enabled.
+  - Durable workflow status layers on top of the metadata foundation: discovery writes `queued` only for newly created records, organize writes `organized`, archive-oriented workflow templates can persist `archived`, undo writes `recovered`, ignored review actions write `.ignored` plus one `.ignored` history row from `.review`, and inspector proof exposes a read-only `workflowStatusSummary` line when the flag is enabled.
   - Context-backed review/dashboard skip flows now snapshot the previous durable workflow state before persisting ignored metadata so undo can restore the prior status and redo can reapply `.ignored` without appending duplicate ignored history rows.
 - `SkipFileCommand`
   - `DurableWorkflowStatusSnapshot`

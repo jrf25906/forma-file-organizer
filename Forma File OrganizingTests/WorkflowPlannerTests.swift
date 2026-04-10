@@ -152,6 +152,45 @@ final class WorkflowPlannerTests: XCTestCase {
         XCTAssertNotNil(steps[4].compensationPayload)
     }
 
+    func testPlan_ArchiveTemplate_AppendsWorkflowStatusStepOutsideProjectContexts() throws {
+        let sourceURL = try sourceDirectory.createFile(name: "Quarterly Report.pdf")
+        let destinationURL = try destinationDirectory.createDirectory(name: "Archive")
+        let destination = try Destination.folder(from: destinationURL)
+        let file = makeFile(path: sourceURL.path, destination: destination)
+
+        let planner = WorkflowPlanner()
+        let plan = planner.plan(
+            templateID: BuiltInWorkflowTemplate.StableID.datedArchive,
+            files: [file],
+            invocationContext: .dashboardReview
+        )
+
+        XCTAssertEqual(
+            plan.definition.stepKinds.map(\.rawValue),
+            ["rename", "tag", "workflowStatus", "move", "log"]
+        )
+
+        let plannedFile = try XCTUnwrap(plan.files.first)
+        XCTAssertFalse(plannedFile.isBlocked)
+        XCTAssertEqual(plannedFile.workflowStatusTarget, .archived)
+        XCTAssertEqual(
+            plannedFile.steps.map(\.kind.rawValue),
+            ["rename", "tag", "workflowStatus", "move", "log"]
+        )
+        XCTAssertEqual(
+            plannedFile.steps.map(\.disposition),
+            [.planned, .planned, .planned, .planned, .planned]
+        )
+
+        let workflowStatusStep = try XCTUnwrap(
+            plannedFile.steps.first(where: { $0.kind == .workflowStatus })
+        )
+        XCTAssertEqual(
+            workflowStatusStep.compensationPayload,
+            .workflowStatusRestore(path: plannedFile.workingPath, previousWorkflowStatus: nil)
+        )
+    }
+
     func testPlan_TrustedScopeInvocation_AppendsNotifyOnlyForOptedInTemplate() throws {
         let sourceURL = try sourceDirectory.createFile(name: "Project Plan.pdf")
         let destinationURL = try destinationDirectory.createDirectory(name: "ProjectDrop")
@@ -165,8 +204,14 @@ final class WorkflowPlannerTests: XCTestCase {
             invocationContext: .trustedScopeScheduled(scopeDisplayName: "Project Drop")
         )
 
-        XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log", "notify"])
-        XCTAssertEqual(plan.files.first?.steps.map(\.kind.rawValue), ["rename", "tag", "move", "log", "notify"])
+        XCTAssertEqual(
+            plan.definition.stepKinds.map(\.rawValue),
+            ["rename", "tag", "workflowStatus", "move", "log", "notify"]
+        )
+        XCTAssertEqual(
+            plan.files.first?.steps.map(\.kind.rawValue),
+            ["rename", "tag", "workflowStatus", "move", "log", "notify"]
+        )
     }
 
     func testPlan_TrustedScopeInspectionInvocation_SkipsNotifyEvenForOptedInTemplate() throws {
@@ -182,8 +227,14 @@ final class WorkflowPlannerTests: XCTestCase {
             invocationContext: .trustedScopeInspection(scopeDisplayName: "Project Drop")
         )
 
-        XCTAssertEqual(plan.definition.stepKinds.map(\.rawValue), ["rename", "tag", "move", "log"])
-        XCTAssertEqual(plan.files.first?.steps.map(\.kind.rawValue), ["rename", "tag", "move", "log"])
+        XCTAssertEqual(
+            plan.definition.stepKinds.map(\.rawValue),
+            ["rename", "tag", "workflowStatus", "move", "log"]
+        )
+        XCTAssertEqual(
+            plan.files.first?.steps.map(\.kind.rawValue),
+            ["rename", "tag", "workflowStatus", "move", "log"]
+        )
     }
 
     func testPlan_BlocksWhenRenameTargetCollides() throws {
@@ -323,7 +374,10 @@ final class WorkflowPlannerTests: XCTestCase {
                 simulationFile.blockers.contains(.renameTargetCollision(path: expectedWorkingPath)),
                 "Expected same-batch collision for canonical rename path"
             )
-            XCTAssertEqual(simulationFile.steps.map(\.disposition), [.blocked, .skipped, .skipped, .skipped])
+            XCTAssertEqual(
+                simulationFile.steps.map(\.disposition),
+                [.blocked, .skipped, .skipped, .skipped, .skipped]
+            )
         }
     }
 

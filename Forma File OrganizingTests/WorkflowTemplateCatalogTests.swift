@@ -6,13 +6,14 @@ final class WorkflowTemplateCatalogTests: XCTestCase {
         let templates = WorkflowTemplateCatalog.shippedTemplates
         let stableIDs = Set(templates.map(\.id))
 
-        XCTAssertEqual(stableIDs.count, 3)
+        XCTAssertEqual(stableIDs.count, 4)
         XCTAssertEqual(
             stableIDs,
             Set([
                 "builtin.workflow.receipts.v1",
                 "builtin.workflow.screenshots.v1",
-                "builtin.workflow.project-drop.v1"
+                "builtin.workflow.project-drop.v1",
+                "builtin.workflow.dated-archive.v1"
             ])
         )
     }
@@ -34,6 +35,10 @@ final class WorkflowTemplateCatalogTests: XCTestCase {
             try XCTUnwrap(templatesByID[BuiltInWorkflowTemplate.StableID.projectDrop]).allowedActions,
             [.rename, .tag, .projectAssociation, .workflowStatus, .notesSummary, .move, .notify]
         )
+        XCTAssertEqual(
+            try XCTUnwrap(templatesByID[BuiltInWorkflowTemplate.StableID.datedArchive]).allowedActions,
+            [.rename, .tag, .workflowStatus, .move]
+        )
     }
 
     func testBuiltInCatalog_OnlyProjectDropUsesTrustedScopeNotificationPolicy() {
@@ -50,5 +55,6 @@ final class WorkflowTemplateCatalogTests: XCTestCase {
         XCTAssertEqual(policiesByID[BuiltInWorkflowTemplate.StableID.receipts] ?? nil, "never")
         XCTAssertEqual(policiesByID[BuiltInWorkflowTemplate.StableID.screenshots] ?? nil, "never")
         XCTAssertEqual(policiesByID[BuiltInWorkflowTemplate.StableID.projectDrop] ?? nil, "trustedScopeOnly")
+        XCTAssertEqual(policiesByID[BuiltInWorkflowTemplate.StableID.datedArchive] ?? nil, "never")
     }
 }

@@ -98,7 +98,7 @@ enum WorkflowInvocationContext: Sendable, Hashable, CustomStringConvertible {
         notificationPolicyName
     }
 
-    var supportsProjectMetadataSteps: Bool {
+    var supportsProjectContextMetadataSteps: Bool {
         switch self {
         case .projectSpace,
              .projectPolicyManual,

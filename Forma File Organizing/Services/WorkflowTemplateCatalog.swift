@@ -37,6 +37,18 @@ enum WorkflowTemplateCatalog {
             workflowStatusPolicy: .organized,
             notesSummaryPolicy: .projectContextLine,
             allowedActions: BuiltInWorkflowTemplate.projectDropActionShape
+        ),
+        BuiltInWorkflowTemplate(
+            id: BuiltInWorkflowTemplate.StableID.datedArchive,
+            displayName: "Dated Archive",
+            summaryText: "Rename documents with a date prefix, apply archive tags, mark them archived, and move them into long-term storage.",
+            renamePreset: .keepBaseNameWithDatePrefix,
+            tagPolicy: .datedArchive,
+            notificationPolicy: .never,
+            projectAssociationPolicy: nil,
+            workflowStatusPolicy: .archived,
+            notesSummaryPolicy: nil,
+            allowedActions: BuiltInWorkflowTemplate.metadataArchiveActionShape
         )
     ]
 

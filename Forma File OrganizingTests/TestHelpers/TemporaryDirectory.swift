@@ -6,6 +6,7 @@ final class TemporaryDirectory {
     let url: URL
     private let fileManager = FileManager.default
     private let cleanupOnDeinit: Bool
+    private var hasCleanedUp = false
     
     /// Creates a new temporary directory with a unique name
     init(cleanupOnDeinit: Bool = true) throws {
@@ -17,6 +18,13 @@ final class TemporaryDirectory {
     
     /// Removes the temporary directory and all its contents
     func cleanup() {
+        guard !hasCleanedUp else { return }
+        hasCleanedUp = true
+
+        guard fileManager.fileExists(atPath: url.path) else {
+            return
+        }
+
         try? fileManager.removeItem(at: url)
     }
     

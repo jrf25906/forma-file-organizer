@@ -453,20 +453,23 @@ final class WorkflowPlanner {
         template: BuiltInWorkflowTemplate?,
         invocationContext: WorkflowInvocationContext
     ) -> [WorkflowStepKind] {
-        guard invocationContext.supportsProjectMetadataSteps,
-              let template else {
+        guard let template else {
             return []
         }
 
         var stepKinds: [WorkflowStepKind] = []
-        if template.projectAssociationPolicy != nil {
-            stepKinds.append(.projectAssociation)
+        if invocationContext.supportsProjectContextMetadataSteps {
+            if template.projectAssociationPolicy != nil {
+                stepKinds.append(.projectAssociation)
+            }
         }
         if template.workflowStatusPolicy != nil {
             stepKinds.append(.workflowStatus)
         }
-        if template.notesSummaryPolicy != nil {
-            stepKinds.append(.notesSummary)
+        if invocationContext.supportsProjectContextMetadataSteps {
+            if template.notesSummaryPolicy != nil {
+                stepKinds.append(.notesSummary)
+            }
         }
         return stepKinds
     }
@@ -504,6 +507,8 @@ final class WorkflowPlanner {
         switch policy {
         case .organized:
             return .organized
+        case .archived:
+            return .archived
         }
     }
 
@@ -566,6 +571,8 @@ final class WorkflowPlanner {
             return ["visual-reference", "screenshot", "reference"]
         case .projectContext:
             return ["project", "context", "intake"]
+        case .datedArchive:
+            return ["archive", "dated", "document"]
         }
     }
 

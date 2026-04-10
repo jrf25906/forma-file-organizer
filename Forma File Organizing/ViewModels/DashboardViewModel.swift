@@ -1825,7 +1825,7 @@ class DashboardViewModel: ObservableObject {
 
     private func fallbackInspectorStatus(for workflowStatus: MetadataWorkflowStatus?) -> FileItem.OrganizationStatus {
         switch workflowStatus {
-        case .organized:
+        case .organized, .archived:
             return .completed
         case .ignored:
             return .skipped

@@ -5,11 +5,13 @@ struct BuiltInWorkflowTemplate: Identifiable, Sendable, Hashable {
         static let receipts = "builtin.workflow.receipts.v1"
         static let screenshots = "builtin.workflow.screenshots.v1"
         static let projectDrop = "builtin.workflow.project-drop.v1"
+        static let datedArchive = "builtin.workflow.dated-archive.v1"
 
         static let all: [String] = [
             receipts,
             screenshots,
-            projectDrop
+            projectDrop,
+            datedArchive
         ]
     }
 
@@ -23,6 +25,7 @@ struct BuiltInWorkflowTemplate: Identifiable, Sendable, Hashable {
         case financialDocuments
         case visualReference
         case projectContext
+        case datedArchive
     }
 
     enum NotificationPolicy: String, Sendable, CaseIterable {
@@ -36,6 +39,7 @@ struct BuiltInWorkflowTemplate: Identifiable, Sendable, Hashable {
 
     enum WorkflowStatusPolicy: String, Sendable, CaseIterable {
         case organized
+        case archived
     }
 
     enum NotesSummaryPolicy: String, Sendable, CaseIterable {
@@ -43,6 +47,12 @@ struct BuiltInWorkflowTemplate: Identifiable, Sendable, Hashable {
     }
 
     static let requiredActionShape: [TrustedAutomationAllowedAction] = [.rename, .tag, .move]
+    static let metadataArchiveActionShape: [TrustedAutomationAllowedAction] = [
+        .rename,
+        .tag,
+        .workflowStatus,
+        .move
+    ]
     static let projectDropActionShape: [TrustedAutomationAllowedAction] = [
         .rename,
         .tag,

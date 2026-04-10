@@ -1902,7 +1902,9 @@ final class FileMetadataFoundationService {
 
         switch eventKind {
         case .organized:
-            record.workflowStatus = .organized
+            if record.workflowStatus != .archived {
+                record.workflowStatus = .organized
+            }
         case .ignored:
             record.workflowStatus = .ignored
         case .undone:

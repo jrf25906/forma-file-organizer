@@ -162,6 +162,7 @@ final class WorkflowRunnerTests: XCTestCase {
             executorsByKind: [
                 .rename: RenameWorkflowStepExecutor(),
                 .tag: TagWorkflowStepExecutor(),
+                .workflowStatus: WorkflowStatusWorkflowStepExecutor(),
                 .move: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator)
             ],
             sideEffectExecutorsByKind: [
@@ -223,7 +224,7 @@ final class WorkflowRunnerTests: XCTestCase {
             invocationContext: .trustedScopeScheduled(scopeDisplayName: "Design Assets")
         )
         XCTAssertFalse(plan.hasBlockers)
-        XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .move, .log, .notify])
+        XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .workflowStatus, .move, .log, .notify])
 
         let notifyExecutor = StubRunSideEffectExecutor(stepKind: .notify) { _ in
             throw InjectedNotifyFailure()
@@ -235,6 +236,7 @@ final class WorkflowRunnerTests: XCTestCase {
             executorsByKind: [
                 .rename: RenameWorkflowStepExecutor(),
                 .tag: TagWorkflowStepExecutor(),
+                .workflowStatus: WorkflowStatusWorkflowStepExecutor(),
                 .move: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator)
             ],
             sideEffectExecutorsByKind: [
@@ -326,6 +328,65 @@ final class WorkflowRunnerTests: XCTestCase {
 
         let fileActions = try environment.auditStore.fileActions(runID: run.id)
         XCTAssertTrue(fileActions.contains(where: { $0.metadataDelta?.resultingNotesSummary == "Project: Alpha" }))
+    }
+
+    func testRunner_ArchiveTemplate_PersistsArchivedWorkflowStatusAndAuditDelta() async throws {
+        let environment = try makeEnvironment()
+        FeatureFlagService.shared.setEnabled(.durableWorkflowStatus, true)
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let sourceURL = try tempDirectory.createFile(name: "Inbox/Quarterly Report.pdf", contents: "report")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Archive")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let file = FileItem(
+            path: sourceURL.path,
+            sizeInBytes: 100,
+            creationDate: creationDate,
+            modificationDate: creationDate,
+            lastAccessedDate: creationDate,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .pending
+        )
+        environment.context.insert(file)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.datedArchive,
+            files: [file],
+            invocationContext: .dashboardReview
+        )
+        XCTAssertFalse(plan.hasBlockers)
+        XCTAssertEqual(plan.definition.stepKinds, [.rename, .tag, .workflowStatus, .move, .log])
+
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator()
+        )
+
+        _ = try await runner.run(
+            plan: plan,
+            files: [file],
+            scopeID: UUID(),
+            modelContext: environment.context
+        )
+
+        let record = try XCTUnwrap(
+            environment.context.fetch(FetchDescriptor<FileMetadataRecord>()).first
+        )
+        XCTAssertEqual(record.workflowStatus, .archived)
+
+        let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
+        let stepRuns = try environment.auditStore.stepRuns(runID: run.id)
+        XCTAssertTrue(stepRuns.contains(where: { $0.stepID.contains("workflowStatus") && $0.status == .succeeded }))
+
+        let fileActions = try environment.auditStore.fileActions(runID: run.id)
+        XCTAssertTrue(fileActions.contains(where: { $0.metadataDelta?.resultingWorkflowStatus == .archived }))
     }
 
     func testRunner_BlockedPlan_PersistsPreflightAuditRows() async throws {
@@ -962,6 +1023,7 @@ final class WorkflowRunnerTests: XCTestCase {
             executorsByKind: [
                 .rename: RenameWorkflowStepExecutor(),
                 .tag: TagWorkflowStepExecutor(),
+                .workflowStatus: WorkflowStatusWorkflowStepExecutor(),
                 .move: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator)
             ],
             sideEffectExecutorsByKind: [
@@ -1034,6 +1096,7 @@ final class WorkflowRunnerTests: XCTestCase {
             executorsByKind: [
                 .rename: RenameWorkflowStepExecutor(),
                 .tag: TagWorkflowStepExecutor(),
+                .workflowStatus: WorkflowStatusWorkflowStepExecutor(),
                 .move: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator)
             ],
             sideEffectExecutorsByKind: [
