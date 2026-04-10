@@ -170,6 +170,46 @@ final class FileOperationsServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testMoveFile_DestinationExistsRepeatedly_StaysOnAlreadyExistsPath() async throws {
+        // Given: Source file and destination collision
+        let sourceURL = try tempSourceDir.createFile(name: "collision.txt", contents: "source")
+        let destDir = try tempDestDir.createDirectory(name: "Documents")
+        try "existing".write(
+            to: destDir.appendingPathComponent("collision.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let destination = try Destination.folder(from: destDir)
+        let fileItem = createFileItem(
+            name: "collision.txt",
+            path: sourceURL.path,
+            destination: destination
+        )
+
+        let (service, _) = try makeServiceAndContext()
+
+        // We cannot directly observe URL security-scope stop calls in XCTest.
+        // This regression repeatedly exercises an error path that occurs after
+        // destination-folder access begins. If cleanup regresses, this path can
+        // eventually shift to permission/access failures.
+        for _ in 0..<64 {
+            do {
+                _ = try await service.moveFile(fileItem)
+                XCTFail("Expected alreadyExists error to be thrown")
+            } catch let error as FormaError {
+                if case .fileSystem(.alreadyExists) = error {
+                    // Expected collision path
+                } else {
+                    XCTFail("Expected fileSystem alreadyExists error, got \(error)")
+                }
+            }
+        }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path))
+    }
+
+    @MainActor
     func testMoveFile_WhenSourceAlreadyAtDestination_ReturnsSuccessfulNoOp() async throws {
         // Given: Source file already lives in the destination folder
         let sourceURL = try tempSourceDir.createFile(name: "already-there.txt", contents: "content")

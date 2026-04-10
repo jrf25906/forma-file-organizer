@@ -442,16 +442,17 @@ final class FileOperationsService {
             // Stale bookmarks may still work, but we log it
         }
 
-        // Start security-scoped access to the destination
-        guard destinationFolderURL.startAccessingSecurityScopedResource() else {
+        // Start security-scoped access to the destination via RAII wrapper
+        var destinationAccess: SecurityScopedAccess? = nil
+        _ = destinationAccess // Silence "never read" warning - RAII pattern
+
+        guard let access = SecurityScopedAccess(url: destinationFolderURL) else {
             #if DEBUG
             Log.error("BOOKMARK MOVE: Failed to start security-scoped access to \(destinationFolderURL.path)", category: .security)
             #endif
             throw FormaError.permissionDenied(for: destinationFolderURL.path)
         }
-        defer {
-            destinationFolderURL.stopAccessingSecurityScopedResource()
-        }
+        destinationAccess = access
 
         // Also need access to the source folder
         let sourceFolder = sourceURL.deletingLastPathComponent()
