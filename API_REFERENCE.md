@@ -4,6 +4,18 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Developer workflow documentation
+  - No app API changes in this update.
+  - Added `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md` to document the repo-approved `build-macos-apps` workflow, reusable prompt, and verification expectations for Forma.
+
+- File-surface QA hooks
+  - `FileSurfaceActionVisibility`
+    - `shouldShowPrimaryAction(primaryActionKind:showsPrimaryActionButton:isSelectionMode:isInteracting:)`
+    - `shouldShowOverflowMenu(isSelectionMode:isInteracting:)`
+  - `FilePrimaryActionKind`
+    - `accessibilityIdentifierSuffix`
+  - Shared file-surface primary-action controls now expose stable UI automation identifiers of the form `filePrimaryAction_<kind>`, and grid view keeps the `Choose Destination` recovery action visible without hover so no-destination setup matches card/list behavior.
+
 - macOS integration os-surface adoption
   - `ExternalIngressExecutionMode`
     - `immediate`

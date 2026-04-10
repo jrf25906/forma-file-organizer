@@ -5,7 +5,13 @@ Canonical changelog: [Docs/Getting-Started/CHANGELOG.md](Docs/Getting-Started/CH
 Use this short template to stage upcoming notes; add finalized entries to the canonical changelog as changes land.
 
 ## [Unreleased]
+### Added
+- Developer workflow guidance for the `build-macos-apps` plugin now lives in `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md`, with a Forma-specific reusable prompt and verification expectations aligned to `codex-project.toml`, `AGENTS.md`, `fastlane/`, and `Scripts/`.
+
 ### Fixed
+- File-surface parity hardening:
+  - Grid view now keeps `Choose Destination` visible for files that still need setup, matching the existing card/list recovery affordance instead of hiding it behind hover.
+  - Shared file-surface primary actions now expose stable accessibility labels/identifiers for icon-only controls, and the focused toolbar-validation UI suite now terminates stale app processes before launch so the new grid parity assertion is deterministic.
 - Sidebar/right-panel cleanup:
   - Sidebar and default-panel Analytics actions now reveal the right panel before switching into analytics mode, matching the Smart Rules path instead of silently updating hidden panel state.
   - The old navigation-based Smart Rules/Analytics compatibility path has been removed from `NavigationSelection`, `MainContentView`, and the dashboard default-panel CTA logic so those surfaces no longer carry dead center-column routing branches.

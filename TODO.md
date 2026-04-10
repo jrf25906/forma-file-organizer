@@ -45,6 +45,16 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Add explicit sidebar `Request Access` affordances for locked standard folders plus destination-edit power-user entry points via row context menus, the command palette, and the focused-row `E` shortcut.
 - [x] Verify that the seeded UI-test review dataset still uses synthetic `/Users/test/...` fixture paths, so generic icons there are expected and this pass does not change thumbnail behavior.
 
+## Developer Workflow Docs (April 9, 2026)
+- [x] Add repo-local guidance for using the `build-macos-apps` plugin against the native Forma app, including a reusable Codex prompt and verification checklist wired to the repo's declared commands and release scripts.
+
+## Overnight QA Follow-Up (April 9, 2026)
+- [x] Restore file-surface parity so grid view exposes `Choose Destination` for files without a destination the same way card/list already do.
+- [x] Update `AppStoreScreenshotTests` for the current sidebar/inspector information architecture so the screenshot flow matches the shipped Smart Rules and rule-management paths.
+- [x] Stabilize `FileSurfaceToolbarValidationTests.testCaptureFileSurfaceAndToolbarValidationShots` so the screenshot flow reliably returns to card mode and captures the expected surface states.
+- [ ] Add direct runtime verification for onboarding folder selection, permission denial/recovery, and inspector visibility persistence across relaunches.
+- [ ] Repair the performance validation path so `OptimizationBenchmarksTests` and `Scripts/signpost_harness_snapshot.sh` produce usable benchmark/signpost outputs again.
+
 ## Review-First Selection App Intent (April 9, 2026)
 - [x] Add a persisted `ExternalIngressExecutionMode` so external requests can distinguish immediate runs from review-first runs without splitting the ingress pipeline.
 - [x] Keep review-first external requests auto-organizing safe selected items while opening Forma only when reviewable items remain, not for skip-only or already-finished outcomes.
