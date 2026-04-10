@@ -142,13 +142,6 @@ struct DashboardView: View {
         usesThreeColumnLayout ? "threeColumn" : "twoColumn"
     }
 
-    private var splitLayoutIdentity: String {
-        if showsAnalyticsAsPrimaryDetail {
-            return "analyticsTwoColumn"
-        }
-        return usesThreeColumnLayout ? "threeColumn" : "centerTwoColumn"
-    }
-
     private var showsAnalyticsAsPrimaryDetail: Bool {
         if case .analytics = dashboardViewModel.rightPanelMode {
             return true
@@ -163,9 +156,10 @@ struct DashboardView: View {
     private var splitViewColumnVisibility: Binding<NavigationSplitViewVisibility> {
         Binding(
             get: {
-                DashboardSplitViewPolicy.visibility(for: dashboardViewModel.isRightPanelVisible)
+                DashboardSplitViewPolicy.visibility(for: usesThreeColumnLayout)
             },
             set: { newVisibility in
+                guard !showsAnalyticsAsPrimaryDetail else { return }
                 let isInspectorVisible = DashboardSplitViewPolicy.isInspectorVisible(for: newVisibility)
                 guard isInspectorVisible != dashboardViewModel.isRightPanelVisible else { return }
                 dashboardViewModel.setRightPanelVisible(isInspectorVisible)
@@ -207,30 +201,32 @@ struct DashboardView: View {
     }
 
     @ViewBuilder
-    private var splitViewLayout: some View {
-        if showsAnalyticsAsPrimaryDetail {
-            NavigationSplitView {
-                sidebarColumn
-            } detail: {
-                rightPanelColumn
-            }
-            .navigationSplitViewStyle(.balanced)
-        } else if usesThreeColumnLayout {
-            NavigationSplitView(columnVisibility: splitViewColumnVisibility) {
-                sidebarColumn
-            } content: {
-                centerColumn
-            } detail: {
-                rightPanelColumn
-            }
-            .navigationSplitViewStyle(.balanced)
+    private var centerOrAnalyticsColumn: some View {
+        if usesThreeColumnLayout {
+            centerColumn
         } else {
-            NavigationSplitView {
-                sidebarColumn
-            } detail: {
-                centerColumn
-            }
-            .navigationSplitViewStyle(.balanced)
+            sidebarColumn
+        }
+    }
+
+    @ViewBuilder
+    private var inspectorDetailColumn: some View {
+        if usesThreeColumnLayout {
+            rightPanelColumn
+        } else if showsAnalyticsAsPrimaryDetail {
+            rightPanelColumn
+        } else {
+            centerColumn
+        }
+    }
+
+    private var splitViewLayout: some View {
+        NavigationSplitView(columnVisibility: splitViewColumnVisibility) {
+            sidebarColumn
+        } content: {
+            centerOrAnalyticsColumn
+        } detail: {
+            inspectorDetailColumn
         }
     }
 
@@ -266,7 +262,6 @@ struct DashboardView: View {
                     PrimaryBackgroundView()
 
                     splitViewLayout
-                    .id(splitLayoutIdentity)
                     .disabled(nav.isShowingRuleEditor || (tourState.isActive && !DebugFlags.disableGuidedTourOverlay))
 
                     Color.clear

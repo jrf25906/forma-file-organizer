@@ -503,6 +503,24 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     }
 
     @MainActor
+    func testInspectorTogglePreservesSidebarAndSplitProbeDuringVisibilityChanges() throws {
+        launchApp(windowSize: "1600x980")
+        harness.waitForMainContent()
+
+        let splitProbe = harness.element(withIdentifier: "dashboardSplitLayoutProbe")
+        harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
+
+        let inspectorToggle = harness.element(withIdentifier: "toolbarInspectorToggle")
+        inspectorToggle.click()
+        harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
+        XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4))
+
+        inspectorToggle.click()
+        harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
+        XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4))
+    }
+
+    @MainActor
     func testAccessibilityStateIdentifiersAcrossViewModes() throws {
         harness.waitForMainContent()
         app.activate()
