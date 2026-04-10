@@ -229,17 +229,42 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - Workflow audit semantics are explicit: primary run status and rollback status stay separate, per-step outcomes and per-file actions are persisted independently, side-effect failures surface `completedWithIssues` without rolling back durable success, and rollback state is projected back into trusted-scope detail, activity, and inspector surfaces without flattening failures into generic success copy.
   - Workflow audit depth now also includes run-level trigger/owner/policy context, preflight `planned` / `blocked` / `skipped` step rows, and file-level metadata deltas on both forward and rollback rows so `WorkflowRunDetailSheet`, inspector summaries, and activity text can explain who launched a run and what metadata changed, not just which path mutation succeeded.
   - `WorkflowExecutionRequest` is now the shared launch model across project-policy, trusted-scope, review, and inspector workflow-v2 entry points, and trusted automation surfaces now project the selected template's real step shape instead of treating every trusted scope as the same fixed move-first recipe.
+  - `WorkflowExecutionRequest.workflowMemoryAttribution` now gives the shared runner one normalized project-label/template/trigger attribution path for durable workflow-memory updates, so only project-scoped runs with real execution context strengthen `ProjectSpaceWorkflowProfile`.
 - Project-space workflow profiles and manual workflow execution
+  - `WorkflowMemoryStatus`
+    - `.stable`
+    - `.stale`
+    - `.conflicted`
   - `ProjectSpaceWorkflowProfile`
     - `normalizedProjectLabel`
     - `preferredWorkflowTemplateID`
     - `lastWorkflowRunID`
     - `lastWorkflowCompletedAt`
+    - `successfulTemplateID`
+    - `successfulTemplateCount`
+    - `successfulTemplateLastSucceededAt`
+    - `dominantTriggerSurface`
+    - `dominantTriggerSurfaceCount`
+    - `dominantTriggerSurfaceLastSeenAt`
+    - `latestSuccessfulDestinationSignal`
+    - `latestSuccessfulDestinationAt`
+    - `workflowMemoryStatus`
+    - `workflowMemorySchemaVersion`
     - `updatedAt`
   - `ProjectSpaceWorkflowProfileService`
     - `profile(normalizedProjectLabel:)`
     - `upsertPreferredTemplate(_:for:at:)`
-    - `recordLatestRun(_:for:at:)`
+    - `recordLatestRun(_:for:at:outcome:)`
+  - `ProjectSpaceWorkflowMemoryProjectionState`
+    - `.stable`
+    - `.stale`
+    - `.conflicted`
+    - `.destinationFallback`
+  - `ProjectSpaceWorkflowMemoryProjection`
+  - `ProjectSpaceMemoryResolver`
+    - `resolveWorkflowMemoryProjection(for:profile:now:)`
+  - `ProjectSpaceAutomationRecommendationService`
+    - `recommendedPolicies(for:now:)`
   - `DashboardViewModel`
     - `selectedProjectSpaceWorkflowTemplateID`
     - `projectSpaceWorkflowSimulationPreview`
@@ -253,8 +278,10 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `.projectSpace(projectLabel:)`
   - `ActivityItem.WorkflowTriggerSurface`
     - `.projectSpace`
-  - Project spaces can now remember a preferred built-in workflow template and their latest workflow run without introducing a separate durable project entity.
-  - Project-space detail now exposes a manual-only workflow section with remembered template selection, simulation preview, disabled-state guidance, and latest-run summary, and `Organize Project Space` runs all currently reachable project-space files through the built-in workflow pipeline after explicit-selection preparation.
+  - Project spaces can now remember a preferred built-in workflow template plus workflow-backed memory facts without introducing a separate durable project entity, including the most recent successful template, how often it succeeded, which trigger surface dominated, the latest successful destination signal, and a stable/stale/conflicted memory status.
+  - `WorkflowRunner` now feeds that profile memory from shared workflow outcomes through request attribution: durable successes strengthen memory once per run, blocked-preflight-only runs do not count as success, and later conflicting failures mark the memory as conflicted instead of fabricating certainty.
+  - `ProjectSpaceMemoryResolver` and `ProjectSpaceAutomationRecommendationService` now prefer stable workflow-backed memory for policy recommendations and only fall back to destination history when workflow memory is unavailable, surfacing `.destinationFallback` explicitly instead of pretending folder-history heuristics are the same as workflow proof.
+  - Project-space detail now exposes a manual-only workflow section with remembered template selection, simulation preview, disabled-state guidance, latest-run summary, and workflow-memory projection, and `Organize Project Space` runs all currently reachable project-space files through the built-in workflow pipeline after explicit-selection preparation.
   - Project-space-triggered runs now carry their own workflow invocation/activity label instead of collapsing into review or trusted-scope wording.
 - Workflow Engine v2 Task 5 ad hoc organize routing
   - `WorkflowExecutionClient`
@@ -439,8 +466,15 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `TrustedAutomationScopeLifecycleSummary`
   - `TrustedAutomationScopeHealthSummary`
   - `TrustedAutomationScopeRecentRunSummary`
+  - `TrustedAutomationScopeWorkflowMemoryState`
+    - `.stable`
+    - `.stale`
+    - `.conflicted`
+  - `TrustedAutomationScopeWorkflowMemorySummary`
   - `TrustedAutomationScopeSummary`
+    - `workflowMemory`
   - `TrustedAutomationScopeDetail`
+    - `workflowMemory`
   - `TrustedAutomationScopeSummarySection`
   - `TrustedAutomationScopeCatalogService`
     - `buildSummarySections(referenceDate:)`
@@ -485,6 +519,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - `attentionScopeCount`
   - Trusted scopes now ship as visible optional autopilot boundaries with active/paused/revoked lifecycle, derived health, recent-run inspection, and scope-aware notifications/activity while keeping move-only automation and review-earned trust as the branch boundary.
   - Trusted-scope detail now projects the selected built-in workflow template plus the latest workflow-native run and rollback summary instead of limiting autopilot detail to move-only recent-run counters.
+  - Trusted-scope catalog, detail, recommendation, and execution surfaces now derive and project a stable/stale/conflicted workflow-memory summary from recent trusted-scope runs plus the latest workflow audit row, and `AutomationEngine` holds conflicted scopes explicitly instead of silently auto-running through ambiguous memory.
 - Rule lookup helpers (`Forma File Organizing/Services/RuleService.swift`)
   - `fetchRule(id:)`
   - `findMatchingMoveRule(conditions:logicalOperator:destination:)`

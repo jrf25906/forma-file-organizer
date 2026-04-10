@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import Forma_File_Organizing
 
 @MainActor
@@ -290,6 +291,241 @@ final class TrustedAutomationScopeSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.latestPreflightSummary, "No scope-specific preflight has run yet.")
         XCTAssertEqual(snapshot.recentRuns.first?.statusText, "Executed")
         XCTAssertEqual(snapshot.recentRuns.first?.summaryText, "Executed 4 matching files.")
+    }
+
+    func testTrustedAutomationScopeDetailSheet_ShowsWorkflowMemoryStateForRecentTemplateRuns() throws {
+        let schema = Schema([
+            TrustedAutomationScope.self,
+            TrustedAutomationScopeRunRecord.self,
+            WorkflowRunRecord.self,
+            WorkflowStepRunRecord.self,
+            WorkflowFileActionRecord.self,
+            Rule.self,
+            RuleCategory.self
+        ])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let catalogService = TrustedAutomationScopeCatalogService(modelContext: context)
+
+        let destination = Destination.mockFolder("Documents/Receipts")
+        let scope = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "/Users/example/Downloads/Receipts",
+            displayName: "Receipts",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Receipts"
+                ),
+                destination: .init(destination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 4,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.93,
+            rationaleSummary: "Receipts are consistently approved.",
+            allowedActions: [.move],
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+            templateAssignedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        _ = try scopeService.recordRun(
+            scopeID: scope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .executed,
+            matchedCount: 2,
+            eligibleCount: 2,
+            organizedCount: 2,
+            heldCount: 0,
+            failedCount: 0,
+            heldBuckets: [],
+            summaryText: "Organized two files.",
+            exampleFileNames: ["Receipt-January.pdf"],
+            startedAt: Date(timeIntervalSince1970: 100),
+            endedAt: Date(timeIntervalSince1970: 110)
+        )
+        _ = try scopeService.recordRun(
+            scopeID: scope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .executed,
+            matchedCount: 2,
+            eligibleCount: 2,
+            organizedCount: 2,
+            heldCount: 0,
+            failedCount: 0,
+            heldBuckets: [],
+            summaryText: "Organized two more files.",
+            exampleFileNames: ["Receipt-February.pdf"],
+            startedAt: Date(timeIntervalSince1970: 120),
+            endedAt: Date(timeIntervalSince1970: 130)
+        )
+
+        let detail = try XCTUnwrap(
+            catalogService.buildDetail(
+                for: scope.id,
+                referenceDate: Date(timeIntervalSince1970: 140)
+            )
+        )
+        let snapshot = TrustedAutomationScopeDetailSheet.Snapshot(
+            detail: detail,
+            now: Date(timeIntervalSince1970: 140),
+            relativeDateProvider: { _, _ in "just now" }
+        )
+
+        XCTAssertTrue(
+            snapshot.healthMessages.contains(where: { $0.localizedCaseInsensitiveContains("workflow memory is stable") })
+        )
+    }
+
+    func testTrustedAutomationScopeDetailSheet_ShowsStaleWorkflowMemorySummaryInWorkflowSection() {
+        let detail = TrustedAutomationScopeDetail(
+            id: UUID(),
+            summary: TrustedAutomationScopeSummary(
+                id: UUID(),
+                scopeType: .folder,
+                displayName: "Receipts",
+                boundarySummary: "Receipts -> Documents/Receipts",
+                allowedActions: [.rename, .tag, .move],
+                selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary(
+                    id: BuiltInWorkflowTemplate.StableID.receipts,
+                    displayName: "Receipt Workflow",
+                    summaryText: "Rename receipts, tag them, and move them into the archive.",
+                    allowedActions: [.rename, .tag, .move],
+                    assignedAt: Date(timeIntervalSince1970: 100)
+                ),
+                lifecycle: TrustedAutomationScopeLifecycleSummary(
+                    status: .active,
+                    createdAt: Date(timeIntervalSince1970: 100),
+                    updatedAt: Date(timeIntervalSince1970: 300),
+                    lastEvidenceAt: Date(timeIntervalSince1970: 250),
+                    pausedAt: nil,
+                    lastRunAt: Date(timeIntervalSince1970: 290),
+                    revokedAt: nil
+                ),
+                health: TrustedAutomationScopeHealthSummary(
+                    state: .needsAttention,
+                    messages: ["Workflow memory is stale: Receipt Workflow has 2 successful template-backed runs, but the last success was 2 months ago."],
+                    lastSuccessfulRunAt: Date(timeIntervalSince1970: 110),
+                    lastBlockedRunAt: nil
+                ),
+                workflowMemory: TrustedAutomationScopeWorkflowMemorySummary(
+                    state: .stale,
+                    templateID: BuiltInWorkflowTemplate.StableID.receipts,
+                    templateDisplayName: "Receipt Workflow",
+                    successfulRunCount: 2,
+                    lastSuccessfulRunAt: Date(timeIntervalSince1970: 110),
+                    lastAttentionRunAt: nil,
+                    summaryText: "Workflow memory is stale: Receipt Workflow has 2 successful template-backed runs, but the last success was 2 months ago."
+                ),
+                lastRun: nil
+            ),
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Receipts"
+                ),
+                destination: .init(.mockFolder("Documents/Receipts"))
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.96,
+            rationaleSummary: "Receipts are consistently approved.",
+            selectedWorkflowTemplate: TrustedAutomationScopeWorkflowTemplateSummary(
+                id: BuiltInWorkflowTemplate.StableID.receipts,
+                displayName: "Receipt Workflow",
+                summaryText: "Rename receipts, tag them, and move them into the archive.",
+                allowedActions: [.rename, .tag, .move],
+                assignedAt: Date(timeIntervalSince1970: 100)
+            ),
+            latestWorkflowRun: TrustedAutomationScopeWorkflowRunSummary(
+                templateID: BuiltInWorkflowTemplate.StableID.receipts,
+                primaryStatus: .succeeded,
+                rollbackStatus: .notRequested,
+                startedAt: Date(timeIntervalSince1970: 100),
+                completedAt: Date(timeIntervalSince1970: 110)
+            ),
+            recentRuns: []
+        )
+
+        let snapshot = TrustedAutomationScopeDetailSheet.Snapshot(
+            detail: detail,
+            now: Date(timeIntervalSince1970: 300),
+            relativeDateProvider: { _, _ in "just now" }
+        )
+
+        XCTAssertEqual(snapshot.workflowMemoryBadgeText, "Stale")
+        XCTAssertEqual(
+            snapshot.workflowMemorySummaryText,
+            "Workflow memory is stale: Receipt Workflow has 2 successful template-backed runs, but the last success was 2 months ago."
+        )
+    }
+
+    func testRecommendationSheet_ShowsWorkflowMemoryWarningWhenExistingMemoryIsConflicted() {
+        let destination = Destination.mockFolder("Documents/Receipts")
+        let recommendation = TrustedAutomationScopeRecommendation(
+            recommendedScope: TrustedAutomationScopeRecommendationOption(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 6,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.94,
+                rationaleSummary: "You’ve approved this folder pattern 6 times with no recent undo in Receipts.",
+                workflowMemory: TrustedAutomationScopeWorkflowMemorySummary(
+                    state: .conflicted,
+                    templateID: BuiltInWorkflowTemplate.StableID.receipts,
+                    templateDisplayName: "Receipt Workflow",
+                    successfulRunCount: 2,
+                    lastSuccessfulRunAt: Date(timeIntervalSince1970: 110),
+                    lastAttentionRunAt: Date(timeIntervalSince1970: 140),
+                    summaryText: "Workflow memory is conflicted: Receipt Workflow has 2 successful template-backed runs, but a later run needed attention recently."
+                )
+            ),
+            alternativeScopes: [],
+            snapshot: OrganizationMemorySnapshot(
+                fileName: "Receipt-Conflict.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                suggestionSource: .personalMemory,
+                suggestedDestination: destination,
+                chosenDestination: destination,
+                confidenceScore: 0.95,
+                matchedRuleID: nil
+            )
+        )
+
+        let snapshot = TrustedAutomationScopeRecommendationSheet.Snapshot(
+            recommendation: recommendation,
+            selectedScopeType: .folder,
+            previewSummary: TrustedAutomationScopeRecommendationPreviewSummary(
+                matchedCount: 1,
+                eligibleCount: 1,
+                skippedMissingDestinationCount: 0,
+                skippedPermissionIssueCount: 0,
+                skippedConfidenceThresholdCount: 0,
+                exampleFileNames: ["Receipt-Conflict.pdf"]
+            )
+        )
+
+        XCTAssertEqual(snapshot.workflowMemoryBadgeText, "Conflicted")
+        XCTAssertEqual(
+            snapshot.workflowMemorySummaryText,
+            "Workflow memory is conflicted: Receipt Workflow has 2 successful template-backed runs, but a later run needed attention recently."
+        )
     }
 
     func testTrustedAutomationScopeDetailSheet_ShowsSelectedTemplateStepShapeAndRollbackAvailability() {

@@ -29,6 +29,9 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         let schema = Schema([
             TrustedAutomationScope.self,
             TrustedAutomationScopeRunRecord.self,
+            WorkflowRunRecord.self,
+            WorkflowStepRunRecord.self,
+            WorkflowFileActionRecord.self,
             PersonalMemoryEvent.self,
             PersonalMemoryPreference.self,
             Rule.self,
@@ -53,6 +56,45 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         let (container, context, scopeService, memoryService, ruleService) = try makeRecommendationServices()
         try withExtendedLifetime(container) {
             try body(context, scopeService, memoryService, ruleService)
+        }
+    }
+
+    private func makeCatalogServices() throws -> (
+        ModelContainer,
+        ModelContext,
+        TrustedAutomationScopeService,
+        TrustedAutomationScopeCatalogService
+    ) {
+        let schema = Schema([
+            TrustedAutomationScope.self,
+            TrustedAutomationScopeRunRecord.self,
+            WorkflowRunRecord.self,
+            WorkflowStepRunRecord.self,
+            WorkflowFileActionRecord.self,
+            Rule.self,
+            RuleCategory.self
+        ])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+        return (
+            container,
+            context,
+            TrustedAutomationScopeService(modelContext: context),
+            TrustedAutomationScopeCatalogService(modelContext: context)
+        )
+    }
+
+    private func withCatalogServices(
+        _ body: (
+            _ context: ModelContext,
+            _ scopeService: TrustedAutomationScopeService,
+            _ catalogService: TrustedAutomationScopeCatalogService
+        ) throws -> Void
+    ) throws {
+        let (container, context, scopeService, catalogService) = try makeCatalogServices()
+        try withExtendedLifetime(container) {
+            try body(context, scopeService, catalogService)
         }
     }
 
@@ -261,6 +303,349 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
         }
     }
 
+    func testBuildDetail_ExplainsStableWorkflowMemoryAfterRecentTemplateRuns() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive")
+        )
+
+        try withCatalogServices { _, scopeService, catalogService in
+            let scope = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(reviewedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.93,
+                rationaleSummary: "Receipts are consistently approved.",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                templateAssignedAt: Date(timeIntervalSince1970: 100)
+            )
+
+            _ = try scopeService.recordRun(
+                scopeID: scope.id,
+                triggerSource: .scheduledAutomationPass,
+                status: .executed,
+                matchedCount: 3,
+                eligibleCount: 3,
+                organizedCount: 3,
+                heldCount: 0,
+                failedCount: 0,
+                heldBuckets: [],
+                summaryText: "Organized three files.",
+                exampleFileNames: ["Receipt-April.pdf"],
+                startedAt: Date(timeIntervalSince1970: 150),
+                endedAt: Date(timeIntervalSince1970: 160)
+            )
+            _ = try scopeService.recordRun(
+                scopeID: scope.id,
+                triggerSource: .scheduledAutomationPass,
+                status: .executed,
+                matchedCount: 2,
+                eligibleCount: 2,
+                organizedCount: 2,
+                heldCount: 0,
+                failedCount: 0,
+                heldBuckets: [],
+                summaryText: "Organized two more files.",
+                exampleFileNames: ["Receipt-May.pdf"],
+                startedAt: Date(timeIntervalSince1970: 200),
+                endedAt: Date(timeIntervalSince1970: 210)
+            )
+
+            let detail = try XCTUnwrap(
+                catalogService.buildDetail(
+                    for: scope.id,
+                    referenceDate: Date(timeIntervalSince1970: 250)
+                )
+            )
+
+            XCTAssertTrue(
+                detail.health.messages.contains(where: { $0.localizedCaseInsensitiveContains("workflow memory is stable") })
+            )
+        }
+    }
+
+    func testBuildDetail_ExplainsStaleWorkflowMemoryAfterSuccessfulRunGoesCold() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive")
+        )
+
+        try withCatalogServices { _, scopeService, catalogService in
+            let scope = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(reviewedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.93,
+                rationaleSummary: "Receipts are consistently approved.",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                templateAssignedAt: Date(timeIntervalSince1970: 100)
+            )
+
+            _ = try scopeService.recordRun(
+                scopeID: scope.id,
+                triggerSource: .scheduledAutomationPass,
+                status: .executed,
+                matchedCount: 2,
+                eligibleCount: 2,
+                organizedCount: 2,
+                heldCount: 0,
+                failedCount: 0,
+                heldBuckets: [],
+                summaryText: "Organized two files.",
+                exampleFileNames: ["Receipt-January.pdf"],
+                startedAt: Date(timeIntervalSince1970: 100),
+                endedAt: Date(timeIntervalSince1970: 110)
+            )
+
+            let detail = try XCTUnwrap(
+                catalogService.buildDetail(
+                    for: scope.id,
+                    referenceDate: Date(timeIntervalSince1970: 100 + (31 * 86_400))
+                )
+            )
+
+            XCTAssertEqual(detail.health.state, .needsAttention)
+            XCTAssertTrue(
+                detail.health.messages.contains(where: { $0.localizedCaseInsensitiveContains("workflow memory is stale") })
+            )
+        }
+    }
+
+    func testBuildDetail_ExplainsConflictedWorkflowMemoryAfterBlockedRun() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive")
+        )
+
+        try withCatalogServices { _, scopeService, catalogService in
+            let scope = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(reviewedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.93,
+                rationaleSummary: "Receipts are consistently approved.",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                templateAssignedAt: Date(timeIntervalSince1970: 100)
+            )
+
+            _ = try scopeService.recordRun(
+                scopeID: scope.id,
+                triggerSource: .scheduledAutomationPass,
+                status: .executed,
+                matchedCount: 2,
+                eligibleCount: 2,
+                organizedCount: 2,
+                heldCount: 0,
+                failedCount: 0,
+                heldBuckets: [],
+                summaryText: "Organized two files.",
+                exampleFileNames: ["Receipt-January.pdf"],
+                startedAt: Date(timeIntervalSince1970: 100),
+                endedAt: Date(timeIntervalSince1970: 110)
+            )
+            _ = try scopeService.recordRun(
+                scopeID: scope.id,
+                triggerSource: .scheduledAutomationPass,
+                status: .failed,
+                matchedCount: 2,
+                eligibleCount: 2,
+                organizedCount: 0,
+                heldCount: 0,
+                failedCount: 2,
+                heldBuckets: [],
+                summaryText: "Workflow failed on a later pass.",
+                exampleFileNames: ["Receipt-February.pdf"],
+                startedAt: Date(timeIntervalSince1970: 120),
+                endedAt: Date(timeIntervalSince1970: 130)
+            )
+
+            let detail = try XCTUnwrap(
+                catalogService.buildDetail(
+                    for: scope.id,
+                    referenceDate: Date(timeIntervalSince1970: 140)
+                )
+            )
+
+            XCTAssertEqual(detail.health.state, .needsAttention)
+            XCTAssertTrue(
+                detail.health.messages.contains(where: { $0.localizedCaseInsensitiveContains("workflow memory is conflicted") })
+            )
+        }
+    }
+
+    func testBuildDetail_ClearsWorkflowMemoryAndLatestRunAfterValidTemplateReassignment() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive")
+        )
+
+        try withCatalogServices { context, scopeService, catalogService in
+            let scope = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(reviewedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.93,
+                rationaleSummary: "Receipts are consistently approved.",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                templateAssignedAt: Date(timeIntervalSince1970: 100)
+            )
+
+            _ = try scopeService.recordRun(
+                scopeID: scope.id,
+                triggerSource: .scheduledAutomationPass,
+                status: .executed,
+                matchedCount: 2,
+                eligibleCount: 2,
+                organizedCount: 2,
+                heldCount: 0,
+                failedCount: 0,
+                heldBuckets: [],
+                summaryText: "Organized two files.",
+                exampleFileNames: ["Receipt-January.pdf"],
+                startedAt: Date(timeIntervalSince1970: 120),
+                endedAt: Date(timeIntervalSince1970: 130)
+            )
+            _ = try WorkflowAuditStore(modelContext: context).createRun(
+                scopeID: scope.id,
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                startedAt: Date(timeIntervalSince1970: 120),
+                primaryStatus: .succeeded
+            )
+
+            scope.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.screenshots
+            scope.templateAssignedAt = Date(timeIntervalSince1970: 200)
+            try context.save()
+
+            let detail = try XCTUnwrap(
+                catalogService.buildDetail(
+                    for: scope.id,
+                    referenceDate: Date(timeIntervalSince1970: 240)
+                )
+            )
+
+            XCTAssertNil(detail.workflowMemory)
+            XCTAssertNil(detail.latestWorkflowRun)
+        }
+    }
+
+    func testBuildDetail_DoesNotResolveQuietWhenRecentWorkflowMemoryOnlyComesFromAudit() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let reviewedDestination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive")
+        )
+
+        try withCatalogServices { context, scopeService, catalogService in
+            let scope = try scopeService.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(reviewedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.93,
+                rationaleSummary: "Receipts are consistently approved.",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                templateAssignedAt: Date(timeIntervalSince1970: 100)
+            )
+
+            _ = try WorkflowAuditStore(modelContext: context).createRun(
+                scopeID: scope.id,
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                startedAt: Date(timeIntervalSince1970: 220),
+                primaryStatus: .succeeded
+            )
+
+            let detail = try XCTUnwrap(
+                catalogService.buildDetail(
+                    for: scope.id,
+                    referenceDate: Date(timeIntervalSince1970: 240)
+                )
+            )
+
+            XCTAssertNotEqual(detail.health.state, .quiet)
+            XCTAssertTrue(
+                detail.health.messages.contains(where: { $0.localizedCaseInsensitiveContains("workflow memory is stable") })
+            )
+        }
+    }
+
     func testRecommendedScope_PrefersRuleThenFolderThenCategory() throws {
         try withRecommendationServices { _, service, memoryService, ruleService in
             let destination = Destination.mockFolder("Documents/Receipts")
@@ -354,6 +739,83 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
 
             let categoryRecommendation = try service.recommendedScope(for: categorySnapshot)
             XCTAssertEqual(categoryRecommendation?.recommendedScope.scopeType, .category)
+        }
+    }
+
+    func testRecommendedScope_EnrichesExistingFolderScopeWithWorkflowMemory() throws {
+        try withRecommendationServices { context, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let referenceNow = Date()
+            let snapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                destination: destination
+            )
+
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: referenceNow.addingTimeInterval(TimeInterval(-3 + dayOffset))
+                )
+            }
+
+            let scope = try service.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Receipts",
+                displayName: "Receipts",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .downloads,
+                        scanRootPath: "/Users/example/Downloads",
+                        relativeParentPath: "Receipts"
+                    ),
+                    destination: .init(destination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.93,
+                rationaleSummary: "Receipts are consistently approved.",
+                allowedActions: [.move],
+                selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                templateAssignedAt: referenceNow.addingTimeInterval(-600)
+            )
+
+            _ = try service.recordRun(
+                scopeID: scope.id,
+                triggerSource: .scheduledAutomationPass,
+                status: .executed,
+                matchedCount: 1,
+                eligibleCount: 1,
+                organizedCount: 1,
+                heldCount: 0,
+                failedCount: 0,
+                heldBuckets: [],
+                summaryText: "Initial run succeeded.",
+                exampleFileNames: ["Receipt.pdf"],
+                startedAt: referenceNow.addingTimeInterval(-300),
+                endedAt: referenceNow.addingTimeInterval(-240)
+            )
+            _ = try WorkflowAuditStore(modelContext: context).createRun(
+                scopeID: scope.id,
+                workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+                startedAt: referenceNow.addingTimeInterval(-300),
+                primaryStatus: .succeeded
+            )
+
+            let recommendation = try XCTUnwrap(service.recommendedScope(for: snapshot))
+            let folderOption = try XCTUnwrap(recommendation.option(for: .folder))
+
+            XCTAssertEqual(folderOption.workflowMemory?.state, .stable)
+            XCTAssertEqual(folderOption.workflowMemory?.templateID, BuiltInWorkflowTemplate.StableID.receipts)
         }
     }
 

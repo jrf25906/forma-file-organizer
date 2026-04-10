@@ -26,6 +26,8 @@ struct TrustedAutomationScopeDetailSheet: View {
         let workflowTemplateTitle: String
         let workflowTemplateSummary: String
         let workflowStepShapeText: String
+        let workflowMemoryBadgeText: String?
+        let workflowMemorySummaryText: String?
         let latestWorkflowStatusText: String
         let rollbackAvailabilityText: String
         let recentRuns: [RunSnapshot]
@@ -65,6 +67,8 @@ struct TrustedAutomationScopeDetailSheet: View {
             self.workflowStepShapeText = Self.workflowStepShapeText(
                 for: detail.selectedWorkflowTemplate?.allowedActions ?? detail.summary.allowedActions
             )
+            self.workflowMemoryBadgeText = detail.workflowMemory?.badgeText
+            self.workflowMemorySummaryText = detail.workflowMemory?.summaryText
             self.latestWorkflowStatusText = Self.latestWorkflowStatusText(detail.latestWorkflowRun)
             self.rollbackAvailabilityText = Self.rollbackAvailabilityText(detail.latestWorkflowRun)
             self.recentRuns = detail.recentRuns.map {
@@ -322,6 +326,14 @@ struct TrustedAutomationScopeDetailSheet: View {
                             detailMetric(title: "Template", value: snapshot.workflowTemplateTitle)
                             detailMetric(title: "Summary", value: snapshot.workflowTemplateSummary)
                             detailMetric(title: "Step shape", value: snapshot.workflowStepShapeText)
+                            if let workflowMemoryBadgeText = snapshot.workflowMemoryBadgeText,
+                               let workflowMemorySummaryText = snapshot.workflowMemorySummaryText {
+                                detailMetric(title: "Memory", value: workflowMemoryBadgeText)
+                                Text(workflowMemorySummaryText)
+                                    .font(.formaSmall)
+                                    .foregroundStyle(Color.formaSecondaryLabel)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                             detailMetric(title: "Status", value: snapshot.latestWorkflowStatusText)
                             detailMetric(title: "Rollback", value: snapshot.rollbackAvailabilityText)
                         }

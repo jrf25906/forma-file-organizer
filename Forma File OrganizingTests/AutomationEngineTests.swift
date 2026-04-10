@@ -625,6 +625,294 @@ final class AutomationEngineTests: XCTestCase {
     }
 
     @MainActor
+    func testAutomationEngine_HoldsConflictedWorkflowMemoryInsteadOfExecutingTrustedScope() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(workflowExecution: workflowExecution.client)
+
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "Receipt-October.pdf",
+            destination: destination
+        )
+        context.insert(file)
+
+        let scope = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Receipts",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+        let referenceNow = Date(timeIntervalSince1970: 1_700_000_000)
+        scope.templateAssignedAt = referenceNow.addingTimeInterval(-700)
+        try context.save()
+
+        _ = try scopeService.recordRun(
+            scopeID: scope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .executed,
+            matchedCount: 1,
+            eligibleCount: 1,
+            organizedCount: 1,
+            heldCount: 0,
+            failedCount: 0,
+            heldBuckets: [],
+            summaryText: "Initial run succeeded.",
+            exampleFileNames: [file.name],
+            startedAt: referenceNow.addingTimeInterval(-600),
+            endedAt: referenceNow.addingTimeInterval(-540)
+        )
+        _ = try scopeService.recordRun(
+            scopeID: scope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .failed,
+            matchedCount: 1,
+            eligibleCount: 1,
+            organizedCount: 0,
+            heldCount: 0,
+            failedCount: 1,
+            heldBuckets: [],
+            summaryText: "Later run failed, so memory should be conflicted.",
+            exampleFileNames: [file.name],
+            startedAt: referenceNow.addingTimeInterval(-520),
+            endedAt: referenceNow.addingTimeInterval(-500)
+        )
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
+        XCTAssertTrue(workflowExecution.plannedTemplateIDs.isEmpty)
+        XCTAssertTrue(workflowExecution.ranTemplateIDs.isEmpty)
+
+        let records = try context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+            )
+        ).filter { $0.scopeID == scope.id }
+
+        XCTAssertEqual(Array(records.suffix(2).map(\.status)), [.simulated, .held])
+        let heldRecord = try XCTUnwrap(records.last)
+        XCTAssertTrue(heldRecord.summaryText?.localizedCaseInsensitiveContains("conflicted") == true)
+        XCTAssertTrue(
+            heldRecord.heldBuckets.contains { $0.bucket.localizedCaseInsensitiveContains("workflow memory") }
+        )
+    }
+
+    @MainActor
+    func testAutomationEngine_DoesNotHoldValidTemplateReassignmentForHistoricalConflict() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(workflowExecution: workflowExecution.client)
+        let referenceNow = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "Receipt-Reassigned.pdf",
+            destination: destination
+        )
+        context.insert(file)
+
+        let scope = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Receipts",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+
+        _ = try scopeService.recordRun(
+            scopeID: scope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .executed,
+            matchedCount: 1,
+            eligibleCount: 1,
+            organizedCount: 1,
+            heldCount: 0,
+            failedCount: 0,
+            heldBuckets: [],
+            summaryText: "Initial run succeeded.",
+            exampleFileNames: [file.name],
+            startedAt: referenceNow.addingTimeInterval(-600),
+            endedAt: referenceNow.addingTimeInterval(-540)
+        )
+        _ = try scopeService.recordRun(
+            scopeID: scope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .failed,
+            matchedCount: 1,
+            eligibleCount: 1,
+            organizedCount: 0,
+            heldCount: 0,
+            failedCount: 1,
+            heldBuckets: [],
+            summaryText: "Later run failed, so memory should be conflicted.",
+            exampleFileNames: [file.name],
+            startedAt: referenceNow.addingTimeInterval(-520),
+            endedAt: referenceNow.addingTimeInterval(-500)
+        )
+
+        scope.selectedWorkflowTemplateID = BuiltInWorkflowTemplate.StableID.screenshots
+        scope.templateAssignedAt = referenceNow.addingTimeInterval(-120)
+        try context.save()
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertEqual(workflowExecution.plannedTemplateIDs, [BuiltInWorkflowTemplate.StableID.screenshots])
+        XCTAssertEqual(workflowExecution.ranTemplateIDs, [BuiltInWorkflowTemplate.StableID.screenshots])
+
+        let records = try context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+            )
+        ).filter { $0.scopeID == scope.id }
+
+        XCTAssertEqual(Array(records.suffix(2).map(\.status)), [.simulated, .executed])
+    }
+
+    @MainActor
+    func testAutomationEngine_ConfigurationSummaryCarriesStableWorkflowMemoryContext() async throws {
+        let sourceRoot = try TemporaryDirectory()
+        defer { sourceRoot.cleanup() }
+
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(
+            from: try destinationRoot.createDirectory(name: "Receipts Archive"),
+            displayName: "Receipts Archive"
+        )
+
+        let container = try makeAutomationContainer()
+        let context = container.mainContext
+        let scopeService = TrustedAutomationScopeService(modelContext: context)
+        let provider = MockFileScanProvider()
+        let coordinator = RecordingOrganizationCoordinator()
+        let workflowExecution = WorkflowExecutionSpy()
+        let engine = makeEngine(workflowExecution: workflowExecution.client)
+        let auditStore = WorkflowAuditStore(modelContext: context)
+        let referenceNow = Date(timeIntervalSince1970: 1_700_000_000)
+        let successfulRunStart = referenceNow.addingTimeInterval(-300)
+        let successfulRunEnd = referenceNow.addingTimeInterval(-240)
+
+        let file = try makeFile(
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            fileName: "Receipt-November.pdf",
+            destination: destination
+        )
+        context.insert(file)
+
+        let scope = try makeFolderScope(
+            service: scopeService,
+            sourceRoot: sourceRoot,
+            relativeParentPath: "trusted",
+            displayName: "Receipts",
+            destination: destination,
+            selectedWorkflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts
+        )
+
+        _ = try scopeService.recordRun(
+            scopeID: scope.id,
+            triggerSource: .scheduledAutomationPass,
+            status: .executed,
+            matchedCount: 1,
+            eligibleCount: 1,
+            organizedCount: 1,
+            heldCount: 0,
+            failedCount: 0,
+            heldBuckets: [],
+            summaryText: "Initial run succeeded.",
+            exampleFileNames: [file.name],
+            startedAt: successfulRunStart,
+            endedAt: successfulRunEnd
+        )
+        _ = try auditStore.createRun(
+            scopeID: scope.id,
+            workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
+            startedAt: successfulRunStart,
+            primaryStatus: .succeeded
+        )
+
+        scope.selectedWorkflowTemplateID = "missing-template"
+        try context.save()
+
+        provider.autoOrganizeCandidates = [file]
+        engine.configure(
+            modelContext: context,
+            organizationCoordinator: coordinator,
+            scanProvider: provider
+        )
+
+        await engine.triggerAutoOrganize()
+
+        XCTAssertTrue(coordinator.organizedFileBatches.isEmpty)
+        XCTAssertTrue(workflowExecution.plannedTemplateIDs.isEmpty)
+        XCTAssertTrue(workflowExecution.ranTemplateIDs.isEmpty)
+
+        let records = try context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
+            )
+        ).filter { $0.scopeID == scope.id }
+
+        XCTAssertEqual(Array(records.suffix(2).map(\.status)), [.simulated, .held])
+
+        let heldRecord = try XCTUnwrap(records.last)
+        XCTAssertTrue(heldRecord.summaryText?.localizedCaseInsensitiveContains("workflow memory is stable") == true)
+        XCTAssertTrue(heldRecord.summaryText?.localizedCaseInsensitiveContains("template") == true)
+        XCTAssertTrue(heldRecord.heldBuckets.contains { $0.bucket.localizedCaseInsensitiveContains("template") })
+    }
+
+    @MainActor
     func testAutomationEngine_PostPreflightSkippedCountFeedsNotificationSummary() async throws {
         let sourceRoot = try TemporaryDirectory()
         defer { sourceRoot.cleanup() }

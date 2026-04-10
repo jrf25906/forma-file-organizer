@@ -12,6 +12,8 @@ struct TrustedAutomationScopeRecommendationSheet: View {
         let automaticBehaviorSummary: String
         let preflightSummary: String
         let rationaleSummary: String
+        let workflowMemoryBadgeText: String?
+        let workflowMemorySummaryText: String?
         let alternativeScopeTitles: [String]
 
         init(
@@ -37,6 +39,8 @@ struct TrustedAutomationScopeRecommendationSheet: View {
             )
             self.preflightSummary = previewSummary?.summaryText ?? "No pending or ready files currently match this scope."
             self.rationaleSummary = selectedOption.rationaleSummary
+            self.workflowMemoryBadgeText = selectedOption.workflowMemory?.badgeText
+            self.workflowMemorySummaryText = selectedOption.workflowMemory?.summaryText
             self.alternativeScopeTitles = recommendation.allScopeChoices
                 .filter { $0.scopeType != selectedOption.scopeType }
                 .map { $0.scopeType.displayName }
@@ -166,6 +170,18 @@ struct TrustedAutomationScopeRecommendationSheet: View {
                     .font(.formaSmall)
                     .foregroundColor(.formaSecondaryLabel)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if let workflowMemoryBadgeText = snapshot.workflowMemoryBadgeText,
+                   let workflowMemorySummaryText = snapshot.workflowMemorySummaryText {
+                    Text("Workflow memory: \(workflowMemoryBadgeText)")
+                        .font(.formaCaptionBold)
+                        .foregroundColor(.formaSteelBlue)
+
+                    Text(workflowMemorySummaryText)
+                        .font(.formaCaption)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 if !snapshot.alternativeScopeTitles.isEmpty {
                     Text("Alternatives: \(snapshot.alternativeScopeTitles.joined(separator: ", "))")

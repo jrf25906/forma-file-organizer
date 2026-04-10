@@ -1052,6 +1052,25 @@ final class AutomationEngine: ObservableObject {
         triggerSource: TrustedAutomationScopeRunTriggerSource,
         context: ModelContext
     ) async -> ScopedAutomationExecutionResult {
+        let workflowMemory = trustedScopeWorkflowMemorySummary(for: group.scope, context: context)
+
+        if workflowMemory?.state == .conflicted {
+            return ScopedAutomationExecutionResult(
+                successCount: 0,
+                failedCount: 0,
+                skippedCount: group.eligibleFiles.count,
+                additionalHeldCount: group.eligibleFiles.count,
+                additionalHeldBuckets: [
+                    .init(bucket: "Workflow memory needs review", count: group.eligibleFiles.count)
+                ],
+                status: .held,
+                error: nil,
+                didExecuteWorkflow: false,
+                plannedWorkflowNotify: false,
+                summaryText: workflowMemory?.summaryText
+            )
+        }
+
         guard let templateID = group.scope.selectedWorkflowTemplateID,
               WorkflowTemplateCatalog.template(for: templateID) != nil else {
             return ScopedAutomationExecutionResult(
@@ -1066,7 +1085,7 @@ final class AutomationEngine: ObservableObject {
                 error: nil,
                 didExecuteWorkflow: false,
                 plannedWorkflowNotify: false,
-                summaryText: group.configurationRequiredSummaryText
+                summaryText: group.configurationRequiredSummaryText(workflowMemory: workflowMemory)
             )
         }
 
@@ -1228,6 +1247,62 @@ final class AutomationEngine: ObservableObject {
             reason: "Forma needs permission or destination access again before auto-organize can continue across this pass."
         )
     }
+
+    private func trustedScopeWorkflowMemorySummary(
+        for scope: TrustedAutomationScope,
+        context: ModelContext
+    ) -> TrustedAutomationScopeWorkflowMemorySummary? {
+        let scopeID = scope.id
+        let normalizedSelectedTemplateID = WorkflowRunRecord.normalizedOptionalText(scope.selectedWorkflowTemplateID)
+        let selectedTemplateIsAvailable = normalizedSelectedTemplateID.flatMap {
+            WorkflowTemplateCatalog.template(for: $0)
+        } != nil
+        let recentRecords = (try? context.fetch(
+            FetchDescriptor<TrustedAutomationScopeRunRecord>(
+                predicate: #Predicate { $0.scopeID == scopeID },
+                sortBy: [
+                    SortDescriptor(\.endedAt, order: .reverse),
+                    SortDescriptor(\.startedAt, order: .reverse)
+                ]
+            )
+        )) ?? []
+
+        let latestWorkflowRunRecord: WorkflowRunRecord?
+        do {
+            let store = WorkflowAuditStore(modelContext: context)
+            if selectedTemplateIsAvailable {
+                latestWorkflowRunRecord = try store.latestRunSummary(
+                    scopeID: scopeID,
+                    workflowTemplateID: normalizedSelectedTemplateID
+                )
+            } else {
+                latestWorkflowRunRecord = try store.latestRunSummary(
+                    scopeID: scopeID,
+                    workflowTemplateID: nil
+                )
+            }
+        } catch {
+            latestWorkflowRunRecord = nil
+        }
+
+        let latestWorkflowRun = latestWorkflowRunRecord.map {
+            TrustedAutomationScopeWorkflowRunSummary(
+                templateID: $0.workflowTemplateID ?? "",
+                primaryStatus: $0.primaryStatus,
+                rollbackStatus: $0.rollbackStatus,
+                startedAt: $0.startedAt,
+                completedAt: $0.endedAt
+            )
+        }
+
+        return TrustedAutomationScopeWorkflowMemorySummary.derive(
+            selectedTemplateID: scope.selectedWorkflowTemplateID,
+            templateAssignedAt: scope.templateAssignedAt,
+            recentRuns: recentRecords,
+            latestWorkflowRun: latestWorkflowRun,
+            referenceDate: clock.now
+        )
+    }
 }
 
 // MARK: - Supporting Types
@@ -1371,8 +1446,14 @@ private struct ScopedAutomationGroup {
         return "\(heldCount) file(s) were held for \(scope.displayName)."
     }
 
-    var configurationRequiredSummaryText: String {
-        "\(eligibleFiles.count) file(s) matched \(scope.displayName) but need a workflow template before automatic runs can continue."
+    func configurationRequiredSummaryText(
+        workflowMemory: TrustedAutomationScopeWorkflowMemorySummary?
+    ) -> String {
+        let base = "\(eligibleFiles.count) file(s) matched \(scope.displayName) but need a workflow template before automatic runs can continue."
+        guard let workflowMemory else {
+            return base
+        }
+        return "\(base) \(workflowMemory.summaryText)"
     }
 
     func executedSummaryText(successCount: Int, failedCount: Int) -> String {

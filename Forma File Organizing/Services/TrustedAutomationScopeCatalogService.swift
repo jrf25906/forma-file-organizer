@@ -122,9 +122,19 @@ final class TrustedAutomationScopeCatalogService {
         referenceDate: Date
     ) -> TrustedAutomationScopeSummary {
         let recentRunSummaries = recentRecords.prefix(recentRunLimit).map(makeRecentRunSummary)
+        let selectedWorkflowTemplate = makeWorkflowTemplateSummary(for: scope)
+        let latestWorkflowRun = try? makeLatestWorkflowRunSummary(for: scope)
+        let workflowMemory = TrustedAutomationScopeWorkflowMemorySummary.derive(
+            selectedTemplateID: scope.selectedWorkflowTemplateID,
+            templateAssignedAt: scope.templateAssignedAt,
+            recentRuns: recentRecords,
+            latestWorkflowRun: latestWorkflowRun,
+            referenceDate: referenceDate
+        )
         let health = makeHealthSummary(
             scope: scope,
             recentRecords: recentRecords,
+            workflowMemory: workflowMemory,
             rulesByID: rulesByID,
             healthByRuleID: healthByRuleID,
             referenceDate: referenceDate
@@ -136,7 +146,7 @@ final class TrustedAutomationScopeCatalogService {
             displayName: scope.displayName,
             boundarySummary: scope.boundarySummary,
             allowedActions: scope.allowedActions,
-            selectedWorkflowTemplate: makeWorkflowTemplateSummary(for: scope),
+            selectedWorkflowTemplate: selectedWorkflowTemplate,
             lifecycle: TrustedAutomationScopeLifecycleSummary(
                 status: scope.status,
                 createdAt: scope.createdAt,
@@ -147,6 +157,7 @@ final class TrustedAutomationScopeCatalogService {
                 revokedAt: scope.revokedAt
             ),
             health: health,
+            workflowMemory: workflowMemory,
             lastRun: recentRunSummaries.first
         )
     }
@@ -180,17 +191,33 @@ final class TrustedAutomationScopeCatalogService {
     private func makeLatestWorkflowRunSummary(
         for scope: TrustedAutomationScope
     ) throws -> TrustedAutomationScopeWorkflowRunSummary? {
-        guard let templateID = scope.selectedWorkflowTemplateID else {
-            return nil
+        let store = WorkflowAuditStore(modelContext: modelContext)
+        let normalizedSelectedTemplateID = WorkflowRunRecord.normalizedOptionalText(scope.selectedWorkflowTemplateID)
+        let selectedTemplateIsAvailable = normalizedSelectedTemplateID.flatMap {
+            WorkflowTemplateCatalog.template(for: $0)
+        } != nil
+
+        let run: WorkflowRunRecord?
+        if selectedTemplateIsAvailable {
+            run = try store.latestRunSummary(
+                scopeID: scope.id,
+                workflowTemplateID: normalizedSelectedTemplateID
+            )
+        } else {
+            let selectedTemplateRun = try store.latestRunSummary(
+                scopeID: scope.id,
+                workflowTemplateID: normalizedSelectedTemplateID
+            )
+            let fallbackRun = try store.latestRunSummary(scopeID: scope.id, workflowTemplateID: nil)
+            run = selectedTemplateRun ?? fallbackRun
         }
 
-        let store = WorkflowAuditStore(modelContext: modelContext)
-        guard let run = try store.latestRunSummary(scopeID: scope.id, workflowTemplateID: templateID) else {
+        guard let run else {
             return nil
         }
 
         return TrustedAutomationScopeWorkflowRunSummary(
-            templateID: templateID,
+            templateID: run.workflowTemplateID ?? scope.selectedWorkflowTemplateID ?? "",
             primaryStatus: run.primaryStatus,
             rollbackStatus: run.rollbackStatus,
             startedAt: run.startedAt,
@@ -219,14 +246,16 @@ final class TrustedAutomationScopeCatalogService {
     private func makeHealthSummary(
         scope: TrustedAutomationScope,
         recentRecords: [TrustedAutomationScopeRunRecord],
+        workflowMemory: TrustedAutomationScopeWorkflowMemorySummary?,
         rulesByID: [UUID: Rule],
         healthByRuleID: [UUID: RuleHealthService.RuleHealth],
         referenceDate: Date
     ) -> TrustedAutomationScopeHealthSummary {
-        var messages: [String] = []
+        var attentionMessages: [String] = []
+        var informationalMessages: [String] = []
 
         if let destinationMessage = destinationHealthMessage(for: scope.boundaryDescriptor?.destinationSnapshot) {
-            messages.append(destinationMessage)
+            attentionMessages.append(destinationMessage)
         }
 
         if let ruleMessage = ruleHealthMessage(
@@ -234,29 +263,54 @@ final class TrustedAutomationScopeCatalogService {
             rulesByID: rulesByID,
             healthByRuleID: healthByRuleID
         ) {
-            messages.append(ruleMessage)
+            attentionMessages.append(ruleMessage)
         }
 
         if let blockerMessage = recentBlockerMessage(for: recentRecords) {
-            messages.append(blockerMessage)
+            attentionMessages.append(blockerMessage)
         }
 
-        let lastSuccessfulRunAt = recentRecords
+        if let workflowMemory {
+            switch workflowMemory.state {
+            case .stable:
+                informationalMessages.append(workflowMemory.summaryText)
+            case .stale, .conflicted:
+                attentionMessages.append(workflowMemory.summaryText)
+            }
+        }
+
+        let recentSuccessfulRunAt = recentRecords
             .first(where: isSuccessfulRun)?
             .endedAt
             ?? recentRecords.first(where: isSuccessfulRun)?.startedAt
 
-        let lastBlockedRunAt = recentRecords
+        let recentBlockedRunAt = recentRecords
             .first(where: isAttentionWorthyRun)?
             .endedAt
             ?? recentRecords.first(where: isAttentionWorthyRun)?.startedAt
 
+        let lastSuccessfulRunAt = [recentSuccessfulRunAt, workflowMemory?.lastSuccessfulRunAt]
+            .compactMap { $0 }
+            .max()
+        let lastBlockedRunAt = [recentBlockedRunAt, workflowMemory?.lastAttentionRunAt]
+            .compactMap { $0 }
+            .max()
+
+        var messages = attentionMessages + informationalMessages
+
         let state: TrustedAutomationScopeHealthState
-        if !messages.isEmpty {
+        if !attentionMessages.isEmpty {
             state = .needsAttention
-        } else if isQuiet(scope: scope, recentRecords: recentRecords, referenceDate: referenceDate) {
+        } else if isQuiet(
+            scope: scope,
+            recentRecords: recentRecords,
+            workflowMemory: workflowMemory,
+            referenceDate: referenceDate
+        ) {
             state = .quiet
-            messages.append("No recent automation activity.")
+            if messages.isEmpty {
+                messages.append("No recent automation activity.")
+            }
         } else {
             state = .healthy
         }
@@ -363,11 +417,19 @@ final class TrustedAutomationScopeCatalogService {
     private func isQuiet(
         scope: TrustedAutomationScope,
         recentRecords: [TrustedAutomationScopeRunRecord],
+        workflowMemory: TrustedAutomationScopeWorkflowMemorySummary?,
         referenceDate: Date
     ) -> Bool {
-        let lastActivityAt = recentRecords.first?.endedAt
+        let recordActivityAt = recentRecords.first?.endedAt
             ?? recentRecords.first?.startedAt
             ?? scope.lastRunAt
+            ?? scope.updatedAt
+        let workflowActivityAt = [workflowMemory?.lastSuccessfulRunAt, workflowMemory?.lastAttentionRunAt]
+            .compactMap { $0 }
+            .max()
+        let lastActivityAt = [recordActivityAt, workflowActivityAt]
+            .compactMap { $0 }
+            .max()
             ?? scope.updatedAt
 
         return referenceDate.timeIntervalSince(lastActivityAt) >= quietWindow

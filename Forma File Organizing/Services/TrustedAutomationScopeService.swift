@@ -11,6 +11,31 @@ struct TrustedAutomationScopeRecommendationOption: Identifiable, Hashable, Senda
     let undoEvidenceCount: Int
     let confidenceSnapshot: Double
     let rationaleSummary: String
+    let workflowMemory: TrustedAutomationScopeWorkflowMemorySummary?
+
+    init(
+        scopeType: TrustedAutomationScopeType,
+        scopeKey: String,
+        displayName: String,
+        recommendationSource: TrustedAutomationScopeRecommendationSource,
+        acceptedEvidenceCount: Int,
+        overrideEvidenceCount: Int,
+        undoEvidenceCount: Int,
+        confidenceSnapshot: Double,
+        rationaleSummary: String,
+        workflowMemory: TrustedAutomationScopeWorkflowMemorySummary? = nil
+    ) {
+        self.scopeType = scopeType
+        self.scopeKey = scopeKey
+        self.displayName = displayName
+        self.recommendationSource = recommendationSource
+        self.acceptedEvidenceCount = acceptedEvidenceCount
+        self.overrideEvidenceCount = overrideEvidenceCount
+        self.undoEvidenceCount = undoEvidenceCount
+        self.confidenceSnapshot = confidenceSnapshot
+        self.rationaleSummary = rationaleSummary
+        self.workflowMemory = workflowMemory
+    }
 
     var id: String {
         "\(scopeType.rawValue)|\(scopeKey)"
@@ -346,7 +371,13 @@ final class TrustedAutomationScopeService {
             candidates.append(category)
         }
 
-        let sorted = candidates.sorted { lhs, rhs in
+        let referenceDate = Date()
+        let catalogService = TrustedAutomationScopeCatalogService(modelContext: modelContext)
+        let enrichedCandidates = try candidates.map {
+            try enrichRecommendationOption($0, catalogService: catalogService, referenceDate: referenceDate)
+        }
+
+        let sorted = enrichedCandidates.sorted { lhs, rhs in
             scopePriority(lhs.scopeType) < scopePriority(rhs.scopeType)
         }
 
@@ -490,6 +521,34 @@ final class TrustedAutomationScopeService {
     ) throws -> TrustedAutomationScope? {
         let lookupKey = TrustedAutomationScope.makeKey(scopeType: scopeType, scopeKey: scopeKey)
         return try allScopes().first { $0.key == lookupKey }
+    }
+
+    private func enrichRecommendationOption(
+        _ option: TrustedAutomationScopeRecommendationOption,
+        catalogService: TrustedAutomationScopeCatalogService,
+        referenceDate: Date
+    ) throws -> TrustedAutomationScopeRecommendationOption {
+        guard option.workflowMemory == nil,
+              let existingScope = try scope(scopeType: option.scopeType, scopeKey: option.scopeKey),
+              let workflowMemory = try catalogService.buildDetail(
+                for: existingScope.id,
+                referenceDate: referenceDate
+              )?.workflowMemory else {
+            return option
+        }
+
+        return TrustedAutomationScopeRecommendationOption(
+            scopeType: option.scopeType,
+            scopeKey: option.scopeKey,
+            displayName: option.displayName,
+            recommendationSource: option.recommendationSource,
+            acceptedEvidenceCount: option.acceptedEvidenceCount,
+            overrideEvidenceCount: option.overrideEvidenceCount,
+            undoEvidenceCount: option.undoEvidenceCount,
+            confidenceSnapshot: option.confidenceSnapshot,
+            rationaleSummary: option.rationaleSummary,
+            workflowMemory: workflowMemory
+        )
     }
 
     private func requireScope(id: UUID) throws -> TrustedAutomationScope {
@@ -830,7 +889,8 @@ final class TrustedAutomationScopeService {
             overrideEvidenceCount: option.overrideEvidenceCount,
             undoEvidenceCount: option.undoEvidenceCount,
             confidenceSnapshot: option.confidenceSnapshot,
-            rationaleSummary: option.rationaleSummary
+            rationaleSummary: option.rationaleSummary,
+            workflowMemory: option.workflowMemory
         )
     }
 
