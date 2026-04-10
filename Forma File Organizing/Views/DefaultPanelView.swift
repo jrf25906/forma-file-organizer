@@ -11,6 +11,7 @@ struct DefaultPanelView: View {
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
     @Query private var allPatterns: [LearnedPattern]
     @State private var insights: [FileInsight] = []
     @State private var showAllInsights: Bool = false
@@ -139,6 +140,14 @@ struct DefaultPanelView: View {
         )
     }
 
+    private var rightPanelWidthClassText: String {
+        rightPanelLayout.isCompact ? "compact" : "regular"
+    }
+
+    private var rightPanelWidthProbeText: String {
+        "width=\(Int(rightPanelLayout.width.rounded()));widthClass=\(rightPanelWidthClassText)"
+    }
+
     var body: some View {
         panelContent
         .coordinateSpace(name: "defaultPanelLayout")
@@ -234,10 +243,10 @@ struct DefaultPanelView: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityIdentifier("defaultPanelContrastProbe")
                     .accessibilityLabel(
-                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio));heroToAutomation=\(String(format: "%.2f", defaultPanelHeroToAutomationMetric));automationToSuggestions=\(String(format: "%.2f", defaultPanelAutomationToSuggestionsMetric))"
+                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio));heroToAutomation=\(String(format: "%.2f", defaultPanelHeroToAutomationMetric));automationToSuggestions=\(String(format: "%.2f", defaultPanelAutomationToSuggestionsMetric));\(rightPanelWidthProbeText)"
                     )
                     .accessibilityValue(
-                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio));heroToAutomation=\(String(format: "%.2f", defaultPanelHeroToAutomationMetric));automationToSuggestions=\(String(format: "%.2f", defaultPanelAutomationToSuggestionsMetric))"
+                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio));heroToAutomation=\(String(format: "%.2f", defaultPanelHeroToAutomationMetric));automationToSuggestions=\(String(format: "%.2f", defaultPanelAutomationToSuggestionsMetric));\(rightPanelWidthProbeText)"
                     )
             }
         }
@@ -370,6 +379,7 @@ struct DefaultPanelView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         content()
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(emphasized ? FormaSpacing.large : FormaSpacing.standard)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
@@ -1387,6 +1397,7 @@ struct QuickActionCard: View {
     @State private var isHovered = false
     @State private var isDismissHovered = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
 
     private var primaryActionTextColor: Color {
@@ -1432,6 +1443,10 @@ struct QuickActionCard: View {
             colorScheme: colorScheme,
             baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
         )
+    }
+
+    private var isCompactLayout: Bool {
+        rightPanelLayout.isCompact
     }
 
     var body: some View {
@@ -1506,28 +1521,20 @@ struct QuickActionCard: View {
 
             // Action buttons row
             if let actionLabel = insight.actionLabel {
-                HStack(spacing: FormaSpacing.tight) {
-                    // Primary action
-                    Button(action: action) {
-                        HStack(spacing: 6) {
-                            Text(actionLabel)
-                                .font(.formaSmallSemibold)
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 10, weight: .semibold))
+                Group {
+                    if isCompactLayout {
+                        primaryActionButton(actionLabel)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        HStack(spacing: FormaSpacing.tight) {
+                            primaryActionButton(actionLabel)
+                            Spacer()
                         }
-                        .foregroundStyle(primaryActionTextColor)
-                        .padding(.horizontal, FormaSpacing.standard)
-                        .padding(.vertical, FormaSpacing.tight)
-                        .background(primaryActionBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                     }
-                    .buttonStyle(.plain)
-                    .pressAnimation()
-
-                    Spacer()
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, FormaSpacing.standard)
         .padding(.vertical, FormaSpacing.tight)
         .background(
@@ -1549,6 +1556,25 @@ struct QuickActionCard: View {
                 ? "primaryAction=\(String(format: "%.2f", primaryActionContrastRatio))"
                 : ""
         )
+    }
+
+    private func primaryActionButton(_ actionLabel: String) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(actionLabel)
+                    .font(.formaSmallSemibold)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundStyle(primaryActionTextColor)
+            .frame(maxWidth: isCompactLayout ? .infinity : nil, alignment: .leading)
+            .padding(.horizontal, FormaSpacing.standard)
+            .padding(.vertical, FormaSpacing.tight)
+            .background(primaryActionBackground)
+            .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .pressAnimation()
     }
 }
 

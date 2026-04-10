@@ -7,6 +7,7 @@ struct CelebrationView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
     @State private var undoCountdown = 10
@@ -39,8 +40,8 @@ struct CelebrationView: View {
                 
                 Spacer()
             }
-            .padding(.horizontal, FormaSpacing.generous)
-            .padding(.vertical, FormaSpacing.generous)
+            .padding(.horizontal, rightPanelLayout.isCompact ? FormaSpacing.standard : FormaSpacing.generous)
+            .padding(.vertical, rightPanelLayout.isCompact ? FormaSpacing.standard : FormaSpacing.generous)
         }
         .background(Color.formaControlBackground.opacity(Color.FormaOpacity.overlay))
         .onAppear {
@@ -87,7 +88,7 @@ struct CelebrationView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 120, height: 120)
+                .frame(width: successAnimationDiameter, height: successAnimationDiameter)
                 .scaleEffect(isAnimating ? 1.0 : 0.8)
                 .opacity(isAnimating ? 1.0 : 0.0)
             
@@ -120,10 +121,11 @@ struct CelebrationView: View {
                 .font(.formaBody)
                 .foregroundColor(.formaSecondaryLabel)
                 .multilineTextAlignment(.center)
-                .lineLimit(3)
+                .lineLimit(rightPanelLayout.isCompact ? 4 : 3)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, FormaSpacing.standard)
+        .frame(maxWidth: .infinity)
     }
     
     // MARK: - Actions
@@ -135,16 +137,31 @@ struct CelebrationView: View {
                     timerActive = false
                     dashboardViewModel.undoLastAction(context: modelContext)
                 }) {
-                    HStack(spacing: FormaSpacing.tight) {
-                        Image(systemName: "arrow.uturn.backward.circle.fill")
-                            .font(.formaH3)
-                        Text("Undo")
-                            .font(.formaH3)
+                    Group {
+                        if rightPanelLayout.isCompact {
+                            VStack(spacing: FormaSpacing.micro) {
+                                Label("Undo", systemImage: "arrow.uturn.backward.circle.fill")
+                                    .font(.formaH3)
 
-                        if timerActive {
-                            Text("(\(undoCountdown)s)")
-                                .font(.formaBodyMedium)
-                                .foregroundColor(.formaBoneWhite.opacity(Color.FormaOpacity.prominent))
+                                if timerActive {
+                                    Text("Available for \(undoCountdown)s")
+                                        .font(.formaBodyMedium)
+                                        .foregroundColor(.formaBoneWhite.opacity(Color.FormaOpacity.prominent))
+                                }
+                            }
+                        } else {
+                            HStack(spacing: FormaSpacing.tight) {
+                                Image(systemName: "arrow.uturn.backward.circle.fill")
+                                    .font(.formaH3)
+                                Text("Undo")
+                                    .font(.formaH3)
+
+                                if timerActive {
+                                    Text("(\(undoCountdown)s)")
+                                        .font(.formaBodyMedium)
+                                        .foregroundColor(.formaBoneWhite.opacity(Color.FormaOpacity.prominent))
+                                }
+                            }
                         }
                     }
                     .foregroundStyle(Color.formaBoneWhite)
@@ -170,10 +187,29 @@ struct CelebrationView: View {
                 Text("Continue")
                     .font(.formaBody)
                     .foregroundColor(.formaSecondaryLabel)
+                    .frame(maxWidth: rightPanelLayout.isCompact ? .infinity : nil)
+                    .padding(.vertical, rightPanelLayout.isCompact ? FormaSpacing.tight : 0)
+                    .background(
+                        Group {
+                            if rightPanelLayout.isCompact {
+                                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                                    .fill(Color.formaCardBackground)
+                            }
+                        }
+                    )
+                    .overlay(
+                        Group {
+                            if rightPanelLayout.isCompact {
+                                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                                    .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                            }
+                        }
+                    )
             }
             .buttonStyle(.plain)
         }
         .padding(.top, FormaSpacing.standard)
+        .frame(maxWidth: .infinity)
     }
     
     // MARK: - Next Action Section
@@ -204,20 +240,23 @@ struct CelebrationView: View {
                 HStack(spacing: FormaSpacing.micro) {
                     Text("Create Rule")
                         .font(.formaSmall)
+                    Spacer(minLength: rightPanelLayout.isCompact ? FormaSpacing.tight : 0)
                     Image(systemName: "arrow.right")
                         .font(.formaCaptionBold)
                 }
                 .foregroundColor(.formaSteelBlue)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
         }
-        .padding(FormaSpacing.large)
+        .padding(cardPadding)
         .background(Color.formaCardBackground)
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
         )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func trustAutomationSection(_ recommendation: TrustedAutomationScopeRecommendation) -> some View {
@@ -268,20 +307,23 @@ struct CelebrationView: View {
                 HStack(spacing: FormaSpacing.micro) {
                     Text("Review trust boundary")
                         .font(.formaSmallSemibold)
+                    Spacer(minLength: rightPanelLayout.isCompact ? FormaSpacing.tight : 0)
                     Image(systemName: "arrow.right")
                         .font(.formaCaptionBold)
                 }
                 .foregroundColor(.formaSteelBlue)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
         }
-        .padding(FormaSpacing.large)
+        .padding(cardPadding)
         .background(Color.formaCardBackground)
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
         )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func trustDetailRow(title: String, value: String) -> some View {
@@ -296,7 +338,15 @@ struct CelebrationView: View {
     }
     
     // MARK: - Computed Properties
-    
+
+    private var successAnimationDiameter: CGFloat {
+        rightPanelLayout.isCompact ? 104 : 120
+    }
+
+    private var cardPadding: CGFloat {
+        rightPanelLayout.isCompact ? FormaSpacing.standard : FormaSpacing.large
+    }
+
     private var nextActionSuggestion: String? {
         // Analyze recent actions and suggest next steps
         let recentFiles = dashboardViewModel.recentActivities

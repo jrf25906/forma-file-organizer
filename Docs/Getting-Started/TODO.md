@@ -1,6 +1,6 @@
 # Forma - Project TODO
 
-**Last Updated:** April 8, 2026
+**Last Updated:** April 10, 2026
 
 Strategic roadmap: [`forma-feature-roadmap.md`](../../forma-feature-roadmap.md). This document is the execution checklist and historical backlog reference.
 
@@ -40,6 +40,11 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 
 ## Recent Delivered Work
 The dated sections below capture shipped work and execution history. Use the roadmap-ordered section above to decide what comes next.
+
+## Right-Panel Responsive Width Classes (April 10, 2026)
+- [x] Add a measured `RightPanelLayout` / `RightPanelWidthClass` contract and keep `FormaSpacing.Column.rightPanelMin/Ideal/Max` as the only right-panel width source of truth.
+- [x] Update default-panel, inspector, Smart Rules, inline rule-builder, celebration, and shared right-panel mode-header surfaces so compact-width layouts wrap or stack instead of clipping around fixed child widths.
+- [x] Add unit coverage for the `340pt` compact threshold and UI coverage for regular/compact three-column launches across default-panel, inspector, Smart Rules, and inline rule-builder flows.
 
 ## App Store Migration Recovery (April 7, 2026)
 - [x] Keep pre-metadata app stores launchable by making `ProjectCluster.filePathsSearchBlob` lightweight-migration safe and adding regression coverage for legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.

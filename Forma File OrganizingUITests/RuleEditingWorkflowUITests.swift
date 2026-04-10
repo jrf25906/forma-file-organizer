@@ -81,7 +81,7 @@ final class RuleEditingWorkflowUITests: XCTestCase {
         XCTAssertTrue(collapseButton.waitForExistence(timeout: 3), "Collapse button should appear")
         collapseButton.click()
 
-        let inlineBuilder = app.otherElements["inlineRuleBuilderView"]
+        let inlineBuilder = harness.element(withIdentifier: "inlineRuleBuilderView")
         XCTAssertTrue(inlineBuilder.waitForExistence(timeout: 3), "Inline builder should appear after collapsing")
         XCTAssertTrue(app.otherElements["ruleComposerWhenSection"].waitForExistence(timeout: 3), "Inline builder should expose a When section")
         XCTAssertTrue(app.otherElements["ruleComposerThenSection"].waitForExistence(timeout: 3), "Inline builder should expose a Then section")
@@ -101,7 +101,7 @@ final class RuleEditingWorkflowUITests: XCTestCase {
         XCTAssertTrue(collapseButton.waitForExistence(timeout: 3), "Collapse button should appear")
         collapseButton.click()
 
-        let inlineBuilder = app.otherElements["inlineRuleBuilderView"]
+        let inlineBuilder = harness.element(withIdentifier: "inlineRuleBuilderView")
         XCTAssertTrue(inlineBuilder.waitForExistence(timeout: 3), "Inline rule builder should appear after collapsing")
 
         return (modalEditor, inlineBuilder)

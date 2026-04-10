@@ -9,6 +9,7 @@ struct InlineRuleBuilderView: View {
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
 
     // Query existing rules for overlap detection
@@ -210,55 +211,14 @@ struct InlineRuleBuilderView: View {
         }
     }
 
+    private var rightPanelWidthClassText: String {
+        rightPanelLayout.isCompact ? "compact" : "regular"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Fixed header with context-aware labels
-            HStack {
-                // Icon and title with optional subtitle
-                HStack(spacing: FormaSpacing.tight) {
-                    Image(systemName: headerConfig.icon)
-                        .foregroundColor(fileContext != nil ? .formaSage : .formaSteelBlue)
-                        .font(.formaBodySemibold)
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(headerConfig.title)
-                            .font(.formaBodyLarge).fontWeight(.semibold)
-                            .foregroundColor(.formaLabel)
-
-                        if let subtitle = headerConfig.subtitle {
-                            Text(subtitle)
-                                .font(.formaSmall)
-                                .foregroundColor(.formaSecondaryLabelHigh)
-                        }
-                    }
-                }
-
-                Spacer()
-
-                // Expand to modal button
-                Button(action: expandToModal) {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .foregroundColor(.formaSecondaryLabelHigh)
-                        .font(.formaBodyLarge)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityIdentifier("expandRuleEditorButton")
-                .help("Expand to Full Editor")
-                .allowsHitTesting(true)
-
-                Button(action: {
-                    discardDraft()
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.formaSecondaryLabelHigh)
-                        .font(.formaH3)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityIdentifier("closeRuleBuilderButton")
-                .allowsHitTesting(true)
-            }
+            headerChrome
             .padding(.horizontal, FormaSpacing.generous)
             .padding(.vertical, FormaSpacing.standard)
             .background(chromeSurfaceBackground)
@@ -310,12 +270,16 @@ struct InlineRuleBuilderView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("inlineRuleBuilderView")
+        .accessibilityLabel(isUITesting ? "widthClass=\(rightPanelWidthClassText)" : "")
+        .accessibilityValue(isUITesting ? "widthClass=\(rightPanelWidthClassText)" : "")
         .overlay(alignment: .topLeading) {
             if isUITesting {
                 Color.clear
                     .frame(width: 1, height: 1)
                     .accessibilityElement(children: .ignore)
-                    .accessibilityIdentifier("inlineRuleBuilderView")
+                    .accessibilityIdentifier("inlineRuleBuilderLayoutProbe")
+                    .accessibilityLabel("widthClass=\(rightPanelWidthClassText)")
+                    .accessibilityValue("widthClass=\(rightPanelWidthClassText)")
             }
         }
         .onAppear {
@@ -360,60 +324,124 @@ struct InlineRuleBuilderView: View {
         }
     }
 
-    private var persistentActionBar: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-            HStack(alignment: .top, spacing: FormaSpacing.tight) {
-                Image(systemName: impactTone.icon)
-                    .font(.formaCompactSemibold)
-                    .foregroundColor(impactTone.color)
+    @ViewBuilder
+    private var headerChrome: some View {
+        if rightPanelLayout.isCompact {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                headerTitleStack
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(impactTone.title)
-                        .font(.formaSmallSemibold)
-                        .foregroundColor(.formaLabel)
-                    Text(impactTone.message)
-                        .font(.formaCaption)
-                        .foregroundColor(.formaSecondaryLabelHigh)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                HStack(spacing: FormaSpacing.standard) {
+                    headerIconButton(
+                        systemImage: "arrow.up.left.and.arrow.down.right",
+                        accessibilityIdentifier: "expandRuleEditorButton",
+                        helpText: "Expand to Full Editor",
+                        action: expandToModal
+                    )
 
-                Spacer()
-
-                if matchedFilesCount > 0 {
-                    FormaBadge(
-                        text: "\(matchedFilesCount) match\(matchedFilesCount == 1 ? "" : "es")",
-                        color: impactTone.color,
-                        size: .small,
-                        style: .subtle
+                    headerIconButton(
+                        systemImage: "xmark.circle.fill",
+                        accessibilityIdentifier: "closeRuleBuilderButton",
+                        helpText: nil,
+                        action: discardDraft
                     )
                 }
             }
+        } else {
+            HStack {
+                headerTitleStack
 
-            HStack(spacing: FormaSpacing.standard) {
-                SecondaryButton(editingRule == nil ? "Discard Draft" : "Cancel") {
-                    discardDraft()
+                Spacer()
+
+                headerIconButton(
+                    systemImage: "arrow.up.left.and.arrow.down.right",
+                    accessibilityIdentifier: "expandRuleEditorButton",
+                    helpText: "Expand to Full Editor",
+                    action: expandToModal
+                )
+
+                headerIconButton(
+                    systemImage: "xmark.circle.fill",
+                    accessibilityIdentifier: "closeRuleBuilderButton",
+                    helpText: nil,
+                    action: discardDraft
+                )
+            }
+        }
+    }
+
+    private var headerTitleStack: some View {
+        HStack(spacing: FormaSpacing.tight) {
+            Image(systemName: headerConfig.icon)
+                .foregroundColor(fileContext != nil ? .formaSage : .formaSteelBlue)
+                .font(.formaBodySemibold)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(headerConfig.title)
+                    .font(.formaBodyLarge)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.formaLabel)
+
+                if let subtitle = headerConfig.subtitle {
+                    Text(subtitle)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaSecondaryLabelHigh)
                 }
-                .accessibilityIdentifier("ruleComposerDiscardButton")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-                Button(action: {
-                    if formState.actionType == .delete && matchedFilesCount > 0 {
-                        showDeleteConfirmation = true
-                    } else {
-                        saveRule()
+    private func headerIconButton(
+        systemImage: String,
+        accessibilityIdentifier: String,
+        helpText: String?,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .foregroundColor(.formaSecondaryLabelHigh)
+                .font(systemImage == "xmark.circle.fill" ? .formaH3 : .formaBodyLarge)
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .help(helpText ?? "")
+        .allowsHitTesting(true)
+    }
+
+    private var persistentActionBar: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    impactToneRow
+
+                    if matchedFilesCount > 0 {
+                        matchBadge
                     }
-                }) {
-                    Text(editingRule == nil ? "Save Rule" : "Save Changes")
-                        .font(.formaBodyBold)
-                        .foregroundColor(.formaBoneWhite)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 11)
-                        .background(Color.formaSteelBlue)
-                        .cornerRadius(10)
                 }
-                .buttonStyle(.plain)
-                .disabled(!canSubmitRule)
-                .opacity(canSubmitRule ? 1 : 0.6)
-                .accessibilityIdentifier("ruleComposerSaveButton")
+            } else {
+                HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                    impactToneRow
+                    Spacer()
+
+                    if matchedFilesCount > 0 {
+                        matchBadge
+                    }
+                }
+            }
+
+            Group {
+                if rightPanelLayout.isCompact {
+                    VStack(spacing: FormaSpacing.standard) {
+                        discardRuleButton
+                        saveRuleButton
+                    }
+                } else {
+                    HStack(spacing: FormaSpacing.standard) {
+                        discardRuleButton
+                        saveRuleButton
+                    }
+                }
             }
         }
         .padding(.horizontal, FormaSpacing.generous)
@@ -428,6 +456,63 @@ struct InlineRuleBuilderView: View {
         )
         .allowsHitTesting(true)
         .zIndex(998)
+    }
+
+    private var impactToneRow: some View {
+        HStack(alignment: .top, spacing: FormaSpacing.tight) {
+            Image(systemName: impactTone.icon)
+                .font(.formaCompactSemibold)
+                .foregroundColor(impactTone.color)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(impactTone.title)
+                    .font(.formaSmallSemibold)
+                    .foregroundColor(.formaLabel)
+                Text(impactTone.message)
+                    .font(.formaCaption)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var matchBadge: some View {
+        FormaBadge(
+            text: "\(matchedFilesCount) match\(matchedFilesCount == 1 ? "" : "es")",
+            color: impactTone.color,
+            size: .small,
+            style: .subtle
+        )
+    }
+
+    private var discardRuleButton: some View {
+        SecondaryButton(editingRule == nil ? "Discard Draft" : "Cancel") {
+            discardDraft()
+        }
+        .accessibilityIdentifier("ruleComposerDiscardButton")
+    }
+
+    private var saveRuleButton: some View {
+        Button(action: {
+            if formState.actionType == .delete && matchedFilesCount > 0 {
+                showDeleteConfirmation = true
+            } else {
+                saveRule()
+            }
+        }) {
+            Text(editingRule == nil ? "Save Rule" : "Save Changes")
+                .font(.formaBodyBold)
+                .foregroundColor(.formaBoneWhite)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background(Color.formaSteelBlue)
+                .cornerRadius(10)
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSubmitRule)
+        .opacity(canSubmitRule ? 1 : 0.6)
+        .accessibilityIdentifier("ruleComposerSaveButton")
     }
 
     /// Generates a confirmation message showing the impact of a delete rule.
@@ -633,28 +718,58 @@ struct InlineRuleBuilderView: View {
                     subtitle: "Define what happens to matched files."
                 )
 
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("Then")
-                        .font(.formaBodyLarge)
-                        .foregroundColor(.formaSecondaryLabelHigh)
+                Group {
+                    if rightPanelLayout.isCompact {
+                        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                            Text("Then")
+                                .font(.formaBodyLarge)
+                                .foregroundColor(.formaSecondaryLabelHigh)
 
-                    Menu {
-                        Button("move") { formState.actionType = .move }
-                        Button("copy") { formState.actionType = .copy }
-                        Button("delete") { formState.actionType = .delete }
-                    } label: {
-                        Text(formState.actionType.rawValue)
-                            .font(.formaBodyLarge)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.formaSteelBlue)
-                            .underline(true, color: .formaSteelBlue.opacity(0.3))
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Menu {
+                                    Button("move") { formState.actionType = .move }
+                                    Button("copy") { formState.actionType = .copy }
+                                    Button("delete") { formState.actionType = .delete }
+                                } label: {
+                                    Text(formState.actionType.rawValue)
+                                        .font(.formaBodyLarge)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.formaSteelBlue)
+                                        .underline(true, color: .formaSteelBlue.opacity(0.3))
+                                }
+                                .menuStyle(.borderlessButton)
+
+                                Text("to")
+                                    .font(.formaBodyLarge)
+                                    .foregroundColor(.formaSecondaryLabelHigh)
+                                    .opacity(formState.actionType == .delete ? 0.3 : 1.0)
+                            }
+                        }
+                    } else {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("Then")
+                                .font(.formaBodyLarge)
+                                .foregroundColor(.formaSecondaryLabelHigh)
+
+                            Menu {
+                                Button("move") { formState.actionType = .move }
+                                Button("copy") { formState.actionType = .copy }
+                                Button("delete") { formState.actionType = .delete }
+                            } label: {
+                                Text(formState.actionType.rawValue)
+                                    .font(.formaBodyLarge)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.formaSteelBlue)
+                                    .underline(true, color: .formaSteelBlue.opacity(0.3))
+                            }
+                            .menuStyle(.borderlessButton)
+
+                            Text("to")
+                                .font(.formaBodyLarge)
+                                .foregroundColor(.formaSecondaryLabelHigh)
+                                .opacity(formState.actionType == .delete ? 0.3 : 1.0)
+                        }
                     }
-                    .menuStyle(.borderlessButton)
-
-                    Text("to")
-                        .font(.formaBodyLarge)
-                        .foregroundColor(.formaSecondaryLabelHigh)
-                        .opacity(formState.actionType == .delete ? 0.3 : 1.0)
                 }
 
                 if formState.actionType == .delete {
@@ -774,44 +889,24 @@ struct InlineRuleBuilderView: View {
     
     @ViewBuilder
     private func editableConditionRow(at index: Int) -> some View {
-        HStack(spacing: FormaSpacing.tight) {
-            // Condition type selector
-            Menu {
-                ForEach(Rule.ConditionType.allCases, id: \.self) { type in
-                    Button(type.compactDisplayName) {
-                        updateConditionType(at: index, to: type)
+        Group {
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    conditionTypeMenu(for: index)
+
+                    HStack(spacing: FormaSpacing.tight) {
+                        conditionValueField(for: index)
+                        removeConditionButton(at: index)
                     }
                 }
-            } label: {
-                Text((index < formState.conditions.count ? formState.conditions[index].type : .fileExtension).compactDisplayName)
-                    .font(.formaSmall)
-                    .foregroundColor(.formaSecondaryLabelHigh)
-                    .fixedSize()
+            } else {
+                HStack(spacing: FormaSpacing.tight) {
+                    conditionTypeMenu(for: index)
+                    conditionValueField(for: index)
+                    Spacer()
+                    removeConditionButton(at: index)
+                }
             }
-            .menuStyle(.borderlessButton)
-
-            // Condition value
-            TextField(
-                conditionPlaceholder(for: index < formState.conditions.count ? formState.conditions[index].type : .fileExtension),
-                text: Binding(
-                    get: { index < formState.conditions.count ? formState.conditions[index].value : "" },
-                    set: { newValue in
-                        updateConditionValue(at: index, to: newValue)
-                    }
-                )
-            )
-            .textFieldStyle(.plain)
-            .font(.formaBody)
-            .foregroundColor(.formaLabel)
-            
-            Spacer()
-            
-            Button(action: { removeCondition(at: index) }) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.formaSecondaryLabelHigh)
-                    .font(.formaSmall)
-            }
-            .buttonStyle(.plain)
         }
         .padding(FormaSpacing.standard)
         .background(colorScheme == .dark ? Color.formaObsidian.opacity(0.28) : Color.formaCardBackground)
@@ -831,6 +926,45 @@ struct InlineRuleBuilderView: View {
         } catch {
             print("Failed to update condition type: \(error)")
         }
+    }
+
+    private func conditionTypeMenu(for index: Int) -> some View {
+        Menu {
+            ForEach(Rule.ConditionType.allCases, id: \.self) { type in
+                Button(type.compactDisplayName) {
+                    updateConditionType(at: index, to: type)
+                }
+            }
+        } label: {
+            Text((index < formState.conditions.count ? formState.conditions[index].type : .fileExtension).compactDisplayName)
+                .font(.formaSmall)
+                .foregroundColor(.formaSecondaryLabelHigh)
+        }
+        .menuStyle(.borderlessButton)
+    }
+
+    private func conditionValueField(for index: Int) -> some View {
+        TextField(
+            conditionPlaceholder(for: index < formState.conditions.count ? formState.conditions[index].type : .fileExtension),
+            text: Binding(
+                get: { index < formState.conditions.count ? formState.conditions[index].value : "" },
+                set: { newValue in
+                    updateConditionValue(at: index, to: newValue)
+                }
+            )
+        )
+        .textFieldStyle(.plain)
+        .font(.formaBody)
+        .foregroundColor(.formaLabel)
+    }
+
+    private func removeConditionButton(at index: Int) -> some View {
+        Button(action: { removeCondition(at: index) }) {
+            Image(systemName: "xmark.circle.fill")
+                .foregroundColor(.formaSecondaryLabelHigh)
+                .font(.formaSmall)
+        }
+        .buttonStyle(.plain)
     }
 
     private func updateConditionValue(at index: Int, to value: String) {
@@ -867,42 +1001,27 @@ struct InlineRuleBuilderView: View {
     private var impactPreviewCard: some View {
         builderSectionCard {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                HStack(alignment: .top, spacing: FormaSpacing.standard) {
-                    VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-                        HStack(spacing: 6) {
-                            Image(systemName: impactTone.icon)
-                                .foregroundColor(impactTone.color)
-                            Text("Impact")
-                                .font(.formaBodySemibold)
-                                .tracking(0.5)
-                                .foregroundColor(.formaLabel)
+                Group {
+                    if rightPanelLayout.isCompact {
+                        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                            impactPreviewCopy
+
+                            HStack(spacing: FormaSpacing.tight) {
+                                impactMatchBadge
+                                impactActionBadge
+                            }
                         }
+                    } else {
+                        HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                            impactPreviewCopy
 
-                        Text(impactTone.title)
-                            .font(.formaBodyBold)
-                            .foregroundColor(.formaLabel)
+                            Spacer()
 
-                        Text(impactTone.message)
-                            .font(.formaSmall)
-                            .foregroundColor(.formaSecondaryLabelHigh)
-                    }
-
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 6) {
-                        FormaBadge(
-                            text: "\(matchedFilesCount) match\(matchedFilesCount == 1 ? "" : "es")",
-                            color: impactTone.color,
-                            size: .small,
-                            style: .subtle
-                        )
-
-                        FormaBadge(
-                            text: formState.actionType == .delete ? "Trash" : formState.actionType.rawValue.capitalized,
-                            color: actionTypeBadgeColor,
-                            size: .small,
-                            style: .subtle
-                        )
+                            VStack(alignment: .trailing, spacing: 6) {
+                                impactMatchBadge
+                                impactActionBadge
+                            }
+                        }
                     }
                 }
 
@@ -962,6 +1081,45 @@ struct InlineRuleBuilderView: View {
                     .accessibilityIdentifier("ruleComposerImpactSection")
             }
         }
+    }
+
+    private var impactPreviewCopy: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+            HStack(spacing: 6) {
+                Image(systemName: impactTone.icon)
+                    .foregroundColor(impactTone.color)
+                Text("Impact")
+                    .font(.formaBodySemibold)
+                    .tracking(0.5)
+                    .foregroundColor(.formaLabel)
+            }
+
+            Text(impactTone.title)
+                .font(.formaBodyBold)
+                .foregroundColor(.formaLabel)
+
+            Text(impactTone.message)
+                .font(.formaSmall)
+                .foregroundColor(.formaSecondaryLabelHigh)
+        }
+    }
+
+    private var impactMatchBadge: some View {
+        FormaBadge(
+            text: "\(matchedFilesCount) match\(matchedFilesCount == 1 ? "" : "es")",
+            color: impactTone.color,
+            size: .small,
+            style: .subtle
+        )
+    }
+
+    private var impactActionBadge: some View {
+        FormaBadge(
+            text: formState.actionType == .delete ? "Trash" : formState.actionType.rawValue.capitalized,
+            color: actionTypeBadgeColor,
+            size: .small,
+            style: .subtle
+        )
     }
     
     // MARK: - Helpers

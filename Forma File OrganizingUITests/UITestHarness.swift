@@ -153,6 +153,12 @@ final class UITestHarness {
     }
 
     @MainActor
+    func firstSelectionCheckbox() -> XCUIElement {
+        let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "fileSelectionCheckbox_")
+        return app.descendants(matching: .any).matching(predicate).firstMatch
+    }
+
+    @MainActor
     func firstVisibleFileName(timeout: TimeInterval = 4) -> String {
         let firstRow = firstFileRow()
         XCTAssertTrue(firstRow.waitForExistence(timeout: timeout), "Expected at least one visible file row")
@@ -193,7 +199,24 @@ final class UITestHarness {
         let predicate = NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", value, value)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
-        XCTAssertEqual(result, .completed, "Expected value to contain \(value)")
+        let currentValue = (element.value as? String) ?? String(describing: element.value ?? "nil")
+        XCTAssertEqual(
+            result,
+            .completed,
+            "Expected value to contain \(value); label='\(element.label)' value='\(currentValue)'"
+        )
+    }
+
+    @MainActor
+    func waitForValue(_ element: XCUIElement, notEquals value: String, timeout: TimeInterval = 4) {
+        let predicate = NSPredicate(
+            format: "exists == true AND NOT (value == %@ OR label == %@)",
+            value,
+            value
+        )
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
+        XCTAssertEqual(result, .completed, "Expected value to not equal \(value)")
     }
 
     @MainActor

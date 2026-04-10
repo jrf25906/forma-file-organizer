@@ -8,6 +8,16 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - No app API changes in this update.
   - Added `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md` to document the repo-approved `build-macos-apps` workflow, reusable prompt, and verification expectations for Forma.
 
+- Right-panel responsive width contract
+  - `RightPanelWidthClass`
+  - `RightPanelLayout`
+  - `EnvironmentValues.rightPanelLayout`
+  - `FormaSpacing.Column.rightPanelMin`
+  - `FormaSpacing.Column.rightPanelIdeal`
+  - `FormaSpacing.Column.rightPanelMax`
+  - `RightPanelView` now measures the live detail-column width once, derives a shared `regular` or `compact` right-panel contract from `FormaSpacing.Column.rightPanelIdeal`, and injects it through the environment so right-panel surfaces can reflow without local fixed-width copies.
+  - `DefaultPanelView`, `FileInspectorView`, `RulesManagementView`, `InlineRuleBuilderView`, `CelebrationView`, and `CompletionCelebrationView` now consume that shared layout contract for compact stacking and wrapping behavior.
+
 - File-surface QA hooks
   - `FileSurfaceActionVisibility`
     - `shouldShowPrimaryAction(primaryActionKind:showsPrimaryActionButton:isSelectionMode:isInteracting:)`

@@ -67,6 +67,9 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 
 ### Recent API Updates (April 2026)
 
+- `RightPanelWidthClass`, `RightPanelLayout`, and `EnvironmentValues.rightPanelLayout` now define the shared measured-width contract for the dashboard detail column.
+- `RightPanelView` now derives that contract from the live detail-column width and `FormaSpacing.Column.rightPanelIdeal`, while `FormaSpacing.Column.rightPanelMin/Ideal/Max` remain the only right-panel width source of truth.
+- `DefaultPanelView`, `FileInspectorView`, `RulesManagementView`, `InlineRuleBuilderView`, `CelebrationView`, and `CompletionCelebrationView` now consume `rightPanelLayout` so compact right-panel layouts stack or wrap controls before content truncates.
 - `ProjectCluster.filePathsSearchBlob` now defaults to an empty string so stores created before that denormalized search field existed can still open under the current app schema and rebuild the blob lazily from `filePaths`.
 - Added `Forma File OrganizingTests/AppStoreMigrationTests.swift` coverage for legacy pre-metadata stores containing `FileItem`, `LearnedPattern`, and `ProjectCluster` rows.
 - `FeatureFlagService.Feature.projectSpaces` still gates the shipped project-space retrieval slice, and `FeatureFlagService.Feature.projectSpaceAutomationBoard` now gates the policy-centered board layered on top of it.

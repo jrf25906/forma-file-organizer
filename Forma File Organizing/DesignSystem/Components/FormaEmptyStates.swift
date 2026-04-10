@@ -15,14 +15,22 @@ struct FormaEmptyState: View {
     let message: String
     let actionTitle: String?
     let action: (() -> Void)?
+    let actionAccessibilityIdentifier: String?
 
     @Environment(\.colorScheme) private var colorScheme
 
-    init(title: String, message: String, actionTitle: String? = nil, action: (() -> Void)? = nil) {
+    init(
+        title: String,
+        message: String,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil,
+        actionAccessibilityIdentifier: String? = nil
+    ) {
         self.title = title
         self.message = message
         self.actionTitle = actionTitle
         self.action = action
+        self.actionAccessibilityIdentifier = actionAccessibilityIdentifier
     }
 
     var body: some View {
@@ -45,7 +53,11 @@ struct FormaEmptyState: View {
             }
 
             if let actionTitle = actionTitle, let action = action {
-                FormaPrimaryButton(title: actionTitle, action: action)
+                FormaPrimaryButton(
+                    title: actionTitle,
+                    action: action,
+                    accessibilityIdentifier: actionAccessibilityIdentifier
+                )
                     .frame(maxWidth: 200)
             }
 

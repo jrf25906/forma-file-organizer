@@ -52,6 +52,24 @@ HStack(spacing: FormaSpacing.tight)
 
 **Layout constants:** `FormaSpacing.Toolbar.topOffset` (64), `FormaSpacing.Card.minHeight` (120), `FormaSpacing.Breakpoints.compactWidth` (600)
 
+### Right-Panel Responsiveness
+The right panel uses a shared measured-width contract instead of per-view fixed widths:
+
+```swift
+@Environment(\.rightPanelLayout) private var rightPanelLayout
+
+if rightPanelLayout.isCompact {
+    // stack or wrap controls
+} else {
+    // regular horizontal layout
+}
+```
+
+- `RightPanelView` is the only place that measures the detail column and creates `RightPanelLayout`.
+- `FormaSpacing.Column.rightPanelMin`, `.rightPanelIdeal`, and `.rightPanelMax` are the single source of truth for the right-panel width contract.
+- Compact mode begins when the measured panel width drops below `FormaSpacing.Column.rightPanelIdeal` (`340pt`).
+- Inside right-panel surfaces, prefer `frame(maxWidth: .infinity)` plus stacked/wrapping variants over hardcoded child widths.
+
 ### Shared Components
 Use existing components from `FormaComponents.swift`:
 

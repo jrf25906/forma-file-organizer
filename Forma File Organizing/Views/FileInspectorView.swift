@@ -9,6 +9,7 @@ struct FileInspectorView: View {
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
     private let sectionSpacing: CGFloat = FormaSpacing.large
     private let inspectorPadding: CGFloat = FormaSpacing.generous
@@ -16,38 +17,46 @@ struct FileInspectorView: View {
     @State private var pendingTrashFile: FileItem?
     @State private var ruleSimulationSummary: RuleEngine.RuleSimulationSummary?
     @State private var presentedWorkflowRunID: UUID?
+
+    private var rightPanelWidthClassText: String {
+        rightPanelLayout.isCompact ? "compact" : "regular"
+    }
+
+    private var inspectorProbeValue: String {
+        "titleOnCard=\(String(format: "%.2f", inspectorTitleContrastRatio));secondaryOnCard=\(String(format: "%.2f", inspectorSecondaryContrastRatio));quickLook=\(String(format: "%.2f", inspectorQuickLookContrastRatio));sectionSpacing=\(Int(sectionSpacing));panelPadding=\(Int(inspectorPadding));previewHeight=\(Int(previewHeight));widthClass=\(rightPanelWidthClassText)"
+    }
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: sectionSpacing) {
-                if files.count == 1, let file = files.first {
-                    singleFileInspector(file)
-                } else {
-                    multipleFilesInspector()
+        ZStack(alignment: .topLeading) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: sectionSpacing) {
+                    if files.count == 1, let file = files.first {
+                        singleFileInspector(file)
+                    } else {
+                        multipleFilesInspector()
+                    }
                 }
+                .padding(.horizontal, inspectorPadding)
+                .padding(.top, inspectorPadding)
+                .padding(.bottom, inspectorPadding)
             }
-            .padding(.horizontal, inspectorPadding)
-            .padding(.top, inspectorPadding)
-            .padding(.bottom, inspectorPadding)
-        }
-        .background(Color.clear)
-        .accessibilityIdentifier("fileInspectorView")
-        .task(id: ruleSimulationRefreshToken) {
-            refreshRuleSimulation()
-        }
-        .overlay(alignment: .topLeading) {
+
             if isUITesting {
                 Color.clear
                     .frame(width: 1, height: 1)
                     .accessibilityElement(children: .ignore)
                     .accessibilityIdentifier("inspectorContrastProbe")
-                    .accessibilityLabel(
-                        "titleOnCard=\(String(format: "%.2f", inspectorTitleContrastRatio));secondaryOnCard=\(String(format: "%.2f", inspectorSecondaryContrastRatio));quickLook=\(String(format: "%.2f", inspectorQuickLookContrastRatio));sectionSpacing=\(Int(sectionSpacing));panelPadding=\(Int(inspectorPadding));previewHeight=\(Int(previewHeight))"
-                    )
-                    .accessibilityValue(
-                        "titleOnCard=\(String(format: "%.2f", inspectorTitleContrastRatio));secondaryOnCard=\(String(format: "%.2f", inspectorSecondaryContrastRatio));quickLook=\(String(format: "%.2f", inspectorQuickLookContrastRatio));sectionSpacing=\(Int(sectionSpacing));panelPadding=\(Int(inspectorPadding));previewHeight=\(Int(previewHeight))"
-                    )
+                    .accessibilityLabel(inspectorProbeValue)
+                    .accessibilityValue(inspectorProbeValue)
             }
+        }
+        .background(Color.clear)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("fileInspectorView")
+        .accessibilityLabel(isUITesting ? inspectorProbeValue : "")
+        .accessibilityValue(isUITesting ? inspectorProbeValue : "")
+        .task(id: ruleSimulationRefreshToken) {
+            refreshRuleSimulation()
         }
         .confirmationDialog(
             "Move file to Trash?",
@@ -270,19 +279,35 @@ struct FileInspectorView: View {
     }
     
     private func metadataRow(label: String, value: String) -> some View {
-        HStack(alignment: .top, spacing: FormaSpacing.standard) {
-            Text(label)
-                .font(.formaSmall)
-                .foregroundColor(inspectorSecondaryTextColor)
-                .frame(minWidth: 60, alignment: .leading)
-            
-            Text(value)
-                .font(.formaSmall)
-                .foregroundColor(.formaLabel)
-                .lineLimit(2)
-            
-            Spacer()
+        Group {
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                    Text(label)
+                        .font(.formaSmall)
+                        .foregroundColor(inspectorSecondaryTextColor)
+
+                    Text(value)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaLabel)
+                        .lineLimit(3)
+                }
+            } else {
+                HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                    Text(label)
+                        .font(.formaSmall)
+                        .foregroundColor(inspectorSecondaryTextColor)
+                        .frame(minWidth: 60, alignment: .leading)
+
+                    Text(value)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaLabel)
+                        .lineLimit(2)
+
+                    Spacer()
+                }
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func workflowAuditCard(_ summary: WorkflowInspectorRunSummary) -> some View {
@@ -351,23 +376,44 @@ struct FileInspectorView: View {
                 .foregroundColor(inspectorSecondaryTextColor)
 
             // Suggested destination
-            HStack(spacing: FormaSpacing.standard) {
-                Image(systemName: "folder.fill")
-                    .foregroundColor(.formaSteelBlue)
-                    .font(.formaBodyLarge)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Suggested Destination")
-                        .font(.formaCaption)
-                        .foregroundColor(inspectorSecondaryTextColor)
-                    
-                    Text(destination)
-                        .font(.formaSmall)
-                        .foregroundColor(.formaLabel)
-                        .lineLimit(2)
+            Group {
+                if rightPanelLayout.isCompact {
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        Image(systemName: "folder.fill")
+                            .foregroundColor(.formaSteelBlue)
+                            .font(.formaBodyLarge)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Suggested Destination")
+                                .font(.formaCaption)
+                                .foregroundColor(inspectorSecondaryTextColor)
+
+                            Text(destination)
+                                .font(.formaSmall)
+                                .foregroundColor(.formaLabel)
+                                .lineLimit(3)
+                        }
+                    }
+                } else {
+                    HStack(spacing: FormaSpacing.standard) {
+                        Image(systemName: "folder.fill")
+                            .foregroundColor(.formaSteelBlue)
+                            .font(.formaBodyLarge)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Suggested Destination")
+                                .font(.formaCaption)
+                                .foregroundColor(inspectorSecondaryTextColor)
+
+                            Text(destination)
+                                .font(.formaSmall)
+                                .foregroundColor(.formaLabel)
+                                .lineLimit(2)
+                        }
+
+                        Spacer()
+                    }
                 }
-                
-                Spacer()
             }
             .padding(FormaSpacing.standard)
             .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
@@ -507,13 +553,13 @@ struct FileInspectorView: View {
                 Text(example.fileName)
                     .font(.formaCaptionSemibold)
                     .foregroundColor(.formaLabel)
-                    .lineLimit(1)
+                    .lineLimit(rightPanelLayout.isCompact ? 2 : 1)
 
                 if let destination = example.suggestedDestination {
                     Text(destination)
                         .font(.formaCaption)
                         .foregroundColor(inspectorSecondaryTextColor)
-                        .lineLimit(1)
+                        .lineLimit(rightPanelLayout.isCompact ? 2 : 1)
                 }
             }
 
@@ -583,28 +629,26 @@ struct FileInspectorView: View {
             }
             
             // Secondary actions
-            HStack(spacing: FormaSpacing.standard) {
-                SecondaryButton("Skip", icon: "xmark.circle") {
-                    dashboardViewModel.skipFile(file)
-                    dashboardViewModel.deselectAll()
-                }
-                
-                Button(action: {
-                    pendingTrashFile = file
-                }) {
-                        Image(systemName: "trash")
-                            .font(.formaBody)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, FormaSpacing.tight) // Match SecondaryButton height
+            Group {
+                if rightPanelLayout.isCompact {
+                    VStack(spacing: FormaSpacing.standard) {
+                        SecondaryButton("Skip", icon: "xmark.circle") {
+                            dashboardViewModel.skipFile(file)
+                            dashboardViewModel.deselectAll()
+                        }
+
+                        deleteFileButton(for: file)
                     }
-                    .buttonStyle(.plain)
-                    .background(Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                            .stroke(Color.formaWarmOrange.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
-                    )
-                    .foregroundColor(.formaWarmOrange)
-                    .help("Delete File")
+                } else {
+                    HStack(spacing: FormaSpacing.standard) {
+                        SecondaryButton("Skip", icon: "xmark.circle") {
+                            dashboardViewModel.skipFile(file)
+                            dashboardViewModel.deselectAll()
+                        }
+
+                        deleteFileButton(for: file)
+                    }
+                }
             }
             
             if file.destination != nil {
@@ -633,6 +677,25 @@ struct FileInspectorView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    private func deleteFileButton(for file: FileItem) -> some View {
+        Button(action: {
+            pendingTrashFile = file
+        }) {
+            Image(systemName: "trash")
+                .font(.formaBody)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, FormaSpacing.tight)
+        }
+        .buttonStyle(.plain)
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .stroke(Color.formaWarmOrange.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
+        )
+        .foregroundColor(.formaWarmOrange)
+        .help("Delete File")
     }
 
     private func similarFilesSection(_ similarFiles: [FileItem]) -> some View {
@@ -736,7 +799,7 @@ struct FileInspectorView: View {
                 .tracking(0.5)
                 .foregroundColor(inspectorSecondaryTextColor)
             
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: FormaSpacing.tight) {
+            LazyVGrid(columns: previewGridColumns, spacing: FormaSpacing.tight) {
                 ForEach(files.prefix(9)) { file in
                     previewThumbnail(file)
                 }
@@ -766,13 +829,18 @@ struct FileInspectorView: View {
                     .foregroundColor(file.category.color)
                     .font(.formaH2)
             }
-            .frame(width: 80, height: 80)
+            .frame(maxWidth: .infinity, minHeight: rightPanelLayout.isCompact ? 72 : 80)
             .formaCornerRadius(FormaRadius.small)
             
             Text(file.fileExtension.uppercased())
                 .font(.formaCaption)
                 .foregroundColor(inspectorSecondaryTextColor)
         }
+    }
+
+    private var previewGridColumns: [GridItem] {
+        let count = rightPanelLayout.isCompact ? 2 : 3
+        return Array(repeating: GridItem(.flexible(), spacing: FormaSpacing.tight), count: count)
     }
     
     private func patternDetectionCard(_ pattern: String) -> some View {
@@ -1062,6 +1130,7 @@ private struct MetadataFoundationProofSection: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
     @State private var summary: FileMetadataInspectorSummary?
 
     var body: some View {
@@ -1152,19 +1221,35 @@ private struct MetadataFoundationProofSection: View {
     }
 
     private func metadataRow(label: String, value: String) -> some View {
-        HStack(alignment: .top, spacing: FormaSpacing.standard) {
-            Text(label)
-                .font(.formaSmall)
-                .foregroundColor(inspectorSecondaryTextColor)
-                .frame(minWidth: 60, alignment: .leading)
+        Group {
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                    Text(label)
+                        .font(.formaSmall)
+                        .foregroundColor(inspectorSecondaryTextColor)
 
-            Text(value)
-                .font(.formaSmall)
-                .foregroundColor(.formaLabel)
-                .lineLimit(2)
+                    Text(value)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaLabel)
+                        .lineLimit(3)
+                }
+            } else {
+                HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                    Text(label)
+                        .font(.formaSmall)
+                        .foregroundColor(inspectorSecondaryTextColor)
+                        .frame(minWidth: 60, alignment: .leading)
 
-            Spacer()
+                    Text(value)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaLabel)
+                        .lineLimit(2)
+
+                    Spacer()
+                }
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func metadataFoundationHistoryRow(_ row: FileMetadataInspectorSummary.HistoryRow) -> some View {
@@ -1178,7 +1263,7 @@ private struct MetadataFoundationProofSection: View {
                 Text("Destination: \(destination)")
                     .font(.formaCaption)
                     .foregroundColor(inspectorSecondaryTextColor)
-                    .lineLimit(1)
+                    .lineLimit(rightPanelLayout.isCompact ? 2 : 1)
             }
 
             if let details = row.detailsSummary, !details.isEmpty {

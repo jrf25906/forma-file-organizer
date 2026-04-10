@@ -43,6 +43,7 @@ struct RulesManagementView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
     @Query private var allRules: [Rule]
@@ -86,6 +87,10 @@ struct RulesManagementView: View {
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
     private let listRowSpacing: CGFloat = FormaSpacing.tight
     private let listContentPadding: CGFloat = FormaSpacing.standard
+
+    private var rightPanelWidthClassText: String {
+        rightPanelLayout.isCompact ? "compact" : "regular"
+    }
 
     private var visibleAllRules: [Rule] {
         allRules.filter { !pendingDeletionRuleIDs.contains($0.id) }
@@ -195,6 +200,7 @@ struct RulesManagementView: View {
     
     var body: some View {
         let content = makeContentState()
+        let smartRulesAccessibilityValue = smartRulesStateValue(content: content)
 
         VStack(spacing: 0) {
             // Align with MainContentView's toolbar position (traffic lights clearance)
@@ -202,67 +208,29 @@ struct RulesManagementView: View {
 
             // Header
             VStack(spacing: FormaSpacing.standard) {
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Smart Rules")
-                            .font(.formaH1)
-                            .foregroundColor(.formaLabel)
+                if rightPanelLayout.isCompact {
+                    VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                        rulesHeaderSummary(totalEnabledCount: content.totalEnabledCount)
 
-                        Text("\(content.totalEnabledCount) active")
-                            .font(.formaSmall)
-                            .foregroundColor(.formaSecondaryLabelHigh)
-                    }
-
-                    Spacer()
-
-                    if !content.isInitialEmptyState {
-                        PrimaryButton("New", icon: "plus") {
-                            openRuleBuilderPanel()
+                        if !content.isInitialEmptyState {
+                            newRuleButton(frameToFill: true)
                         }
-                        .frame(width: 100)
-                        .hoverLift(scale: 1.03, shadowRadius: 8)
+                    }
+                } else {
+                    HStack(alignment: .center) {
+                        rulesHeaderSummary(totalEnabledCount: content.totalEnabledCount)
+
+                        Spacer()
+
+                        if !content.isInitialEmptyState {
+                            newRuleButton(frameToFill: false)
+                        }
                     }
                 }
                 
                 // Combined Toolbar (Search + Tabs)
                 if !content.isInitialEmptyState {
-                    HStack(spacing: 8) {
-                        // Search Field (Compact)
-                        HStack(spacing: 6) {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.formaSecondaryLabelHigh)
-                                .font(.system(size: 14))
-                            
-                            TextField("Search...", text: $searchText)
-                                .textFieldStyle(.plain)
-                                .font(.formaBody)
-                            
-                            if !searchText.isEmpty {
-                                Button(action: { searchText = "" }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.formaTertiaryLabelHigh)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.formaControlBackground)
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.formaSeparator, lineWidth: 0.5)
-                        )
-                        .frame(width: 200)
-                        .accessibilityIdentifier("smartRulesSearchBar")
-                        
-                        Spacer()
-                        
-                        // Filter Tabs (Compact) — only show when multiple categories exist
-                        if !meaningfulCategories.isEmpty {
-                            categoryTabBar
-                        }
-                    }
+                    rulesToolbar
                 }
             }
             .padding(.horizontal, FormaSpacing.standard)
@@ -302,7 +270,8 @@ struct RulesManagementView: View {
                             actionTitle: "Create Rule",
                             action: {
                                 openRuleBuilderPanel()
-                            }
+                            },
+                            actionAccessibilityIdentifier: "smartRulesCreateRuleButton"
                         )
 
                         starterTemplatesSection
@@ -332,6 +301,8 @@ struct RulesManagementView: View {
             pendingDeletionRuleIDs.formIntersection(Set(remainingRuleIDs))
         }
         .accessibilityIdentifier("smartRulesView")
+        .accessibilityLabel(isUITesting ? smartRulesAccessibilityValue : "")
+        .accessibilityValue(isUITesting ? smartRulesAccessibilityValue : "")
         .overlay(alignment: .topLeading) {
             if isUITesting {
                 Color.clear
@@ -339,36 +310,140 @@ struct RulesManagementView: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityIdentifier("smartRulesContrastProbe")
                     .accessibilityLabel(
-                        "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio));bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio));rowSpacing=\(Int(listRowSpacing));rowVerticalPadding=\(Int(RuleManagementCard.verticalPadding));listPadding=\(Int(listContentPadding))"
+                        "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio));bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio));rowSpacing=\(Int(listRowSpacing));rowVerticalPadding=\(Int(RuleManagementCard.verticalPadding));listPadding=\(Int(listContentPadding));widthClass=\(rightPanelWidthClassText)"
+                    )
+                    .accessibilityValue(
+                        "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio));bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio));rowSpacing=\(Int(listRowSpacing));rowVerticalPadding=\(Int(RuleManagementCard.verticalPadding));listPadding=\(Int(listContentPadding));widthClass=\(rightPanelWidthClassText)"
                     )
             }
         }
     }
 
+    @ViewBuilder
+    private func rulesHeaderSummary(totalEnabledCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Smart Rules")
+                .font(.formaH1)
+                .foregroundColor(.formaLabel)
+
+            Text("\(totalEnabledCount) active")
+                .font(.formaSmall)
+                .foregroundColor(.formaSecondaryLabelHigh)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func newRuleButton(frameToFill: Bool) -> some View {
+        PrimaryButton("New", icon: "plus", accessibilityIdentifier: "smartRulesNewRuleButton") {
+            openRuleBuilderPanel()
+        }
+        .frame(maxWidth: frameToFill ? .infinity : nil)
+        .hoverLift(scale: 1.03, shadowRadius: 8)
+    }
+
+    private func smartRulesStateValue(content: ContentState) -> String {
+        "widthClass=\(rightPanelWidthClassText);builderEntry=\(content.isInitialEmptyState ? "emptyState" : "header")"
+    }
+
+    @ViewBuilder
+    private var rulesToolbar: some View {
+        if rightPanelLayout.isCompact {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                searchField
+
+                if !meaningfulCategories.isEmpty {
+                    categoryTabBar
+                }
+            }
+        } else {
+            HStack(spacing: 8) {
+                searchField
+                    .frame(width: 200)
+
+                Spacer()
+
+                if !meaningfulCategories.isEmpty {
+                    categoryTabBar
+                }
+            }
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.formaSecondaryLabelHigh)
+                .font(.system(size: 14))
+
+            TextField("Search...", text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.formaBody)
+
+            if !searchText.isEmpty {
+                Button(action: { searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.formaTertiaryLabelHigh)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.formaControlBackground)
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.formaSeparator, lineWidth: 0.5)
+        )
+        .accessibilityIdentifier("smartRulesSearchBar")
+    }
+
     // MARK: - Category Tab Bar
 
     private var categoryTabBar: some View {
-        HStack(spacing: 8) {
-            let options: [UUID?] = [nil] + meaningfulCategories.map { $0.id }
-            Picker("Rule Category", selection: $selectedCategoryID) {
-                ForEach(options, id: \.self) { option in
-                    Text(categoryTabTitle(for: option))
-                        .tag(option as UUID?)
+        Group {
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    categoryPicker
+                    manageCategoriesButton
+                }
+            } else {
+                HStack(spacing: 8) {
+                    categoryPicker
+                    manageCategoriesButton
                 }
             }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-
-            // Manage categories button
-            Button {
-                showManageCategories = true
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .help("Manage categories")
         }
+    }
+
+    private var categoryPicker: some View {
+        let options: [UUID?] = [nil] + meaningfulCategories.map { $0.id }
+        return Picker("Rule Category", selection: $selectedCategoryID) {
+            ForEach(options, id: \.self) { option in
+                Text(categoryTabTitle(for: option))
+                    .tag(option as UUID?)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.segmented)
+    }
+
+    private var manageCategoriesButton: some View {
+        Button {
+            showManageCategories = true
+        } label: {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: "slider.horizontal.3")
+                if rightPanelLayout.isCompact {
+                    Text("Manage Categories")
+                }
+            }
+            .frame(maxWidth: rightPanelLayout.isCompact ? .infinity : nil)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .help("Manage categories")
     }
 
     private func categoryTabTitle(for option: UUID?) -> String {
@@ -390,57 +465,19 @@ struct RulesManagementView: View {
     // MARK: - Rule Health
 
     private func needsPermissionBanner(count: Int) -> some View {
-        HStack(alignment: .center, spacing: FormaSpacing.standard) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.formaBodySemibold)
-                .foregroundColor(.formaWarmOrange)
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    FormaBadge(
-                        text: "\(count)",
-                        color: .formaWarmOrange,
-                        size: .small,
-                        style: .subtle
-                    )
-                    Text(count == 1 ? "rule needs permission" : "rules need permission")
-                        .font(.formaSmallSemibold)
-                        .foregroundColor(.formaLabel)
+        Group {
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                    needsPermissionBannerBody(count: count)
+                    needsPermissionActionButton
                 }
-
-                Text("These destinations are outside the folders Forma can currently access.")
-                    .font(.formaCaption)
-                    .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
+            } else {
+                HStack(alignment: .center, spacing: FormaSpacing.standard) {
+                    needsPermissionBannerBody(count: count)
+                    Spacer()
+                    needsPermissionActionButton
+                }
             }
-
-            Spacer()
-
-            Button(action: {
-                if filterNeedsPermissionOnly {
-                    filterNeedsPermissionOnly = false
-                } else {
-                    filterNeedsPermissionOnly = true
-                    selectedCategoryID = nil
-                    searchText = ""
-                }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: filterNeedsPermissionOnly ? "xmark.circle.fill" : "arrow.right")
-                        .font(.formaCaptionSemibold)
-                    Text(filterNeedsPermissionOnly ? "Show All" : "Review")
-                        .font(.formaCaptionSemibold)
-                }
-                .foregroundColor(.formaWarmOrange)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.2 : Color.FormaOpacity.light))
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.55 : Color.FormaOpacity.overlay), lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
         }
         .padding(FormaSpacing.standard)
         .background(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.09 : Color.FormaOpacity.ultraSubtle))
@@ -472,7 +509,88 @@ struct RulesManagementView: View {
     }
 
     private func willCreateBanner(count: Int, createAction: @escaping () -> Void) -> some View {
-        HStack(alignment: .center, spacing: FormaSpacing.standard) {
+        Group {
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                    willCreateBannerBody(count: count)
+                    willCreateActionButton(createAction: createAction)
+                }
+            } else {
+                HStack(alignment: .center, spacing: FormaSpacing.standard) {
+                    willCreateBannerBody(count: count)
+                    Spacer()
+                    willCreateActionButton(createAction: createAction)
+                }
+            }
+        }
+        .padding(FormaSpacing.standard)
+        .background(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.09 : Color.FormaOpacity.ultraSubtle))
+        .cornerRadius(FormaRadius.card)
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .stroke(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.3 : Color.FormaOpacity.light), lineWidth: 1)
+        )
+    }
+
+    private func needsPermissionBannerBody(count: Int) -> some View {
+        HStack(alignment: .top, spacing: FormaSpacing.standard) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.formaBodySemibold)
+                .foregroundColor(.formaWarmOrange)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    FormaBadge(
+                        text: "\(count)",
+                        color: .formaWarmOrange,
+                        size: .small,
+                        style: .subtle
+                    )
+                    Text(count == 1 ? "rule needs permission" : "rules need permission")
+                        .font(.formaSmallSemibold)
+                        .foregroundColor(.formaLabel)
+                }
+
+                Text("These destinations are outside the folders Forma can currently access.")
+                    .font(.formaCaption)
+                    .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var needsPermissionActionButton: some View {
+        Button(action: {
+            if filterNeedsPermissionOnly {
+                filterNeedsPermissionOnly = false
+            } else {
+                filterNeedsPermissionOnly = true
+                selectedCategoryID = nil
+                searchText = ""
+            }
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: filterNeedsPermissionOnly ? "xmark.circle.fill" : "arrow.right")
+                    .font(.formaCaptionSemibold)
+                Text(filterNeedsPermissionOnly ? "Show All" : "Review")
+                    .font(.formaCaptionSemibold)
+            }
+            .foregroundColor(.formaWarmOrange)
+            .frame(maxWidth: rightPanelLayout.isCompact ? .infinity : nil)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.2 : Color.FormaOpacity.light))
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.55 : Color.FormaOpacity.overlay), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func willCreateBannerBody(count: Int) -> some View {
+        HStack(alignment: .top, spacing: FormaSpacing.standard) {
             Image(systemName: "folder.badge.plus")
                 .font(.formaBodySemibold)
                 .foregroundColor(.formaSteelBlue)
@@ -494,35 +612,30 @@ struct RulesManagementView: View {
                     .font(.formaCaption)
                     .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
             }
-
-            Spacer()
-
-            Button(action: createAction) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus")
-                        .font(.formaCaptionSemibold)
-                    Text("Create Folders Now")
-                        .font(.formaCaptionSemibold)
-                }
-                .foregroundColor(.formaSteelBlue)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.2 : Color.FormaOpacity.light))
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.55 : Color.FormaOpacity.overlay), lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
         }
-        .padding(FormaSpacing.standard)
-        .background(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.09 : Color.FormaOpacity.ultraSubtle))
-        .cornerRadius(FormaRadius.card)
-        .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.3 : Color.FormaOpacity.light), lineWidth: 1)
-        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func willCreateActionButton(createAction: @escaping () -> Void) -> some View {
+        Button(action: createAction) {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.formaCaptionSemibold)
+                Text("Create Folders Now")
+                    .font(.formaCaptionSemibold)
+            }
+            .foregroundColor(.formaSteelBlue)
+            .frame(maxWidth: rightPanelLayout.isCompact ? .infinity : nil)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.2 : Color.FormaOpacity.light))
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.55 : Color.FormaOpacity.overlay), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private func rulesOverviewStrip(content: ContentState) -> some View {

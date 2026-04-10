@@ -17,6 +17,7 @@ struct FormaPrimaryButton: View {
     var isEnabled: Bool = true
     var tint: Color = .formaSteelBlue
     var cornerRadius: CGFloat = FormaRadius.control
+    var accessibilityIdentifier: String? = nil
 
     var body: some View {
         Button(action: action) {
@@ -37,6 +38,7 @@ struct FormaPrimaryButton: View {
         .formaShadow(.resting)
         .disabled(!isEnabled)
         .buttonStyle(PlainButtonStyle())
+        .accessibilityIdentifier(accessibilityIdentifier ?? "")
     }
 }
 

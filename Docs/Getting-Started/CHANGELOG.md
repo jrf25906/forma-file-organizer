@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Responsive Right-Panel Width Classes
+- **Shared width contract**: `RightPanelView` now measures the live detail-column width once, derives a shared `RightPanelLayout`, and switches to compact rendering below `FormaSpacing.Column.rightPanelIdeal` instead of relying on duplicate stale width constants.
+- **Responsive right-panel surfaces**: The default panel, file inspector, Smart Rules, inline rule builder, celebration flows, and shared mode header now wrap or stack controls in compact widths so cards use the available panel width instead of clipping around fixed child widths.
+- **Coverage**: Added unit coverage for the `340pt` compact breakpoint and targeted UI coverage for regular and compact three-column launches across default-panel, inspector, Smart Rules, and inline rule-builder paths.
+
 ### Fixed - Legacy App Store Migration
 - **Startup migration recovery**: `ProjectCluster.filePathsSearchBlob` now defaults to an empty string for rows created before that denormalized search field existed, allowing older app stores to open and migrate without crashing during container creation.
 - **Regression coverage**: Added `Forma File OrganizingTests/AppStoreMigrationTests.swift` to verify legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows open under the current app schema.

@@ -4,6 +4,36 @@ import SwiftUI
 ///
 /// Keep these as the single source of truth for cross-pane layout so the sidebar,
 /// center pane, and right panel can stay visually aligned.
+enum RightPanelWidthClass: Equatable {
+    case regular
+    case compact
+}
+
+struct RightPanelLayout: Equatable {
+    let width: CGFloat
+
+    var widthClass: RightPanelWidthClass {
+        width < FormaSpacing.Column.rightPanelIdeal ? .compact : .regular
+    }
+
+    var isCompact: Bool {
+        widthClass == .compact
+    }
+
+    static let `default` = RightPanelLayout(width: FormaSpacing.Column.rightPanelIdeal)
+}
+
+private struct RightPanelLayoutKey: EnvironmentKey {
+    static let defaultValue: RightPanelLayout = .default
+}
+
+extension EnvironmentValues {
+    var rightPanelLayout: RightPanelLayout {
+        get { self[RightPanelLayoutKey.self] }
+        set { self[RightPanelLayoutKey.self] = newValue }
+    }
+}
+
 enum FormaLayout {
 
     enum Gutters {
@@ -23,10 +53,6 @@ enum FormaLayout {
 
         static let sidebarCollapsedWidth: CGFloat = 72
         static let sidebarExpandedWidth: CGFloat = 256
-
-        static let rightPanelIdealWidth: CGFloat = 360
-        static let rightPanelMinWidth: CGFloat = 320
-        static let rightPanelMaxWidth: CGFloat = 360
     }
 
     enum Sidebar {

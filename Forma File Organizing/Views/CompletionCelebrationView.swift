@@ -5,6 +5,7 @@ import SwiftUI
 struct CompletionCelebrationView: View {
     let filesOrganized: Int
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isAnimating = false
@@ -46,8 +47,8 @@ struct CompletionCelebrationView: View {
 
                     Spacer()
                 }
-                .padding(.horizontal, FormaSpacing.generous)
-                .padding(.vertical, FormaSpacing.generous)
+                .padding(.horizontal, rightPanelLayout.isCompact ? FormaSpacing.standard : FormaSpacing.generous)
+                .padding(.vertical, rightPanelLayout.isCompact ? FormaSpacing.standard : FormaSpacing.generous)
             }
         }
         .background(Color.formaControlBackground.opacity(Color.FormaOpacity.overlay))
@@ -85,7 +86,10 @@ struct CompletionCelebrationView: View {
                         ),
                         lineWidth: 2
                     )
-                    .frame(width: 140 + CGFloat(index) * 20, height: 140 + CGFloat(index) * 20)
+                    .frame(
+                        width: celebrationRingBase + CGFloat(index) * celebrationRingStep,
+                        height: celebrationRingBase + CGFloat(index) * celebrationRingStep
+                    )
                     .scaleEffect(isAnimating ? 1.0 : 0.8)
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .animation(
@@ -106,13 +110,13 @@ struct CompletionCelebrationView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 120, height: 120)
+                .frame(width: celebrationCoreDiameter, height: celebrationCoreDiameter)
                 .scaleEffect(isAnimating ? 1.0 : 0.5)
                 .opacity(isAnimating ? 1.0 : 0.0)
 
             // Trophy/party icon
             Image(systemName: "party.popper.fill")
-                .font(.system(size: 48))
+                .font(.system(size: celebrationIconSize))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color.formaWarmOrange, Color.formaSage],
@@ -146,10 +150,12 @@ struct CompletionCelebrationView: View {
                 .font(.formaBodyMedium)
                 .foregroundColor(.formaSecondaryLabel)
                 .multilineTextAlignment(.center)
+                .lineLimit(rightPanelLayout.isCompact ? 3 : 2)
                 .opacity(showContent ? 1.0 : 0.0)
                 .offset(y: showContent ? 0 : 10)
         }
         .padding(.top, FormaSpacing.standard)
+        .frame(maxWidth: .infinity)
         .animation(
             reduceMotion ? .none : .easeOut(duration: 0.4).delay(0.3),
             value: showContent
@@ -173,13 +179,14 @@ struct CompletionCelebrationView: View {
                 .font(.formaSmall)
                 .foregroundColor(.formaTertiaryLabel)
         }
-        .padding(FormaSpacing.large)
+        .padding(rightPanelLayout.isCompact ? FormaSpacing.standard : FormaSpacing.large)
         .background(Color.formaCardBackground)
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
         )
+        .frame(maxWidth: .infinity)
         .opacity(showContent ? 1.0 : 0.0)
         .offset(y: showContent ? 0 : 15)
         .animation(
@@ -194,9 +201,33 @@ struct CompletionCelebrationView: View {
         Button(action: {
             dashboardViewModel.returnToDefaultPanel()
         }) {
-            Text("Continue")
-                .font(.formaBody)
-                .foregroundColor(.formaSecondaryLabel)
+            Group {
+                if rightPanelLayout.isCompact {
+                    HStack(spacing: FormaSpacing.tight) {
+                        Text("Continue")
+                            .font(.formaBody)
+                        Spacer()
+                        Image(systemName: "arrow.right")
+                            .font(.formaSmallSemibold)
+                    }
+                    .foregroundColor(.formaSecondaryLabel)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, FormaSpacing.standard)
+                    .padding(.vertical, FormaSpacing.tight)
+                    .background(
+                        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                            .fill(Color.formaCardBackground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                            .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                    )
+                } else {
+                    Text("Continue")
+                        .font(.formaBody)
+                        .foregroundColor(.formaSecondaryLabel)
+                }
+            }
         }
         .buttonStyle(.plain)
         .padding(.top, FormaSpacing.large)
@@ -208,6 +239,22 @@ struct CompletionCelebrationView: View {
     }
 
     // MARK: - Animation Helpers
+
+    private var celebrationRingBase: CGFloat {
+        rightPanelLayout.isCompact ? 116 : 140
+    }
+
+    private var celebrationRingStep: CGFloat {
+        rightPanelLayout.isCompact ? 16 : 20
+    }
+
+    private var celebrationCoreDiameter: CGFloat {
+        rightPanelLayout.isCompact ? 100 : 120
+    }
+
+    private var celebrationIconSize: CGFloat {
+        rightPanelLayout.isCompact ? 40 : 48
+    }
 
     private func startCelebration() {
         if reduceMotion {

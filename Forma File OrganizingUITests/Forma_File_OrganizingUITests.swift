@@ -138,6 +138,100 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     }
 
     @MainActor
+    func testWideThreeColumnRightPanelUsesRegularLayoutContract() throws {
+        launchApp(windowSize: "1600x980")
+        harness.waitForMainContent()
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+
+        let defaultProbe = harness.element(withIdentifier: "defaultPanelContrastProbe")
+        harness.waitForExists(defaultProbe, timeout: 4, message: "Default panel probe should exist")
+        harness.waitForValue(defaultProbe, contains: "widthClass=regular", timeout: 4)
+
+        let selectedCountProbe = harness.element(withIdentifier: "mainContent_selectedCount")
+        harness.waitForExists(selectedCountProbe, timeout: 4, message: "Selected-count probe should exist")
+        harness.waitForValue(selectedCountProbe, equals: "0", timeout: 4)
+
+        app.activate()
+        app.typeKey("a", modifierFlags: .command)
+        harness.waitForValue(selectedCountProbe, notEquals: "0", timeout: 4)
+
+        let inspectorView = harness.element(withIdentifier: "fileInspectorView")
+        harness.waitForExists(inspectorView, timeout: 4, message: "Inspector view should exist")
+        harness.waitForValue(inspectorView, contains: "widthClass=regular", timeout: 4)
+    }
+
+    @MainActor
+    func testNarrowThreeColumnRightPanelUsesCompactLayoutContractAcrossModes() throws {
+        let suiteName = "\(defaultWindowPresentationSuiteName).compactRightPanel"
+        launchApp(
+            windowSize: "1600x980",
+            suiteName: suiteName,
+            resetWindowPresentation: true
+        )
+        harness.waitForMainContent()
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+
+        app.activate()
+        app.typeKey("i", modifierFlags: .command)
+        harness.waitForSplitLayout("twoColumn", timeout: 4)
+        app.typeKey("i", modifierFlags: .command)
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+
+        launchApp(
+            windowSize: "1200x900",
+            suiteName: suiteName,
+            resetWindowPresentation: false,
+            restoredFrame: "120,120,1200,900"
+        )
+        harness.waitForMainContent()
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+
+        let defaultProbe = harness.element(withIdentifier: "defaultPanelContrastProbe")
+        harness.waitForExists(defaultProbe, timeout: 4, message: "Default panel probe should exist")
+        harness.waitForValue(defaultProbe, contains: "widthClass=compact", timeout: 4)
+
+        let automationCard = harness.element(withIdentifier: "defaultPanelAutomationStatusCard")
+        XCTAssertTrue(automationCard.waitForExistence(timeout: 4), "Compact default panel should keep the automation card visible")
+
+        let selectedCountProbe = harness.element(withIdentifier: "mainContent_selectedCount")
+        harness.waitForExists(selectedCountProbe, timeout: 4, message: "Selected-count probe should exist")
+        harness.waitForValue(selectedCountProbe, equals: "0", timeout: 4)
+
+        app.activate()
+        app.typeKey("a", modifierFlags: .command)
+        harness.waitForValue(selectedCountProbe, notEquals: "0", timeout: 4)
+
+        let inspectorView = harness.element(withIdentifier: "fileInspectorView")
+        harness.waitForExists(inspectorView, timeout: 4, message: "Inspector view should exist")
+        harness.waitForValue(inspectorView, contains: "widthClass=compact", timeout: 4)
+
+        let smartRulesButton = harness.sidebarAction("sidebarAction_smartRules")
+        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Smart Rules sidebar action should exist")
+        smartRulesButton.click()
+
+        let smartRulesView = harness.element(withIdentifier: "smartRulesView")
+        harness.waitForExists(smartRulesView, timeout: 4, message: "Smart Rules view should exist")
+        harness.waitForValue(smartRulesView, contains: "widthClass=compact", timeout: 4)
+        let smartRulesState = harness.badgeValue(smartRulesView)
+        XCTAssertTrue(
+            smartRulesState.contains("builderEntry=header") || smartRulesState.contains("builderEntry=emptyState"),
+            "Smart Rules should expose a builder entry state"
+        )
+
+        let newRuleButton = harness.sidebarAction("sidebarAction_newRule")
+        XCTAssertTrue(newRuleButton.waitForExistence(timeout: 4), "Sidebar New Rule action should remain visible")
+        newRuleButton.click()
+
+        let builder = harness.element(withIdentifier: "inlineRuleBuilderView")
+        harness.waitForExists(builder, timeout: 4, message: "Inline rule builder should appear")
+
+        harness.waitForValue(builder, contains: "widthClass=compact", timeout: 4)
+
+        let saveButton = harness.element(withIdentifier: "ruleComposerSaveButton")
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 4), "Compact inline rule builder should keep the save action visible")
+    }
+
+    @MainActor
     func testRestoredWindowFrameIsBroughtBackOntoVisibleDisplay() throws {
         let suiteName = "\(defaultWindowPresentationSuiteName).restoredFrameValidation"
         let screenFrames = NSScreen.screens.map(\.frame)

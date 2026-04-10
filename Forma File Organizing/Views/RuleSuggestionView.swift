@@ -129,6 +129,11 @@ private struct PatternCard: View {
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
+
+    private var isCompactLayout: Bool {
+        rightPanelLayout.isCompact
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
@@ -150,98 +155,77 @@ private struct PatternCard: View {
                         .foregroundColor(.formaLabel)
                         .lineLimit(2)
 
-                    HStack(spacing: FormaSpacing.tight) {
-                        // Confidence badge
-                        HStack(spacing: FormaSpacing.micro) {
-                            Image(systemName: confidenceIcon)
-                                .font(.formaCaptionSemibold)
-                            Text(pattern.confidenceLevel)
-                                .font(.formaSmallSemibold)
+                    if isCompactLayout {
+                        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                            confidenceBadge
+                            Text("\(pattern.occurrenceCount) times")
+                                .font(.formaCaption)
+                                .foregroundColor(.formaSecondaryLabel)
                         }
-                        .foregroundColor(confidenceColor)
-                        .padding(.horizontal, FormaSpacing.tight)
-                        .padding(.vertical, FormaSpacing.micro)
-                        .background(
-                            Capsule()
-                                .fill(confidenceColor.opacity(Color.FormaOpacity.light))
-                        )
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(confidenceColor.opacity(Color.FormaOpacity.medium), lineWidth: 1)
-                        )
+                    } else {
+                        HStack(spacing: FormaSpacing.tight) {
+                            confidenceBadge
 
-                        Text("•")
-                            .foregroundColor(.formaTertiaryLabel)
-                            .font(.formaCaption)
-                        
-                        Text("\(pattern.occurrenceCount) times")
-                            .font(.formaCaption)
-                            .foregroundColor(.formaSecondaryLabel)
+                            Text("•")
+                                .foregroundColor(.formaTertiaryLabel)
+                                .font(.formaCaption)
+
+                            Text("\(pattern.occurrenceCount) times")
+                                .font(.formaCaption)
+                                .foregroundColor(.formaSecondaryLabel)
+                        }
                     }
                 }
-                
+
                 Spacer()
             }
-            
+
             // Destination preview
-            HStack(spacing: FormaSpacing.tight) {
-                Image(systemName: "arrow.right")
-                    .font(.formaCompact)
-                    .foregroundColor(.formaSecondaryLabel)
+            Group {
+                if isCompactLayout {
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        HStack(spacing: FormaSpacing.tight) {
+                            Image(systemName: "arrow.right")
+                                .font(.formaCompact)
+                                .foregroundColor(.formaSecondaryLabel)
 
-                HStack(spacing: FormaSpacing.tight - (FormaSpacing.micro / 2)) {
-                    Image(systemName: "folder.fill")
-                        .font(.formaSmall)
-                        .foregroundColor(.formaSteelBlue)
+                            Text("Suggested destination")
+                                .font(.formaCaptionSemibold)
+                                .foregroundColor(.formaSecondaryLabel)
+                        }
 
-                    Text(abbreviatePath(pattern.destinationPath))
-                        .font(.formaMono)
-                        .foregroundColor(.formaLabel)
-                        .lineLimit(1)
+                        destinationPill
+                    }
+                } else {
+                    HStack(spacing: FormaSpacing.tight) {
+                        Image(systemName: "arrow.right")
+                            .font(.formaCompact)
+                            .foregroundColor(.formaSecondaryLabel)
+
+                        destinationPill
+                    }
                 }
-                .padding(.horizontal, FormaSpacing.tight + (FormaSpacing.micro / 2))
-                .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
-                .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light - Color.FormaOpacity.ultraSubtle))
-                .formaCornerRadius(FormaRadius.small)
             }
             .padding(.leading, FormaSpacing.extraLarge + FormaSpacing.micro) // Align with text above
             
             // Action buttons
-            HStack(spacing: FormaSpacing.tight) {
-                Button(action: onCreateRule) {
-                    HStack(spacing: FormaSpacing.tight - (FormaSpacing.micro / 2)) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.formaBodySemibold)
-                        Text("Create Rule")
-                            .font(.formaBodySemibold)
+            Group {
+                if isCompactLayout {
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        createRuleButton(frameToFill: true)
+                        dismissButton(frameToFill: true)
                     }
-                    .foregroundColor(.formaBoneWhite)
-                    .padding(.horizontal, FormaSpacing.large)
-                    .padding(.vertical, FormaSpacing.Button.vertical)
-                    .background(
-                        RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                            .fill(Color.formaSteelBlue)
-                    )
+                } else {
+                    HStack(spacing: FormaSpacing.tight) {
+                        createRuleButton(frameToFill: false)
+                        dismissButton(frameToFill: false)
+                        Spacer()
+                    }
                 }
-                .buttonStyle(.plain)
-
-                Button(action: onDismiss) {
-                    Text("Dismiss")
-                        .font(.formaBodyMedium)
-                        .foregroundColor(.formaSecondaryLabel)
-                        .padding(.horizontal, FormaSpacing.large)
-                        .padding(.vertical, FormaSpacing.Button.vertical)
-                        .background(
-                            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                                .strokeBorder(Color.formaSeparator, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-                
-                Spacer()
             }
             .padding(.top, FormaSpacing.tight)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(FormaSpacing.large)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
@@ -266,6 +250,80 @@ private struct PatternCard: View {
         .onHover { hovering in
             isHovered = hovering
         }
+    }
+
+    private var confidenceBadge: some View {
+        HStack(spacing: FormaSpacing.micro) {
+            Image(systemName: confidenceIcon)
+                .font(.formaCaptionSemibold)
+            Text(pattern.confidenceLevel)
+                .font(.formaSmallSemibold)
+        }
+        .foregroundColor(confidenceColor)
+        .padding(.horizontal, FormaSpacing.tight)
+        .padding(.vertical, FormaSpacing.micro)
+        .background(
+            Capsule()
+                .fill(confidenceColor.opacity(Color.FormaOpacity.light))
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(confidenceColor.opacity(Color.FormaOpacity.medium), lineWidth: 1)
+        )
+    }
+
+    private var destinationPill: some View {
+        HStack(spacing: FormaSpacing.tight - (FormaSpacing.micro / 2)) {
+            Image(systemName: "folder.fill")
+                .font(.formaSmall)
+                .foregroundColor(.formaSteelBlue)
+
+            Text(abbreviatePath(pattern.destinationPath))
+                .font(.formaMono)
+                .foregroundColor(.formaLabel)
+                .lineLimit(isCompactLayout ? 2 : 1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, FormaSpacing.tight + (FormaSpacing.micro / 2))
+        .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
+        .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light - Color.FormaOpacity.ultraSubtle))
+        .formaCornerRadius(FormaRadius.small)
+    }
+
+    private func createRuleButton(frameToFill: Bool) -> some View {
+        Button(action: onCreateRule) {
+            HStack(spacing: FormaSpacing.tight - (FormaSpacing.micro / 2)) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.formaBodySemibold)
+                Text("Create Rule")
+                    .font(.formaBodySemibold)
+            }
+            .foregroundColor(.formaBoneWhite)
+            .frame(maxWidth: frameToFill ? .infinity : nil)
+            .padding(.horizontal, FormaSpacing.large)
+            .padding(.vertical, FormaSpacing.Button.vertical)
+            .background(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .fill(Color.formaSteelBlue)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func dismissButton(frameToFill: Bool) -> some View {
+        Button(action: onDismiss) {
+            Text("Dismiss")
+                .font(.formaBodyMedium)
+                .foregroundColor(.formaSecondaryLabel)
+                .frame(maxWidth: frameToFill ? .infinity : nil)
+                .padding(.horizontal, FormaSpacing.large)
+                .padding(.vertical, FormaSpacing.Button.vertical)
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                        .strokeBorder(Color.formaSeparator, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
     
     // MARK: - Computed Properties

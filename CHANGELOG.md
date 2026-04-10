@@ -9,6 +9,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Developer workflow guidance for the `build-macos-apps` plugin now lives in `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md`, with a Forma-specific reusable prompt and verification expectations aligned to `codex-project.toml`, `AGENTS.md`, `fastlane/`, and `Scripts/`.
 
 ### Fixed
+- Right-panel width-class responsiveness:
+  - `RightPanelView` now measures the live detail-column width, derives a shared `RightPanelLayout`, and switches to compact rendering below `FormaSpacing.Column.rightPanelIdeal` instead of relying on stale duplicate width constants.
+  - The default panel, file inspector, Smart Rules, inline rule builder, celebration flows, and shared panel-mode header now wrap or stack controls in compact widths so cards fill the available right-panel space instead of clipping around fixed child widths.
+  - Added unit coverage for the `340pt` compact breakpoint and UI coverage for regular/compact three-column launches across the default panel, inspector, Smart Rules, and inline builder.
 - File-surface parity hardening:
   - Grid view now keeps `Choose Destination` visible for files that still need setup, matching the existing card/list recovery affordance instead of hiding it behind hover.
   - Shared file-surface primary actions now expose stable accessibility labels/identifiers for icon-only controls, and the focused toolbar-validation UI suite now terminates stale app processes before launch so the new grid parity assertion is deterministic.

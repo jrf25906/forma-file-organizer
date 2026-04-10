@@ -49,117 +49,140 @@ struct RightPanelView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Mode indicator header (visible in non-default modes)
-            if showModeHeader {
-                panelModeHeader
+        GeometryReader { proxy in
+            let panelLayout = RightPanelLayout(width: proxy.size.width)
 
-                Divider()
-                    .foregroundColor(Color.formaSeparator.opacity(Color.FormaOpacity.overlay))
-            }
+            VStack(spacing: 0) {
+                // Mode indicator header (visible in non-default modes)
+                if showModeHeader {
+                    panelModeHeader(layout: panelLayout)
 
-            // Panel content
-            Group {
-                switch dashboardViewModel.rightPanelMode {
-                case .default:
-                    DefaultPanelView()
-                        .padding(.top, -defaultPanelTopAlignmentOffset)
-                        .matchedGeometryEffect(id: "panel", in: panelTransition)
-                        .transition(.opacity)
+                    Divider()
+                        .foregroundColor(Color.formaSeparator.opacity(Color.FormaOpacity.overlay))
+                }
 
-                case .inspector(let files):
-                    FileInspectorView(files: files)
-                        .matchedGeometryEffect(id: "panel", in: panelTransition)
-                        .transition(.opacity)
+                // Panel content
+                Group {
+                    switch dashboardViewModel.rightPanelMode {
+                    case .default:
+                        DefaultPanelView()
+                            .padding(.top, -defaultPanelTopAlignmentOffset)
+                            .matchedGeometryEffect(id: "panel", in: panelTransition)
+                            .transition(.opacity)
 
-                case .celebration(let message):
-                    CelebrationView(message: message)
-                        .matchedGeometryEffect(id: "panel", in: panelTransition)
-                        .transition(.opacity)
+                    case .inspector(let files):
+                        FileInspectorView(files: files)
+                            .matchedGeometryEffect(id: "panel", in: panelTransition)
+                            .transition(.opacity)
 
-                case .completionCelebration(let filesOrganized):
-                    CompletionCelebrationView(filesOrganized: filesOrganized)
-                        .matchedGeometryEffect(id: "panel", in: panelTransition)
-                        .transition(.opacity)
+                    case .celebration(let message):
+                        CelebrationView(message: message)
+                            .matchedGeometryEffect(id: "panel", in: panelTransition)
+                            .transition(.opacity)
 
-                case .rulesManagement:
-                    RulesManagementView()
-                        .matchedGeometryEffect(id: "panel", in: panelTransition)
-                        .transition(.opacity)
+                    case .completionCelebration(let filesOrganized):
+                        CompletionCelebrationView(filesOrganized: filesOrganized)
+                            .matchedGeometryEffect(id: "panel", in: panelTransition)
+                            .transition(.opacity)
 
-                case .ruleBuilder(let editingRule, let fileContext):
-                    InlineRuleBuilderView(editingRule: editingRule, fileContext: fileContext)
-                        .matchedGeometryEffect(id: "panel", in: panelTransition)
-                        .transition(.opacity)
-                case .analytics:
-                    CompactAnalyticsPanel()
-                        .matchedGeometryEffect(id: "panel", in: panelTransition)
-                        .transition(.opacity)
+                    case .rulesManagement:
+                        RulesManagementView()
+                            .matchedGeometryEffect(id: "panel", in: panelTransition)
+                            .transition(.opacity)
+
+                    case .ruleBuilder(let editingRule, let fileContext):
+                        InlineRuleBuilderView(editingRule: editingRule, fileContext: fileContext)
+                            .matchedGeometryEffect(id: "panel", in: panelTransition)
+                            .transition(.opacity)
+                    case .analytics:
+                        CompactAnalyticsPanel()
+                            .matchedGeometryEffect(id: "panel", in: panelTransition)
+                            .transition(.opacity)
+                    }
                 }
             }
+            .environment(\.rightPanelLayout, panelLayout)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(
+                PaneMaterialBackground(role: .inspector)
+                    .ignoresSafeArea(edges: .top)
+            )
+            .animation(
+                reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85),
+                value: dashboardViewModel.rightPanelMode
+            )
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(
-            PaneMaterialBackground(role: .inspector)
-                .ignoresSafeArea(edges: .top)
-        )
-        .animation(
-            reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85),
-            value: dashboardViewModel.rightPanelMode
-        )
     }
 
     // MARK: - Mode Header View
 
     /// Header showing current mode with back navigation
     @ViewBuilder
-    private var panelModeHeader: some View {
-        HStack(spacing: 12) {
-            // Back to dashboard button
-            Button(action: {
-                dashboardViewModel.returnToDefaultPanel()
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.formaSmallSemibold)
-                    Text("Dashboard")
-                        .font(.formaCompactMedium)
+    private func panelModeHeader(layout: RightPanelLayout) -> some View {
+        Group {
+            if layout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    panelModeBackButton
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    panelModeIndicator
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .foregroundColor(.formaSteelBlue)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
-                )
-            }
-            .buttonStyle(.plain)
-            .help("Return to Dashboard")
+            } else {
+                HStack(spacing: 12) {
+                    panelModeBackButton
 
-            Spacer()
+                    Spacer(minLength: FormaSpacing.tight)
 
-            // Current mode indicator
-            HStack(spacing: 6) {
-                Image(systemName: modeIcon)
-                    .font(.formaSmall)
-                Text(modeTitle)
-                    .font(.formaSmallSemibold)
+                    panelModeIndicator
+                }
             }
-            .foregroundColor(.formaLabel)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(Color.formaControlBackground.opacity(Color.FormaOpacity.overlay))
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
-            )
         }
         .padding(.horizontal, FormaLayout.Gutters.rightPanel)
         .padding(.vertical, FormaSpacing.tight + (FormaSpacing.micro / 2))
         .background(Color.formaControlBackground.opacity(Color.FormaOpacity.light))
+    }
+
+    private var panelModeBackButton: some View {
+        Button(action: {
+            dashboardViewModel.returnToDefaultPanel()
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.left")
+                    .font(.formaSmallSemibold)
+                Text("Dashboard")
+                    .font(.formaCompactMedium)
+            }
+            .foregroundColor(.formaSteelBlue)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+            )
+        }
+        .buttonStyle(.plain)
+        .help("Return to Dashboard")
+    }
+
+    private var panelModeIndicator: some View {
+        HStack(spacing: 6) {
+            Image(systemName: modeIcon)
+                .font(.formaSmall)
+            Text(modeTitle)
+                .font(.formaSmallSemibold)
+        }
+        .foregroundColor(.formaLabel)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(Color.formaControlBackground.opacity(Color.FormaOpacity.overlay))
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+        )
     }
 }
 

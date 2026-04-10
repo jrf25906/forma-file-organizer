@@ -29,4 +29,26 @@ final class FormaSpacingTests: XCTestCase {
         XCTAssertEqual(FormaSpacing.Column.rightPanelIdeal, 340)
         XCTAssertEqual(FormaSpacing.Column.rightPanelMax, 420)
     }
+
+    func testRightPanelLayoutUsesIdealWidthAsCompactBreakpoint() {
+        XCTAssertEqual(
+            RightPanelLayout(width: FormaSpacing.Column.rightPanelIdeal).widthClass,
+            .regular
+        )
+        XCTAssertEqual(
+            RightPanelLayout(width: FormaSpacing.Column.rightPanelIdeal - 1).widthClass,
+            .compact
+        )
+        XCTAssertEqual(
+            RightPanelLayout(width: FormaSpacing.Column.rightPanelMax).widthClass,
+            .regular
+        )
+    }
+
+    func testRightPanelLayoutPreservesMeasuredWidth() {
+        let layout = RightPanelLayout(width: 312)
+
+        XCTAssertEqual(layout.width, 312, accuracy: 0.001)
+        XCTAssertEqual(layout.widthClass, .compact)
+    }
 }

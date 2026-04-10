@@ -94,12 +94,7 @@ enum FormaConfig {
         
         /// Sidebar width when expanded
         static let sidebarWidthExpanded: CGFloat = 256
-        
-        /// Right panel width
-        static let rightPanelMinWidth: CGFloat = 320
-        static let rightPanelIdealWidth: CGFloat = 360
-        static let rightPanelMaxWidth: CGFloat = 420
-        
+
         /// Animation durations
         static let sidebarAnimationDuration: Double = 0.5
         static let sidebarAnimationDamping: Double = 0.85

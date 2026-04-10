@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct TrustedAutomationScopesSection: View {
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
+
     enum Style: Hashable {
         case compact
         case management
@@ -291,30 +293,62 @@ struct TrustedAutomationScopesSection: View {
 
     private func rowView(_ row: Snapshot.RowSnapshot) -> some View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-            HStack(alignment: .firstTextBaseline, spacing: FormaSpacing.tight) {
-                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-                    Text(row.title)
-                        .font(.formaBodySemibold)
-                        .foregroundStyle(Color.formaLabel)
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                        Text(row.title)
+                            .font(.formaBodySemibold)
+                            .foregroundStyle(Color.formaLabel)
 
-                    Text(row.scopeTypeText)
-                        .font(.formaCaption)
-                        .foregroundStyle(Color.formaSecondaryLabelHigh)
+                        Text(row.scopeTypeText)
+                            .font(.formaCaption)
+                            .foregroundStyle(Color.formaSecondaryLabelHigh)
+                    }
+
+                    HStack(spacing: FormaSpacing.tight) {
+                        badge(row.statusText, tint: badgeTint(for: row.statusText))
+                        badge(row.healthBadgeText, tint: badgeTint(for: row.healthBadgeText))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.formaCaptionBold)
+                            .foregroundStyle(Color.formaTertiaryLabel)
+                    }
                 }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: FormaSpacing.tight) {
+                    VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                        Text(row.title)
+                            .font(.formaBodySemibold)
+                            .foregroundStyle(Color.formaLabel)
 
-                Spacer()
+                        Text(row.scopeTypeText)
+                            .font(.formaCaption)
+                            .foregroundStyle(Color.formaSecondaryLabelHigh)
+                    }
 
-                badge(row.statusText, tint: badgeTint(for: row.statusText))
-                badge(row.healthBadgeText, tint: badgeTint(for: row.healthBadgeText))
+                    Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.formaCaptionBold)
-                    .foregroundStyle(Color.formaTertiaryLabel)
+                    badge(row.statusText, tint: badgeTint(for: row.statusText))
+                    badge(row.healthBadgeText, tint: badgeTint(for: row.healthBadgeText))
+
+                    Image(systemName: "chevron.right")
+                        .font(.formaCaptionBold)
+                        .foregroundStyle(Color.formaTertiaryLabel)
+                }
             }
 
-            HStack(spacing: FormaSpacing.standard) {
-                metadataStack(title: "Boundary", value: row.boundarySummary)
-                metadataStack(title: "Destination", value: row.destinationSummary)
+            Group {
+                if rightPanelLayout.isCompact {
+                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                        metadataStack(title: "Boundary", value: row.boundarySummary)
+                        metadataStack(title: "Destination", value: row.destinationSummary)
+                    }
+                } else {
+                    HStack(spacing: FormaSpacing.standard) {
+                        metadataStack(title: "Boundary", value: row.boundarySummary)
+                        metadataStack(title: "Destination", value: row.destinationSummary)
+                    }
+                }
             }
 
             Text(row.healthMessage)
@@ -322,10 +356,20 @@ struct TrustedAutomationScopesSection: View {
                 .foregroundStyle(Color.formaSecondaryLabel)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("\(row.lastRunText) • \(row.recentActivityText)")
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                    Text(row.lastRunText)
+                    Text(row.recentActivityText)
+                }
                 .font(.formaCaption)
                 .foregroundStyle(Color.formaSecondaryLabelHigh)
                 .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("\(row.lastRunText) • \(row.recentActivityText)")
+                    .font(.formaCaption)
+                    .foregroundStyle(Color.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(FormaSpacing.standard)

@@ -2,6 +2,8 @@ import Foundation
 import SwiftUI
 
 struct ProjectSpacesSection: View {
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
+
     struct Snapshot: Hashable {
         struct RowSnapshot: Identifiable, Hashable {
             let summary: ProjectSpaceSummary
@@ -167,23 +169,26 @@ struct ProjectSpacesSection: View {
                 iconPlate
 
                 VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-                    HStack(alignment: .firstTextBaseline, spacing: FormaSpacing.tight) {
-                        Text(row.title)
-                            .font(.formaBodySemibold)
-                            .foregroundStyle(Color.formaLabel)
-                            .lineLimit(1)
+                    if rightPanelLayout.isCompact {
+                        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                            Text(row.title)
+                                .font(.formaBodySemibold)
+                                .foregroundStyle(Color.formaLabel)
+                                .lineLimit(2)
 
-                        Spacer(minLength: 0)
+                            fileCountBadge(row.fileCountText)
+                        }
+                    } else {
+                        HStack(alignment: .firstTextBaseline, spacing: FormaSpacing.tight) {
+                            Text(row.title)
+                                .font(.formaBodySemibold)
+                                .foregroundStyle(Color.formaLabel)
+                                .lineLimit(1)
 
-                        Text(row.fileCountText)
-                            .font(.formaCaptionSemibold)
-                            .foregroundStyle(Color.formaSteelBlue)
-                            .padding(.horizontal, FormaSpacing.tight)
-                            .padding(.vertical, FormaSpacing.micro / 2)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
-                            )
+                            Spacer(minLength: 0)
+
+                            fileCountBadge(row.fileCountText)
+                        }
                     }
 
                     Text(row.recencyText)
@@ -194,7 +199,7 @@ struct ProjectSpacesSection: View {
                         Label(sourceFolderSummary, systemImage: "folder")
                             .font(.formaCaption)
                             .foregroundStyle(Color.formaSecondaryLabel)
-                            .lineLimit(1)
+                            .lineLimit(rightPanelLayout.isCompact ? 2 : 1)
                     }
                 }
             }
@@ -212,6 +217,18 @@ struct ProjectSpacesSection: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(row.accessibilityIdentifier)
+    }
+
+    private func fileCountBadge(_ text: String) -> some View {
+        Text(text)
+            .font(.formaCaptionSemibold)
+            .foregroundStyle(Color.formaSteelBlue)
+            .padding(.horizontal, FormaSpacing.tight)
+            .padding(.vertical, FormaSpacing.micro / 2)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+            )
     }
 
     private var iconPlate: some View {

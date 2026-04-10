@@ -3,11 +3,18 @@ import SwiftUI
 struct PrimaryButton: View {
     let title: String
     let icon: String?
+    let accessibilityIdentifier: String?
     let action: () -> Void
     
-    init(_ title: String, icon: String? = nil, action: @escaping () -> Void) {
+    init(
+        _ title: String,
+        icon: String? = nil,
+        accessibilityIdentifier: String? = nil,
+        action: @escaping () -> Void
+    ) {
         self.title = title
         self.icon = icon
+        self.accessibilityIdentifier = accessibilityIdentifier
         self.action = action
     }
     
@@ -30,6 +37,7 @@ struct PrimaryButton: View {
             .formaShadow(.resting)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier ?? "")
     }
 }
 

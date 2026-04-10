@@ -18,6 +18,7 @@ struct AutomationStatusWidget: View {
     private let automationState = AutomationEngine.shared.state
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
     @State private var isHovered: Bool = false
     @State private var hoveredInlineControl: InlineControl?
     @State private var currentTime: Date = Date()
@@ -80,6 +81,10 @@ struct AutomationStatusWidget: View {
         }
     }
 
+    private var isCompactLayout: Bool {
+        rightPanelLayout.isCompact
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             // Section Header with status label
@@ -106,92 +111,30 @@ struct AutomationStatusWidget: View {
 
             // Main status card with countdown ring
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                // Top row: Countdown ring + status + actions
-                HStack(alignment: .center, spacing: FormaSpacing.standard) {
-                    // Countdown ring
-                    countdownRing
-                        .frame(width: 40, height: 40)
+                Group {
+                    if isCompactLayout {
+                        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                            HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                                countdownRing
+                                    .frame(width: 40, height: 40)
 
-                    // Status text
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(statusMessage)
-                            .font(.formaBodyMedium)
-                            .foregroundStyle(Color.formaLabel)
-                            .lineLimit(2)
-
-                        if let statusDetailText {
-                            Text(statusDetailText)
-                                .font(.formaCaption)
-                                .foregroundStyle(Color.formaSecondaryLabelHigh)
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                        } else if let lastRun = automationState.lastRunDate {
-                            Text(lastRun.relativeFormatted)
-                                .font(.formaCaption)
-                                .foregroundStyle(Color.formaSecondaryLabelHigh)
-                                .lineLimit(1)
-                        }
-
-                        if let preflightDetailText {
-                            Text(preflightDetailText)
-                                .font(.formaCaption)
-                                .foregroundStyle(Color.formaTertiaryLabelHigh)
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-
-                        if activeScopeCount > 0 || attentionScopeCount > 0 {
-                            HStack(spacing: FormaSpacing.tight) {
-                                if activeScopeCount > 0 {
-                                    Text("\(activeScopeCount) autopilot scope\(activeScopeCount == 1 ? "" : "s")")
-                                        .font(.formaCaption)
-                                        .foregroundStyle(Color.formaSecondaryLabelHigh)
-                                }
-
-                                if attentionScopeCount > 0 {
-                                    Text("\(attentionScopeCount) attention")
-                                        .font(.formaCaptionBold)
-                                        .foregroundStyle(Color.formaWarmOrange)
-                                }
+                                statusTextBlock
                             }
-                            .lineLimit(1)
+
+                            compactControlStack
+                        }
+                    } else {
+                        HStack(alignment: .center, spacing: FormaSpacing.standard) {
+                            countdownRing
+                                .frame(width: 40, height: 40)
+
+                            statusTextBlock
+
+                            Spacer(minLength: 0)
+
+                            regularControlStrip
                         }
                     }
-                    .fixedSize(horizontal: true, vertical: false)
-
-                    Spacer()
-
-                    // Grouped control strip: Scan + Pause/Resume
-                    HStack(spacing: 0) {
-                        // Scan Now button (hidden when running or paused)
-                        if !isPaused && !automationState.isRunning {
-                            scanNowButtonInline
-                                .transition(.scale.combined(with: .opacity))
-
-                            // Thin vertical divider
-                            Rectangle()
-                                .fill(FormaControlChromePalette.separator(colorScheme))
-                                .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
-                        }
-
-                        // Pause/Resume toggle
-                        pauseResumeButtonInline
-                    }
-                    .background(
-                        RoundedRectangle(
-                            cornerRadius: FormaControlChromeMetrics.containerCornerRadius,
-                            style: .continuous
-                        )
-                            .fill(controlStripFill)
-                    )
-                    .overlay(
-                        RoundedRectangle(
-                            cornerRadius: FormaControlChromeMetrics.containerCornerRadius,
-                            style: .continuous
-                        )
-                            .strokeBorder(controlStripBorder, lineWidth: 1)
-                    )
-                    .fixedSize()
                 }
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPaused)
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: automationState.isRunning)
@@ -228,9 +171,169 @@ struct AutomationStatusWidget: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onReceive(timer) { time in
             currentTime = time
         }
+    }
+
+    private var statusTextBlock: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(statusMessage)
+                .font(.formaBodyMedium)
+                .foregroundStyle(Color.formaLabel)
+                .lineLimit(isCompactLayout ? 3 : 2)
+
+            if let statusDetailText {
+                Text(statusDetailText)
+                    .font(.formaCaption)
+                    .foregroundStyle(Color.formaSecondaryLabelHigh)
+                    .lineLimit(isCompactLayout ? 3 : 2)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let lastRun = automationState.lastRunDate {
+                Text(lastRun.relativeFormatted)
+                    .font(.formaCaption)
+                    .foregroundStyle(Color.formaSecondaryLabelHigh)
+                    .lineLimit(1)
+            }
+
+            if let preflightDetailText {
+                Text(preflightDetailText)
+                    .font(.formaCaption)
+                    .foregroundStyle(Color.formaTertiaryLabelHigh)
+                    .lineLimit(isCompactLayout ? 3 : 2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if activeScopeCount > 0 || attentionScopeCount > 0 {
+                scopeSummary
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var scopeSummary: some View {
+        if isCompactLayout {
+            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                if activeScopeCount > 0 {
+                    Text("\(activeScopeCount) autopilot scope\(activeScopeCount == 1 ? "" : "s")")
+                        .font(.formaCaption)
+                        .foregroundStyle(Color.formaSecondaryLabelHigh)
+                }
+
+                if attentionScopeCount > 0 {
+                    Text("\(attentionScopeCount) attention")
+                        .font(.formaCaptionBold)
+                        .foregroundStyle(Color.formaWarmOrange)
+                }
+            }
+        } else {
+            HStack(spacing: FormaSpacing.tight) {
+                if activeScopeCount > 0 {
+                    Text("\(activeScopeCount) autopilot scope\(activeScopeCount == 1 ? "" : "s")")
+                        .font(.formaCaption)
+                        .foregroundStyle(Color.formaSecondaryLabelHigh)
+                }
+
+                if attentionScopeCount > 0 {
+                    Text("\(attentionScopeCount) attention")
+                        .font(.formaCaptionBold)
+                        .foregroundStyle(Color.formaWarmOrange)
+                }
+            }
+            .lineLimit(1)
+        }
+    }
+
+    private var regularControlStrip: some View {
+        HStack(spacing: 0) {
+            if !isPaused && !automationState.isRunning {
+                scanNowButtonInline
+                    .transition(.scale.combined(with: .opacity))
+
+                Rectangle()
+                    .fill(FormaControlChromePalette.separator(colorScheme))
+                    .frame(width: 1, height: FormaControlChromeMetrics.dividerHeight)
+            }
+
+            pauseResumeButtonInline
+        }
+        .background(
+            RoundedRectangle(
+                cornerRadius: FormaControlChromeMetrics.containerCornerRadius,
+                style: .continuous
+            )
+                .fill(controlStripFill)
+        )
+        .overlay(
+            RoundedRectangle(
+                cornerRadius: FormaControlChromeMetrics.containerCornerRadius,
+                style: .continuous
+            )
+                .strokeBorder(controlStripBorder, lineWidth: 1)
+        )
+    }
+
+    private var compactControlStack: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            if !isPaused && !automationState.isRunning {
+                compactActionButton(
+                    title: "Scan now",
+                    systemImage: "bolt.fill",
+                    tint: Color.formaSteelBlue,
+                    action: {
+                        Task {
+                            await engine.triggerManualScan()
+                        }
+                    }
+                )
+            }
+
+            compactActionButton(
+                title: isPaused ? "Resume automation" : "Pause automation",
+                systemImage: isPaused ? "play.fill" : "pause.fill",
+                tint: isPaused ? Color.formaSage : Color.formaSecondaryLabelHigh,
+                action: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        if isPaused {
+                            engine.start()
+                        } else {
+                            engine.stop()
+                        }
+                    }
+                }
+            )
+        }
+    }
+
+    private func compactActionButton(
+        title: String,
+        systemImage: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(title)
+                    .font(.formaSmallSemibold)
+                Spacer()
+            }
+            .foregroundStyle(tint)
+            .padding(.horizontal, FormaSpacing.standard)
+            .padding(.vertical, FormaSpacing.tight)
+            .background(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .fill(Color.formaControlBackground.opacity(Color.FormaOpacity.overlay))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Countdown Ring
@@ -363,7 +466,6 @@ struct AutomationStatusWidget: View {
             .foregroundStyle(Color.formaSteelBlue)
             .padding(.horizontal, FormaSpacing.standard)
             .padding(.vertical, 6)
-            .fixedSize()
             .background(
                 Capsule()
                     .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
@@ -457,7 +559,6 @@ struct AutomationStatusWidget: View {
                 .foregroundStyle(Color.formaSteelBlue)
                 .padding(.horizontal, FormaSpacing.standard)
                 .frame(height: FormaControlChromeMetrics.segmentHeight)
-                .fixedSize()
             }
             .frame(height: FormaControlChromeMetrics.segmentHeight)
             .contentShape(Rectangle())
@@ -549,46 +650,55 @@ struct AutomationStatusWidget: View {
 
     @ViewBuilder
     private var lastRunStats: some View {
-        HStack(spacing: FormaSpacing.standard) {
-            // Organized count
-            if automationState.lastRunSuccessCount > 0 {
-                StatPill(
-                    value: automationState.lastRunSuccessCount,
-                    label: "organized",
-                    color: Color.formaSage
-                )
+        Group {
+            if isCompactLayout {
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    statsContent
+                }
+            } else {
+                HStack(spacing: FormaSpacing.standard) {
+                    statsContent
+                    Spacer()
+                }
             }
-
-            // Skipped count (if any)
-            if automationState.lastRunSkippedCount > 0 {
-                StatPill(
-                    value: automationState.lastRunSkippedCount,
-                    label: "skipped",
-                    color: Color.formaSecondaryLabel
-                )
-            }
-
-            // Failed count (if any)
-            if automationState.lastRunFailedCount > 0 {
-                StatPill(
-                    value: automationState.lastRunFailedCount,
-                    label: "failed",
-                    color: Color.formaError
-                )
-            }
-
-            // Show contextual empty state if nothing happened in the last run
-            if automationState.lastRunSuccessCount == 0 &&
-               automationState.lastRunSkippedCount == 0 &&
-               automationState.lastRunFailedCount == 0 {
-                Text(lastRunContextMessage)
-                    .font(.formaCaption)
-                    .foregroundStyle(Color.formaTertiaryLabelHigh)
-            }
-
-            Spacer()
         }
         .padding(.top, FormaSpacing.tight)
+    }
+
+    @ViewBuilder
+    private var statsContent: some View {
+        if automationState.lastRunSuccessCount > 0 {
+            StatPill(
+                value: automationState.lastRunSuccessCount,
+                label: "organized",
+                color: Color.formaSage
+            )
+        }
+
+        if automationState.lastRunSkippedCount > 0 {
+            StatPill(
+                value: automationState.lastRunSkippedCount,
+                label: "skipped",
+                color: Color.formaSecondaryLabel
+            )
+        }
+
+        if automationState.lastRunFailedCount > 0 {
+            StatPill(
+                value: automationState.lastRunFailedCount,
+                label: "failed",
+                color: Color.formaError
+            )
+        }
+
+        if automationState.lastRunSuccessCount == 0 &&
+           automationState.lastRunSkippedCount == 0 &&
+           automationState.lastRunFailedCount == 0 {
+            Text(lastRunContextMessage)
+                .font(.formaCaption)
+                .foregroundStyle(Color.formaTertiaryLabelHigh)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var lastRunContextMessage: String {

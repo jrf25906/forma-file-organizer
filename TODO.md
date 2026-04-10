@@ -1,6 +1,6 @@
 # Project TODO
 
-**Last Updated:** April 9, 2026
+**Last Updated:** April 10, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
@@ -37,6 +37,11 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
+
+## Right-Panel Responsive Width Classes (April 10, 2026)
+- [x] Introduce a shared `RightPanelLayout` / `RightPanelWidthClass` contract driven by measured detail-column width, using `FormaSpacing.Column.rightPanelMin/Ideal/Max` as the single right-panel width source of truth.
+- [x] Make the default panel, inspector, Smart Rules, inline rule builder, celebration flows, and shared right-panel mode chrome reflow in compact widths instead of relying on fixed child widths.
+- [x] Add unit coverage for the compact threshold at `340pt` plus dedicated UI coverage for regular and compact three-column launches across the default panel, inspector, Smart Rules, and inline rule-builder paths.
 
 ## Review-Flow Follow-up Polish (April 9, 2026)
 - [x] Scope Current Task progress to the active review pass and preserve a stable pass denominator after organizing files instead of backfilling from later pending items.
