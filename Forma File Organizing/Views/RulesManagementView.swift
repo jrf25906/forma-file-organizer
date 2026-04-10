@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 import SwiftUI
 import SwiftData
@@ -18,7 +17,6 @@ struct RulesManagementView: View {
     }
 
     private struct ContentState {
-        let evaluationDate: Date
         let healthByID: [UUID: RuleHealthService.RuleHealth]
         let filteredRules: [Rule]
         let totalEnabledCount: Int
@@ -50,66 +48,6 @@ struct RulesManagementView: View {
         let selectedCategoryID: UUID?
         let filterNeedsPermissionOnly: Bool
         let staleRuleThresholdDaysStorage: Int
-    }
-
-    @MainActor
-    private final class ContentStateStore: ObservableObject {
-        @Published private(set) var contentState: ContentState
-        private var appliedRefreshInputs: ContentRefreshInputs
-
-        init(
-            initialRefreshInputs: ContentRefreshInputs,
-            initialContentState: @autoclosure () -> ContentState
-        ) {
-            self.appliedRefreshInputs = initialRefreshInputs
-            self.contentState = initialContentState()
-        }
-
-        func refreshIfNeeded(
-            for refreshInputs: ContentRefreshInputs,
-            buildContentState: (Date) -> ContentState
-        ) {
-            guard refreshInputs != appliedRefreshInputs else { return }
-            appliedRefreshInputs = refreshInputs
-            contentState = buildContentState(Date())
-        }
-    }
-
-    private struct ContentStateHost<Content: View>: View {
-        @StateObject private var store: ContentStateStore
-        private let refreshInputs: ContentRefreshInputs
-        private let buildContentState: (Date) -> ContentState
-        private let content: (ContentState) -> Content
-
-        init(
-            refreshInputs: ContentRefreshInputs,
-            buildContentState: @escaping (Date) -> ContentState,
-            @ViewBuilder content: @escaping (ContentState) -> Content
-        ) {
-            self.refreshInputs = refreshInputs
-            self.buildContentState = buildContentState
-            self.content = content
-
-            let initialEvaluationDate = Date()
-            _store = StateObject(
-                wrappedValue: ContentStateStore(
-                    initialRefreshInputs: refreshInputs,
-                    initialContentState: buildContentState(initialEvaluationDate)
-                )
-            )
-        }
-
-        var body: some View {
-            content(store.contentState)
-                .task(id: refreshInputs) {
-                    await MainActor.run {
-                        store.refreshIfNeeded(
-                            for: refreshInputs,
-                            buildContentState: buildContentState
-                        )
-                    }
-                }
-        }
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -149,6 +87,9 @@ struct RulesManagementView: View {
     @AppStorage(FolderHealthAlertSettings.Keys.staleRuleThresholdDays) private var staleRuleThresholdDaysStorage = 0
     @State private var showManageCategories = false
     @State private var filterNeedsPermissionOnly = false
+    @State private var initialContentEvaluationDate = Date()
+    @State private var contentState: ContentState?
+    @State private var contentRefreshToken = 0
     @State private var pendingDeletionRuleIDs: Set<UUID> = []
     @State private var duplicateCleanupConfirmationPlan: RuleHealthService.ExactDuplicateCleanupPlan?
     @State private var isDeletingDuplicateCopies = false
@@ -256,7 +197,6 @@ struct RulesManagementView: View {
         let disabledRules = filteredRules.filter { health(for: $0, in: healthByID).kind == .disabled }
 
         return ContentState(
-            evaluationDate: evaluationDate,
             healthByID: healthByID,
             filteredRules: filteredRules,
             totalEnabledCount: sortedRules.filter(\.isEnabled).count,
@@ -286,6 +226,16 @@ struct RulesManagementView: View {
         )
     }
 
+    @MainActor
+    private func refreshContentState() async {
+        let evaluationDate = contentState == nil ? initialContentEvaluationDate : Date()
+        contentState = makeContentState(evaluationDate: evaluationDate)
+    }
+
+    private func scheduleContentRefresh() {
+        contentRefreshToken += 1
+    }
+
     private func displayContentState(_ baseContentState: ContentState) -> ContentState {
         guard !pendingDeletionRuleIDs.isEmpty else {
             return baseContentState
@@ -303,7 +253,6 @@ struct RulesManagementView: View {
         let visibleDisabledRules = baseContentState.disabledRules.filter { visibleRuleIDs.contains($0.id) }
 
         return ContentState(
-            evaluationDate: baseContentState.evaluationDate,
             healthByID: baseContentState.healthByID,
             filteredRules: visibleFilteredRules,
             totalEnabledCount: visibleAllRules.filter(\.isEnabled).count,
@@ -313,15 +262,9 @@ struct RulesManagementView: View {
             needsPermissionCount: visibleAllRules.filter { health(for: $0, in: baseContentState.healthByID).kind == .needsPermission }.count,
             willCreateCount: visibleAllRules.filter { health(for: $0, in: baseContentState.healthByID).kind == .willCreate }.count,
             disabledCount: visibleAllRules.filter { health(for: $0, in: baseContentState.healthByID).kind == .disabled }.count,
-            recentlyTriggeredCount: visibleAllRules.filter { rule in
-                health(for: rule, in: baseContentState.healthByID).kind == .ready &&
-                wasTriggeredRecently(rule, evaluationDate: baseContentState.evaluationDate)
-            }.count,
-            staleRuleCount: visibleAllRules.filter { health(for: $0, in: baseContentState.healthByID).kind == .stale }.count,
-            stableRuleCount: visibleAllRules.filter { rule in
-                health(for: rule, in: baseContentState.healthByID).kind == .ready &&
-                !wasTriggeredRecently(rule, evaluationDate: baseContentState.evaluationDate)
-            }.count,
+            recentlyTriggeredCount: visibleRecentlyTriggeredRules.count,
+            staleRuleCount: visibleStaleRules.count,
+            stableRuleCount: visibleStableRules.count,
             isInitialEmptyState: visibleAllRules.isEmpty && searchText.isEmpty,
             showsOperationalSections: searchText.isEmpty && selectedCategoryID == nil && !filterNeedsPermissionOnly && !visibleAllRules.isEmpty,
             duplicateRules: visibleDuplicateRules,
@@ -336,123 +279,129 @@ struct RulesManagementView: View {
     }
     
     var body: some View {
-        ContentStateHost(
-            refreshInputs: contentRefreshInputs,
-            buildContentState: makeContentState
-        ) { baseContent in
-            let content = displayContentState(baseContent)
-            let smartRulesAccessibilityValue = smartRulesStateValue(content: content)
+        let baseContent = contentState ?? makeContentState(evaluationDate: initialContentEvaluationDate)
+        let content = displayContentState(baseContent)
+        let smartRulesAccessibilityValue = smartRulesStateValue(content: content)
 
-            VStack(spacing: 0) {
-                Color.clear.frame(height: FormaSpacing.Toolbar.topOffset)
+        VStack(spacing: 0) {
+            // Align with MainContentView's toolbar position (traffic lights clearance)
+            Color.clear.frame(height: FormaSpacing.Toolbar.topOffset)
 
-                VStack(spacing: FormaSpacing.standard) {
-                    if rightPanelLayout.isCompact {
-                        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                            rulesHeaderSummary(totalEnabledCount: content.totalEnabledCount)
+            // Header
+            VStack(spacing: FormaSpacing.standard) {
+                if rightPanelLayout.isCompact {
+                    VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                        rulesHeaderSummary(totalEnabledCount: content.totalEnabledCount)
 
-                            if !content.isInitialEmptyState {
-                                newRuleButton(frameToFill: true)
-                            }
+                        if !content.isInitialEmptyState {
+                            newRuleButton(frameToFill: true)
                         }
-                    } else {
-                        HStack(alignment: .center) {
-                            rulesHeaderSummary(totalEnabledCount: content.totalEnabledCount)
-
-                            Spacer()
-
-                            if !content.isInitialEmptyState {
-                                newRuleButton(frameToFill: false)
-                            }
-                        }
-                    }
-
-                    if !content.isInitialEmptyState {
-                        rulesToolbar
-                    }
-                }
-                .padding(.horizontal, FormaSpacing.standard)
-                .padding(.vertical, FormaSpacing.standard)
-
-                if !content.isInitialEmptyState {
-                    rulesOverviewStrip(content: content)
-                        .padding(.horizontal, FormaSpacing.generous)
-                        .padding(.bottom, FormaSpacing.standard)
-                }
-
-                if !content.needsPermissionRules.isEmpty {
-                    needsPermissionBanner(count: content.needsPermissionRules.count)
-                        .padding(.horizontal, FormaSpacing.generous)
-                        .padding(.bottom, FormaSpacing.standard)
-                }
-
-                if !content.willCreateRules.isEmpty {
-                    willCreateBanner(
-                        count: content.willCreateRules.count,
-                        createAction: { createResolvableFoldersNow(rules: content.willCreateRules) }
-                    )
-                        .padding(.horizontal, FormaSpacing.generous)
-                        .padding(.bottom, FormaSpacing.standard)
-                }
-
-                Divider()
-                    .opacity(0.5)
-
-                if content.filteredRules.isEmpty {
-                    if searchText.isEmpty {
-                        VStack(spacing: FormaSpacing.generous) {
-                            FormaEmptyState(
-                                title: "No Rules Yet",
-                                message: "Create your first rule to automatically organize files.",
-                                actionTitle: "Create Rule",
-                                action: {
-                                    openRuleBuilderPanel()
-                                },
-                                actionAccessibilityIdentifier: "smartRulesCreateRuleButton"
-                            )
-
-                            starterTemplatesSection
-                                .padding(.horizontal, FormaSpacing.generous)
-                        }
-                    } else {
-                        FormaEmptyState(
-                            title: "No Matching Rules",
-                            message: "Try a different search term.",
-                            actionTitle: "Clear Search",
-                            action: { searchText = "" }
-                        )
                     }
                 } else {
-                    if content.showsOperationalSections {
-                        sectionedRulesList(content: content)
-                    } else {
-                        flatRulesList(rules: content.filteredRules, healthByID: content.healthByID)
+                    HStack(alignment: .center) {
+                        rulesHeaderSummary(totalEnabledCount: content.totalEnabledCount)
+
+                        Spacer()
+
+                        if !content.isInitialEmptyState {
+                            newRuleButton(frameToFill: false)
+                        }
                     }
                 }
-            }
-            .background(Color.clear)
-            .sheet(isPresented: $showManageCategories) {
-                ManageCategoriesSheet()
-            }
-            .onChange(of: allRules.map(\.id)) { _, remainingRuleIDs in
-                pendingDeletionRuleIDs.formIntersection(Set(remainingRuleIDs))
-            }
-            .accessibilityIdentifier("smartRulesView")
-            .accessibilityLabel(isUITesting ? smartRulesAccessibilityValue : "")
-            .accessibilityValue(isUITesting ? smartRulesAccessibilityValue : "")
-            .overlay(alignment: .topLeading) {
-                if isUITesting {
-                    Color.clear
-                        .frame(width: 1, height: 1)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityIdentifier("smartRulesContrastProbe")
-                        .accessibilityLabel(
-                            "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio));bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio));rowSpacing=\(Int(listRowSpacing));rowVerticalPadding=\(Int(RuleManagementCard.verticalPadding));listPadding=\(Int(listContentPadding));widthClass=\(rightPanelWidthClassText)"
-                        )
-                        .accessibilityValue(
-                            "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio));bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio));rowSpacing=\(Int(listRowSpacing));rowVerticalPadding=\(Int(RuleManagementCard.verticalPadding));listPadding=\(Int(listContentPadding));widthClass=\(rightPanelWidthClassText)"
-                        )
+                
+                // Combined Toolbar (Search + Tabs)
+                if !content.isInitialEmptyState {
+                    rulesToolbar
                 }
+            }
+            .padding(.horizontal, FormaSpacing.standard)
+            .padding(.vertical, FormaSpacing.standard)
+
+            if !content.isInitialEmptyState {
+                rulesOverviewStrip(content: content)
+                    .padding(.horizontal, FormaSpacing.generous)
+                    .padding(.bottom, FormaSpacing.standard)
+            }
+
+            if !content.needsPermissionRules.isEmpty {
+                needsPermissionBanner(count: content.needsPermissionRules.count)
+                    .padding(.horizontal, FormaSpacing.generous)
+                    .padding(.bottom, FormaSpacing.standard)
+            }
+
+            if !content.willCreateRules.isEmpty {
+                willCreateBanner(
+                    count: content.willCreateRules.count,
+                    createAction: { createResolvableFoldersNow(rules: content.willCreateRules) }
+                )
+                    .padding(.horizontal, FormaSpacing.generous)
+                    .padding(.bottom, FormaSpacing.standard)
+            }
+
+            Divider()
+                .opacity(0.5)
+            
+            // Rules list
+            if content.filteredRules.isEmpty {
+                if searchText.isEmpty {
+                    VStack(spacing: FormaSpacing.generous) {
+                        FormaEmptyState(
+                            title: "No Rules Yet",
+                            message: "Create your first rule to automatically organize files.",
+                            actionTitle: "Create Rule",
+                            action: {
+                                openRuleBuilderPanel()
+                            },
+                            actionAccessibilityIdentifier: "smartRulesCreateRuleButton"
+                        )
+
+                        starterTemplatesSection
+                            .padding(.horizontal, FormaSpacing.generous)
+                    }
+                } else {
+                    FormaEmptyState(
+                        title: "No Matching Rules",
+                        message: "Try a different search term.",
+                        actionTitle: "Clear Search",
+                        action: { searchText = "" }
+                    )
+                }
+            } else {
+                if content.showsOperationalSections {
+                    sectionedRulesList(content: content)
+                } else {
+                    flatRulesList(rules: content.filteredRules, healthByID: content.healthByID)
+                }
+            }
+        }
+        .background(Color.clear) // Allow unified window glass to show through
+        .sheet(isPresented: $showManageCategories) {
+            ManageCategoriesSheet()
+        }
+        .task(id: contentRefreshToken) {
+            await refreshContentState()
+        }
+        .onChange(of: contentRefreshInputs) { _, _ in
+            scheduleContentRefresh()
+        }
+        .onChange(of: allRules.map(\.id)) { _, remainingRuleIDs in
+            pendingDeletionRuleIDs.formIntersection(Set(remainingRuleIDs))
+        }
+        .accessibilityIdentifier("smartRulesView")
+        .accessibilityLabel(isUITesting ? smartRulesAccessibilityValue : "")
+        .accessibilityValue(isUITesting ? smartRulesAccessibilityValue : "")
+        .overlay(alignment: .topLeading) {
+            if isUITesting {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("smartRulesContrastProbe")
+                    .accessibilityLabel(
+                        "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio));bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio));rowSpacing=\(Int(listRowSpacing));rowVerticalPadding=\(Int(RuleManagementCard.verticalPadding));listPadding=\(Int(listContentPadding));widthClass=\(rightPanelWidthClassText)"
+                    )
+                    .accessibilityValue(
+                        "titleOnCard=\(String(format: "%.2f", titleOnCardContrastRatio));secondaryOnCard=\(String(format: "%.2f", secondaryOnCardContrastRatio));bodyOnBanner=\(String(format: "%.2f", needsAccessBodyContrastRatio));rowSpacing=\(Int(listRowSpacing));rowVerticalPadding=\(Int(RuleManagementCard.verticalPadding));listPadding=\(Int(listContentPadding));widthClass=\(rightPanelWidthClassText)"
+                    )
             }
         }
     }
