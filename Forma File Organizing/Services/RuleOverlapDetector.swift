@@ -153,42 +153,6 @@ class RuleOverlapDetector {
         return overlaps.sorted { $0.overlapType.severity > $1.overlapType.severity }
     }
 
-    func detectOverlaps<R: Ruleable>(in rules: [R]) -> [UUID: [RuleOverlap]] {
-        var overlapsByRuleID = Dictionary(uniqueKeysWithValues: rules.map { ($0.id, [RuleOverlap]()) })
-
-        guard rules.count > 1 else {
-            return overlapsByRuleID
-        }
-
-        for lhsIndex in rules.indices {
-            let lhsRule = rules[lhsIndex]
-
-            guard lhsIndex < rules.index(before: rules.endIndex) else {
-                continue
-            }
-
-            for rhsIndex in rules.index(after: lhsIndex)..<rules.endIndex {
-                let rhsRule = rules[rhsIndex]
-
-                if rhsRule.isEnabled,
-                   categoryScopesCouldOverlap(newRule: lhsRule, existingRule: rhsRule),
-                   let overlap = detectConditionOverlap(newRule: lhsRule, existingRule: rhsRule) {
-                    overlapsByRuleID[lhsRule.id, default: []].append(overlap)
-                }
-
-                if lhsRule.isEnabled,
-                   categoryScopesCouldOverlap(newRule: rhsRule, existingRule: lhsRule),
-                   let overlap = detectConditionOverlap(newRule: rhsRule, existingRule: lhsRule) {
-                    overlapsByRuleID[rhsRule.id, default: []].append(overlap)
-                }
-            }
-        }
-
-        return overlapsByRuleID.mapValues { overlaps in
-            overlaps.sorted { $0.overlapType.severity > $1.overlapType.severity }
-        }
-    }
-
     func clearScopePathCache() {
         categoryScopesByCategoryID.removeAll()
         scopedFolderPathsByCategoryID.removeAll()

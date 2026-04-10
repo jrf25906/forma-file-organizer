@@ -48,16 +48,6 @@ final class RuleHealthService {
         }
     }
 
-    struct RuleHealthBatch {
-        let healthByID: [UUID: RuleHealth]
-    }
-
-    enum DestinationStatus {
-        case ready
-        case willCreate(parentFolder: String)
-        case needsPermission(reason: String)
-    }
-
     private let overlapDetector = RuleOverlapDetector()
     private let destinationResolver = DestinationResolver()
     private let jsonEncoder = JSONEncoder()
@@ -67,43 +57,17 @@ final class RuleHealthService {
         staleRuleThresholdDays: Int? = nil,
         evaluationDate: Date = Date()
     ) -> [UUID: RuleHealth] {
-        let destinationStatuses = destinationStatuses(for: rules)
-        return classifyBatch(
-            rules: rules,
-            staleRuleThresholdDays: staleRuleThresholdDays,
-            evaluationDate: evaluationDate,
-            destinationStatuses: destinationStatuses
-        )
-        .healthByID
-    }
-
-    func classifyBatch(
-        rules: [Rule],
-        staleRuleThresholdDays: Int? = nil,
-        evaluationDate: Date = Date(),
-        destinationStatuses: [UUID: DestinationStatus]
-    ) -> RuleHealthBatch {
         overlapDetector.clearScopePathCache()
-        let overlapsByRuleID = overlapDetector.detectOverlaps(in: rules)
-        let healthByID = Dictionary(uniqueKeysWithValues: rules.map { rule in
+        return Dictionary(uniqueKeysWithValues: rules.map { rule in
             (
                 rule.id,
                 classify(
                     rule: rule,
-                    overlaps: overlapsByRuleID[rule.id] ?? [],
+                    against: rules,
                     staleRuleThresholdDays: staleRuleThresholdDays,
-                    evaluationDate: evaluationDate,
-                    destinationStatus: destinationStatuses[rule.id] ?? destinationStatus(for: rule)
+                    evaluationDate: evaluationDate
                 )
             )
-        })
-
-        return RuleHealthBatch(healthByID: healthByID)
-    }
-
-    func destinationStatuses(for rules: [Rule]) -> [UUID: DestinationStatus] {
-        Dictionary(uniqueKeysWithValues: rules.map { rule in
-            (rule.id, destinationStatus(for: rule))
         })
     }
 
@@ -129,10 +93,9 @@ final class RuleHealthService {
 
     private func classify(
         rule: Rule,
-        overlaps: [RuleOverlapDetector.RuleOverlap],
+        against rules: [Rule],
         staleRuleThresholdDays: Int?,
-        evaluationDate: Date,
-        destinationStatus: DestinationStatus
+        evaluationDate: Date
     ) -> RuleHealth {
         if !rule.isEnabled {
             return RuleHealth(kind: .disabled, badgeLabel: "Disabled", message: "This rule is turned off.")
@@ -142,6 +105,7 @@ final class RuleHealthService {
             return RuleHealth(kind: .disabled, badgeLabel: "Category Off", message: "The '\(category.name)' category is disabled.")
         }
 
+        let overlaps = overlapDetector.detectOverlaps(for: rule, against: rules, excludeRuleID: rule.id)
         if let overlap = overlaps.first {
             switch overlap.overlapType {
             case .exactDuplicate:
@@ -166,56 +130,45 @@ final class RuleHealthService {
         }
 
         guard rule.actionType != .delete,
-              rule.destination != nil else {
-            return staleAdjustedHealth(
-                for: rule,
-                baseHealth: RuleHealth(kind: .ready, badgeLabel: nil, message: nil),
-                staleRuleThresholdDays: staleRuleThresholdDays,
-                evaluationDate: evaluationDate
-            )
-        }
-
-        switch destinationStatus {
-        case .ready:
-            return staleAdjustedHealth(
-                for: rule,
-                baseHealth: RuleHealth(kind: .ready, badgeLabel: nil, message: nil),
-                staleRuleThresholdDays: staleRuleThresholdDays,
-                evaluationDate: evaluationDate
-            )
-        case .willCreate(let parentFolder):
-            return RuleHealth(
-                kind: .willCreate,
-                badgeLabel: "Will Create",
-                message: "Forma can create this folder inside \(parentFolder) when you save or run the bulk create action."
-            )
-        case .needsPermission(let reason):
-            return RuleHealth(kind: .needsPermission, badgeLabel: "Needs Permission", message: reason)
-        }
-    }
-
-    private func destinationStatus(for rule: Rule) -> DestinationStatus {
-        guard rule.actionType != .delete,
               let destination = rule.destination else {
-            return .ready
+            return staleAdjustedHealth(
+                for: rule,
+                baseHealth: RuleHealth(kind: .ready, badgeLabel: nil, message: nil),
+                staleRuleThresholdDays: staleRuleThresholdDays,
+                evaluationDate: evaluationDate
+            )
         }
 
         if destination.bookmarkData != nil {
             switch destination.validate() {
             case .valid, .stale:
-                return .ready
+                return staleAdjustedHealth(
+                    for: rule,
+                    baseHealth: RuleHealth(kind: .ready, badgeLabel: nil, message: nil),
+                    staleRuleThresholdDays: staleRuleThresholdDays,
+                    evaluationDate: evaluationDate
+                )
             case .invalid(let reason):
-                return .needsPermission(reason: reason)
+                return RuleHealth(kind: .needsPermission, badgeLabel: "Needs Permission", message: reason)
             }
         }
 
         switch destinationResolver.checkResolvability(destination) {
         case .valid:
-            return .ready
+            return staleAdjustedHealth(
+                for: rule,
+                baseHealth: RuleHealth(kind: .ready, badgeLabel: nil, message: nil),
+                staleRuleThresholdDays: staleRuleThresholdDays,
+                evaluationDate: evaluationDate
+            )
         case .resolvable(let parentFolder):
-            return .willCreate(parentFolder: parentFolder)
+            return RuleHealth(
+                kind: .willCreate,
+                badgeLabel: "Will Create",
+                message: "Forma can create this folder inside \(parentFolder) when you save or run the bulk create action."
+            )
         case .unresolvable(let reason):
-            return .needsPermission(reason: reason)
+            return RuleHealth(kind: .needsPermission, badgeLabel: "Needs Permission", message: reason)
         }
     }
 
