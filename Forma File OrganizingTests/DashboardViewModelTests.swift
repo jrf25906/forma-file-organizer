@@ -5342,36 +5342,6 @@ final class DashboardViewModelTests: XCTestCase {
             XCTFail("Right panel mode should switch to .celebration")
         }
     }
-
-    func testCelebrationPanelTransitionPublishesRootForChildOwnedPanelState() {
-        let showPublishCount = rootPublishCount {
-            viewModel.showCelebrationPanel(message: "Success!")
-        }
-        XCTAssertEqual(
-            showPublishCount,
-            1,
-            "Presenting celebration should publish root updates for child-owned panel state"
-        )
-        if case .celebration = viewModel.rightPanelMode {
-            // Success
-        } else {
-            XCTFail("Celebration should be visible after showCelebrationPanel")
-        }
-
-        let dismissPublishCount = rootPublishCount {
-            viewModel.dismissCelebrationPanel()
-        }
-        XCTAssertEqual(
-            dismissPublishCount,
-            1,
-            "Dismissing celebration should publish root updates for child-owned panel state"
-        )
-        if case .default = viewModel.rightPanelMode {
-            // Success
-        } else {
-            XCTFail("Dismissing celebration should restore default panel mode")
-        }
-    }
     
     func testReturnToDefaultPanel() {
         // Given: Start in celebration mode

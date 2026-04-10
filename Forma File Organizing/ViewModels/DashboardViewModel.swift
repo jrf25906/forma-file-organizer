@@ -1971,9 +1971,7 @@ class DashboardViewModel: ObservableObject {
             self?.scheduleAppReviewRequest()
         }
         controller.onShowTrustedScopeRecommendation = { [weak self] recommendation in
-            self?.mutatePanelManager {
-                self?.panelManager.stageTrustedScopeRecommendation(recommendation)
-            }
+            self?.panelManager.stageTrustedScopeRecommendation(recommendation)
         }
         controller.onDidOrganizeFile = { [weak self] filePath in
             self?.markFileOrganizedInCurrentPass(filePath)
@@ -2006,42 +2004,19 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Panel Management
 
-    private func mutatePanelManager(
-        shouldPublishRoot: Bool = true,
-        _ mutation: () -> Void
-    ) {
-        if shouldPublishRoot {
-            objectWillChange.send()
-        }
-        mutation()
-    }
-
-    @discardableResult
-    private func revealRightPanelIfNeeded() -> Bool {
-        let wasVisible = isRightPanelVisible
-        isRightPanelVisible = true
-        return wasVisible != isRightPanelVisible
-    }
-
     private func updateRightPanelMode() {
-        mutatePanelManager {
-            panelManager.updateRightPanelForSelection(selectedFiles)
-        }
+        panelManager.updateRightPanelForSelection(selectedFiles)
     }
 
-    @discardableResult
-    private func selectFileForInspector(_ file: FileItem) -> Bool {
-        let didRevealRightPanel = revealRightPanelIfNeeded()
+    private func selectFileForInspector(_ file: FileItem) {
+        isRightPanelVisible = true
         selectionViewModel.selectedFileIDs = [file.path]
         selectionViewModel.focusedFilePath = file.path
-        return didRevealRightPanel
     }
 
     private func openInspector(for file: FileItem) {
-        let didRevealRightPanel = selectFileForInspector(file)
-        mutatePanelManager(shouldPublishRoot: !didRevealRightPanel) {
-            panelManager.updateRightPanelForSelection([file])
-        }
+        selectFileForInspector(file)
+        panelManager.updateRightPanelForSelection([file])
     }
 
     private func makeInspectorFallbackFile(for fileRow: ProjectSpaceFileRow) -> FileItem? {
@@ -2070,43 +2045,35 @@ class DashboardViewModel: ObservableObject {
     }
 
     func showRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {
-        let didRevealRightPanel = revealRightPanelIfNeeded()
-        mutatePanelManager(shouldPublishRoot: !didRevealRightPanel) {
-            panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
-        }
+        isRightPanelVisible = true
+        panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
     }
 
     func showRulesManagementPanel() {
-        let didRevealRightPanel = revealRightPanelIfNeeded()
-        mutatePanelManager(shouldPublishRoot: !didRevealRightPanel) {
-            panelManager.showRulesManagementPanel()
-        }
+        isRightPanelVisible = true
+        panelManager.showRulesManagementPanel()
     }
 
     func showAnalyticsPanel() {
-        let didRevealRightPanel = revealRightPanelIfNeeded()
-        mutatePanelManager(shouldPublishRoot: !didRevealRightPanel) {
-            panelManager.showAnalyticsPanel()
-        }
+        isRightPanelVisible = true
+        panelManager.showAnalyticsPanel()
     }
 
     func showRuleBuilderPanelForInspector(_ file: FileItem, editingRule: Rule? = nil) {
-        let didRevealRightPanel = selectFileForInspector(file)
-        mutatePanelManager(shouldPublishRoot: !didRevealRightPanel) {
-            panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: file)
-        }
+        selectFileForInspector(file)
+        panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: file)
     }
 
     func restorePanel(afterRuleDraftReturnTarget returnTarget: RuleDraftReturnTarget) {
         switch returnTarget {
         case .none:
-            returnToDefaultPanel()
+            panelManager.returnToDefaultPanel()
         case .defaultPanel:
-            returnToDefaultPanel()
+            panelManager.returnToDefaultPanel()
         case .inspector(let filePath):
             guard let file = scanViewModel.allFiles.first(where: { $0.path == filePath }) else {
                 if selectedFiles.isEmpty {
-                    returnToDefaultPanel()
+                    panelManager.returnToDefaultPanel()
                 } else {
                     updateRightPanelMode()
                 }
@@ -2118,9 +2085,7 @@ class DashboardViewModel: ObservableObject {
     }
 
     func returnToDefaultPanel() {
-        mutatePanelManager {
-            panelManager.returnToDefaultPanel()
-        }
+        panelManager.returnToDefaultPanel()
     }
 
     func shouldShowDefaultPanelPrimaryAction(
@@ -2145,11 +2110,7 @@ class DashboardViewModel: ObservableObject {
 
     var rightPanelMode: PanelStateManager.RightPanelMode {
         get { panelManager.rightPanelMode }
-        set {
-            mutatePanelManager {
-                panelManager.rightPanelMode = newValue
-            }
-        }
+        set { panelManager.rightPanelMode = newValue }
     }
 
     var celebrationShowsUndo: Bool {
@@ -2218,51 +2179,31 @@ class DashboardViewModel: ObservableObject {
     /// Toast notification state - required by ToastHost
     var toastState: PanelStateManager.ToastState? {
         get { panelManager.toastState }
-        set {
-            mutatePanelManager {
-                panelManager.toastState = newValue
-            }
-        }
+        set { panelManager.toastState = newValue }
     }
 
     /// File currently being edited for destination
     var editingDestinationFile: FileItem? {
         get { panelManager.editingDestinationFile }
-        set {
-            mutatePanelManager {
-                panelManager.editingDestinationFile = newValue
-            }
-        }
+        set { panelManager.editingDestinationFile = newValue }
     }
 
     /// QuickLook URL for preview
     var quickLookURL: URL? {
         get { panelManager.quickLookURL }
-        set {
-            mutatePanelManager {
-                panelManager.quickLookURL = newValue
-            }
-        }
+        set { panelManager.quickLookURL = newValue }
     }
 
     /// QuickLook sheet visibility
     var showQuickLookSheet: Bool {
         get { panelManager.showQuickLookSheet }
-        set {
-            mutatePanelManager {
-                panelManager.showQuickLookSheet = newValue
-            }
-        }
+        set { panelManager.showQuickLookSheet = newValue }
     }
 
     /// Clusters view visibility
     var showClustersView: Bool {
         get { panelManager.showClustersView }
-        set {
-            mutatePanelManager {
-                panelManager.showClustersView = newValue
-            }
-        }
+        set { panelManager.showClustersView = newValue }
     }
 
     /// Cluster detection state (delegated from analyticsViewModel)
@@ -2271,23 +2212,17 @@ class DashboardViewModel: ObservableObject {
     }
 
     func showQuickLook(for file: FileItem) {
-        mutatePanelManager {
-            panelManager.showQuickLook(for: file) { [weak self] errorMsg in
-                self?.errorMessage = errorMsg
-            }
+        panelManager.showQuickLook(for: file) { [weak self] errorMsg in
+            self?.errorMessage = errorMsg
         }
     }
 
     func beginEditingDestination(for file: FileItem) {
-        mutatePanelManager {
-            panelManager.beginEditingDestination(for: file)
-        }
+        panelManager.beginEditingDestination(for: file)
     }
 
     func updateDestination(for file: FileItem, to newDestination: Destination) {
-        mutatePanelManager {
-            panelManager.updateDestination(for: file, to: newDestination)
-        }
+        panelManager.updateDestination(for: file, to: newDestination)
         filterViewModel.applyFilterImmediately()
     }
 
@@ -2317,11 +2252,9 @@ class DashboardViewModel: ObservableObject {
 
     private func showToast(message: String, canUndo: Bool) {
         let context = modelContext
-        mutatePanelManager {
-            panelManager.showToast(message: message, canUndo: canUndo, undoAction: canUndo ? { [weak self] in
-                self?.undoLastAction(context: context)
-            } : nil)
-        }
+        panelManager.showToast(message: message, canUndo: canUndo, undoAction: canUndo ? { [weak self] in
+            self?.undoLastAction(context: context)
+        } : nil)
     }
 
     // MARK: - Undo/Redo
@@ -2336,9 +2269,7 @@ class DashboardViewModel: ObservableObject {
 
     func undoLastAction(context: ModelContext? = nil) {
         let resolvedContext = context ?? modelContext
-        mutatePanelManager {
-            panelManager.dismissTrustedScopeRecommendation(clearRecommendation: true)
-        }
+        panelManager.dismissTrustedScopeRecommendation(clearRecommendation: true)
         undoRedoController.undoLastAction(
             allFiles: scanViewModel.allFiles,
             context: resolvedContext,
@@ -2562,15 +2493,11 @@ class DashboardViewModel: ObservableObject {
         style: PanelStateManager.CelebrationStyle = .batchUndo,
         onDismiss: (() -> Void)? = nil
     ) {
-        mutatePanelManager {
-            panelManager.showCelebrationPanel(message: message, style: style, onDismiss: onDismiss)
-        }
+        panelManager.showCelebrationPanel(message: message, style: style, onDismiss: onDismiss)
     }
 
     func dismissCelebrationPanel() {
-        mutatePanelManager {
-            panelManager.dismissCelebration()
-        }
+        panelManager.dismissCelebration()
     }
 
     func refreshTrustedAutomationScopes(referenceDate: Date = Date()) {
@@ -2667,15 +2594,11 @@ class DashboardViewModel: ObservableObject {
     }
 
     func presentTrustedScopeRecommendation() {
-        mutatePanelManager {
-            panelManager.presentTrustedScopeRecommendation()
-        }
+        panelManager.presentTrustedScopeRecommendation()
     }
 
     func dismissTrustedScopeRecommendation(clearRecommendation: Bool = false) {
-        mutatePanelManager {
-            panelManager.dismissTrustedScopeRecommendation(clearRecommendation: clearRecommendation)
-        }
+        panelManager.dismissTrustedScopeRecommendation(clearRecommendation: clearRecommendation)
     }
 
     func confirmTrustedScopeRecommendation(
@@ -2691,9 +2614,7 @@ class DashboardViewModel: ObservableObject {
                 selectedScopeType: selectedScopeType,
                 selectedWorkflowTemplateID: selectedWorkflowTemplateID
             )
-            mutatePanelManager {
-                panelManager.dismissTrustedScopeRecommendation(clearRecommendation: true)
-            }
+            panelManager.dismissTrustedScopeRecommendation(clearRecommendation: true)
             refreshTrustedAutomationScopes(referenceDate: trustedScope.updatedAt)
             showToast(
                 message: "Autopilot enabled for \(trustedScope.displayName)",
@@ -2934,12 +2855,10 @@ class DashboardViewModel: ObservableObject {
                 celebrationStyle = .workflowExecution
             }
 
-            self?.mutatePanelManager {
-                self?.panelManager.showCelebrationPanel(
-                    message: message,
-                    style: celebrationStyle
-                )
-            }
+            self?.panelManager.showCelebrationPanel(
+                message: message,
+                style: celebrationStyle
+            )
         }
 
         bulkOperationViewModel.onShowToast = { [weak self] message, canUndo in
