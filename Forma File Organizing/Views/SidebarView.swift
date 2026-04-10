@@ -16,6 +16,7 @@ struct SidebarView: View {
     @State private var isSettingsHovered = false
     @State private var isHelpHovered = false
     @State private var expandedNestedFolders: Set<BookmarkFolder.FolderType> = []
+    @SceneStorage("sidebarExpandedNestedFolders") private var expandedNestedFoldersStorage = ""
     @AppStorage(ScanOptionsResolver.scanSubfoldersKey) private var scanSubfolders = false
 
     var body: some View {
@@ -59,28 +60,28 @@ struct SidebarView: View {
             VStack(alignment: .leading, spacing: FormaSpacing.micro) {
                 sectionHeader("ACTIONS")
 
-                SidebarActionRow(title: "New Rule", icon: "plus") {
+                SidebarActionRow(title: "New Rule", icon: "plus", accessibilityIdentifier: "sidebarAction_newRule") {
                     nav.openRuleBuilderPanel(returnTarget: .defaultPanel)
                     dashboardViewModel.showRuleBuilderPanel()
                 }
                 .help("Create a new organization rule (R)")
                 .guidedTourRegion(.newRuleButton)
 
-                SidebarActionRow(title: "Add Folder", icon: "folder.badge.plus") {
+                SidebarActionRow(title: "Add Folder", icon: "folder.badge.plus", accessibilityIdentifier: "sidebarAction_addFolder") {
                     addNewLocation()
                 }
                 .disabled(isAddingFolder)
                 .help("Add a new location")
 
                 // Smart Rules — opens right panel in rules list mode
-                SidebarActionRow(title: "Smart Rules", icon: "list.bullet.rectangle") {
-                    dashboardViewModel.showRuleBuilderPanel()
+                SidebarActionRow(title: "Smart Rules", icon: "list.bullet.rectangle", accessibilityIdentifier: "sidebarAction_smartRules") {
+                    dashboardViewModel.showRulesManagementPanel()
                 }
                 .help("View and manage organization rules")
 
                 // Analytics — opens right panel in analytics mode
                 if services.featureFlags.isEnabled(.analyticsAndInsights) {
-                    SidebarActionRow(title: "Analytics", icon: "chart.bar") {
+                    SidebarActionRow(title: "Analytics", icon: "chart.bar", accessibilityIdentifier: "sidebarAction_analytics") {
                         dashboardViewModel.showAnalyticsPanel()
                     }
                     .help("View activity and insights")
@@ -147,7 +148,11 @@ struct SidebarView: View {
             }
             .ignoresSafeArea(edges: .top)
         )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("dashboardSidebar")
         .onAppear {
+            restoreExpandedNestedFolders()
+
             if case .nestedFolder(let base, let relativePath, let includeSubfolders) = nav.selection {
                 expandedNestedFolders.insert(base)
                 if includeSubfolders != scanSubfolders {
@@ -159,6 +164,9 @@ struct SidebarView: View {
                         )
                 }
             }
+        }
+        .onChange(of: expandedNestedFolders) { _, newValue in
+            persistExpandedNestedFolders(newValue)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             folderService.refresh()
@@ -186,6 +194,21 @@ struct SidebarView: View {
             .tracking(1.0)
             .padding(.top, FormaSpacing.standard)
             .padding(.bottom, FormaSpacing.micro)
+    }
+
+    private func restoreExpandedNestedFolders() {
+        expandedNestedFolders = Set(
+            expandedNestedFoldersStorage
+                .split(separator: ",")
+                .compactMap { BookmarkFolder.FolderType(rawValue: String($0)) }
+        )
+    }
+
+    private func persistExpandedNestedFolders(_ folders: Set<BookmarkFolder.FolderType>) {
+        expandedNestedFoldersStorage = folders
+            .map(\.rawValue)
+            .sorted()
+            .joined(separator: ",")
     }
     
     @ViewBuilder
@@ -741,6 +764,7 @@ private struct SidebarNativeRow: View {
 private struct SidebarActionRow: View {
     let title: String
     let icon: String
+    let accessibilityIdentifier: String
     let action: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -774,6 +798,8 @@ private struct SidebarActionRow: View {
             .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityLabel(title)
         .onHover { hovering in
             isHovered = hovering
         }

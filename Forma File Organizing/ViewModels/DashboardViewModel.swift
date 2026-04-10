@@ -2009,6 +2009,11 @@ class DashboardViewModel: ObservableObject {
         panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
     }
 
+    func showRulesManagementPanel() {
+        isRightPanelVisible = true
+        panelManager.showRulesManagementPanel()
+    }
+
     func showAnalyticsPanel() {
         isRightPanelVisible = true
         panelManager.showAnalyticsPanel()

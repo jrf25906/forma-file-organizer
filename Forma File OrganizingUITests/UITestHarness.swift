@@ -59,6 +59,12 @@ final class UITestHarness {
 
     @MainActor
     func tapNeedsReviewSegment(timeout: TimeInterval = 4) {
+        let button = element(withIdentifier: "reviewMode_needsReview")
+        if button.waitForExistence(timeout: 1) {
+            button.click()
+            return
+        }
+
         let picker = reviewModePicker()
         XCTAssertTrue(picker.waitForExistence(timeout: timeout), "Review mode picker should exist")
         picker.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.5)).click()
@@ -66,6 +72,12 @@ final class UITestHarness {
 
     @MainActor
     func tapAllFilesSegment(timeout: TimeInterval = 4) {
+        let button = element(withIdentifier: "reviewMode_allFiles")
+        if button.waitForExistence(timeout: 1) {
+            button.click()
+            return
+        }
+
         let picker = reviewModePicker()
         XCTAssertTrue(picker.waitForExistence(timeout: timeout), "Review mode picker should exist")
         picker.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5)).click()
@@ -76,7 +88,7 @@ final class UITestHarness {
         tapViewModeSegment(
             identifier: "viewMode_grid",
             accessibilityLabel: "Grid view",
-            fallbackOffset: CGVector(dx: 0.12, dy: 0.5),
+            fallbackOffset: CGVector(dx: 0.15, dy: 0.5),
             timeout: timeout
         )
     }
@@ -86,7 +98,7 @@ final class UITestHarness {
         tapViewModeSegment(
             identifier: "viewMode_list",
             accessibilityLabel: "List view",
-            fallbackOffset: CGVector(dx: 0.30, dy: 0.5),
+            fallbackOffset: CGVector(dx: 0.37, dy: 0.5),
             timeout: timeout
         )
     }
@@ -96,7 +108,7 @@ final class UITestHarness {
         tapViewModeSegment(
             identifier: "viewMode_card",
             accessibilityLabel: "Card view",
-            fallbackOffset: CGVector(dx: 0.50, dy: 0.5),
+            fallbackOffset: CGVector(dx: 0.59, dy: 0.5),
             timeout: timeout
         )
     }
@@ -191,12 +203,36 @@ final class UITestHarness {
 
     @MainActor
     func element(withIdentifier identifier: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        let predicate = NSPredicate(format: "identifier == %@", identifier)
+        return app.descendants(matching: .any).matching(predicate).firstMatch
+    }
+
+    @MainActor
+    func sidebarAction(_ identifier: String) -> XCUIElement {
+        element(withIdentifier: identifier)
+    }
+
+    @MainActor
+    func sidebarActionLabel(_ title: String) -> XCUIElement {
+        let predicate = NSPredicate(format: "label == %@ OR identifier == %@", title, title)
+        return app.descendants(matching: .button).matching(predicate).firstMatch
+    }
+
+    @MainActor
+    func sidebar() -> XCUIElement {
+        element(withIdentifier: "dashboardSidebar")
     }
 
     @MainActor
     func badgeValue(_ element: XCUIElement) -> String {
-        element.value as? String ?? ""
+        if let value = element.value as? String {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+
+        return element.label.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @MainActor

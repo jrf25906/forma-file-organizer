@@ -617,55 +617,24 @@ struct MainContentView: View {
         let reviewSectionCountsValue = "ready=\(dashboardViewModel.readyFiles.count),review=\(dashboardViewModel.needsReviewFiles.count),destination=\(dashboardViewModel.needsDestinationFiles.count)"
 
         return Group {
-            Color.clear
-                .frame(width: 1, height: 1)
-                .accessibilityIdentifier("mainContent_reviewMode")
-                .accessibilityLabel("Review mode \(reviewModeValue)")
-                .accessibilityValue(reviewModeValue)
-
-            Color.clear
-                .frame(width: 1, height: 1)
-                .accessibilityIdentifier("mainContent_viewMode")
-                .accessibilityLabel("View mode \(viewModeValue)")
-                .accessibilityValue(viewModeValue)
-
-            Color.clear
-                .frame(width: 1, height: 1)
-                .accessibilityIdentifier("mainContent_needsReviewCount")
-                .accessibilityLabel("Needs review count \(needsReviewCountValue)")
-                .accessibilityValue(needsReviewCountValue)
-
-            Color.clear
-                .frame(width: 1, height: 1)
-                .accessibilityIdentifier("mainContent_allFilesCount")
-                .accessibilityLabel("All files count \(allFilesCountValue)")
-                .accessibilityValue(allFilesCountValue)
-
-            Color.clear
-                .frame(width: 1, height: 1)
-                .accessibilityIdentifier("mainContent_selectedCount")
-                .accessibilityLabel("Selected file count \(selectedCountValue)")
-                .accessibilityValue(selectedCountValue)
-
-            Color.clear
-                .frame(width: 1, height: 1)
-                .accessibilityIdentifier("mainContent_focusedFilePath")
-                .accessibilityLabel("Focused file path \(focusedFilePathValue)")
-                .accessibilityValue(focusedFilePathValue)
-
-            Color.clear
-                .frame(width: 1, height: 1)
-                .accessibilityIdentifier("mainContent_reviewSectionOrder")
-                .accessibilityLabel("Review section order \(reviewSectionOrderValue)")
-                .accessibilityValue(reviewSectionOrderValue)
-
-            Color.clear
-                .frame(width: 1, height: 1)
-                .accessibilityIdentifier("mainContent_reviewSectionCounts")
-                .accessibilityLabel("Review section counts \(reviewSectionCountsValue)")
-                .accessibilityValue(reviewSectionCountsValue)
+            uiTestStateProbe("mainContent_reviewMode", value: reviewModeValue)
+            uiTestStateProbe("mainContent_viewMode", value: viewModeValue)
+            uiTestStateProbe("mainContent_needsReviewCount", value: needsReviewCountValue)
+            uiTestStateProbe("mainContent_allFilesCount", value: allFilesCountValue)
+            uiTestStateProbe("mainContent_selectedCount", value: selectedCountValue)
+            uiTestStateProbe("mainContent_focusedFilePath", value: focusedFilePathValue)
+            uiTestStateProbe("mainContent_reviewSectionOrder", value: reviewSectionOrderValue)
+            uiTestStateProbe("mainContent_reviewSectionCounts", value: reviewSectionCountsValue)
         }
         .allowsHitTesting(false)
+    }
+
+    private func uiTestStateProbe(_ identifier: String, value: String) -> some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityIdentifier(identifier)
+            .accessibilityLabel(value)
+            .accessibilityValue(value)
     }
 
     #if DEBUG

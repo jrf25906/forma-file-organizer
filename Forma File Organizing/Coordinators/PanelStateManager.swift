@@ -73,6 +73,7 @@ class PanelStateManager: ObservableObject {
     enum RightPanelMode: Equatable {
         case `default`
         case inspector([FileItem])
+        case rulesManagement
         case ruleBuilder(editingRule: Rule?, fileContext: FileItem?)
         case celebration(String)
         case completionCelebration(filesOrganized: Int)  // Special celebration when ALL files are cleared
@@ -84,6 +85,8 @@ class PanelStateManager: ObservableObject {
             return true
         case (.inspector(let lFiles), .inspector(let rFiles)):
             return lFiles.map { $0.path } == rFiles.map { $0.path }
+        case (.rulesManagement, .rulesManagement):
+            return true
         case (.ruleBuilder(let lRule, let lFile), .ruleBuilder(let rRule, let rFile)):
             return lRule?.id == rRule?.id && lFile?.path == rFile?.path
         case (.celebration(let lMsg), .celebration(let rMsg)):
@@ -169,7 +172,13 @@ class PanelStateManager: ObservableObject {
             }
         }
     }
-    
+
+    /// Show rules management panel
+    func showRulesManagementPanel() {
+        clearCelebrationState()
+        rightPanelMode = .rulesManagement
+    }
+
     /// Show rule builder panel
     func showRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {
         clearCelebrationState()

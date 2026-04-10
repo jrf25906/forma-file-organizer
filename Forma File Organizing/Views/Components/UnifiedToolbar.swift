@@ -251,6 +251,7 @@ struct UnifiedToolbar: View {
         }
         .frame(width: compressionLevel.scopeWidth)
         .frame(height: primaryRowHeight)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("toolbarReviewModePicker")
     }
 
@@ -406,6 +407,7 @@ struct UnifiedToolbar: View {
             .accessibilityLabel(inspectorAccessibilityLabel)
         }
         .frame(height: primaryRowHeight)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("toolbarViewModePicker")
     }
 

@@ -25,6 +25,7 @@ struct RightPanelView: View {
         switch dashboardViewModel.rightPanelMode {
         case .default: return "house"
         case .inspector: return "doc.text.magnifyingglass"
+        case .rulesManagement: return "list.bullet.rectangle"
         case .ruleBuilder: return "wand.and.stars"
         case .celebration: return "party.popper"
         case .completionCelebration: return "party.popper.fill"
@@ -38,6 +39,7 @@ struct RightPanelView: View {
         case .default: return "Dashboard"
         case .inspector(let files):
             return files.count == 1 ? "File Details" : "\(files.count) Files"
+        case .rulesManagement: return "Smart Rules"
         case .ruleBuilder(let rule, _):
             return rule == nil ? "New Rule" : "Edit Rule"
         case .celebration: return "Success!"
@@ -77,6 +79,11 @@ struct RightPanelView: View {
 
                 case .completionCelebration(let filesOrganized):
                     CompletionCelebrationView(filesOrganized: filesOrganized)
+                        .matchedGeometryEffect(id: "panel", in: panelTransition)
+                        .transition(.opacity)
+
+                case .rulesManagement:
+                    RulesManagementView()
                         .matchedGeometryEffect(id: "panel", in: panelTransition)
                         .transition(.opacity)
 
@@ -221,6 +228,8 @@ private struct CompactAnalyticsPanel: View {
             }
         }
         .padding(FormaSpacing.large)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("compactAnalyticsPanel")
         .task {
             await loadInsights()
         }

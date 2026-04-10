@@ -15,6 +15,7 @@ struct DefaultPanelView: View {
     @State private var insights: [FileInsight] = []
     @State private var showAllInsights: Bool = false
     @State private var dismissedInsightIDs: Set<String> = []
+    @State private var uiTestSectionFrames: [String: CGRect] = [:]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
 
@@ -50,6 +51,12 @@ struct DefaultPanelView: View {
     private var showsAutomationStatusSection: Bool {
         FeatureFlagService.shared.isEnabled(.backgroundMonitoring) ||
             FeatureFlagService.shared.isEnabled(.autoOrganize)
+    }
+
+    private enum UITestSectionID {
+        static let heroCard = "heroCard"
+        static let automationCard = "automationCard"
+        static let suggestionsCard = "suggestionsCard"
     }
 
     private var inspectorPrimaryCardFill: Color {
@@ -134,6 +141,7 @@ struct DefaultPanelView: View {
 
     var body: some View {
         panelContent
+        .coordinateSpace(name: "defaultPanelLayout")
         .background(Color.clear)
         .onAppear {
             loadInsightsImmediately()
@@ -152,6 +160,10 @@ struct DefaultPanelView: View {
             // Cancel any pending insight load when view disappears
             insightLoadSequence &+= 1
             insightLoadTask?.cancel()
+        }
+        .onPreferenceChange(DefaultPanelSectionFramesPreferenceKey.self) { frames in
+            guard isUITesting else { return }
+            uiTestSectionFrames = frames
         }
         .sheet(isPresented: trustedAutomationScopeDetailSheetBinding) {
             if let detail = dashboardViewModel.selectedTrustedAutomationScopeDetail {
@@ -222,10 +234,10 @@ struct DefaultPanelView: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityIdentifier("defaultPanelContrastProbe")
                     .accessibilityLabel(
-                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio))"
+                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio));heroToAutomation=\(String(format: "%.2f", defaultPanelHeroToAutomationMetric));automationToSuggestions=\(String(format: "%.2f", defaultPanelAutomationToSuggestionsMetric))"
                     )
                     .accessibilityValue(
-                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio))"
+                        "primaryAction=\(String(format: "%.2f", defaultPanelPrimaryActionContrastRatio));ignore=\(String(format: "%.2f", defaultPanelIgnoreContrastRatio));heroToAutomation=\(String(format: "%.2f", defaultPanelHeroToAutomationMetric));automationToSuggestions=\(String(format: "%.2f", defaultPanelAutomationToSuggestionsMetric))"
                     )
             }
         }
@@ -308,6 +320,9 @@ struct DefaultPanelView: View {
                     }
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("defaultPanelHeroCard")
+            .background(sectionFrameReader(id: UITestSectionID.heroCard))
             .padding(.horizontal, FormaSpacing.standard)
             .padding(.top, FormaSpacing.standard)
             .padding(.bottom, FormaSpacing.tight)
@@ -328,6 +343,9 @@ struct DefaultPanelView: View {
                                 .accessibilityElement(children: .contain)
                                 .accessibilityIdentifier("defaultPanelAutomationSection")
                         }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("defaultPanelAutomationCard")
+                        .background(sectionFrameReader(id: UITestSectionID.automationCard))
                     }
 
                     if hasAnySuggestions {
@@ -336,6 +354,9 @@ struct DefaultPanelView: View {
                                 .accessibilityElement(children: .contain)
                                 .accessibilityIdentifier("defaultPanelSuggestionsSection")
                         }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("defaultPanelSuggestionsCard")
+                        .background(sectionFrameReader(id: UITestSectionID.suggestionsCard))
                     }
                 }
                 .padding(.horizontal, FormaSpacing.standard)
@@ -367,6 +388,15 @@ struct DefaultPanelView: View {
                 x: 0,
                 y: emphasized ? 3 : 2
             )
+    }
+
+    private func sectionFrameReader(id: String) -> some View {
+        GeometryReader { proxy in
+            Color.clear.preference(
+                key: DefaultPanelSectionFramesPreferenceKey.self,
+                value: [id: proxy.frame(in: .named("defaultPanelLayout"))]
+            )
+        }
     }
 
     // MARK: - Hero Section
@@ -483,11 +513,11 @@ struct DefaultPanelView: View {
                     .buttonStyle(.plain)
 
                     Button(action: {
-                        dashboardViewModel.showRuleBuilderPanel()
+                        dashboardViewModel.showRulesManagementPanel()
                     }) {
                         HStack(spacing: FormaSpacing.micro) {
                             Image(systemName: "gearshape")
-                                .font(.formaSmallSemibold)
+                            .font(.formaSmallSemibold)
                             Text("Manage Rules")
                                 .font(.formaSmallSemibold)
                         }
@@ -1246,6 +1276,24 @@ struct DefaultPanelView: View {
         )
     }
 
+    private var defaultPanelHeroToAutomationMetric: Double {
+        guard let heroFrame = uiTestSectionFrames[UITestSectionID.heroCard],
+              let automationFrame = uiTestSectionFrames[UITestSectionID.automationCard] else {
+            return -1
+        }
+
+        return Double(automationFrame.minY - heroFrame.maxY)
+    }
+
+    private var defaultPanelAutomationToSuggestionsMetric: Double {
+        guard let automationFrame = uiTestSectionFrames[UITestSectionID.automationCard],
+              let suggestionsFrame = uiTestSectionFrames[UITestSectionID.suggestionsCard] else {
+            return -1
+        }
+
+        return Double(suggestionsFrame.minY - automationFrame.maxY)
+    }
+
     @ViewBuilder
     private var scanPhaseStatusSection: some View {
         if dashboardViewModel.isLoading, let phase = dashboardViewModel.scanPhaseStatusText {
@@ -1594,6 +1642,14 @@ extension FileInsight {
             return category.color
         }
         return .formaSteelBlue
+    }
+}
+
+private struct DefaultPanelSectionFramesPreferenceKey: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, next in next })
     }
 }
 

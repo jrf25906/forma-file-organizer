@@ -64,7 +64,9 @@ private extension AppStoreScreenshotTests {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
         app.launchEnvironment["FORMA_APPEARANCE_MODE"] = appearance.rawValue
-        app.launchEnvironment["FORMA_WINDOW_SIZE"] = "1440x900"
+        app.launchEnvironment["FORMA_WINDOW_SIZE"] = "1600x980"
+        app.launchEnvironment["FORMA_WINDOW_PRESENTATION_SUITE"] = "AppStoreScreenshotTests"
+        app.launchEnvironment["FORMA_RESET_WINDOW_PRESENTATION"] = "1"
         app.launch()
 
         let reviewModePicker = app.descendants(matching: .any).matching(identifier: "toolbarReviewModePicker").firstMatch
@@ -73,6 +75,7 @@ private extension AppStoreScreenshotTests {
     }
 
     func captureMainWindowShots(app: XCUIApplication, appearance: ScreenshotAppearance, outputDir: URL?) throws {
+        let harness = UITestHarness(app: app)
         assertRightPanelRhythm(app: app)
         assertRightPanelContrast(app: app, appearance: appearance)
 
@@ -83,7 +86,7 @@ private extension AppStoreScreenshotTests {
             outputDir: outputDir
         )
 
-        UITestHarness(app: app).tapAllFilesSegment()
+        harness.tapAllFilesSegment()
         app.typeKey("2", modifierFlags: [.command]) // List view
         try captureWindowShot(
             app: app,
@@ -103,7 +106,7 @@ private extension AppStoreScreenshotTests {
             )
         }
 
-        let newRuleButton = app.buttons["New Rule"]
+        let newRuleButton = harness.sidebarActionLabel("New Rule")
         XCTAssertTrue(newRuleButton.waitForExistence(timeout: 4), "New Rule sidebar item should exist")
         newRuleButton.click()
         XCTAssertTrue(app.staticTexts["New Rule"].waitForExistence(timeout: 6), "Rule builder should appear")
@@ -116,11 +119,16 @@ private extension AppStoreScreenshotTests {
     }
 
     func captureToolsShots(app: XCUIApplication, appearance: ScreenshotAppearance, outputDir: URL?) throws {
-        let smartRulesButton = app.buttons["Smart Rules"]
+        let harness = UITestHarness(app: app)
+        let smartRulesButton = harness.sidebarActionLabel("Smart Rules")
         XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Smart Rules sidebar item should exist")
         smartRulesButton.click()
+
+        let smartRulesProbe = app.otherElements["smartRulesContrastProbe"]
+        XCTAssertTrue(smartRulesProbe.waitForExistence(timeout: 3), "Smart Rules should open the rules management surface")
         assertSmartRulesRhythm(app: app)
         assertSmartRulesContrast(app: app, appearance: appearance)
+
         try captureWindowShot(
             app: app,
             name: "forma-04-smart-rules",
@@ -128,7 +136,7 @@ private extension AppStoreScreenshotTests {
             outputDir: outputDir
         )
 
-        let analyticsButton = app.buttons["Analytics"]
+        let analyticsButton = harness.sidebarActionLabel("Analytics")
         if analyticsButton.exists {
             analyticsButton.click()
             try captureWindowShot(
@@ -192,34 +200,27 @@ private extension AppStoreScreenshotTests {
     }
 
     func assertRightPanelRhythm(app: XCUIApplication) {
-        let currentTask = app.staticTexts["CURRENT TASK"]
-        let automation = app.staticTexts["AUTOMATION"]
-        let suggestions = app.staticTexts["SUGGESTIONS"]
-        let quickActions = app.staticTexts["Quick Actions"]
+        let probe = app.otherElements["defaultPanelContrastProbe"]
+        XCTAssertTrue(probe.waitForExistence(timeout: 3), "Default panel probe should exist")
+        let metrics = waitForMetrics(
+            from: probe,
+            requiredNonNegativeKeys: ["heroToAutomation"],
+            timeout: 3
+        )
 
-        XCTAssertTrue(currentTask.waitForExistence(timeout: 3), "Current task label should exist")
-        XCTAssertTrue(automation.waitForExistence(timeout: 3), "Automation section label should exist")
+        assertMetricRange(metrics, key: "heroToAutomation", min: 8.0, max: 16.0, context: "Hero-to-automation gap")
 
-        let heroToAutomationGap = automation.frame.minY - currentTask.frame.maxY
-        XCTAssertGreaterThanOrEqual(heroToAutomationGap, 120, "Hero-to-automation stack is too compressed: \(heroToAutomationGap)")
-        XCTAssertLessThanOrEqual(heroToAutomationGap, 260, "Hero-to-automation stack is too loose: \(heroToAutomationGap)")
-
-        let hasSuggestionsHeader = suggestions.waitForExistence(timeout: 2)
-        let hasQuickActionsLabel = hasSuggestionsHeader ? false : quickActions.waitForExistence(timeout: 1)
-        guard hasSuggestionsHeader || hasQuickActionsLabel else {
+        guard let automationToSuggestions = metrics["automationToSuggestions"], automationToSuggestions >= 0 else {
             XCTContext.runActivity(named: "Suggestions content not present; skipping automation-to-suggestions spacing check") { _ in
-                let attachment = XCTAttachment(string: "No SUGGESTIONS/Quick Actions labels were present in the current launch state.")
+                let attachment = XCTAttachment(string: "automationToSuggestions metric was unavailable in the current launch state. Metrics: \(metrics)")
                 attachment.lifetime = .keepAlways
                 add(attachment)
             }
             return
         }
 
-        let suggestionsAnchor = hasSuggestionsHeader ? suggestions : quickActions
-        let automationToSuggestionsGap = suggestionsAnchor.frame.minY - automation.frame.maxY
-        XCTAssertGreaterThanOrEqual(automationToSuggestionsGap, 120, "Automation-to-suggestions stack is too compressed: \(automationToSuggestionsGap)")
-        XCTAssertLessThanOrEqual(automationToSuggestionsGap, 220, "Automation-to-suggestions stack is too loose: \(automationToSuggestionsGap)")
-
+        XCTAssertGreaterThanOrEqual(automationToSuggestions, 12, "Automation-to-suggestions gap is too compressed: \(automationToSuggestions)")
+        XCTAssertLessThanOrEqual(automationToSuggestions, 20, "Automation-to-suggestions gap is too loose: \(automationToSuggestions)")
     }
 
     func assertInspectorRhythm(app: XCUIApplication) {
@@ -294,6 +295,32 @@ private extension AppStoreScreenshotTests {
             return parseMetrics(from: value)
         }
         return parseMetrics(from: element.label)
+    }
+
+    func waitForMetrics(
+        from element: XCUIElement,
+        requiredNonNegativeKeys: [String],
+        timeout: TimeInterval
+    ) -> [String: Double] {
+        let deadline = Date().addingTimeInterval(timeout)
+        var latestMetrics = metrics(from: element)
+
+        while Date() < deadline {
+            let isReady = requiredNonNegativeKeys.allSatisfy { key in
+                guard let value = latestMetrics[key] else { return false }
+                return value >= 0
+            }
+
+            if isReady {
+                return latestMetrics
+            }
+
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+            latestMetrics = metrics(from: element)
+        }
+
+        XCTFail("Timed out waiting for metrics \(requiredNonNegativeKeys). Latest metrics: \(latestMetrics)")
+        return latestMetrics
     }
 
     func parseMetrics(from rawValue: String?) -> [String: Double] {

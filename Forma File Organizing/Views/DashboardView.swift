@@ -139,7 +139,25 @@ struct DashboardView: View {
     }
 
     private var splitLayoutMode: String {
-        dashboardViewModel.isRightPanelVisible ? "threeColumn" : "twoColumn"
+        usesThreeColumnLayout ? "threeColumn" : "twoColumn"
+    }
+
+    private var splitLayoutIdentity: String {
+        if showsAnalyticsAsPrimaryDetail {
+            return "analyticsTwoColumn"
+        }
+        return usesThreeColumnLayout ? "threeColumn" : "centerTwoColumn"
+    }
+
+    private var showsAnalyticsAsPrimaryDetail: Bool {
+        if case .analytics = dashboardViewModel.rightPanelMode {
+            return true
+        }
+        return false
+    }
+
+    private var usesThreeColumnLayout: Bool {
+        dashboardViewModel.isRightPanelVisible && !showsAnalyticsAsPrimaryDetail
     }
 
     private var splitViewColumnVisibility: Binding<NavigationSplitViewVisibility> {
@@ -190,20 +208,41 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var splitViewLayout: some View {
-        NavigationSplitView(columnVisibility: splitViewColumnVisibility) {
-            sidebarColumn
-        } content: {
-            centerColumn
-        } detail: {
-            RightPanelView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .navigationSplitViewColumnWidth(
-                    min: FormaSpacing.Column.rightPanelMin,
-                    ideal: FormaSpacing.Column.rightPanelIdeal,
-                    max: FormaSpacing.Column.rightPanelMax
-                )
+        if showsAnalyticsAsPrimaryDetail {
+            NavigationSplitView {
+                sidebarColumn
+            } detail: {
+                rightPanelColumn
+            }
+            .navigationSplitViewStyle(.balanced)
+        } else if usesThreeColumnLayout {
+            NavigationSplitView(columnVisibility: splitViewColumnVisibility) {
+                sidebarColumn
+            } content: {
+                centerColumn
+            } detail: {
+                rightPanelColumn
+            }
+            .navigationSplitViewStyle(.balanced)
+        } else {
+            NavigationSplitView {
+                sidebarColumn
+            } detail: {
+                centerColumn
+            }
+            .navigationSplitViewStyle(.balanced)
         }
-        .navigationSplitViewStyle(.balanced)
+    }
+
+    @ViewBuilder
+    private var rightPanelColumn: some View {
+        RightPanelView()
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .navigationSplitViewColumnWidth(
+                min: FormaSpacing.Column.rightPanelMin,
+                ideal: FormaSpacing.Column.rightPanelIdeal,
+                max: FormaSpacing.Column.rightPanelMax
+            )
     }
 
     @ViewBuilder
@@ -227,6 +266,7 @@ struct DashboardView: View {
                     PrimaryBackgroundView()
 
                     splitViewLayout
+                    .id(splitLayoutIdentity)
                     .disabled(nav.isShowingRuleEditor || (tourState.isActive && !DebugFlags.disableGuidedTourOverlay))
 
                     Color.clear

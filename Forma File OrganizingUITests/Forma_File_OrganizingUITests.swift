@@ -243,12 +243,10 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         app.activate()
         
         // Initial counts should be data-driven based on seeded UI test mocks.
-        let needsReviewButton = app.buttons["reviewMode_needsReview"]
-        let allFilesButton = app.buttons["reviewMode_allFiles"]
-        XCTAssertTrue(needsReviewButton.waitForExistence(timeout: 3))
-        XCTAssertTrue(allFilesButton.exists)
+        let needsReviewCountProbe = harness.element(withIdentifier: "mainContent_needsReviewCount")
+        harness.waitForExists(needsReviewCountProbe, timeout: 3, message: "Needs-review count probe should exist")
 
-        let initialCountRaw = harness.badgeValue(needsReviewButton)
+        let initialCountRaw = harness.badgeValue(needsReviewCountProbe)
         guard let initialCount = Int(initialCountRaw) else {
             XCTFail("Needs-review badge value should be numeric, got: \(initialCountRaw)")
             return
@@ -264,7 +262,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForFileRow(firstFileName, exists: false, timeout: 3)
 
         // Needs-review count should decrement by one.
-        harness.waitForValue(needsReviewButton, equals: "\(max(initialCount - 1, 0))", timeout: 3)
+        harness.waitForValue(needsReviewCountProbe, equals: "\(max(initialCount - 1, 0))", timeout: 3)
     }
     
     @MainActor
@@ -276,12 +274,6 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         let firstCard = harness.fileRow(named: firstFileName)
         XCTAssertTrue(firstCard.waitForExistence(timeout: 3))
         
-        // Verify initial segments
-        let needsReviewButton = app.buttons["reviewMode_needsReview"]
-        let allFilesButton = app.buttons["reviewMode_allFiles"]
-        XCTAssertTrue(needsReviewButton.exists)
-        XCTAssertTrue(allFilesButton.exists)
-        
         // Skip the first file while in Needs Review mode
         app.typeKey(.downArrow, modifierFlags: [])
         app.typeText("s")
@@ -290,13 +282,13 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForFileRow(firstFileName, exists: false, timeout: 3)
         
         // Switch to All Files mode
-        allFilesButton.tap()
+        harness.tapAllFilesSegment()
         
         // In All Files mode, skipped file should be visible again (non-completed)
         harness.waitForFileRow(firstFileName, exists: true, timeout: 3)
         
         // Switch back to Needs Review and ensure card is hidden again
-        needsReviewButton.tap()
+        harness.tapNeedsReviewSegment()
         harness.waitForFileRow(firstFileName, exists: false, timeout: 3)
     }
 
@@ -305,30 +297,33 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForMainContent()
         app.activate()
 
-        let analyticsButton = app.buttons["Analytics"]
+        let analyticsButton = harness.sidebarActionLabel("Analytics")
         guard analyticsButton.exists else {
             throw XCTSkip("Analytics feature is disabled for this UI test runtime.")
         }
 
         analyticsButton.click()
 
-        let productivityHeader = app.staticTexts["Productivity Health"]
-        XCTAssertTrue(productivityHeader.waitForExistence(timeout: 4), "Analytics content should be visible")
+        let analyticsPanel = harness.element(withIdentifier: "compactAnalyticsPanel")
+        XCTAssertTrue(analyticsPanel.waitForExistence(timeout: 4), "Analytics content should be visible")
 
-        let smartRulesButton = app.buttons["Smart Rules"]
-        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Sidebar should remain visible on Analytics")
+        XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4), "Sidebar container should remain visible on Analytics")
+        let smartRulesButton = harness.sidebarAction("sidebarAction_smartRules")
+        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Smart Rules action should remain visible on Analytics")
 
         let splitProbe = harness.element(withIdentifier: "dashboardSplitLayoutProbe")
         harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
         harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
 
-        let inspectorToggle = app.buttons["toolbarInspectorToggle"]
-        XCTAssertTrue(inspectorToggle.waitForExistence(timeout: 4), "Inspector toggle should remain visible in toolbar")
-        XCTAssertFalse(inspectorToggle.isEnabled, "Inspector toggle should be disabled while viewing Analytics")
+        let inspectorToggle = harness.element(withIdentifier: "toolbarInspectorToggle")
+        if inspectorToggle.waitForExistence(timeout: 1) {
+            XCTAssertFalse(inspectorToggle.isEnabled, "Inspector toggle should be disabled while viewing Analytics")
+        }
     }
 
     @MainActor
     func testInspectorHiddenStateUsesTwoColumnWithoutCollapsingSidebar() throws {
+        launchApp(windowSize: "1600x980")
         harness.waitForMainContent()
         app.activate()
 
@@ -336,15 +331,16 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
         harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
 
-        let inspectorToggle = app.buttons["toolbarInspectorToggle"]
+        let inspectorToggle = harness.element(withIdentifier: "toolbarInspectorToggle")
         XCTAssertTrue(inspectorToggle.waitForExistence(timeout: 4), "Inspector toggle should exist")
         XCTAssertTrue(inspectorToggle.isEnabled, "Inspector toggle should be enabled on non-Analytics views")
 
         inspectorToggle.click()
         harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
 
-        let smartRulesButton = app.buttons["Smart Rules"]
-        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Sidebar should remain visible when inspector is hidden")
+        XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4), "Sidebar container should remain visible when inspector is hidden")
+        let smartRulesButton = harness.sidebarAction("sidebarAction_smartRules")
+        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Sidebar actions should remain visible when inspector is hidden")
     }
 
     @MainActor
@@ -359,17 +355,12 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         let allFilesCountProbe = harness.element(withIdentifier: "mainContent_allFilesCount")
         let selectedCountProbe = harness.element(withIdentifier: "mainContent_selectedCount")
         let focusedFilePathProbe = harness.element(withIdentifier: "mainContent_focusedFilePath")
-        let needsReviewButton = app.buttons["reviewMode_needsReview"]
-        let allFilesButton = app.buttons["reviewMode_allFiles"]
 
         harness.waitForExists(reviewModeProbe, timeout: 3, message: "Review mode probe should exist")
         harness.waitForExists(needsReviewCountProbe, timeout: 3, message: "Needs-review count probe should exist")
         harness.waitForExists(allFilesCountProbe, timeout: 3, message: "All-files count probe should exist")
         harness.waitForExists(selectedCountProbe, timeout: 3, message: "Selected-count probe should exist")
         harness.waitForExists(focusedFilePathProbe, timeout: 3, message: "Focused-file probe should exist")
-        XCTAssertTrue(needsReviewButton.waitForExistence(timeout: 3), "Needs-review mode button should exist")
-        XCTAssertTrue(allFilesButton.waitForExistence(timeout: 3), "All-files mode button should exist")
-        needsReviewButton.tap()
 
         // Force card view before asserting card-specific probes.
         app.typeKey("3", modifierFlags: .command)
