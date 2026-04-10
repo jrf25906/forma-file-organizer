@@ -66,6 +66,89 @@ final class RuleOverlapDetectorTests: XCTestCase {
         XCTAssertEqual(overlaps.first?.overlapType, .subset)
     }
 
+    func testScopedFolderResolutionIsCachedAcrossRepeatedOverlapChecks() {
+        var resolveCallCount = 0
+        let detector = RuleOverlapDetector(
+            scopedFolderPathResolver: { folder in
+                resolveCallCount += 1
+                return "/Users/test/\(folder.displayName)"
+            }
+        )
+
+        let desktopFolder = CategoryScope.ScopedFolder(
+            bookmark: Data([0x01]),
+            displayName: "Desktop"
+        )
+        let workCategory = RuleCategory(
+            name: "Work",
+            scope: .folders([desktopFolder])
+        )
+        let first = Rule(
+            name: "Desktop PDFs",
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "Documents/Desktop PDFs"),
+            category: workCategory
+        )
+        let second = Rule(
+            name: "Desktop Documents",
+            conditionType: .fileKind,
+            conditionValue: "document",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "Documents/Desktop Documents"),
+            category: workCategory
+        )
+
+        _ = detector.detectOverlaps(for: first, against: [second])
+        _ = detector.detectOverlaps(for: second, against: [first])
+
+        XCTAssertEqual(resolveCallCount, 1, "Expected one scoped-folder resolution per shared category, even across repeated overlap checks.")
+    }
+
+    func testCategoryScopeResolutionIsCachedAcrossRepeatedOverlapChecks() {
+        var scopeResolutionCount = 0
+        let workCategory = RuleCategory(name: "Work")
+        let sharedScope = CategoryScope.folders([
+            CategoryScope.ScopedFolder(
+                bookmark: Data([0x02]),
+                displayName: "Desktop"
+            )
+        ])
+        let detector = RuleOverlapDetector(
+            categoryScopeResolver: { category in
+                scopeResolutionCount += 1
+                XCTAssertEqual(category.id, workCategory.id)
+                return sharedScope
+            },
+            scopedFolderPathResolver: { folder in
+                "/Users/test/\(folder.displayName)"
+            }
+        )
+
+        let first = Rule(
+            name: "Desktop PDFs",
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "Documents/Desktop PDFs"),
+            category: workCategory
+        )
+        let second = Rule(
+            name: "Desktop Documents",
+            conditionType: .fileKind,
+            conditionValue: "document",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "Documents/Desktop Documents"),
+            category: workCategory
+        )
+
+        _ = detector.detectOverlaps(for: first, against: [second])
+        _ = detector.detectOverlaps(for: second, against: [first])
+
+        XCTAssertEqual(scopeResolutionCount, 1, "Expected one category-scope decode per shared category, even across repeated overlap checks.")
+    }
+
     private func makeRule(
         name: String,
         conditionType: Rule.ConditionType,

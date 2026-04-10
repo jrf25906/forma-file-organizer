@@ -172,26 +172,12 @@ struct FileIdentityBlock: View {
     var searchMatchType: ContentSearchService.MatchType? = nil
     var contentSnippet: String? = nil
     var onSetDestination: (() -> Void)? = nil
+    @Environment(\.fileSurfaceLayout) private var fileSurfaceLayout
 
     var body: some View {
         VStack(alignment: .leading, spacing: layout.verticalSpacing) {
-            HStack(alignment: layout.headerAlignment, spacing: layout.titleSpacing) {
-                FileCategoryMarker(color: file.category.color, size: layout.categoryMarkerSize)
-                    .help("Category: \(file.category.displayName)")
-
-                Text(file.name)
-                    .font(layout.titleFont)
-                    .foregroundStyle(Color.formaLabel)
-                    .lineLimit(layout.titleLineLimit)
-                    .truncationMode(.middle)
-                    .minimumScaleFactor(layout == .grid ? 0.92 : 1.0)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                if let matchType = searchMatchType {
-                    SearchMatchBadge(matchType: matchType)
-                }
-            }
-            .frame(minHeight: layout.titleMinHeight, alignment: .topLeading)
+            titleHeader
+                .frame(minHeight: layout.titleMinHeight, alignment: .topLeading)
 
             FileMetaStrip(
                 file: file,
@@ -203,6 +189,41 @@ struct FileIdentityBlock: View {
             if layout.showsContentSnippet, let contentSnippet {
                 ContentSnippetView(snippet: contentSnippet)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var titleHeader: some View {
+        if fileSurfaceLayout.isCompact && searchMatchType != nil {
+            VStack(alignment: .leading, spacing: layout.titleSpacing) {
+                titleRow
+                if let searchMatchType {
+                    SearchMatchBadge(matchType: searchMatchType)
+                }
+            }
+        } else {
+            HStack(alignment: layout.headerAlignment, spacing: layout.titleSpacing) {
+                titleRow
+
+                if let searchMatchType {
+                    SearchMatchBadge(matchType: searchMatchType)
+                }
+            }
+        }
+    }
+
+    private var titleRow: some View {
+        HStack(alignment: layout.headerAlignment, spacing: layout.titleSpacing) {
+            FileCategoryMarker(color: file.category.color, size: layout.categoryMarkerSize)
+                .help("Category: \(file.category.displayName)")
+
+            Text(file.name)
+                .font(layout.titleFont)
+                .foregroundStyle(Color.formaLabel)
+                .lineLimit(fileSurfaceLayout.isCompact ? 2 : layout.titleLineLimit)
+                .truncationMode(.middle)
+                .minimumScaleFactor(layout == .grid ? 0.92 : 1.0)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -234,6 +255,7 @@ struct FileAccessoryActions: View {
     let primaryActionKind: FilePrimaryActionKind
     var showsPrimaryAction: Bool
     var showsOverflowMenu: Bool
+    var prefersExpandedLabelInCompactWidth: Bool = true
     var matchingRules: [Rule] = []
     var availableDestinations: [Destination] = []
     var onPrimaryAction: () -> Void
@@ -246,6 +268,7 @@ struct FileAccessoryActions: View {
     var disablesPrimaryAction: Bool = false
     var disablesEdit: Bool = false
     var disablesSkip: Bool = false
+    @Environment(\.fileSurfaceLayout) private var fileSurfaceLayout
 
     private var primaryActionAccessibilityIdentifier: String {
         FileRowAccessibilityIdentifier.primaryActionIdentifier(
@@ -255,10 +278,13 @@ struct FileAccessoryActions: View {
         )
     }
 
+    private var shouldUseExpandedCompactActions: Bool {
+        fileSurfaceLayout.isCompact && prefersExpandedLabelInCompactWidth && layout != .overlay
+    }
+
     var body: some View {
-        switch layout {
-        case .card:
-            VStack(alignment: .trailing, spacing: FormaSpacing.micro + 2) {
+        if shouldUseExpandedCompactActions {
+            HStack(alignment: .center, spacing: FormaSpacing.tight) {
                 if showsPrimaryAction {
                     PrimaryActionButton(
                         label: primaryActionKind.label,
@@ -271,48 +297,71 @@ struct FileAccessoryActions: View {
                     .accessibilityLabel(primaryActionKind.label)
                 }
 
-                if showsOverflowMenu {
-                    overflowMenuLabel(style: .card)
-                }
-            }
-        case .compact:
-            HStack(spacing: FormaSpacing.micro) {
-                if showsPrimaryAction {
-                    compactActionButton(
-                        icon: primaryActionKind.compactIcon,
-                        foreground: compactPrimaryActionForeground,
-                        background: compactPrimaryActionBackground,
-                        border: compactPrimaryActionBorder,
-                        helpText: primaryActionKind.helpText,
-                        action: onPrimaryAction
-                    )
-                    .disabled(disablesPrimaryAction)
-                    .accessibilityIdentifier(primaryActionAccessibilityIdentifier)
-                    .accessibilityLabel(primaryActionKind.label)
-                }
+                Spacer(minLength: 0)
 
                 if showsOverflowMenu {
-                    overflowMenuLabel(style: .compact)
+                    overflowMenuLabel(style: layout == .card ? .card : .compact)
                 }
             }
-        case .overlay:
-            HStack(spacing: FormaSpacing.tight) {
-                if showsPrimaryAction {
-                    compactActionButton(
-                        icon: primaryActionKind.compactIcon,
-                        foreground: .white,
-                        background: Color.white.opacity(Color.FormaOpacity.medium),
-                        border: Color.white.opacity(Color.FormaOpacity.overlay + Color.FormaOpacity.subtle),
-                        helpText: primaryActionKind.helpText,
-                        action: onPrimaryAction
-                    )
-                    .disabled(disablesPrimaryAction)
-                    .accessibilityIdentifier(primaryActionAccessibilityIdentifier)
-                    .accessibilityLabel(primaryActionKind.label)
-                }
+        } else {
+            switch layout {
+            case .card:
+                VStack(alignment: .trailing, spacing: FormaSpacing.micro + 2) {
+                    if showsPrimaryAction {
+                        PrimaryActionButton(
+                            label: primaryActionKind.label,
+                            icon: primaryActionKind.icon,
+                            color: primaryActionKind.color,
+                            action: onPrimaryAction
+                        )
+                        .disabled(disablesPrimaryAction)
+                        .accessibilityIdentifier(primaryActionAccessibilityIdentifier)
+                        .accessibilityLabel(primaryActionKind.label)
+                    }
 
-                if showsOverflowMenu {
-                    overflowMenuLabel(style: .overlay)
+                    if showsOverflowMenu {
+                        overflowMenuLabel(style: .card)
+                    }
+                }
+            case .compact:
+                HStack(spacing: FormaSpacing.micro) {
+                    if showsPrimaryAction {
+                        compactActionButton(
+                            icon: primaryActionKind.compactIcon,
+                            foreground: compactPrimaryActionForeground,
+                            background: compactPrimaryActionBackground,
+                            border: compactPrimaryActionBorder,
+                            helpText: primaryActionKind.helpText,
+                            action: onPrimaryAction
+                        )
+                        .disabled(disablesPrimaryAction)
+                        .accessibilityIdentifier(primaryActionAccessibilityIdentifier)
+                        .accessibilityLabel(primaryActionKind.label)
+                    }
+
+                    if showsOverflowMenu {
+                        overflowMenuLabel(style: .compact)
+                    }
+                }
+            case .overlay:
+                HStack(spacing: FormaSpacing.tight) {
+                    if showsPrimaryAction {
+                        compactActionButton(
+                            icon: primaryActionKind.compactIcon,
+                            foreground: .white,
+                            background: Color.white.opacity(Color.FormaOpacity.medium),
+                            border: Color.white.opacity(Color.FormaOpacity.overlay + Color.FormaOpacity.subtle),
+                            helpText: primaryActionKind.helpText,
+                            action: onPrimaryAction
+                        )
+                        .disabled(disablesPrimaryAction)
+                        .accessibilityIdentifier(primaryActionAccessibilityIdentifier)
+                        .accessibilityLabel(primaryActionKind.label)
+                    }
+
+                    if showsOverflowMenu {
+                        overflowMenuLabel(style: .overlay)
+                    }
                 }
             }
         }

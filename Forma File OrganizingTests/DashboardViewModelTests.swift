@@ -82,6 +82,63 @@ final class DashboardViewModelTests: XCTestCase {
         return (container, context, FileMetadataFoundationService(modelContext: context))
     }
 
+    func testSetModelContextIfNeededReturnsFalseForSameContext() throws {
+        let (_, context, _) = try makeMetadataService()
+
+        XCTAssertTrue(viewModel.adoptModelContextIfNeeded(context))
+        XCTAssertFalse(viewModel.adoptModelContextIfNeeded(context))
+    }
+
+    func testSetModelContextDefersTrustedAutomationScopeRefreshUntilExplicitRequest() throws {
+        let (container, context, scopeService) = try makeTrustedAutomationScopeDashboardServices()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline()
+        )
+        let destinationRoot = try TemporaryDirectory()
+        defer {
+            withExtendedLifetime(container) {}
+            destinationRoot.cleanup()
+        }
+
+        let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
+        _ = try scopeService.createOrReactivateScope(
+            scopeType: .folder,
+            scopeKey: "/Users/example/Downloads/Exports",
+            displayName: "Exports",
+            boundaryDescriptor: .folder(
+                source: .init(
+                    sourceLocation: .downloads,
+                    scanRootPath: "/Users/example/Downloads",
+                    relativeParentPath: "Exports"
+                ),
+                destination: .init(destination)
+            ),
+            promotionSource: .reviewFlow,
+            recommendationSource: .repeatedReviewAcceptance,
+            acceptedEvidenceCount: 6,
+            overrideEvidenceCount: 0,
+            undoEvidenceCount: 0,
+            confidenceSnapshot: 0.95,
+            rationaleSummary: "You’ve approved this folder pattern 6 times with no recent undo in Exports.",
+            allowedActions: [.move],
+            refreshedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        localViewModel.setModelContext(context)
+
+        XCTAssertTrue(
+            localViewModel.trustedAutomationScopeSections.isEmpty,
+            "Model-context adoption should not eagerly refresh trusted automation scopes during initial window restoration."
+        )
+
+        localViewModel.refreshTrustedAutomationScopes(referenceDate: Date(timeIntervalSince1970: 120))
+
+        XCTAssertEqual(localViewModel.trustedAutomationScopeSections.map(\.status), [.active])
+        XCTAssertEqual(localViewModel.defaultPanelTrustedAutomationScopes.map(\.displayName), ["Exports"])
+    }
+
     @discardableResult
     private func insertProjectSpaceRecord(
         using service: FileMetadataFoundationService,
@@ -4406,6 +4463,88 @@ final class DashboardViewModelTests: XCTestCase {
         } else {
             XCTFail("Initial right panel mode should be .default")
         }
+    }
+
+    func testSavedInspectorPreferenceVisibleDefersToTwoColumnOnNarrowLaunch() {
+        let suiteName = "DashboardViewModelTests.WindowPresentation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let store = WindowPresentationStore(defaults: defaults)
+        store.setInspectorVisible(true)
+
+        let viewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline(),
+            windowPresentationStore: store,
+            userDefaults: defaults,
+            launchPresentation: DashboardLaunchPresentation(
+                launchWidth: DashboardLaunchPresentation.inspectorEligibleWidth - 1,
+                hasMeaningfulDefaultPanelContent: true
+            )
+        )
+
+        XCTAssertFalse(
+            viewModel.isRightPanelVisible,
+            "Saved inspector visibility should be guarded off when the launch width is too narrow for a comfortable three-column layout"
+        )
+        XCTAssertEqual(store.savedInspectorVisibility, true, "The saved preference should remain intact for future wide launches")
+    }
+
+    func testSavedInspectorPreferenceVisibleRestoresThreeColumnOnWideLaunch() {
+        let suiteName = "DashboardViewModelTests.WindowPresentation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let store = WindowPresentationStore(defaults: defaults)
+        store.setInspectorVisible(true)
+
+        let viewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline(),
+            windowPresentationStore: store,
+            userDefaults: defaults,
+            launchPresentation: DashboardLaunchPresentation(
+                launchWidth: DashboardLaunchPresentation.inspectorEligibleWidth,
+                hasMeaningfulDefaultPanelContent: true
+            )
+        )
+
+        XCTAssertTrue(viewModel.isRightPanelVisible)
+    }
+
+    func testSavedInspectorPreferenceHiddenRemainsHiddenOnWideLaunch() {
+        let suiteName = "DashboardViewModelTests.WindowPresentation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let store = WindowPresentationStore(defaults: defaults)
+        store.setInspectorVisible(false)
+
+        let viewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline(),
+            windowPresentationStore: store,
+            userDefaults: defaults,
+            launchPresentation: DashboardLaunchPresentation(
+                launchWidth: DashboardLaunchPresentation.inspectorEligibleWidth + 100,
+                hasMeaningfulDefaultPanelContent: true
+            )
+        )
+
+        XCTAssertFalse(viewModel.isRightPanelVisible)
     }
     
     func testRightPanelSwitchesToInspectorOnFileSelection() {

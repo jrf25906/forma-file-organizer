@@ -31,6 +31,7 @@ struct FileListRow: View {
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.fileSurfaceLayout) private var fileSurfaceLayout
 
     // MARK: - Constants
 
@@ -102,7 +103,8 @@ struct FileListRow: View {
             isSelected: isSelected,
             isFocused: isFocused,
             status: file.status,
-            activity: surfaceActivity
+            activity: surfaceActivity,
+            widthClass: fileSurfaceLayout.widthClass
         )
     }
 
@@ -112,63 +114,38 @@ struct FileListRow: View {
         file.destination != nil
     }
 
+    private var showsAccessoryRow: Bool {
+        shouldShowPrimaryAction || shouldRevealAccessoryActions
+    }
+
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: contentSpacing) {
-            FormaCheckbox.premium(
-                isSelected: isSelected,
-                isVisible: true,
-                action: onToggleSelection
-            )
-            .opacity(selectionControlEmphasisOpacity)
-            .frame(width: 32, height: 32, alignment: .center)
-            .contentShape(Rectangle())
-            .help(isSelected ? "Deselect file" : "Select file")
-            .accessibilityIdentifier(
-                FileRowAccessibilityIdentifier.selectionCheckboxIdentifier(
-                    fileName: file.name,
-                    filePath: file.path
-                )
-            )
+        Group {
+            if fileSurfaceLayout.isCompact {
+                VStack(alignment: .leading, spacing: contentSpacing) {
+                    HStack(alignment: .top, spacing: contentSpacing) {
+                        selectionControl
+                        thumbnailView
+                        identityBlock
+                    }
 
-            FormaThumbnail(
-                file: file,
-                mode: .compact,
-                size: thumbnailSize,
-                categoryColors: (file.category.color, file.category.color),
-                isCardHovered: isHovered,
-                onQuickLook: onQuickLook
-            )
-
-            FileIdentityBlock(
-                file: file,
-                layout: .list,
-                searchMatchType: searchMatchType
-            )
-
-            Spacer(minLength: FormaSpacing.tight)
-
-            FileAccessoryActions(
-                file: file,
-                layout: .compact,
-                primaryActionKind: primaryActionKind,
-                showsPrimaryAction: shouldShowPrimaryAction,
-                showsOverflowMenu: shouldRevealAccessoryActions,
-                matchingRules: matchingRules,
-                availableDestinations: availableDestinations,
-                onPrimaryAction: primaryActionHandler,
-                onEditDestination: onEdit,
-                onSkip: onSkip,
-                onQuickLook: onQuickLook,
-                onCreateRule: onCreateRule,
-                onApplyRule: onApplyRule,
-                onChangeDestination: onChangeDestination,
-                disablesPrimaryAction: primaryActionKind == .organize ? (!hasDestination || isSelected) : isSelected,
-                disablesEdit: isSelected,
-                disablesSkip: isSelected
-            )
-            .animation(reduceMotion ? .none : FormaEasing.microFeedback, value: isHovered)
+                    if showsAccessoryRow {
+                        HStack(spacing: FormaSpacing.tight) {
+                            Spacer(minLength: 0)
+                            accessoryActions
+                        }
+                    }
+                }
+            } else {
+                HStack(spacing: contentSpacing) {
+                    selectionControl
+                    thumbnailView
+                    identityBlock
+                    Spacer(minLength: FormaSpacing.tight)
+                    accessoryActions
+                }
+            }
         }
         .padding(.leading, FormaSpacing.tight)
         .padding(.trailing, FormaSpacing.tight)
@@ -244,6 +221,66 @@ struct FileListRow: View {
                 .accessibilityLabel("File list row state \(rowStateAccessibilityValue)")
                 .accessibilityValue(rowStateAccessibilityValue)
         }
+    }
+
+    private var selectionControl: some View {
+        FormaCheckbox.premium(
+            isSelected: isSelected,
+            isVisible: true,
+            action: onToggleSelection
+        )
+        .opacity(selectionControlEmphasisOpacity)
+        .frame(width: 32, height: 32, alignment: .center)
+        .contentShape(Rectangle())
+        .help(isSelected ? "Deselect file" : "Select file")
+        .accessibilityIdentifier(
+            FileRowAccessibilityIdentifier.selectionCheckboxIdentifier(
+                fileName: file.name,
+                filePath: file.path
+            )
+        )
+    }
+
+    private var thumbnailView: some View {
+        FormaThumbnail(
+            file: file,
+            mode: .compact,
+            size: thumbnailSize,
+            categoryColors: (file.category.color, file.category.color),
+            isCardHovered: isHovered,
+            onQuickLook: onQuickLook
+        )
+    }
+
+    private var identityBlock: some View {
+        FileIdentityBlock(
+            file: file,
+            layout: .list,
+            searchMatchType: searchMatchType
+        )
+    }
+
+    private var accessoryActions: some View {
+        FileAccessoryActions(
+            file: file,
+            layout: .compact,
+            primaryActionKind: primaryActionKind,
+            showsPrimaryAction: shouldShowPrimaryAction,
+            showsOverflowMenu: shouldRevealAccessoryActions,
+            matchingRules: matchingRules,
+            availableDestinations: availableDestinations,
+            onPrimaryAction: primaryActionHandler,
+            onEditDestination: onEdit,
+            onSkip: onSkip,
+            onQuickLook: onQuickLook,
+            onCreateRule: onCreateRule,
+            onApplyRule: onApplyRule,
+            onChangeDestination: onChangeDestination,
+            disablesPrimaryAction: primaryActionKind == .organize ? (!hasDestination || isSelected) : isSelected,
+            disablesEdit: isSelected,
+            disablesSkip: isSelected
+        )
+        .animation(reduceMotion ? .none : FormaEasing.microFeedback, value: isHovered)
     }
 
     // MARK: - Surface Styling

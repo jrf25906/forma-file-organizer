@@ -43,6 +43,16 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Make the default panel, inspector, Smart Rules, inline rule builder, celebration flows, and shared right-panel mode chrome reflow in compact widths instead of relying on fixed child widths.
 - [x] Add unit coverage for the compact threshold at `340pt` plus dedicated UI coverage for regular and compact three-column launches across the default panel, inspector, Smart Rules, and inline rule-builder paths.
 
+## Responsive Three-Column Layout Follow-Up (April 10, 2026)
+- [x] Add a shared `FileSurfaceLayout` / `FileSurfaceWidthClass` contract in `MainContentView`, switching center-pane file surfaces into compact composition below `760pt` of usable content width.
+- [x] Make card, list, and grid file surfaces keep identity, metadata, and primary actions readable in narrow three-column layouts by moving actions onto their own compact row/block instead of compressing one horizontal strip.
+- [x] Treat saved inspector visibility as a launch preference filtered through `DashboardLaunchPresentation.inspectorEligibleWidth`, so narrow relaunches reopen in two-column mode while preserving the saved preference for later wide launches.
+
+## Trusted-Scope Startup Performance Fix (April 10, 2026)
+- [x] Stop `DashboardViewModel.setModelContext(_:)` from eagerly refreshing trusted automation scopes during initial window restoration, so startup and resize do not block on hidden right-panel summary work.
+- [x] Defer the default panel's trusted-scope refresh onto a scheduled post-appearance task instead of running it inside the first render/layout turn.
+- [x] Cache decoded category scopes and resolved scoped-folder paths per shared category in `RuleOverlapDetector`, eliminating repeated JSON decode and bookmark resolution churn during trusted-scope health classification.
+
 ## Review-Flow Follow-up Polish (April 9, 2026)
 - [x] Scope Current Task progress to the active review pass and preserve a stable pass denominator after organizing files instead of backfilling from later pending items.
 - [x] Tighten review-section subtitles, normalize `Needs destination` through the shared badge pill treatment, and keep review-surface checkboxes persistently visible with full-size hit targets.

@@ -384,6 +384,18 @@ struct DashboardLaunchPresentation {
     var defaultInspectorVisibility: Bool {
         launchWidth >= Self.inspectorEligibleWidth && hasMeaningfulDefaultPanelContent
     }
+
+    func startupInspectorVisibility(savedPreference: Bool?) -> Bool {
+        guard let savedPreference else {
+            return defaultInspectorVisibility
+        }
+
+        guard savedPreference else {
+            return false
+        }
+
+        return launchWidth >= Self.inspectorEligibleWidth
+    }
 }
 
 struct WorkflowInspectorRunSummary: Equatable {
@@ -568,6 +580,7 @@ class DashboardViewModel: ObservableObject {
     private var bulkOperationTask: Task<Void, Never>?
     private var permissionRefreshTask: Task<Void, Never>?
     private var projectSpaceWorkflowPreparationTask: Task<Void, Never>?
+    private var trustedAutomationScopeRefreshTask: Task<Void, Never>?
     private var lastPresentedExternalSessionID: UUID?
     private var deferredReviewPathsByScope: [ReviewChunkScopeKey: Set<String>] = [:]
     private var reviewPassPathsByScope: [ReviewChunkScopeKey: [String]] = [:]
@@ -595,7 +608,9 @@ class DashboardViewModel: ObservableObject {
         self.organizationCoordinator = coordinator
         self.undoRedoController = DashboardUndoRedoController(coordinator: coordinator)
         self.windowPresentationStore = windowPresentationStore
-        self.isRightPanelVisible = windowPresentationStore.savedInspectorVisibility ?? launchPresentation.defaultInspectorVisibility
+        self.isRightPanelVisible = launchPresentation.startupInspectorVisibility(
+            savedPreference: windowPresentationStore.savedInspectorVisibility
+        )
         self.fileSystemService = fileSystemService
         self.fileScanPipeline = fileScanPipeline
         self.storageService = services.storageService
@@ -697,13 +712,24 @@ class DashboardViewModel: ObservableObject {
         bulkOperationTask?.cancel()
         permissionRefreshTask?.cancel()
         projectSpaceWorkflowPreparationTask?.cancel()
+        trustedAutomationScopeRefreshTask?.cancel()
+    }
+
+    @discardableResult
+    func adoptModelContextIfNeeded(_ context: ModelContext) -> Bool {
+        if let modelContext, modelContext === context {
+            return false
+        }
+
+        modelContext = context
+        return true
     }
 
     func setModelContext(_ context: ModelContext) {
-        modelContext = context
+        guard adoptModelContextIfNeeded(context) else { return }
+
         refreshContentTagQuickFilters()
         refreshProjectSpaces()
-        refreshTrustedAutomationScopes()
 
         #if DEBUG
         if CommandLine.arguments.contains("--uitesting") {
@@ -723,6 +749,20 @@ class DashboardViewModel: ObservableObject {
             filterViewModel.applyFilterImmediately()
         }
         #endif
+    }
+
+    func scheduleTrustedAutomationScopeRefresh(referenceDate: Date = Date()) {
+        trustedAutomationScopeRefreshTask?.cancel()
+        trustedAutomationScopeRefreshTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(75))
+            guard !Task.isCancelled else { return }
+            self?.refreshTrustedAutomationScopes(referenceDate: referenceDate)
+        }
+    }
+
+    func cancelScheduledTrustedAutomationScopeRefresh() {
+        trustedAutomationScopeRefreshTask?.cancel()
+        trustedAutomationScopeRefreshTask = nil
     }
 
     // MARK: - File Scanning (Delegated to FileScanViewModel)

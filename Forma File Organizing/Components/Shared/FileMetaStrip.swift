@@ -60,6 +60,7 @@ struct FileMetaStrip: View {
     var onSetDestination: (() -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.fileSurfaceLayout) private var fileSurfaceLayout
 
     private var statusPresentation: FileStatusPresentation {
         FileStatusPresentation.resolve(for: file)
@@ -80,40 +81,75 @@ struct FileMetaStrip: View {
         return false
     }
 
+    private var usesCompactRows: Bool {
+        fileSurfaceLayout.isCompact
+    }
+
+    private var effectiveDestinationPlacement: FileMetaDestinationPlacement {
+        usesCompactRows ? .block : destinationPlacement
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: density.verticalSpacing) {
-            HStack(alignment: .center, spacing: density.itemSpacing) {
-                metaItem(icon: "doc", text: file.fileExtension.uppercased())
-                metaItem(icon: "internaldrive", text: file.size)
-                metaItem(icon: "clock", text: compactAgeText)
-
-                FormaBadge(
-                    text: statusPresentation.label,
-                    color: statusPresentation.color,
-                    size: density.statusSize,
-                    style: .subtle
-                )
-                .help(statusPresentation.accessibilityLabel)
-
-                if let provenancePresentation {
-                    provenanceBadge(provenancePresentation)
+            if usesCompactRows {
+                HStack(alignment: .center, spacing: density.itemSpacing) {
+                    metaItem(icon: "doc", text: file.fileExtension.uppercased())
+                    metaItem(icon: "internaldrive", text: file.size)
+                    metaItem(icon: "clock", text: compactAgeText)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(alignment: .center, spacing: density.itemSpacing) {
+                    statusBadge
+
+                    if let provenancePresentation {
+                        provenanceBadge(provenancePresentation)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let relativePath = file.relativePathContextLabel {
                     relativePathBadge(relativePath)
                         .help("Current folder: \(relativePath)")
                 }
+            } else {
+                HStack(alignment: .center, spacing: density.itemSpacing) {
+                    metaItem(icon: "doc", text: file.fileExtension.uppercased())
+                    metaItem(icon: "internaldrive", text: file.size)
+                    metaItem(icon: "clock", text: compactAgeText)
 
-                if destinationPlacement == .inline {
-                    destinationView(inline: true)
+                    statusBadge
+
+                    if let provenancePresentation {
+                        provenanceBadge(provenancePresentation)
+                    }
+
+                    if let relativePath = file.relativePathContextLabel {
+                        relativePathBadge(relativePath)
+                            .help("Current folder: \(relativePath)")
+                    }
+
+                    if effectiveDestinationPlacement == .inline {
+                        destinationView(inline: true)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
-            if destinationPlacement == .block {
+            if effectiveDestinationPlacement == .block {
                 destinationView(inline: false)
             }
         }
+    }
+
+    private var statusBadge: some View {
+        FormaBadge(
+            text: statusPresentation.label,
+            color: statusPresentation.color,
+            size: density.statusSize,
+            style: .subtle
+        )
+        .help(statusPresentation.accessibilityLabel)
     }
 
     private var compactAgeText: String {
@@ -124,7 +160,7 @@ struct FileMetaStrip: View {
     }
 
     private var destinationFont: Font {
-        switch (density, destinationPlacement) {
+        switch (density, effectiveDestinationPlacement) {
         case (.compact, .inline):
             return .formaCaptionSemibold
         case (.compact, .block):
@@ -137,7 +173,7 @@ struct FileMetaStrip: View {
     }
 
     private var destinationForegroundColor: Color {
-        switch destinationPlacement {
+        switch effectiveDestinationPlacement {
         case .inline:
             return .formaSecondaryLabelHigh
         case .block:
@@ -174,6 +210,7 @@ struct FileMetaStrip: View {
                     .foregroundStyle(destination.isTrash ? Color.formaWarning : destinationForegroundColor)
                     .padding(.horizontal, destinationContainerPadding + 1)
                     .padding(.vertical, density == .compact ? 3 : 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
                             .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
@@ -202,6 +239,7 @@ struct FileMetaStrip: View {
             }
             .buttonStyle(.plain)
             .help("Choose a destination folder")
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -221,7 +259,7 @@ struct FileMetaStrip: View {
                 .font(.system(size: density.iconSize, weight: .semibold))
             Text(value)
                 .font(density.textFont)
-                .lineLimit(1)
+                .lineLimit(usesCompactRows ? 2 : 1)
                 .truncationMode(.middle)
         }
         .foregroundStyle(Color.formaSecondaryLabelHigh)

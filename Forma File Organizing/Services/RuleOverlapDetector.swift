@@ -27,6 +27,22 @@ import Foundation
 /// - **Human-readable**: Each overlap includes an explanation for UI display
 ///
 class RuleOverlapDetector {
+    private let categoryScopeResolver: (RuleCategory) -> CategoryScope
+    private let scopedFolderPathResolver: (CategoryScope.ScopedFolder) -> String?
+    private var categoryScopesByCategoryID: [UUID: CategoryScope] = [:]
+    private var scopedFolderPathsByCategoryID: [UUID: [String]] = [:]
+
+    init(
+        categoryScopeResolver: @escaping (RuleCategory) -> CategoryScope = {
+            $0.scope
+        },
+        scopedFolderPathResolver: @escaping (CategoryScope.ScopedFolder) -> String? = {
+            $0.resolve()?.standardizedFileURL.path
+        }
+    ) {
+        self.categoryScopeResolver = categoryScopeResolver
+        self.scopedFolderPathResolver = scopedFolderPathResolver
+    }
 
     // MARK: - Types
 
@@ -137,6 +153,11 @@ class RuleOverlapDetector {
         return overlaps.sorted { $0.overlapType.severity > $1.overlapType.severity }
     }
 
+    func clearScopePathCache() {
+        categoryScopesByCategoryID.removeAll()
+        scopedFolderPathsByCategoryID.removeAll()
+    }
+
     // MARK: - Category Scope Comparison
 
     /// Checks if two rules' category scopes could overlap.
@@ -144,8 +165,8 @@ class RuleOverlapDetector {
     /// Rules in completely separate folder scopes can't overlap because they
     /// evaluate different sets of files.
     private func categoryScopesCouldOverlap<R: Ruleable>(newRule: R, existingRule: R) -> Bool {
-        let newScope = newRule.category?.scope ?? .global
-        let existingScope = existingRule.category?.scope ?? .global
+        let newScope = resolvedScope(for: newRule.category)
+        let existingScope = resolvedScope(for: existingRule.category)
 
         // Global scope overlaps with everything
         if newScope.isGlobal || existingScope.isGlobal {
@@ -156,9 +177,13 @@ class RuleOverlapDetector {
         let newFolders = newScope.scopedFolders
         let existingFolders = existingScope.scopedFolders
 
-        // Resolve bookmarks to paths for comparison
-        let newPaths = newFolders.compactMap { $0.resolve()?.standardizedFileURL.path }
-        let existingPaths = existingFolders.compactMap { $0.resolve()?.standardizedFileURL.path }
+        guard !newFolders.isEmpty, !existingFolders.isEmpty else {
+            return false
+        }
+
+        // Resolve decoded scopes and bookmark-backed folder paths once per category.
+        let newPaths = resolvedScopedPaths(for: newRule.category, folders: newFolders)
+        let existingPaths = resolvedScopedPaths(for: existingRule.category, folders: existingFolders)
 
         // Check if any paths overlap (one contains the other)
         for newPath in newPaths {
@@ -170,6 +195,37 @@ class RuleOverlapDetector {
         }
 
         return false
+    }
+
+    private func resolvedScope(for category: RuleCategory?) -> CategoryScope {
+        guard let category else {
+            return .global
+        }
+
+        if let cached = categoryScopesByCategoryID[category.id] {
+            return cached
+        }
+
+        let scope = categoryScopeResolver(category)
+        categoryScopesByCategoryID[category.id] = scope
+        return scope
+    }
+
+    private func resolvedScopedPaths(
+        for category: RuleCategory?,
+        folders: [CategoryScope.ScopedFolder]
+    ) -> [String] {
+        guard let category else {
+            return folders.compactMap(scopedFolderPathResolver)
+        }
+
+        if let cached = scopedFolderPathsByCategoryID[category.id] {
+            return cached
+        }
+
+        let paths = folders.compactMap(scopedFolderPathResolver)
+        scopedFolderPathsByCategoryID[category.id] = paths
+        return paths
     }
 
     // MARK: - Condition Comparison

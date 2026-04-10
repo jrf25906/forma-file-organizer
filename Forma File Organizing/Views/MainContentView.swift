@@ -438,6 +438,7 @@ struct MainContentView: View {
         .onAppear {
             dashboardViewModel.setModelContext(modelContext)
         }
+        .environment(\.fileSurfaceLayout, fileSurfaceLayout)
     }
 
     private struct UnifiedToolbarHeightKey: PreferenceKey {
@@ -626,6 +627,7 @@ struct MainContentView: View {
             uiTestStateProbe("mainContent_focusedFilePath", value: focusedFilePathValue)
             uiTestStateProbe("mainContent_reviewSectionOrder", value: reviewSectionOrderValue)
             uiTestStateProbe("mainContent_reviewSectionCounts", value: reviewSectionCountsValue)
+            uiTestStateProbe("mainContent_fileSurfaceWidthClass", value: fileSurfaceWidthClassValue)
             uiTestStateProbe("defaultPanelProgressSummary", value: currentPassProgressValue)
         }
         .allowsHitTesting(false)
@@ -733,6 +735,12 @@ struct MainContentView: View {
 
     private var contentHorizontalPadding: CGFloat { FormaLayout.Gutters.center }
     private var contentMaxWidth: CGFloat { max(0, availableWidth - (contentHorizontalPadding * 2)) }
+    private var fileSurfaceLayout: FileSurfaceLayout { FileSurfaceLayout(width: contentMaxWidth) }
+    private var fileSurfaceWidthClassValue: String {
+        fileSurfaceLayout.isCompact
+            ? "widthClass=compact;width=\(Int(contentMaxWidth.rounded()))"
+            : "widthClass=regular;width=\(Int(contentMaxWidth.rounded()))"
+    }
 
     private var contentTopPadding: CGFloat { FormaLayout.Content.topPadding }
     private var dashboardToolbarTopLift: CGFloat { FormaSpacing.tight }
@@ -855,6 +863,14 @@ struct MainContentView: View {
         }
     }
     private var gridMinimumWidth: CGFloat {
+        if fileSurfaceLayout.isCompact {
+            switch fileDisplayDensity {
+            case .tight: return 148
+            case .balanced: return 160
+            case .spacious: return 172
+            }
+        }
+
         switch fileDisplayDensity {
         case .tight: return 156
         case .balanced: return 170
@@ -862,6 +878,14 @@ struct MainContentView: View {
         }
     }
     private var gridMaximumWidth: CGFloat {
+        if fileSurfaceLayout.isCompact {
+            switch fileDisplayDensity {
+            case .tight: return 188
+            case .balanced: return 204
+            case .spacious: return 216
+            }
+        }
+
         switch fileDisplayDensity {
         case .tight: return 200
         case .balanced: return 220

@@ -184,6 +184,9 @@ final class Forma_File_OrganizingUITests: XCTestCase {
             restoredFrame: "120,120,1200,900"
         )
         harness.waitForMainContent()
+        harness.waitForSplitLayout("twoColumn", timeout: 4)
+
+        harness.toggleInspector(timeout: 4)
         harness.waitForSplitLayout("threeColumn", timeout: 4)
 
         let defaultProbe = harness.element(withIdentifier: "defaultPanelContrastProbe")
@@ -229,6 +232,68 @@ final class Forma_File_OrganizingUITests: XCTestCase {
 
         let saveButton = harness.element(withIdentifier: "ruleComposerSaveButton")
         XCTAssertTrue(saveButton.waitForExistence(timeout: 4), "Compact inline rule builder should keep the save action visible")
+    }
+
+    @MainActor
+    func testNarrowThreeColumnFileSurfacesUseCompactLayoutAcrossViewModes() throws {
+        let suiteName = "\(defaultWindowPresentationSuiteName).compactFileSurfaces"
+        launchApp(
+            windowSize: "1600x980",
+            suiteName: suiteName,
+            resetWindowPresentation: true
+        )
+        harness.waitForMainContent()
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+
+        launchApp(
+            windowSize: "1200x900",
+            suiteName: suiteName,
+            resetWindowPresentation: false,
+            restoredFrame: "120,120,1200,900"
+        )
+        harness.waitForMainContent()
+        harness.waitForSplitLayout("twoColumn", timeout: 4)
+
+        harness.toggleInspector(timeout: 4)
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+
+        harness.tapAllFilesSegment()
+
+        let noDestinationRow = harness.fileRow(named: "IMG_1042.JPG")
+        XCTAssertTrue(noDestinationRow.waitForExistence(timeout: 4), "Expected the no-destination UI test row to stay visible in a narrow three-column layout")
+
+        harness.tapCardViewSegment()
+        harness.waitForViewMode("card")
+        let cardState = harness.element(withIdentifier: "fileRowState_IMG_1042.JPG")
+        harness.waitForExists(cardState, timeout: 4, message: "Compact card-state probe should exist")
+        harness.waitForValue(cardState, contains: "widthClass=compact", timeout: 4)
+
+        let cardPrimaryAction = noDestinationRow.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_IMG_1042.JPG__")
+        ).firstMatch
+        XCTAssertTrue(cardPrimaryAction.waitForExistence(timeout: 4), "Compact card view should keep the Choose Destination action visible")
+
+        harness.tapListViewSegment()
+        harness.waitForViewMode("list")
+        let listState = harness.element(withIdentifier: "fileListRowState_IMG_1042.JPG")
+        harness.waitForExists(listState, timeout: 4, message: "Compact list-state probe should exist")
+        harness.waitForValue(listState, contains: "widthClass=compact", timeout: 4)
+
+        let listPrimaryAction = noDestinationRow.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_IMG_1042.JPG__")
+        ).firstMatch
+        XCTAssertTrue(listPrimaryAction.waitForExistence(timeout: 4), "Compact list view should keep the Choose Destination action visible")
+
+        harness.tapGridViewSegment()
+        harness.waitForViewMode("grid")
+        let gridState = harness.element(withIdentifier: "fileGridItemState_IMG_1042.JPG")
+        harness.waitForExists(gridState, timeout: 4, message: "Compact grid-state probe should exist")
+        harness.waitForValue(gridState, contains: "widthClass=compact", timeout: 4)
+
+        let gridPrimaryAction = noDestinationRow.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_IMG_1042.JPG__")
+        ).firstMatch
+        XCTAssertTrue(gridPrimaryAction.waitForExistence(timeout: 4), "Compact grid view should keep the Choose Destination action visible")
     }
 
     @MainActor

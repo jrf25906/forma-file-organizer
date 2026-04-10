@@ -9,6 +9,11 @@ enum RightPanelWidthClass: Equatable {
     case compact
 }
 
+enum FileSurfaceWidthClass: Equatable {
+    case regular
+    case compact
+}
+
 struct RightPanelLayout: Equatable {
     let width: CGFloat
 
@@ -23,14 +28,39 @@ struct RightPanelLayout: Equatable {
     static let `default` = RightPanelLayout(width: FormaSpacing.Column.rightPanelIdeal)
 }
 
+struct FileSurfaceLayout: Equatable {
+    static let compactBreakpoint: CGFloat = 760
+
+    let width: CGFloat
+
+    var widthClass: FileSurfaceWidthClass {
+        width < Self.compactBreakpoint ? .compact : .regular
+    }
+
+    var isCompact: Bool {
+        widthClass == .compact
+    }
+
+    static let `default` = FileSurfaceLayout(width: compactBreakpoint)
+}
+
 private struct RightPanelLayoutKey: EnvironmentKey {
     static let defaultValue: RightPanelLayout = .default
+}
+
+private struct FileSurfaceLayoutKey: EnvironmentKey {
+    static let defaultValue: FileSurfaceLayout = .default
 }
 
 extension EnvironmentValues {
     var rightPanelLayout: RightPanelLayout {
         get { self[RightPanelLayoutKey.self] }
         set { self[RightPanelLayoutKey.self] = newValue }
+    }
+
+    var fileSurfaceLayout: FileSurfaceLayout {
+        get { self[FileSurfaceLayoutKey.self] }
+        set { self[FileSurfaceLayoutKey.self] = newValue }
     }
 }
 

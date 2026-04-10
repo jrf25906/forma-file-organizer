@@ -10,9 +10,22 @@ enum FileRowAccessibilityState {
         isSelected: Bool,
         isFocused: Bool,
         status: FileItem.OrganizationStatus,
-        activity: FileSurfaceStyle.ActivityState
+        activity: FileSurfaceStyle.ActivityState,
+        widthClass: FileSurfaceWidthClass? = nil
     ) -> String {
-        "view=\(view);selected=\(isSelected ? 1 : 0);focused=\(isFocused ? 1 : 0);status=\(status.rawValue);activity=\(activity.rawValue)"
+        var parts = [
+            "view=\(view)",
+            "selected=\(isSelected ? 1 : 0)",
+            "focused=\(isFocused ? 1 : 0)",
+            "status=\(status.rawValue)",
+            "activity=\(activity.rawValue)"
+        ]
+
+        if let widthClass {
+            parts.append("widthClass=\(widthClass == .compact ? "compact" : "regular")")
+        }
+
+        return parts.joined(separator: ";")
     }
 }
 
@@ -96,6 +109,7 @@ struct FileRow: View {
     @State private var isHovered = false
     @State private var showQuickLookHint = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.fileSurfaceLayout) private var fileSurfaceLayout
 
     private var thumbnailSize: CGFloat {
         switch density {
@@ -190,7 +204,8 @@ struct FileRow: View {
             isSelected: isSelected,
             isFocused: isFocused,
             status: file.status,
-            activity: surfaceActivity
+            activity: surfaceActivity,
+            widthClass: fileSurfaceLayout.widthClass
         )
     }
 
@@ -206,69 +221,36 @@ struct FileRow: View {
         )
     }
 
-    var body: some View {
-        HStack(alignment: .center, spacing: contentSpacing) {
-            if let onToggleSelection = onToggleSelection {
-                FormaCheckbox.premium(
-                    isSelected: isSelected,
-                    isVisible: true,
-                    action: { onToggleSelection(file) }
-                )
-                .opacity(selectionControlEmphasisOpacity)
-                .frame(width: 32, height: 32, alignment: .center)
-                .contentShape(Rectangle())
-                .help(isSelected ? "Deselect file" : "Select file")
-                .accessibilityIdentifier(
-                    FileRowAccessibilityIdentifier.selectionCheckboxIdentifier(
-                        fileName: file.name,
-                        filePath: file.path
-                    )
-                )
-            }
+    private var showsAccessoryRow: Bool {
+        shouldRevealPrimaryAction || shouldRevealOverflowMenu
+    }
 
-            FormaThumbnail.premium(
-                file: file,
-                size: thumbnailSize,
-                isSelected: isSelected,
-                showQuickLook: showQuickLookHint,
-                onQuickLook: { onQuickLook?(file) },
-                onHoverChange: { hovering in
-                    showQuickLookHint = hovering
-                    if hovering {
-                        onThumbnailHover?(file, NSApp.currentEvent)
-                    } else {
-                        onThumbnailHover?(nil, nil)
+    var body: some View {
+        Group {
+            if fileSurfaceLayout.isCompact {
+                VStack(alignment: .leading, spacing: contentSpacing) {
+                    HStack(alignment: .top, spacing: contentSpacing) {
+                        selectionControl
+                        thumbnailView
+                        identityBlock
+                    }
+
+                    if showsAccessoryRow {
+                        HStack(spacing: contentSpacing) {
+                            Spacer(minLength: 0)
+                            accessoryActions
+                        }
                     }
                 }
-            )
-
-            FileIdentityBlock(
-                file: file,
-                layout: .card,
-                searchMatchType: searchMatchType,
-                contentSnippet: contentSnippet
-            )
-            .animation(reduceMotion ? nil : FormaEasing.microFeedback, value: isHovered)
-
-            Spacer(minLength: contentSpacing)
-
-            FileAccessoryActions(
-                file: file,
-                layout: .card,
-                primaryActionKind: primaryActionKind,
-                showsPrimaryAction: shouldRevealPrimaryAction,
-                showsOverflowMenu: shouldRevealOverflowMenu,
-                matchingRules: matchingRules,
-                availableDestinations: availableDestinations,
-                onPrimaryAction: primaryActionConfig.action,
-                onEditDestination: { onEditDestination?(file) },
-                onSkip: { onSkip?(file) },
-                onQuickLook: { onQuickLook?(file) },
-                onCreateRule: onCreateRule.map { action in { action(file) } },
-                onApplyRule: onApplyRule,
-                onChangeDestination: onChangeDestination.map { action in { destination in action(file, destination) } },
-                disablesSkip: onSkip == nil
-            )
+            } else {
+                HStack(alignment: .center, spacing: contentSpacing) {
+                    selectionControl
+                    thumbnailView
+                    identityBlock
+                    Spacer(minLength: contentSpacing)
+                    accessoryActions
+                }
+            }
         }
         .padding(.leading, contentLeadingPadding)
         .padding(.trailing, contentTrailingPadding)
@@ -341,6 +323,75 @@ struct FileRow: View {
                 .accessibilityLabel("File row state \(rowStateAccessibilityValue)")
                 .accessibilityValue(rowStateAccessibilityValue)
         }
+    }
+
+    @ViewBuilder
+    private var selectionControl: some View {
+        if let onToggleSelection = onToggleSelection {
+            FormaCheckbox.premium(
+                isSelected: isSelected,
+                isVisible: true,
+                action: { onToggleSelection(file) }
+            )
+            .opacity(selectionControlEmphasisOpacity)
+            .frame(width: 32, height: 32, alignment: .center)
+            .contentShape(Rectangle())
+            .help(isSelected ? "Deselect file" : "Select file")
+            .accessibilityIdentifier(
+                FileRowAccessibilityIdentifier.selectionCheckboxIdentifier(
+                    fileName: file.name,
+                    filePath: file.path
+                )
+            )
+        }
+    }
+
+    private var thumbnailView: some View {
+        FormaThumbnail.premium(
+            file: file,
+            size: thumbnailSize,
+            isSelected: isSelected,
+            showQuickLook: showQuickLookHint,
+            onQuickLook: { onQuickLook?(file) },
+            onHoverChange: { hovering in
+                showQuickLookHint = hovering
+                if hovering {
+                    onThumbnailHover?(file, NSApp.currentEvent)
+                } else {
+                    onThumbnailHover?(nil, nil)
+                }
+            }
+        )
+    }
+
+    private var identityBlock: some View {
+        FileIdentityBlock(
+            file: file,
+            layout: .card,
+            searchMatchType: searchMatchType,
+            contentSnippet: contentSnippet
+        )
+        .animation(reduceMotion ? nil : FormaEasing.microFeedback, value: isHovered)
+    }
+
+    private var accessoryActions: some View {
+        FileAccessoryActions(
+            file: file,
+            layout: .card,
+            primaryActionKind: primaryActionKind,
+            showsPrimaryAction: shouldRevealPrimaryAction,
+            showsOverflowMenu: shouldRevealOverflowMenu,
+            matchingRules: matchingRules,
+            availableDestinations: availableDestinations,
+            onPrimaryAction: primaryActionConfig.action,
+            onEditDestination: { onEditDestination?(file) },
+            onSkip: { onSkip?(file) },
+            onQuickLook: { onQuickLook?(file) },
+            onCreateRule: onCreateRule.map { action in { action(file) } },
+            onApplyRule: onApplyRule,
+            onChangeDestination: onChangeDestination.map { action in { destination in action(file, destination) } },
+            disablesSkip: onSkip == nil
+        )
     }
 
     private var cardSheen: some View {

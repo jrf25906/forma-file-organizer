@@ -154,7 +154,7 @@ struct DefaultPanelView: View {
         .background(Color.clear)
         .onAppear {
             loadInsightsImmediately()
-            dashboardViewModel.refreshTrustedAutomationScopes()
+            dashboardViewModel.scheduleTrustedAutomationScopeRefresh()
         }
         .onChange(of: dashboardViewModel.allFiles) { _, _ in
             loadInsightsDebounced()
@@ -169,6 +169,7 @@ struct DefaultPanelView: View {
             // Cancel any pending insight load when view disappears
             insightLoadSequence &+= 1
             insightLoadTask?.cancel()
+            dashboardViewModel.cancelScheduledTrustedAutomationScopeRefresh()
         }
         .onPreferenceChange(DefaultPanelSectionFramesPreferenceKey.self) { frames in
             guard isUITesting else { return }
@@ -941,20 +942,38 @@ struct DefaultPanelView: View {
 
     private func automationUndoCard(_ summary: UndoBatchSummary) -> some View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-            HStack(spacing: FormaSpacing.tight) {
-                Image(systemName: "arrow.uturn.backward.circle.fill")
-                    .font(.formaCompactSemibold)
-                    .foregroundStyle(Color.formaSteelBlue)
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                    HStack(spacing: FormaSpacing.tight) {
+                        Image(systemName: "arrow.uturn.backward.circle.fill")
+                            .font(.formaCompactSemibold)
+                            .foregroundStyle(Color.formaSteelBlue)
 
-                Text("Undo Available")
-                    .font(.formaCompactSemibold)
-                    .foregroundStyle(Color.formaLabel)
+                        Text("Undo Available")
+                            .font(.formaCompactSemibold)
+                            .foregroundStyle(Color.formaLabel)
+                    }
 
-                Spacer()
+                    Text(relativeTimestamp(for: summary.timestamp))
+                        .font(.formaCaption)
+                        .foregroundStyle(Color.formaTertiaryLabel)
+                }
+            } else {
+                HStack(spacing: FormaSpacing.tight) {
+                    Image(systemName: "arrow.uturn.backward.circle.fill")
+                        .font(.formaCompactSemibold)
+                        .foregroundStyle(Color.formaSteelBlue)
 
-                Text(relativeTimestamp(for: summary.timestamp))
-                    .font(.formaCaption)
-                    .foregroundStyle(Color.formaTertiaryLabel)
+                    Text("Undo Available")
+                        .font(.formaCompactSemibold)
+                        .foregroundStyle(Color.formaLabel)
+
+                    Spacer()
+
+                    Text(relativeTimestamp(for: summary.timestamp))
+                        .font(.formaCaption)
+                        .foregroundStyle(Color.formaTertiaryLabel)
+                }
             }
 
             Text(
@@ -982,21 +1001,45 @@ struct DefaultPanelView: View {
         label: String,
         count: Int
     ) -> some View {
-        HStack(spacing: FormaSpacing.tight) {
-            Image(systemName: icon)
-                .font(.formaCompactSemibold)
-                .foregroundStyle(tint)
-                .frame(width: 16)
+        Group {
+            if rightPanelLayout.isCompact {
+                HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                    Image(systemName: icon)
+                        .font(.formaCompactSemibold)
+                        .foregroundStyle(tint)
+                        .frame(width: 16)
 
-            Text(label)
-                .font(.formaSmall)
-                .foregroundStyle(Color.formaSecondaryLabelHigh)
+                    VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                        Text(label)
+                            .font(.formaSmall)
+                            .foregroundStyle(Color.formaSecondaryLabelHigh)
+                            .lineLimit(2)
 
-            Spacer()
+                        Text("\(count)")
+                            .font(.formaSmallSemibold)
+                            .foregroundStyle(Color.formaLabel)
+                    }
 
-            Text("\(count)")
-                .font(.formaSmallSemibold)
-                .foregroundStyle(Color.formaLabel)
+                    Spacer(minLength: 0)
+                }
+            } else {
+                HStack(spacing: FormaSpacing.tight) {
+                    Image(systemName: icon)
+                        .font(.formaCompactSemibold)
+                        .foregroundStyle(tint)
+                        .frame(width: 16)
+
+                    Text(label)
+                        .font(.formaSmall)
+                        .foregroundStyle(Color.formaSecondaryLabelHigh)
+
+                    Spacer()
+
+                    Text("\(count)")
+                        .font(.formaSmallSemibold)
+                        .foregroundStyle(Color.formaLabel)
+                }
+            }
         }
     }
 

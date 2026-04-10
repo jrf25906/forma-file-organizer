@@ -57,7 +57,8 @@ final class RuleHealthService {
         staleRuleThresholdDays: Int? = nil,
         evaluationDate: Date = Date()
     ) -> [UUID: RuleHealth] {
-        Dictionary(uniqueKeysWithValues: rules.map { rule in
+        overlapDetector.clearScopePathCache()
+        return Dictionary(uniqueKeysWithValues: rules.map { rule in
             (
                 rule.id,
                 classify(

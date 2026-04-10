@@ -9,6 +9,16 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Developer workflow guidance for the `build-macos-apps` plugin now lives in `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md`, with a Forma-specific reusable prompt and verification expectations aligned to `codex-project.toml`, `AGENTS.md`, `fastlane/`, and `Scripts/`.
 
 ### Fixed
+- Startup and resize responsiveness around trusted automation scopes:
+  - `DashboardViewModel.setModelContext(_:)` no longer refreshes trusted automation scopes synchronously during initial window restoration, so Forma no longer pegs the main thread doing hidden right-panel work while a saved window reopens or resizes.
+  - `DefaultPanelView` now schedules trusted-scope refresh just after the panel appears instead of forcing that work into the same render/layout turn as view restoration.
+  - `RuleOverlapDetector` now caches decoded category scopes and resolved scoped-folder paths per shared category, eliminating repeated JSON decoding and bookmark resolution during trusted-scope rule-health classification.
+  - Added regression coverage for deferred startup refresh plus per-category scope/path caching in overlap detection.
+- Three-column narrow-window responsiveness:
+  - `MainContentView` now derives a shared `FileSurfaceLayout` from the live center content width and switches card/list/grid file surfaces into compact composition below `760pt`, so file identity, metadata, and `Choose Destination` actions stop collapsing into a single cramped row when the app is in three-column mode.
+  - `FileRow`, `FileListRow`, `FileGridItem`, `FileIdentityBlock`, `FileMetaStrip`, and `FileAccessoryActions` now reflow into stacked compact variants, with destination actions and low-priority metadata moving onto separate rows instead of competing for the same horizontal strip.
+  - Saved inspector visibility is now treated as a launch preference rather than an unconditional command: if the restored window width is below `DashboardLaunchPresentation.inspectorEligibleWidth` (`1500pt`), Forma starts in two-column mode and preserves the saved preference for a later wide relaunch.
+  - Added unit coverage for the guarded startup visibility rules and compact file-surface probes, plus UI coverage for narrow three-column card/list/grid layouts after the inspector is reopened intentionally.
 - Right-panel width-class responsiveness:
   - `RightPanelView` now measures the live detail-column width, derives a shared `RightPanelLayout`, and switches to compact rendering below `FormaSpacing.Column.rightPanelIdeal` instead of relying on stale duplicate width constants.
   - The default panel, file inspector, Smart Rules, inline rule builder, celebration flows, and shared panel-mode header now wrap or stack controls in compact widths so cards fill the available right-panel space instead of clipping around fixed child widths.

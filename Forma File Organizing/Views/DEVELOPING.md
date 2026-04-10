@@ -70,6 +70,29 @@ if rightPanelLayout.isCompact {
 - Compact mode begins when the measured panel width drops below `FormaSpacing.Column.rightPanelIdeal` (`340pt`).
 - Inside right-panel surfaces, prefer `frame(maxWidth: .infinity)` plus stacked/wrapping variants over hardcoded child widths.
 
+### File-Surface Responsiveness
+Center-pane file surfaces use the same pattern instead of deciding compact behavior locally:
+
+```swift
+@Environment(\.fileSurfaceLayout) private var fileSurfaceLayout
+
+if fileSurfaceLayout.isCompact {
+    // split identity/meta from actions
+} else {
+    // regular horizontal composition
+}
+```
+
+- `MainContentView` is the only place that measures the usable center content width and creates `FileSurfaceLayout`.
+- Compact mode begins when the measured center content width drops below `FileSurfaceLayout.compactBreakpoint` (`760pt`).
+- For file rows/cards, keep the top row focused on selection + thumbnail + identity, then move destination / primary actions onto a second row in compact mode.
+- `FileRow.swift`, `FileListRow.swift`, `FileGridItem.swift`, and `MainContentView.swift` should stay in sync whenever file-surface layout behavior changes.
+
+### Launch Presentation Guard
+- Saved inspector visibility is a preference, not an unconditional startup command.
+- `DashboardLaunchPresentation.startupInspectorVisibility(savedPreference:)` should gate restored three-column launches through `DashboardLaunchPresentation.inspectorEligibleWidth` (`1500pt`).
+- If a user last left the inspector open but relaunches into a narrow window, prefer reopening in two-column mode and let them re-open the inspector intentionally.
+
 ### Shared Components
 Use existing components from `FormaComponents.swift`:
 

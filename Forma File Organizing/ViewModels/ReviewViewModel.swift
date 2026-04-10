@@ -68,6 +68,10 @@ class ReviewViewModel: ObservableObject {
     }
     
     func setModelContext(_ context: ModelContext) {
+        if let modelContext, modelContext === context {
+            return
+        }
+
         self.modelContext = context
         let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         guard !isRunningTests else { return }

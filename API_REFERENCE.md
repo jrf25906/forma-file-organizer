@@ -4,6 +4,16 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Trusted-scope startup refresh deferral and overlap-classification caching
+  - `DashboardViewModel`
+    - `scheduleTrustedAutomationScopeRefresh(referenceDate:)`
+    - `cancelScheduledTrustedAutomationScopeRefresh()`
+    - `setModelContext(_:)` now adopts the model context without eagerly refreshing trusted automation scopes during initial window restoration.
+  - `RuleOverlapDetector`
+    - `init(categoryScopeResolver:scopedFolderPathResolver:)`
+    - `clearScopePathCache()`
+  - Default-panel trusted-scope summaries now refresh through a scheduled post-appearance task instead of inside the first render/layout turn, and overlap detection now caches decoded category scopes plus scoped-folder paths per shared category to avoid repeated JSON decoding and bookmark resolution during trusted-scope health classification.
+
 - Developer workflow documentation
   - No app API changes in this update.
   - Added `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md` to document the repo-approved `build-macos-apps` workflow, reusable prompt, and verification expectations for Forma.
@@ -17,6 +27,23 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `FormaSpacing.Column.rightPanelMax`
   - `RightPanelView` now measures the live detail-column width once, derives a shared `regular` or `compact` right-panel contract from `FormaSpacing.Column.rightPanelIdeal`, and injects it through the environment so right-panel surfaces can reflow without local fixed-width copies.
   - `DefaultPanelView`, `FileInspectorView`, `RulesManagementView`, `InlineRuleBuilderView`, `CelebrationView`, and `CompletionCelebrationView` now consume that shared layout contract for compact stacking and wrapping behavior.
+
+- Center-pane responsive file-surface width contract
+  - `FileSurfaceWidthClass`
+    - `regular`
+    - `compact`
+  - `FileSurfaceLayout`
+    - `width`
+    - `widthClass`
+    - `isCompact`
+    - `compactBreakpoint`
+    - `default`
+  - `EnvironmentValues.fileSurfaceLayout`
+  - `DashboardLaunchPresentation`
+    - `startupInspectorVisibility(savedPreference:)`
+  - `MainContentView` now measures the usable center content width once, derives a shared `FileSurfaceLayout`, and injects it through the environment so card/list/grid file surfaces can switch together between regular and compact composition.
+  - `FileRow`, `FileListRow`, and `FileGridItem` accessibility state probes now include the file-surface width class, so UI coverage can assert compact behavior directly after a narrow three-column relaunch.
+  - Startup inspector visibility now resolves through `DashboardLaunchPresentation.startupInspectorVisibility(savedPreference:)`, which honors a saved hidden state, preserves the saved visible preference, and suppresses three-column restore on launches narrower than `DashboardLaunchPresentation.inspectorEligibleWidth`.
 
 - File-surface QA hooks
   - `FileSurfaceActionVisibility`

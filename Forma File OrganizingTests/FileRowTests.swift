@@ -246,6 +246,22 @@ final class FileRowTests: XCTestCase {
         )
     }
 
+    func testAccessibilityStateValue_IncludesWidthClassWhenProvided() {
+        let value = FileRowAccessibilityState.value(
+            view: "list",
+            isSelected: false,
+            isFocused: false,
+            status: .pending,
+            activity: .none,
+            widthClass: .compact
+        )
+
+        XCTAssertEqual(
+            value,
+            "view=list;selected=0;focused=0;status=pending;activity=none;widthClass=compact"
+        )
+    }
+
     func testAccessibilityIdentifier_UsesStableUniqueKeyForDuplicateFilenames() {
         let firstPath = "/Users/test/Desktop/report.pdf"
         let secondPath = "/Users/test/Downloads/report.pdf"

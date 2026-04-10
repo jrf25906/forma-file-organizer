@@ -51,4 +51,22 @@ final class FormaSpacingTests: XCTestCase {
         XCTAssertEqual(layout.width, 312, accuracy: 0.001)
         XCTAssertEqual(layout.widthClass, .compact)
     }
+
+    func testFileSurfaceLayoutUses760PointCompactBreakpoint() {
+        XCTAssertEqual(
+            FileSurfaceLayout(width: FileSurfaceLayout.compactBreakpoint).widthClass,
+            .regular
+        )
+        XCTAssertEqual(
+            FileSurfaceLayout(width: FileSurfaceLayout.compactBreakpoint - 1).widthClass,
+            .compact
+        )
+    }
+
+    func testFileSurfaceLayoutPreservesMeasuredWidth() {
+        let layout = FileSurfaceLayout(width: 712)
+
+        XCTAssertEqual(layout.width, 712, accuracy: 0.001)
+        XCTAssertEqual(layout.widthClass, .compact)
+    }
 }

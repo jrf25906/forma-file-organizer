@@ -27,14 +27,16 @@ struct FileGridItem: View {
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.fileSurfaceLayout) private var fileSurfaceLayout
 
     // MARK: - Constants
 
     private var cardHeight: CGFloat {
+        let compactBonus: CGFloat = fileSurfaceLayout.isCompact ? 28 : 0
         switch density {
-        case .tight: return 204
-        case .balanced: return 236
-        case .spacious: return 256
+        case .tight: return 204 + compactBonus
+        case .balanced: return 236 + compactBonus
+        case .spacious: return 256 + compactBonus
         }
     }
     private let cornerRadius: CGFloat = FormaRadius.card
@@ -57,7 +59,8 @@ struct FileGridItem: View {
             isSelected: isSelected,
             isFocused: isFocused,
             status: file.status,
-            activity: surfaceActivity
+            activity: surfaceActivity,
+            widthClass: fileSurfaceLayout.widthClass
         )
     }
 
@@ -135,10 +138,11 @@ struct FileGridItem: View {
 
     /// Footer height for the 3-line text area below the thumbnail.
     private var footerHeight: CGFloat {
+        let compactBonus: CGFloat = fileSurfaceLayout.isCompact ? 28 : 0
         switch density {
-        case .tight: return 86
-        case .balanced: return 106
-        case .spacious: return 116
+        case .tight: return 86 + compactBonus
+        case .balanced: return 106 + compactBonus
+        case .spacious: return 116 + compactBonus
         }
     }
 
@@ -252,17 +256,18 @@ struct FileGridItem: View {
                     HStack {
                         Spacer()
 
-                        FileAccessoryActions(
-                            file: file,
-                            layout: .compact,
-                            primaryActionKind: primaryActionKind,
-                            showsPrimaryAction: true,
-                            showsOverflowMenu: false,
-                            matchingRules: matchingRules,
-                            availableDestinations: availableDestinations,
-                            onPrimaryAction: primaryActionHandler,
-                            onEditDestination: onEdit,
-                            onSkip: onSkip,
+                            FileAccessoryActions(
+                                file: file,
+                                layout: .compact,
+                                primaryActionKind: primaryActionKind,
+                                showsPrimaryAction: true,
+                                showsOverflowMenu: false,
+                                prefersExpandedLabelInCompactWidth: false,
+                                matchingRules: matchingRules,
+                                availableDestinations: availableDestinations,
+                                onPrimaryAction: primaryActionHandler,
+                                onEditDestination: onEdit,
+                                onSkip: onSkip,
                             onQuickLook: onQuickLook,
                             onCreateRule: onCreateRule,
                             onApplyRule: onApplyRule,
