@@ -1,6 +1,16 @@
 import SwiftUI
 import SwiftData
 
+struct DashboardSplitViewPolicy {
+    static func visibility(for isInspectorVisible: Bool) -> NavigationSplitViewVisibility {
+        isInspectorVisible ? .all : .doubleColumn
+    }
+
+    static func isInspectorVisible(for visibility: NavigationSplitViewVisibility) -> Bool {
+        visibility != .doubleColumn
+    }
+}
+
 struct DashboardView: View {
     @StateObject private var nav = NavigationViewModel()
     @EnvironmentObject private var dashboardViewModel: DashboardViewModel
@@ -128,12 +138,21 @@ struct DashboardView: View {
         shouldFocusSearch = true
     }
 
-    private var showsInspectorColumn: Bool {
-        dashboardViewModel.isRightPanelVisible
+    private var splitLayoutMode: String {
+        dashboardViewModel.isRightPanelVisible ? "threeColumn" : "twoColumn"
     }
 
-    private var splitLayoutMode: String {
-        showsInspectorColumn ? "threeColumn" : "twoColumn"
+    private var splitViewColumnVisibility: Binding<NavigationSplitViewVisibility> {
+        Binding(
+            get: {
+                DashboardSplitViewPolicy.visibility(for: dashboardViewModel.isRightPanelVisible)
+            },
+            set: { newVisibility in
+                let isInspectorVisible = DashboardSplitViewPolicy.isInspectorVisible(for: newVisibility)
+                guard isInspectorVisible != dashboardViewModel.isRightPanelVisible else { return }
+                dashboardViewModel.setRightPanelVisible(isInspectorVisible)
+            }
+        )
     }
 
     private var shouldCollectGuidedTourFrames: Bool {
@@ -171,29 +190,20 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var splitViewLayout: some View {
-        if showsInspectorColumn {
-            NavigationSplitView {
-                sidebarColumn
-            } content: {
-                centerColumn
-            } detail: {
-                RightPanelView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .navigationSplitViewColumnWidth(
-                        min: FormaSpacing.Column.rightPanelMin,
-                        ideal: FormaSpacing.Column.rightPanelIdeal,
-                        max: FormaSpacing.Column.rightPanelMax
-                    )
-            }
-            .navigationSplitViewStyle(.balanced)
-        } else {
-            NavigationSplitView {
-                sidebarColumn
-            } detail: {
-                centerColumn
-            }
-            .navigationSplitViewStyle(.balanced)
+        NavigationSplitView(columnVisibility: splitViewColumnVisibility) {
+            sidebarColumn
+        } content: {
+            centerColumn
+        } detail: {
+            RightPanelView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .navigationSplitViewColumnWidth(
+                    min: FormaSpacing.Column.rightPanelMin,
+                    ideal: FormaSpacing.Column.rightPanelIdeal,
+                    max: FormaSpacing.Column.rightPanelMax
+                )
         }
+        .navigationSplitViewStyle(.balanced)
     }
 
     @ViewBuilder

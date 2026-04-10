@@ -43,6 +43,10 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Remove the obsolete `NavigationSelection.rules` / `.analytics` compatibility route and the dead `MainContentView` / dashboard CTA branches that still modeled Smart Rules and Analytics as navigation destinations.
 - [x] Align `DashboardView` window sizing with `FormaSpacing.Window` tokens so the shipped 1280px minimum layout no longer competes with a stale hardcoded 1200px frame.
 
+## Split-View Inspector Stability (April 9, 2026)
+- [x] Keep `DashboardView` on one persistent three-column `NavigationSplitView` and drive inspector reveal/collapse through `NavigationSplitViewVisibility` so opening the right panel no longer reassigns the center column or shifts sidebar/toolbar geometry.
+- [x] Add a focused `DashboardSplitViewPolicy` seam so the inspector-visible state maps cleanly to split-view column visibility alongside the existing medium/large launch and relaunch persistence UI coverage.
+
 ## Workflow Engine v2 Notify + Log (April 8, 2026)
 - [x] Add `WorkflowInvocationContext` and template-level notification policy so review-driven runs always plan `log`, while trusted-scope `Project Drop Zone` runs can append workflow-native `notify`.
 - [x] Add `LogWorkflowStepExecutor`, `NotifyWorkflowStepExecutor`, `WorkflowNotificationServing`, and honest `completedWithIssues` audit semantics so non-blocking side-effect failures do not rollback successful durable file mutations.

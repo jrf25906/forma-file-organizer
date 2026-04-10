@@ -66,8 +66,12 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - Sidebar/right-panel cleanup follow-up
   - `DashboardViewModel`
     - `showAnalyticsPanel()`
+  - `DashboardSplitViewPolicy`
+    - `visibility(for:)`
+    - `isInspectorVisible(for:)`
   - Sidebar and default-panel Analytics actions now route through an explicit dashboard-level analytics opener that reveals the right panel before switching modes.
   - `NavigationSelection.rules` and `NavigationSelection.analytics` have been removed now that Smart Rules and Analytics no longer use navigation selection as an entry point.
+  - `DashboardView` now keeps a persistent three-column `NavigationSplitView(columnVisibility:)` and derives inspector show/hide state from split-view visibility instead of swapping between separate two-column and three-column split containers.
 - Workflow Engine v2 shared templates, audit, rollback, and notify/log follow-up
   - `FeatureFlagService.Feature.workflowEngineV2`
   - `BuiltInWorkflowTemplate`
