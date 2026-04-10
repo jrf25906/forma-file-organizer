@@ -1,5 +1,6 @@
 import XCTest
 import SwiftData
+import Combine
 @testable import Forma_File_Organizing
 
 @MainActor
@@ -222,6 +223,18 @@ final class DashboardViewModelTests: XCTestCase {
             }
             await Task.yield()
         }
+    }
+
+    private func rootPublishCount(
+        while action: () -> Void
+    ) -> Int {
+        var publishCount = 0
+        let cancellable = viewModel.objectWillChange.sink { _ in
+            publishCount += 1
+        }
+        action()
+        withExtendedLifetime(cancellable) {}
+        return publishCount
     }
 
     func testInitialPermissionsCheck() {
@@ -5063,13 +5076,15 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(summary.moveDestinationDisplayName, "Projects")
     }
     
-    func testShowRuleBuilderPanel() {
+    func testOpeningRuleBuilderRevealsRightPanel() {
         // Given
         let file = FileItem(path: "/f/test.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
         viewModel.setRightPanelVisible(false)
 
         // When
-        viewModel.showRuleBuilderPanel(fileContext: file)
+        let publishCount = rootPublishCount {
+            viewModel.showRuleBuilderPanel(fileContext: file)
+        }
 
         // Then
         if case .ruleBuilder(let editingRule, let contextFile) = viewModel.rightPanelMode {
@@ -5079,6 +5094,7 @@ final class DashboardViewModelTests: XCTestCase {
             XCTFail("Right panel mode should switch to .ruleBuilder")
         }
         XCTAssertTrue(viewModel.isRightPanelVisible, "Opening the inline rule builder should reveal the right panel")
+        XCTAssertEqual(publishCount, 1, "Opening rule builder should publish once via root-owned state, not nested fan-out")
     }
 
     func testShowRuleBuilderPanelWithoutFile() {
@@ -5097,11 +5113,13 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isRightPanelVisible, "Opening the inline rule builder should reveal the right panel")
     }
 
-    func testShowAnalyticsPanelRevealsRightPanel() {
+    func testOpeningAnalyticsRevealsRightPanel() {
         viewModel.setRightPanelVisible(false)
         viewModel.showCelebrationPanel(message: "Done!")
 
-        viewModel.showAnalyticsPanel()
+        let publishCount = rootPublishCount {
+            viewModel.showAnalyticsPanel()
+        }
 
         if case .analytics = viewModel.rightPanelMode {
             // Success
@@ -5110,6 +5128,7 @@ final class DashboardViewModelTests: XCTestCase {
         }
 
         XCTAssertTrue(viewModel.isRightPanelVisible, "Opening analytics should reveal the right panel")
+        XCTAssertEqual(publishCount, 1, "Opening analytics should publish once via root-owned state, not nested fan-out")
     }
 
     func testDefaultPanelPrimaryActionHidesWhileRuleDraftWorkflowIsActive() {
@@ -5151,7 +5170,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isRightPanelVisible, "Inspector rule builder flow should reveal the right panel")
     }
 
-    func testRestorePanelAfterInspectorRuleDraftReopensInspectorWithoutResettingReviewChunk() {
+    func testInspectorReturnTargetRestoresInspectorMode() {
         let files = makeReviewFiles(count: 12)
         let targetFile = files
             .sorted { $0.creationDate > $1.creationDate }
@@ -5160,9 +5179,12 @@ final class DashboardViewModelTests: XCTestCase {
         viewModel._testSetFiles(files)
         let originalChunkPaths = viewModel.currentReviewChunkPaths
         viewModel.showRuleBuilderPanelForInspector(targetFile)
+        viewModel.setRightPanelVisible(false)
         viewModel.returnToDefaultPanel()
 
-        viewModel.restorePanel(afterRuleDraftReturnTarget: .inspector(filePath: targetFile.path))
+        let publishCount = rootPublishCount {
+            viewModel.restorePanel(afterRuleDraftReturnTarget: .inspector(filePath: targetFile.path))
+        }
 
         if case .inspector(let inspectorFiles) = viewModel.rightPanelMode {
             XCTAssertEqual(inspectorFiles.map(\.path), [targetFile.path])
@@ -5173,6 +5195,21 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedFileIDs, [targetFile.path])
         XCTAssertEqual(viewModel.focusedFilePath, targetFile.path)
         XCTAssertEqual(viewModel.currentReviewChunkPaths, originalChunkPaths)
+        XCTAssertTrue(viewModel.isRightPanelVisible)
+        XCTAssertEqual(publishCount, 1, "Inspector return target should publish once via root-owned state, not nested fan-out")
+    }
+
+    func testRootPublishesWhenStoredPropertyChanges() {
+        let publishCount = rootPublishCount {
+            viewModel.shouldRequestAppReview = true
+        }
+
+        XCTAssertTrue(viewModel.shouldRequestAppReview)
+        XCTAssertGreaterThanOrEqual(
+            publishCount,
+            1,
+            "Root should still publish when one of its own stored properties changes"
+        )
     }
 
     func testOpenFileFromProjectSpaceMatchesInspectorRestorePath() {
