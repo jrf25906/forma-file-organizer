@@ -615,6 +615,7 @@ struct MainContentView: View {
             ? "none"
             : reviewSections.map(\.kind.rawValue).joined(separator: ",")
         let reviewSectionCountsValue = "ready=\(dashboardViewModel.readyFiles.count),review=\(dashboardViewModel.needsReviewFiles.count),destination=\(dashboardViewModel.needsDestinationFiles.count)"
+        let currentPassProgressValue = "\(dashboardViewModel.currentPassOrganizedCount) of \(dashboardViewModel.currentPassTotalCount) organized"
 
         return Group {
             uiTestStateProbe("mainContent_reviewMode", value: reviewModeValue)
@@ -625,6 +626,7 @@ struct MainContentView: View {
             uiTestStateProbe("mainContent_focusedFilePath", value: focusedFilePathValue)
             uiTestStateProbe("mainContent_reviewSectionOrder", value: reviewSectionOrderValue)
             uiTestStateProbe("mainContent_reviewSectionCounts", value: reviewSectionCountsValue)
+            uiTestStateProbe("defaultPanelProgressSummary", value: currentPassProgressValue)
         }
         .allowsHitTesting(false)
     }

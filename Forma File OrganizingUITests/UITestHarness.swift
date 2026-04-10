@@ -203,7 +203,11 @@ final class UITestHarness {
 
     @MainActor
     func element(withIdentifier identifier: String) -> XCUIElement {
-        let predicate = NSPredicate(format: "identifier == %@", identifier)
+        let predicate = NSPredicate(
+            format: "identifier == %@ OR identifier BEGINSWITH %@",
+            identifier,
+            "\(identifier)__"
+        )
         return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
