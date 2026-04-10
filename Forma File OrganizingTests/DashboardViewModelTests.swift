@@ -3053,12 +3053,16 @@ final class DashboardViewModelTests: XCTestCase {
 
         let expectedVisiblePaths = files
             .sorted { $0.creationDate > $1.creationDate }
-            .dropFirst(viewModel.reviewChunkSize)
+            .filter { !deferredPaths.contains($0.path) }
             .prefix(viewModel.reviewChunkSize)
-            .map(\.path)
+
+        let reorderedExpectedPaths =
+            expectedVisiblePaths.filter { $0.status == .ready && $0.destination != nil }.map(\.path)
+            + expectedVisiblePaths.filter { $0.status == .pending && $0.destination != nil }.map(\.path)
+            + expectedVisiblePaths.filter { $0.status == .pending && $0.destination == nil }.map(\.path)
 
         XCTAssertEqual(viewModel.deferredReviewFileCount, deferredPaths.count)
-        XCTAssertEqual(viewModel.visibleFiles.map(\.path), expectedVisiblePaths)
+        XCTAssertEqual(viewModel.visibleFiles.map(\.path), reorderedExpectedPaths)
         XCTAssertTrue(
             files
                 .filter { deferredPaths.contains($0.path) }
@@ -3153,6 +3157,159 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(visible.count, 2)
         XCTAssertTrue(visible.contains { $0.path == pendingWithSuggestion.path })
         XCTAssertTrue(visible.contains { $0.path == pendingNoSuggestion.path })
+    }
+
+    func testVisibleFilesNeedsReviewModePrioritizesReadyThenReviewThenNeedsDestination() {
+        let now = Date()
+        let needsReview = FileItem(
+            path: "/f/review.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(30),
+            destination: .mockFolder("Documents/Inbox"),
+            status: .pending
+        )
+        let needsDestination = FileItem(
+            path: "/f/destinationless.pdf",
+            sizeInBytes: 2_048,
+            creationDate: now.addingTimeInterval(20),
+            destination: nil,
+            status: .pending
+        )
+        let ready = FileItem(
+            path: "/f/ready.pdf",
+            sizeInBytes: 4_096,
+            creationDate: now.addingTimeInterval(10),
+            destination: .mockFolder("Documents/Sorted"),
+            status: .ready
+        )
+
+        viewModel._testSetFiles([needsReview, needsDestination, ready])
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        XCTAssertEqual(
+            viewModel.visibleFiles.map(\.path),
+            [ready.path, needsReview.path, needsDestination.path]
+        )
+    }
+
+    func testVisibleFilesNeedsReviewModeKeepsNewestFilesWithinEachPrioritySection() {
+        let now = Date()
+        let newerReady = FileItem(
+            path: "/f/ready-new.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(40),
+            destination: .mockFolder("Documents/Sorted"),
+            status: .ready
+        )
+        let olderReady = FileItem(
+            path: "/f/ready-old.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(10),
+            destination: .mockFolder("Documents/Sorted"),
+            status: .ready
+        )
+        let newerReview = FileItem(
+            path: "/f/review-new.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(50),
+            destination: .mockFolder("Documents/Inbox"),
+            status: .pending
+        )
+        let olderReview = FileItem(
+            path: "/f/review-old.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(15),
+            destination: .mockFolder("Documents/Inbox"),
+            status: .pending
+        )
+        let destinationless = FileItem(
+            path: "/f/destinationless.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(60),
+            destination: nil,
+            status: .pending
+        )
+
+        viewModel._testSetFiles([olderReview, olderReady, newerReview, destinationless, newerReady])
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        XCTAssertEqual(
+            viewModel.visibleFiles.map(\.path),
+            [newerReady.path, olderReady.path, newerReview.path, olderReview.path, destinationless.path]
+        )
+    }
+
+    func testReviewSectionHelpersExposeCurrentPassCounts() {
+        let now = Date()
+        let ready = FileItem(
+            path: "/f/ready.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(30),
+            destination: .mockFolder("Documents/Sorted"),
+            status: .ready
+        )
+        let needsReview = FileItem(
+            path: "/f/review.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(20),
+            destination: .mockFolder("Documents/Inbox"),
+            status: .pending
+        )
+        let needsDestination = FileItem(
+            path: "/f/destinationless.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(10),
+            destination: nil,
+            status: .pending
+        )
+        let laterPending = FileItem(
+            path: "/f/later.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(40),
+            destination: .mockFolder("Documents/Later"),
+            status: .pending
+        )
+
+        viewModel._testSetFiles([needsDestination, needsReview, ready, laterPending])
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        XCTAssertEqual(viewModel.currentPassCount, 4)
+        XCTAssertEqual(viewModel.currentPassReadyCount, 1)
+        XCTAssertEqual(viewModel.totalPendingCount, 4)
+        XCTAssertEqual(viewModel.readyFiles.map(\.path), [ready.path])
+        XCTAssertEqual(viewModel.needsReviewFiles.map(\.path), [laterPending.path, needsReview.path])
+        XCTAssertEqual(viewModel.needsDestinationFiles.map(\.path), [needsDestination.path])
+        XCTAssertEqual(viewModel.reviewSections.map(\.kind), [.ready, .review, .destination])
+    }
+
+    func testReviewSectionsOmitEmptyStates() {
+        let now = Date()
+        let readyA = FileItem(
+            path: "/f/ready-a.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(20),
+            destination: .mockFolder("Documents/Sorted"),
+            status: .ready
+        )
+        let readyB = FileItem(
+            path: "/f/ready-b.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(10),
+            destination: .mockFolder("Documents/Sorted"),
+            status: .ready
+        )
+
+        viewModel._testSetFiles([readyA, readyB])
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        XCTAssertEqual(viewModel.reviewSections.map(\.kind), [.ready])
+        XCTAssertEqual(viewModel.readyFiles.map(\.path), [readyA.path, readyB.path])
+        XCTAssertTrue(viewModel.needsReviewFiles.isEmpty)
+        XCTAssertTrue(viewModel.needsDestinationFiles.isEmpty)
     }
 
     private func makeReviewFiles(count: Int) -> [FileItem] {

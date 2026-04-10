@@ -179,8 +179,8 @@ struct FileRow: View {
     }
 
     // MARK: - Primary Action Configuration
-    // Unified terminology: "Organize" when destination exists, "Set Destination" when it doesn't
-    // The status indicator shows file state, so button label stays consistent
+    // Unified terminology keeps the action outcome-focused:
+    // organize ready files, review pending suggestions, or choose a destination.
     private var primaryActionConfig: FileRowActionConfig {
         FileRowActionConfig.resolve(
             file: file,

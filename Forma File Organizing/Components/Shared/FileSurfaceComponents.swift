@@ -565,7 +565,7 @@ enum FilePrimaryActionKind {
         case .review:
             return "Review"
         case .setDestination:
-            return "Set Destination"
+            return "Choose Destination"
         }
     }
 
@@ -593,10 +593,12 @@ enum FilePrimaryActionKind {
 
     var color: Color {
         switch self {
-        case .organize, .setDestination:
+        case .organize:
             return .formaSteelBlue
         case .review:
             return .formaSecondaryLabelHigh
+        case .setDestination:
+            return .formaWarmOrange
         }
     }
 
@@ -607,7 +609,7 @@ enum FilePrimaryActionKind {
         case .review:
             return "Review suggestion"
         case .setDestination:
-            return "Set destination"
+            return "Choose destination"
         }
     }
 }

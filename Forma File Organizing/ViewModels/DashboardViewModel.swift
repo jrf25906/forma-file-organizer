@@ -194,6 +194,21 @@ struct ExternalReviewPromotionSuggestion: Equatable {
     var primaryActionTitle: String { "Monitor \(folderType.displayName)" }
 }
 
+enum ReviewFlowSectionKind: String, CaseIterable, Identifiable {
+    case ready
+    case review
+    case destination
+
+    var id: String { rawValue }
+}
+
+struct ReviewFlowSection: Identifiable {
+    let kind: ReviewFlowSectionKind
+    let files: [FileItem]
+
+    var id: ReviewFlowSectionKind { kind }
+}
+
 @MainActor
 final class WindowPresentationStore {
     private enum Keys {
@@ -2732,7 +2747,7 @@ class DashboardViewModel: ObservableObject {
 
         return currentReviewChunkFiles
     }
-    var needsReviewCount: Int { filterViewModel.needsReviewCount }
+    var needsReviewCount: Int { totalPendingCount }
     var allFilesCount: Int { filterViewModel.allFilesCount }
     var reviewableFiles: [FileItem] {
         guard reviewFilterMode == .needsReview else {
@@ -2788,11 +2803,22 @@ class DashboardViewModel: ObservableObject {
     var cachedGroupedFiles: [FileGroup] { filterViewModel.cachedGroupedFiles }
     var cachedNeedsReviewCount: Int { filterViewModel.cachedNeedsReviewCount }
     var cachedReviewableFiles: [FileItem] { filterViewModel.cachedReviewableFiles }
-    var currentReviewChunkCount: Int { currentReviewChunkFiles.count }
-    var currentReviewChunkPaths: [String] { currentReviewChunkFiles.map(\.path) }
-    var currentReviewChunkReadyCount: Int {
-        currentReviewChunkFiles.filter { $0.status == .ready }.count
+    var readyFiles: [FileItem] { reviewFiles(for: .ready, in: currentReviewChunkFiles) }
+    var needsReviewFiles: [FileItem] { reviewFiles(for: .review, in: currentReviewChunkFiles) }
+    var needsDestinationFiles: [FileItem] { reviewFiles(for: .destination, in: currentReviewChunkFiles) }
+    var reviewSections: [ReviewFlowSection] {
+        ReviewFlowSectionKind.allCases.compactMap { kind in
+            let files = reviewFiles(for: kind, in: currentReviewChunkFiles)
+            guard !files.isEmpty else { return nil }
+            return ReviewFlowSection(kind: kind, files: files)
+        }
     }
+    var currentPassCount: Int { currentReviewChunkFiles.count }
+    var currentPassReadyCount: Int { readyFiles.count }
+    var totalPendingCount: Int { filterViewModel.needsReviewCount }
+    var currentReviewChunkCount: Int { currentPassCount }
+    var currentReviewChunkPaths: [String] { currentReviewChunkFiles.map(\.path) }
+    var currentReviewChunkReadyCount: Int { currentPassReadyCount }
     private var dashboardWorkflowCandidateFiles: [FileItem] {
         if isSelectionMode {
             return selectedFiles
@@ -3814,11 +3840,31 @@ class DashboardViewModel: ObservableObject {
     private var currentReviewChunkFiles: [FileItem] {
         let baseVisibleFiles = filterViewModel.visibleFiles
         let deferredPaths = activeDeferredReviewPaths(in: baseVisibleFiles)
-
-        return Array(
+        let currentPassFiles = Array(
             baseVisibleFiles
                 .filter { !deferredPaths.contains($0.path) }
                 .prefix(reviewChunkSize)
         )
+
+        return prioritizedReviewFiles(in: currentPassFiles)
+    }
+
+    private func prioritizedReviewFiles(in files: [FileItem]) -> [FileItem] {
+        reviewFiles(for: .ready, in: files)
+        + reviewFiles(for: .review, in: files)
+        + reviewFiles(for: .destination, in: files)
+    }
+
+    private func reviewFiles(for kind: ReviewFlowSectionKind, in files: [FileItem]) -> [FileItem] {
+        files.filter { file in
+            switch kind {
+            case .ready:
+                return file.status == .ready && file.destination != nil
+            case .review:
+                return file.status == .pending && file.destination != nil
+            case .destination:
+                return file.status == .pending && file.destination == nil
+            }
+        }
     }
 }

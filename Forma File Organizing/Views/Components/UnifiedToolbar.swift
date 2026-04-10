@@ -441,8 +441,8 @@ struct UnifiedToolbar: View {
     }
 
     private var pendingSegmentTitle: String {
-        guard viewModel.needsReviewCount > 0 else { return "Pending" }
-        return "Pending \(viewModel.needsReviewCount > 99 ? "99+" : "\(viewModel.needsReviewCount)")"
+        guard viewModel.totalPendingCount > 0 else { return "Pending" }
+        return "Pending \(viewModel.totalPendingCount > 99 ? "99+" : "\(viewModel.totalPendingCount)")"
     }
 
     private var contextSummaryTitle: String {
@@ -451,7 +451,7 @@ struct UnifiedToolbar: View {
         }
 
         if viewModel.reviewFilterMode == .needsReview {
-            return visibleFileCount == 1 ? "1 pending" : "\(visibleFileCount) pending"
+            return "\(viewModel.currentPassCount) in current pass"
         }
 
         return visibleFileCount == 1 ? "1 file" : "\(visibleFileCount) files"
@@ -472,8 +472,6 @@ struct UnifiedToolbar: View {
 
         if viewModel.reviewFilterMode == .all, viewModel.groupingMode != .none {
             detailParts.append("Grouped by \(groupingModeTitle(viewModel.groupingMode))")
-        } else if viewModel.reviewFilterMode == .needsReview {
-            detailParts.append("Ready to review")
         }
 
         return detailParts.joined(separator: " · ")

@@ -11,6 +11,10 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
   - The old navigation-based Smart Rules/Analytics compatibility path has been removed from `NavigationSelection`, `MainContentView`, and the dashboard default-panel CTA logic so those surfaces no longer carry dead center-column routing branches.
   - `DashboardView` now takes its minimum and preferred window sizing from `FormaSpacing.Window` instead of keeping a stale hardcoded 1200px minimum alongside the newer 1280px layout tokens.
   - `DashboardView` now keeps one persistent three-column `NavigationSplitView` and drives inspector reveal/collapse through `columnVisibility`, so opening the right panel no longer reassigns the center column or knocks the sidebar/toolbar geometry out of place.
+- Review-flow hierarchy and review-pass clarity:
+  - `DashboardViewModel` now groups the active review pass into explicit `Ready to organize`, `Needs review`, and `Needs destination` sections while preserving the existing chunking and deferral model.
+  - `MainContentView`, `FileMetaStrip`, and the shared file-surface actions now use outcome-based review verbs (`Organize`, `Review`, `Choose Destination`), add file size to the metadata strip, and promote rule provenance without treating pre-action ready rows as success states.
+  - `UnifiedToolbar`, `FloatingActionBar`, and `SidebarView` now distinguish total pending scope from the current review pass, rename review deferral to `Set Aside`, and surface secondary ready counts plus clearer locked-folder permission affordances in the sidebar.
 - Legacy app-store migration recovery:
   - `ProjectCluster.filePathsSearchBlob` now defaults to an empty string for rows created before that denormalized search field existed, so older stores can open and migrate without failing container creation at startup.
   - Added a targeted pre-metadata store migration regression in `Forma File OrganizingTests/AppStoreMigrationTests.swift` covering legacy `FileItem`, `LearnedPattern`, and `ProjectCluster` rows opening under the current app schema.

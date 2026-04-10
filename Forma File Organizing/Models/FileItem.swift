@@ -633,7 +633,7 @@ extension FileItem {
                 path: "/Users/test/Downloads/IMG_1042.JPG",
                 sizeInBytes: 3_805_122,
                 creationDate: now.addingTimeInterval(-7200),
-                destination: mockDestination(displayName: "Pictures/Camera Roll"),
+                destination: nil,
                 status: .pending
             ),
             FileItem(

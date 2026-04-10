@@ -120,8 +120,16 @@ struct MainContentView: View {
     }
 
     /// Whether the floating action bar should be displayed
-    private var shouldShowFAB: Bool {
+    private var showsSelectionActionBar: Bool {
         dashboardViewModel.isSelectionMode
+    }
+
+    private var showsReviewActionBar: Bool {
+        dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.visibleFiles.isEmpty
+    }
+
+    private var showsFloatingActionBar: Bool {
+        showsSelectionActionBar || showsReviewActionBar
     }
 
     /// Primary-action ownership for the current screen state.
@@ -315,7 +323,7 @@ struct MainContentView: View {
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(100)
             .padding(.bottom, FloatingActionBar.bottomOffset)
-        } else if dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.visibleFiles.isEmpty {
+        } else if showsReviewActionBar {
             VStack(spacing: FormaSpacing.tight) {
                 if dashboardViewModel.showsDashboardWorkflowTemplatePicker {
                     WorkflowTemplatePicker(
@@ -327,8 +335,8 @@ struct MainContentView: View {
 
                 FloatingActionBar(
                     mode: .review,
-                    count: dashboardViewModel.currentReviewChunkReadyCount,
-                    canOrganizeAll: dashboardViewModel.currentReviewChunkReadyCount > 0,
+                    count: dashboardViewModel.currentPassReadyCount,
+                    canOrganizeAll: dashboardViewModel.currentPassReadyCount > 0,
                     onOrganize: {
                         dashboardViewModel.organizeAllReadyFiles(context: modelContext)
                     },
@@ -603,6 +611,10 @@ struct MainContentView: View {
         let allFilesCountValue = "\(dashboardViewModel.allFilesCount)"
         let selectedCountValue = "\(dashboardViewModel.selectedFileIDs.count)"
         let focusedFilePathValue = dashboardViewModel.focusedFilePath ?? "none"
+        let reviewSectionOrderValue = reviewSections.isEmpty
+            ? "none"
+            : reviewSections.map(\.kind.rawValue).joined(separator: ",")
+        let reviewSectionCountsValue = "ready=\(dashboardViewModel.readyFiles.count),review=\(dashboardViewModel.needsReviewFiles.count),destination=\(dashboardViewModel.needsDestinationFiles.count)"
 
         return Group {
             Color.clear
@@ -640,6 +652,18 @@ struct MainContentView: View {
                 .accessibilityIdentifier("mainContent_focusedFilePath")
                 .accessibilityLabel("Focused file path \(focusedFilePathValue)")
                 .accessibilityValue(focusedFilePathValue)
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("mainContent_reviewSectionOrder")
+                .accessibilityLabel("Review section order \(reviewSectionOrderValue)")
+                .accessibilityValue(reviewSectionOrderValue)
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("mainContent_reviewSectionCounts")
+                .accessibilityLabel("Review section counts \(reviewSectionCountsValue)")
+                .accessibilityValue(reviewSectionCountsValue)
         }
         .allowsHitTesting(false)
     }
@@ -769,10 +793,17 @@ struct MainContentView: View {
         }
     }
     private var fabReservedSpace: CGFloat {
-        guard shouldShowFAB else { return FormaSpacing.generous }
+        guard showsFloatingActionBar else { return FormaSpacing.generous }
         return FloatingActionBar.chromeHeight + FloatingActionBar.bottomOffset + FormaSpacing.standard
     }
     private var fileDisplayDensity: FileDisplayDensity { .spacious }
+    private var reviewSections: [ReviewFlowSection] {
+        guard dashboardViewModel.reviewFilterMode == .needsReview else { return [] }
+        return dashboardViewModel.reviewSections
+    }
+
+    private var reviewSectionSpacing: CGFloat { FormaSpacing.standard }
+
     /// Unique destinations from visible files, for inline destination pickers.
     private var availableDestinations: [Destination] {
         let destinations = dashboardViewModel.visibleFiles.compactMap(\.destination)
@@ -876,6 +907,89 @@ struct MainContentView: View {
             .frame(maxWidth: .infinity, alignment: .center)
     }
 
+    private func reviewSectionTitle(for kind: ReviewFlowSectionKind) -> String {
+        switch kind {
+        case .ready:
+            return "Ready to organize"
+        case .review:
+            return "Needs review"
+        case .destination:
+            return "Needs destination"
+        }
+    }
+
+    private func reviewSectionDescription(for kind: ReviewFlowSectionKind) -> String {
+        switch kind {
+        case .ready:
+            return "These files already have a destination and can be organized now."
+        case .review:
+            return "These files have a destination but still need your confirmation."
+        case .destination:
+            return "These files still need a destination before they can be organized."
+        }
+    }
+
+    private func reviewSectionTint(for kind: ReviewFlowSectionKind) -> Color {
+        switch kind {
+        case .ready:
+            return .formaSteelBlue
+        case .review:
+            return .formaSecondaryLabelHigh
+        case .destination:
+            return .formaWarmOrange
+        }
+    }
+
+    @ViewBuilder
+    private func reviewSectionContainer<Content: View>(
+        _ section: ReviewFlowSection,
+        bodyPadding: EdgeInsets = EdgeInsets(top: FormaSpacing.tight, leading: FormaSpacing.tight, bottom: FormaSpacing.tight, trailing: FormaSpacing.tight),
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let tint = reviewSectionTint(for: section.kind)
+
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(reviewSectionTitle(for: section.kind))
+                        .font(.formaSmallSemibold)
+                        .foregroundStyle(Color.formaLabel)
+
+                    Text(reviewSectionDescription(for: section.kind))
+                        .font(.formaCaption)
+                        .foregroundStyle(Color.formaSecondaryLabel)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: FormaSpacing.tight)
+
+                FormaBadge(
+                    text: "\(section.files.count)",
+                    color: tint,
+                    size: .small,
+                    style: .subtle
+                )
+            }
+            .padding(.horizontal, FormaSpacing.standard)
+            .padding(.vertical, FormaSpacing.tight)
+            .background(
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .fill(tint.opacity(Color.FormaOpacity.light))
+            )
+
+            content()
+                .padding(bodyPadding)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaCardBackground.opacity(0.92))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(tint.opacity(Color.FormaOpacity.medium), lineWidth: 0.75)
+        )
+    }
+
     private var cardView: some View {
         ScrollView(showsIndicators: false) {
             contentContainer {
@@ -885,66 +999,23 @@ struct MainContentView: View {
                     firstRunBannerIfNeeded
                         .padding(.bottom, FormaSpacing.tight)
 
-                    LazyVStack(spacing: cardRowSpacing) {
-                        ForEach(dashboardViewModel.visibleFiles) { file in
-                            FileRow(
-                                file: file,
-                                density: fileDisplayDensity,
-                                isFocused: dashboardViewModel.focusedFilePath == file.path,
-                                isSelected: dashboardViewModel.isSelected(file),
-                                isSelectionMode: dashboardViewModel.isSelectionMode,
-                                showsPrimaryActionButton: showsRowPrimaryActionButtons,
-                                showKeyboardHints: dashboardViewModel.isKeyboardNavigating,
-                                surfaceActivity: fileSurfaceActivity(for: file),
-                                searchMatchType: dashboardViewModel.searchMatchType(for: file),
-                                contentSnippet: dashboardViewModel.contentSnippet(for: file),
-                                availableDestinations: availableDestinations,
-                                onChangeDestination: { item, destination in
-                                    recoverFile(item, to: destination)
-                                },
-                                onOrganize: { item in
-                                    organizeFileWithAnimation(item)
-                                },
-                                onSkip: { item in
-                                    dashboardViewModel.skipFile(item)
-                                },
-                                onEditDestination: { item in
-                                    dashboardViewModel.beginEditingDestination(for: item)
-                                },
-                                onCreateRule: { item in
-                                    presentRuleEditor(for: item)
-                                },
-                                onViewRule: nil,
-                                matchingRules: dashboardViewModel.getMatchingRules(for: file),
-                                onApplyRule: { rule in
-                                    applyRuleRecovery(rule, to: file)
-                                    ruleAppliedFilePaths.insert(file.path)
-                                    Task { @MainActor in
-                                        try? await Task.sleep(nanoseconds: 500_000_000)
-                                        ruleAppliedFilePaths.remove(file.path)
+                    if dashboardViewModel.reviewFilterMode == .needsReview {
+                        LazyVStack(spacing: reviewSectionSpacing) {
+                            ForEach(reviewSections) { section in
+                                reviewSectionContainer(section) {
+                                    LazyVStack(spacing: cardRowSpacing) {
+                                        ForEach(section.files) { file in
+                                            cardFileRow(file)
+                                        }
                                     }
-                                },
-                                onQuickLook: { item in
-                                    dashboardViewModel.showQuickLook(for: item)
-                                },
-                                onToggleSelection: { item in
-                                    handleSelectionToggle(for: item)
-                                },
-                                onThumbnailHover: handleThumbnailHover
-                            )
-                            .frame(maxWidth: .infinity)
-                            .organizeAnimation(
-                                isOrganizing: dashboardViewModel.organizingFilePaths.contains(file.path),
-                                onComplete: {
-                                    dashboardViewModel.handleOrganizeAnimationComplete(for: file.path)
                                 }
-                            )
-                            .transition(
-                                .asymmetric(
-                                    insertion: .opacity,
-                                    removal: .scale(scale: 0.8).combined(with: .opacity)
-                                )
-                            )
+                            }
+                        }
+                    } else {
+                        LazyVStack(spacing: cardRowSpacing) {
+                            ForEach(dashboardViewModel.visibleFiles) { file in
+                                cardFileRow(file)
+                            }
                         }
                     }
                 }
@@ -979,15 +1050,46 @@ struct MainContentView: View {
 
     @ViewBuilder
     private var listViewContent: some View {
-        LazyVStack(spacing: listRowSpacing) {
-            ForEach(Array(dashboardViewModel.visibleFiles.enumerated()), id: \.element.id) { index, file in
-                listFileRow(file: file, index: index)
+        if dashboardViewModel.reviewFilterMode == .needsReview {
+            LazyVStack(spacing: reviewSectionSpacing) {
+                ForEach(reviewSections) { section in
+                    reviewSectionContainer(
+                        section,
+                        bodyPadding: EdgeInsets(
+                            top: FormaSpacing.tight,
+                            leading: FormaSpacing.tight,
+                            bottom: FormaSpacing.tight,
+                            trailing: FormaSpacing.tight
+                        )
+                    ) {
+                        LazyVStack(spacing: listRowSpacing) {
+                            ForEach(Array(section.files.enumerated()), id: \.element.id) { index, file in
+                                listFileRow(
+                                    file: file,
+                                    index: dashboardViewModel.visibleFiles.firstIndex(where: { $0.path == file.path }) ?? index
+                                )
 
-                // Separator between list rows (not after the last row)
-                if index < dashboardViewModel.visibleFiles.count - 1 {
-                    Color.formaSeparator.opacity(0.3)
-                        .frame(height: 0.5)
-                        .padding(.leading, 52)
+                                if index < section.files.count - 1 {
+                                    Color.formaSeparator.opacity(0.3)
+                                        .frame(height: 0.5)
+                                        .padding(.leading, 52)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            LazyVStack(spacing: listRowSpacing) {
+                ForEach(Array(dashboardViewModel.visibleFiles.enumerated()), id: \.element.id) { index, file in
+                    listFileRow(file: file, index: index)
+
+                    // Separator between list rows (not after the last row)
+                    if index < dashboardViewModel.visibleFiles.count - 1 {
+                        Color.formaSeparator.opacity(0.3)
+                            .frame(height: 0.5)
+                            .padding(.leading, 52)
+                    }
                 }
             }
         }
@@ -1046,69 +1148,33 @@ struct MainContentView: View {
                     firstRunBannerIfNeeded
                         .padding(.bottom, FormaSpacing.tight)
 
-                    LazyVGrid(
-                    columns: columns,
-                    alignment: .leading,
-                    spacing: gridRowSpacing
-                ) {
-                    // Use flat visibleFiles list to avoid duplicate IDs from grouping
-                    ForEach(dashboardViewModel.visibleFiles) { file in
-                        FileGridItem(
-                            file: file,
-                            density: fileDisplayDensity,
-                            isFocused: dashboardViewModel.focusedFilePath == file.path,
-                            isSelected: dashboardViewModel.isSelected(file),
-                            isSelectionMode: dashboardViewModel.isSelectionMode,
-                            showsPrimaryActionButton: showsRowPrimaryActionButtons,
-                            surfaceActivity: fileSurfaceActivity(for: file),
-                            searchMatchType: dashboardViewModel.searchMatchType(for: file),
-                            onToggleSelection: {
-                                handleSelectionToggle(for: file)
-                            },
-                            onOrganize: {
-                                organizeFileWithAnimation(file)
-                            },
-                            onEdit: {
-                                dashboardViewModel.beginEditingDestination(for: file)
-                            },
-                            onSkip: {
-                                dashboardViewModel.skipFile(file)
-                            },
-                            onQuickLook: {
-                                dashboardViewModel.showQuickLook(for: file)
-                            },
-                            availableDestinations: availableDestinations,
-                            onChangeDestination: { destination in
-                                recoverFile(file, to: destination)
-                            },
-                            matchingRules: dashboardViewModel.getMatchingRules(for: file),
-                            onCreateRule: {
-                                presentRuleEditor(for: file)
-                            },
-                            onApplyRule: { rule in
-                                applyRuleRecovery(rule, to: file)
-                                ruleAppliedFilePaths.insert(file.path)
-                                Task { @MainActor in
-                                    try? await Task.sleep(nanoseconds: 500_000_000)
-                                    ruleAppliedFilePaths.remove(file.path)
+                    if dashboardViewModel.reviewFilterMode == .needsReview {
+                        LazyVStack(spacing: reviewSectionSpacing) {
+                            ForEach(reviewSections) { section in
+                                reviewSectionContainer(section) {
+                                    LazyVGrid(
+                                        columns: columns,
+                                        alignment: .leading,
+                                        spacing: gridRowSpacing
+                                    ) {
+                                        ForEach(section.files) { file in
+                                            gridFileItemView(file)
+                                        }
+                                    }
                                 }
                             }
-                        )
-                        .frame(maxWidth: .infinity)
-                        .organizeAnimation(
-                            isOrganizing: dashboardViewModel.organizingFilePaths.contains(file.path),
-                            onComplete: {
-                                dashboardViewModel.handleOrganizeAnimationComplete(for: file.path)
+                        }
+                    } else {
+                        LazyVGrid(
+                            columns: columns,
+                            alignment: .leading,
+                            spacing: gridRowSpacing
+                        ) {
+                            ForEach(dashboardViewModel.visibleFiles) { file in
+                                gridFileItemView(file)
                             }
-                        )
-                        .transition(
-                            .asymmetric(
-                                insertion: .opacity,
-                                removal: .scale(scale: 0.8).combined(with: .opacity)
-                            )
-                        )
+                        }
                     }
-                }
                 }
             }
             .padding(.top, contentTopPadding + scrollContentTopInset)
@@ -1117,6 +1183,126 @@ struct MainContentView: View {
         .frame(maxHeight: .infinity) // Fill available space
         .background(Color.clear)
         .accessibilityIdentifier("fileListScrollView")
+    }
+
+    @ViewBuilder
+    private func cardFileRow(_ file: FileItem) -> some View {
+        FileRow(
+            file: file,
+            density: fileDisplayDensity,
+            isFocused: dashboardViewModel.focusedFilePath == file.path,
+            isSelected: dashboardViewModel.isSelected(file),
+            isSelectionMode: dashboardViewModel.isSelectionMode,
+            showsPrimaryActionButton: showsRowPrimaryActionButtons,
+            showKeyboardHints: dashboardViewModel.isKeyboardNavigating,
+            surfaceActivity: fileSurfaceActivity(for: file),
+            searchMatchType: dashboardViewModel.searchMatchType(for: file),
+            contentSnippet: dashboardViewModel.contentSnippet(for: file),
+            availableDestinations: availableDestinations,
+            onChangeDestination: { item, destination in
+                recoverFile(item, to: destination)
+            },
+            onOrganize: { item in
+                organizeFileWithAnimation(item)
+            },
+            onSkip: { item in
+                dashboardViewModel.skipFile(item)
+            },
+            onEditDestination: { item in
+                dashboardViewModel.beginEditingDestination(for: item)
+            },
+            onCreateRule: { item in
+                presentRuleEditor(for: item)
+            },
+            onViewRule: nil,
+            matchingRules: dashboardViewModel.getMatchingRules(for: file),
+            onApplyRule: { rule in
+                applyRuleRecovery(rule, to: file)
+                ruleAppliedFilePaths.insert(file.path)
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    ruleAppliedFilePaths.remove(file.path)
+                }
+            },
+            onQuickLook: { item in
+                dashboardViewModel.showQuickLook(for: item)
+            },
+            onToggleSelection: { item in
+                handleSelectionToggle(for: item)
+            },
+            onThumbnailHover: handleThumbnailHover
+        )
+        .frame(maxWidth: .infinity)
+        .organizeAnimation(
+            isOrganizing: dashboardViewModel.organizingFilePaths.contains(file.path),
+            onComplete: {
+                dashboardViewModel.handleOrganizeAnimationComplete(for: file.path)
+            }
+        )
+        .transition(
+            .asymmetric(
+                insertion: .opacity,
+                removal: .scale(scale: 0.8).combined(with: .opacity)
+            )
+        )
+    }
+
+    @ViewBuilder
+    private func gridFileItemView(_ file: FileItem) -> some View {
+        FileGridItem(
+            file: file,
+            density: fileDisplayDensity,
+            isFocused: dashboardViewModel.focusedFilePath == file.path,
+            isSelected: dashboardViewModel.isSelected(file),
+            isSelectionMode: dashboardViewModel.isSelectionMode,
+            showsPrimaryActionButton: showsRowPrimaryActionButtons,
+            surfaceActivity: fileSurfaceActivity(for: file),
+            searchMatchType: dashboardViewModel.searchMatchType(for: file),
+            onToggleSelection: {
+                handleSelectionToggle(for: file)
+            },
+            onOrganize: {
+                organizeFileWithAnimation(file)
+            },
+            onEdit: {
+                dashboardViewModel.beginEditingDestination(for: file)
+            },
+            onSkip: {
+                dashboardViewModel.skipFile(file)
+            },
+            onQuickLook: {
+                dashboardViewModel.showQuickLook(for: file)
+            },
+            availableDestinations: availableDestinations,
+            onChangeDestination: { destination in
+                recoverFile(file, to: destination)
+            },
+            matchingRules: dashboardViewModel.getMatchingRules(for: file),
+            onCreateRule: {
+                presentRuleEditor(for: file)
+            },
+            onApplyRule: { rule in
+                applyRuleRecovery(rule, to: file)
+                ruleAppliedFilePaths.insert(file.path)
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    ruleAppliedFilePaths.remove(file.path)
+                }
+            }
+        )
+        .frame(maxWidth: .infinity)
+        .organizeAnimation(
+            isOrganizing: dashboardViewModel.organizingFilePaths.contains(file.path),
+            onComplete: {
+                dashboardViewModel.handleOrganizeAnimationComplete(for: file.path)
+            }
+        )
+        .transition(
+            .asymmetric(
+                insertion: .opacity,
+                removal: .scale(scale: 0.8).combined(with: .opacity)
+            )
+        )
     }
 
     static func makePredicate(selection: NavigationSelection, searchText: String, activeChips: Set<FileFilterChip>) -> Predicate<FileItem> {

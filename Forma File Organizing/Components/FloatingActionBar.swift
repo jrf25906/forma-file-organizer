@@ -62,7 +62,14 @@ struct FloatingActionBar: View {
         case .selection:
             return "file\(count == 1 ? "" : "s") selected"
         case .review:
-            return count > 0 ? "\(count) ready right now" : "Review current pass"
+            switch count {
+            case 0:
+                return "No files ready to organize"
+            case 1:
+                return "1 file ready to organize"
+            default:
+                return "\(count) files ready to organize"
+            }
         }
     }
     
@@ -81,13 +88,23 @@ struct FloatingActionBar: View {
             HStack(spacing: FormaSpacing.tight) {
                 Image(systemName: mode == .selection ? "checkmark.circle.fill" : "tray.full.fill")
                     .font(.formaBodyLarge)
-                    .foregroundColor(mode == .selection ? Color.formaSteelBlue : Color.formaWarmOrange)
+                    .foregroundColor(mode == .selection ? Color.formaSteelBlue : Color.formaSteelBlue)
 
                 Text(statusText)
                     .font(.formaBodyMedium)
                     .foregroundColor(Color.formaSecondaryLabel)
             }
             .padding(.leading, FormaSpacing.standard)
+            .overlay(alignment: .topLeading) {
+                if mode == .review {
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .allowsHitTesting(false)
+                        .accessibilityIdentifier("floatingActionBar_reviewStatus")
+                        .accessibilityLabel(statusText)
+                        .accessibilityValue(statusText)
+                }
+            }
 
             Spacer()
 
@@ -126,11 +143,13 @@ struct FloatingActionBar: View {
 
                 // Skip button (Ghost outline style)
                 FormaSecondaryButton(
-                    title: mode == .selection ? "Skip Selection" : "Done for now",
+                    title: mode == .selection ? "Skip Selection" : "Set Aside",
                     action: onSkip,
                     cornerRadius: FormaRadius.pill
                 )
                 .frame(width: mode == .selection ? 140 : 132, height: 32)
+                .help(mode == .selection ? "Skip the selected files." : "Defer this review pass and bring it back later.")
+                .accessibilityHint(mode == .selection ? "Skip the selected files." : "Defers the current review pass so you can resume it later.")
 
                 // Primary action (Organize)
                 if canOrganizeAll || mode == .selection {
@@ -138,7 +157,7 @@ struct FloatingActionBar: View {
                         title: primaryButtonLabel,
                         icon: "arrow.down.doc.fill",
                         action: onOrganize,
-                        tint: mode == .selection ? Color.formaSteelBlue : Color.formaSage,
+                        tint: .formaSteelBlue,
                         cornerRadius: FormaRadius.pill
                     )
                     .frame(width: 140, height: 36)

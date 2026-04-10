@@ -208,11 +208,14 @@ struct SidebarView: View {
         SidebarNativeRow(
             title: folder.displayName,
             icon: folder.iconName,
-            isSelected: false,
+            isSelected: nav.selection == selection,
             trailingIcon: "lock.fill"
         ) {
             nav.select(selection)
         }
+        .help("Select \(folder.displayName) to request access.")
+        .accessibilityValue("Access required")
+        .accessibilityHint("Select to open the macOS access request flow for this location.")
     }
 
     // MARK: - Bookmark Folder Item
@@ -287,16 +290,24 @@ struct SidebarView: View {
     private func bookmarkFolderItem(_ folder: BookmarkFolder) -> some View {
         let selection = NavigationSelection.from(folderType: folder.folderType)
         let isSelected = isFolderSelected(folder)
+        let actionableCount = fileCount(for: folder)
+        let readyCount = readyFileCount(for: folder)
 
         SidebarNativeRow(
             title: folder.displayName,
             icon: folder.iconName,
             isSelected: isSelected,
-            badgeCount: fileCount(for: folder)
+            badgeCount: actionableCount,
+            readyCount: readyCount
         ) {
             expandedNestedFolders.insert(folder.folderType)
             nav.select(selection)
         }
+        .help(readyCount > 0
+            ? "\(readyCount) ready to organize in \(folder.displayName)."
+            : "Show files from \(folder.displayName).")
+        .accessibilityValue(sidebarFolderAccessibilityValue(actionableCount: actionableCount, readyCount: readyCount))
+        .accessibilityHint("Show files from \(folder.displayName).")
         .contextMenu {
             Button(role: .destructive) {
                 removeFolder(folder)
@@ -318,6 +329,28 @@ struct SidebarView: View {
                 && (file.status == .pending || file.status == .ready)
                 && normalizedRelativePath(file.relativeParentPath) == nil
         }.count
+    }
+
+    private func readyFileCount(for folder: BookmarkFolder) -> Int {
+        dashboardViewModel.allFiles.filter { file in
+            fileBelongs(to: folder.folderType, file: file)
+                && file.status == .ready
+                && file.destination != nil
+                && normalizedRelativePath(file.relativeParentPath) == nil
+        }.count
+    }
+
+    private func sidebarFolderAccessibilityValue(actionableCount: Int, readyCount: Int) -> String {
+        switch (actionableCount, readyCount) {
+        case (0, _):
+            return "No actionable files"
+        case (_, 0):
+            return actionableCount == 1 ? "1 actionable file" : "\(actionableCount) actionable files"
+        default:
+            let actionableText = actionableCount == 1 ? "1 actionable file" : "\(actionableCount) actionable files"
+            let readyText = readyCount == 1 ? "1 ready to organize" : "\(readyCount) ready to organize"
+            return "\(actionableText), \(readyText)"
+        }
     }
 
     private struct NestedFolderEntry: Identifiable {
@@ -492,6 +525,7 @@ private struct SidebarNativeRow: View {
     let icon: String
     let isSelected: Bool
     var badgeCount: Int? = nil
+    var readyCount: Int? = nil
     var trailingIcon: String? = nil
     let action: () -> Void
 
@@ -518,6 +552,22 @@ private struct SidebarNativeRow: View {
                     Image(systemName: trailing)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.formaTertiaryLabel)
+                } else if let readyCount, readyCount > 0 {
+                    FormaBadge(
+                        text: "\(readyCount)",
+                        color: .formaSteelBlue,
+                        icon: "checkmark",
+                        size: .small,
+                        style: .subtle
+                    )
+                    .help(readyCount == 1 ? "1 ready to organize" : "\(readyCount) ready to organize")
+
+                    if let count = badgeCount, count > 0 {
+                        Text("\(count)")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(.formaSecondaryLabelHigh)
+                    }
                 } else if let count = badgeCount, count > 0 {
                     Text("\(count)")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))

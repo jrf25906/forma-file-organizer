@@ -399,6 +399,45 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         app.typeKey("d", modifierFlags: .command)
         harness.waitForValue(gridState, contains: "selected=0", timeout: 3)
     }
+
+    @MainActor
+    func testNeedsReviewModeExposesReviewSectionOrderAndCurrentPassSummary() throws {
+        harness.waitForMainContent()
+        app.activate()
+
+        harness.tapNeedsReviewSegment()
+        harness.tapListViewSegment()
+        harness.waitForViewMode("list")
+
+        let sectionOrderProbe = harness.element(withIdentifier: "mainContent_reviewSectionOrder")
+        let sectionCountsProbe = harness.element(withIdentifier: "mainContent_reviewSectionCounts")
+        let contextSummary = harness.element(withIdentifier: "toolbarContextSummary")
+
+        harness.waitForExists(sectionOrderProbe, timeout: 3, message: "Review section order probe should exist")
+        harness.waitForExists(sectionCountsProbe, timeout: 3, message: "Review section counts probe should exist")
+        harness.waitForValue(sectionOrderProbe, equals: "ready,review,destination", timeout: 3)
+        harness.waitForValue(sectionCountsProbe, contains: "ready=", timeout: 3)
+        harness.waitForValue(sectionCountsProbe, contains: "review=", timeout: 3)
+        harness.waitForValue(sectionCountsProbe, contains: "destination=", timeout: 3)
+        harness.waitForValue(contextSummary, contains: "in current pass", timeout: 3)
+    }
+
+    @MainActor
+    func testNeedsReviewFloatingActionBarUsesSetAsideCopyAndStatusProbe() throws {
+        harness.waitForMainContent()
+        app.activate()
+
+        harness.tapNeedsReviewSegment()
+
+        let setAsideButton = app.buttons["Set Aside"]
+        let legacyButton = app.buttons["Done for now"]
+        let reviewStatusProbe = harness.element(withIdentifier: "floatingActionBar_reviewStatus")
+
+        XCTAssertTrue(setAsideButton.waitForExistence(timeout: 3), "Needs-review bar should expose Set Aside")
+        XCTAssertFalse(legacyButton.exists, "Legacy Done for now copy should be removed")
+        harness.waitForExists(reviewStatusProbe, timeout: 3, message: "Review floating bar status probe should exist")
+        harness.waitForValue(reviewStatusProbe, contains: "ready to organize", timeout: 3)
+    }
     
     // MARK: - File Action Tests
     

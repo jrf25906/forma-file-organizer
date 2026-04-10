@@ -143,6 +143,19 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - Sidebar and default-panel Analytics actions now route through an explicit dashboard-level analytics opener that reveals the right panel before switching modes.
   - `NavigationSelection.rules` and `NavigationSelection.analytics` have been removed now that Smart Rules and Analytics no longer use navigation selection as an entry point.
   - `DashboardView` now keeps a persistent three-column `NavigationSplitView(columnVisibility:)` and derives inspector show/hide state from split-view visibility instead of swapping between separate two-column and three-column split containers.
+- Review-flow hierarchy refresh
+  - `ReviewFlowSectionKind`
+  - `ReviewFlowSection`
+  - `DashboardViewModel`
+    - `readyFiles`
+    - `needsReviewFiles`
+    - `needsDestinationFiles`
+    - `reviewSections`
+    - `currentPassCount`
+    - `currentPassReadyCount`
+    - `totalPendingCount`
+  - Needs-review presentation now keeps the existing chunked review-pass model but groups the active pass into explicit `ready -> review -> destination` sections for list, card, and grid layouts.
+  - Shared review surfaces now use outcome-based actions (`Organize`, `Review`, `Choose Destination`), the toolbar distinguishes total pending scope from the current pass, the floating review bar now uses `Set Aside` language, sidebar bookmark rows expose secondary ready counts, and the shared metadata strip now includes file size plus more prominent rule provenance.
 - Workflow Engine v2 shared templates, audit, rollback, and notify/log follow-up
   - `FeatureFlagService.Feature.workflowEngineV2`
   - `BuiltInWorkflowTemplate`

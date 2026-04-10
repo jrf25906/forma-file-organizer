@@ -84,6 +84,7 @@ struct FileMetaStrip: View {
         VStack(alignment: .leading, spacing: density.verticalSpacing) {
             HStack(alignment: .center, spacing: density.itemSpacing) {
                 metaItem(icon: "doc", text: file.fileExtension.uppercased())
+                metaItem(icon: "internaldrive", text: file.size)
                 metaItem(icon: "clock", text: compactAgeText)
 
                 FormaBadge(
@@ -188,7 +189,7 @@ struct FileMetaStrip: View {
                 HStack(spacing: 4) {
                     Image(systemName: "folder.badge.plus")
                         .font(.system(size: density.iconSize, weight: .semibold))
-                    Text("Set destination")
+                    Text("Choose destination")
                         .font(density.textFont)
                 }
                 .foregroundStyle(Color.formaSteelBlue)
@@ -231,18 +232,13 @@ struct FileMetaStrip: View {
     }
 
     private func provenanceBadge(_ presentation: FileProvenancePresentation) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: presentation.icon)
-                .font(.system(size: density.iconSize, weight: .semibold))
-            Text(presentation.label)
-                .font(density.textFont)
-                .lineLimit(1)
-        }
-        .foregroundStyle(Color.formaSecondaryLabelHigh)
-        .padding(.horizontal, density == .compact ? 5 : 6)
-        .padding(.vertical, density == .compact ? 1 : 2)
-        .background(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
-        .clipShape(Capsule())
+        FormaBadge(
+            text: presentation.label,
+            color: presentation.color,
+            icon: presentation.icon,
+            size: density.statusSize,
+            style: .subtle
+        )
         .help(presentation.helpText)
     }
 
@@ -270,13 +266,13 @@ struct FileStatusPresentation {
                 return FileStatusPresentation(
                     label: "Needs destination",
                     accessibilityLabel: "Needs destination",
-                    color: .formaWarning
+                    color: .formaWarmOrange
                 )
             }
             return FileStatusPresentation(
                 label: "Review",
                 accessibilityLabel: "Needs review before organizing",
-                color: .formaSteelBlue
+                color: .formaSecondaryLabelHigh
             )
         case .ready:
             return FileStatusPresentation(
@@ -303,6 +299,7 @@ struct FileStatusPresentation {
 struct FileProvenancePresentation {
     let label: String
     let icon: String
+    let color: Color
     let helpText: String
 
     static func resolve(for file: FileItem) -> FileProvenancePresentation {
@@ -311,6 +308,7 @@ struct FileProvenancePresentation {
         return FileProvenancePresentation(
             label: label(for: file.suggestionSource),
             icon: icon(for: file.suggestionSource),
+            color: .formaMutedBlue,
             helpText: helpText
         )
     }
