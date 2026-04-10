@@ -60,7 +60,7 @@ struct RulesManagementView: View {
     @Query private var categories: [RuleCategory]
 
     private var sortedAllRules: [Rule] {
-        allRules.sorted { lhs, rhs in
+        visibleAllRules.sorted { lhs, rhs in
             if lhs.sortOrder != rhs.sortOrder {
                 return lhs.sortOrder < rhs.sortOrder
             }
@@ -87,8 +87,7 @@ struct RulesManagementView: View {
     @AppStorage(FolderHealthAlertSettings.Keys.staleRuleThresholdDays) private var staleRuleThresholdDaysStorage = 0
     @State private var showManageCategories = false
     @State private var filterNeedsPermissionOnly = false
-    @State private var initialContentEvaluationDate = Date()
-    @State private var contentState: ContentState?
+    @State private var contentState: ContentState = Self.makeEmptyContentState()
     @State private var contentRefreshToken = 0
     @State private var pendingDeletionRuleIDs: Set<UUID> = []
     @State private var duplicateCleanupConfirmationPlan: RuleHealthService.ExactDuplicateCleanupPlan?
@@ -105,7 +104,7 @@ struct RulesManagementView: View {
     }
 
     private var visibleAllRules: [Rule] {
-        sortedAllRules.filter { !pendingDeletionRuleIDs.contains($0.id) }
+        allRules.filter { !pendingDeletionRuleIDs.contains($0.id) }
     }
 
     private let starterTemplates: [StarterTemplate] = [
@@ -140,6 +139,33 @@ struct RulesManagementView: View {
 
     private func health(for rule: Rule, in healthByID: [UUID: RuleHealthService.RuleHealth]) -> RuleHealthService.RuleHealth {
         healthByID[rule.id] ?? RuleHealthService.RuleHealth(kind: .ready, badgeLabel: nil, message: nil)
+    }
+
+    private static func makeEmptyContentState() -> ContentState {
+        ContentState(
+            healthByID: [:],
+            filteredRules: [],
+            totalEnabledCount: 0,
+            duplicateCount: 0,
+            duplicateCleanupPlan: nil,
+            overlapCount: 0,
+            needsPermissionCount: 0,
+            willCreateCount: 0,
+            disabledCount: 0,
+            recentlyTriggeredCount: 0,
+            staleRuleCount: 0,
+            stableRuleCount: 0,
+            isInitialEmptyState: true,
+            showsOperationalSections: false,
+            duplicateRules: [],
+            overlapRules: [],
+            needsPermissionRules: [],
+            willCreateRules: [],
+            recentlyTriggeredRules: [],
+            staleRules: [],
+            stableRules: [],
+            disabledRules: []
+        )
     }
 
     private var contentRefreshInputs: ContentRefreshInputs {
@@ -228,59 +254,15 @@ struct RulesManagementView: View {
 
     @MainActor
     private func refreshContentState() async {
-        let evaluationDate = contentState == nil ? initialContentEvaluationDate : Date()
-        contentState = makeContentState(evaluationDate: evaluationDate)
+        contentState = makeContentState(evaluationDate: Date())
     }
 
     private func scheduleContentRefresh() {
         contentRefreshToken += 1
     }
-
-    private func displayContentState(_ baseContentState: ContentState) -> ContentState {
-        guard !pendingDeletionRuleIDs.isEmpty else {
-            return baseContentState
-        }
-
-        let visibleRuleIDs = Set(visibleAllRules.map(\.id))
-        let visibleFilteredRules = baseContentState.filteredRules.filter { visibleRuleIDs.contains($0.id) }
-        let visibleDuplicateRules = baseContentState.duplicateRules.filter { visibleRuleIDs.contains($0.id) }
-        let visibleOverlapRules = baseContentState.overlapRules.filter { visibleRuleIDs.contains($0.id) }
-        let visibleNeedsPermissionRules = baseContentState.needsPermissionRules.filter { visibleRuleIDs.contains($0.id) }
-        let visibleWillCreateRules = baseContentState.willCreateRules.filter { visibleRuleIDs.contains($0.id) }
-        let visibleRecentlyTriggeredRules = baseContentState.recentlyTriggeredRules.filter { visibleRuleIDs.contains($0.id) }
-        let visibleStaleRules = baseContentState.staleRules.filter { visibleRuleIDs.contains($0.id) }
-        let visibleStableRules = baseContentState.stableRules.filter { visibleRuleIDs.contains($0.id) }
-        let visibleDisabledRules = baseContentState.disabledRules.filter { visibleRuleIDs.contains($0.id) }
-
-        return ContentState(
-            healthByID: baseContentState.healthByID,
-            filteredRules: visibleFilteredRules,
-            totalEnabledCount: visibleAllRules.filter(\.isEnabled).count,
-            duplicateCount: visibleAllRules.filter { health(for: $0, in: baseContentState.healthByID).kind == .duplicate }.count,
-            duplicateCleanupPlan: ruleHealthService.exactDuplicateCleanupPlan(duplicateRules: visibleDuplicateRules),
-            overlapCount: visibleAllRules.filter { health(for: $0, in: baseContentState.healthByID).kind == .overlap }.count,
-            needsPermissionCount: visibleAllRules.filter { health(for: $0, in: baseContentState.healthByID).kind == .needsPermission }.count,
-            willCreateCount: visibleAllRules.filter { health(for: $0, in: baseContentState.healthByID).kind == .willCreate }.count,
-            disabledCount: visibleAllRules.filter { health(for: $0, in: baseContentState.healthByID).kind == .disabled }.count,
-            recentlyTriggeredCount: visibleRecentlyTriggeredRules.count,
-            staleRuleCount: visibleStaleRules.count,
-            stableRuleCount: visibleStableRules.count,
-            isInitialEmptyState: visibleAllRules.isEmpty && searchText.isEmpty,
-            showsOperationalSections: searchText.isEmpty && selectedCategoryID == nil && !filterNeedsPermissionOnly && !visibleAllRules.isEmpty,
-            duplicateRules: visibleDuplicateRules,
-            overlapRules: visibleOverlapRules,
-            needsPermissionRules: visibleNeedsPermissionRules,
-            willCreateRules: visibleWillCreateRules,
-            recentlyTriggeredRules: visibleRecentlyTriggeredRules,
-            staleRules: visibleStaleRules,
-            stableRules: visibleStableRules,
-            disabledRules: visibleDisabledRules
-        )
-    }
     
     var body: some View {
-        let baseContent = contentState ?? makeContentState(evaluationDate: initialContentEvaluationDate)
-        let content = displayContentState(baseContent)
+        let content = contentState
         let smartRulesAccessibilityValue = smartRulesStateValue(content: content)
 
         VStack(spacing: 0) {
@@ -385,7 +367,11 @@ struct RulesManagementView: View {
             scheduleContentRefresh()
         }
         .onChange(of: allRules.map(\.id)) { _, remainingRuleIDs in
+            let previousPendingDeletionRuleIDs = pendingDeletionRuleIDs
             pendingDeletionRuleIDs.formIntersection(Set(remainingRuleIDs))
+            if pendingDeletionRuleIDs != previousPendingDeletionRuleIDs {
+                scheduleContentRefresh()
+            }
         }
         .accessibilityIdentifier("smartRulesView")
         .accessibilityLabel(isUITesting ? smartRulesAccessibilityValue : "")
@@ -1326,6 +1312,7 @@ struct RulesManagementView: View {
         guard let rule = liveRule(withID: id) else { return }
 
         pendingDeletionRuleIDs.insert(id)
+        scheduleContentRefresh()
         do {
             let ruleService = RuleService(modelContext: modelContext)
             try ruleService.deleteRule(rule)
@@ -1333,6 +1320,7 @@ struct RulesManagementView: View {
             dashboardViewModel.reEvaluateFilesAgainstRules(context: modelContext)
         } catch {
             pendingDeletionRuleIDs.remove(id)
+            scheduleContentRefresh()
             Log.error("RulesManagementView: Failed to delete rule '\(fallbackName)' - \(error.localizedDescription)", category: .analytics)
         }
     }
@@ -1345,6 +1333,7 @@ struct RulesManagementView: View {
 
         isDeletingDuplicateCopies = true
         pendingDeletionRuleIDs.formUnion(ruleIDsToDelete)
+        scheduleContentRefresh()
 
         do {
             let ruleService = RuleService(modelContext: modelContext)
@@ -1356,6 +1345,7 @@ struct RulesManagementView: View {
             )
         } catch {
             pendingDeletionRuleIDs.subtract(ruleIDsToDelete)
+            scheduleContentRefresh()
             Log.error("RulesManagementView: Failed to bulk delete duplicate rules - \(error.localizedDescription)", category: .analytics)
         }
 
