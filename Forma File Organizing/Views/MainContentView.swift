@@ -31,6 +31,8 @@ enum FileRecoveryState {
 }
 
 #Preview {
+    let viewModel = DashboardViewModel()
+
     MainContentView(
         selection: .home,
         searchText: "",
@@ -38,7 +40,9 @@ enum FileRecoveryState {
         availableWidth: 1200,
         showKeyboardHelp: .constant(false)
     )
-    .environmentObject(DashboardViewModel())
+    .environmentObject(viewModel)
+    .environmentObject(viewModel.filterViewModel)
+    .environmentObject(viewModel.selectionViewModel)
     .environmentObject(NavigationViewModel())
 }
 
@@ -51,6 +55,8 @@ struct MainContentView: View {
     let availableWidth: CGFloat
     @EnvironmentObject var nav: NavigationViewModel
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject private var filterViewModel: FilterViewModel
+    @EnvironmentObject private var selectionViewModel: SelectionViewModel
     @Environment(\.modelContext) private var modelContext
     
     // Phase 4: Hover Preview
@@ -84,6 +90,14 @@ struct MainContentView: View {
         // selection, searchText, and activeChips are currently handled via
         // DashboardViewModel state rather than a local @Query.
     }
+
+    private var visibleFiles: [FileItem] { dashboardViewModel.visibleFiles }
+    private var reviewFilterMode: ReviewFilterMode { filterViewModel.reviewFilterMode }
+    private var currentViewMode: ViewMode { filterViewModel.currentViewMode }
+    private var selectedFileIDs: Set<String> { selectionViewModel.selectedFileIDs }
+    private var isSelectionMode: Bool { selectionViewModel.isSelectionMode }
+    private var focusedFilePath: String? { selectionViewModel.focusedFilePath }
+    private var rangeSelectionAnchorPath: String? { selectionViewModel.rangeSelectionAnchorPath }
     
     /// Whether the currently selected folder lacks permission
     private var selectedFolderNeedsPermission: Bool {
@@ -121,11 +135,11 @@ struct MainContentView: View {
 
     /// Whether the floating action bar should be displayed
     private var showsSelectionActionBar: Bool {
-        dashboardViewModel.isSelectionMode
+        isSelectionMode
     }
 
     private var showsReviewActionBar: Bool {
-        dashboardViewModel.reviewFilterMode == .needsReview && !dashboardViewModel.visibleFiles.isEmpty
+        reviewFilterMode == .needsReview && !visibleFiles.isEmpty
     }
 
     private var showsFloatingActionBar: Bool {
@@ -134,7 +148,7 @@ struct MainContentView: View {
 
     /// Primary-action ownership for the current screen state.
     private var primaryActionSource: PrimaryActionSource {
-        dashboardViewModel.isSelectionMode ? .floatingActionBar : .rightPanelPinned
+        isSelectionMode ? .floatingActionBar : .rightPanelPinned
     }
 
     /// Row-level primary buttons are hidden when the bottom bulk bar is the active primary action.
@@ -157,7 +171,7 @@ struct MainContentView: View {
                             }
                         )
                         .padding(.top, contentTopInset)
-                    } else if dashboardViewModel.isLoading && dashboardViewModel.visibleFiles.isEmpty {
+                    } else if dashboardViewModel.isLoading && visibleFiles.isEmpty {
                         // Show loading state during initial file scan
                         Spacer()
                         VStack(spacing: FormaSpacing.generous) {
@@ -168,9 +182,9 @@ struct MainContentView: View {
                                 .foregroundColor(.formaSecondaryLabel)
                         }
                         Spacer()
-                    } else if dashboardViewModel.visibleFiles.isEmpty {
+                    } else if visibleFiles.isEmpty {
                         // Show empty state if in review mode and all caught up
-                        if dashboardViewModel.reviewFilterMode == .needsReview {
+                        if reviewFilterMode == .needsReview {
                             AllCaughtUpView()
                                 .padding(.top, contentTopInset)
                         } else {
@@ -219,7 +233,7 @@ struct MainContentView: View {
                     } else {
                         // Phase 3: View mode switching
                         Group {
-                            switch dashboardViewModel.currentViewMode {
+                            switch currentViewMode {
                             case .card:
                                 cardView
                             case .list:
@@ -230,7 +244,7 @@ struct MainContentView: View {
                         }
                         .mask(scrollFadeMask)
                         .guidedTourRegion(.mainFileList)
-                        .animation(.easeInOut(duration: FormaEasing.Duration.fast), value: dashboardViewModel.currentViewMode)
+                        .animation(.easeInOut(duration: FormaEasing.Duration.fast), value: currentViewMode)
                     }
                 }
 
@@ -292,7 +306,7 @@ struct MainContentView: View {
         
         
         // Floating Action Bar - Direct ZStack child
-        if dashboardViewModel.isSelectionMode {
+        if isSelectionMode {
             VStack(spacing: FormaSpacing.tight) {
                 if dashboardViewModel.showsDashboardWorkflowTemplatePicker {
                     WorkflowTemplatePicker(
@@ -304,7 +318,7 @@ struct MainContentView: View {
 
                 FloatingActionBar(
                     mode: .selection,
-                    count: dashboardViewModel.selectedFileIDs.count,
+                    count: selectedFileIDs.count,
                     canOrganizeAll: dashboardViewModel.canOrganizeAllSelected,
                     onOrganize: {
                         dashboardViewModel.organizeSelectedFiles(context: modelContext)
@@ -434,7 +448,12 @@ struct MainContentView: View {
             )
         }
         // Phase 2: Keyboard Shortcuts
-        .dashboardKeyboardShortcuts(viewModel: dashboardViewModel, context: modelContext)
+        .dashboardKeyboardShortcuts(
+            viewModel: dashboardViewModel,
+            filterViewModel: filterViewModel,
+            selectionViewModel: selectionViewModel,
+            context: modelContext
+        )
         .onAppear {
             dashboardViewModel.setModelContext(modelContext)
         }
@@ -492,10 +511,10 @@ struct MainContentView: View {
     private func attemptRangeSelection(for file: FileItem) -> Bool {
         guard NSApp.currentEvent?.modifierFlags.contains(.shift) == true else { return false }
 
-        let anchorPath = dashboardViewModel.rangeSelectionAnchorPath ?? dashboardViewModel.selectedFileIDs.first
+        let anchorPath = rangeSelectionAnchorPath ?? selectedFileIDs.first
         guard let anchorPath,
               anchorPath != file.path,
-              let anchor = dashboardViewModel.visibleFiles.first(where: { $0.path == anchorPath }) else {
+              let anchor = visibleFiles.first(where: { $0.path == anchorPath }) else {
             return false
         }
 
@@ -562,10 +581,10 @@ struct MainContentView: View {
         // E: Edit destination (stubbed)
         if lowercasedChars == "e" || keyCode == 14 {
             Task { @MainActor in
-                if let focusedPath = dashboardViewModel.focusedFilePath,
-                   let focused = dashboardViewModel.visibleFiles.first(where: { $0.path == focusedPath }) {
+                if let focusedPath = focusedFilePath,
+                   let focused = visibleFiles.first(where: { $0.path == focusedPath }) {
                     dashboardViewModel.beginEditingDestination(for: focused)
-                } else if let first = dashboardViewModel.visibleFiles.first {
+                } else if let first = visibleFiles.first {
                     dashboardViewModel.beginEditingDestination(for: first)
                 } else {
                     dashboardViewModel.editDestinationForFocusedFile()
@@ -577,9 +596,9 @@ struct MainContentView: View {
         // R: Create/View rule from focused file
         if lowercasedChars == "r" || keyCode == 15 {
             Task { @MainActor in
-                let focused = dashboardViewModel.focusedFilePath
-                    .flatMap { path in dashboardViewModel.visibleFiles.first(where: { $0.path == path }) }
-                    ?? dashboardViewModel.visibleFiles.first
+                let focused = focusedFilePath
+                    .flatMap { path in visibleFiles.first(where: { $0.path == path }) }
+                    ?? visibleFiles.first
                 if let focused {
                     presentRuleEditor(for: focused)
                 }
@@ -602,16 +621,16 @@ struct MainContentView: View {
     }
 
     private var accessibilityStateProbes: some View {
-        let reviewModeValue = dashboardViewModel.reviewFilterMode == .needsReview ? "needsReview" : "allFiles"
-        let viewModeValue = switch dashboardViewModel.currentViewMode {
+        let reviewModeValue = reviewFilterMode == .needsReview ? "needsReview" : "allFiles"
+        let viewModeValue = switch currentViewMode {
         case .grid: "grid"
         case .list: "list"
         case .card: "card"
         }
         let needsReviewCountValue = "\(dashboardViewModel.needsReviewCount)"
         let allFilesCountValue = "\(dashboardViewModel.allFilesCount)"
-        let selectedCountValue = "\(dashboardViewModel.selectedFileIDs.count)"
-        let focusedFilePathValue = dashboardViewModel.focusedFilePath ?? "none"
+        let selectedCountValue = "\(selectedFileIDs.count)"
+        let focusedFilePathValue = focusedFilePath ?? "none"
         let reviewSectionOrderValue = reviewSections.isEmpty
             ? "none"
             : reviewSections.map(\.kind.rawValue).joined(separator: ",")
@@ -658,10 +677,10 @@ struct MainContentView: View {
             .hidden()
 
             Button("") {
-                if let focusedPath = dashboardViewModel.focusedFilePath,
-                   let focused = dashboardViewModel.visibleFiles.first(where: { $0.path == focusedPath }) {
+                if let focusedPath = focusedFilePath,
+                   let focused = visibleFiles.first(where: { $0.path == focusedPath }) {
                     dashboardViewModel.beginEditingDestination(for: focused)
-                } else if let first = dashboardViewModel.visibleFiles.first {
+                } else if let first = visibleFiles.first {
                     dashboardViewModel.beginEditingDestination(for: first)
                 }
             }
@@ -669,9 +688,9 @@ struct MainContentView: View {
             .hidden()
 
             Button("") {
-                let focused = dashboardViewModel.focusedFilePath
-                    .flatMap { path in dashboardViewModel.visibleFiles.first(where: { $0.path == path }) }
-                    ?? dashboardViewModel.visibleFiles.first
+                let focused = focusedFilePath
+                    .flatMap { path in visibleFiles.first(where: { $0.path == path }) }
+                    ?? visibleFiles.first
                 if let focused {
                     presentRuleEditor(for: focused)
                 }
@@ -777,7 +796,7 @@ struct MainContentView: View {
     }
     private var fileDisplayDensity: FileDisplayDensity { .spacious }
     private var reviewSections: [ReviewFlowSection] {
-        guard dashboardViewModel.reviewFilterMode == .needsReview else { return [] }
+        guard reviewFilterMode == .needsReview else { return [] }
         return dashboardViewModel.reviewSections
     }
 
@@ -785,7 +804,7 @@ struct MainContentView: View {
 
     /// Unique destinations from visible files, for inline destination pickers.
     private var availableDestinations: [Destination] {
-        let destinations = dashboardViewModel.visibleFiles.compactMap(\.destination)
+        let destinations = visibleFiles.compactMap(\.destination)
         var seen = Set<Destination>()
         return destinations.filter { seen.insert($0).inserted }
     }
@@ -994,7 +1013,7 @@ struct MainContentView: View {
                     firstRunBannerIfNeeded
                         .padding(.bottom, FormaSpacing.tight)
 
-                    if dashboardViewModel.reviewFilterMode == .needsReview {
+                    if reviewFilterMode == .needsReview {
                         LazyVStack(spacing: reviewSectionSpacing) {
                             ForEach(reviewSections) { section in
                                 reviewSectionContainer(section) {
@@ -1008,7 +1027,7 @@ struct MainContentView: View {
                         }
                     } else {
                         LazyVStack(spacing: cardRowSpacing) {
-                            ForEach(dashboardViewModel.visibleFiles) { file in
+                            ForEach(visibleFiles) { file in
                                 cardFileRow(file)
                             }
                         }
@@ -1045,7 +1064,7 @@ struct MainContentView: View {
 
     @ViewBuilder
     private var listViewContent: some View {
-        if dashboardViewModel.reviewFilterMode == .needsReview {
+        if reviewFilterMode == .needsReview {
             LazyVStack(spacing: reviewSectionSpacing) {
                 ForEach(reviewSections) { section in
                     reviewSectionContainer(
@@ -1061,7 +1080,7 @@ struct MainContentView: View {
                             ForEach(Array(section.files.enumerated()), id: \.element.id) { index, file in
                                 listFileRow(
                                     file: file,
-                                    index: dashboardViewModel.visibleFiles.firstIndex(where: { $0.path == file.path }) ?? index
+                                    index: visibleFiles.firstIndex(where: { $0.path == file.path }) ?? index
                                 )
 
                                 if index < section.files.count - 1 {
@@ -1076,11 +1095,11 @@ struct MainContentView: View {
             }
         } else {
             LazyVStack(spacing: listRowSpacing) {
-                ForEach(Array(dashboardViewModel.visibleFiles.enumerated()), id: \.element.id) { index, file in
+                ForEach(Array(visibleFiles.enumerated()), id: \.element.id) { index, file in
                     listFileRow(file: file, index: index)
 
                     // Separator between list rows (not after the last row)
-                    if index < dashboardViewModel.visibleFiles.count - 1 {
+                    if index < visibleFiles.count - 1 {
                         Color.formaSeparator.opacity(0.3)
                             .frame(height: 0.5)
                             .padding(.leading, 52)
@@ -1096,9 +1115,9 @@ struct MainContentView: View {
             file: file,
             density: fileDisplayDensity,
             rowIndex: index,
-            isFocused: dashboardViewModel.focusedFilePath == file.path,
+            isFocused: focusedFilePath == file.path,
             isSelected: dashboardViewModel.isSelected(file),
-            isSelectionMode: dashboardViewModel.isSelectionMode,
+            isSelectionMode: isSelectionMode,
             showsPrimaryActionButton: showsRowPrimaryActionButtons,
             surfaceActivity: fileSurfaceActivity(for: file),
             searchMatchType: dashboardViewModel.searchMatchType(for: file),
@@ -1143,7 +1162,7 @@ struct MainContentView: View {
                     firstRunBannerIfNeeded
                         .padding(.bottom, FormaSpacing.tight)
 
-                    if dashboardViewModel.reviewFilterMode == .needsReview {
+                    if reviewFilterMode == .needsReview {
                         LazyVStack(spacing: reviewSectionSpacing) {
                             ForEach(reviewSections) { section in
                                 reviewSectionContainer(section) {
@@ -1165,7 +1184,7 @@ struct MainContentView: View {
                             alignment: .leading,
                             spacing: gridRowSpacing
                         ) {
-                            ForEach(dashboardViewModel.visibleFiles) { file in
+                            ForEach(visibleFiles) { file in
                                 gridFileItemView(file)
                             }
                         }
@@ -1185,9 +1204,9 @@ struct MainContentView: View {
         FileRow(
             file: file,
             density: fileDisplayDensity,
-            isFocused: dashboardViewModel.focusedFilePath == file.path,
+            isFocused: focusedFilePath == file.path,
             isSelected: dashboardViewModel.isSelected(file),
-            isSelectionMode: dashboardViewModel.isSelectionMode,
+            isSelectionMode: isSelectionMode,
             showsPrimaryActionButton: showsRowPrimaryActionButtons,
             showKeyboardHints: dashboardViewModel.isKeyboardNavigating,
             surfaceActivity: fileSurfaceActivity(for: file),
@@ -1247,9 +1266,9 @@ struct MainContentView: View {
         FileGridItem(
             file: file,
             density: fileDisplayDensity,
-            isFocused: dashboardViewModel.focusedFilePath == file.path,
+            isFocused: focusedFilePath == file.path,
             isSelected: dashboardViewModel.isSelected(file),
-            isSelectionMode: dashboardViewModel.isSelectionMode,
+            isSelectionMode: isSelectionMode,
             showsPrimaryActionButton: showsRowPrimaryActionButtons,
             surfaceActivity: fileSurfaceActivity(for: file),
             searchMatchType: dashboardViewModel.searchMatchType(for: file),

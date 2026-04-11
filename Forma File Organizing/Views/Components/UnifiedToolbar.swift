@@ -159,6 +159,8 @@ private struct ToolbarSegmentButton<Label: View>: View {
 struct UnifiedToolbar: View {
     let availableWidth: CGFloat
     @EnvironmentObject var viewModel: DashboardViewModel
+    @EnvironmentObject private var filterViewModel: FilterViewModel
+    @EnvironmentObject private var selectionViewModel: SelectionViewModel
     @Environment(\.colorScheme) private var colorScheme
     
     // Calculate compression level based on available width
@@ -169,6 +171,12 @@ struct UnifiedToolbar: View {
     }
     
     private var primaryRowHeight: CGFloat { 32 }
+
+    private var reviewFilterMode: ReviewFilterMode { filterViewModel.reviewFilterMode }
+    private var currentViewMode: ViewMode { filterViewModel.currentViewMode }
+    private var groupingMode: FileGroupingService.GroupingMode { filterViewModel.groupingMode }
+    private var sortMode: SortMode { filterViewModel.sortMode }
+    private var isSelectionMode: Bool { selectionViewModel.isSelectionMode }
 
     var body: some View {
         HStack(spacing: compressionLevel == .compact ? FormaSpacing.tight : FormaSpacing.standard - FormaSpacing.micro) {
@@ -181,9 +189,9 @@ struct UnifiedToolbar: View {
         .frame(height: primaryRowHeight)
         .frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.reviewFilterMode)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.currentViewMode)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.groupingMode)
+        .animation(.easeInOut(duration: 0.2), value: reviewFilterMode)
+        .animation(.easeInOut(duration: 0.2), value: currentViewMode)
+        .animation(.easeInOut(duration: 0.2), value: groupingMode)
     }
 
     private var isInspectorDisabled: Bool {
@@ -195,15 +203,15 @@ struct UnifiedToolbar: View {
     }
 
     private var showsContextCluster: Bool {
-        availableWidth > 460 || compressionLevel != .compact || viewModel.isLoading || viewModel.isSelectionMode
+        availableWidth > 460 || compressionLevel != .compact || viewModel.isLoading || isSelectionMode
     }
 
     private var selectionCount: Int {
-        viewModel.selectedFileIDs.count
+        selectionViewModel.selectedFileIDs.count
     }
 
     private var visibleFileCount: Int {
-        viewModel.visibleFiles.count
+        filterViewModel.visibleFiles.count
     }
 
     @ViewBuilder
@@ -228,10 +236,10 @@ struct UnifiedToolbar: View {
             elevation: reviewModeClusterElevation
         ) {
             ToolbarSegmentButton(
-                isSelected: viewModel.reviewFilterMode == .needsReview,
+                isSelected: reviewFilterMode == .needsReview,
                 accessibilityIdentifier: "reviewMode_needsReview",
                 accessibilityLabel: pendingSegmentTitle,
-                action: { viewModel.reviewFilterMode = .needsReview }
+                action: { filterViewModel.reviewFilterMode = .needsReview }
             ) {
                 Text(pendingSegmentTitle)
                     .font(.formaSmallSemibold)
@@ -239,10 +247,10 @@ struct UnifiedToolbar: View {
             }
 
             ToolbarSegmentButton(
-                isSelected: viewModel.reviewFilterMode == .all,
+                isSelected: reviewFilterMode == .all,
                 accessibilityIdentifier: "reviewMode_allFiles",
                 accessibilityLabel: "All Files",
-                action: { viewModel.reviewFilterMode = .all }
+                action: { filterViewModel.reviewFilterMode = .all }
             ) {
                 Text("All Files")
                     .font(.formaSmallSemibold)
@@ -317,7 +325,7 @@ struct UnifiedToolbar: View {
     private var arrangeMenu: some View {
         Menu {
             Section("Sort") {
-                Picker("Sort", selection: $viewModel.sortMode) {
+                Picker("Sort", selection: $filterViewModel.sortMode) {
                     ForEach(SortMode.allCases) { mode in
                         Label(mode.rawValue, systemImage: mode.icon)
                             .tag(mode)
@@ -325,9 +333,9 @@ struct UnifiedToolbar: View {
                 }
             }
 
-            if viewModel.reviewFilterMode == .all {
+            if reviewFilterMode == .all {
                 Section("Group") {
-                    Picker("Grouping", selection: $viewModel.groupingMode) {
+                    Picker("Grouping", selection: $filterViewModel.groupingMode) {
                         Label("None", systemImage: "square.grid.2x2")
                             .tag(FileGroupingService.GroupingMode.none)
                         Label("Date", systemImage: "clock")
@@ -418,20 +426,20 @@ struct UnifiedToolbar: View {
         accessibilityIdentifier: String,
         accessibilityLabel: String
     ) -> some View {
-        Button(action: { viewModel.currentViewMode = mode }) {
+        Button(action: { filterViewModel.currentViewMode = mode }) {
             Image(systemName: systemName)
                 .font(.system(size: 13, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .frame(height: 24)
                 .background(
                     FormaCompactSelectionChrome(
-                        isSelected: viewModel.currentViewMode == mode,
+                        isSelected: currentViewMode == mode,
                         tint: .formaSteelBlue,
                         cornerRadius: FormaRadius.small
                     )
                 )
                 .foregroundStyle(
-                    viewModel.currentViewMode == mode
+                    currentViewMode == mode
                         ? FormaControlChromePalette.selectedForeground(colorScheme, tint: .formaSteelBlue)
                         : Color.formaSecondaryLabelHigh
                 )
@@ -439,7 +447,7 @@ struct UnifiedToolbar: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityAddTraits(viewModel.currentViewMode == mode ? .isSelected : [])
+        .accessibilityAddTraits(currentViewMode == mode ? .isSelected : [])
     }
 
     private var pendingSegmentTitle: String {
@@ -448,11 +456,11 @@ struct UnifiedToolbar: View {
     }
 
     private var contextSummaryTitle: String {
-        if viewModel.isSelectionMode {
+        if isSelectionMode {
             return "\(selectionCount) selected"
         }
 
-        if viewModel.reviewFilterMode == .needsReview {
+        if reviewFilterMode == .needsReview {
             return "\(viewModel.currentPassCount) in current pass"
         }
 
@@ -464,27 +472,27 @@ struct UnifiedToolbar: View {
             return "Scanning folders"
         }
 
-        if viewModel.isSelectionMode {
+        if isSelectionMode {
             return viewModel.canOrganizeAllSelected
                 ? "Batch actions ready"
                 : "Some files still need review"
         }
 
-        var detailParts = [shortSortTitle(viewModel.sortMode)]
+        var detailParts = [shortSortTitle(sortMode)]
 
-        if viewModel.reviewFilterMode == .all, viewModel.groupingMode != .none {
-            detailParts.append("Grouped by \(groupingModeTitle(viewModel.groupingMode))")
+        if reviewFilterMode == .all, groupingMode != .none {
+            detailParts.append("Grouped by \(groupingModeTitle(groupingMode))")
         }
 
         return detailParts.joined(separator: " · ")
     }
 
     private var contextClusterTint: Color? {
-        if viewModel.isSelectionMode || viewModel.isLoading {
+        if isSelectionMode || viewModel.isLoading {
             return .formaSteelBlue
         }
 
-        if viewModel.reviewFilterMode == .needsReview {
+        if reviewFilterMode == .needsReview {
             return .formaMutedBlue
         }
 
@@ -492,15 +500,15 @@ struct UnifiedToolbar: View {
     }
 
     private var reviewModeClusterTint: Color? {
-        viewModel.reviewFilterMode == .needsReview ? .formaMutedBlue : nil
+        reviewFilterMode == .needsReview ? .formaMutedBlue : nil
     }
 
     private var reviewModeClusterElevation: FormaChromeElevation {
-        viewModel.reviewFilterMode == .needsReview ? .raised : .resting
+        reviewFilterMode == .needsReview ? .raised : .resting
     }
 
     private var contextClusterElevation: FormaChromeElevation {
-        if viewModel.isSelectionMode || viewModel.isLoading {
+        if isSelectionMode || viewModel.isLoading {
             return .raised
         }
 
@@ -508,7 +516,7 @@ struct UnifiedToolbar: View {
     }
 
     private var arrangeClusterTint: Color? {
-        if viewModel.reviewFilterMode == .all, viewModel.groupingMode != .none {
+        if reviewFilterMode == .all, groupingMode != .none {
             return .formaMutedBlue
         }
 
@@ -516,7 +524,7 @@ struct UnifiedToolbar: View {
     }
 
     private var arrangeClusterElevation: FormaChromeElevation {
-        viewModel.reviewFilterMode == .all && viewModel.groupingMode != .none ? .raised : .resting
+        reviewFilterMode == .all && groupingMode != .none ? .raised : .resting
     }
 
     private var displayGroupElevation: FormaChromeElevation {
@@ -524,15 +532,15 @@ struct UnifiedToolbar: View {
     }
 
     private var contextSymbolName: String {
-        if viewModel.isSelectionMode {
+        if isSelectionMode {
             return "checkmark.circle"
         }
 
-        return viewModel.reviewFilterMode == .needsReview ? "tray.full" : "doc.on.doc"
+        return reviewFilterMode == .needsReview ? "tray.full" : "doc.on.doc"
     }
 
     private var contextSymbolColor: Color {
-        if viewModel.isSelectionMode || viewModel.reviewFilterMode == .needsReview {
+        if isSelectionMode || reviewFilterMode == .needsReview {
             return .formaSteelBlue
         }
 
@@ -540,27 +548,27 @@ struct UnifiedToolbar: View {
     }
 
     private var arrangeSummary: String {
-        var detailParts = [shortSortTitle(viewModel.sortMode)]
+        var detailParts = [shortSortTitle(sortMode)]
 
-        if viewModel.reviewFilterMode == .all, viewModel.groupingMode != .none {
-            detailParts.append(groupingModeTitle(viewModel.groupingMode))
+        if reviewFilterMode == .all, groupingMode != .none {
+            detailParts.append(groupingModeTitle(groupingMode))
         }
 
         return detailParts.joined(separator: " · ")
     }
 
     private var arrangeHelpText: String {
-        viewModel.reviewFilterMode == .all
+        reviewFilterMode == .all
             ? "Arrange files by sort order and grouping"
             : "Arrange files by sort order"
     }
 
     private var arrangeAccessibilityLabel: String {
-        if viewModel.reviewFilterMode == .all {
-            return "Arrange files. Sorted by \(viewModel.sortMode.rawValue). Grouped by \(groupingModeTitle(viewModel.groupingMode))"
+        if reviewFilterMode == .all {
+            return "Arrange files. Sorted by \(sortMode.rawValue). Grouped by \(groupingModeTitle(groupingMode))"
         }
 
-        return "Arrange files. Sorted by \(viewModel.sortMode.rawValue)"
+        return "Arrange files. Sorted by \(sortMode.rawValue)"
     }
 
     private var inspectorHelpText: String {
@@ -623,9 +631,13 @@ struct UnifiedToolbar: View {
 }
 
 #Preview {
+    let viewModel = DashboardViewModel()
+
     ZStack {
         Color.formaControlBackground.opacity(Color.FormaOpacity.light).ignoresSafeArea()
         UnifiedToolbar(availableWidth: 600)
-            .environmentObject(DashboardViewModel())
+            .environmentObject(viewModel)
+            .environmentObject(viewModel.filterViewModel)
+            .environmentObject(viewModel.selectionViewModel)
     }
 }

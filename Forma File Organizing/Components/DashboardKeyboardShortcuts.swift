@@ -4,6 +4,8 @@ import SwiftData
 /// View modifier that adds Phase 2 keyboard shortcuts for selection and bulk operations
 struct DashboardKeyboardShortcuts: ViewModifier {
     @ObservedObject var viewModel: DashboardViewModel
+    @ObservedObject var filterViewModel: FilterViewModel
+    @ObservedObject var selectionViewModel: SelectionViewModel
     let context: ModelContext?
     
     func body(content: Content) -> some View {
@@ -40,22 +42,22 @@ struct DashboardKeyboardShortcuts: ViewModifier {
                     .hidden()
                     
                     // View Mode: Cmd+1 (Grid)
-                    Button("") { viewModel.currentViewMode = .grid }
+                    Button("") { filterViewModel.currentViewMode = .grid }
                         .keyboardShortcut("1", modifiers: .command)
                         .hidden()
                     
                     // View Mode: Cmd+2 (List)
-                    Button("") { viewModel.currentViewMode = .list }
+                    Button("") { filterViewModel.currentViewMode = .list }
                         .keyboardShortcut("2", modifiers: .command)
                         .hidden()
                     
                     // View Mode: Cmd+3 (Card)
-                    Button("") { viewModel.currentViewMode = .card }
+                    Button("") { filterViewModel.currentViewMode = .card }
                         .keyboardShortcut("3", modifiers: .command)
                         .hidden()
-                    
+
                     // Organize Selected: Cmd+Return (only in selection mode)
-                    if viewModel.isSelectionMode {
+                    if selectionViewModel.isSelectionMode {
                         Button("") { viewModel.organizeSelectedFiles(context: context) }
                             .keyboardShortcut(.return, modifiers: .command)
                             .hidden()
@@ -76,7 +78,19 @@ struct DashboardKeyboardShortcuts: ViewModifier {
 }
 
 extension View {
-    func dashboardKeyboardShortcuts(viewModel: DashboardViewModel, context: ModelContext?) -> some View {
-        modifier(DashboardKeyboardShortcuts(viewModel: viewModel, context: context))
+    func dashboardKeyboardShortcuts(
+        viewModel: DashboardViewModel,
+        filterViewModel: FilterViewModel,
+        selectionViewModel: SelectionViewModel,
+        context: ModelContext?
+    ) -> some View {
+        modifier(
+            DashboardKeyboardShortcuts(
+                viewModel: viewModel,
+                filterViewModel: filterViewModel,
+                selectionViewModel: selectionViewModel,
+                context: context
+            )
+        )
     }
 }

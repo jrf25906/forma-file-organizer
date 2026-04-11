@@ -8,6 +8,8 @@ import SwiftData
 
 struct DefaultPanelView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject private var filterViewModel: FilterViewModel
+    @EnvironmentObject private var analyticsViewModel: AnalyticsDashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
@@ -159,10 +161,10 @@ struct DefaultPanelView: View {
         .onChange(of: dashboardViewModel.allFiles) { _, _ in
             loadInsightsDebounced()
         }
-        .onChange(of: dashboardViewModel.recentActivities) { _, _ in
+        .onChange(of: analyticsViewModel.recentActivities) { _, _ in
             loadInsightsDebounced()
         }
-        .onChange(of: dashboardViewModel.detectedClusters.count) { _, _ in
+        .onChange(of: analyticsViewModel.detectedClusters.count) { _, _ in
             loadInsightsDebounced()
         }
         .onDisappear {
@@ -414,7 +416,7 @@ struct DefaultPanelView: View {
 
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            let reviewCount = dashboardViewModel.cachedNeedsReviewCount
+            let reviewCount = filterViewModel.cachedNeedsReviewCount
             let currentChunkCount = dashboardViewModel.currentReviewChunkCount
 
             if reviewCount > 0 {
@@ -573,7 +575,7 @@ struct DefaultPanelView: View {
 
     /// Returns an explanation of why these files were prioritized
     private var taskExplanation: String {
-        let reviewCount = dashboardViewModel.cachedNeedsReviewCount
+        let reviewCount = filterViewModel.cachedNeedsReviewCount
         let currentChunkCount = dashboardViewModel.currentReviewChunkCount
         let hiddenCount = max(0, reviewCount - currentChunkCount)
 
@@ -643,12 +645,12 @@ struct DefaultPanelView: View {
 
     /// Current folder location name
     private var currentLocationName: String {
-        dashboardViewModel.selectedFolder.displayName
+        filterViewModel.selectedFolder.displayName
     }
 
     /// Display phrase for location (e.g., "Desktop" or "Documents folder")
     private var locationDisplayPhrase: String {
-        switch dashboardViewModel.selectedFolder {
+        switch filterViewModel.selectedFolder {
         case .desktop:
             return "Desktop"
         default:
@@ -658,7 +660,7 @@ struct DefaultPanelView: View {
 
     /// Preposition for location (e.g., "on" for Desktop, "in" for folders)
     private var locationPreposition: String {
-        switch dashboardViewModel.selectedFolder {
+        switch filterViewModel.selectedFolder {
         case .desktop:
             return "on"
         default:
@@ -722,7 +724,7 @@ struct DefaultPanelView: View {
     // MARK: - Category Stats Row (Clickable Filters)
 
     private var categoryStatsRow: some View {
-        let analytics = dashboardViewModel.filteredStorageAnalytics
+        let analytics = analyticsViewModel.filteredStorageAnalytics
         let categories: [(FileTypeCategory, Int, String)] = [
             (.images, analytics.fileCountForCategory(.images), "photo"),
             (.documents, analytics.fileCountForCategory(.documents), "doc.text"),
@@ -740,10 +742,10 @@ struct DefaultPanelView: View {
                                 category: category,
                                 count: count,
                                 icon: icon,
-                                isSelected: dashboardViewModel.selectedCategory == category
+                                isSelected: filterViewModel.selectedCategory == category
                             ) {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    if dashboardViewModel.selectedCategory == category {
+                                    if filterViewModel.selectedCategory == category {
                                         dashboardViewModel.selectCategory(.all)
                                     } else {
                                         dashboardViewModel.selectCategory(category)
@@ -805,7 +807,7 @@ struct DefaultPanelView: View {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 if let automationStatusPresentation = dashboardViewModel.automationStatusPresentation {
                     AutomationStatusWidget(
-                        pendingReviewCount: dashboardViewModel.cachedNeedsReviewCount,
+                        pendingReviewCount: filterViewModel.cachedNeedsReviewCount,
                         activeScopeCount: dashboardViewModel.trustedAutomationActiveScopeCount,
                         attentionScopeCount: dashboardViewModel.trustedAutomationAttentionScopeCount,
                         presentation: automationStatusPresentation
@@ -1405,9 +1407,9 @@ struct DefaultPanelView: View {
 
             let newInsights = await insightsService.generateInsights(
                 from: dashboardViewModel.allFiles,
-                activities: dashboardViewModel.recentActivities,
+                activities: analyticsViewModel.recentActivities,
                 rules: [],
-                precomputedClusters: dashboardViewModel.detectedClusters
+                precomputedClusters: analyticsViewModel.detectedClusters
             )
             guard !Task.isCancelled, requestSequence == insightLoadSequence else { return }
 
@@ -1727,9 +1729,12 @@ private struct DefaultPanelSectionFramesPreferenceKey: PreferenceKey {
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: FileItem.self, Rule.self, ActivityItem.self, configurations: config)
+    let viewModel = DashboardViewModel()
 
     DefaultPanelView()
-        .environmentObject(DashboardViewModel())
+        .environmentObject(viewModel)
+        .environmentObject(viewModel.filterViewModel)
+        .environmentObject(viewModel.analyticsViewModel)
         .environmentObject(NavigationViewModel())
         .modelContainer(container)
         .frame(width: 340, height: 800)

@@ -181,6 +181,53 @@ final class RuleServiceTests: XCTestCase {
         XCTAssertEqual(fetched.filter { $0.conditions == [RuleCondition.nameContains("proposal")] }.count, 1)
     }
 
+    func testCreateRuleDoesNotCollapseDistinctFoldersSharingDisplayName() throws {
+        let firstRoot = try TemporaryDirectory()
+        let secondRoot = try TemporaryDirectory()
+        defer {
+            firstRoot.cleanup()
+            secondRoot.cleanup()
+        }
+
+        let firstDestination = try Destination.folder(from: try firstRoot.createDirectory(name: "Shared"))
+        let secondDestination = try Destination.folder(from: try secondRoot.createDirectory(name: "Shared"))
+
+        let firstRule = Rule(
+            name: "Shared Folder A",
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            actionType: .move,
+            destination: firstDestination
+        )
+        let secondRule = Rule(
+            name: "Shared Folder B",
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            actionType: .move,
+            destination: secondDestination
+        )
+
+        try ruleService.createRule(firstRule, source: .ruleEditor)
+        try ruleService.createRule(secondRule, source: .ruleEditor)
+
+        let fetched = try ruleService.fetchRules()
+        XCTAssertEqual(fetched.count, 2)
+        XCTAssertNotNil(
+            try ruleService.findMatchingMoveRule(
+                conditions: firstRule.conditions,
+                logicalOperator: firstRule.logicalOperator,
+                destination: firstDestination
+            )
+        )
+        XCTAssertNotNil(
+            try ruleService.findMatchingMoveRule(
+                conditions: secondRule.conditions,
+                logicalOperator: secondRule.logicalOperator,
+                destination: secondDestination
+            )
+        )
+    }
+
     func testDeleteRulesBatchRemovesAndPublishesBulkDeletedEvent() throws {
         let rules = [
             makeRule(name: "Delete A", conditionValue: "invoice"),

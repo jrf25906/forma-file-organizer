@@ -1,5 +1,6 @@
 import XCTest
 import SwiftData
+import Combine
 @testable import Forma_File_Organizing
 
 @MainActor
@@ -82,6 +83,20 @@ final class DashboardViewModelTests: XCTestCase {
         return (container, context, FileMetadataFoundationService(modelContext: context))
     }
 
+    private func rootPublishCount(while action: () -> Void) -> Int {
+        var publishCount = 0
+        var cancellables = Set<AnyCancellable>()
+
+        viewModel.objectWillChange
+            .sink { _ in
+                publishCount += 1
+            }
+            .store(in: &cancellables)
+
+        action()
+        return publishCount
+    }
+
     func testSetModelContextIfNeededReturnsFalseForSameContext() throws {
         let (_, context, _) = try makeMetadataService()
 
@@ -137,6 +152,30 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertEqual(localViewModel.trustedAutomationScopeSections.map(\.status), [.active])
         XCTAssertEqual(localViewModel.defaultPanelTrustedAutomationScopes.map(\.displayName), ["Exports"])
+    }
+
+    func testFilterChildUpdatesDoNotRepublishDashboardRoot() {
+        let publishCount = rootPublishCount {
+            viewModel.filterViewModel.reviewFilterMode = .all
+        }
+
+        XCTAssertEqual(publishCount, 0)
+    }
+
+    func testSelectionChildUpdatesDoNotRepublishDashboardRoot() {
+        let publishCount = rootPublishCount {
+            viewModel.selectionViewModel.selectedFileIDs = ["/tmp/example.txt"]
+        }
+
+        XCTAssertEqual(publishCount, 0)
+    }
+
+    func testAnalyticsChildUpdatesDoNotRepublishDashboardRoot() {
+        let publishCount = rootPublishCount {
+            viewModel.analyticsViewModel.updateFilteredAnalytics(from: [])
+        }
+
+        XCTAssertEqual(publishCount, 0)
     }
 
     @discardableResult
@@ -3128,6 +3167,19 @@ final class DashboardViewModelTests: XCTestCase {
                 .filter { deferredPaths.contains($0.path) }
                 .allSatisfy { originalStatuses[$0.path] == $0.status }
         )
+    }
+
+    func testDoneForNowKeepsReviewProjectionEmptyWhileDeferredBacklogRemainsFiltered() {
+        let files = makeReviewFiles(count: viewModel.reviewChunkSize)
+        viewModel._testSetFiles(files)
+
+        let deferredPaths = Set(viewModel.currentReviewChunkPaths)
+
+        viewModel.doneForNow()
+
+        XCTAssertTrue(viewModel.visibleFiles.isEmpty)
+        XCTAssertEqual(Set(viewModel.filterViewModel.visibleFiles.map(\.path)), deferredPaths)
+        XCTAssertEqual(viewModel.deferredReviewFileCount, deferredPaths.count)
     }
 
     func testResumeDeferredReviewFilesRestoresDeferredChunk() {

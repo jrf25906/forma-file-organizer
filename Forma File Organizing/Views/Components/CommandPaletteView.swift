@@ -6,6 +6,8 @@ import SwiftData
 struct CommandPaletteView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject private var filterViewModel: FilterViewModel
+    @EnvironmentObject private var selectionViewModel: SelectionViewModel
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
 
@@ -126,8 +128,8 @@ struct CommandPaletteView: View {
     // MARK: - Commands
 
     private var focusedDestinationCommandName: String {
-        guard let focusedPath = dashboardViewModel.focusedFilePath,
-              let focused = dashboardViewModel.visibleFiles.first(where: { $0.path == focusedPath }) else {
+        guard let focusedPath = selectionViewModel.focusedFilePath,
+              let focused = filterViewModel.visibleFiles.first(where: { $0.path == focusedPath }) else {
             return "Edit Destination"
         }
 
@@ -144,7 +146,7 @@ struct CommandPaletteView: View {
                 category: .view,
                 icon: "square.grid.2x2"
             ) {
-                dashboardViewModel.currentViewMode = .grid
+                filterViewModel.currentViewMode = .grid
             },
             Command(
                 id: "list-view",
@@ -153,7 +155,7 @@ struct CommandPaletteView: View {
                 category: .view,
                 icon: "list.bullet"
             ) {
-                dashboardViewModel.currentViewMode = .list
+                filterViewModel.currentViewMode = .list
             },
             Command(
                 id: "tile-view",
@@ -162,7 +164,7 @@ struct CommandPaletteView: View {
                 category: .view,
                 icon: "rectangle.grid.1x2"
             ) {
-                dashboardViewModel.currentViewMode = .card
+                filterViewModel.currentViewMode = .card
             },
 
             // Filter commands
@@ -173,7 +175,7 @@ struct CommandPaletteView: View {
                 category: .filter,
                 icon: "tray"
             ) {
-                dashboardViewModel.reviewFilterMode = .needsReview
+                filterViewModel.reviewFilterMode = .needsReview
             },
             Command(
                 id: "show-all",
@@ -182,7 +184,7 @@ struct CommandPaletteView: View {
                 category: .filter,
                 icon: "folder"
             ) {
-                dashboardViewModel.reviewFilterMode = .all
+                filterViewModel.reviewFilterMode = .all
             },
 
             // Action commands
@@ -230,8 +232,8 @@ struct CommandPaletteView: View {
                 category: .action,
                 icon: "plus.rectangle.on.rectangle"
             ) {
-                if let focusedPath = dashboardViewModel.focusedFilePath,
-                   let focused = dashboardViewModel.visibleFiles.first(where: { $0.path == focusedPath }) {
+                if let focusedPath = selectionViewModel.focusedFilePath,
+                   let focused = filterViewModel.visibleFiles.first(where: { $0.path == focusedPath }) {
                     nav.openRuleEditor(
                         fileContext: focused,
                         returnTarget: .defaultPanel
@@ -404,7 +406,11 @@ private struct CommandRow: View {
 }
 
 #Preview {
+    let viewModel = DashboardViewModel(services: AppServices())
+
     CommandPaletteView()
-        .environmentObject(DashboardViewModel(services: AppServices()))
+        .environmentObject(viewModel)
+        .environmentObject(viewModel.filterViewModel)
+        .environmentObject(viewModel.selectionViewModel)
         .environmentObject(NavigationViewModel())
 }

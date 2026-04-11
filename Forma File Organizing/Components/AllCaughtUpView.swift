@@ -4,6 +4,7 @@ import SwiftData
 /// Empty state view shown when all files have been organized
 struct AllCaughtUpView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject private var analyticsViewModel: AnalyticsDashboardViewModel
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
@@ -79,7 +80,7 @@ struct AllCaughtUpView: View {
     // Compute today's stats from activities
     private var todayStats: (organized: Int, skipped: Int, rulesCreated: Int)? {
         let today = Calendar.current.startOfDay(for: Date())
-        let todayActivities = dashboardViewModel.recentActivities.filter {
+        let todayActivities = analyticsViewModel.recentActivities.filter {
             Calendar.current.isDate($0.timestamp, inSameDayAs: today)
         }
         
@@ -149,7 +150,11 @@ private struct NextActionButton: View {
 }
 
 #Preview {
+    let viewModel = DashboardViewModel()
+
     AllCaughtUpView()
+        .environmentObject(viewModel)
+        .environmentObject(viewModel.analyticsViewModel)
         .frame(width: 600, height: 400)
         .background(Color.formaBoneWhite)
 }

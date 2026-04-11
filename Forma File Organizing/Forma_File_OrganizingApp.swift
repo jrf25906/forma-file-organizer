@@ -284,6 +284,9 @@ struct Forma_File_OrganizingApp: App {
             )
             .environmentObject(services)
             .environmentObject(dashboardViewModel)
+            .environmentObject(dashboardViewModel.filterViewModel)
+            .environmentObject(dashboardViewModel.selectionViewModel)
+            .environmentObject(dashboardViewModel.analyticsViewModel)
             .appReviewPrompt(
                 shouldRequest: Binding(
                     get: { dashboardViewModel.shouldRequestAppReview },

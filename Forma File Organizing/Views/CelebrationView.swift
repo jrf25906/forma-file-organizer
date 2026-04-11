@@ -5,6 +5,7 @@ import SwiftData
 struct CelebrationView: View {
     let message: String
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject private var analyticsViewModel: AnalyticsDashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.rightPanelLayout) private var rightPanelLayout
@@ -349,7 +350,7 @@ struct CelebrationView: View {
 
     private var nextActionSuggestion: String? {
         // Analyze recent actions and suggest next steps
-        let recentFiles = dashboardViewModel.recentActivities
+        let recentFiles = analyticsViewModel.recentActivities
             .prefix(5)
             .filter { $0.activityType == .fileOrganized }
         
@@ -421,9 +422,11 @@ struct CelebrationView: View {
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: FileItem.self, Rule.self, ActivityItem.self, configurations: config)
+    let viewModel = DashboardViewModel()
     
     CelebrationView(message: "Organized 5 files to Documents/Work")
-        .environmentObject(DashboardViewModel())
+        .environmentObject(viewModel)
+        .environmentObject(viewModel.analyticsViewModel)
         .modelContainer(container)
         .frame(width: 360, height: 800)
         .background(.regularMaterial)

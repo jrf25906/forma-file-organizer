@@ -2479,9 +2479,6 @@ class DashboardViewModel: ObservableObject {
 
         // Forward objectWillChange from nested ViewModels
         scanViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
-        filterViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
-        selectionViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
-        analyticsViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         bulkOperationViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         contentSearchController.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         scanRefreshController.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)

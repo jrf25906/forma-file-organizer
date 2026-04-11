@@ -112,13 +112,13 @@ class RuleService: ObservableObject {
         logicalOperator: Rule.LogicalOperator,
         destination: Destination?
     ) throws -> Rule? {
-        let destinationIdentity = PersonalMemoryEvent.destinationIdentity(for: destination)
+        let destinationIdentity = RuleService.destinationIdentity(for: destination)
         let descriptor = FetchDescriptor<Rule>()
         return try modelContext.fetch(descriptor).first { rule in
             rule.actionType == .move &&
             rule.conditions == conditions &&
             rule.logicalOperator == logicalOperator &&
-            PersonalMemoryEvent.destinationIdentity(for: rule.destination) == destinationIdentity
+            RuleService.destinationIdentity(for: rule.destination) == destinationIdentity
         }
     }
 
@@ -370,7 +370,7 @@ class RuleService: ObservableObject {
         )
         let logicalOperator = rule.logicalOperator.rawValue
         let actionType = rule.actionType.rawValue
-        let destinationIdentity = PersonalMemoryEvent.destinationIdentity(for: rule.destination) ?? "none"
+        let destinationIdentity = destinationIdentity(for: rule.destination)
         let scopeIdentity = scopeIdentity(for: rule)
 
         return [
@@ -381,6 +381,30 @@ class RuleService: ObservableObject {
             "destination:\(destinationIdentity)",
             "scope:\(scopeIdentity)"
         ].joined(separator: "|")
+    }
+
+    private static func destinationIdentity(for destination: Destination?) -> String {
+        guard let destination else { return "none" }
+
+        switch destination {
+        case .trash:
+            return "trash"
+
+        case .folder(let bookmarkData, let displayName):
+            if !bookmarkData.isEmpty,
+               let resolvedPath = destination.resolve()?.url.standardizedFileURL.path {
+                return "folder:\(resolvedPath)"
+            }
+
+            if !bookmarkData.isEmpty {
+                return "folder-bookmark:\(fnv1a64(bookmarkData))"
+            }
+
+            let normalizedDisplayName = displayName
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            return normalizedDisplayName.isEmpty ? "folder-name:<empty>" : "folder-name:\(normalizedDisplayName)"
+        }
     }
 
     private static func canonicalConditionSet(
@@ -460,6 +484,16 @@ class RuleService: ObservableObject {
     private static func normalizedOptionalExtension(_ value: String?) -> String {
         guard let value else { return "nil" }
         return normalizedExtension(value)
+    }
+
+    private static func fnv1a64(_ data: Data) -> String {
+        let prime: UInt64 = 1_099_511_628_211
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        for byte in data {
+            hash ^= UInt64(byte)
+            hash = hash &* prime
+        }
+        return String(hash, radix: 16)
     }
     
     /// Seeds the database with a set of default rules if none exist.
