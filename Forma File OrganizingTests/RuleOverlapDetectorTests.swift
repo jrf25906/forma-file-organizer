@@ -201,6 +201,81 @@ final class RuleOverlapDetectorTests: XCTestCase {
         XCTAssertEqual(actual, expected)
     }
 
+    func testIdenticalRulesWithDistinctBookmarkBackedFoldersSharingDisplayNameAreConflicting() throws {
+        let firstRoot = try TemporaryDirectory()
+        let secondRoot = try TemporaryDirectory()
+        defer {
+            firstRoot.cleanup()
+            secondRoot.cleanup()
+        }
+
+        let firstDestination = try Destination.folder(from: try firstRoot.createDirectory(name: "Shared"))
+        let secondDestination = try Destination.folder(from: try secondRoot.createDirectory(name: "Shared"))
+        let detector = RuleOverlapDetector()
+        let firstRule = Rule(
+            name: "Shared PDFs A",
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            actionType: .move,
+            destination: firstDestination
+        )
+        let secondRule = Rule(
+            name: "Shared PDFs B",
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            actionType: .move,
+            destination: secondDestination
+        )
+
+        let overlaps = detector.detectOverlaps(for: firstRule, against: [secondRule])
+
+        XCTAssertEqual(overlaps.count, 1)
+        XCTAssertEqual(overlaps.first?.overlapType, .conflictingDestination)
+    }
+
+    func testSiblingFolderScopesDoNotOverlapWhenPathsOnlyShareStringPrefix() {
+        let detector = RuleOverlapDetector(
+            scopedFolderPathResolver: { folder in
+                switch folder.displayName {
+                case "Work":
+                    return "/Users/test/Work"
+                case "Workshop":
+                    return "/Users/test/Workshop"
+                default:
+                    return nil
+                }
+            }
+        )
+        let workCategory = RuleCategory(
+            name: "Work",
+            scope: .folders([.init(bookmark: Data([0x01]), displayName: "Work")])
+        )
+        let workshopCategory = RuleCategory(
+            name: "Workshop",
+            scope: .folders([.init(bookmark: Data([0x02]), displayName: "Workshop")])
+        )
+        let workRule = Rule(
+            name: "Work PDFs",
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "Documents/Work"),
+            category: workCategory
+        )
+        let workshopRule = Rule(
+            name: "Workshop PDFs",
+            conditionType: .fileExtension,
+            conditionValue: "pdf",
+            actionType: .move,
+            destination: .folder(bookmark: Data(), displayName: "Documents/Workshop"),
+            category: workshopCategory
+        )
+
+        let overlaps = detector.detectOverlaps(for: workRule, against: [workshopRule])
+
+        XCTAssertTrue(overlaps.isEmpty)
+    }
+
     private func makeRule(
         name: String,
         conditionType: Rule.ConditionType,

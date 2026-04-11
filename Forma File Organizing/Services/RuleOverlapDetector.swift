@@ -221,10 +221,10 @@ class RuleOverlapDetector {
         let newPaths = resolvedScopedPaths(for: newRule.category, folders: newFolders)
         let existingPaths = resolvedScopedPaths(for: existingRule.category, folders: existingFolders)
 
-        // Check if any paths overlap (one contains the other)
+        // Check if any paths overlap (one contains the other by path component).
         for newPath in newPaths {
             for existingPath in existingPaths {
-                if newPath.hasPrefix(existingPath) || existingPath.hasPrefix(newPath) {
+                if pathsOverlap(newPath, existingPath) {
                     return true
                 }
             }
@@ -738,14 +738,56 @@ class RuleOverlapDetector {
             return first == nil && second == nil
         }
 
-        switch (d1, d2) {
-        case (.trash, .trash):
-            return true
-        case let (.folder(_, name1), .folder(_, name2)):
-            // Compare by display name (bookmarks are harder to compare)
-            return name1 == name2
-        default:
+        return destinationIdentity(for: d1) == destinationIdentity(for: d2)
+    }
+
+    private func pathsOverlap(_ first: String, _ second: String) -> Bool {
+        let firstComponents = normalizedPathComponents(first)
+        let secondComponents = normalizedPathComponents(second)
+
+        guard !firstComponents.isEmpty, !secondComponents.isEmpty else {
             return false
         }
+
+        return firstComponents.starts(with: secondComponents) || secondComponents.starts(with: firstComponents)
+    }
+
+    private func normalizedPathComponents(_ path: String) -> [String] {
+        URL(fileURLWithPath: path)
+            .standardizedFileURL
+            .pathComponents
+            .map { $0.lowercased() }
+    }
+
+    private func destinationIdentity(for destination: Destination) -> String {
+        switch destination {
+        case .trash:
+            return "trash"
+
+        case .folder(let bookmarkData, let displayName):
+            if !bookmarkData.isEmpty,
+               let resolvedPath = destination.resolve()?.url.standardizedFileURL.path {
+                return "folder:\(resolvedPath)"
+            }
+
+            if !bookmarkData.isEmpty {
+                return "folder-bookmark:\(fnv1a64(bookmarkData))"
+            }
+
+            let normalizedDisplayName = displayName
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            return normalizedDisplayName.isEmpty ? "folder-name:<empty>" : "folder-name:\(normalizedDisplayName)"
+        }
+    }
+
+    private func fnv1a64(_ data: Data) -> String {
+        let prime: UInt64 = 1_099_511_628_211
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        for byte in data {
+            hash ^= UInt64(byte)
+            hash = hash &* prime
+        }
+        return String(hash, radix: 16)
     }
 }
