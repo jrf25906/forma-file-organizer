@@ -194,6 +194,15 @@ class RuleService: ObservableObject {
     ///   - save: Whether to save the context immediately (default: true).
     /// - Throws: An error if saving fails.
     func createRule(_ rule: Rule, source: RuleSource, save: Bool = true) throws {
+        let signature = RuleService.semanticSignature(for: rule)
+        let existingSignatures = try self.existingRuleSignatureSet()
+        guard !existingSignatures.contains(signature) else {
+            #if DEBUG
+            Log.info("RuleService: Skipped semantic duplicate rule '\(rule.name)' from \(source.activityDescription)", category: .analytics)
+            #endif
+            return
+        }
+
         modelContext.insert(rule)
 
         // Log activity
@@ -224,20 +233,39 @@ class RuleService: ObservableObject {
     func createRules(_ rules: [Rule], source: RuleSource) throws {
         guard !rules.isEmpty else { return }
 
+        var knownSignatures = try self.existingRuleSignatureSet()
+        var insertedRules: [Rule] = []
         for rule in rules {
+            let signature = RuleService.semanticSignature(for: rule)
+            guard !knownSignatures.contains(signature) else {
+                #if DEBUG
+                Log.info("RuleService: Skipped semantic duplicate rule '\(rule.name)' in batch from \(source.activityDescription)", category: .analytics)
+                #endif
+                continue
+            }
+
             modelContext.insert(rule)
+            insertedRules.append(rule)
+            knownSignatures.insert(signature)
+        }
+
+        guard !insertedRules.isEmpty else {
+            #if DEBUG
+            Log.info("RuleService: Skipped batch create from \(source.activityDescription); all rules were semantic duplicates", category: .analytics)
+            #endif
+            return
         }
 
         // Log bulk activity
         let activityService = ActivityLoggingService(modelContext: modelContext)
-        activityService.logBulkRulesCreated(count: rules.count, source: source.activityDescription)
+        activityService.logBulkRulesCreated(count: insertedRules.count, source: source.activityDescription)
 
         try modelContext.save()
         updateRuleCount()
-        ruleChanges.send(.bulkCreated(count: rules.count))
+        ruleChanges.send(.bulkCreated(count: insertedRules.count))
 
         #if DEBUG
-        Log.info("RuleService: Created \(rules.count) rules from \(source.activityDescription)", category: .analytics)
+        Log.info("RuleService: Created \(insertedRules.count) rules from \(source.activityDescription)", category: .analytics)
         #endif
     }
 
@@ -324,6 +352,115 @@ class RuleService: ObservableObject {
             ruleCount = previousCount
         }
     }
+
+    private func existingRuleSignatureSet() throws -> Set<String> {
+        Set(try fetchRules().map(RuleService.semanticSignature(for:)))
+    }
+
+    private static func semanticSignature(for rule: Rule) -> String {
+        let primaryConditions = canonicalConditionSet(
+            rule.conditions,
+            fallbackType: rule.conditionType,
+            fallbackValue: rule.conditionValue
+        )
+        let exclusionConditions = canonicalConditionSet(
+            rule.exclusionConditions,
+            fallbackType: nil,
+            fallbackValue: nil
+        )
+        let logicalOperator = rule.logicalOperator.rawValue
+        let actionType = rule.actionType.rawValue
+        let destinationIdentity = PersonalMemoryEvent.destinationIdentity(for: rule.destination) ?? "none"
+        let scopeIdentity = scopeIdentity(for: rule)
+
+        return [
+            "conditions:\(primaryConditions)",
+            "exclusions:\(exclusionConditions)",
+            "operator:\(logicalOperator)",
+            "action:\(actionType)",
+            "destination:\(destinationIdentity)",
+            "scope:\(scopeIdentity)"
+        ].joined(separator: "|")
+    }
+
+    private static func canonicalConditionSet(
+        _ conditions: [RuleCondition],
+        fallbackType: Rule.ConditionType?,
+        fallbackValue: String?
+    ) -> String {
+        let sourceConditions: [RuleCondition]
+        if conditions.isEmpty, let fallbackType, let fallbackValue,
+           let fallbackCondition = try? RuleCondition(type: fallbackType, value: fallbackValue) {
+            sourceConditions = [fallbackCondition]
+        } else {
+            sourceConditions = conditions
+        }
+
+        return sourceConditions
+            .map(canonicalConditionSignature)
+            .sorted()
+            .joined(separator: ",")
+    }
+
+    private static func canonicalConditionSignature(_ condition: RuleCondition) -> String {
+        switch condition {
+        case .fileExtension(let ext):
+            return "fileExtension(\(normalizedExtension(ext)))"
+        case .nameContains(let value):
+            return "nameContains(\(normalizedText(value)))"
+        case .nameStartsWith(let value):
+            return "nameStartsWith(\(normalizedText(value)))"
+        case .nameEndsWith(let value):
+            return "nameEndsWith(\(normalizedText(value)))"
+        case .dateOlderThan(let days, let ext):
+            return "dateOlderThan(\(days),\(normalizedOptionalExtension(ext)))"
+        case .sizeLargerThan(let bytes):
+            return "sizeLargerThan(\(bytes))"
+        case .dateModifiedOlderThan(let days):
+            return "dateModifiedOlderThan(\(days))"
+        case .dateAccessedOlderThan(let days):
+            return "dateAccessedOlderThan(\(days))"
+        case .fileKind(let kind):
+            return "fileKind(\(normalizedText(kind)))"
+        case .sourceLocation(let location):
+            return "sourceLocation(\(location.rawValue.lowercased()))"
+        case .not(let inner):
+            return "not(\(canonicalConditionSignature(inner)))"
+        }
+    }
+
+    private static func scopeIdentity(for rule: Rule) -> String {
+        guard let category = rule.category else {
+            return "global"
+        }
+
+        switch category.scope {
+        case .global:
+            return "global"
+        case .folders(let folders):
+            let normalizedFolders = folders
+                .map { normalizedText($0.displayName) }
+                .sorted()
+                .joined(separator: ",")
+            return "folders:\(normalizedFolders)"
+        }
+    }
+
+    private static func normalizedText(_ value: String) -> String {
+        value
+            .precomposedStringWithCanonicalMapping
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+
+    private static func normalizedExtension(_ value: String) -> String {
+        normalizedText(value).trimmingCharacters(in: CharacterSet(charactersIn: "."))
+    }
+
+    private static func normalizedOptionalExtension(_ value: String?) -> String {
+        guard let value else { return "nil" }
+        return normalizedExtension(value)
+    }
     
     /// Seeds the database with a set of default rules if none exist.
     ///
@@ -370,12 +507,8 @@ class RuleService: ObservableObject {
             Rule(name: "Sample Sorter", conditionType: .fileExtension, conditionValue: "wav", actionType: .move, destination: dest("Music/Samples")),
             Rule(name: "Voice Memo Vault", conditionType: .fileExtension, conditionValue: "m4a", actionType: .move, destination: dest("Music/Voice Memos"))
         ]
-        
-        for rule in defaultRules {
-            modelContext.insert(rule)
-        }
-        
-        try modelContext.save()
+
+        try createRules(defaultRules, source: .defaultSeeding)
     }
 
     /// Restores the default screenshot rule when it appears to have been deleted accidentally.
@@ -432,15 +565,12 @@ class RuleService: ObservableObject {
             for rule in existingRules {
                 modelContext.delete(rule)
             }
+            try modelContext.save()
         }
-        
+
         // Generate and insert template rules
         let templateRules = template.generateRules()
-        for rule in templateRules {
-            modelContext.insert(rule)
-        }
-        
-        try modelContext.save()
+        try createRules(templateRules, source: .template(name: template.displayName))
     }
     
     /// Seeds the database with additional rules without clearing existing ones.

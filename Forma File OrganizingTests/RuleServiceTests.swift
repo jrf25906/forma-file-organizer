@@ -148,6 +148,39 @@ final class RuleServiceTests: XCTestCase {
         XCTAssertEqual(bulkCount, 3)
     }
 
+    func testCreateRuleSkipsSemanticDuplicateAlreadyPersisted() throws {
+        let original = makeRule(name: "Original Name", conditionValue: "invoice")
+        try ruleService.createRule(original, source: .ruleEditor)
+
+        let semanticDuplicate = makeRule(name: "Different Name", conditionValue: "invoice")
+        try ruleService.createRule(semanticDuplicate, source: .quickSheet)
+
+        let fetched = try ruleService.fetchRules()
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.name, "Original Name")
+    }
+
+    func testCreateRulesBatchSkipsSemanticDuplicatesInStoreAndWithinBatch() throws {
+        let existingRule = makeRule(name: "Existing", conditionValue: "report")
+        try ruleService.createRule(existingRule, source: .ruleEditor)
+
+        let duplicateOfExisting = makeRule(name: "Same Behavior Existing Duplicate", conditionValue: "report")
+        let duplicateWithinBatchA = makeRule(name: "Batch Duplicate A", conditionValue: "contract")
+        let duplicateWithinBatchB = makeRule(name: "Batch Duplicate B", conditionValue: "contract")
+        let uniqueRule = makeRule(name: "Unique", conditionValue: "proposal")
+
+        try ruleService.createRules(
+            [duplicateOfExisting, duplicateWithinBatchA, duplicateWithinBatchB, uniqueRule],
+            source: .template(name: "Test Template")
+        )
+
+        let fetched = try ruleService.fetchRules()
+        XCTAssertEqual(fetched.count, 3)
+        XCTAssertEqual(fetched.filter { $0.conditions == [RuleCondition.nameContains("report")] }.count, 1)
+        XCTAssertEqual(fetched.filter { $0.conditions == [RuleCondition.nameContains("contract")] }.count, 1)
+        XCTAssertEqual(fetched.filter { $0.conditions == [RuleCondition.nameContains("proposal")] }.count, 1)
+    }
+
     func testDeleteRulesBatchRemovesAndPublishesBulkDeletedEvent() throws {
         let rules = [
             makeRule(name: "Delete A", conditionValue: "invoice"),
@@ -196,6 +229,26 @@ final class RuleServiceTests: XCTestCase {
 
         XCTAssertEqual(secondSeed.count, firstSeed.count)
         XCTAssertEqual(secondNames, firstNames)
+    }
+
+    func testAddTemplateRulesSkipsSemanticDuplicateWithExistingRule() throws {
+        let existing = Rule(
+            name: "Already Have This",
+            conditionType: .fileExtension,
+            conditionValue: "dmg",
+            actionType: .delete
+        )
+        try ruleService.createRule(existing, source: .ruleEditor)
+
+        try ruleService.addTemplateRules(template: .minimal)
+        let fetched = try ruleService.fetchRules()
+
+        let minimalTemplateRuleCount = OrganizationTemplate.minimal.generateRules().count
+        XCTAssertEqual(fetched.count, minimalTemplateRuleCount)
+        XCTAssertEqual(
+            fetched.filter { $0.actionType == .delete && $0.conditions == [RuleCondition.fileExtension("dmg")] }.count,
+            1
+        )
     }
 
     func testRestoreDeletedScreenshotRuleIfNeededRestoresRecentlyDeletedActiveRule() throws {
