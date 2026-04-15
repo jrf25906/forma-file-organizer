@@ -14,6 +14,52 @@ private final class MockContentSearchService: ContentSearchServing {
 }
 
 @MainActor
+private final class CancellationAwareMockFileScanPipeline: FileScanPipelineProtocol {
+    private(set) var scanCallCount = 0
+    private(set) var cancellationCount = 0
+
+    func scanAndPersist(
+        baseFolders: [FolderLocation],
+        scanOptions: FileScanOptions,
+        fileSystemService: FileSystemServiceProtocol,
+        ruleEngine: RuleEngine,
+        rules: [Rule],
+        context: ModelContext
+    ) async -> FileScanPipeline.ScanResult {
+        scanCallCount += 1
+
+        if scanCallCount == 1 {
+            do {
+                try await Task.sleep(for: .seconds(30))
+            } catch {
+                cancellationCount += 1
+            }
+        }
+
+        return FileScanPipeline.ScanResult(
+            files: [],
+            errorSummary: nil,
+            rawErrors: [:]
+        )
+    }
+
+    func evaluateAndPersistExplicitFiles(
+        files: [FileMetadata],
+        scannedRootPaths: [String],
+        reconcileMissingFiles: Bool,
+        ruleEngine: RuleEngine,
+        rules: [Rule],
+        context: ModelContext
+    ) async -> FileScanPipeline.ScanResult {
+        FileScanPipeline.ScanResult(
+            files: [],
+            errorSummary: nil,
+            rawErrors: [:]
+        )
+    }
+}
+
+@MainActor
 final class DashboardViewModelTests: XCTestCase {
     private let downloadsEnabledKey = "BookmarkFolder.isEnabled.\(FormaConfig.Security.downloadsBookmarkKey)"
     private let downloadsExcludedKey = "BookmarkFolder.excludeAutomation.\(FormaConfig.Security.downloadsBookmarkKey)"
@@ -63,6 +109,18 @@ final class DashboardViewModelTests: XCTestCase {
 	        try await super.tearDown()
 	    }
 
+    private func rootPublishCount(
+        while action: () -> Void
+    ) -> Int {
+        var publishCount = 0
+        let cancellable = viewModel.objectWillChange.sink { _ in
+            publishCount += 1
+        }
+        action()
+        withExtendedLifetime(cancellable) {}
+        return publishCount
+    }
+
     private func makeMetadataService() throws -> (ModelContainer, ModelContext, FileMetadataFoundationService) {
         let schema = Schema([
             FileItem.self,
@@ -81,20 +139,6 @@ final class DashboardViewModelTests: XCTestCase {
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = container.mainContext
         return (container, context, FileMetadataFoundationService(modelContext: context))
-    }
-
-    private func rootPublishCount(while action: () -> Void) -> Int {
-        var publishCount = 0
-        var cancellables = Set<AnyCancellable>()
-
-        viewModel.objectWillChange
-            .sink { _ in
-                publishCount += 1
-            }
-            .store(in: &cancellables)
-
-        action()
-        return publishCount
     }
 
     func testSetModelContextIfNeededReturnsFalseForSameContext() throws {
@@ -170,7 +214,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(publishCount, 0)
     }
 
-    func testAnalyticsChildUpdatesDoNotRepublishDashboardRoot() {
+    func testFilteredAnalyticsChildUpdatesDoNotRepublishDashboardRoot() {
         let publishCount = rootPublishCount {
             viewModel.analyticsViewModel.updateFilteredAnalytics(from: [])
         }
@@ -415,6 +459,85 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Then
         XCTAssertEqual(localPipeline.scanCallCount, 1, "Granting access after dismissing onboarding should refresh the dashboard")
+    }
+
+    func testDashboardStartupRunsInitialScanOnlyAfterOnboardingDismissal() async throws {
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        let localService = MockFileSystemService()
+        let localPipeline = MockFileScanPipeline()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: localPipeline
+        )
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+
+        await localViewModel.handleDashboardStartup(
+            context: container.mainContext,
+            autoScanOnLaunch: true
+        )
+        XCTAssertEqual(localPipeline.scanCallCount, 0, "Startup should defer the initial scan while onboarding owns the launch flow")
+
+        localViewModel.showOnboarding = false
+        await localViewModel.handleDashboardStartup(
+            context: container.mainContext,
+            autoScanOnLaunch: true
+        )
+        XCTAssertEqual(localPipeline.scanCallCount, 1, "Startup should run the initial scan once onboarding has been dismissed")
+
+        await localViewModel.handleDashboardStartup(
+            context: container.mainContext,
+            autoScanOnLaunch: true
+        )
+        XCTAssertEqual(localPipeline.scanCallCount, 1, "The startup owner should not schedule duplicate initial scans once the first launch scan has completed")
+    }
+
+    func testDashboardStartupRetriesInitialScanAfterCancelledLaunchAttempt() async throws {
+        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+        let localService = MockFileSystemService()
+        let localPipeline = CancellationAwareMockFileScanPipeline()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: localPipeline
+        )
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        localViewModel.showOnboarding = false
+
+        let cancelledStartup = Task {
+            await localViewModel.handleDashboardStartup(
+                context: container.mainContext,
+                autoScanOnLaunch: true
+            )
+        }
+
+        while localPipeline.scanCallCount == 0 {
+            await Task.yield()
+        }
+
+        cancelledStartup.cancel()
+        await cancelledStartup.value
+
+        XCTAssertEqual(localPipeline.cancellationCount, 1, "The first launch attempt should be cancelled during the initial scan")
+
+        await localViewModel.handleDashboardStartup(
+            context: container.mainContext,
+            autoScanOnLaunch: true
+        )
+
+        XCTAssertEqual(
+            localPipeline.scanCallCount,
+            2,
+            "A cancelled startup scan should not permanently suppress the first successful launch scan"
+        )
     }
 
     func testContentTagQuickFilters_HiddenWhenFlagsDisabledOrNoDurableTagsExist() throws {
@@ -2756,6 +2879,51 @@ final class DashboardViewModelTests: XCTestCase {
         )
 
         XCTAssertEqual(Set(localViewModel.allFiles.map(\.path)), [refreshedDesktopFile.path])
+    }
+
+    func testApplyAutomationScanUpdateMatchesFilesByParentDirectoryWhenScanRootPathIsMissing() async throws {
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline()
+        )
+        let container = try ModelContainer(
+            for: FileItem.self,
+            Rule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        localViewModel.setModelContext(context)
+
+        let downloadsRoot = "/Users/test/Downloads"
+        let legacyFile = FileItem(
+            path: "\(downloadsRoot)/legacy.txt",
+            sizeInBytes: 100,
+            creationDate: Date(),
+            location: .downloads,
+            scanRootPath: nil,
+            destination: nil,
+            status: .pending
+        )
+        context.insert(legacyFile)
+        try context.save()
+
+        await localViewModel.applyAutomationScanUpdate(
+            scannedRootPaths: [downloadsRoot],
+            errorSummary: nil,
+            replacesAllFiles: false,
+            context: context
+        )
+
+        await localViewModel.applyAutomationScanUpdate(
+            scannedRootPaths: [downloadsRoot],
+            errorSummary: nil,
+            replacesAllFiles: false,
+            context: context
+        )
+
+        XCTAssertEqual(localViewModel.allFiles.map(\.path), [legacyFile.path])
+        XCTAssertEqual(localViewModel.allFiles.first?.scanRootPath, nil)
     }
 
     func testApplyAutomationScanUpdateRefreshesTrustedAutomationScopeState() async throws {
@@ -5164,6 +5332,22 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isRightPanelVisible, "Opening analytics should reveal the right panel")
     }
 
+    func testAnalyticsChildUpdatesDoNotRepublishDashboardRoot() {
+        let files = [
+            FileItem(path: "/f/one.png", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+        ]
+
+        let publishCount = rootPublishCount {
+            viewModel.analyticsViewModel.updateAnalytics(from: files)
+        }
+
+        XCTAssertEqual(
+            publishCount,
+            0,
+            "Analytics child updates should be observed directly by analytics surfaces rather than republishing the dashboard root"
+        )
+    }
+
     func testDefaultPanelPrimaryActionHidesWhileRuleDraftWorkflowIsActive() {
         XCTAssertFalse(
             viewModel.shouldShowDefaultPanelPrimaryAction(for: .home, hasActiveRuleDraft: true),
@@ -5356,6 +5540,46 @@ final class DashboardViewModelTests: XCTestCase {
         } else {
             XCTFail("Right panel mode should switch to .celebration")
         }
+    }
+
+    func testCelebrationPanelTransitionDoesNotRepublishDashboardRoot() {
+        let showPublishCount = rootPublishCount {
+            viewModel.showCelebrationPanel(message: "Success!")
+        }
+        XCTAssertEqual(
+            showPublishCount,
+            0,
+            "Child-owned panel transitions should not republish the dashboard root once panel state is observed directly"
+        )
+
+        let dismissPublishCount = rootPublishCount {
+            viewModel.dismissCelebrationPanel()
+        }
+        XCTAssertEqual(
+            dismissPublishCount,
+            0,
+            "Dismissing a child-owned panel transition should not republish the dashboard root"
+        )
+    }
+
+    func testBulkOperationSheetStateDoesNotRepublishDashboardRoot() {
+        let showPublishCount = rootPublishCount {
+            viewModel.bulkOperationViewModel.showBulkEditSheet = true
+        }
+        XCTAssertEqual(
+            showPublishCount,
+            0,
+            "Bulk-operation sheet state should be observed directly instead of republishing the dashboard root"
+        )
+
+        let hidePublishCount = rootPublishCount {
+            viewModel.bulkOperationViewModel.showBulkEditSheet = false
+        }
+        XCTAssertEqual(
+            hidePublishCount,
+            0,
+            "Clearing bulk-operation sheet state should not republish the dashboard root"
+        )
     }
     
     func testReturnToDefaultPanel() {

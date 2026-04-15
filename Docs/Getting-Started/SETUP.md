@@ -1,7 +1,7 @@
 # Forma - Setup & Installation Guide
 
-**Last Updated:** December 2025
-**Status:** Full-featured file organization app with dashboard, templates, personality-based organization, and intelligent automation
+**Last Updated:** April 2026
+**Status:** Current macOS app with preview-first onboarding, batched organize/undo persistence, bounded retention, and intelligent automation
 
 ---
 
@@ -23,11 +23,10 @@ Forma is a premium macOS file organization app that intelligently organizes file
 - 7 pre-built templates (Minimalist, Creative Professional, Student, Business, Digital Nomad, Academic, Family)
 - Personality-based template recommendations
 - Custom folder structures for each template
-- Template preview during onboarding
+- Template and rule defaults can be refined after onboarding
 
 ✅ **Personality System**
-- Interactive 3-question onboarding quiz
-- 3 personality dimensions (OrganizationStyle, ThinkingStyle, MentalModel)
+- Personality model and adaptive organization signals
 - Adaptive organization suggestions
 - Personalized view modes and folder depth
 - 4 personality presets (Default, Creative, Academic, Business)
@@ -77,11 +76,11 @@ Forma is a premium macOS file organization app that intelligently organizes file
 - Contextual suggestions
 
 ✅ **Onboarding Flow**
-- 5-step guided setup (Welcome → Folders → Quiz → Template → Preview)
-- Permission requests with clear explanations
-- Personality quiz integration
-- Template selection with previews
-- Celebration screen on completion
+- 3-step guided setup (Welcome → How It Works → Get Started)
+- Downloads-only permission request during onboarding
+- Post-picker runtime verification before onboarding completes
+- Skip-for-now path plus visible retryable permission errors
+- First dashboard pass favors a visible quick win when reviewable files exist
 
 ---
 
@@ -151,63 +150,35 @@ Forma uses **Security-Scoped Bookmarks** for folder access - a secure, user-frie
 
 ## 🎯 First Launch
 
-### 4-Step Onboarding Flow
+### 3-Step Onboarding Flow
 
-Forma provides a guided onboarding experience that adapts to your organizational style:
+Forma provides a short onboarding flow focused on getting one safe, visible review pass running quickly:
 
 #### Step 1: Welcome
-- Introduction to Forma's capabilities
-- Overview of personality-based organization
-- "Get Started" button to begin
+- Overview of Forma's preview-first workflow
+- Skip-for-now option if you want to land in the app immediately
 
-#### Step 2: Folder Setup
-- **Grant Desktop Access**
-  - Folder picker appears: "Grant Forma access to your Desktop folder"
-  - Select ~/Desktop folder
-  - Click **"Grant Access"**
-  - Permission saved permanently via security-scoped bookmark
-- **Optional: Add More Folders**
-  - Add Downloads, Documents, or custom folders
-  - Each folder requires separate permission grant
-  - "Continue" button appears after Desktop is granted
+#### Step 2: How It Works
+- Explains the review-first model, undo coverage, and why Forma starts with one folder
+- Clarifies that additional folders can be granted later from the sidebar or settings
 
-#### Step 3: Personality Quiz
-- **Interactive 3-question quiz** to determine your organization style:
-  - Q1: "How do you typically find files?" → Determines OrganizationStyle + ThinkingStyle
-  - Q2: "What does your desktop look like?" → Refines OrganizationStyle
-  - Q3: "How do you think about your work?" → Determines MentalModel
-- **Answer Cards** with visual icons and descriptions
-- **Progress Indicator** shows quiz completion
-- **Results View** displays your personality profile:
-  - Personality title (e.g., "Visual Organizer", "Systematic Organizer")
-  - Recommended template based on personality
-  - Personality dimension breakdown
-
-#### Step 4: Template Selection
-- **Pre-selected template** based on quiz results
-- **7 available templates:**
-  - Minimalist (for Pilers)
-  - Creative Professional (for Project-based Filers)
-  - Student (for Time-based Learners)
-  - Business Professional (for Structured Organizers)
-  - Digital Nomad (for Flexible Workers)
-  - Academic Researcher (for Topic-based Thinkers)
-  - Family Organizer (for Household Management)
-- **Template Preview Cards** show folder structure
-- "Get Started" completes onboarding
-
-#### Step 5: Celebration
-- Success screen with confetti animation
-- "Start Organizing" button launches main dashboard
+#### Step 3: Get Started
+- Clicking **Start Organizing** opens the macOS folder picker for **Downloads**
+- Select `~/Downloads`
+- Forma saves the security-scoped bookmark and immediately re-checks that Downloads access is actually available
+- If verification fails or the picker is cancelled, onboarding stays on **Get Started** and shows a visible retryable error
+- **Skip for now** completes onboarding without Downloads access; you can grant Downloads or other folders later
 
 ### Post-Onboarding: Dashboard Launch
 
 After onboarding, you land on the main dashboard:
 
+- If Downloads access is verified and there are reviewable files, Forma prefers to surface a visible first pass or quick win instead of a blank shell
+
 1. **Sidebar (Left Panel)**
    - Navigation: Overview, All Files, Rules, Projects, Settings
    - Filter tabs: All, Documents, Images, Videos, Archives
-   - Quick stats overview
+   - Granted folders appear under **LOCATIONS**, and additional folders can be added later
 
 2. **Main Content (Center Panel)**
    - File review list with your selected view mode (Card/List/Grid)
@@ -223,7 +194,8 @@ After onboarding, you land on the main dashboard:
 ### Moving Your First File
 
 1. **Find a file with a matching rule**
-   - Rules are pre-loaded from your selected template
+   - Rules are pre-loaded from Forma's current defaults and template configuration
+   - Downloads is the default first granted source when onboarding completes with access
    - Files with matches show ✓ indicator and suggested destination
 
 2. **Click the Move button** (✓ or checkmark)
@@ -257,7 +229,7 @@ The app now validates folder selections:
 
 ## 📁 Rules System
 
-Forma uses template-based rules that are customized based on your selected organization template and personality.
+Forma uses template-based rules that are customized based on your active template configuration and smart defaults.
 
 ### Template-Based Rules
 
@@ -330,10 +302,10 @@ Rules are evaluated in order of specificity:
 
 3. **Complete onboarding flow:**
    - Welcome screen → Click "Get Started"
-   - Folder setup → Grant Desktop access
-   - Personality quiz → Answer all 3 questions
-   - Template selection → Review suggested template or choose different one
-   - Celebration screen → Click "Start Organizing"
+   - How It Works → Continue
+   - Get Started → Click "Start Organizing"
+   - In the macOS picker, select `~/Downloads`
+   - If the picker is cancelled or verification fails, confirm the retryable error appears and retry
 
 4. **Verify dashboard loads:**
    - Sidebar shows navigation items
@@ -778,8 +750,8 @@ While Forma has a comprehensive feature set, there are some known limitations:
 
 - **Views:**
   - `Views/DashboardView.swift` - Main three-panel interface
-  - `Views/Onboarding/OnboardingFlowView.swift` - 5-step onboarding
-  - `Views/PersonalityQuizView.swift` - Personality assessment
+  - `Views/Onboarding/OnboardingFlowView.swift` - 3-step onboarding
+  - `Views/PersonalityQuizView.swift` - Standalone personality assessment surface
   - `Views/RulesManagementView.swift` - Rule creation and editing
   - `Views/Settings/SettingsView.swift` - App preferences
 

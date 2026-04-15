@@ -7,9 +7,28 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 ## [Unreleased]
 ### Added
 - Developer workflow guidance for the `build-macos-apps` plugin now lives in `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md`, with a Forma-specific reusable prompt and verification expectations aligned to `codex-project.toml`, `AGENTS.md`, `fastlane/`, and `Scripts/`.
+- Added `script/build_and_run.sh` as the repo-local kill/build/launch entrypoint for the native macOS app, and repointed `.codex/environments/environment.toml` so the Codex app `Run` action now uses that maintained script instead of an inline `xcodebuild && open` chain.
 
 ### Fixed
-- Watched-folder refreshes now flow through a real delta path: the watcher emits touched roots plus updated/removed standardized paths, realtime scans debounce at `0.2s`, single-root batches below the escalation threshold scan only explicit touched files, and the dashboard merges those file-row changes without rerunning cluster/project-space refresh work.
+- Batched persistence, retention, and onboarding verification:
+  - `FileOrganizationCoordinator` now prefetches bulk organize/undo/redo state once, stages file-item, metadata-history, activity, and personal-memory mutations in one `ModelContext`, and performs one persistence save per batch instead of per-file saves.
+  - Bulk organize/undo/redo still tolerate per-file move failures, but a final persistence failure now compensates successful disk moves and restores model state so Forma does not leave disk and SwiftData out of sync.
+  - `FileMetadataFoundationService`, `PersonalMemoryService`, and `ActivityLoggingService` now expose no-save staging paths used by the batched organize/undo/redo flow.
+  - `HistoryRetentionService` and `FormaConfig.retention` now prune workflow audit, trusted-scope run history, and personal-memory event history by a shared 90-day window plus default caps of 2,000 workflow runs, 100 trusted-scope runs per scope, and 10,000 personal-memory events.
+  - Workflow-audit latest-run lookups, trusted-scope summaries, and personal-memory evidence scans now use bounded fetches instead of fetch-all plus in-memory filtering.
+  - Downloads onboarding now re-checks actual access after the macOS folder picker succeeds; cancellation or failed verification keeps the user on `Get Started` with a visible retryable error instead of finishing onboarding early.
+- Critical-path optimization follow-through:
+  - `AnalyticsDashboardViewModel` now diffs persisted cluster membership before fetch/save, so a changed scan that converges to the same cluster set skips the persistence pass entirely instead of reloading and rewriting identical `ProjectCluster` rows.
+  - `DashboardViewModel` / `DashboardView` now give startup scan and deferred maintenance a single owner, moving optional work off the first meaningful dashboard view and preventing duplicate launch-triggered refreshes.
+  - `DashboardViewModel.handleDashboardStartup(context:autoScanOnLaunch:)` now marks the launch scan as complete only after a non-cancelled pass finishes, so a cancelled startup attempt still retries the first real scan on the next launch-owned run.
+  - Inspector open paths now reuse selection-local matched-rule and workflow-preview state, while expensive simulation and metadata proof refreshes are deferred off the initial inspector reveal.
+  - Rule authoring now routes writes through shared `RuleAuthoringService` delta evaluation instead of rewalking every rule/file pair for small preview/save edits.
+  - Watched-folder refreshes now flow through a real delta path: the watcher emits touched roots plus updated/removed standardized paths, realtime scans debounce at `0.2s`, single-root batches below the escalation threshold scan only explicit touched files, and the dashboard merges those file-row changes without rerunning cluster/project-space refresh work.
+- Performance validation and runtime verification:
+  - `TestGating` now recognizes the dedicated Integration and Performance Xcode test plans by `XCODE_TEST_PLAN_NAME`, restoring `OptimizationBenchmarksTests` under the performance plan without requiring extra environment surgery.
+  - `PerformanceHarnessConfiguration` plus `Scripts/signpost_harness_snapshot.sh` now support deterministic signpost capture again by launching the app through a shell wrapper, writing harness events to the sandbox container, copying JSONL results back to the requested output path, and using those events as the summary fallback when exported `xctrace` tables are empty.
+  - `DashboardPermissionState` and `BookmarkFolderService` now share one `UITestFolderAccessConfiguration` for `FORMA_UI_TEST_ACCESSIBLE_FOLDERS`, keeping UI/perf permission state aligned with bookmark-backed folder availability when no explicit override is present.
+  - Added runtime verification coverage for inspector relaunch visibility persistence and onboarding permission recovery, along with matching unit coverage for onboarding-dismissal recovery and saved inspector-width restore behavior.
 - Startup and resize responsiveness around trusted automation scopes:
   - `DashboardViewModel.setModelContext(_:)` no longer refreshes trusted automation scopes synchronously during initial window restoration, so Forma no longer pegs the main thread doing hidden right-panel work while a saved window reopens or resizes.
   - `DefaultPanelView` now schedules trusted-scope refresh just after the panel appears instead of forcing that work into the same render/layout turn as view restoration.

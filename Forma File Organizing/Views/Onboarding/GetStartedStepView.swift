@@ -7,6 +7,7 @@ struct GetStartedStepView: View {
     let onStartOrganizing: () -> Void
     let onBack: () -> Void
     let onSkip: () -> Void
+    let errorMessage: String?
 
     @State private var appeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -84,6 +85,25 @@ struct GetStartedStepView: View {
             )
             .padding(.horizontal, FormaSpacing.extraLarge)
 
+            if let errorMessage, !errorMessage.isEmpty {
+                HStack(spacing: FormaSpacing.tight) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.formaError)
+                    Text(errorMessage)
+                        .font(.formaBody)
+                        .foregroundColor(.formaLabel)
+                    Spacer(minLength: 0)
+                }
+                .padding(FormaSpacing.standard)
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                        .fill(Color.formaError.opacity(0.08))
+                )
+                .padding(.horizontal, FormaSpacing.extraLarge)
+                .padding(.top, FormaSpacing.standard)
+                .accessibilityIdentifier("onboardingPermissionError")
+            }
+
             Spacer()
 
             // Footer
@@ -133,7 +153,8 @@ struct GetStartedStepView: View {
     GetStartedStepView(
         onStartOrganizing: {},
         onBack: {},
-        onSkip: {}
+        onSkip: {},
+        errorMessage: "Forma could not verify access to Downloads. Try selecting it again."
     )
     .frame(width: 520, height: 520)
     .background(Color.formaBackground)

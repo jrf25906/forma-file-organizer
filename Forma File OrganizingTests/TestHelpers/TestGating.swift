@@ -1,12 +1,15 @@
 import XCTest
 
 enum TestGating {
+    private static let integrationPlanName = "Forma File Organizing - Integration"
+    private static let performancePlanName = "Forma File Organizing - Performance"
+
     static var isIntegrationEnabled: Bool {
-        isEnabled("RUN_INTEGRATION_TESTS")
+        isEnabled("RUN_INTEGRATION_TESTS", planName: integrationPlanName)
     }
 
     static var isPerformanceEnabled: Bool {
-        isEnabled("RUN_PERFORMANCE_TESTS")
+        isEnabled("RUN_PERFORMANCE_TESTS", planName: performancePlanName)
     }
 
     static func requireIntegration() throws {
@@ -21,7 +24,12 @@ enum TestGating {
         }
     }
 
-    private static func isEnabled(_ key: String) -> Bool {
-        ProcessInfo.processInfo.environment[key] == "1"
+    private static func isEnabled(_ key: String, planName: String) -> Bool {
+        let environment = ProcessInfo.processInfo.environment
+        if environment[key] == "1" {
+            return true
+        }
+
+        return environment["XCODE_TEST_PLAN_NAME"] == planName
     }
 }

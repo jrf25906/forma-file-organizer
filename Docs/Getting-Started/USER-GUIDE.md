@@ -1,7 +1,7 @@
 # Forma - User Guide
 
-**Version:** 1.0  
-**Last Updated:** December 2025  
+**Version:** 1.1
+**Last Updated:** April 2026
 **Audience:** Everyday users of Forma (no code required)
 
 ---
@@ -10,7 +10,7 @@
 
 Forma is a macOS app that keeps your Desktop, Downloads, and other folders organized using:
 
-- **Personality-based templates** – folder structures tailored to how you think and work
+- **Preview-first onboarding** – start with Downloads or skip, then review a visible first pass
 - **Smart rules** – automatic moves based on file type, name, or patterns
 - **AI-powered context detection** – understands related files and suggests destinations
 - **Project clustering** – groups related files into projects
@@ -33,11 +33,11 @@ For installation, permissions, and advanced diagnostics, see `SETUP.md`. This gu
 
 ### Sidebar Locations (Auto-Populated)
 
-When you grant folder permissions during onboarding, those folders automatically appear in the sidebar under **LOCATIONS**. This "two birds, one stone" design means:
+When you grant folder permissions during onboarding or later from the sidebar/settings, those folders automatically appear in the sidebar under **LOCATIONS**. This means:
 
-- You only grant permissions once (during onboarding)
+- You only grant permissions once per folder
 - The folders you granted access to are immediately visible for navigation
-- No need to separately "add" locations after onboarding
+- Downloads is the default first folder during onboarding; other folders can be added later without restarting setup
 
 You can still add more locations later using the **+ Add Location** button in the sidebar.
 
@@ -53,14 +53,9 @@ You can switch between **card, list, or grid** views to match your preference.
 
 ### Personality & Templates
 
-- On first launch, a short **personality quiz** learns how you think about files
-- Based on your answers, Forma recommends an **organization template**
-- Templates define:
-  - Default folder structure (e.g., “Documents/Work/Clients/…”, “Pictures/Screenshots”)
-  - Preferred view modes
-  - Suggested depth of nesting
-
-You can change templates later in **Settings → Templates** without losing existing files.
+- On first launch, Forma no longer blocks on a quiz or template picker
+- The onboarding path asks for **Downloads** access, then starts from sensible defaults and a visible first review pass when possible
+- Templates, rules, and other smart-feature tuning can be refined later without re-running onboarding
 
 ### Rules & Suggestions
 
@@ -98,17 +93,17 @@ If you just installed Forma, follow this high-level path:
 
 2. **Complete onboarding**
    - **Step 1 – Welcome:** Overview of what Forma will do
-   - **Step 2 – Folder Setup:** Grant access to Desktop and optionally Downloads/Documents/Pictures (these folders will automatically appear in the sidebar under LOCATIONS)
-   - **Step 3 – Personality Quiz:** Answer three questions about how you usually find files
-   - **Step 4 – Template Selection:** Confirm or change the suggested template
+   - **Step 2 – How It Works:** Quick explanation of the review-first workflow and undo coverage
+   - **Step 3 – Get Started:** Grant access to **Downloads** or skip for now
+   - If the picker is cancelled or Downloads access cannot be verified, Forma keeps you on **Get Started** and shows a retryable error
 
 3. **Land on the Dashboard**
-   - Left: your sources (Desktop, Downloads, etc.)
-   - Center: files needing review
+   - Left: your granted sources (Downloads first, then any other folders you add later)
+   - Center: files needing review, often starting with one visible quick win
    - Right: active file details / suggestions
 
 4. **Run your first scan**
-   - Select **Desktop** (or another source) in the sidebar
+   - Select **Downloads** (or another granted source) in the sidebar
    - Click **Scan** or the refresh button (↻)
    - Forma analyzes files and shows which rules/suggestions apply
 
@@ -122,7 +117,7 @@ If you just installed Forma, follow this high-level path:
    - Watch the activity feed to see what moved
    - Use **Undo** if something isn’t where you expect
 
-For detailed screenshots and onboarding flow diagrams, see `Docs/Design/Forma-Onboarding-Flow.md`.
+For current permission and onboarding troubleshooting details, see `SETUP.md`.
 
 ---
 
@@ -344,10 +339,10 @@ To support this guide with visuals, capture the following assets and reference t
 ### Onboarding Flow
 
 - **Welcome Screen** – Initial “Welcome to Forma” view with key value props (Section 3).
-- **Folder Setup** – Folder picker requesting Desktop and optional additional folders; highlight the “Grant Access” action and correct folder names.
-- **Personality Quiz** – At least one screenshot per question plus the results view showing personality dimensions and recommended template.
-- **Template Selection** – Template cards with one template pre‑selected based on quiz results.
-- **Celebration Screen** – Final “You’re ready” / confetti screen with “Start Organizing” CTA.
+- **How It Works** – Review-first explanation screen that primes the user for one safe first pass.
+- **Get Started** – Downloads-focused picker prompt plus the explanatory card that says “pick Downloads”.
+- **Permission Error State** – Retryable inline error after picker cancellation or failed Downloads verification.
+- **Initial Dashboard After Onboarding** – First visible review pass or quick-win state after verified setup.
 
 ### Dashboard & Everyday Use
 
@@ -374,7 +369,7 @@ To support this guide with visuals, capture the following assets and reference t
 
 ### Recommended GIFs
 
-- **Full Onboarding Flow** – Welcome → Folder Setup → Quiz → Template → Celebration.
+- **Full Onboarding Flow** – Welcome → How It Works → Get Started → Downloads picker → first review pass.
 - **Desktop Cleanup Session** – Scan Desktop, review suggestions, run Organize, and show before/after.
 - **Rule Creation & Application** – Create a rule, re‑scan, and apply moves based on that rule.
 - **Project Cluster Exploration** – Open a cluster, view related files, and jump into destinations.

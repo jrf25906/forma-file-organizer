@@ -43,6 +43,8 @@ enum FileRecoveryState {
     .environmentObject(viewModel)
     .environmentObject(viewModel.filterViewModel)
     .environmentObject(viewModel.selectionViewModel)
+    .environmentObject(viewModel.bulkOperationViewModel)
+    .environmentObject(viewModel.panelStateManager)
     .environmentObject(NavigationViewModel())
 }
 
@@ -55,6 +57,8 @@ struct MainContentView: View {
     let availableWidth: CGFloat
     @EnvironmentObject var nav: NavigationViewModel
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject private var bulkOperationViewModel: BulkOperationViewModel
+    @EnvironmentObject private var panelStateManager: PanelStateManager
     @EnvironmentObject private var filterViewModel: FilterViewModel
     @EnvironmentObject private var selectionViewModel: SelectionViewModel
     @Environment(\.modelContext) private var modelContext
@@ -129,7 +133,7 @@ struct MainContentView: View {
     /// Whether the first-run suggestion banner should be shown
     private var shouldShowFirstRunBanner: Bool {
         UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
-        && !dashboardViewModel.isBulkOperationInProgress
+        && !bulkOperationViewModel.isBulkOperationInProgress
         && dashboardViewModel.firstRunQuickWinSuggestion != nil
     }
 
@@ -289,7 +293,7 @@ struct MainContentView: View {
             if isUITesting {
                 uiTestShortcutHandlers
                 Group {
-                    if dashboardViewModel.editingDestinationFile != nil {
+                    if panelStateManager.editingDestinationFile != nil {
                         Color.clear
                             .accessibilityIdentifier("editDestinationSheet")
                     }
@@ -316,10 +320,10 @@ struct MainContentView: View {
                     .padding(.horizontal, FormaLayout.Gutters.center)
                 }
 
-                FloatingActionBar(
-                    mode: .selection,
-                    count: selectedFileIDs.count,
-                    canOrganizeAll: dashboardViewModel.canOrganizeAllSelected,
+                    FloatingActionBar(
+                        mode: .selection,
+                        count: selectedFileIDs.count,
+                        canOrganizeAll: dashboardViewModel.canOrganizeAllSelected,
                     onOrganize: {
                         dashboardViewModel.organizeSelectedFiles(context: modelContext)
                     },
@@ -327,7 +331,7 @@ struct MainContentView: View {
                         dashboardViewModel.skipSelectedFiles()
                     },
                     onBulkEdit: {
-                        dashboardViewModel.showBulkEditSheet = true
+                        bulkOperationViewModel.showBulkEditSheet = true
                     },
                     onDeselect: {
                         dashboardViewModel.deselectAll()
@@ -366,14 +370,14 @@ struct MainContentView: View {
         } // End ZStack
         .overlay {
             // Phase 2: Bulk Operation Progress Overlay
-            if dashboardViewModel.isBulkOperationInProgress {
+            if bulkOperationViewModel.isBulkOperationInProgress {
                 ZStack {
                     Color.formaObsidian.opacity(Color.FormaOpacity.overlay)
                         .edgesIgnoringSafeArea(.all)
                     
                     BulkOperationProgressView(
                         totalFiles: dashboardViewModel.selectedFiles.count,
-                        progress: dashboardViewModel.bulkOperationProgress,
+                        progress: bulkOperationViewModel.bulkOperationProgress,
                         onCancel: {
                             dashboardViewModel.cancelBulkOperation()
                             dashboardViewModel.deselectAll()
@@ -402,14 +406,14 @@ struct MainContentView: View {
             dashboardViewModel.updateSearchText(newValue)
         }
         .sheet(isPresented: Binding(
-            get: { dashboardViewModel.editingDestinationFile != nil },
+            get: { panelStateManager.editingDestinationFile != nil },
             set: { isPresented in
                 if !isPresented {
-                    dashboardViewModel.editingDestinationFile = nil
+                    panelStateManager.editingDestinationFile = nil
                 }
             }
         )) {
-            if let file = dashboardViewModel.editingDestinationFile {
+            if let file = panelStateManager.editingDestinationFile {
                 EditDestinationSheet(file: file) { newDestination in
                     dashboardViewModel.updateDestination(for: file, to: newDestination)
                 }
@@ -417,7 +421,7 @@ struct MainContentView: View {
             }
         }
         // Phase 2: Bulk Edit Sheet
-        .sheet(isPresented: $dashboardViewModel.showBulkEditSheet) {
+        .sheet(isPresented: $bulkOperationViewModel.showBulkEditSheet) {
             BulkEditSheet(
                 selectedFiles: dashboardViewModel.selectedFiles,
                 onSave: { destination, createRules in
@@ -436,9 +440,9 @@ struct MainContentView: View {
                 .presentationBackground(.clear)
         }
         // Failed Files Sheet
-        .sheet(isPresented: $dashboardViewModel.showFailedFilesSheet) {
+        .sheet(isPresented: $bulkOperationViewModel.showFailedFilesSheet) {
             FailedFilesSheet(
-                failedFiles: dashboardViewModel.lastBatchFailedFiles,
+                failedFiles: bulkOperationViewModel.lastBatchFailedFiles,
                 onRetry: {
                     dashboardViewModel.retryFailedFiles(context: modelContext)
                 },
@@ -454,9 +458,6 @@ struct MainContentView: View {
             selectionViewModel: selectionViewModel,
             context: modelContext
         )
-        .onAppear {
-            dashboardViewModel.setModelContext(modelContext)
-        }
         .environment(\.fileSurfaceLayout, fileSurfaceLayout)
     }
 

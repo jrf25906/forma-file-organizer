@@ -58,6 +58,14 @@ struct Forma_File_OrganizingApp: App {
         ProcessInfo.processInfo.arguments.contains("--uitesting")
     }
 
+    private static var isPerformanceHarnessMode: Bool {
+        PerformanceHarnessConfiguration.isEnabled
+    }
+
+    private static var usesDeterministicHarnessContainer: Bool {
+        isUITesting || isPerformanceHarnessMode
+    }
+
     private static func uiTestWindowSize() -> (width: CGFloat, height: CGFloat)? {
         guard isUITesting else { return nil }
         guard let raw = ProcessInfo.processInfo.environment["FORMA_WINDOW_SIZE"] else { return nil }
@@ -89,7 +97,7 @@ struct Forma_File_OrganizingApp: App {
 
     private var isTesting: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
-        Self.isUITesting
+        Self.usesDeterministicHarnessContainer
     }
     
     // MARK: - Schema Definition (DRY Principle)
@@ -133,22 +141,26 @@ struct Forma_File_OrganizingApp: App {
                 launchPresentation: Self.launchPresentation
             )
         )
+        let harnessViewModel = _dashboardViewModel.wrappedValue
 
-        // Check if running UI Tests (take precedence over XCTestConfigurationFilePath)
-        if Self.isUITesting {
+        // Deterministic UI/performance harnesses use an in-memory container with seeded mocks.
+        if Self.usesDeterministicHarnessContainer {
             // Allow UI tests to force appearance for deterministic screenshots.
             // Expected values match `AppearanceMode.rawValue`: system|light|dark
-            if let forcedAppearance = ProcessInfo.processInfo.environment["FORMA_APPEARANCE_MODE"],
+            if Self.isUITesting,
+               let forcedAppearance = ProcessInfo.processInfo.environment["FORMA_APPEARANCE_MODE"],
                AppearanceMode(rawValue: forcedAppearance) != nil {
                 UserDefaults.standard.set(forcedAppearance, forKey: "appearanceMode")
             }
 
             do {
                 let modelConfiguration = ModelConfiguration(schema: Self.appSchema, isStoredInMemoryOnly: true)
-                container = try ModelContainer(for: Self.appSchema, configurations: [modelConfiguration])
+                let harnessContainer = try ModelContainer(for: Self.appSchema, configurations: [modelConfiguration])
+                container = harnessContainer
+                let harnessMainContext = harnessContainer.mainContext
                 
                 // Seed UI Test Mocks
-                let context = ModelContext(container)
+                let context = ModelContext(harnessContainer)
                 for mock in FileItem.uiTestMocks {
                     context.insert(mock)
                 }
@@ -158,6 +170,21 @@ struct Forma_File_OrganizingApp: App {
                     Log.error("Failed to save UI test mocks to SwiftData: \(error.localizedDescription)", category: .general)
                     // In UI tests, this is non-critical - mocks are in memory anyway
                 }
+
+                #if DEBUG
+                if Self.isPerformanceHarnessMode {
+                    PerformanceMonitor.shared.consoleLoggingEnabled = true
+                    Task { @MainActor in
+                        harnessViewModel.prepareStartupContext(harnessMainContext)
+                        await harnessViewModel.runPerformanceSignpostHarness(
+                            iterations: PerformanceHarnessConfiguration.sampleIterations,
+                            warmupIterations: PerformanceHarnessConfiguration.warmupIterations,
+                            context: harnessMainContext
+                        )
+                        NSApplication.shared.terminate(nil)
+                    }
+                }
+                #endif
             } catch {
                 fatalError("Could not create UI Test ModelContainer: \(error)")
             }
@@ -287,6 +314,8 @@ struct Forma_File_OrganizingApp: App {
             .environmentObject(dashboardViewModel.filterViewModel)
             .environmentObject(dashboardViewModel.selectionViewModel)
             .environmentObject(dashboardViewModel.analyticsViewModel)
+            .environmentObject(dashboardViewModel.bulkOperationViewModel)
+            .environmentObject(dashboardViewModel.panelStateManager)
             .appReviewPrompt(
                 shouldRequest: Binding(
                     get: { dashboardViewModel.shouldRequestAppReview },

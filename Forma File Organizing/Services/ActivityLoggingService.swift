@@ -32,6 +32,26 @@ final class ActivityLoggingService {
         ruleID: UUID? = nil,
         affectedFileCount: Int? = nil
     ) {
+        _ = logWithoutSaving(
+            type,
+            name: name,
+            details: details,
+            fileExtension: fileExtension,
+            ruleID: ruleID,
+            affectedFileCount: affectedFileCount
+        )
+        save()
+    }
+
+    @discardableResult
+    func logWithoutSaving(
+        _ type: ActivityItem.ActivityType,
+        name: String,
+        details: String,
+        fileExtension: String? = nil,
+        ruleID: UUID? = nil,
+        affectedFileCount: Int? = nil
+    ) -> ActivityItem {
         let activity = ActivityItem(
             activityType: type,
             fileName: name,
@@ -41,7 +61,7 @@ final class ActivityLoggingService {
             affectedFileCount: affectedFileCount
         )
         modelContext.insert(activity)
-        save()
+        return activity
     }
 
     // MARK: - File Operations
@@ -173,9 +193,57 @@ final class ActivityLoggingService {
         log(.bulkUndone, name: "\(count) files", details: details)
     }
 
+    func logBulkUndoneWithoutSaving(count: Int, origin: OrganizationRunOrigin = .reviewDriven) {
+        let details = origin == .automation
+            ? "Restored to original locations from the last automatic pass."
+            : "Restored to original locations from the last review pass."
+        _ = logWithoutSaving(.bulkUndone, name: "\(count) files", details: details)
+    }
+
     func logBulkPartialFailure(successCount: Int, failedCount: Int, firstError: String?) {
         let errorDetail = firstError.map { " (\($0))" } ?? ""
         log(.bulkPartialFailure, name: "\(failedCount) of \(successCount + failedCount) files", details: "Failed to organize\(errorDetail)")
+    }
+
+    func logBulkPartialFailureWithoutSaving(successCount: Int, failedCount: Int, firstError: String?) {
+        let errorDetail = firstError.map { " (\($0))" } ?? ""
+        _ = logWithoutSaving(
+            .bulkPartialFailure,
+            name: "\(failedCount) of \(successCount + failedCount) files",
+            details: "Failed to organize\(errorDetail)"
+        )
+    }
+
+    func logBulkOrganizedWithoutSaving(
+        count: Int,
+        destination: String? = nil,
+        origin: OrganizationRunOrigin = .reviewDriven,
+        undoAvailable: Bool = true
+    ) {
+        var segments = [destination.map { "Moved to \($0)" } ?? "Multiple destinations"]
+        segments.append(origin == .automation ? "Automatic pass" : "Review pass")
+        segments.append(undoAvailable ? "Undo available" : "Final")
+        let details = segments.joined(separator: ". ")
+        _ = logWithoutSaving(.bulkOrganized, name: "\(count) files", details: details, affectedFileCount: count)
+    }
+
+    func logOperationFailedWithoutSaving(fileName: String, operation: String, errorMessage: String, fileExtension: String?) {
+        _ = logWithoutSaving(
+            .operationFailed,
+            name: fileName,
+            details: "\(operation) failed: \(errorMessage)",
+            fileExtension: fileExtension
+        )
+    }
+
+    func logRuleAppliedWithoutSaving(ruleName: String, ruleID: UUID, matchCount: Int) {
+        _ = logWithoutSaving(
+            .ruleApplied,
+            name: ruleName,
+            details: "Applied to \(matchCount) file(s)",
+            ruleID: ruleID,
+            affectedFileCount: matchCount
+        )
     }
 
     // MARK: - Automation (v1.4)

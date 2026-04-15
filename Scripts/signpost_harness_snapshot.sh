@@ -149,14 +149,33 @@ if [[ ! -x "$APP_EXECUTABLE" ]]; then
   exit 1
 fi
 
+APP_BUNDLE="$(cd "$(dirname "$APP_EXECUTABLE")/../.." && pwd)"
+INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"
+if [[ ! -f "$INFO_PLIST" ]]; then
+  echo "Info.plist not found for app bundle: $APP_BUNDLE" >&2
+  exit 1
+fi
+
+BUNDLE_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST" 2>/dev/null || true)
+if [[ -z "$BUNDLE_IDENTIFIER" ]]; then
+  echo "Failed to resolve CFBundleIdentifier from: $INFO_PLIST" >&2
+  exit 1
+fi
+
 TRACE_OUTPUT="${OUTPUT_PREFIX}.trace"
 TOC_XML="${OUTPUT_PREFIX}-toc.xml"
 INTERVALS_XML="${OUTPUT_PREFIX}-intervals.xml"
 SIGNPOSTS_XML="${OUTPUT_PREFIX}-signposts.xml"
+EVENTS_JSONL="${OUTPUT_PREFIX}-events.jsonl"
+APP_EVENTS_DIR="$HOME/Library/Containers/$BUNDLE_IDENTIFIER/Data/tmp"
+APP_EVENTS_JSONL="$APP_EVENTS_DIR/$(basename "$EVENTS_JSONL")"
 SUMMARY_JSON="${OUTPUT_PREFIX}-summary.json"
 SUMMARY_MD="${OUTPUT_PREFIX}-summary.md"
 
-rm -rf "$TRACE_OUTPUT" "$TOC_XML" "$INTERVALS_XML" "$SIGNPOSTS_XML" "$SUMMARY_JSON" "$SUMMARY_MD"
+mkdir -p "$(dirname "$OUTPUT_PREFIX")"
+mkdir -p "$APP_EVENTS_DIR"
+
+rm -rf "$TRACE_OUTPUT" "$TOC_XML" "$INTERVALS_XML" "$SIGNPOSTS_XML" "$EVENTS_JSONL" "$APP_EVENTS_JSONL" "$SUMMARY_JSON" "$SUMMARY_MD"
 
 echo "Recording signpost trace..."
 set +e
@@ -166,18 +185,21 @@ xcrun xctrace record \
   --time-limit "${TIME_LIMIT_SECONDS}s" \
   --no-prompt \
   --launch \
-  -- /usr/bin/env \
-  FORMA_PERF_HARNESS_WARMUP="$WARMUP" \
-  FORMA_PERF_HARNESS_ITERATIONS="$ITERATIONS" \
+  -- /bin/bash -lc 'exec "$0" --perf-harness-warmup "$1" --perf-harness-iterations "$2" --perf-harness-events-file "$3" --perf-signpost-harness' \
   "$APP_EXECUTABLE" \
-  --uitesting \
-  --perf-signpost-harness
+  "$WARMUP" \
+  "$ITERATIONS" \
+  "$APP_EVENTS_JSONL"
 RECORD_EXIT=$?
 set -e
 
 if [[ "$RECORD_EXIT" -ne 0 && "$RECORD_EXIT" -ne 54 ]]; then
   echo "xctrace record failed with exit code $RECORD_EXIT" >&2
   exit "$RECORD_EXIT"
+fi
+
+if [[ -f "$APP_EVENTS_JSONL" ]]; then
+  cp "$APP_EVENTS_JSONL" "$EVENTS_JSONL"
 fi
 
 echo "Exporting trace metadata..."
@@ -205,15 +227,14 @@ PY
 )
 
 if [[ "$INTERVAL_TABLE_INDEX" -le 0 ]]; then
-  echo "Unable to find os-signpost-interval table in trace TOC." >&2
-  exit 1
+  printf '<trace-data />\n' >"$INTERVALS_XML"
+else
+  echo "Exporting intervals (table ${INTERVAL_TABLE_INDEX})..."
+  xcrun xctrace export \
+    --input "$TRACE_OUTPUT" \
+    --output "$INTERVALS_XML" \
+    --xpath "//trace-toc[1]/run[1]/data[1]/table[${INTERVAL_TABLE_INDEX}]"
 fi
-
-echo "Exporting intervals (table ${INTERVAL_TABLE_INDEX})..."
-xcrun xctrace export \
-  --input "$TRACE_OUTPUT" \
-  --output "$INTERVALS_XML" \
-  --xpath "//trace-toc[1]/run[1]/data[1]/table[${INTERVAL_TABLE_INDEX}]"
 
 if [[ "$SIGNPOST_TABLE_INDEX" -gt 0 ]]; then
   echo "Exporting signposts (table ${SIGNPOST_TABLE_INDEX})..."
@@ -224,7 +245,7 @@ if [[ "$SIGNPOST_TABLE_INDEX" -gt 0 ]]; then
 fi
 
 echo "Computing summary stats..."
-python3 - "$INTERVALS_XML" "$SUMMARY_JSON" "$SUMMARY_MD" "$WARMUP" "$ITERATIONS" <<'PY'
+python3 - "$INTERVALS_XML" "$SUMMARY_JSON" "$SUMMARY_MD" "$WARMUP" "$ITERATIONS" "$EVENTS_JSONL" <<'PY'
 import json
 import re
 import statistics
@@ -237,53 +258,67 @@ summary_json = Path(sys.argv[2])
 summary_md = Path(sys.argv[3])
 requested_warmup = int(sys.argv[4])
 requested_iterations = int(sys.argv[5])
+events_jsonl = Path(sys.argv[6])
 
-root = ET.parse(intervals_xml).getroot()
 records = []
 
-for node in root.findall("node"):
-    id_fmt = {}
-    for elem in node.iter():
-        elem_id = elem.attrib.get("id")
-        elem_fmt = elem.attrib.get("fmt")
-        if elem_id is not None and elem_fmt is not None:
-            id_fmt[elem_id] = elem_fmt
-
-    for row in node.findall("row"):
-        duration_elem = row.find("duration")
-        start_elem = row.find("start-time")
-        meta_elem = row.find("os-log-metadata")
-        if duration_elem is None or start_elem is None or meta_elem is None:
+if events_jsonl.exists() and events_jsonl.stat().st_size > 0:
+    for line in events_jsonl.read_text().splitlines():
+        if not line.strip():
             continue
-        if duration_elem.text is None or start_elem.text is None:
-            continue
-
-        try:
-            duration_ms = int(duration_elem.text) / 1_000_000
-            start_ns = int(start_elem.text)
-        except ValueError:
-            continue
-
-        start_message = meta_elem.attrib.get("fmt")
-        if start_message is None:
-            ref = meta_elem.attrib.get("ref")
-            if ref is not None:
-                start_message = id_fmt.get(ref)
-        if not start_message:
-            continue
-
-        event_match = re.search(r"\[\s*(DashboardScanRefresh|DefaultPanelInsightRefresh)\s*\]", start_message)
-        kind_match = re.search(r"harness\s+(warmup|sample)\s+(\d+)", start_message)
-        if not event_match or not kind_match:
-            continue
-
+        record = json.loads(line)
         records.append({
-            "event": event_match.group(1),
-            "kind": kind_match.group(1),
-            "index": int(kind_match.group(2)),
-            "start_ns": start_ns,
-            "duration_ms": duration_ms
+            "event": record["event"],
+            "kind": record["kind"],
+            "index": int(record["index"]),
+            "start_ns": int(record["startedAtNs"]),
+            "duration_ms": float(record["durationMs"])
         })
+else:
+    root = ET.parse(intervals_xml).getroot()
+    for node in root.findall("node"):
+        id_fmt = {}
+        for elem in node.iter():
+            elem_id = elem.attrib.get("id")
+            elem_fmt = elem.attrib.get("fmt")
+            if elem_id is not None and elem_fmt is not None:
+                id_fmt[elem_id] = elem_fmt
+
+        for row in node.findall("row"):
+            duration_elem = row.find("duration")
+            start_elem = row.find("start-time")
+            meta_elem = row.find("os-log-metadata")
+            if duration_elem is None or start_elem is None or meta_elem is None:
+                continue
+            if duration_elem.text is None or start_elem.text is None:
+                continue
+
+            try:
+                duration_ms = int(duration_elem.text) / 1_000_000
+                start_ns = int(start_elem.text)
+            except ValueError:
+                continue
+
+            start_message = meta_elem.attrib.get("fmt")
+            if start_message is None:
+                ref = meta_elem.attrib.get("ref")
+                if ref is not None:
+                    start_message = id_fmt.get(ref)
+            if not start_message:
+                continue
+
+            event_match = re.search(r"\[\s*(DashboardScanRefresh|DefaultPanelInsightRefresh)\s*\]", start_message)
+            kind_match = re.search(r"harness\s+(warmup|sample)\s+(\d+)", start_message)
+            if not event_match or not kind_match:
+                continue
+
+            records.append({
+                "event": event_match.group(1),
+                "kind": kind_match.group(1),
+                "index": int(kind_match.group(2)),
+                "start_ns": start_ns,
+                "duration_ms": duration_ms
+            })
 
 # Keep earliest row for each logical harness index.
 deduped = {}
@@ -398,6 +433,9 @@ echo "  TOC XML:      $TOC_XML"
 echo "  Intervals:    $INTERVALS_XML"
 if [[ -f "$SIGNPOSTS_XML" ]]; then
   echo "  Signposts:    $SIGNPOSTS_XML"
+fi
+if [[ -f "$EVENTS_JSONL" ]]; then
+  echo "  Events JSONL: $EVENTS_JSONL"
 fi
 echo "  Summary JSON: $SUMMARY_JSON"
 echo "  Summary MD:   $SUMMARY_MD"

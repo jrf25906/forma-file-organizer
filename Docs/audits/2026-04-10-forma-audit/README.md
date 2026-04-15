@@ -9,3 +9,4 @@ Raw subagent reports and evidence for the 2026-04-10 Forma audit run.
 - `screenshots/` — Evidence screenshots from Agent 1
 
 The synthesized report lives at `../2026-04-10-forma-audit.md`.
+The active follow-on implementation plan lives at `../../superpowers/plans/2026-04-10-forma-optimization-program.md`.

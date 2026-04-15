@@ -16,7 +16,14 @@ final class WorkflowAuditStoreTests: XCTestCase {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = container.mainContext
-        return (container, context, WorkflowAuditStore(modelContext: context))
+        return (
+            container,
+            context,
+            WorkflowAuditStore(
+                modelContext: context,
+                nowProvider: { Date(timeIntervalSince1970: 10_000) }
+            )
+        )
     }
 
     private func withStore(
@@ -204,6 +211,28 @@ final class WorkflowAuditStoreTests: XCTestCase {
             XCTAssertEqual(latestForScopeAnyTemplate?.id, scopeAReceiptsNewest.id)
             XCTAssertEqual(latestForScopeReceipts?.id, scopeAReceiptsNewest.id)
             XCTAssertEqual(latestForScopeScreenshots?.id, scopeAScreenshotsRun.id)
+        }
+    }
+
+    func testLatestRunSummary_IgnoresRunsOutsideRetentionWindow() throws {
+        try withStore { _, store in
+            let scopeID = UUID()
+            let staleStartedAt = Date().addingTimeInterval(-(91 * 86_400))
+
+            _ = try store.createRun(
+                scopeID: scopeID,
+                workflowTemplateID: "builtin.workflow.receipts.v1",
+                startedAt: staleStartedAt,
+                primaryStatus: .succeeded
+            )
+
+            XCTAssertNil(
+                try store.latestRunSummary(
+                    scopeID: scopeID,
+                    workflowTemplateID: nil,
+                    referenceDate: Date()
+                )
+            )
         }
     }
 

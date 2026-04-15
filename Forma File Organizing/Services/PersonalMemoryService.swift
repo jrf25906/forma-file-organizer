@@ -33,6 +33,49 @@ final class PersonalMemoryService {
         relatedDecisionID: UUID? = nil,
         timestamp: Date = Date()
     ) throws -> PersonalMemoryEvent {
+        let event = try recordDecisionWithoutSaving(
+            fileName: fileName,
+            fileExtension: fileExtension,
+            fileTypeCategory: fileTypeCategory,
+            sourceLocation: sourceLocation,
+            scanRootPath: scanRootPath,
+            relativeParentPath: relativeParentPath,
+            sourceSurface: sourceSurface,
+            suggestionSource: suggestionSource,
+            suggestedDestination: suggestedDestination,
+            chosenDestination: chosenDestination,
+            confidenceScore: confidenceScore,
+            matchedRuleID: matchedRuleID,
+            eventKind: explicitEventKind,
+            priorDestination: priorDestination,
+            relatedDecisionID: relatedDecisionID,
+            timestamp: timestamp
+        )
+
+        try modelContext.save()
+        pruneRetainedHistoryIfNeeded(referenceDate: timestamp)
+        return event
+    }
+
+    @discardableResult
+    func recordDecisionWithoutSaving(
+        fileName: String,
+        fileExtension: String,
+        fileTypeCategory: FileTypeCategory,
+        sourceLocation: FileLocationKind,
+        scanRootPath: String?,
+        relativeParentPath: String?,
+        sourceSurface: PersonalMemorySourceSurface,
+        suggestionSource: SuggestionSource? = nil,
+        suggestedDestination: Destination?,
+        chosenDestination: Destination?,
+        confidenceScore: Double?,
+        matchedRuleID: UUID?,
+        eventKind explicitEventKind: PersonalMemoryEventKind? = nil,
+        priorDestination: Destination? = nil,
+        relatedDecisionID: UUID? = nil,
+        timestamp: Date = Date()
+    ) throws -> PersonalMemoryEvent {
         let eventKind = explicitEventKind ?? inferDecisionKind(
             suggestedDestination: suggestedDestination,
             chosenDestination: chosenDestination
@@ -94,8 +137,12 @@ final class PersonalMemoryService {
             priorPreference.apply(.undoRecovery, observedAt: timestamp)
         }
 
-        try modelContext.save()
         return event
+    }
+
+    func pruneRetainedHistory(now: Date = Date()) throws {
+        _ = try HistoryRetentionService(modelContext: modelContext)
+            .prunePersonalMemoryHistory(now: now)
     }
 
     func suggestion(
@@ -370,5 +417,13 @@ final class PersonalMemoryService {
             pattern.logicalOperator.rawValue,
             conditionKey
         ].joined(separator: "|")
+    }
+
+    private func pruneRetainedHistoryIfNeeded(referenceDate: Date) {
+        do {
+            try pruneRetainedHistory(now: referenceDate)
+        } catch {
+            Log.error("Failed to prune personal memory history: \(error.localizedDescription)", category: .analytics)
+        }
     }
 }

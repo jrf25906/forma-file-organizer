@@ -110,6 +110,7 @@ struct WelcomeStepView: View {
                         .foregroundColor(.formaSecondaryLabel)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("onboardingSkipButton")
             }
             .padding(.horizontal, FormaSpacing.huge)
             .padding(.bottom, FormaSpacing.large)

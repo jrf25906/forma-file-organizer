@@ -569,7 +569,10 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
                 startedAt: Date(timeIntervalSince1970: 120),
                 endedAt: Date(timeIntervalSince1970: 130)
             )
-            _ = try WorkflowAuditStore(modelContext: context).createRun(
+            _ = try WorkflowAuditStore(
+                modelContext: context,
+                nowProvider: { Date(timeIntervalSince1970: 240) }
+            ).createRun(
                 scopeID: scope.id,
                 workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
                 startedAt: Date(timeIntervalSince1970: 120),
@@ -625,7 +628,10 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
                 templateAssignedAt: Date(timeIntervalSince1970: 100)
             )
 
-            _ = try WorkflowAuditStore(modelContext: context).createRun(
+            _ = try WorkflowAuditStore(
+                modelContext: context,
+                nowProvider: { Date(timeIntervalSince1970: 240) }
+            ).createRun(
                 scopeID: scope.id,
                 workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
                 startedAt: Date(timeIntervalSince1970: 220),
@@ -804,7 +810,10 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
                 startedAt: referenceNow.addingTimeInterval(-300),
                 endedAt: referenceNow.addingTimeInterval(-240)
             )
-            _ = try WorkflowAuditStore(modelContext: context).createRun(
+            _ = try WorkflowAuditStore(
+                modelContext: context,
+                nowProvider: { referenceNow }
+            ).createRun(
                 scopeID: scope.id,
                 workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
                 startedAt: referenceNow.addingTimeInterval(-300),
@@ -1003,6 +1012,36 @@ final class TrustedAutomationScopeServiceTests: XCTestCase {
             XCTAssertNil(
                 try service.recommendedScope(for: snapshot),
                 "Only review-earned evidence should unlock trusted-scope recommendations."
+            )
+        }
+    }
+
+    func testRecommendedScope_IgnoresStaleReviewEvidenceOutsideRetentionWindow() throws {
+        try withRecommendationServices { _, service, memoryService, _ in
+            let destination = Destination.mockFolder("Documents/Receipts")
+            let snapshot = makeSnapshot(
+                fileName: "Receipt.pdf",
+                fileExtension: "pdf",
+                fileTypeCategory: .documents,
+                sourceLocation: .downloads,
+                scanRootPath: "/Users/example/Downloads",
+                relativeParentPath: "Receipts",
+                destination: destination
+            )
+
+            let staleBase = Date().addingTimeInterval(-(91 * 86_400))
+            for dayOffset in 0..<3 {
+                try recordDecision(
+                    memoryService: memoryService,
+                    snapshot: snapshot,
+                    eventKind: .acceptedSuggestion,
+                    timestamp: staleBase.addingTimeInterval(TimeInterval(dayOffset))
+                )
+            }
+
+            XCTAssertNil(
+                try service.recommendedScope(for: snapshot),
+                "Evidence older than the trusted-scope retention window should not unlock promotion."
             )
         }
     }

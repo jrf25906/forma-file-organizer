@@ -16,6 +16,13 @@ struct AnalyticsConfig {
     let healthWeightGrowthTrend: Double
 }
 
+struct RetentionConfig {
+    let historyWindowDays: Int
+    let workflowRunLimit: Int
+    let trustedScopeRunLimitPerScope: Int
+    let personalMemoryEventLimit: Int
+}
+
 /// Centralized configuration for the Forma application.
 ///
 /// All magic numbers, constants, and configuration values should be defined here
@@ -204,5 +211,12 @@ extension FormaConfig {
         healthWeightUnorganized: 0.25,
         healthWeightRuleCoverage: 0.20,
         healthWeightGrowthTrend: 0.15
+    )
+
+    static let retention = RetentionConfig(
+        historyWindowDays: 90,
+        workflowRunLimit: 2_000,
+        trustedScopeRunLimitPerScope: 100,
+        personalMemoryEventLimit: 10_000
     )
 }

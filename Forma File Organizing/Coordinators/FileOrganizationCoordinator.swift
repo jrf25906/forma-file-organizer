@@ -42,6 +42,85 @@ class FileOrganizationCoordinator: ObservableObject {
         let result: WorkflowMoveResult
         let underlyingError: Error
     }
+
+    private struct DiskCompensationMove {
+        let sourcePath: String
+        let destinationPath: String
+    }
+
+    private struct PendingActivityFailure {
+        let fileName: String
+        let fileExtension: String
+        let errorMessage: String
+    }
+
+    private struct PendingNotification {
+        let fileName: String
+        let destination: String
+    }
+
+    private struct FileItemRestoreSnapshot {
+        let file: FileItem
+        let path: String
+        let status: FileItem.OrganizationStatus
+        let destination: Destination?
+        let lastOrganizeError: String?
+    }
+
+    private struct FileMetadataRecordRestoreSnapshot {
+        let record: FileMetadataRecord
+        let canonicalIdentity: String
+        let identityKind: FileMetadataRecord.IdentityKind
+        let lastKnownPath: String
+        let displayName: String
+        let fileExtension: String
+        let firstSeenAt: Date
+        let lastSeenAt: Date
+        let lastOrganizedAt: Date?
+        let organizationCount: Int
+        let latestOrganizationStatus: FileMetadataRecord.OrganizationStatus
+        let workflowStatus: MetadataWorkflowStatus?
+        let tags: [String]
+        let projectAssociation: String?
+        let notesSummary: String?
+    }
+
+    private struct HistoryEntryRestoreSnapshot {
+        let entry: FileOrganizationHistoryEntry
+        let metadataRecordID: PersistentIdentifier
+    }
+
+    private struct PersonalMemoryPreferenceRestoreSnapshot {
+        let preference: PersonalMemoryPreference
+        let key: String
+        let fileExtension: String
+        let fileTypeCategory: FileTypeCategory
+        let sourceLocation: FileLocationKind
+        let relativeParentPath: String?
+        let destinationIdentity: String
+        let preferredDestination: Destination?
+        let acceptCount: Int
+        let overrideCount: Int
+        let correctionCount: Int
+        let undoCount: Int
+        let deferCount: Int
+        let lastObservedAt: Date
+    }
+
+    private struct BatchPersistenceRestoreSnapshot {
+        let fileItems: [FileItemRestoreSnapshot]
+        let metadataRecords: [PersistentIdentifier: FileMetadataRecordRestoreSnapshot]
+        let historyEntries: [PersistentIdentifier: HistoryEntryRestoreSnapshot]
+        let activityItemIDs: Set<PersistentIdentifier>
+        let personalMemoryPreferenceSnapshots: [PersistentIdentifier: PersonalMemoryPreferenceRestoreSnapshot]
+        let personalMemoryEventIDs: Set<PersistentIdentifier>
+    }
+
+    enum BatchPersistenceStage: Equatable {
+        case bulkOrganize
+        case bulkUndo
+        case bulkRedo
+    }
     
     // MARK: - Published State
     
@@ -71,6 +150,10 @@ class FileOrganizationCoordinator: ObservableObject {
     /// Test hook that can force the first skip save attempt to fail after durable metadata mutation.
     /// Defaults to nil in debug builds.
     var metadataSkipSaveHook: (() throws -> Void)?
+
+    /// Test hook that fires immediately before the single batched save for bulk organize/undo/redo.
+    /// Defaults to nil in debug builds.
+    var batchPersistenceSaveHook: ((BatchPersistenceStage) throws -> Void)?
     #endif
 
     // MARK: - Cancellation
@@ -420,9 +503,16 @@ class FileOrganizationCoordinator: ObservableObject {
         var wasCancelled = false
         var fileActions: [FileActionData] = []
         var bulkMoveOperations: [BulkMoveOperation] = []
+        var compensationMoves: [DiskCompensationMove] = []
+        var pendingFailureLogs: [PendingActivityFailure] = []
+        var pendingNotifications: [PendingNotification] = []
         /// Track rule usage for analytics: [ruleID: count of files matched]
         var ruleUsageCounts: [UUID: Int] = [:]
+        let batchTimestamp = Date()
         let memoryService = context.map { PersonalMemoryService(modelContext: $0) }
+        let activityService = context.map { ActivityLoggingService(modelContext: $0) }
+        let batchSnapshot = context.map { captureBatchPersistenceSnapshot(context: $0, files: files) }
+        var recordedPersonalMemory = false
         
         for (index, file) in files.enumerated() {
             // Check for task cancellation
@@ -438,21 +528,18 @@ class FileOrganizationCoordinator: ObservableObject {
                     // Clear any previous error on success
                     file.lastOrganizeError = nil
 
-                    // Update file atomically
                     if let destPath = result.destinationPath {
-                        file.updatePath(destPath)
-                        file.status = .completed
-                        
-                        // Save immediately
-                        if let ctx = context {
-                            try ctx.save()
-                        }
+                        _ = file.updatePath(destPath)
+                        compensationMoves.append(
+                            DiskCompensationMove(
+                                sourcePath: destPath,
+                                destinationPath: result.originalPath
+                            )
+                        )
                     } else {
-                        file.status = .completed
-                        if let ctx = context {
-                            try ctx.save()
-                        }
+                        _ = file.updatePath(result.originalPath)
                     }
+                    file.status = .completed
 
                     let destinationPathForMetadata = fileOperationsService.getDestinationPath(for: file)
                         ?? result.destinationPath
@@ -490,7 +577,7 @@ class FileOrganizationCoordinator: ObservableObject {
                     )
 
                     if let ctx = context {
-                        persistMetadataTransition(
+                        try stageMetadataTransitionWithoutSaving(
                             from: metadataSnapshot.sourcePath,
                             to: metadataSnapshot.destinationPath,
                             displayName: metadataSnapshot.displayName,
@@ -500,18 +587,21 @@ class FileOrganizationCoordinator: ObservableObject {
                             eventKind: .organized,
                             sourceSurface: historySourceSurface(for: origin),
                             matchedRuleID: file.matchedRuleID,
-                            context: ctx
+                            context: ctx,
+                            timestamp: batchTimestamp
                         )
                     }
 
                     successCount += 1
 
                     if let memoryService, let memorySnapshot {
-                        recordPersonalMemoryDecision(
+                        try recordPersonalMemoryDecisionWithoutSaving(
                             snapshot: memorySnapshot,
                             sourceSurface: .bulkOrganize,
-                            memoryService: memoryService
+                            memoryService: memoryService,
+                            timestamp: batchTimestamp
                         )
+                        recordedPersonalMemory = true
                     }
 
                     // Track rule usage for analytics (v1.2.0)
@@ -521,7 +611,12 @@ class FileOrganizationCoordinator: ObservableObject {
 
                     // Notify
                     if let displayName = file.destination?.displayName {
-                        notificationService.notifyFileOrganized(fileName: file.name, destination: displayName)
+                        pendingNotifications.append(
+                            PendingNotification(
+                                fileName: file.name,
+                                destination: displayName
+                            )
+                        )
                     }
                 }
             } catch {
@@ -537,61 +632,98 @@ class FileOrganizationCoordinator: ObservableObject {
                 Log.error("FileOrganizationCoordinator: Failed to organize '\(file.name)' - \(error.localizedDescription)", category: .fileOperations)
 
                 // Log individual failure to activity timeline
-                if let ctx = context {
-                    let activityService = ActivityLoggingService(modelContext: ctx)
-                    activityService.logOperationFailed(
+                pendingFailureLogs.append(
+                    PendingActivityFailure(
                         fileName: file.name,
-                        operation: "Organize",
-                        errorMessage: error.localizedDescription,
-                        fileExtension: file.fileExtension
+                        fileExtension: file.fileExtension,
+                        errorMessage: error.localizedDescription
                     )
-                }
+                )
             }
             
             // Update progress
             bulkOperationProgress = Double(index + 1) / Double(files.count)
         }
-        
-        // Record lightweight bulk command for undo
-        if !fileActions.isEmpty {
+
+        if let context, let activityService {
+            for failure in pendingFailureLogs {
+                activityService.logOperationFailedWithoutSaving(
+                    fileName: failure.fileName,
+                    operation: "Organize",
+                    errorMessage: failure.errorMessage,
+                    fileExtension: failure.fileExtension
+                )
+            }
+
+            if successCount > 0, origin == .reviewDriven {
+                activityService.logBulkOrganizedWithoutSaving(
+                    count: successCount,
+                    origin: origin,
+                    undoAvailable: true
+                )
+            }
+
+            if !ruleUsageCounts.isEmpty {
+                logRuleApplicationsWithoutSaving(
+                    ruleUsageCounts: ruleUsageCounts,
+                    activityService: activityService,
+                    modelContext: context
+                )
+            }
+
+            if failedCount > 0, origin == .reviewDriven {
+                activityService.logBulkPartialFailureWithoutSaving(
+                    successCount: successCount,
+                    failedCount: failedCount,
+                    firstError: firstError?.localizedDescription
+                )
+            }
+        }
+
+        var didPersistBatch = false
+        if let context, (!fileActions.isEmpty || !pendingFailureLogs.isEmpty) {
+            do {
+                try saveBatchedContext(context, stage: .bulkOrganize)
+                didPersistBatch = true
+
+                if recordedPersonalMemory {
+                    try? memoryService?.pruneRetainedHistory(now: batchTimestamp)
+                }
+            } catch {
+                if let batchSnapshot {
+                    rollbackBatchedContext(
+                        context,
+                        snapshot: batchSnapshot,
+                        compensationMoves: compensationMoves
+                    )
+                } else {
+                    compensateDiskMoves(compensationMoves)
+                }
+                successCount = 0
+                failedCount = files.count
+                failedFiles = files
+                firstError = error
+                fileActions.removeAll()
+                bulkMoveOperations.removeAll()
+                pendingNotifications.removeAll()
+            }
+        }
+
+        if !fileActions.isEmpty, context == nil || didPersistBatch {
             let command = BulkMoveCommand(
                 id: UUID(),
-                timestamp: Date(),
+                timestamp: batchTimestamp,
                 origin: origin,
                 operations: bulkMoveOperations
             )
             pushUndoCommand(command)
-
-            // Log bulk organize activity
-            if let ctx = context, successCount > 0 {
-                let activityService = ActivityLoggingService(modelContext: ctx)
-                if origin == .reviewDriven {
-                    activityService.logBulkOrganized(
-                        count: successCount,
-                        origin: origin,
-                        undoAvailable: true
-                    )
-                }
-
-                // Log rule applications for analytics (v1.2.0)
-                if !ruleUsageCounts.isEmpty {
-                    logRuleApplications(
-                        ruleUsageCounts: ruleUsageCounts,
-                        activityService: activityService,
-                        modelContext: ctx
-                    )
-                }
-            }
         }
 
-        // Log bulk partial failure summary if any files failed
-        if failedCount > 0, let ctx = context {
-            if origin == .reviewDriven {
-                let activityService = ActivityLoggingService(modelContext: ctx)
-                activityService.logBulkPartialFailure(
-                    successCount: successCount,
-                    failedCount: failedCount,
-                    firstError: firstError?.localizedDescription
+        if context == nil || didPersistBatch {
+            for notification in pendingNotifications {
+                notificationService.notifyFileOrganized(
+                    fileName: notification.fileName,
+                    destination: notification.destination
                 )
             }
         }
@@ -656,9 +788,14 @@ class FileOrganizationCoordinator: ObservableObject {
             return
         }
 
-        // Fallback: execute undo via command pattern (requires a ModelContext)
         do {
-            try command.undo(context: context)
+            if let bulkCommand = command as? BulkMoveCommand {
+                try undoBulkCommand(bulkCommand, context: context)
+            } else {
+                try command.undo(context: context)
+                persistUndoMetadata(for: command, context: context)
+                recordUndoMemory(for: command, context: context)
+            }
 
             // Push to redo stack
             redoStack.append(command)
@@ -670,15 +807,6 @@ class FileOrganizationCoordinator: ObservableObject {
             #if DEBUG
             Log.info("Undo successful: \\(command.description)", category: .undo)
             #endif
-
-            if let bulkCommand = command as? BulkMoveCommand {
-                ActivityLoggingService.create(from: context)?.logBulkUndone(
-                    count: bulkCommand.operations.count,
-                    origin: bulkCommand.origin
-                )
-            }
-            persistUndoMetadata(for: command, context: context)
-            recordUndoMemory(for: command, context: context)
         } catch {
             undoStack.append(command)
             refreshLatestUndoableBatchSummary()
@@ -724,11 +852,13 @@ class FileOrganizationCoordinator: ObservableObject {
             return
         }
 
-        // Fallback: execute redo via command pattern (requires a ModelContext)
         do {
-            try await command.execute(context: context)
-
-            persistRedoMetadata(for: command, context: context)
+            if let bulkCommand = command as? BulkMoveCommand {
+                try redoBulkCommand(bulkCommand, context: context)
+            } else {
+                try await command.execute(context: context)
+                persistRedoMetadata(for: command, context: context)
+            }
 
             // Push back to undo stack
             undoStack.append(command)
@@ -783,6 +913,401 @@ class FileOrganizationCoordinator: ObservableObject {
         }
     }
 
+    private func saveBatchedContext(_ context: ModelContext, stage: BatchPersistenceStage) throws {
+        #if DEBUG
+        if let batchPersistenceSaveHook {
+            try batchPersistenceSaveHook(stage)
+        }
+        #endif
+
+        try context.save()
+    }
+
+    private func captureBatchPersistenceSnapshot(
+        context: ModelContext,
+        files: [FileItem]
+    ) -> BatchPersistenceRestoreSnapshot {
+        let fileItemSnapshots = files.map {
+            FileItemRestoreSnapshot(
+                file: $0,
+                path: $0.path,
+                status: $0.status,
+                destination: $0.destination,
+                lastOrganizeError: $0.lastOrganizeError
+            )
+        }
+
+        let metadataRecords = (try? context.fetch(FetchDescriptor<FileMetadataRecord>())) ?? []
+        let metadataSnapshots = Dictionary(
+            uniqueKeysWithValues: metadataRecords.map { record in
+                (
+                    record.persistentModelID,
+                    FileMetadataRecordRestoreSnapshot(
+                        record: record,
+                        canonicalIdentity: record.canonicalIdentity,
+                        identityKind: record.identityKind,
+                        lastKnownPath: record.lastKnownPath,
+                        displayName: record.displayName,
+                        fileExtension: record.fileExtension,
+                        firstSeenAt: record.firstSeenAt,
+                        lastSeenAt: record.lastSeenAt,
+                        lastOrganizedAt: record.lastOrganizedAt,
+                        organizationCount: record.organizationCount,
+                        latestOrganizationStatus: record.latestOrganizationStatus,
+                        workflowStatus: record.workflowStatus,
+                        tags: record.tags,
+                        projectAssociation: record.projectAssociation,
+                        notesSummary: record.notesSummary
+                    )
+                )
+            }
+        )
+
+        let historyEntries = (try? context.fetch(FetchDescriptor<FileOrganizationHistoryEntry>())) ?? []
+        let historySnapshots = Dictionary(
+            uniqueKeysWithValues: historyEntries.map { entry in
+                (
+                    entry.persistentModelID,
+                    HistoryEntryRestoreSnapshot(
+                        entry: entry,
+                        metadataRecordID: entry.metadataRecord.persistentModelID
+                    )
+                )
+            }
+        )
+
+        let activityItemIDs = Set(
+            ((try? context.fetch(FetchDescriptor<ActivityItem>())) ?? []).map(\.persistentModelID)
+        )
+
+        let personalMemoryPreferences: [PersonalMemoryPreference]
+        let personalMemoryEvents: [PersonalMemoryEvent]
+        if FeatureFlagService.shared.isEnabled(.patternLearning) {
+            personalMemoryPreferences = (try? context.fetch(FetchDescriptor<PersonalMemoryPreference>())) ?? []
+            personalMemoryEvents = (try? context.fetch(FetchDescriptor<PersonalMemoryEvent>())) ?? []
+        } else {
+            personalMemoryPreferences = []
+            personalMemoryEvents = []
+        }
+
+        let personalMemoryPreferenceSnapshots = Dictionary(
+            uniqueKeysWithValues: personalMemoryPreferences.map { preference in
+                (
+                    preference.persistentModelID,
+                    PersonalMemoryPreferenceRestoreSnapshot(
+                        preference: preference,
+                        key: preference.key,
+                        fileExtension: preference.fileExtension,
+                        fileTypeCategory: preference.fileTypeCategory,
+                        sourceLocation: preference.sourceLocation,
+                        relativeParentPath: preference.relativeParentPath,
+                        destinationIdentity: preference.destinationIdentity,
+                        preferredDestination: preference.preferredDestination,
+                        acceptCount: preference.acceptCount,
+                        overrideCount: preference.overrideCount,
+                        correctionCount: preference.correctionCount,
+                        undoCount: preference.undoCount,
+                        deferCount: preference.deferCount,
+                        lastObservedAt: preference.lastObservedAt
+                    )
+                )
+            }
+        )
+
+        return BatchPersistenceRestoreSnapshot(
+            fileItems: fileItemSnapshots,
+            metadataRecords: metadataSnapshots,
+            historyEntries: historySnapshots,
+            activityItemIDs: activityItemIDs,
+            personalMemoryPreferenceSnapshots: personalMemoryPreferenceSnapshots,
+            personalMemoryEventIDs: Set(personalMemoryEvents.map(\.persistentModelID))
+        )
+    }
+
+    private func rollbackBatchedContext(
+        _ context: ModelContext,
+        snapshot: BatchPersistenceRestoreSnapshot,
+        compensationMoves: [DiskCompensationMove]
+    ) {
+        restoreBatchPersistenceSnapshot(snapshot, in: context)
+        compensateDiskMoves(compensationMoves)
+    }
+
+    private func restoreBatchPersistenceSnapshot(
+        _ snapshot: BatchPersistenceRestoreSnapshot,
+        in context: ModelContext
+    ) {
+        for fileSnapshot in snapshot.fileItems {
+            if fileSnapshot.file.path != fileSnapshot.path {
+                _ = fileSnapshot.file.updatePath(fileSnapshot.path)
+            }
+            fileSnapshot.file.status = fileSnapshot.status
+            fileSnapshot.file.destination = fileSnapshot.destination
+            fileSnapshot.file.lastOrganizeError = fileSnapshot.lastOrganizeError
+        }
+
+        let currentMetadataRecords = (try? context.fetch(FetchDescriptor<FileMetadataRecord>())) ?? []
+        let currentMetadataIDs = Set(currentMetadataRecords.map(\.persistentModelID))
+        for (recordID, snapshotRecord) in snapshot.metadataRecords where !currentMetadataIDs.contains(recordID) {
+            context.insert(snapshotRecord.record)
+        }
+        let allMetadataRecords = (try? context.fetch(FetchDescriptor<FileMetadataRecord>())) ?? []
+        let snapshotMetadataIDs = Set(snapshot.metadataRecords.keys)
+        for record in allMetadataRecords where !snapshotMetadataIDs.contains(record.persistentModelID) {
+            context.delete(record)
+        }
+        for snapshotRecord in snapshot.metadataRecords.values {
+            let record = snapshotRecord.record
+            record.canonicalIdentity = snapshotRecord.canonicalIdentity
+            record.identityKind = snapshotRecord.identityKind
+            record.lastKnownPath = snapshotRecord.lastKnownPath
+            record.displayName = snapshotRecord.displayName
+            record.fileExtension = snapshotRecord.fileExtension
+            record.firstSeenAt = snapshotRecord.firstSeenAt
+            record.lastSeenAt = snapshotRecord.lastSeenAt
+            record.lastOrganizedAt = snapshotRecord.lastOrganizedAt
+            record.organizationCount = snapshotRecord.organizationCount
+            record.latestOrganizationStatus = snapshotRecord.latestOrganizationStatus
+            record.workflowStatus = snapshotRecord.workflowStatus
+            record.tags = snapshotRecord.tags
+            record.projectAssociation = snapshotRecord.projectAssociation
+            record.notesSummary = snapshotRecord.notesSummary
+        }
+
+        let currentHistoryEntries = (try? context.fetch(FetchDescriptor<FileOrganizationHistoryEntry>())) ?? []
+        let currentHistoryIDs = Set(currentHistoryEntries.map(\.persistentModelID))
+        for (entryID, snapshotEntry) in snapshot.historyEntries where !currentHistoryIDs.contains(entryID) {
+            context.insert(snapshotEntry.entry)
+        }
+        let metadataRecordsByID = Dictionary(
+            uniqueKeysWithValues: snapshot.metadataRecords.map { ($0.key, $0.value.record) }
+        )
+        for snapshotEntry in snapshot.historyEntries.values {
+            guard let metadataRecord = metadataRecordsByID[snapshotEntry.metadataRecordID] else {
+                continue
+            }
+            snapshotEntry.entry.metadataRecord = metadataRecord
+        }
+        let allHistoryEntries = (try? context.fetch(FetchDescriptor<FileOrganizationHistoryEntry>())) ?? []
+        let snapshotHistoryIDs = Set(snapshot.historyEntries.keys)
+        for entry in allHistoryEntries where !snapshotHistoryIDs.contains(entry.persistentModelID) {
+            context.delete(entry)
+        }
+        let restoredHistoryByRecordID = Dictionary(
+            grouping: snapshot.historyEntries.values,
+            by: \.metadataRecordID
+        )
+        for snapshotRecord in snapshot.metadataRecords.values {
+            guard let restoredEntries = restoredHistoryByRecordID[snapshotRecord.record.persistentModelID] else {
+                continue
+            }
+            snapshotRecord.record.historyEntries = restoredEntries
+                .map(\.entry)
+                .sorted { $0.timestamp < $1.timestamp }
+        }
+
+        let currentActivities = (try? context.fetch(FetchDescriptor<ActivityItem>())) ?? []
+        for activity in currentActivities where !snapshot.activityItemIDs.contains(activity.persistentModelID) {
+            context.delete(activity)
+        }
+
+        if FeatureFlagService.shared.isEnabled(.patternLearning) {
+            let currentPreferences = (try? context.fetch(FetchDescriptor<PersonalMemoryPreference>())) ?? []
+            let currentPreferenceIDs = Set(currentPreferences.map(\.persistentModelID))
+            for (preferenceID, snapshotPreference) in snapshot.personalMemoryPreferenceSnapshots
+                where !currentPreferenceIDs.contains(preferenceID) {
+                context.insert(snapshotPreference.preference)
+            }
+            let allPreferences = (try? context.fetch(FetchDescriptor<PersonalMemoryPreference>())) ?? []
+            let snapshotPreferenceIDs = Set(snapshot.personalMemoryPreferenceSnapshots.keys)
+            for preference in allPreferences where !snapshotPreferenceIDs.contains(preference.persistentModelID) {
+                context.delete(preference)
+            }
+            for snapshotPreference in snapshot.personalMemoryPreferenceSnapshots.values {
+                let preference = snapshotPreference.preference
+                preference.key = snapshotPreference.key
+                preference.fileExtension = snapshotPreference.fileExtension
+                preference.fileTypeCategory = snapshotPreference.fileTypeCategory
+                preference.sourceLocation = snapshotPreference.sourceLocation
+                preference.relativeParentPath = snapshotPreference.relativeParentPath
+                preference.destinationIdentity = snapshotPreference.destinationIdentity
+                preference.preferredDestination = snapshotPreference.preferredDestination
+                preference.acceptCount = snapshotPreference.acceptCount
+                preference.overrideCount = snapshotPreference.overrideCount
+                preference.correctionCount = snapshotPreference.correctionCount
+                preference.undoCount = snapshotPreference.undoCount
+                preference.deferCount = snapshotPreference.deferCount
+                preference.lastObservedAt = snapshotPreference.lastObservedAt
+            }
+
+            let currentEvents = (try? context.fetch(FetchDescriptor<PersonalMemoryEvent>())) ?? []
+            for event in currentEvents where !snapshot.personalMemoryEventIDs.contains(event.persistentModelID) {
+                context.delete(event)
+            }
+        }
+    }
+
+    private func compensateDiskMoves(_ compensationMoves: [DiskCompensationMove]) {
+        for move in compensationMoves.reversed() where FileManager.default.fileExists(atPath: move.sourcePath) {
+            do {
+                try fileOperationsService.secureMoveOnDisk(from: move.sourcePath, to: move.destinationPath)
+            } catch {
+                Log.error(
+                    "Failed to compensate disk move from '\(move.sourcePath)' to '\(move.destinationPath)': \(error.localizedDescription)",
+                    category: .fileOperations
+                )
+            }
+        }
+    }
+
+    private func prefetchBulkMoveFiles(
+        for operations: [BulkMoveOperation],
+        context: ModelContext
+    ) throws -> [String: FileItem] {
+        let candidatePaths = Set(operations.flatMap { [$0.fromPath, $0.toPath] })
+        let files = try context.fetch(FetchDescriptor<FileItem>())
+        return Dictionary(
+            files
+                .filter { candidatePaths.contains($0.path) }
+                .map { ($0.path, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
+    private func undoBulkCommand(_ command: BulkMoveCommand, context: ModelContext) throws {
+        let batchTimestamp = Date()
+        var compensationMoves: [DiskCompensationMove] = []
+        var filesByPath = try prefetchBulkMoveFiles(for: command.operations, context: context)
+        let batchSnapshot = captureBatchPersistenceSnapshot(
+            context: context,
+            files: Array(Set(filesByPath.values.map(\.persistentModelID))).compactMap { id in
+                filesByPath.values.first(where: { $0.persistentModelID == id })
+            }
+        )
+        let memoryService = PersonalMemoryService(modelContext: context)
+
+        do {
+            for operation in command.operations {
+                guard let file = filesByPath[operation.toPath] ?? filesByPath[operation.fromPath] else {
+                    continue
+                }
+
+                if FileManager.default.fileExists(atPath: operation.toPath) {
+                    try fileOperationsService.secureMoveOnDisk(from: operation.toPath, to: operation.fromPath)
+                    compensationMoves.append(
+                        DiskCompensationMove(
+                            sourcePath: operation.fromPath,
+                            destinationPath: operation.toPath
+                        )
+                    )
+                    _ = file.updatePath(operation.fromPath)
+                    filesByPath.removeValue(forKey: operation.toPath)
+                    filesByPath[operation.fromPath] = file
+                }
+
+                file.status = operation.originalStatus
+            }
+
+            try persistUndoMetadataWithoutSaving(for: command, context: context, timestamp: batchTimestamp)
+            let recordedPersonalMemory = try recordUndoMemoryWithoutSaving(
+                for: command,
+                memoryService: memoryService,
+                timestamp: batchTimestamp
+            )
+            ActivityLoggingService(modelContext: context).logBulkUndoneWithoutSaving(
+                count: command.operations.count,
+                origin: command.origin
+            )
+            try saveBatchedContext(context, stage: .bulkUndo)
+
+            if recordedPersonalMemory {
+                try? memoryService.pruneRetainedHistory(now: batchTimestamp)
+            }
+        } catch {
+            rollbackBatchedContext(
+                context,
+                snapshot: batchSnapshot,
+                compensationMoves: compensationMoves
+            )
+            throw error
+        }
+    }
+
+    private func redoBulkCommand(_ command: BulkMoveCommand, context: ModelContext) throws {
+        let batchTimestamp = Date()
+        var compensationMoves: [DiskCompensationMove] = []
+        var filesByPath = try prefetchBulkMoveFiles(for: command.operations, context: context)
+        let batchSnapshot = captureBatchPersistenceSnapshot(
+            context: context,
+            files: Array(Set(filesByPath.values.map(\.persistentModelID))).compactMap { id in
+                filesByPath.values.first(where: { $0.persistentModelID == id })
+            }
+        )
+
+        do {
+            for operation in command.operations {
+                guard let file = filesByPath[operation.fromPath] ?? filesByPath[operation.toPath] else {
+                    continue
+                }
+
+                if FileManager.default.fileExists(atPath: operation.fromPath) {
+                    try fileOperationsService.secureMoveOnDisk(from: operation.fromPath, to: operation.toPath)
+                    compensationMoves.append(
+                        DiskCompensationMove(
+                            sourcePath: operation.toPath,
+                            destinationPath: operation.fromPath
+                        )
+                    )
+                    _ = file.updatePath(operation.toPath)
+                    filesByPath.removeValue(forKey: operation.fromPath)
+                    filesByPath[operation.toPath] = file
+                }
+
+                file.status = .completed
+            }
+
+            try persistRedoMetadataWithoutSaving(for: command, context: context, timestamp: batchTimestamp)
+            try saveBatchedContext(context, stage: .bulkRedo)
+        } catch {
+            rollbackBatchedContext(
+                context,
+                snapshot: batchSnapshot,
+                compensationMoves: compensationMoves
+            )
+            throw error
+        }
+    }
+
+    private func stageMetadataTransitionWithoutSaving(
+        from sourcePath: String,
+        to destinationPath: String,
+        displayName: String,
+        fileExtension: String,
+        destinationDisplayName: String?,
+        projectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
+        eventKind: FileOrganizationHistoryEntry.EventKind,
+        sourceSurface: FileOrganizationHistoryEntry.SourceSurface,
+        matchedRuleID: UUID?,
+        context: ModelContext,
+        timestamp: Date
+    ) throws {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
+
+        let metadataService = FileMetadataFoundationService(modelContext: context)
+        _ = try metadataService.recordTransitionWithoutSaving(
+            from: sourcePath,
+            to: destinationPath,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            eventKind: eventKind,
+            sourceSurface: sourceSurface,
+            destinationDisplayName: destinationDisplayName,
+            projectAssociationWriteContext: projectAssociationWriteContext,
+            matchedRuleID: matchedRuleID,
+            timestamp: timestamp
+        )
+    }
+
     private func persistMetadataTransition(
         from sourcePath: String,
         to destinationPath: String,
@@ -817,6 +1342,138 @@ class FileOrganizationCoordinator: ObservableObject {
                 "Failed to persist metadata transition from '\(sourcePath)' to '\(destinationPath)': \(error.localizedDescription)",
                 category: .fileOperations
             )
+        }
+    }
+
+    private func persistUndoMetadataWithoutSaving(
+        for command: any UndoableCommand,
+        context: ModelContext,
+        timestamp: Date
+    ) throws {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
+
+        switch command {
+        case let moveCommand as MoveFileCommand:
+            let snapshot = moveCommand.metadataSnapshot ?? MetadataIdentitySnapshot(
+                sourcePath: moveCommand.fromPath,
+                destinationPath: moveCommand.toPath,
+                displayName: URL(fileURLWithPath: moveCommand.fromPath).lastPathComponent,
+                fileExtension: URL(fileURLWithPath: moveCommand.fromPath).pathExtension,
+                destinationDisplayName: moveCommand.originalDestination?.displayName
+            )
+
+            #if DEBUG
+            if let metadataUndoTransitionHook {
+                try metadataUndoTransitionHook(snapshot)
+            }
+            #endif
+
+            try stageMetadataTransitionWithoutSaving(
+                from: snapshot.destinationPath,
+                to: snapshot.sourcePath,
+                displayName: snapshot.displayName,
+                fileExtension: snapshot.fileExtension,
+                destinationDisplayName: snapshot.destinationDisplayName,
+                eventKind: .undone,
+                sourceSurface: .undo,
+                matchedRuleID: nil,
+                context: context,
+                timestamp: timestamp
+            )
+
+        case let bulkCommand as BulkMoveCommand:
+            for operation in bulkCommand.operations {
+                let snapshot = operation.metadataSnapshot ?? MetadataIdentitySnapshot(
+                    sourcePath: operation.fromPath,
+                    destinationPath: operation.toPath,
+                    displayName: URL(fileURLWithPath: operation.fromPath).lastPathComponent,
+                    fileExtension: URL(fileURLWithPath: operation.fromPath).pathExtension,
+                    destinationDisplayName: nil
+                )
+
+                #if DEBUG
+                if let metadataUndoTransitionHook {
+                    try metadataUndoTransitionHook(snapshot)
+                }
+                #endif
+
+                try stageMetadataTransitionWithoutSaving(
+                    from: snapshot.destinationPath,
+                    to: snapshot.sourcePath,
+                    displayName: snapshot.displayName,
+                    fileExtension: snapshot.fileExtension,
+                    destinationDisplayName: snapshot.destinationDisplayName,
+                    eventKind: .undone,
+                    sourceSurface: .undo,
+                    matchedRuleID: nil,
+                    context: context,
+                    timestamp: timestamp
+                )
+            }
+
+        default:
+            break
+        }
+    }
+
+    private func persistRedoMetadataWithoutSaving(
+        for command: any UndoableCommand,
+        context: ModelContext,
+        timestamp: Date
+    ) throws {
+        guard FeatureFlagService.shared.isEnabled(.metadataFoundation) else { return }
+
+        switch command {
+        case let moveCommand as MoveFileCommand:
+            let snapshot = moveCommand.metadataSnapshot ?? MetadataIdentitySnapshot(
+                sourcePath: moveCommand.fromPath,
+                destinationPath: moveCommand.toPath,
+                displayName: URL(fileURLWithPath: moveCommand.fromPath).lastPathComponent,
+                fileExtension: URL(fileURLWithPath: moveCommand.fromPath).pathExtension,
+                destinationDisplayName: moveCommand.originalDestination?.displayName
+            )
+
+            try stageMetadataTransitionWithoutSaving(
+                from: snapshot.sourcePath,
+                to: snapshot.destinationPath,
+                displayName: snapshot.displayName,
+                fileExtension: snapshot.fileExtension,
+                destinationDisplayName: snapshot.destinationDisplayName,
+                projectAssociationWriteContext: snapshot.projectAssociationWriteContext,
+                eventKind: .organized,
+                sourceSurface: .organize,
+                matchedRuleID: nil,
+                context: context,
+                timestamp: timestamp
+            )
+
+        case let bulkCommand as BulkMoveCommand:
+            for operation in bulkCommand.operations {
+                let snapshot = operation.metadataSnapshot ?? MetadataIdentitySnapshot(
+                    sourcePath: operation.fromPath,
+                    destinationPath: operation.toPath,
+                    displayName: URL(fileURLWithPath: operation.fromPath).lastPathComponent,
+                    fileExtension: URL(fileURLWithPath: operation.fromPath).pathExtension,
+                    destinationDisplayName: nil
+                )
+
+                try stageMetadataTransitionWithoutSaving(
+                    from: snapshot.sourcePath,
+                    to: snapshot.destinationPath,
+                    displayName: snapshot.displayName,
+                    fileExtension: snapshot.fileExtension,
+                    destinationDisplayName: snapshot.destinationDisplayName,
+                    projectAssociationWriteContext: snapshot.projectAssociationWriteContext,
+                    eventKind: .organized,
+                    sourceSurface: .organize,
+                    matchedRuleID: nil,
+                    context: context,
+                    timestamp: timestamp
+                )
+            }
+
+        default:
+            break
         }
     }
 
@@ -1006,6 +1663,36 @@ class FileOrganizationCoordinator: ObservableObject {
             }
         }
     }
+
+    private func logRuleApplicationsWithoutSaving(
+        ruleUsageCounts: [UUID: Int],
+        activityService: ActivityLoggingService,
+        modelContext: ModelContext
+    ) {
+        for (ruleID, matchCount) in ruleUsageCounts {
+            let descriptor = FetchDescriptor<Rule>(
+                predicate: #Predicate { $0.id == ruleID }
+            )
+
+            do {
+                if let rule = try modelContext.fetch(descriptor).first {
+                    activityService.logRuleAppliedWithoutSaving(
+                        ruleName: rule.name,
+                        ruleID: ruleID,
+                        matchCount: matchCount
+                    )
+                } else {
+                    activityService.logRuleAppliedWithoutSaving(
+                        ruleName: "Unknown Rule",
+                        ruleID: ruleID,
+                        matchCount: matchCount
+                    )
+                }
+            } catch {
+                Log.error("Failed to fetch rule for analytics: \(error.localizedDescription)", category: .analytics)
+            }
+        }
+    }
     
     #if DEBUG
     /// Test-only helper to push an undo action without performing any file operations.
@@ -1101,6 +1788,29 @@ class FileOrganizationCoordinator: ObservableObject {
         }
     }
 
+    private func recordPersonalMemoryDecisionWithoutSaving(
+        snapshot: OrganizationMemorySnapshot,
+        sourceSurface: PersonalMemorySourceSurface,
+        memoryService: PersonalMemoryService,
+        timestamp: Date
+    ) throws {
+        _ = try memoryService.recordDecisionWithoutSaving(
+            fileName: snapshot.fileName,
+            fileExtension: snapshot.fileExtension,
+            fileTypeCategory: snapshot.fileTypeCategory,
+            sourceLocation: snapshot.sourceLocation,
+            scanRootPath: snapshot.scanRootPath,
+            relativeParentPath: snapshot.relativeParentPath,
+            sourceSurface: sourceSurface,
+            suggestionSource: snapshot.suggestionSource,
+            suggestedDestination: snapshot.suggestedDestination,
+            chosenDestination: snapshot.chosenDestination,
+            confidenceScore: snapshot.confidenceScore,
+            matchedRuleID: snapshot.matchedRuleID,
+            timestamp: timestamp
+        )
+    }
+
     private func recordUndoMemory(for command: any UndoableCommand, context: ModelContext) {
         guard FeatureFlagService.shared.isEnabled(.patternLearning) else { return }
 
@@ -1138,5 +1848,46 @@ class FileOrganizationCoordinator: ObservableObject {
                 Log.error("Failed to record personal memory undo: \(error.localizedDescription)", category: .analytics)
             }
         }
+    }
+
+    @discardableResult
+    private func recordUndoMemoryWithoutSaving(
+        for command: any UndoableCommand,
+        memoryService: PersonalMemoryService,
+        timestamp: Date
+    ) throws -> Bool {
+        guard FeatureFlagService.shared.isEnabled(.patternLearning) else { return false }
+
+        let snapshots: [OrganizationMemorySnapshot]
+        switch command {
+        case let moveCommand as MoveFileCommand:
+            snapshots = moveCommand.memorySnapshot.map { [$0] } ?? []
+        case let bulkCommand as BulkMoveCommand:
+            snapshots = bulkCommand.operations.compactMap(\.memorySnapshot)
+        default:
+            snapshots = []
+        }
+
+        for snapshot in snapshots {
+            _ = try memoryService.recordDecisionWithoutSaving(
+                fileName: snapshot.fileName,
+                fileExtension: snapshot.fileExtension,
+                fileTypeCategory: snapshot.fileTypeCategory,
+                sourceLocation: snapshot.sourceLocation,
+                scanRootPath: snapshot.scanRootPath,
+                relativeParentPath: snapshot.relativeParentPath,
+                sourceSurface: .undoSurface,
+                suggestionSource: snapshot.suggestionSource,
+                suggestedDestination: snapshot.suggestedDestination,
+                chosenDestination: nil,
+                confidenceScore: snapshot.confidenceScore,
+                matchedRuleID: snapshot.matchedRuleID,
+                eventKind: .undoRecovery,
+                priorDestination: snapshot.chosenDestination,
+                timestamp: timestamp
+            )
+        }
+
+        return !snapshots.isEmpty
     }
 }

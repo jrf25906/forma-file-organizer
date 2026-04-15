@@ -2,8 +2,8 @@
 
 > Master navigation for all Forma project documentation.
 
-**Status:** Current  
-**Last Updated:** 2026-02-11  
+**Status:** Current
+**Last Updated:** 2026-04-10
 **Audience:** Users | Developers | Designers | Security
 
 ## Start Here
@@ -56,6 +56,7 @@
 
 ## Planning and Historical Refactors
 
+- [Current Optimization Program](superpowers/plans/2026-04-10-forma-optimization-program.md) - Active critical-path optimization plan following the April 10, 2026 audit work
 - [Roadmap](Roadmap/README.md) - Current forward-looking plans
 - [Archived Plans](Archive/Plans/README.md) - Superseded implementation plans
 - [Archived Completed Work](Archive/CompletedWork/README.md) - Historical completion summaries and refactor notes

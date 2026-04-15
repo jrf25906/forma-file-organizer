@@ -99,7 +99,8 @@ struct AutomationLifecycleModifier: ViewModifier {
 
     private var isTesting: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
-        ProcessInfo.processInfo.arguments.contains("--uitesting")
+        ProcessInfo.processInfo.arguments.contains("--uitesting") ||
+        ProcessInfo.processInfo.arguments.contains("--perf-signpost-harness")
     }
 }
 

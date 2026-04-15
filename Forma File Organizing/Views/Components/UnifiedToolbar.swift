@@ -159,6 +159,7 @@ private struct ToolbarSegmentButton<Label: View>: View {
 struct UnifiedToolbar: View {
     let availableWidth: CGFloat
     @EnvironmentObject var viewModel: DashboardViewModel
+    @EnvironmentObject private var panelStateManager: PanelStateManager
     @EnvironmentObject private var filterViewModel: FilterViewModel
     @EnvironmentObject private var selectionViewModel: SelectionViewModel
     @Environment(\.colorScheme) private var colorScheme
@@ -195,7 +196,7 @@ struct UnifiedToolbar: View {
     }
 
     private var isInspectorDisabled: Bool {
-        viewModel.rightPanelMode == .analytics
+        panelStateManager.rightPanelMode == .analytics
     }
 
     private var isInspectorEffectivelyVisible: Bool {
@@ -637,6 +638,7 @@ struct UnifiedToolbar: View {
         Color.formaControlBackground.opacity(Color.FormaOpacity.light).ignoresSafeArea()
         UnifiedToolbar(availableWidth: 600)
             .environmentObject(viewModel)
+            .environmentObject(viewModel.panelStateManager)
             .environmentObject(viewModel.filterViewModel)
             .environmentObject(viewModel.selectionViewModel)
     }

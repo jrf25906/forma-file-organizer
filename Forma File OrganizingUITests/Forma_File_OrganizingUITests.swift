@@ -138,6 +138,44 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     }
 
     @MainActor
+    func testInspectorRelaunchRestoresVisibleInspectorContent() throws {
+        let suiteName = "\(defaultWindowPresentationSuiteName).inspectorVisiblePersistence"
+        launchApp(
+            windowSize: "1600x980",
+            suiteName: suiteName,
+            resetWindowPresentation: true
+        )
+        harness.waitForMainContent()
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+
+        let selectedCountProbe = harness.element(withIdentifier: "mainContent_selectedCount")
+        harness.waitForExists(selectedCountProbe, timeout: 4, message: "Selected-count probe should exist")
+
+        app.activate()
+        app.typeKey("a", modifierFlags: .command)
+        harness.waitForValue(selectedCountProbe, notEquals: "0", timeout: 4)
+
+        let inspectorView = harness.element(withIdentifier: "fileInspectorView")
+        harness.waitForExists(inspectorView, timeout: 4, message: "Inspector should be visible before relaunch")
+
+        launchApp(
+            windowSize: "1600x980",
+            suiteName: suiteName,
+            resetWindowPresentation: false
+        )
+        harness.waitForMainContent()
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+
+        app.activate()
+        app.typeKey("a", modifierFlags: .command)
+        harness.waitForExists(
+            harness.element(withIdentifier: "fileInspectorView"),
+            timeout: 4,
+            message: "Visible inspector state should restore without needing the user to re-open the inspector after relaunch"
+        )
+    }
+
+    @MainActor
     func testWideThreeColumnRightPanelUsesRegularLayoutContract() throws {
         launchApp(windowSize: "1600x980")
         harness.waitForMainContent()
@@ -655,6 +693,55 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     }
 
     @MainActor
+    func testOnboardingPermissionRecoveryDoesNotReopenOnboardingAfterDismissal() throws {
+        let suiteName = "\(defaultWindowPresentationSuiteName).onboardingRecovery"
+        launchApp(
+            windowSize: "1340x900",
+            suiteName: suiteName,
+            resetWindowPresentation: true,
+            extraEnvironment: [
+                "FORMA_UI_TEST_SHOW_ONBOARDING": "1",
+                "FORMA_UI_TEST_ACCESSIBLE_FOLDERS": "desktop"
+            ]
+        )
+
+        let onboarding = harness.element(withIdentifier: "onboardingFlow")
+        harness.waitForExists(onboarding, timeout: 4, message: "Onboarding should appear when the UI test explicitly requests it")
+
+        let skipButton = app.buttons["onboardingSkipButton"]
+        XCTAssertTrue(skipButton.waitForExistence(timeout: 4), "Onboarding should expose the Skip affordance")
+        skipButton.click()
+
+        harness.waitForMainContent()
+        let requestAccess = app.buttons["sidebarRequestAccess_downloads"]
+        harness.waitForExists(
+            requestAccess,
+            timeout: 4,
+            message: "Downloads should still require access immediately after onboarding is dismissed"
+        )
+
+        launchApp(
+            windowSize: "1340x900",
+            suiteName: suiteName,
+            resetWindowPresentation: false,
+            extraEnvironment: [
+                "FORMA_UI_TEST_SHOW_ONBOARDING": "0",
+                "FORMA_UI_TEST_ACCESSIBLE_FOLDERS": "desktop,downloads"
+            ]
+        )
+
+        harness.waitForMainContent()
+        XCTAssertFalse(
+            app.otherElements["onboardingFlow"].waitForExistence(timeout: 1),
+            "Recovering folder access after onboarding dismissal should not reopen onboarding on relaunch"
+        )
+        XCTAssertFalse(
+            app.buttons["sidebarRequestAccess_downloads"].waitForExistence(timeout: 1),
+            "Recovered folder access should remove the explicit Request Access affordance on relaunch"
+        )
+    }
+
+    @MainActor
     func testNeedsReviewContextMenuExposesChooseDestinationForDestinationlessFile() throws {
         throw XCTSkip("macOS XCUITest secondary-click does not reliably surface the SwiftUI row context menu; destination editing is covered by keyboard shortcut coverage.")
 
@@ -890,7 +977,8 @@ private extension Forma_File_OrganizingUITests {
         windowSize: String,
         suiteName: String? = nil,
         resetWindowPresentation: Bool = true,
-        restoredFrame: String? = nil
+        restoredFrame: String? = nil,
+        extraEnvironment: [String: String] = [:]
     ) {
         app?.terminate()
         terminateRunningAppIfNeeded()
@@ -900,6 +988,9 @@ private extension Forma_File_OrganizingUITests {
         launchedApp.launchEnvironment["FORMA_WINDOW_SIZE"] = windowSize
         if let restoredFrame {
             launchedApp.launchEnvironment["FORMA_RESTORED_WINDOW_FRAME"] = restoredFrame
+        }
+        for (key, value) in extraEnvironment {
+            launchedApp.launchEnvironment[key] = value
         }
         configureWindowPresentationIsolation(
             for: launchedApp,

@@ -12,6 +12,34 @@ import Combine
 /// - Learned pattern management
 @MainActor
 class AnalyticsDashboardViewModel: ObservableObject {
+    private struct ClusterSetSnapshot: Equatable {
+        let signatures: [String]
+
+        static func make(from clusters: [ProjectCluster]) -> ClusterSetSnapshot {
+            ClusterSetSnapshot(
+                signatures: clusters
+                    .map(Self.signature(for:))
+                    .sorted()
+            )
+        }
+
+        private static func signature(for cluster: ProjectCluster) -> String {
+            let sortedPaths = cluster.filePaths
+                .map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+                .sorted()
+                .joined(separator: "|")
+            let confidence = String(format: "%.4f", cluster.confidenceScore)
+
+            return [
+                cluster.clusterType.rawValue,
+                cluster.suggestedFolderName,
+                cluster.detectedPattern ?? "none",
+                confidence,
+                sortedPaths
+            ].joined(separator: "::")
+        }
+    }
+
     // MARK: - Published Properties
 
     /// Storage analytics for all files
@@ -37,6 +65,7 @@ class AnalyticsDashboardViewModel: ObservableObject {
     private let learningService: LearningService
 
     // MARK: - Private State
+    private var lastDetectedClusterSnapshot = ClusterSetSnapshot(signatures: [])
 
     // MARK: - Initialization
 
@@ -113,6 +142,11 @@ class AnalyticsDashboardViewModel: ObservableObject {
     /// Detect project clusters from files
     func detectClusters(from allFiles: [FileItem], context: ModelContext) async {
         guard allFiles.count >= 5 else {
+            if lastDetectedClusterSnapshot.signatures.isEmpty, detectedClusters.isEmpty {
+                return
+            }
+
+            lastDetectedClusterSnapshot = ClusterSetSnapshot(signatures: [])
             detectedClusters = []
             return
         }
@@ -126,6 +160,16 @@ class AnalyticsDashboardViewModel: ObservableObject {
 
         // Run detection off-main using file snapshots to keep UI responsive.
         let clusters = await contextDetectionService.detectClustersOffMain(from: allFiles)
+        let newSnapshot = ClusterSetSnapshot.make(from: clusters)
+
+        if newSnapshot == lastDetectedClusterSnapshot {
+            #if DEBUG
+            Log.debug("Skipping cluster persistence and publish because the detected cluster set is unchanged", category: .analytics)
+            #endif
+            return
+        }
+
+        lastDetectedClusterSnapshot = newSnapshot
 
         #if DEBUG
         Log.info("Detected \(clusters.count) clusters", category: .analytics)
@@ -143,16 +187,20 @@ class AnalyticsDashboardViewModel: ObservableObject {
             return Set(existing.map { $0.suggestedFolderName })
         }()
 
+        var insertedClusters = 0
         for cluster in clusters {
             if !existingClusterNames.contains(cluster.suggestedFolderName) {
                 context.insert(cluster)
+                insertedClusters += 1
             }
         }
 
-        do {
-            try context.save()
-        } catch {
-            Log.error("Failed to save clusters: \(error.localizedDescription)", category: .analytics)
+        if insertedClusters > 0 {
+            do {
+                try context.save()
+            } catch {
+                Log.error("Failed to save clusters: \(error.localizedDescription)", category: .analytics)
+            }
         }
 
         // Update published state

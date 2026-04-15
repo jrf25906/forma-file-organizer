@@ -67,6 +67,13 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 
 ### Recent API Updates (April 2026)
 
+- `RetentionConfig` and `FormaConfig.retention` now define the shared retention window/caps used for workflow audit, trusted-scope run history, and personal-memory event history.
+- `HistoryRetentionService` now centralizes full-sweep and surface-specific pruning with a 90-day cutoff plus default caps of 2,000 workflow runs, 100 trusted-scope runs per scope, and 10,000 personal-memory events.
+- `WorkflowAuditStore.init(modelContext:nowProvider:)` now supports deterministic cutoff testing, and latest-run / latest-path / step / file-action lookups now use bounded predicates, sort descriptors, and fetch limits instead of fetch-all plus in-memory filtering.
+- `TrustedAutomationScopeCatalogService` and `TrustedAutomationScopeService` now build trusted-scope latest-run summaries and recommendation evidence from the same bounded retention window instead of scanning unbounded history.
+- `FileMetadataFoundationService.recordTransitionWithoutSaving(...)`, `PersonalMemoryService.recordDecisionWithoutSaving(...)`, `PersonalMemoryService.pruneRetainedHistory(now:)`, and the new no-save activity logging helpers now let bulk organize/undo/redo stage metadata history, personal-memory events, and audit rows inside one transaction.
+- `FileOrganizationCoordinator` now prefetches bulk organize/undo/redo state once, commits one `ModelContext` save per batch, and compensates successful disk moves if the final persistence save fails so disk and SwiftData remain aligned.
+- `DashboardPermissionState.requestAccess(for:using:)` now treats `.granted` as "picker request succeeded and post-request runtime verification passed", and `OnboardingFlowView` keeps users on `Get Started` with a retryable error when Downloads access is cancelled or cannot be verified.
 - `RightPanelWidthClass`, `RightPanelLayout`, and `EnvironmentValues.rightPanelLayout` now define the shared measured-width contract for the dashboard detail column.
 - `RightPanelView` now derives that contract from the live detail-column width and `FormaSpacing.Column.rightPanelIdeal`, while `FormaSpacing.Column.rightPanelMin/Ideal/Max` remain the only right-panel width source of truth.
 - `DefaultPanelView`, `FileInspectorView`, `RulesManagementView`, `InlineRuleBuilderView`, `CelebrationView`, and `CompletionCelebrationView` now consume `rightPanelLayout` so compact right-panel layouts stack or wrap controls before content truncates.

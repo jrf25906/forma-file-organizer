@@ -1037,31 +1037,13 @@ struct RuleEditorView: View {
         let isWorkflowDraft = nav.ruleDraftSession != nil
         let workflowReturnTarget = nav.ruleDraftSession?.returnTarget ?? draftReturnTarget
 
-        let ruleService = RuleService(modelContext: modelContext)
-
         do {
-            let materializedDestination = try destinationResolver.materializeForExplicitSave(rule.destination)
-
-            if let existingRule = editingRule {
-                existingRule.name = rule.name
-                existingRule.actionType = rule.actionType
-                existingRule.destination = materializedDestination
-                existingRule.isEnabled = rule.isEnabled
-                existingRule.category = rule.category
-                existingRule.exclusionConditions = rule.exclusionConditions
-                existingRule.conditionType = rule.conditionType
-                existingRule.conditionValue = rule.conditionValue
-                existingRule.conditions = rule.conditions
-                existingRule.logicalOperator = rule.logicalOperator
-
-                try ruleService.updateRule(existingRule)
-            } else {
-                rule.destination = materializedDestination
-                try ruleService.createRule(rule, source: ruleSourceForSave)
-            }
-
-            dashboardViewModel.loadRules(from: modelContext)
-            dashboardViewModel.reEvaluateFilesAgainstRules(context: modelContext)
+            try dashboardViewModel.saveRuleDraft(
+                rule,
+                editingRule: editingRule,
+                source: ruleSourceForSave,
+                context: modelContext
+            )
             pendingRuleForSave = nil
             detectedOverlaps = []
             saveButtonState = .success

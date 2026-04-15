@@ -3,6 +3,7 @@ import SwiftData
 
 struct RightPanelView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject private var panelStateManager: PanelStateManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var panelTransition
 
@@ -14,7 +15,7 @@ struct RightPanelView: View {
 
     /// Whether to show the mode header (hidden in default mode)
     private var showModeHeader: Bool {
-        if case .default = dashboardViewModel.rightPanelMode {
+        if case .default = panelStateManager.rightPanelMode {
             return false
         }
         return true
@@ -22,7 +23,7 @@ struct RightPanelView: View {
 
     /// Icon for current panel mode
     private var modeIcon: String {
-        switch dashboardViewModel.rightPanelMode {
+        switch panelStateManager.rightPanelMode {
         case .default: return "house"
         case .inspector: return "doc.text.magnifyingglass"
         case .rulesManagement: return "list.bullet.rectangle"
@@ -35,7 +36,7 @@ struct RightPanelView: View {
 
     /// Title for current panel mode
     private var modeTitle: String {
-        switch dashboardViewModel.rightPanelMode {
+        switch panelStateManager.rightPanelMode {
         case .default: return "Dashboard"
         case .inspector(let files):
             return files.count == 1 ? "File Details" : "\(files.count) Files"
@@ -63,7 +64,7 @@ struct RightPanelView: View {
 
                 // Panel content
                 Group {
-                    switch dashboardViewModel.rightPanelMode {
+                    switch panelStateManager.rightPanelMode {
                     case .default:
                         DefaultPanelView()
                             .padding(.top, -defaultPanelTopAlignmentOffset)
@@ -109,7 +110,7 @@ struct RightPanelView: View {
             )
             .animation(
                 reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85),
-                value: dashboardViewModel.rightPanelMode
+                value: panelStateManager.rightPanelMode
             )
         }
     }

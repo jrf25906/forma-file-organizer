@@ -13,6 +13,7 @@ struct OnboardingFlowView: View {
 
     @State private var currentStep: OnboardingState.OnboardingStep = .welcome
     @State private var navigationDirection: NavigationDirection = .forward
+    @State private var permissionErrorMessage: String?
 
     private enum NavigationDirection {
         case forward, backward
@@ -49,7 +50,8 @@ struct OnboardingFlowView: View {
                         GetStartedStepView(
                             onStartOrganizing: requestAccessAndComplete,
                             onBack: { navigateBack(to: .howItWorks) },
-                            onSkip: skipAndComplete
+                            onSkip: skipAndComplete,
+                            errorMessage: permissionErrorMessage
                         )
                         .transition(slideTransition)
 
@@ -60,6 +62,8 @@ struct OnboardingFlowView: View {
             }
         }
         .frame(width: 520, height: 520)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("onboardingFlow")
     }
 
     // MARK: - Step Indicator
@@ -114,15 +118,27 @@ struct OnboardingFlowView: View {
 
     private func requestAccessAndComplete() {
         Task {
-            _ = await dashboardViewModel.requestDownloadsAccess()
+            await MainActor.run {
+                permissionErrorMessage = nil
+            }
+
+            let result = await dashboardViewModel.requestDownloadsAccess()
 
             await MainActor.run {
-                finishOnboarding()
+                switch result {
+                case .granted:
+                    finishOnboarding()
+                case .cancelled:
+                    permissionErrorMessage = "Downloads access is required to finish setup. Choose Downloads to continue."
+                case .error(let message):
+                    permissionErrorMessage = message
+                }
             }
         }
     }
 
     private func skipAndComplete() {
+        permissionErrorMessage = nil
         finishOnboarding()
     }
 

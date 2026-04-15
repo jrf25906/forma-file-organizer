@@ -6,6 +6,7 @@ struct CelebrationView: View {
     let message: String
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject private var analyticsViewModel: AnalyticsDashboardViewModel
+    @EnvironmentObject private var panelStateManager: PanelStateManager
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.rightPanelLayout) private var rightPanelLayout
@@ -29,12 +30,12 @@ struct CelebrationView: View {
                 
                 actionSection
 
-                if let recommendation = dashboardViewModel.trustedScopeRecommendation {
+                if let recommendation = panelStateManager.trustedScopeRecommendation {
                     trustAutomationSection(recommendation)
                 }
                 
                 // Next Action Suggestion
-                if dashboardViewModel.celebrationShowsNextActionSuggestion,
+                if panelStateManager.celebrationStyle.showsNextActionSuggestion,
                    let suggestion = nextActionSuggestion {
                     nextActionSection(suggestion)
                 }
@@ -50,7 +51,7 @@ struct CelebrationView: View {
             startUndoTimer()
         }
         .sheet(isPresented: trustedScopeRecommendationSheetBinding) {
-            if let recommendation = dashboardViewModel.trustedScopeRecommendation {
+            if let recommendation = panelStateManager.trustedScopeRecommendation {
                 TrustedAutomationScopeRecommendationSheet(
                     recommendation: recommendation,
                     previewSummariesByType: trustedScopeRecommendationPreviewSummaries(recommendation),
@@ -363,7 +364,7 @@ struct CelebrationView: View {
 
     private var trustedScopeRecommendationSheetBinding: Binding<Bool> {
         Binding(
-            get: { dashboardViewModel.isTrustedScopeRecommendationPresented },
+            get: { panelStateManager.isTrustedScopeRecommendationPresented },
             set: { isPresented in
                 if !isPresented {
                     dashboardViewModel.dismissTrustedScopeRecommendation()
@@ -427,6 +428,8 @@ struct CelebrationView: View {
     CelebrationView(message: "Organized 5 files to Documents/Work")
         .environmentObject(viewModel)
         .environmentObject(viewModel.analyticsViewModel)
+        .environmentObject(viewModel.panelStateManager)
+        .environmentObject(NavigationViewModel())
         .modelContainer(container)
         .frame(width: 360, height: 800)
         .background(.regularMaterial)

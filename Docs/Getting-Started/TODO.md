@@ -1,6 +1,6 @@
 # Forma - Project TODO
 
-**Last Updated:** April 10, 2026
+**Last Updated:** April 15, 2026
 
 Strategic roadmap: [`forma-feature-roadmap.md`](../../forma-feature-roadmap.md). This document is the execution checklist and historical backlog reference.
 
@@ -40,6 +40,11 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 
 ## Recent Delivered Work
 The dated sections below capture shipped work and execution history. Use the roadmap-ordered section above to decide what comes next.
+
+## Critical-Path Optimization Follow-Through (April 15, 2026)
+- [x] Batch bulk organize, undo, and redo into one persistence transaction per batch/scope, staging file-item updates, metadata history, activity/audit rows, and personal-memory writes together while compensating successful disk moves if the final save fails.
+- [x] Add bounded retention for workflow audit, trusted-scope run history, and personal-memory event history, then switch latest-run and recommendation-evidence reads to the same 90-day bounded query window with count caps.
+- [x] Add direct runtime verification for Downloads onboarding so cancelled or unverifiable picker results stay on Get Started with a retryable error instead of completing onboarding.
 
 ## Right-Panel Responsive Width Classes (April 10, 2026)
 - [x] Add a measured `RightPanelLayout` / `RightPanelWidthClass` contract and keep `FormaSpacing.Column.rightPanelMin/Ideal/Max` as the only right-panel width source of truth.

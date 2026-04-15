@@ -392,6 +392,44 @@ final class FileMetadataFoundationService {
     ) throws -> FileMetadataRecord? {
         guard isEnabled else { return nil }
 
+        do {
+            return try recordTransition(
+                from: sourcePath,
+                to: destinationPath,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                eventKind: eventKind,
+                sourceSurface: sourceSurface,
+                destinationDisplayName: destinationDisplayName,
+                projectAssociationWriteContext: projectAssociationWriteContext,
+                matchedRuleID: matchedRuleID,
+                detailsSummary: detailsSummary,
+                timestamp: timestamp,
+                shouldApplyContentTags: true,
+                shouldSave: true
+            )
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
+    @discardableResult
+    func recordTransitionWithoutSaving(
+        from sourcePath: String,
+        to destinationPath: String,
+        displayName: String,
+        fileExtension: String,
+        eventKind: FileOrganizationHistoryEntry.EventKind,
+        sourceSurface: FileOrganizationHistoryEntry.SourceSurface,
+        destinationDisplayName: String? = nil,
+        projectAssociationWriteContext: ProjectAssociationWriteContext? = nil,
+        matchedRuleID: UUID? = nil,
+        detailsSummary: String? = nil,
+        timestamp: Date
+    ) throws -> FileMetadataRecord? {
+        guard isEnabled else { return nil }
+
         return try recordTransition(
             from: sourcePath,
             to: destinationPath,
@@ -404,7 +442,8 @@ final class FileMetadataFoundationService {
             matchedRuleID: matchedRuleID,
             detailsSummary: detailsSummary,
             timestamp: timestamp,
-            shouldApplyContentTags: true
+            shouldApplyContentTags: true,
+            shouldSave: false
         )
     }
 
@@ -424,20 +463,26 @@ final class FileMetadataFoundationService {
     ) throws -> FileMetadataRecord? {
         guard isEnabled else { return nil }
 
-        return try recordTransition(
-            from: sourcePath,
-            to: destinationPath,
-            displayName: displayName,
-            fileExtension: fileExtension,
-            eventKind: eventKind,
-            sourceSurface: sourceSurface,
-            destinationDisplayName: destinationDisplayName,
-            projectAssociationWriteContext: projectAssociationWriteContext,
-            matchedRuleID: matchedRuleID,
-            detailsSummary: detailsSummary,
-            timestamp: timestamp,
-            shouldApplyContentTags: false
-        )
+        do {
+            return try recordTransition(
+                from: sourcePath,
+                to: destinationPath,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                eventKind: eventKind,
+                sourceSurface: sourceSurface,
+                destinationDisplayName: destinationDisplayName,
+                projectAssociationWriteContext: projectAssociationWriteContext,
+                matchedRuleID: matchedRuleID,
+                detailsSummary: detailsSummary,
+                timestamp: timestamp,
+                shouldApplyContentTags: false,
+                shouldSave: true
+            )
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     @discardableResult
@@ -451,21 +496,27 @@ final class FileMetadataFoundationService {
     ) throws -> FileMetadataRecord? {
         guard isEnabled else { return nil }
 
-        return try recordTransition(
-            from: sourcePath,
-            to: destinationPath,
-            displayName: displayName,
-            fileExtension: fileExtension,
-            eventKind: .noted,
-            sourceSurface: .undo,
-            destinationDisplayName: nil,
-            projectAssociationWriteContext: nil,
-            matchedRuleID: nil,
-            detailsSummary: detailsSummary
-                ?? "Workflow rollback restored the original file path.",
-            timestamp: timestamp,
-            shouldApplyContentTags: false
-        )
+        do {
+            return try recordTransition(
+                from: sourcePath,
+                to: destinationPath,
+                displayName: displayName,
+                fileExtension: fileExtension,
+                eventKind: .noted,
+                sourceSurface: .undo,
+                destinationDisplayName: nil,
+                projectAssociationWriteContext: nil,
+                matchedRuleID: nil,
+                detailsSummary: detailsSummary
+                    ?? "Workflow rollback restored the original file path.",
+                timestamp: timestamp,
+                shouldApplyContentTags: false,
+                shouldSave: true
+            )
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     @discardableResult
@@ -481,80 +532,79 @@ final class FileMetadataFoundationService {
         matchedRuleID: UUID? = nil,
         detailsSummary: String? = nil,
         timestamp: Date,
-        shouldApplyContentTags: Bool
+        shouldApplyContentTags: Bool,
+        shouldSave: Bool
     ) throws -> FileMetadataRecord? {
         guard isEnabled else { return nil }
 
-        do {
-            let normalizedSourcePath = FileMetadataRecord.normalizedPath(sourcePath)
-            let normalizedDestinationPath = FileMetadataRecord.normalizedPath(destinationPath)
+        let normalizedSourcePath = FileMetadataRecord.normalizedPath(sourcePath)
+        let normalizedDestinationPath = FileMetadataRecord.normalizedPath(destinationPath)
 
-            let rekeyedRecord = try rekeyPathFallbackRecordWithoutSaving(
-                oldPath: normalizedSourcePath,
-                newPath: normalizedDestinationPath,
-                timestamp: timestamp
+        let rekeyedRecord = try rekeyPathFallbackRecordWithoutSaving(
+            oldPath: normalizedSourcePath,
+            newPath: normalizedDestinationPath,
+            timestamp: timestamp
+        )
+
+        let finalRecord: FileMetadataRecord
+        if let rekeyedRecord {
+            rekeyedRecord.lastKnownPath = normalizedDestinationPath
+            rekeyedRecord.displayName = FileMetadataRecord.normalizedDisplayName(displayName)
+            rekeyedRecord.fileExtension = fileExtension.lowercased()
+            rekeyedRecord.lastSeenAt = timestamp
+            finalRecord = rekeyedRecord
+        } else if let destinationRecord = try upsertRecordWithoutSaving(
+            for: normalizedDestinationPath,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            timestamp: timestamp
+        ) {
+            finalRecord = destinationRecord
+        } else {
+            return nil
+        }
+
+        if let projectAssociationWriteContext {
+            _ = applyProjectAssociationWithoutSaving(
+                for: finalRecord,
+                writeContext: projectAssociationWriteContext
             )
+        }
 
-            let finalRecord: FileMetadataRecord
-            if let rekeyedRecord {
-                rekeyedRecord.lastKnownPath = normalizedDestinationPath
-                rekeyedRecord.displayName = FileMetadataRecord.normalizedDisplayName(displayName)
-                rekeyedRecord.fileExtension = fileExtension.lowercased()
-                rekeyedRecord.lastSeenAt = timestamp
-                finalRecord = rekeyedRecord
-            } else if let destinationRecord = try upsertRecordWithoutSaving(
-                for: normalizedDestinationPath,
+        if shouldApplyContentTags {
+            _ = applyContentTagsWithoutSaving(
+                for: finalRecord,
                 displayName: displayName,
                 fileExtension: fileExtension,
-                timestamp: timestamp
-            ) {
-                finalRecord = destinationRecord
-            } else {
-                return nil
-            }
-
-            if let projectAssociationWriteContext {
-                _ = applyProjectAssociationWithoutSaving(
-                    for: finalRecord,
-                    writeContext: projectAssociationWriteContext
-                )
-            }
-
-            if shouldApplyContentTags {
-                _ = applyContentTagsWithoutSaving(
-                    for: finalRecord,
-                    displayName: displayName,
-                    fileExtension: fileExtension,
-                    destinationDisplayName: destinationDisplayName,
-                    matchedRuleID: matchedRuleID
-                )
-            }
-
-            _ = try appendHistoryEntryWithoutSaving(
-                for: finalRecord,
-                eventKind: eventKind,
-                sourceSurface: sourceSurface,
-                fromPath: normalizedSourcePath,
-                toPath: normalizedDestinationPath,
                 destinationDisplayName: destinationDisplayName,
-                matchedRuleID: matchedRuleID,
-                detailsSummary: detailsSummary,
-                timestamp: timestamp
+                matchedRuleID: matchedRuleID
             )
-            applyWorkflowStatus(for: finalRecord, eventKind: eventKind)
-
-            #if DEBUG
-            if let debugRecordTransitionHook = Self.debugRecordTransitionHook {
-                try debugRecordTransitionHook(normalizedSourcePath, normalizedDestinationPath, eventKind)
-            }
-            #endif
-
-            try modelContext.save()
-            return finalRecord
-        } catch {
-            modelContext.rollback()
-            throw error
         }
+
+        _ = try appendHistoryEntryWithoutSaving(
+            for: finalRecord,
+            eventKind: eventKind,
+            sourceSurface: sourceSurface,
+            fromPath: normalizedSourcePath,
+            toPath: normalizedDestinationPath,
+            destinationDisplayName: destinationDisplayName,
+            matchedRuleID: matchedRuleID,
+            detailsSummary: detailsSummary,
+            timestamp: timestamp
+        )
+        applyWorkflowStatus(for: finalRecord, eventKind: eventKind)
+
+        #if DEBUG
+        if let debugRecordTransitionHook = Self.debugRecordTransitionHook {
+            try debugRecordTransitionHook(normalizedSourcePath, normalizedDestinationPath, eventKind)
+        }
+        #endif
+
+        if shouldSave {
+            try modelContext.save()
+        }
+
+        return finalRecord
     }
 
     @discardableResult

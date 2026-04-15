@@ -660,3 +660,279 @@ class RuleService: ObservableObject {
         }
     }
 }
+
+@MainActor
+final class RuleAuthoringService {
+    struct SaveResult {
+        let enabledRules: [Rule]
+        let affectedFilePaths: Set<String>
+    }
+
+    private struct PreviewCacheKey: Hashable {
+        let ruleSignature: String
+        let filesRevision: Int
+    }
+
+    private struct FileIndexKey: Hashable {
+        let filesRevision: Int
+        let fileCount: Int
+    }
+
+    private struct FileIndex {
+        let allFiles: [FileItem]
+        let filesByPath: [String: FileItem]
+        let filesByExtension: [String: [FileItem]]
+        let filesByLocation: [FileLocationKind: [FileItem]]
+    }
+
+    private let destinationResolver = DestinationResolver()
+    private var cachedFileIndexKey: FileIndexKey?
+    private var cachedFileIndex: FileIndex?
+    private var previewCache: [PreviewCacheKey: [String]] = [:]
+
+    func previewMatches<R: Ruleable>(
+        for rule: R,
+        among files: [FileItem],
+        filesRevision: Int,
+        using ruleEngine: RuleEngine
+    ) -> [FileItem] {
+        let index = fileIndex(for: files, filesRevision: filesRevision)
+        let cacheKey = PreviewCacheKey(
+            ruleSignature: previewSignature(for: rule),
+            filesRevision: filesRevision
+        )
+
+        if let cachedPaths = previewCache[cacheKey] {
+            return cachedPaths.compactMap { index.filesByPath[$0] }
+        }
+
+        let candidates = candidateFiles(for: rule, in: index)
+        let matches = candidates.filter { file in
+            ruleEngine.fileMatchesRule(file: file, rule: rule)
+        }
+        let matchedPaths = matches.map(\.path)
+        previewCache[cacheKey] = matchedPaths
+        return matches
+    }
+
+    func saveRule(
+        _ rule: Rule,
+        editingRule: Rule?,
+        source: RuleService.RuleSource,
+        context: ModelContext,
+        files: [FileItem],
+        ruleEngine: RuleEngine,
+        filesRevision: Int
+    ) throws -> SaveResult {
+        let fileIndex = fileIndex(for: files, filesRevision: filesRevision)
+        let oldMatchedPaths = Set(
+            editingRule.map {
+                previewMatches(
+                    for: $0,
+                    among: files,
+                    filesRevision: filesRevision,
+                    using: ruleEngine
+                ).map(\.path)
+            } ?? []
+        )
+        let newMatchedPaths = Set(
+            rule.isEnabled
+                ? previewMatches(
+                    for: rule,
+                    among: files,
+                    filesRevision: filesRevision,
+                    using: ruleEngine
+                ).map(\.path)
+                : []
+        )
+        let affectedPaths = oldMatchedPaths.union(newMatchedPaths)
+        let ruleService = RuleService(modelContext: context)
+        let materializedDestination = try destinationResolver.materializeForExplicitSave(rule.destination)
+
+        if let existingRule = editingRule {
+            existingRule.name = rule.name
+            existingRule.actionType = rule.actionType
+            existingRule.destination = materializedDestination
+            existingRule.isEnabled = rule.isEnabled
+            existingRule.category = rule.category
+            existingRule.exclusionConditions = rule.exclusionConditions
+            existingRule.conditionType = rule.conditionType
+            existingRule.conditionValue = rule.conditionValue
+            existingRule.conditions = rule.conditions
+            existingRule.logicalOperator = rule.logicalOperator
+
+            try ruleService.updateRule(existingRule)
+        } else {
+            rule.destination = materializedDestination
+            try ruleService.createRule(rule, source: source)
+        }
+
+        let enabledRules = try ruleService.fetchRulesByPriority(enabledOnly: true)
+        let affectedFiles = affectedPaths.compactMap { fileIndex.filesByPath[$0] }
+        for file in affectedFiles {
+            _ = ruleEngine.evaluateFile(file, rules: enabledRules)
+        }
+        if !affectedFiles.isEmpty {
+            try context.save()
+        }
+
+        previewCache.removeAll()
+        return SaveResult(enabledRules: enabledRules, affectedFilePaths: affectedPaths)
+    }
+
+    private func fileIndex(
+        for files: [FileItem],
+        filesRevision: Int
+    ) -> FileIndex {
+        let key = FileIndexKey(filesRevision: filesRevision, fileCount: files.count)
+        if cachedFileIndexKey == key, let cachedFileIndex {
+            return cachedFileIndex
+        }
+
+        var filesByPath: [String: FileItem] = [:]
+        var filesByExtension: [String: [FileItem]] = [:]
+        var filesByLocation: [FileLocationKind: [FileItem]] = [:]
+
+        for file in files {
+            filesByPath[file.path] = file
+            filesByExtension[file.fileExtension.lowercased(), default: []].append(file)
+            filesByLocation[file.location, default: []].append(file)
+        }
+
+        let index = FileIndex(
+            allFiles: files,
+            filesByPath: filesByPath,
+            filesByExtension: filesByExtension,
+            filesByLocation: filesByLocation
+        )
+        cachedFileIndexKey = key
+        cachedFileIndex = index
+        return index
+    }
+
+    private func candidateFiles<R: Ruleable>(
+        for rule: R,
+        in index: FileIndex
+    ) -> [FileItem] {
+        let conditions = resolvedConditions(for: rule)
+        guard !conditions.isEmpty else {
+            return index.allFiles
+        }
+
+        let candidateSets = conditions.map { candidateFiles(for: $0, in: index) }
+
+        switch rule.logicalOperator {
+        case .and:
+            let indexedSets = candidateSets.compactMap { $0 }
+            return indexedSets.min(by: { $0.count < $1.count }) ?? index.allFiles
+
+        case .or:
+            guard candidateSets.allSatisfy({ $0 != nil }) else {
+                return index.allFiles
+            }
+
+            let unionPaths = Set(candidateSets.compactMap { $0 }.flatMap { $0.map(\.path) })
+            return unionPaths.compactMap { index.filesByPath[$0] }
+
+        case .single:
+            return candidateSets.first.flatMap { $0 } ?? index.allFiles
+        }
+    }
+
+    private func candidateFiles(
+        for condition: RuleCondition,
+        in index: FileIndex
+    ) -> [FileItem]? {
+        switch condition {
+        case .fileExtension(let value):
+            return index.filesByExtension[value.lowercased()] ?? []
+        case .sourceLocation(let location):
+            return index.filesByLocation[location] ?? []
+        case .not:
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    private func resolvedConditions<R: Ruleable>(for rule: R) -> [RuleCondition] {
+        if !rule.conditions.isEmpty {
+            return rule.conditions
+        }
+
+        guard let persistedRule = rule as? Rule,
+              let condition = try? RuleCondition(
+                type: persistedRule.conditionType,
+                value: persistedRule.conditionValue
+              ) else {
+            return []
+        }
+
+        return [condition]
+    }
+
+    private func previewSignature<R: Ruleable>(for rule: R) -> String {
+        let primaryConditions = resolvedConditions(for: rule)
+            .map(conditionSignature)
+            .sorted()
+            .joined(separator: ",")
+        let exclusions = rule.exclusionConditions
+            .map(conditionSignature)
+            .sorted()
+            .joined(separator: ",")
+        let destinationIdentity = destinationSignature(for: rule.destination)
+
+        return [
+            primaryConditions,
+            exclusions,
+            rule.logicalOperator.rawValue,
+            rule.actionType.rawValue,
+            destinationIdentity
+        ].joined(separator: "|")
+    }
+
+    private func conditionSignature(_ condition: RuleCondition) -> String {
+        switch condition {
+        case .fileExtension(let value):
+            return "fileExtension(\(normalized(value)))"
+        case .nameContains(let value):
+            return "nameContains(\(normalized(value)))"
+        case .nameStartsWith(let value):
+            return "nameStartsWith(\(normalized(value)))"
+        case .nameEndsWith(let value):
+            return "nameEndsWith(\(normalized(value)))"
+        case .dateOlderThan(let days, let ext):
+            return "dateOlderThan(\(days),\(normalized(ext ?? "")))"
+        case .sizeLargerThan(let bytes):
+            return "sizeLargerThan(\(bytes))"
+        case .dateModifiedOlderThan(let days):
+            return "dateModifiedOlderThan(\(days))"
+        case .dateAccessedOlderThan(let days):
+            return "dateAccessedOlderThan(\(days))"
+        case .fileKind(let kind):
+            return "fileKind(\(normalized(kind)))"
+        case .sourceLocation(let location):
+            return "sourceLocation(\(location.rawValue.lowercased()))"
+        case .not(let inner):
+            return "not(\(conditionSignature(inner)))"
+        }
+    }
+
+    private func destinationSignature(for destination: Destination?) -> String {
+        guard let destination else { return "none" }
+
+        switch destination {
+        case .trash:
+            return "trash"
+        case .folder(_, let displayName):
+            return normalized(displayName)
+        }
+    }
+
+    private func normalized(_ value: String) -> String {
+        value
+            .precomposedStringWithCanonicalMapping
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+}

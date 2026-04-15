@@ -482,6 +482,7 @@ final class TrustedAutomationScopeService {
         scope.lastRunAt = recordedAt
         scope.updatedAt = max(scope.updatedAt, recordedAt)
         try modelContext.save()
+        pruneRetainedHistoryIfNeeded(referenceDate: recordedAt)
 
         if status != .simulated {
             let summary = summaryText ?? defaultRunSummary(
@@ -556,6 +557,15 @@ final class TrustedAutomationScopeService {
             return scope
         }
         throw ServiceError.scopeNotFound(id)
+    }
+
+    private func pruneRetainedHistoryIfNeeded(referenceDate: Date) {
+        do {
+            _ = try HistoryRetentionService(modelContext: modelContext)
+                .pruneTrustedScopeRunHistory(now: referenceDate)
+        } catch {
+            Log.error("Failed to prune trusted-scope run history: \(error.localizedDescription)", category: .analytics)
+        }
     }
 
     private func defaultRunSummary(
@@ -745,11 +755,14 @@ final class TrustedAutomationScopeService {
         matching predicate: (PersonalMemoryEvent) -> Bool
     ) throws -> [PersonalMemoryEvent] {
         let eligibleSurfaces: Set<PersonalMemorySourceSurface> = [.reviewFlow, .undoSurface]
-        return try modelContext.fetch(
-            FetchDescriptor<PersonalMemoryEvent>(
-                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-            )
-        ).filter { event in
+        let cutoff = HistoryRetentionService.historyCutoff(referenceDate: Date())
+        var descriptor = FetchDescriptor<PersonalMemoryEvent>(
+            predicate: #Predicate { $0.timestamp >= cutoff },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = HistoryRetentionService.personalMemoryEventLimit
+
+        return try modelContext.fetch(descriptor).filter { event in
             eligibleSurfaces.contains(event.sourceSurface) && predicate(event)
         }
     }

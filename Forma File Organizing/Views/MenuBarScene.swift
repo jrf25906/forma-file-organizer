@@ -22,7 +22,11 @@ struct MenuBarScene: Scene {
             Label("Forma", image: "MenuBarIcon")
                 .task {
                     guard !didAutoOpenMainWindow else { return }
-                    guard ProcessInfo.processInfo.arguments.contains("--uitesting") else { return }
+                    let arguments = ProcessInfo.processInfo.arguments
+                    guard arguments.contains("--uitesting") ||
+                            arguments.contains("--perf-signpost-harness") else {
+                        return
+                    }
                     didAutoOpenMainWindow = true
                     openWindow(id: "main")
                 }

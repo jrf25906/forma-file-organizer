@@ -9,6 +9,7 @@
 > [`agent-3-bug-hunter.md`](2026-04-10-forma-audit/agent-3-bug-hunter.md),
 > [`agent-4-layout.md`](2026-04-10-forma-audit/agent-4-layout.md).
 > **Screenshots:** [`2026-04-10-forma-audit/screenshots/`](2026-04-10-forma-audit/screenshots/)
+> **Follow-on optimization plan:** [../superpowers/plans/2026-04-10-forma-optimization-program.md](../superpowers/plans/2026-04-10-forma-optimization-program.md)
 
 ## Executive summary
 

@@ -22,7 +22,10 @@ final class TrustedAutomationScopeCatalogService {
 
     func buildSummarySections(referenceDate: Date = Date()) throws -> [TrustedAutomationScopeSummarySection] {
         let scopes = try fetchScopes()
-        let recordsByScopeID = try fetchRunRecordsByScopeID()
+        let recordsByScopeID = try fetchRunRecordsByScopeID(
+            scopeIDs: scopes.map(\.id),
+            referenceDate: referenceDate
+        )
         let rulesByID = try fetchRulesByID()
         let healthByRuleID = ruleHealthService.classify(rules: Array(rulesByID.values))
 
@@ -57,7 +60,7 @@ final class TrustedAutomationScopeCatalogService {
             return nil
         }
 
-        let records = try fetchRunRecordsByScopeID()[scope.id] ?? []
+        let records = try fetchRunRecords(scopeID: scope.id, referenceDate: referenceDate)
         let rulesByID = try fetchRulesByID()
         let healthByRuleID = ruleHealthService.classify(rules: Array(rulesByID.values))
         let summary = makeSummary(
@@ -80,7 +83,10 @@ final class TrustedAutomationScopeCatalogService {
             confidenceSnapshot: scope.confidenceSnapshot,
             rationaleSummary: scope.rationaleSummary,
             selectedWorkflowTemplate: summary.selectedWorkflowTemplate,
-            latestWorkflowRun: try makeLatestWorkflowRunSummary(for: scope),
+            latestWorkflowRun: try makeLatestWorkflowRunSummary(
+                for: scope,
+                referenceDate: referenceDate
+            ),
             recentRuns: records.prefix(recentRunLimit).map(makeRecentRunSummary)
         )
     }
@@ -96,17 +102,34 @@ final class TrustedAutomationScopeCatalogService {
         )
     }
 
-    private func fetchRunRecordsByScopeID() throws -> [UUID: [TrustedAutomationScopeRunRecord]] {
-        let records = try modelContext.fetch(
-            FetchDescriptor<TrustedAutomationScopeRunRecord>(
-                sortBy: [
-                    SortDescriptor(\.endedAt, order: .reverse),
-                    SortDescriptor(\.startedAt, order: .reverse)
-                ]
-            )
+    private func fetchRunRecordsByScopeID(
+        scopeIDs: [UUID],
+        referenceDate: Date
+    ) throws -> [UUID: [TrustedAutomationScopeRunRecord]] {
+        Dictionary(
+            uniqueKeysWithValues: try scopeIDs.map { scopeID in
+                (scopeID, try fetchRunRecords(scopeID: scopeID, referenceDate: referenceDate))
+            }
         )
+    }
 
-        return Dictionary(grouping: records, by: \.scopeID)
+    private func fetchRunRecords(
+        scopeID: UUID,
+        referenceDate: Date
+    ) throws -> [TrustedAutomationScopeRunRecord] {
+        let cutoff = HistoryRetentionService.historyCutoff(referenceDate: referenceDate)
+        var descriptor = FetchDescriptor<TrustedAutomationScopeRunRecord>(
+            predicate: #Predicate {
+                $0.scopeID == scopeID &&
+                $0.startedAt >= cutoff
+            },
+            sortBy: [
+                SortDescriptor(\.endedAt, order: .reverse),
+                SortDescriptor(\.startedAt, order: .reverse)
+            ]
+        )
+        descriptor.fetchLimit = recentRunLimit
+        return try modelContext.fetch(descriptor)
     }
 
     private func fetchRulesByID() throws -> [UUID: Rule] {
@@ -123,7 +146,7 @@ final class TrustedAutomationScopeCatalogService {
     ) -> TrustedAutomationScopeSummary {
         let recentRunSummaries = recentRecords.prefix(recentRunLimit).map(makeRecentRunSummary)
         let selectedWorkflowTemplate = makeWorkflowTemplateSummary(for: scope)
-        let latestWorkflowRun = try? makeLatestWorkflowRunSummary(for: scope)
+        let latestWorkflowRun = try? makeLatestWorkflowRunSummary(for: scope, referenceDate: referenceDate)
         let workflowMemory = TrustedAutomationScopeWorkflowMemorySummary.derive(
             selectedTemplateID: scope.selectedWorkflowTemplateID,
             templateAssignedAt: scope.templateAssignedAt,
@@ -189,7 +212,8 @@ final class TrustedAutomationScopeCatalogService {
     }
 
     private func makeLatestWorkflowRunSummary(
-        for scope: TrustedAutomationScope
+        for scope: TrustedAutomationScope,
+        referenceDate: Date
     ) throws -> TrustedAutomationScopeWorkflowRunSummary? {
         let store = WorkflowAuditStore(modelContext: modelContext)
         let normalizedSelectedTemplateID = WorkflowRunRecord.normalizedOptionalText(scope.selectedWorkflowTemplateID)
@@ -201,14 +225,20 @@ final class TrustedAutomationScopeCatalogService {
         if selectedTemplateIsAvailable {
             run = try store.latestRunSummary(
                 scopeID: scope.id,
-                workflowTemplateID: normalizedSelectedTemplateID
+                workflowTemplateID: normalizedSelectedTemplateID,
+                referenceDate: referenceDate
             )
         } else {
             let selectedTemplateRun = try store.latestRunSummary(
                 scopeID: scope.id,
-                workflowTemplateID: normalizedSelectedTemplateID
+                workflowTemplateID: normalizedSelectedTemplateID,
+                referenceDate: referenceDate
             )
-            let fallbackRun = try store.latestRunSummary(scopeID: scope.id, workflowTemplateID: nil)
+            let fallbackRun = try store.latestRunSummary(
+                scopeID: scope.id,
+                workflowTemplateID: nil,
+                referenceDate: referenceDate
+            )
             run = selectedTemplateRun ?? fallbackRun
         }
 

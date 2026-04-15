@@ -3,18 +3,22 @@ import XCTest
 final class TestGatingTests: XCTestCase {
     private var originalIntegrationValue: String?
     private var originalPerformanceValue: String?
+    private var originalTestPlanName: String?
 
     override func setUp() {
         super.setUp()
         originalIntegrationValue = ProcessInfo.processInfo.environment["RUN_INTEGRATION_TESTS"]
         originalPerformanceValue = ProcessInfo.processInfo.environment["RUN_PERFORMANCE_TESTS"]
+        originalTestPlanName = ProcessInfo.processInfo.environment["XCODE_TEST_PLAN_NAME"]
         unsetenv("RUN_INTEGRATION_TESTS")
         unsetenv("RUN_PERFORMANCE_TESTS")
+        unsetenv("XCODE_TEST_PLAN_NAME")
     }
 
     override func tearDown() {
         restoreEnvironmentVariable("RUN_INTEGRATION_TESTS", value: originalIntegrationValue)
         restoreEnvironmentVariable("RUN_PERFORMANCE_TESTS", value: originalPerformanceValue)
+        restoreEnvironmentVariable("XCODE_TEST_PLAN_NAME", value: originalTestPlanName)
         super.tearDown()
     }
 
@@ -30,6 +34,14 @@ final class TestGatingTests: XCTestCase {
         XCTAssertNoThrow(try TestGating.requireIntegration())
     }
 
+    func testIntegrationTestsCanBeEnabledViaTestPlanName() {
+        setenv("XCODE_TEST_PLAN_NAME", "Forma File Organizing - Integration", 1)
+
+        XCTAssertTrue(TestGating.isIntegrationEnabled)
+        XCTAssertNoThrow(try TestGating.requireIntegration())
+        XCTAssertFalse(TestGating.isPerformanceEnabled)
+    }
+
     func testPerformanceTestsAreDisabledByDefault() {
         XCTAssertFalse(TestGating.isPerformanceEnabled)
         XCTAssertThrowsError(try TestGating.requirePerformance())
@@ -40,6 +52,14 @@ final class TestGatingTests: XCTestCase {
 
         XCTAssertTrue(TestGating.isPerformanceEnabled)
         XCTAssertNoThrow(try TestGating.requirePerformance())
+    }
+
+    func testPerformanceTestsCanBeEnabledViaTestPlanName() {
+        setenv("XCODE_TEST_PLAN_NAME", "Forma File Organizing - Performance", 1)
+
+        XCTAssertTrue(TestGating.isPerformanceEnabled)
+        XCTAssertNoThrow(try TestGating.requirePerformance())
+        XCTAssertFalse(TestGating.isIntegrationEnabled)
     }
 
     func testPlanOnlySuitesOptIntoGating() throws {

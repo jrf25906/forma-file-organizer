@@ -4,23 +4,83 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
-- Watched-folder incremental refresh
-  - `WatchedFolderChangeSet`
-    - `touchedRoots`
-    - `updatedPaths`
-    - `removedPaths`
-    - `requiresFallbackRootScan`
-  - `WatchedFolderFileEvent`
-  - `AutomationScanRequest`
-    - `full`
-    - `roots([FolderLocation])`
-    - `delta(WatchedFolderChangeSet)`
-  - `AutomationNotificationKey.updatedPaths`
-  - `AutomationNotificationKey.removedPaths`
-  - `AutomationNotificationKey.requiresClusterRefresh`
-  - `DashboardScanRefreshController.applyAutomationScanUpdate(updatedPaths:removedPaths:scannedRootPaths:errorSummary:replacesAllFiles:requiresClusterRefresh:context:actions:)`
-  - `FileScanViewModel.applyIncrementalAutomationUpdate(updatedFiles:removedPaths:)`
-  - File watcher callbacks now emit standardized touched-path deltas instead of only watched roots, automation scans can route explicit-path delta work separately from root/full refreshes, and dashboard automation updates can merge touched rows in place while rerunning visible search only when needed.
+- Batched organize/undo persistence, bounded retention, and verified onboarding access
+  - `RetentionConfig`
+    - `historyWindowDays`
+    - `workflowRunLimit`
+    - `trustedScopeRunLimitPerScope`
+    - `personalMemoryEventLimit`
+  - `FormaConfig.retention`
+  - `HistoryRetentionService`
+    - `historyCutoff(referenceDate:calendar:)`
+    - `pruneAllHistory(now:)`
+    - `pruneWorkflowAuditHistory(now:)`
+    - `pruneTrustedScopeRunHistory(now:)`
+    - `prunePersonalMemoryHistory(now:)`
+  - `WorkflowAuditStore`
+    - `init(modelContext:nowProvider:)`
+    - latest-run and latest-path lookups now share the retention cutoff plus fetch limits instead of fetching full tables into memory.
+  - `FileMetadataFoundationService.recordTransitionWithoutSaving(...)`
+  - `PersonalMemoryService.recordDecisionWithoutSaving(...)`
+  - `PersonalMemoryService.pruneRetainedHistory(now:)`
+  - `DashboardPermissionState.requestAccess(for:using:)` now returns `.granted` only after the requested folder still verifies as readable after the picker returns.
+  - Bulk organize/undo/redo now stage metadata history, activity/audit rows, file-item mutations, and personal-memory writes into one batch save and compensate successful disk moves if the final persistence step fails.
+
+- Critical-path optimization and validation infrastructure
+  - Watched-folder incremental refresh
+    - `WatchedFolderChangeSet`
+      - `touchedRoots`
+      - `updatedPaths`
+      - `removedPaths`
+      - `requiresFallbackRootScan`
+    - `WatchedFolderFileEvent`
+    - `AutomationScanRequest`
+      - `full`
+      - `roots([FolderLocation])`
+      - `delta(WatchedFolderChangeSet)`
+    - `AutomationNotificationKey.updatedPaths`
+    - `AutomationNotificationKey.removedPaths`
+    - `AutomationNotificationKey.requiresClusterRefresh`
+    - `DashboardScanRefreshController.applyAutomationScanUpdate(updatedPaths:removedPaths:scannedRootPaths:errorSummary:replacesAllFiles:requiresClusterRefresh:context:recentActivitiesProvider:actions:)`
+    - `FileScanViewModel.applyIncrementalAutomationUpdate(updatedFiles:removedPaths:)`
+    - File watcher callbacks now emit standardized touched-path deltas instead of only watched roots, automation scans can route explicit-path delta work separately from root/full refreshes, and dashboard automation updates can merge touched rows in place while rerunning visible search only when needed.
+  - `PerformanceHarnessConfiguration`
+    - `enableFlag`
+    - `enableEnvironmentKey`
+    - `warmupEnvironmentKey`
+    - `iterationsEnvironmentKey`
+    - `eventsFileEnvironmentKey`
+    - `isEnabled`
+    - `warmupIterations`
+    - `sampleIterations`
+    - `eventsFilePath`
+    - `isEnabled(arguments:environment:)`
+    - `warmupIterations(arguments:environment:)`
+    - `sampleIterations(arguments:environment:)`
+    - `eventsFilePath(arguments:environment:)`
+  - `DashboardViewModel`
+    - `prepareStartupContext(_:)`
+    - `handleDashboardStartup(context:autoScanOnLaunch:)`
+    - `runPerformanceSignpostHarness(iterations:warmupIterations:context:)`
+    - Startup scan ownership now latches completion only after a non-cancelled launch scan finishes, so cancelled launch attempts do not suppress the next real startup scan.
+  - `UITestFolderAccessConfiguration`
+    - `accessibleFoldersEnvironmentKey`
+    - `showOnboardingEnvironmentKey`
+    - `defaultAccessibleFolderNames`
+    - `isEnabled`
+    - `accessibleFolderNames(environment:)`
+    - Shared by `DashboardPermissionState` and `BookmarkFolderService` so UI/perf folder access defaults stay aligned when `FORMA_UI_TEST_ACCESSIBLE_FOLDERS` is unset.
+  - `DashboardScanRefreshController`
+    - `runPerformanceSignpostHarness(iterations:warmupIterations:context:recentActivitiesProvider:actions:)`
+    - Automation refresh and harness refresh now normalize missing `scanRootPath` values back to the file's parent directory, so automation updates and signpost runs still match legacy `FileItem` rows that predate persisted scan-root metadata.
+    - Harness runs can emit JSONL timing rows through `PerformanceHarnessConfiguration.eventsFilePath`, allowing `Scripts/signpost_harness_snapshot.sh` to summarize signpost timings even when exported `xctrace` interval/signpost tables are empty or incomplete.
+  - `Scripts/signpost_harness_snapshot.sh`
+    - Now resolves the app bundle identifier, stages the harness events file inside the app sandbox container, launches the app through a shell wrapper so debug harness arguments reach the signed app binary under `xctrace`, copies JSONL timing rows back to the requested output prefix, and prefers those JSONL rows when computing summary statistics.
+  - Validation coverage
+    - `Forma_File_OrganizingUITests.testInspectorRelaunchRestoresVisibleInspectorContent()`
+    - `Forma_File_OrganizingUITests.testOnboardingPermissionRecoveryDoesNotReopenOnboardingAfterDismissal()`
+    - `DashboardViewModelTests.testPermissionGrantDoesNotReopenDismissedOnboarding()`
+    - `DashboardViewModelTests.testPermissionGrantRefreshesIfOnboardingWasAlreadyDismissed()`
 
 - Trusted-scope startup refresh deferral and overlap-classification caching
   - `DashboardViewModel`
@@ -35,6 +95,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - Developer workflow documentation
   - No app API changes in this update.
   - Added `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md` to document the repo-approved `build-macos-apps` workflow, reusable prompt, and verification expectations for Forma.
+  - Added `script/build_and_run.sh` as the canonical local kill/build/launch entrypoint for Forma, and updated `.codex/environments/environment.toml` so the Codex desktop app `Run` action invokes that script directly.
 
 - Right-panel responsive width contract
   - `RightPanelWidthClass`

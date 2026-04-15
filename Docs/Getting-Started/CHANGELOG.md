@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Batched Persistence, Retention, and Onboarding Verification
+- **Single-save bulk organize/undo/redo**: `FileOrganizationCoordinator` now prefetches once per bulk operation, stages file-item, metadata-history, activity, and personal-memory mutations into one shared `ModelContext`, and commits a single save per organize, undo, or redo batch.
+- **Honest rollback on final-save failure**: Bulk operations still allow individual file-move failures, but a final persistence failure now compensates any successful disk moves and restores the in-memory SwiftData state so undoable batches cannot leave disk and persistence out of sync.
+- **Shared no-save staging APIs**: `FileMetadataFoundationService`, `PersonalMemoryService`, and `ActivityLoggingService` now provide batched write paths so bulk organize/undo can append metadata history, audit rows, and personal-memory events inside the same transaction.
+- **Bounded retained history**: `HistoryRetentionService` plus `FormaConfig.retention` now prune workflow audit, trusted-scope run history, and personal-memory event history by a shared 90-day window and default caps of 2,000 workflow runs, 100 trusted-scope runs per scope, and 10,000 personal-memory events.
+- **Bounded reads for launch/undo surfaces**: Workflow latest-run lookups, trusted-scope summaries, and personal-memory evidence scans now use bounded predicates, sort descriptors, and fetch limits instead of fetch-all plus in-memory filtering.
+- **Verified Downloads onboarding**: The live onboarding flow now finishes only after the Downloads picker succeeds and runtime verification confirms actual access. Cancelled picks or failed verification leave the user on `Get Started` with a visible retryable error, and the first post-onboarding refresh waits for a verified grant.
+
 ### Fixed - Responsive Right-Panel Width Classes
 - **Shared width contract**: `RightPanelView` now measures the live detail-column width once, derives a shared `RightPanelLayout`, and switches to compact rendering below `FormaSpacing.Column.rightPanelIdeal` instead of relying on duplicate stale width constants.
 - **Responsive right-panel surfaces**: The default panel, file inspector, Smart Rules, inline rule builder, celebration flows, and shared mode header now wrap or stack controls in compact widths so cards use the available panel width instead of clipping around fixed child widths.

@@ -15,7 +15,7 @@ struct FileInspectorView: View {
     private let inspectorPadding: CGFloat = FormaSpacing.generous
     private let previewHeight: CGFloat = 200
     @State private var pendingTrashFile: FileItem?
-    @State private var ruleSimulationSummary: RuleEngine.RuleSimulationSummary?
+    @State private var workflowSimulationPreview: WorkflowTemplateSimulationPreview?
     @State private var presentedWorkflowRunID: UUID?
 
     private var rightPanelWidthClassText: String {
@@ -24,6 +24,10 @@ struct FileInspectorView: View {
 
     private var inspectorProbeValue: String {
         "titleOnCard=\(String(format: "%.2f", inspectorTitleContrastRatio));secondaryOnCard=\(String(format: "%.2f", inspectorSecondaryContrastRatio));quickLook=\(String(format: "%.2f", inspectorQuickLookContrastRatio));sectionSpacing=\(Int(sectionSpacing));panelPadding=\(Int(inspectorPadding));previewHeight=\(Int(previewHeight));widthClass=\(rightPanelWidthClassText)"
+    }
+
+    private var inspectorSelectionState: DashboardViewModel.InspectorSelectionState {
+        dashboardViewModel.inspectorSelectionState(for: files)
     }
     
     var body: some View {
@@ -55,8 +59,8 @@ struct FileInspectorView: View {
         .accessibilityIdentifier("fileInspectorView")
         .accessibilityLabel(isUITesting ? inspectorProbeValue : "")
         .accessibilityValue(isUITesting ? inspectorProbeValue : "")
-        .task(id: ruleSimulationRefreshToken) {
-            refreshRuleSimulation()
+        .task(id: workflowSimulationRefreshToken) {
+            await refreshWorkflowSimulationPreview()
         }
         .confirmationDialog(
             "Move file to Trash?",
@@ -104,7 +108,7 @@ struct FileInspectorView: View {
     
     @ViewBuilder
     private func singleFileInspector(_ file: FileItem) -> some View {
-        let matchingRule = matchingRule(for: file)
+        let matchingRule = inspectorSelectionState.matchingRule(for: file)
 
         // Header
         Text("File Inspector")
@@ -139,7 +143,7 @@ struct FileInspectorView: View {
         }
         
         // Action Buttons
-        actionButtons(file)
+        actionButtons(file, matchingRule: matchingRule)
 
         if FeatureFlagService.shared.isEnabled(.metadataFoundation) {
             MetadataFoundationProofSection(filePath: file.path)
@@ -496,11 +500,14 @@ struct FileInspectorView: View {
                     }
                 }
 
-                if let matchingRule, let summary = ruleSimulationSummary {
+                if let matchingRule {
                     Divider()
                         .background(Color.formaSeparator)
 
-                    ruleSimulationSection(summary, matchingRule: matchingRule)
+                    DeferredRuleSimulationSection(
+                        matchingRule: matchingRule,
+                        allFiles: dashboardViewModel.allFiles
+                    )
                 }
             }
             .padding(FormaSpacing.standard)
@@ -606,9 +613,7 @@ struct FileInspectorView: View {
     }
     
     @ViewBuilder
-    private func actionButtons(_ file: FileItem) -> some View {
-        let matchingRule = matchingRule(for: file)
-
+    private func actionButtons(_ file: FileItem, matchingRule: Rule?) -> some View {
         VStack(spacing: FormaSpacing.standard) {
             if FeatureFlagService.shared.isEnabled(.workflowEngineV2),
                file.destination != nil {
@@ -617,7 +622,7 @@ struct FileInspectorView: View {
                         get: { dashboardViewModel.selectedWorkflowTemplateID },
                         set: { dashboardViewModel.selectedWorkflowTemplateID = $0 }
                     ),
-                    preview: dashboardViewModel.inspectorWorkflowSimulationPreview
+                    preview: workflowSimulationPreview
                 )
             }
 
@@ -871,7 +876,7 @@ struct FileInspectorView: View {
                         get: { dashboardViewModel.selectedWorkflowTemplateID },
                         set: { dashboardViewModel.selectedWorkflowTemplateID = $0 }
                     ),
-                    preview: dashboardViewModel.inspectorWorkflowSimulationPreview
+                    preview: workflowSimulationPreview
                 )
             }
 
@@ -1048,31 +1053,32 @@ struct FileInspectorView: View {
         return nil
     }
 
-    private var ruleSimulationRefreshToken: FileInspectorRuleSimulationRefreshToken {
-        let rule = files.count == 1 ? files.first.flatMap { matchingRule(for: $0) } : nil
-        return FileInspectorRuleSimulationRefreshToken(
+    private var workflowSimulationRefreshToken: FileInspectorWorkflowSimulationRefreshToken {
+        FileInspectorWorkflowSimulationRefreshToken(
             selectedFiles: files,
-            matchingRule: rule,
-            allFiles: dashboardViewModel.allFiles
+            selectedTemplateID: dashboardViewModel.selectedWorkflowTemplateID
         )
     }
 
-    private func matchingRule(for file: FileItem) -> Rule? {
-        dashboardViewModel.getMatchingRules(for: file).first
-    }
-
-    private func refreshRuleSimulation() {
-        guard files.count == 1,
-              let file = files.first,
-              let matchingRule = matchingRule(for: file) else {
-            ruleSimulationSummary = nil
+    private func refreshWorkflowSimulationPreview() async {
+        guard FeatureFlagService.shared.isEnabled(.workflowEngineV2) else {
+            workflowSimulationPreview = nil
             return
         }
 
-        ruleSimulationSummary = RuleEngine().simulateRule(
-            matchingRule,
-            across: dashboardViewModel.allFiles,
-            exampleLimit: 3
+        guard dashboardViewModel.selectedWorkflowTemplateID != nil,
+              !files.isEmpty else {
+            workflowSimulationPreview = nil
+            return
+        }
+
+        try? await Task.sleep(for: .milliseconds(75))
+        guard !Task.isCancelled else { return }
+
+        workflowSimulationPreview = WorkflowTemplateSimulationPreview.make(
+            templateID: dashboardViewModel.selectedWorkflowTemplateID,
+            files: files,
+            invocationContext: .inspector
         )
     }
 
@@ -1125,18 +1131,147 @@ struct FileInspectorView: View {
     }
 }
 
+private struct DeferredRuleSimulationSection: View {
+    let matchingRule: Rule
+    let allFiles: [FileItem]
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
+    @State private var summary: RuleEngine.RuleSimulationSummary?
+    @State private var isLoading = false
+
+    var body: some View {
+        Group {
+            if isLoading, summary == nil {
+                HStack(spacing: FormaSpacing.tight) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Preparing rule simulation…")
+                        .font(.formaCaption)
+                        .foregroundColor(inspectorSecondaryTextColor)
+                }
+            } else if let summary {
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "eye")
+                            .font(.formaCompact)
+                            .foregroundColor(.formaSteelBlue.opacity(Color.FormaOpacity.high))
+
+                        Text("What will happen")
+                            .font(.formaCaption)
+                            .foregroundColor(inspectorSecondaryTextColor)
+                    }
+
+                    Text("Rule \"\(matchingRule.name)\" would catch \(summary.matchCount) of \(summary.evaluatedCount) scanned \(summary.evaluatedCount == 1 ? "file" : "files").")
+                        .font(.formaSmall)
+                        .foregroundColor(.formaLabel)
+
+                    if !summary.examples.isEmpty {
+                        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                            ForEach(Array(summary.examples.prefix(3).enumerated()), id: \.offset) { example in
+                                HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                                    Circle()
+                                        .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.medium))
+                                        .frame(width: 6, height: 6)
+                                        .padding(.top, 6)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(example.element.fileName)
+                                            .font(.formaCaptionSemibold)
+                                            .foregroundColor(.formaLabel)
+                                            .lineLimit(rightPanelLayout.isCompact ? 2 : 1)
+
+                                        if let destination = example.element.suggestedDestination {
+                                            Text(destination)
+                                                .font(.formaCaption)
+                                                .foregroundColor(inspectorSecondaryTextColor)
+                                                .lineLimit(rightPanelLayout.isCompact ? 2 : 1)
+                                        }
+                                    }
+
+                                    Spacer()
+                                }
+                            }
+                        }
+                    }
+
+                    Text("Preview only. Rule-driven suggestions do not move anything until you run a review pass or automatic pass.")
+                        .font(.formaCaption)
+                        .foregroundColor(inspectorSecondaryTextColor)
+                }
+            }
+        }
+        .task(id: refreshToken) {
+            await loadSummary()
+        }
+    }
+
+    private var refreshToken: FileInspectorWorkflowSimulationRefreshToken {
+        FileInspectorWorkflowSimulationRefreshToken(
+            selectedFiles: allFiles,
+            selectedTemplateID: matchingRule.id.uuidString
+        )
+    }
+
+    private func loadSummary() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        try? await Task.sleep(for: .milliseconds(75))
+        guard !Task.isCancelled else { return }
+
+        summary = RuleEngine().simulateRule(
+            matchingRule,
+            across: allFiles,
+            exampleLimit: 3
+        )
+    }
+
+    private var inspectorSecondaryTextColor: Color {
+        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.82) : .formaSecondaryLabel
+    }
+}
+
 private struct MetadataFoundationProofSection: View {
+    let filePath: String
+
+    var body: some View {
+        CollapsibleSection(
+            title: "Metadata foundation",
+            icon: "archivebox",
+            storageKey: "inspector.metadataFoundation",
+            defaultExpanded: false
+        ) {
+            MetadataFoundationProofContent(filePath: filePath)
+        }
+    }
+}
+
+private struct MetadataFoundationProofContent: View {
     let filePath: String
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.rightPanelLayout) private var rightPanelLayout
     @State private var summary: FileMetadataInspectorSummary?
+    @State private var isLoading = false
 
     var body: some View {
         Group {
-            if let summary {
+            if isLoading, summary == nil {
+                HStack(spacing: FormaSpacing.tight) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Loading metadata foundation details…")
+                        .font(.formaCaption)
+                        .foregroundColor(inspectorSecondaryTextColor)
+                }
+            } else if let summary {
                 metadataProofSection(summary)
+            } else {
+                Text("No durable metadata has been recorded for this file yet.")
+                    .font(.formaSmall)
+                    .foregroundColor(inspectorSecondaryTextColor)
             }
         }
         .task(id: filePath) {
@@ -1150,68 +1285,66 @@ private struct MetadataFoundationProofSection: View {
             return
         }
 
-        summary = nil
+        isLoading = true
+        defer { isLoading = false }
+
+        try? await Task.sleep(for: .milliseconds(75))
+        guard !Task.isCancelled else { return }
+
         summary = FileMetadataFoundationService(modelContext: modelContext).inspectorSummary(for: filePath)
     }
 
     private func metadataProofSection(_ summary: FileMetadataInspectorSummary) -> some View {
         let historyRows = Array(summary.recentHistoryRows.prefix(3))
 
-        return CollapsibleSection(
-            title: "Metadata foundation",
-            icon: "archivebox",
-            storageKey: "inspector.metadataFoundation",
-            defaultExpanded: false
-        ) {
-            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-                    Text("Durable organization summary")
+        return VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                Text("Durable organization summary")
+                    .font(.formaCaptionSemibold)
+                    .foregroundColor(inspectorSecondaryTextColor)
+
+                if let workflowStatusSummary = summary.workflowStatusSummary,
+                   summary.hasWorkflowStatusSummary {
+                    Text(workflowStatusSummary)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaLabel)
+                }
+
+                ForEach(summary.durableTimingSummaryLines, id: \.self) { line in
+                    Text(line)
+                        .font(.formaSmall)
+                        .foregroundColor(.formaLabel)
+                }
+            }
+
+            if summary.hasProjectAssociationSummary {
+                metadataRow(label: "Project", value: summary.projectAssociationSummary)
+            }
+
+            if let sourceSummary = summary.projectAssociationSourceSummary, !sourceSummary.isEmpty {
+                metadataRow(label: "Source", value: sourceSummary)
+            }
+
+            if summary.hasTagsSummary {
+                metadataRow(label: "Tags", value: summary.tagsSummary)
+            }
+
+            if summary.hasRecentHistoryRows {
+                Divider()
+                    .background(Color.formaSeparator)
+
+                VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+                    Text("Recent history")
                         .font(.formaCaptionSemibold)
                         .foregroundColor(inspectorSecondaryTextColor)
 
-                    if let workflowStatusSummary = summary.workflowStatusSummary,
-                       summary.hasWorkflowStatusSummary {
-                        Text(workflowStatusSummary)
-                            .font(.formaSmall)
-                            .foregroundColor(.formaLabel)
-                    }
-
-                    ForEach(summary.durableTimingSummaryLines, id: \.self) { line in
-                        Text(line)
-                            .font(.formaSmall)
-                            .foregroundColor(.formaLabel)
-                    }
-                }
-
-                if summary.hasProjectAssociationSummary {
-                    metadataRow(label: "Project", value: summary.projectAssociationSummary)
-                }
-
-                if let sourceSummary = summary.projectAssociationSourceSummary, !sourceSummary.isEmpty {
-                    metadataRow(label: "Source", value: sourceSummary)
-                }
-
-                if summary.hasTagsSummary {
-                    metadataRow(label: "Tags", value: summary.tagsSummary)
-                }
-
-                if summary.hasRecentHistoryRows {
-                    Divider()
-                        .background(Color.formaSeparator)
-
                     VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                        Text("Recent history")
-                            .font(.formaCaptionSemibold)
-                            .foregroundColor(inspectorSecondaryTextColor)
+                        ForEach(historyRows.indices, id: \.self) { index in
+                            metadataFoundationHistoryRow(historyRows[index])
 
-                        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                            ForEach(historyRows.indices, id: \.self) { index in
-                                metadataFoundationHistoryRow(historyRows[index])
-
-                                if index < historyRows.count - 1 {
-                                    Divider()
-                                        .background(Color.formaSeparator)
-                                }
+                            if index < historyRows.count - 1 {
+                                Divider()
+                                    .background(Color.formaSeparator)
                             }
                         }
                     }
@@ -1280,68 +1413,30 @@ private struct MetadataFoundationProofSection: View {
     }
 }
 
-struct FileInspectorRuleSimulationRefreshToken: Hashable {
+struct FileInspectorWorkflowSimulationRefreshToken: Hashable {
     let selectedFileCount: Int
-    let selectedFileFingerprint: Int?
-    let matchingRuleFingerprint: Int?
-    let allFilesFingerprint: Int
+    let selectedFilesFingerprint: Int
+    let selectedTemplateID: String?
 
-    init<F: Fileable, R: Ruleable>(
+    init<F: Fileable>(
         selectedFiles: [F],
-        matchingRule: R?,
-        allFiles: [F]
+        selectedTemplateID: String?
     ) {
-        selectedFileCount = selectedFiles.count
-        selectedFileFingerprint = selectedFiles.count == 1 ? Self.fileFingerprint(selectedFiles[0]) : nil
-        if selectedFiles.count == 1, let matchingRule {
-            matchingRuleFingerprint = Self.ruleFingerprint(matchingRule)
-        } else {
-            matchingRuleFingerprint = nil
-        }
-        allFilesFingerprint = selectedFiles.count == 1 ? Self.collectionFingerprint(allFiles) : 0
+        self.selectedFileCount = selectedFiles.count
+        self.selectedFilesFingerprint = Self.collectionFingerprint(selectedFiles)
+        self.selectedTemplateID = selectedTemplateID
     }
 
     private static func collectionFingerprint<F: Fileable>(_ files: [F]) -> Int {
         var hasher = Hasher()
         hasher.combine(files.count)
         for file in files {
-            hasher.combine(fileFingerprint(file))
-        }
-        return hasher.finalize()
-    }
-
-    private static func fileFingerprint<F: Fileable>(_ file: F) -> Int {
-        var hasher = Hasher()
-        hasher.combine(file.path)
-        hasher.combine(file.name)
-        hasher.combine(file.fileExtension)
-        hasher.combine(file.destinationDisplayName)
-        hasher.combine(file.status.rawValue)
-        hasher.combine(file.matchReason)
-        hasher.combine(file.confidenceScore ?? -1)
-        hasher.combine(file.matchedRuleID)
-        hasher.combine(file.creationDate.timeIntervalSinceReferenceDate)
-        hasher.combine(file.modificationDate.timeIntervalSinceReferenceDate)
-        hasher.combine(file.lastAccessedDate.timeIntervalSinceReferenceDate)
-        hasher.combine(file.sizeInBytes)
-        hasher.combine(file.location.rawValue)
-        return hasher.finalize()
-    }
-
-    private static func ruleFingerprint<R: Ruleable>(_ rule: R) -> Int {
-        var hasher = Hasher()
-        hasher.combine(rule.id)
-        hasher.combine(rule.conditionsSummary)
-        hasher.combine(rule.destinationDisplayText)
-        hasher.combine(rule.actionType.rawValue)
-        hasher.combine(rule.logicalOperator.rawValue)
-        hasher.combine(rule.isEnabled)
-        hasher.combine(rule.sortOrder)
-        for condition in rule.conditions {
-            hasher.combine(condition)
-        }
-        for exclusion in rule.exclusionConditions {
-            hasher.combine(exclusion)
+            hasher.combine(file.path)
+            hasher.combine(file.destinationDisplayName)
+            hasher.combine(file.status.rawValue)
+            hasher.combine(file.matchReason)
+            hasher.combine(file.confidenceScore ?? -1)
+            hasher.combine(file.matchedRuleID)
         }
         return hasher.finalize()
     }

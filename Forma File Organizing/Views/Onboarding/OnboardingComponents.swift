@@ -129,6 +129,7 @@ struct OnboardingFooter<PrimaryContent: View>: View {
                         .foregroundColor(.formaSecondaryLabel)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("onboardingSkipButton")
             }
         }
         .padding(FormaSpacing.large)

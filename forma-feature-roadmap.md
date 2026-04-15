@@ -1,6 +1,6 @@
 # Forma Feature Roadmap
 
-*Updated March 30, 2026*
+*Updated April 10, 2026*
 
 ## Product Posture
 
@@ -46,6 +46,16 @@ This means the next roadmap should not focus on "add basic intelligence" or "add
 ---
 
 ## Now (0-8 Weeks)
+
+### Critical-Path Optimization Program
+**Goal:** Bring Forma's five most important user paths inside target budgets and keep them fast as rules, files, and history grow.
+
+- Bring cold launch to a first meaningful file view inside the `<2s` target by deferring non-essential maintenance and keeping startup ownership singular.
+- Make watched-folder organization feel immediate by replacing full-refresh behavior with touched-path updates that can land inside the `<500ms perceived` budget.
+- Make inspector open, detail review, and close feel lightweight by eliminating global recomputation from a local inspection action.
+- Make bulk action and undo feel transactional and reversible instead of `N` small operations stitched together on the hot path.
+- Make rule create/apply/verify a single fast loop rather than a save-now, re-evaluate-everything workflow.
+- Keep the optimization work centered on structural latency, bounded history growth, and predictable recovery rather than feature expansion.
 
 ### 1. Quick-Win Onboarding and First-Run Proof
 **Goal:** Show value before asking the user to become a system designer.
@@ -102,6 +112,14 @@ This means the next roadmap should not focus on "add basic intelligence" or "add
 ---
 
 ## Next (2-4 Months)
+
+### Optimization Follow-Ons
+**Goal:** Compress friction on the same critical paths once the structural latency floors are gone.
+
+- Surface watched-folder setup from the same review and folder-entry surfaces where users first discover the feature's value.
+- Turn learned-pattern promotion into a staged draft-and-verify flow instead of a one-click persist path.
+- Simplify inspector close/reasoning affordances once the inspector open path is already fast.
+- Compress onboarding only where it reduces time-to-value without reintroducing launch-path work.
 
 ### 6. Personal Organization Memory
 **Goal:** Build compounding user-specific value that a prompt cannot fake.

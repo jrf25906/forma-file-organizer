@@ -6,11 +6,19 @@ Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Executi
 
 This file is ordered to match the strategic roadmap. Dated sprint logs and shipped execution history remain below as reference.
 
-## Roadmap-Ordered Priorities (April 2, 2026)
-Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md](Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
+## Roadmap-Ordered Priorities (April 10, 2026)
+Current active plans: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md](Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md), [Docs/superpowers/plans/2026-04-10-forma-optimization-program.md](Docs/superpowers/plans/2026-04-10-forma-optimization-program.md).
 
 ### Now (0-8 Weeks)
+#### Critical-Path Optimization Program
+- [x] Add retention and pruning for workflow audit, trusted-scope, and personal-memory history so background loops cannot grow launch- and undo-adjacent tables without bounds.
 - [x] Replace watched-folder full-refresh behavior with touched-path incremental updates so a one-file drop does not pay for a whole-dashboard refresh.
+- [x] Split launch into first-paint work and deferred maintenance, and make startup scan ownership singular.
+- [x] Harden launch-scan completion and UI/perf harness folder defaults so cancelled startup scans retry cleanly and permission state matches bookmark-backed availability.
+- [x] Rework bulk organize, undo, and redo into one-transaction paths with batched metadata, audit, and personal-memory writes.
+- [x] Move inspector matching, simulation, and metadata proof to selection-local caches so open/detail/close avoid global scans.
+- [x] Centralize rule writes and shift rule preview/save verification to delta-based evaluation instead of global re-evaluation.
+
 - [x] Quick-win onboarding and first-run proof so Forma demonstrates value before asking users to configure rules.
 - [x] Batch UX that hides overwhelm with chunked review sessions and set-aside deferrals.
 - [x] Build trust infrastructure: rule simulation, stronger preflight checks, richer reasoning, and clearer scoped rollback.
@@ -22,6 +30,12 @@ Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-w
 - [x] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
 
 ### Next (2-4 Months)
+#### Optimization Follow-Ons
+- [ ] Surface watched-folder setup from common review and folder-entry surfaces instead of requiring a settings detour.
+- [ ] Route learned-pattern suggestions into a staged builder with preview and explicit verification before saving.
+- [ ] Simplify inspector close/reasoning affordances once the inspector open path is already fast.
+- [ ] Compress onboarding only where it improves time-to-first-value after the hot paths are within budget.
+
 - [x] Start the personal-organization-memory layer so Forma compounds from user-specific behavior rather than generic AI classification.
 - [x] Complete progressive automation upgrades so trusted folders, rules, and categories can graduate into visible optional autopilot scopes.
 - [x] Plan Metadata Layer v1 with lightweight local metadata such as tags, status, project association, and organization history, biased toward auto-applied metadata before manual tagging UX.
@@ -63,13 +77,15 @@ The sections below capture dated implementation slices that have already shipped
 
 ## Developer Workflow Docs (April 9, 2026)
 - [x] Add repo-local guidance for using the `build-macos-apps` plugin against the native Forma app, including a reusable Codex prompt and verification checklist wired to the repo's declared commands and release scripts.
+- [x] Add a project-local `script/build_and_run.sh` entrypoint and wire `.codex/environments/environment.toml` so the Codex app `Run` action builds and launches Forma through one maintained command.
 
 ## Overnight QA Follow-Up (April 9, 2026)
 - [x] Restore file-surface parity so grid view exposes `Choose Destination` for files without a destination the same way card/list already do.
 - [x] Update `AppStoreScreenshotTests` for the current sidebar/inspector information architecture so the screenshot flow matches the shipped Smart Rules and rule-management paths.
 - [x] Stabilize `FileSurfaceToolbarValidationTests.testCaptureFileSurfaceAndToolbarValidationShots` so the screenshot flow reliably returns to card mode and captures the expected surface states.
-- [ ] Add direct runtime verification for onboarding folder selection, permission denial/recovery, and inspector visibility persistence across relaunches.
-- [ ] Repair the performance validation path so `OptimizationBenchmarksTests` and `Scripts/signpost_harness_snapshot.sh` produce usable benchmark/signpost outputs again.
+- [x] Add direct runtime verification for onboarding permission recovery and inspector visibility persistence across relaunches.
+- [x] Add direct runtime verification for onboarding folder selection.
+- [x] Repair the performance validation path so `OptimizationBenchmarksTests` and `Scripts/signpost_harness_snapshot.sh` produce usable benchmark/signpost outputs again.
 
 ## Review-First Selection App Intent (April 9, 2026)
 - [x] Add a persisted `ExternalIngressExecutionMode` so external requests can distinguish immediate runs from review-first runs without splitting the ingress pipeline.

@@ -448,7 +448,10 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
                 refreshedAt: startedAt
             )
 
-            let store = WorkflowAuditStore(modelContext: context)
+            let store = WorkflowAuditStore(
+                modelContext: context,
+                nowProvider: { endedAt }
+            )
             let run = try store.createRun(
                 scopeID: scope.id,
                 workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
@@ -457,7 +460,12 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
             )
             try store.updateRunStatus(runID: run.id, primaryStatus: .succeeded, endedAt: endedAt)
 
-            let detail = try XCTUnwrap(catalogService.buildDetail(for: scope.id))
+            let detail = try XCTUnwrap(
+                catalogService.buildDetail(
+                    for: scope.id,
+                    referenceDate: endedAt
+                )
+            )
             let latestWorkflowRun = try XCTUnwrap(detail.latestWorkflowRun)
 
             XCTAssertEqual(latestWorkflowRun.templateID, BuiltInWorkflowTemplate.StableID.receipts)
@@ -465,6 +473,45 @@ final class TrustedAutomationScopeCatalogServiceTests: XCTestCase {
             XCTAssertEqual(latestWorkflowRun.rollbackStatus, .notRequested)
             XCTAssertEqual(latestWorkflowRun.completedAt, endedAt)
             XCTAssertTrue(latestWorkflowRun.isRollbackAvailable)
+        }
+    }
+
+    func testBuildDetail_IgnoresTrustedScopeRunsOutsideRetentionWindow() throws {
+        let destinationRoot = try TemporaryDirectory()
+        defer { destinationRoot.cleanup() }
+
+        let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Archive"))
+
+        try withServices { _, scopeService, catalogService in
+            let scope = try makeScope(
+                service: scopeService,
+                scopeType: .folder,
+                scopeKey: "/Users/example/Downloads/Stale",
+                displayName: "Stale",
+                destination: destination
+            )
+
+            let staleStartedAt = Date().addingTimeInterval(-(91 * 86_400))
+            _ = try scopeService.recordRun(
+                scopeID: scope.id,
+                triggerSource: .scheduledAutomationPass,
+                status: .executed,
+                matchedCount: 2,
+                eligibleCount: 2,
+                organizedCount: 2,
+                heldCount: 0,
+                failedCount: 0,
+                heldBuckets: [],
+                summaryText: "Organized two files.",
+                exampleFileNames: ["Old.pdf"],
+                startedAt: staleStartedAt,
+                endedAt: staleStartedAt.addingTimeInterval(60)
+            )
+
+            let detail = try XCTUnwrap(catalogService.buildDetail(for: scope.id))
+
+            XCTAssertNil(detail.summary.lastRun)
+            XCTAssertTrue(detail.recentRuns.isEmpty)
         }
     }
 

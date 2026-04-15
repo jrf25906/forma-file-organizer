@@ -45,11 +45,6 @@ final class BookmarkFolderService: ObservableObject {
     /// Shared instance for app-wide folder state
     static let shared = BookmarkFolderService()
 
-    private static let uiTestAccessibleFolderTypes: Set<BookmarkFolder.FolderType> = [
-        .desktop,
-        .downloads
-    ]
-
     // MARK: - Published Properties
 
     /// All folders that have valid Keychain bookmarks, sorted by priority.
@@ -134,7 +129,15 @@ final class BookmarkFolderService: ObservableObject {
     }
 
     private static var isUITesting: Bool {
-        CommandLine.arguments.contains("--uitesting")
+        UITestFolderAccessConfiguration.isEnabled
+    }
+
+    private static var uiTestAccessibleFolderTypes: Set<BookmarkFolder.FolderType> {
+        Set(
+            UITestFolderAccessConfiguration
+                .accessibleFolderNames()
+                .compactMap(BookmarkFolder.FolderType.init(rawValue:))
+        )
     }
 
     /// Toggle enabled state for a folder and persist to UserDefaults

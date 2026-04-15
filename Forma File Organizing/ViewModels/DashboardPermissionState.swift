@@ -25,6 +25,16 @@ final class DashboardPermissionState: ObservableObject {
             case .music: return "Music"
             }
         }
+
+        var uiTestConfigurationKey: String {
+            switch self {
+            case .desktop: return "desktop"
+            case .downloads: return "downloads"
+            case .documents: return "documents"
+            case .pictures: return "pictures"
+            case .music: return "music"
+            }
+        }
     }
 
     enum PermissionResult {
@@ -36,16 +46,11 @@ final class DashboardPermissionState: ObservableObject {
     func checkPermissions(
         using fileSystemService: FileSystemServiceProtocol,
         defaults: UserDefaults = .standard,
-        isUITesting: Bool = CommandLine.arguments.contains("--uitesting")
+        isUITesting: Bool = UITestFolderAccessConfiguration.isEnabled
     ) {
         #if DEBUG
         if isUITesting {
-            hasDesktopAccess = true
-            hasDownloadsAccess = true
-            hasDocumentsAccess = true
-            hasPicturesAccess = true
-            hasMusicAccess = true
-            showOnboarding = false
+            applyUITestOverrides(defaults: defaults)
             return
         }
         #endif
@@ -77,6 +82,11 @@ final class DashboardPermissionState: ObservableObject {
             }()
 
             if granted {
+                guard hasVerifiedAccess(for: folderType, using: fileSystemService) else {
+                    markAccessDenied(for: folderType)
+                    return .error("Forma could not verify access to \(folderType.displayName). Please try selecting it again.")
+                }
+
                 markAccessGranted(for: folderType)
                 return .granted
             }
@@ -100,6 +110,52 @@ final class DashboardPermissionState: ObservableObject {
         case .documents: hasDocumentsAccess = true
         case .pictures: hasPicturesAccess = true
         case .music: hasMusicAccess = true
+        }
+    }
+
+    private func markAccessDenied(for folderType: FolderType) {
+        switch folderType {
+        case .desktop: hasDesktopAccess = false
+        case .downloads: hasDownloadsAccess = false
+        case .documents: hasDocumentsAccess = false
+        case .pictures: hasPicturesAccess = false
+        case .music: hasMusicAccess = false
+        }
+    }
+
+    private func hasVerifiedAccess(
+        for folderType: FolderType,
+        using fileSystemService: FileSystemServiceProtocol
+    ) -> Bool {
+        switch folderType {
+        case .desktop:
+            fileSystemService.hasDesktopAccess()
+        case .downloads:
+            fileSystemService.hasDownloadsAccess()
+        case .documents:
+            fileSystemService.hasDocumentsAccess()
+        case .pictures:
+            fileSystemService.hasPicturesAccess()
+        case .music:
+            fileSystemService.hasMusicAccess()
+        }
+    }
+
+    private func applyUITestOverrides(defaults: UserDefaults) {
+        let environment = ProcessInfo.processInfo.environment
+        let showOnboardingOverride = environment[UITestFolderAccessConfiguration.showOnboardingEnvironmentKey]
+        let accessibleFolders = UITestFolderAccessConfiguration.accessibleFolderNames(environment: environment)
+
+        hasDesktopAccess = accessibleFolders.contains(FolderType.desktop.uiTestConfigurationKey)
+        hasDownloadsAccess = accessibleFolders.contains(FolderType.downloads.uiTestConfigurationKey)
+        hasDocumentsAccess = accessibleFolders.contains(FolderType.documents.uiTestConfigurationKey)
+        hasPicturesAccess = accessibleFolders.contains(FolderType.pictures.uiTestConfigurationKey)
+        hasMusicAccess = accessibleFolders.contains(FolderType.music.uiTestConfigurationKey)
+
+        if let showOnboardingOverride {
+            showOnboarding = showOnboardingOverride == "1"
+        } else {
+            showOnboarding = !defaults.bool(forKey: "hasCompletedOnboarding")
         }
     }
 }

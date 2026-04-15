@@ -29,9 +29,14 @@ final class WorkflowAuditStore {
     }
 
     private let modelContext: ModelContext
+    private let nowProvider: @Sendable () -> Date
 
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        nowProvider: @escaping @Sendable () -> Date = Date.init
+    ) {
         self.modelContext = modelContext
+        self.nowProvider = nowProvider
     }
 
     @discardableResult
@@ -57,6 +62,7 @@ final class WorkflowAuditStore {
         )
         modelContext.insert(run)
         try modelContext.save()
+        pruneRetainedHistoryIfNeeded()
         return run
     }
 
@@ -73,6 +79,7 @@ final class WorkflowAuditStore {
         }
         run.updatedAt = max(run.updatedAt, updatedAt, run.endedAt ?? updatedAt)
         try modelContext.save()
+        pruneRetainedHistoryIfNeeded()
     }
 
     func updateRollbackStatus(
@@ -96,6 +103,7 @@ final class WorkflowAuditStore {
         }
         run.updatedAt = max(run.updatedAt, updatedAt, rollbackCompletedAt ?? rollbackRequestedAt ?? updatedAt)
         try modelContext.save()
+        pruneRetainedHistoryIfNeeded()
     }
 
     @discardableResult
@@ -172,29 +180,76 @@ final class WorkflowAuditStore {
     }
 
     func latestRunSummary(scopeID: UUID, workflowTemplateID: String?) throws -> WorkflowRunRecord? {
-        let descriptor = FetchDescriptor<WorkflowRunRecord>(
-            predicate: #Predicate { $0.scopeID == scopeID }
+        try latestRunSummary(
+            scopeID: scopeID,
+            workflowTemplateID: workflowTemplateID,
+            referenceDate: nowProvider()
         )
-        let runs = try modelContext.fetch(descriptor)
-        let normalizedTemplateID = WorkflowRunRecord.normalizedOptionalText(workflowTemplateID)
+    }
 
-        let filtered = runs.filter { run in
-            guard let normalizedTemplateID else { return true }
-            return run.workflowTemplateID == normalizedTemplateID
+    func latestRunSummary(
+        scopeID: UUID,
+        workflowTemplateID: String?,
+        referenceDate: Date
+    ) throws -> WorkflowRunRecord? {
+        let normalizedTemplateID = WorkflowRunRecord.normalizedOptionalText(workflowTemplateID)
+        let cutoff = Self.historyCutoff(referenceDate: referenceDate)
+
+        let descriptor: FetchDescriptor<WorkflowRunRecord>
+        if let normalizedTemplateID {
+            descriptor = FetchDescriptor<WorkflowRunRecord>(
+                predicate: #Predicate {
+                    $0.scopeID == scopeID &&
+                    $0.workflowTemplateID == normalizedTemplateID &&
+                    $0.startedAt >= cutoff
+                },
+                sortBy: [
+                    SortDescriptor(\.startedAt, order: .reverse),
+                    SortDescriptor(\.updatedAt, order: .reverse)
+                ]
+            )
+        } else {
+            descriptor = FetchDescriptor<WorkflowRunRecord>(
+                predicate: #Predicate {
+                    $0.scopeID == scopeID &&
+                    $0.startedAt >= cutoff
+                },
+                sortBy: [
+                    SortDescriptor(\.startedAt, order: .reverse),
+                    SortDescriptor(\.updatedAt, order: .reverse)
+                ]
+            )
         }
-        return filtered.max(by: Self.runSortOrder)
+
+        var limitedDescriptor = descriptor
+        limitedDescriptor.fetchLimit = 1
+        return try modelContext.fetch(limitedDescriptor).first
     }
 
     func latestRunForFile(fileIdentity: String) throws -> WorkflowRunRecord? {
+        try latestRunForFile(fileIdentity: fileIdentity, referenceDate: nowProvider())
+    }
+
+    func latestRunForFile(
+        fileIdentity: String,
+        referenceDate: Date
+    ) throws -> WorkflowRunRecord? {
         let normalizedIdentity = WorkflowFileActionRecord.normalizedRequiredText(fileIdentity)
         guard !normalizedIdentity.isEmpty else {
             throw StoreError.invalidFileIdentity
         }
 
-        let actions = try modelContext.fetch(FetchDescriptor<WorkflowFileActionRecord>())
-        guard let latestAction = actions
-            .filter({ $0.fileIdentity == normalizedIdentity })
-            .max(by: { lhs, rhs in lhs.recordedAt < rhs.recordedAt }) else {
+        let cutoff = Self.historyCutoff(referenceDate: referenceDate)
+        var descriptor = FetchDescriptor<WorkflowFileActionRecord>(
+            predicate: #Predicate {
+                $0.fileIdentity == normalizedIdentity &&
+                $0.recordedAt >= cutoff
+            },
+            sortBy: [SortDescriptor(\.recordedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 5
+
+        guard let latestAction = try modelContext.fetch(descriptor).max(by: Self.fileActionSortOrder) else {
             return nil
         }
 
@@ -202,23 +257,46 @@ final class WorkflowAuditStore {
     }
 
     func latestRunForPath(_ path: String) throws -> WorkflowRunRecord? {
-        try latestRunLookup(forPath: path)?.run
+        try latestRunForPath(path, referenceDate: nowProvider())
+    }
+
+    func latestRunForPath(
+        _ path: String,
+        referenceDate: Date
+    ) throws -> WorkflowRunRecord? {
+        try latestRunLookup(forPath: path, referenceDate: referenceDate)?.run
     }
 
     func latestRunLookup(forPath path: String) throws -> RunLookupResult? {
+        try latestRunLookup(forPath: path, referenceDate: nowProvider())
+    }
+
+    func latestRunLookup(
+        forPath path: String,
+        referenceDate: Date
+    ) throws -> RunLookupResult? {
         let normalizedPath = FileMetadataRecord.normalizedPath(path)
-        let metadataRecords = try modelContext.fetch(FetchDescriptor<FileMetadataRecord>())
-            .filter { $0.lastKnownPath == normalizedPath }
+        let metadataRecords = try modelContext.fetch(
+            FetchDescriptor<FileMetadataRecord>(
+                predicate: #Predicate { $0.lastKnownPath == normalizedPath }
+            )
+        )
         let resolvedIdentity = FileMetadataFoundationService(modelContext: modelContext)
             .resolveIdentity(for: normalizedPath)
             .canonicalIdentity
         let pathFallbackIdentity = FileMetadataFoundationService.pathFallbackCanonicalIdentity(for: normalizedPath)
+        let cutoff = Self.historyCutoff(referenceDate: referenceDate)
 
         var candidateIdentities = Set(metadataRecords.map(\.canonicalIdentity))
         candidateIdentities.insert(resolvedIdentity)
         candidateIdentities.insert(pathFallbackIdentity)
 
-        guard let latestAction = try modelContext.fetch(FetchDescriptor<WorkflowFileActionRecord>())
+        let descriptor = FetchDescriptor<WorkflowFileActionRecord>(
+            predicate: #Predicate { $0.recordedAt >= cutoff },
+            sortBy: [SortDescriptor(\.recordedAt, order: .reverse)]
+        )
+
+        guard let latestAction = try modelContext.fetch(descriptor)
             .filter({
                 candidateIdentities.contains($0.fileIdentity) ||
                 $0.sourcePath == normalizedPath ||
@@ -233,25 +311,21 @@ final class WorkflowAuditStore {
     }
 
     func stepRuns(runID: UUID) throws -> [WorkflowStepRunRecord] {
-        try modelContext.fetch(FetchDescriptor<WorkflowStepRunRecord>())
-            .filter { $0.runID == runID }
-            .sorted { lhs, rhs in
-                if lhs.recordedAt == rhs.recordedAt {
-                    return lhs.id.uuidString < rhs.id.uuidString
-                }
-                return lhs.recordedAt < rhs.recordedAt
-            }
+        try modelContext.fetch(
+            FetchDescriptor<WorkflowStepRunRecord>(
+                predicate: #Predicate { $0.runID == runID },
+                sortBy: [SortDescriptor(\.recordedAt, order: .forward)]
+            )
+        )
     }
 
     func fileActions(runID: UUID) throws -> [WorkflowFileActionRecord] {
-        try modelContext.fetch(FetchDescriptor<WorkflowFileActionRecord>())
-            .filter { $0.runID == runID }
-            .sorted { lhs, rhs in
-                if lhs.recordedAt == rhs.recordedAt {
-                    return lhs.id.uuidString < rhs.id.uuidString
-                }
-                return lhs.recordedAt < rhs.recordedAt
-            }
+        try modelContext.fetch(
+            FetchDescriptor<WorkflowFileActionRecord>(
+                predicate: #Predicate { $0.runID == runID },
+                sortBy: [SortDescriptor(\.recordedAt, order: .forward)]
+            )
+        )
     }
 
     func latestSuccessfulDestinationSignal(runID: UUID) throws -> String? {
@@ -265,7 +339,11 @@ final class WorkflowAuditStore {
     }
 
     func run(id: UUID) throws -> WorkflowRunRecord? {
-        try modelContext.fetch(FetchDescriptor<WorkflowRunRecord>()).first(where: { $0.id == id })
+        var descriptor = FetchDescriptor<WorkflowRunRecord>(
+            predicate: #Predicate { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 
     private func requireRun(id: UUID) throws -> WorkflowRunRecord {
@@ -276,12 +354,31 @@ final class WorkflowAuditStore {
     }
 
     private func requireStepRun(id: UUID, runID: UUID) throws -> WorkflowStepRunRecord {
-        if let stepRun = try modelContext
-            .fetch(FetchDescriptor<WorkflowStepRunRecord>())
-            .first(where: { $0.id == id && $0.runID == runID }) {
+        var descriptor = FetchDescriptor<WorkflowStepRunRecord>(
+            predicate: #Predicate {
+                $0.id == id &&
+                $0.runID == runID
+            }
+        )
+        descriptor.fetchLimit = 1
+
+        if let stepRun = try modelContext.fetch(descriptor).first {
             return stepRun
         }
         throw StoreError.stepRunNotFound(id)
+    }
+
+    private func pruneRetainedHistoryIfNeeded() {
+        do {
+            _ = try HistoryRetentionService(modelContext: modelContext)
+                .pruneWorkflowAuditHistory(now: nowProvider())
+        } catch {
+            Log.error("Failed to prune workflow audit history: \(error.localizedDescription)", category: .analytics)
+        }
+    }
+
+    private static func historyCutoff(referenceDate: Date) -> Date {
+        HistoryRetentionService.historyCutoff(referenceDate: referenceDate)
     }
 
     private static func runSortOrder(_ lhs: WorkflowRunRecord, _ rhs: WorkflowRunRecord) -> Bool {

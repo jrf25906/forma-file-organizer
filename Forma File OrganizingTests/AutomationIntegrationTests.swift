@@ -246,17 +246,16 @@ struct AutomationIntegrationTests {
     }
 
     @Test
-    func fileInspectorRuleSimulationRefreshToken_ChangesWhenFileSetChangesWithoutCountChange() {
+    func fileInspectorWorkflowSimulationRefreshToken_ChangesWhenSelectedFileSetChangesWithoutCountChange() {
         guard requireIntegration() else { return }
-        let selected = TestFileItem(
+        let originalSelected = TestFileItem(
             path: "/tmp/invoice.pdf",
             destination: .mockFolder("Finance"),
             status: .pending,
             confidenceScore: 0.9,
             sizeInBytes: 10
         )
-        let unchangedCompanion = TestFileItem(path: "/tmp/notes.txt", sizeInBytes: 20)
-        let changedCompanion = TestFileItem(
+        let changedSelected = TestFileItem(
             name: "receipt.pdf",
             fileExtension: "pdf",
             path: "/tmp/receipt.pdf",
@@ -265,29 +264,21 @@ struct AutomationIntegrationTests {
             confidenceScore: 0.92,
             sizeInBytes: 25
         )
-        let rule = TestRule(
-            id: UUID(uuidString: "00000000-0000-0000-0000-000000000111") ?? UUID(),
-            conditionType: .fileExtension,
-            conditionValue: "pdf",
-            destination: .mockFolder("Finance")
-        )
 
-        let first = FileInspectorRuleSimulationRefreshToken(
-            selectedFiles: [selected],
-            matchingRule: rule,
-            allFiles: [selected, unchangedCompanion]
+        let first = FileInspectorWorkflowSimulationRefreshToken(
+            selectedFiles: [originalSelected],
+            selectedTemplateID: "template-finance"
         )
-        let second = FileInspectorRuleSimulationRefreshToken(
-            selectedFiles: [selected],
-            matchingRule: rule,
-            allFiles: [selected, changedCompanion]
+        let second = FileInspectorWorkflowSimulationRefreshToken(
+            selectedFiles: [changedSelected],
+            selectedTemplateID: "template-finance"
         )
 
         #expect(first != second)
     }
 
     @Test
-    func fileInspectorRuleSimulationRefreshToken_ChangesWhenRuleDestinationChanges() {
+    func fileInspectorWorkflowSimulationRefreshToken_ChangesWhenSelectedTemplateChanges() {
         guard requireIntegration() else { return }
         let selected = TestFileItem(
             path: "/tmp/invoice.pdf",
@@ -296,30 +287,14 @@ struct AutomationIntegrationTests {
             confidenceScore: 0.9,
             sizeInBytes: 10
         )
-        let companion = TestFileItem(path: "/tmp/receipt.pdf", sizeInBytes: 20)
-        let ruleID = UUID(uuidString: "00000000-0000-0000-0000-000000000222") ?? UUID()
-        let financeRule = TestRule(
-            id: ruleID,
-            conditionType: .fileExtension,
-            conditionValue: "pdf",
-            destination: .mockFolder("Finance")
-        )
-        let archiveRule = TestRule(
-            id: ruleID,
-            conditionType: .fileExtension,
-            conditionValue: "pdf",
-            destination: .mockFolder("Archive")
-        )
 
-        let first = FileInspectorRuleSimulationRefreshToken(
+        let first = FileInspectorWorkflowSimulationRefreshToken(
             selectedFiles: [selected],
-            matchingRule: financeRule,
-            allFiles: [selected, companion]
+            selectedTemplateID: "template-finance"
         )
-        let second = FileInspectorRuleSimulationRefreshToken(
+        let second = FileInspectorWorkflowSimulationRefreshToken(
             selectedFiles: [selected],
-            matchingRule: archiveRule,
-            allFiles: [selected, companion]
+            selectedTemplateID: "template-archive"
         )
 
         #expect(first != second)

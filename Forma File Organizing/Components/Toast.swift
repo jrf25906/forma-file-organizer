@@ -45,7 +45,7 @@ struct ToastView: View {
 }
 
 struct ToastHost<Content: View>: View {
-    @ObservedObject var viewModel: DashboardViewModel
+    @ObservedObject var panelStateManager: PanelStateManager
     @ViewBuilder var content: () -> Content
 
     @State private var isVisible: Bool = false
@@ -53,21 +53,21 @@ struct ToastHost<Content: View>: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             content()
-            if let toast = viewModel.toastState, toast.isVisible {
+            if let toast = panelStateManager.toastState, toast.isVisible {
                 ToastView(
                     message: toast.message,
                     canUndo: toast.canUndo,
                     isError: toast.isError,
                     onUndo: toast.action,
                     onDismiss: {
-                        viewModel.toastState?.isVisible = false
+                        panelStateManager.toastState?.isVisible = false
                     }
                 )
                 .padding(FormaSpacing.extraLarge)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .onChange(of: viewModel.toastState?.isVisible ?? false) { _, newValue in
+        .onChange(of: panelStateManager.toastState?.isVisible ?? false) { _, newValue in
             isVisible = newValue
         }
     }

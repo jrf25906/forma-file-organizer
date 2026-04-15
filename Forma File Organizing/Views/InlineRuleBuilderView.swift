@@ -1247,52 +1247,26 @@ struct InlineRuleBuilderView: View {
     }
     
     private func getMatchedFiles() -> [FileItem] {
-        // If we have compound conditions, use those
-        if !formState.conditions.isEmpty {
-            return dashboardViewModel.allFiles.filter { file in
-                matchesCompoundConditions(file: file)
-            }
+        let previewConditions = formState.conditions
+        let previewConditionType = previewConditions.first?.type ?? formState.conditionType
+        let previewConditionValue = previewConditions.first?.value ?? formState.conditionValue
+        let previewLogicalOperator: Rule.LogicalOperator = previewConditions.isEmpty
+            ? .single
+            : formState.logicalOperator
+
+        guard !previewConditionValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                !previewConditions.isEmpty else {
+            return []
         }
 
-        // Otherwise, check the current input condition
-        guard !formState.conditionValue.isEmpty else { return [] }
-
-        return dashboardViewModel.allFiles.filter { file in
-            matchesSingleCondition(file: file, type: formState.conditionType, value: formState.conditionValue)
-        }
-    }
-
-    private func matchesCompoundConditions(file: FileItem) -> Bool {
-        switch formState.logicalOperator {
-        case .and:
-            return formState.conditions.allSatisfy { condition in
-                matchesSingleCondition(file: file, type: condition.type, value: condition.value)
-            }
-        case .or:
-            return formState.conditions.contains { condition in
-                matchesSingleCondition(file: file, type: condition.type, value: condition.value)
-            }
-        case .single:
-            if let first = formState.conditions.first {
-                return matchesSingleCondition(file: file, type: first.type, value: first.value)
-            }
-            return false
-        }
-    }
-    
-    private func matchesSingleCondition(file: FileItem, type: Rule.ConditionType, value: String) -> Bool {
-        switch type {
-        case .fileExtension:
-            return file.fileExtension.localizedCaseInsensitiveCompare(value) == .orderedSame
-        case .nameContains:
-            return file.name.localizedCaseInsensitiveContains(value)
-        case .nameStartsWith:
-            return file.name.lowercased().hasPrefix(value.lowercased())
-        case .nameEndsWith:
-            return file.name.lowercased().hasSuffix(value.lowercased())
-        default:
-            return false // For unsupported condition types in inline builder
-        }
+        return dashboardViewModel.matchingFilesForRulePreview(
+            conditions: previewConditions,
+            conditionType: previewConditionType,
+            conditionValue: previewConditionValue,
+            logicalOperator: previewLogicalOperator,
+            actionType: formState.actionType,
+            destination: formState.buildDestination()
+        )
     }
 
     // MARK: - Natural Language Integration
@@ -1386,33 +1360,15 @@ struct InlineRuleBuilderView: View {
     /// Commits the rule save after validation and overlap checks have passed.
     /// Called either directly (no overlaps) or after user confirms in overlap dialog.
     private func commitSave(rule: Rule) {
-        let ruleService = RuleService(modelContext: modelContext)
         let returnTarget = nav.ruleDraftSession?.returnTarget ?? draftReturnTarget
 
         do {
-            let materializedDestination = try destinationResolver.materializeForExplicitSave(rule.destination)
-
-            if let existingRule = editingRule {
-                // Update existing rule's properties from the checked rule
-                existingRule.name = rule.name
-                existingRule.actionType = rule.actionType
-                existingRule.isEnabled = rule.isEnabled
-                existingRule.destination = materializedDestination
-                existingRule.category = rule.category
-                existingRule.conditionType = rule.conditionType
-                existingRule.conditionValue = rule.conditionValue
-                existingRule.conditions = rule.conditions
-                existingRule.logicalOperator = rule.logicalOperator
-
-                try ruleService.updateRule(existingRule)
-            } else {
-                // Assign category to new rule
-                rule.destination = materializedDestination
-                try ruleService.createRule(rule, source: .inlineBuilder)
-            }
-
-            dashboardViewModel.loadRules(from: modelContext)
-            dashboardViewModel.reEvaluateFilesAgainstRules(context: modelContext)
+            try dashboardViewModel.saveRuleDraft(
+                rule,
+                editingRule: editingRule,
+                source: .inlineBuilder,
+                context: modelContext
+            )
             nav.clearRuleDraft()
             dashboardViewModel.showRuleWorkflowCelebration(
                 message: editingRule == nil ? "Rule created!" : "Rule updated!",

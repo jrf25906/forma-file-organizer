@@ -4,11 +4,12 @@ import SwiftData
 
 @MainActor
 final class FileMetadataFoundationIntegrationTests: XCTestCase {
-    private enum InjectedMetadataFailure: Error {
+    private enum InjectedMetadataFailure: Error, Equatable {
         case bulkUndoFirstItem
         case transitionWriteFailure
         case skipMainContextSaveFailure
         case workflowTagSaveFailure
+        case batchPersistenceFailure
     }
     override func setUp() {
         super.setUp()
@@ -1714,6 +1715,176 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(unrelatedActivities.first?.details, "original")
     }
 
+    func testOrganizeMultipleFiles_UsesSingleBatchedSaveAttempt() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let firstSourceURL = sourceFolder.appendingPathComponent("single-save-first.pdf")
+        let secondSourceURL = sourceFolder.appendingPathComponent("single-save-second.pdf")
+        let timestamp = Date(timeIntervalSince1970: 2_550)
+        var saveStages: [FileOrganizationCoordinator.BatchPersistenceStage] = []
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: firstSourceURL.path,
+            displayName: "single-save-first.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: secondSourceURL.path,
+            displayName: "single-save-second.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/single-save-first.pdf", contents: "first")
+        _ = try tempDirectory.createFile(name: "Inbox/single-save-second.pdf", contents: "second")
+
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Archive")
+        let firstFile = FileItem(
+            path: firstSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        let secondFile = FileItem(
+            path: secondSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(firstFile)
+        environment.context.insert(secondFile)
+        try environment.context.save()
+
+        environment.coordinator.batchPersistenceSaveHook = { stage in
+            saveStages.append(stage)
+        }
+
+        let organizeExpectation = expectation(description: "single save bulk organize")
+        await environment.coordinator.organizeMultipleFiles(
+            [firstFile, secondFile],
+            origin: .automation,
+            context: environment.context
+        ) { success, failed, _, error in
+            XCTAssertEqual(success, 2)
+            XCTAssertEqual(failed, 0)
+            XCTAssertNil(error)
+            organizeExpectation.fulfill()
+        }
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        XCTAssertEqual(saveStages, [.bulkOrganize])
+    }
+
+    func testOrganizeMultipleFiles_FinalPersistenceFailureRollsBackSuccessfulMoves() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let firstSourceURL = sourceFolder.appendingPathComponent("rollback-first.pdf")
+        let secondSourceURL = sourceFolder.appendingPathComponent("rollback-second.pdf")
+        let timestamp = Date(timeIntervalSince1970: 2_580)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: firstSourceURL.path,
+            displayName: "rollback-first.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: secondSourceURL.path,
+            displayName: "rollback-second.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/rollback-first.pdf", contents: "first")
+        _ = try tempDirectory.createFile(name: "Inbox/rollback-second.pdf", contents: "second")
+
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Archive")
+        let firstFile = FileItem(
+            path: firstSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        let secondFile = FileItem(
+            path: secondSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(firstFile)
+        environment.context.insert(secondFile)
+        try environment.context.save()
+
+        environment.coordinator.batchPersistenceSaveHook = { stage in
+            guard stage == .bulkOrganize else { return }
+            throw InjectedMetadataFailure.batchPersistenceFailure
+        }
+
+        let organizeExpectation = expectation(description: "rolled back bulk organize")
+        await environment.coordinator.organizeMultipleFiles(
+            [firstFile, secondFile],
+            origin: .automation,
+            context: environment.context
+        ) { success, failed, failedFiles, error in
+            XCTAssertEqual(success, 0)
+            XCTAssertEqual(failed, 2)
+            XCTAssertEqual(Set(failedFiles.map(\.path)), Set([firstSourceURL.path, secondSourceURL.path]))
+            XCTAssertEqual(error as? InjectedMetadataFailure, .batchPersistenceFailure)
+            organizeExpectation.fulfill()
+        }
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        XCTAssertEqual(firstFile.path, firstSourceURL.path)
+        XCTAssertEqual(firstFile.status, .ready)
+        XCTAssertEqual(secondFile.path, secondSourceURL.path)
+        XCTAssertEqual(secondFile.status, .ready)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: firstSourceURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: secondSourceURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destinationFolder.appendingPathComponent("rollback-first.pdf").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destinationFolder.appendingPathComponent("rollback-second.pdf").path))
+
+        let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(records.count, 2)
+        XCTAssertEqual(Set(records.map(\.lastKnownPath)), Set([firstSourceURL.path, secondSourceURL.path]))
+        XCTAssertTrue(records.allSatisfy { $0.historyEntries.isEmpty })
+        XCTAssertTrue(try environment.context.fetch(FetchDescriptor<ActivityItem>()).isEmpty)
+        XCTAssertFalse(environment.coordinator.canUndo())
+        XCTAssertNil(environment.coordinator.latestUndoableBatchSummary)
+    }
+
     func testRedoLastAction_UpdatesMetadataRecordsAfterUndoForBulkMove() async throws {
         let environment = try makeEnvironment()
         let tempDirectory = try TemporaryDirectory()
@@ -1814,6 +1985,304 @@ final class FileMetadataFoundationIntegrationTests: XCTestCase {
         XCTAssertEqual(secondRecord.organizationCount, 2)
         XCTAssertEqual(secondRecord.historyEntries.count, 3)
         XCTAssertEqual(secondRecord.historyEntries.sorted(by: { $0.timestamp < $1.timestamp }).map(\.eventKind), [.organized, .undone, .organized])
+    }
+
+    func testBulkUndoRedo_UseSingleBatchedSaveAttempt() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let firstSourceURL = sourceFolder.appendingPathComponent("undo-redo-first.pdf")
+        let secondSourceURL = sourceFolder.appendingPathComponent("undo-redo-second.pdf")
+        let timestamp = Date(timeIntervalSince1970: 2_620)
+        var saveStages: [FileOrganizationCoordinator.BatchPersistenceStage] = []
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: firstSourceURL.path,
+            displayName: "undo-redo-first.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: secondSourceURL.path,
+            displayName: "undo-redo-second.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/undo-redo-first.pdf", contents: "first")
+        _ = try tempDirectory.createFile(name: "Inbox/undo-redo-second.pdf", contents: "second")
+
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Archive")
+        let firstFile = FileItem(
+            path: firstSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        let secondFile = FileItem(
+            path: secondSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(firstFile)
+        environment.context.insert(secondFile)
+        try environment.context.save()
+
+        environment.coordinator.batchPersistenceSaveHook = { stage in
+            saveStages.append(stage)
+        }
+
+        let organizeExpectation = expectation(description: "bulk organize before undo/redo")
+        await environment.coordinator.organizeMultipleFiles(
+            [firstFile, secondFile],
+            origin: .automation,
+            context: environment.context
+        ) { success, failed, _, error in
+            XCTAssertEqual(success, 2)
+            XCTAssertEqual(failed, 0)
+            XCTAssertNil(error)
+            organizeExpectation.fulfill()
+        }
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        saveStages.removeAll()
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+        XCTAssertEqual(saveStages, [.bulkUndo])
+
+        saveStages.removeAll()
+
+        var redoCompleted = false
+        await environment.coordinator.redoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            redoCompleted = true
+        }
+        XCTAssertTrue(redoCompleted)
+        XCTAssertEqual(saveStages, [.bulkRedo])
+    }
+
+    func testUndoLastAction_BulkUndoFinalPersistenceFailureRestoresDiskAndUndoState() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let firstSourceURL = sourceFolder.appendingPathComponent("undo-failure-first.pdf")
+        let secondSourceURL = sourceFolder.appendingPathComponent("undo-failure-second.pdf")
+        let firstDestinationURL = destinationFolder.appendingPathComponent("undo-failure-first.pdf")
+        let secondDestinationURL = destinationFolder.appendingPathComponent("undo-failure-second.pdf")
+        let timestamp = Date(timeIntervalSince1970: 2_640)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: firstSourceURL.path,
+            displayName: "undo-failure-first.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: secondSourceURL.path,
+            displayName: "undo-failure-second.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/undo-failure-first.pdf", contents: "first")
+        _ = try tempDirectory.createFile(name: "Inbox/undo-failure-second.pdf", contents: "second")
+
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Archive")
+        let firstFile = FileItem(
+            path: firstSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        let secondFile = FileItem(
+            path: secondSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(firstFile)
+        environment.context.insert(secondFile)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "bulk organize before undo save failure")
+        await environment.coordinator.organizeMultipleFiles(
+            [firstFile, secondFile],
+            origin: .automation,
+            context: environment.context
+        ) { success, failed, _, error in
+            XCTAssertEqual(success, 2)
+            XCTAssertEqual(failed, 0)
+            XCTAssertNil(error)
+            organizeExpectation.fulfill()
+        }
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        environment.coordinator.batchPersistenceSaveHook = { stage in
+            guard stage == .bulkUndo else { return }
+            throw InjectedMetadataFailure.batchPersistenceFailure
+        }
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        XCTAssertEqual(firstFile.path, firstDestinationURL.path)
+        XCTAssertEqual(firstFile.status, .completed)
+        XCTAssertEqual(secondFile.path, secondDestinationURL.path)
+        XCTAssertEqual(secondFile.status, .completed)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstSourceURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: secondSourceURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: firstDestinationURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: secondDestinationURL.path))
+        XCTAssertTrue(environment.coordinator.canUndo())
+        XCTAssertFalse(environment.coordinator.canRedo())
+        XCTAssertEqual(environment.coordinator.latestUndoableBatchSummary?.affectedFileCount, 2)
+
+        let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(Set(records.map(\.lastKnownPath)), Set([firstDestinationURL.path, secondDestinationURL.path]))
+        XCTAssertTrue(records.allSatisfy { $0.historyEntries.count == 1 })
+    }
+
+    func testRedoLastAction_BulkRedoFinalPersistenceFailureRestoresDiskAndRedoState() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Archive")
+        let firstSourceURL = sourceFolder.appendingPathComponent("redo-failure-first.pdf")
+        let secondSourceURL = sourceFolder.appendingPathComponent("redo-failure-second.pdf")
+        let firstDestinationURL = destinationFolder.appendingPathComponent("redo-failure-first.pdf")
+        let secondDestinationURL = destinationFolder.appendingPathComponent("redo-failure-second.pdf")
+        let timestamp = Date(timeIntervalSince1970: 2_660)
+
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: firstSourceURL.path,
+            displayName: "redo-failure-first.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+        _ = try insertPathFallbackRecord(
+            in: environment.context,
+            path: secondSourceURL.path,
+            displayName: "redo-failure-second.pdf",
+            fileExtension: "pdf",
+            timestamp: timestamp
+        )
+
+        _ = try tempDirectory.createFile(name: "Inbox/redo-failure-first.pdf", contents: "first")
+        _ = try tempDirectory.createFile(name: "Inbox/redo-failure-second.pdf", contents: "second")
+
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Archive")
+        let firstFile = FileItem(
+            path: firstSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        let secondFile = FileItem(
+            path: secondSourceURL.path,
+            sizeInBytes: 1_024,
+            creationDate: timestamp,
+            modificationDate: timestamp,
+            lastAccessedDate: timestamp,
+            location: .custom,
+            scanRootPath: sourceFolder.path,
+            destination: destination,
+            status: .ready
+        )
+        environment.context.insert(firstFile)
+        environment.context.insert(secondFile)
+        try environment.context.save()
+
+        let organizeExpectation = expectation(description: "bulk organize before redo save failure")
+        await environment.coordinator.organizeMultipleFiles(
+            [firstFile, secondFile],
+            origin: .automation,
+            context: environment.context
+        ) { success, failed, _, error in
+            XCTAssertEqual(success, 2)
+            XCTAssertEqual(failed, 0)
+            XCTAssertNil(error)
+            organizeExpectation.fulfill()
+        }
+        await fulfillment(of: [organizeExpectation], timeout: 2.0)
+
+        var undoCompleted = false
+        environment.coordinator.undoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            undoCompleted = true
+        }
+        XCTAssertTrue(undoCompleted)
+
+        environment.coordinator.batchPersistenceSaveHook = { stage in
+            guard stage == .bulkRedo else { return }
+            throw InjectedMetadataFailure.batchPersistenceFailure
+        }
+
+        var redoCompleted = false
+        await environment.coordinator.redoLastAction(allFiles: [firstFile, secondFile], context: environment.context) {
+            redoCompleted = true
+        }
+        XCTAssertTrue(redoCompleted)
+
+        XCTAssertEqual(firstFile.path, firstSourceURL.path)
+        XCTAssertEqual(firstFile.status, .pending)
+        XCTAssertEqual(secondFile.path, secondSourceURL.path)
+        XCTAssertEqual(secondFile.status, .pending)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: firstSourceURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: secondSourceURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstDestinationURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: secondDestinationURL.path))
+        XCTAssertFalse(environment.coordinator.canUndo())
+        XCTAssertTrue(environment.coordinator.canRedo())
+        XCTAssertNil(environment.coordinator.latestUndoableBatchSummary)
+
+        let records = try environment.context.fetch(FetchDescriptor<FileMetadataRecord>())
+        XCTAssertEqual(Set(records.map(\.lastKnownPath)), Set([firstSourceURL.path, secondSourceURL.path]))
+        XCTAssertTrue(records.allSatisfy { $0.historyEntries.count == 2 })
+        XCTAssertTrue(records.allSatisfy { $0.latestOrganizationStatus == .undone })
     }
 
     func testOrganizeCluster_RedoReplaysExplicitProjectAssociationContext() async throws {
