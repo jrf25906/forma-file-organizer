@@ -533,8 +533,11 @@ final class ExternalIngressCoordinator {
             object: nil,
             userInfo: [
                 AutomationScanNotificationUserInfo.scannedPaths: result.scannedPaths,
+                AutomationScanNotificationUserInfo.updatedPaths: result.scannedPaths,
+                AutomationScanNotificationUserInfo.removedPaths: [],
                 AutomationScanNotificationUserInfo.scannedRootPaths: result.scannedRootPaths,
                 AutomationScanNotificationUserInfo.replacesAllFiles: false,
+                AutomationScanNotificationUserInfo.requiresClusterRefresh: false,
                 AutomationScanNotificationUserInfo.errorSummary: Optional<String>.none as Any
             ]
         )

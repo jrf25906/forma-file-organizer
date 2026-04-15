@@ -367,17 +367,22 @@ struct DashboardView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .automationScanDidPersist)) { notification in
             let scannedPaths = notification.userInfo?[AutomationScanNotificationUserInfo.scannedPaths] as? [String] ?? []
+            let updatedPaths = notification.userInfo?[AutomationScanNotificationUserInfo.updatedPaths] as? [String] ?? scannedPaths
+            let removedPaths = notification.userInfo?[AutomationScanNotificationUserInfo.removedPaths] as? [String] ?? []
             guard let scannedRootPaths = notification.userInfo?[AutomationScanNotificationUserInfo.scannedRootPaths] as? [String] else {
                 return
             }
             let errorSummary = notification.userInfo?[AutomationScanNotificationUserInfo.errorSummary] as? String
             let replacesAllFiles = notification.userInfo?[AutomationScanNotificationUserInfo.replacesAllFiles] as? Bool ?? false
+            let requiresClusterRefresh = notification.userInfo?[AutomationScanNotificationUserInfo.requiresClusterRefresh] as? Bool ?? true
             Task {
                 await dashboardViewModel.applyAutomationScanUpdate(
-                    scannedPaths: scannedPaths,
+                    updatedPaths: updatedPaths,
+                    removedPaths: removedPaths,
                     scannedRootPaths: scannedRootPaths,
                     errorSummary: errorSummary,
                     replacesAllFiles: replacesAllFiles,
+                    requiresClusterRefresh: requiresClusterRefresh,
                     context: modelContext
                 )
             }

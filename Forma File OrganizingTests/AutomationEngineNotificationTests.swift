@@ -179,27 +179,42 @@ final class AutomationEngineNotificationTests: XCTestCase {
     @MainActor
     private final class MockFileMonitor: FileMonitoring {
         private(set) var isMonitoring = false
-        private var onChange: (@MainActor (Set<FolderLocation>) -> Void)?
+        private var currentFolders: [WatchedFolderDescriptor] = []
+        private var onChange: (@MainActor (WatchedFolderChangeSet) -> Void)?
 
         func startMonitoring(
             folders: [WatchedFolderDescriptor],
-            onChange: @escaping @MainActor (Set<FolderLocation>) -> Void
+            onChange: @escaping @MainActor (WatchedFolderChangeSet) -> Void
         ) {
             isMonitoring = true
+            currentFolders = folders
             self.onChange = onChange
         }
 
-        func updateMonitoredFolders(_ folders: [WatchedFolderDescriptor]) {}
+        func updateMonitoredFolders(_ folders: [WatchedFolderDescriptor]) {
+            currentFolders = folders
+        }
 
         func stopMonitoring() {
             isMonitoring = false
+            currentFolders = []
             onChange = nil
         }
 
         func simulateChange(_ folders: Set<FolderLocation>) async {
             guard let onChange else { return }
+            let touchedRoots = Set(
+                currentFolders
+                    .filter { folders.contains($0.location) }
+                    .map(\.standardizedRootPath)
+            )
             await MainActor.run {
-                onChange(folders)
+                onChange(
+                    WatchedFolderChangeSet(
+                        touchedRoots: touchedRoots,
+                        requiresFallbackRootScan: true
+                    )
+                )
             }
         }
     }

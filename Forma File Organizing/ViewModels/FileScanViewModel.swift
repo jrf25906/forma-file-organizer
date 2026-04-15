@@ -131,6 +131,45 @@ class FileScanViewModel: ObservableObject {
         updateRecentFiles()
     }
 
+    func applyIncrementalAutomationUpdate(
+        updatedFiles: [FileItem],
+        removedPaths: [String]
+    ) {
+        let removedPathSet = Set(removedPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
+        let updatedByPath = Dictionary(
+            uniqueKeysWithValues: updatedFiles.map {
+                (URL(fileURLWithPath: $0.path).standardizedFileURL.path, $0)
+            }
+        )
+
+        var nextFiles: [FileItem] = []
+        nextFiles.reserveCapacity(max(allFiles.count, updatedFiles.count))
+
+        for file in allFiles {
+            let standardizedPath = URL(fileURLWithPath: file.path).standardizedFileURL.path
+            if removedPathSet.contains(standardizedPath) {
+                continue
+            }
+
+            if let updatedFile = updatedByPath[standardizedPath] {
+                nextFiles.append(updatedFile)
+            } else {
+                nextFiles.append(file)
+            }
+        }
+
+        let existingPaths = Set(nextFiles.map { URL(fileURLWithPath: $0.path).standardizedFileURL.path })
+        for updatedFile in updatedFiles {
+            let standardizedPath = URL(fileURLWithPath: updatedFile.path).standardizedFileURL.path
+            if !existingPaths.contains(standardizedPath) {
+                nextFiles.append(updatedFile)
+            }
+        }
+
+        allFiles = nextFiles
+        updateRecentFiles()
+    }
+
     /// Update a file's metadata (called after organization)
     func updateFile(_ file: FileItem) {
         if let index = allFiles.firstIndex(where: { $0.path == file.path }) {

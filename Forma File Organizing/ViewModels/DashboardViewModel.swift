@@ -588,6 +588,7 @@ class DashboardViewModel: ObservableObject {
     private var projectSpaceWorkflowCandidateFiles: [FileItem] = []
     private var isSynchronizingProjectSpaceWorkflowState = false
     private var selectedProjectSpaceAutomationPolicyID: UUID?
+    private var skipGlobalRefreshForNextFileMutation = false
 
     // MARK: - Initialization
 
@@ -782,17 +783,21 @@ class DashboardViewModel: ObservableObject {
 
     /// Applies an automation-triggered scan result to the dashboard state without re-scanning.
     func applyAutomationScanUpdate(
-        scannedPaths: [String] = [],
+        updatedPaths: [String] = [],
+        removedPaths: [String] = [],
         scannedRootPaths: [String],
         errorSummary: String?,
         replacesAllFiles: Bool = false,
+        requiresClusterRefresh: Bool = true,
         context: ModelContext
     ) async {
         await scanRefreshController.applyAutomationScanUpdate(
-            scannedPaths: scannedPaths,
+            updatedPaths: updatedPaths,
+            removedPaths: removedPaths,
             scannedRootPaths: scannedRootPaths,
             errorSummary: errorSummary,
             replacesAllFiles: replacesAllFiles,
+            requiresClusterRefresh: requiresClusterRefresh,
             context: context,
             actions: makeScanRefreshActions()
         )
@@ -2461,12 +2466,16 @@ class DashboardViewModel: ObservableObject {
         scanViewModel.$allFiles
             .sink { [weak self] files in
                 guard let self else { return }
+                let skipGlobalRefresh = self.skipGlobalRefreshForNextFileMutation
+                self.skipGlobalRefreshForNextFileMutation = false
                 self.synchronizeOrganizationProgressTotal(with: files)
                 self.filterViewModel.updateSourceFiles(files)
-                self.refreshContentTagQuickFilters(for: files)
-                self.refreshProjectSpaces()
                 self.synchronizeExternalReviewSession(with: files)
-                self.analyticsViewModel.updateAnalytics(from: files)
+                if !skipGlobalRefresh {
+                    self.refreshContentTagQuickFilters(for: files)
+                    self.refreshProjectSpaces()
+                    self.analyticsViewModel.updateAnalytics(from: files)
+                }
             }
             .store(in: &cancellables)
 
@@ -2917,6 +2926,9 @@ class DashboardViewModel: ObservableObject {
             },
             refreshAvailableFolders: { [weak self] in
                 self?.refreshAvailableFolders()
+            },
+            prepareForIncrementalFileUpdate: { [weak self] in
+                self?.skipGlobalRefreshForNextFileMutation = true
             }
         )
     }

@@ -29,6 +29,10 @@ final class MockFileScanPipeline: FileScanPipelineProtocol {
     /// Number of times scanAndPersist() was called
     private(set) var scanCallCount = 0
     private(set) var explicitScanCallCount = 0
+    private(set) var lastExplicitFiles: [FileMetadata] = []
+    private(set) var lastExplicitScannedRootPaths: [String] = []
+    private(set) var lastExplicitReconcileMissingFiles: Bool?
+    var onEvaluateExplicitFiles: (([FileMetadata], [String], Bool, ModelContext) -> Void)?
 
     // MARK: - FileScanPipelineProtocol Conformance
 
@@ -58,6 +62,10 @@ final class MockFileScanPipeline: FileScanPipelineProtocol {
         context: ModelContext
     ) async -> FileScanPipeline.ScanResult {
         explicitScanCallCount += 1
+        lastExplicitFiles = files
+        lastExplicitScannedRootPaths = scannedRootPaths
+        lastExplicitReconcileMissingFiles = reconcileMissingFiles
+        onEvaluateExplicitFiles?(files, scannedRootPaths, reconcileMissingFiles, context)
         return explicitSelectionResult
     }
 
@@ -70,6 +78,10 @@ final class MockFileScanPipeline: FileScanPipelineProtocol {
         timedOut = false
         scanCallCount = 0
         explicitScanCallCount = 0
+        lastExplicitFiles = []
+        lastExplicitScannedRootPaths = []
+        lastExplicitReconcileMissingFiles = nil
+        onEvaluateExplicitFiles = nil
         explicitSelectionResult = FileScanPipeline.ScanResult(
             files: [],
             errorSummary: nil,

@@ -9,6 +9,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Developer workflow guidance for the `build-macos-apps` plugin now lives in `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md`, with a Forma-specific reusable prompt and verification expectations aligned to `codex-project.toml`, `AGENTS.md`, `fastlane/`, and `Scripts/`.
 
 ### Fixed
+- Watched-folder refreshes now flow through a real delta path: the watcher emits touched roots plus updated/removed standardized paths, realtime scans debounce at `0.2s`, single-root batches below the escalation threshold scan only explicit touched files, and the dashboard merges those file-row changes without rerunning cluster/project-space refresh work.
 - Startup and resize responsiveness around trusted automation scopes:
   - `DashboardViewModel.setModelContext(_:)` no longer refreshes trusted automation scopes synchronously during initial window restoration, so Forma no longer pegs the main thread doing hidden right-panel work while a saved window reopens or resizes.
   - `DefaultPanelView` now schedules trusted-scope refresh just after the panel appears instead of forcing that work into the same render/layout turn as view restoration.

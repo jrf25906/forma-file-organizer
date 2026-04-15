@@ -4,6 +4,24 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Watched-folder incremental refresh
+  - `WatchedFolderChangeSet`
+    - `touchedRoots`
+    - `updatedPaths`
+    - `removedPaths`
+    - `requiresFallbackRootScan`
+  - `WatchedFolderFileEvent`
+  - `AutomationScanRequest`
+    - `full`
+    - `roots([FolderLocation])`
+    - `delta(WatchedFolderChangeSet)`
+  - `AutomationNotificationKey.updatedPaths`
+  - `AutomationNotificationKey.removedPaths`
+  - `AutomationNotificationKey.requiresClusterRefresh`
+  - `DashboardScanRefreshController.applyAutomationScanUpdate(updatedPaths:removedPaths:scannedRootPaths:errorSummary:replacesAllFiles:requiresClusterRefresh:context:actions:)`
+  - `FileScanViewModel.applyIncrementalAutomationUpdate(updatedFiles:removedPaths:)`
+  - File watcher callbacks now emit standardized touched-path deltas instead of only watched roots, automation scans can route explicit-path delta work separately from root/full refreshes, and dashboard automation updates can merge touched rows in place while rerunning visible search only when needed.
+
 - Trusted-scope startup refresh deferral and overlap-classification caching
   - `DashboardViewModel`
     - `scheduleTrustedAutomationScopeRefresh(referenceDate:)`

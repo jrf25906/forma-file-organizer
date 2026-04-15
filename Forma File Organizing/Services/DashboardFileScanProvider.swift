@@ -39,60 +39,83 @@ final class DashboardFileScanProvider: FileScanProvider {
 
     // MARK: - FileScanProvider
 
-    func scanFiles(context: ModelContext, baseFolders: [FolderLocation]?) async throws -> FileScanResult {
+    func scanFiles(context: ModelContext, request: AutomationScanRequest) async throws -> FileScanResult {
         Log.info("DashboardFileScanProvider: Starting scan", category: .automation)
-        let replacesAllFiles = baseFolders == nil
 
         // Fetch current rules
         let rules = try fetchRules(context: context)
+        let scanResult: FileScanPipeline.ScanResult
+        let updatedPaths: [String]
+        let removedPaths: [String]
+        let replacesAllFiles: Bool
+        let requiresClusterRefresh: Bool
+        let scannedRootPaths: [String]
 
-        // Determine which base folders to scan based on BookmarkFolderService
-        let selectedBaseFolders = baseFolders ?? BookmarkFolderService.shared.enabledFolderLocations
-        let scanOptions = ScanOptionsResolver.current()
+        switch request {
+        case .full:
+            let result = await runRootScan(
+                baseFolders: BookmarkFolderService.shared.enabledFolderLocations,
+                context: context,
+                rules: rules
+            )
+            scanResult = result
+            updatedPaths = result.files.map(\.path)
+            removedPaths = []
+            replacesAllFiles = true
+            requiresClusterRefresh = true
+            scannedRootPaths = result.scannedRootPaths
+        case .roots(let baseFolders):
+            let result = await runRootScan(
+                baseFolders: baseFolders,
+                context: context,
+                rules: rules
+            )
+            scanResult = result
+            updatedPaths = result.files.map(\.path)
+            removedPaths = []
+            replacesAllFiles = false
+            requiresClusterRefresh = true
+            scannedRootPaths = result.scannedRootPaths
+        case .delta(let changeSet):
+            let result = try await runDeltaScan(
+                changeSet: changeSet,
+                context: context,
+                rules: rules
+            )
+            scanResult = result.scanResult
+            updatedPaths = result.updatedPaths
+            removedPaths = result.removedPaths
+            replacesAllFiles = false
+            requiresClusterRefresh = false
+            scannedRootPaths = result.scannedRootPaths
+        }
 
-        // Perform the scan
-        let result = await pipeline.scanAndPersist(
-            baseFolders: selectedBaseFolders,
-            scanOptions: scanOptions,
-            fileSystemService: fileSystemService,
-            ruleEngine: ruleEngine,
-            rules: rules,
-            context: context
-        )
-
-        // Handle timeout as an error
-        if result.timedOut {
+        if scanResult.timedOut {
             throw ScanError.timeout
         }
 
-        // Handle other errors
-        if let errorSummary = result.errorSummary, !result.rawErrors.isEmpty {
+        if let errorSummary = scanResult.errorSummary, !scanResult.rawErrors.isEmpty {
             Log.warning("DashboardFileScanProvider: Scan completed with errors - \(errorSummary)", category: .automation)
         }
 
-        // Compute metrics from the scan result
-        let metrics = computeMetrics(
-            from: result.files,
+        let metrics = computeAggregateMetrics(
+            totalScanned: updatedPaths.count,
             context: context,
-            errorSummary: result.errorSummary,
-            rawErrors: result.rawErrors,
-            scannedRootPaths: result.scannedRootPaths
+            errorSummary: scanResult.errorSummary,
+            rawErrors: scanResult.rawErrors,
+            scannedRootPaths: scannedRootPaths
         )
 
-        // Notify dashboard surfaces that rely on in-memory file lists.
-        NotificationCenter.default.post(
-            name: .automationScanDidPersist,
-            object: nil,
-            userInfo: [
-                AutomationScanNotificationUserInfo.scannedPaths: result.files.map(\.path),
-                AutomationScanNotificationUserInfo.scannedRootPaths: result.scannedRootPaths,
-                AutomationScanNotificationUserInfo.replacesAllFiles: replacesAllFiles,
-                AutomationScanNotificationUserInfo.errorSummary: result.errorSummary as Any
-            ]
+        postDashboardUpdate(
+            updatedPaths: updatedPaths,
+            removedPaths: removedPaths,
+            scannedRootPaths: scannedRootPaths,
+            replacesAllFiles: replacesAllFiles,
+            requiresClusterRefresh: requiresClusterRefresh,
+            errorSummary: scanResult.errorSummary
         )
 
-        Log.info("DashboardFileScanProvider: Scan complete - \(result.files.count) files, \(metrics.pendingCount) pending", category: .automation)
-
+        Log.info("DashboardFileScanProvider: Scan complete - \(updatedPaths.count) touched files, \(metrics.pendingCount) pending", category: .automation)
         return metrics
     }
 
@@ -158,45 +181,159 @@ final class DashboardFileScanProvider: FileScanProvider {
         return try context.fetch(descriptor)
     }
 
+    private func runRootScan(
+        baseFolders: [FolderLocation],
+        context: ModelContext,
+        rules: [Rule]
+    ) async -> FileScanPipeline.ScanResult {
+        let scanOptions = ScanOptionsResolver.current()
+        return await pipeline.scanAndPersist(
+            baseFolders: baseFolders,
+            scanOptions: scanOptions,
+            fileSystemService: fileSystemService,
+            ruleEngine: ruleEngine,
+            rules: rules,
+            context: context
+        )
+    }
 
-    private func computeMetrics(
-        from files: [FileItem],
+    private func runDeltaScan(
+        changeSet: WatchedFolderChangeSet,
+        context: ModelContext,
+        rules: [Rule]
+    ) async throws -> (
+        scanResult: FileScanPipeline.ScanResult,
+        updatedPaths: [String],
+        removedPaths: [String],
+        scannedRootPaths: [String]
+    ) {
+        let sortedTouchedRoots = Array(changeSet.touchedRoots).sorted()
+        let sortedUpdatedPaths = Array(changeSet.updatedPaths).sorted()
+        var explicitRemovalPaths = Set(changeSet.removedPaths)
+        var existingFileURLs: [URL] = []
+
+        for path in sortedUpdatedPaths {
+            let url = URL(fileURLWithPath: path).standardizedFileURL
+            var isDirectory = ObjCBool(false)
+            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue {
+                existingFileURLs.append(url)
+            } else {
+                explicitRemovalPaths.insert(url.path)
+            }
+        }
+
+        let explicitSelection: ExplicitSelectionScanResult
+        if existingFileURLs.isEmpty {
+            explicitSelection = ExplicitSelectionScanResult(
+                files: [],
+                skippedItems: [],
+                scannedRootPaths: []
+            )
+        } else {
+            explicitSelection = try await fileSystemService.scanExplicitSelection(
+                urls: existingFileURLs,
+                options: ScanOptionsResolver.current()
+            )
+        }
+
+        let pipelineResult = await pipeline.evaluateAndPersistExplicitFiles(
+            files: explicitSelection.files,
+            scannedRootPaths: sortedTouchedRoots,
+            reconcileMissingFiles: false,
+            ruleEngine: ruleEngine,
+            rules: rules,
+            context: context
+        )
+
+        if !explicitRemovalPaths.isEmpty {
+            try deletePersistedFiles(
+                at: explicitRemovalPaths,
+                context: context
+            )
+        }
+
+        return (
+            scanResult: pipelineResult,
+            updatedPaths: pipelineResult.files.map(\.path).sorted(),
+            removedPaths: Array(explicitRemovalPaths).sorted(),
+            scannedRootPaths: sortedTouchedRoots
+        )
+    }
+
+    private func deletePersistedFiles(
+        at paths: Set<String>,
+        context: ModelContext
+    ) throws {
+        let descriptor = FetchDescriptor<FileItem>(
+            predicate: #Predicate<FileItem> { file in
+                paths.contains(file.path)
+            }
+        )
+        let existingFiles = try context.fetch(descriptor)
+        guard !existingFiles.isEmpty else { return }
+
+        for file in existingFiles {
+            context.delete(file)
+        }
+
+        try context.save()
+    }
+
+    private func computeAggregateMetrics(
+        totalScanned: Int,
         context: ModelContext,
         errorSummary: String?,
         rawErrors: [String: Error],
         scannedRootPaths: [String]
     ) -> FileScanResult {
-        var pendingCount = 0
-        var readyCount = 0
-        var organizedCount = 0
-        var skippedCount = 0
-        var oldestPendingDate: Date?
+        let pendingRaw = FileItem.OrganizationStatus.pending.rawValue
+        let readyRaw = FileItem.OrganizationStatus.ready.rawValue
+        let completedRaw = FileItem.OrganizationStatus.completed.rawValue
+        let skippedRaw = FileItem.OrganizationStatus.skipped.rawValue
 
-        for file in files {
-            switch file.status {
-            case .pending:
-                pendingCount += 1
-                // modificationDate is not optional, use it directly
-                let fileDate = file.modificationDate
-                if oldestPendingDate == nil || fileDate < oldestPendingDate! {
-                    oldestPendingDate = fileDate
+        let pendingCount = (try? context.fetchCount(
+            FetchDescriptor<FileItem>(
+                predicate: #Predicate<FileItem> { file in
+                    file.statusRaw == pendingRaw
                 }
-            case .ready:
-                readyCount += 1
-            case .completed:
-                organizedCount += 1
-            case .skipped:
-                skippedCount += 1
-            }
-        }
+            )
+        )) ?? 0
+        let readyCount = (try? context.fetchCount(
+            FetchDescriptor<FileItem>(
+                predicate: #Predicate<FileItem> { file in
+                    file.statusRaw == readyRaw
+                }
+            )
+        )) ?? 0
+        let organizedCount = (try? context.fetchCount(
+            FetchDescriptor<FileItem>(
+                predicate: #Predicate<FileItem> { file in
+                    file.statusRaw == completedRaw
+                }
+            )
+        )) ?? 0
+        let skippedCount = (try? context.fetchCount(
+            FetchDescriptor<FileItem>(
+                predicate: #Predicate<FileItem> { file in
+                    file.statusRaw == skippedRaw
+                }
+            )
+        )) ?? 0
 
-        // Calculate oldest pending age in days
-        let oldestAgeDays: Int? = oldestPendingDate.map { date in
+        var oldestPendingDescriptor = FetchDescriptor<FileItem>(
+            predicate: #Predicate<FileItem> { file in
+                file.statusRaw == pendingRaw
+            },
+            sortBy: [SortDescriptor<FileItem>(\.modificationDate, order: .forward)]
+        )
+        oldestPendingDescriptor.fetchLimit = 1
+        let oldestPendingDate = try? context.fetch(oldestPendingDescriptor).first?.modificationDate
+        let oldestAgeDays = oldestPendingDate.flatMap { date in
             Int(Date().timeIntervalSince(date) / FormaConfig.Timing.secondsInDay)
         }
 
         return FileScanResult(
-            totalScanned: files.count,
+            totalScanned: totalScanned,
             pendingCount: pendingCount,
             readyCount: readyCount,
             organizedCount: organizedCount,
@@ -210,6 +347,30 @@ final class DashboardFileScanProvider: FileScanProvider {
             scannedRootPaths: scannedRootPaths
         )
     }
+
+    private func postDashboardUpdate(
+        updatedPaths: [String],
+        removedPaths: [String],
+        scannedRootPaths: [String],
+        replacesAllFiles: Bool,
+        requiresClusterRefresh: Bool,
+        errorSummary: String?
+    ) {
+        NotificationCenter.default.post(
+            name: .automationScanDidPersist,
+            object: nil,
+            userInfo: [
+                AutomationScanNotificationUserInfo.scannedPaths: updatedPaths,
+                AutomationScanNotificationUserInfo.updatedPaths: updatedPaths,
+                AutomationScanNotificationUserInfo.removedPaths: removedPaths,
+                AutomationScanNotificationUserInfo.scannedRootPaths: scannedRootPaths,
+                AutomationScanNotificationUserInfo.replacesAllFiles: replacesAllFiles,
+                AutomationScanNotificationUserInfo.requiresClusterRefresh: requiresClusterRefresh,
+                AutomationScanNotificationUserInfo.errorSummary: errorSummary as Any
+            ]
+        )
+    }
+
     // MARK: - Errors
 
     enum ScanError: Error, LocalizedError {

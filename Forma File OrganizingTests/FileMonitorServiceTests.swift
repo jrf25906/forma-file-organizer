@@ -1,4 +1,5 @@
 import XCTest
+import CoreServices
 @testable import Forma_File_Organizing
 
 @MainActor
@@ -31,26 +32,37 @@ final class FileMonitorServiceTests: XCTestCase {
         }
     }
 
-    func testCoalescesBurstyEventsIntoSingleRootCallback() async {
+    func testCoalescesBurstyEventsIntoSingleChangeSetCallback() async throws {
         let service = FileMonitorService(debounceInterval: 0.05)
         let desktop = WatchedFolderDescriptor(location: .desktop, rootURL: URL(fileURLWithPath: "/Users/test/Desktop"))
         let downloads = WatchedFolderDescriptor(location: .downloads, rootURL: URL(fileURLWithPath: "/Users/test/Downloads"))
         let changeExpectation = expectation(description: "coalesced change callback")
 
-        var receivedRoots: [Set<FolderLocation>] = []
-        service.startMonitoring(folders: [desktop, downloads]) { roots in
-            receivedRoots.append(roots)
+        var receivedChangeSets: [WatchedFolderChangeSet] = []
+        service.startMonitoring(folders: [desktop, downloads]) { changeSet in
+            receivedChangeSets.append(changeSet)
             changeExpectation.fulfill()
         }
 
-        service._testEmitChangedPaths([
-            "/Users/test/Desktop/a.txt",
-            "/Users/test/Downloads/b.txt",
-            "/Users/test/Desktop/nested/c.txt"
+        service._testEmitEvents([
+            .init(path: "/Users/test/Desktop/a.txt", flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated)),
+            .init(path: "/Users/test/Downloads/b.txt", flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemModified)),
+            .init(path: "/Users/test/Desktop/nested/c.txt", flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemInodeMetaMod))
         ])
 
         await fulfillment(of: [changeExpectation], timeout: 1.0)
-        XCTAssertEqual(receivedRoots, [[.desktop, .downloads]])
+        let changeSet = try XCTUnwrap(receivedChangeSets.first)
+        XCTAssertEqual(changeSet.touchedRoots, [desktop.standardizedRootPath, downloads.standardizedRootPath])
+        XCTAssertEqual(
+            changeSet.updatedPaths,
+            [
+                "/Users/test/Desktop/a.txt",
+                "/Users/test/Desktop/nested/c.txt",
+                "/Users/test/Downloads/b.txt"
+            ]
+        )
+        XCTAssertTrue(changeSet.removedPaths.isEmpty)
+        XCTAssertFalse(changeSet.requiresFallbackRootScan)
     }
 
     func testIgnoresPathsOutsideWatchedRoots() async {
@@ -61,7 +73,9 @@ final class FileMonitorServiceTests: XCTestCase {
             XCTFail("Unexpected callback for non-watched path")
         }
 
-        service._testEmitChangedPaths(["/Users/test/Documents/ignore.txt"])
+        service._testEmitEvents([
+            .init(path: "/Users/test/Documents/ignore.txt", flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated))
+        ])
         try? await Task.sleep(for: .milliseconds(120))
     }
 
@@ -72,16 +86,64 @@ final class FileMonitorServiceTests: XCTestCase {
         let staleCallback = expectation(description: "no stale callback")
         staleCallback.isInverted = true
 
-        service.startMonitoring(folders: [desktop, downloads]) { roots in
-            if roots.contains(.desktop) {
+        service.startMonitoring(folders: [desktop, downloads]) { changeSet in
+            if changeSet.touchedRoots.contains(desktop.standardizedRootPath) {
                 staleCallback.fulfill()
             }
         }
 
-        service._testEmitChangedPaths(["/Users/test/Desktop/a.txt"])
+        service._testEmitEvents([
+            .init(path: "/Users/test/Desktop/a.txt", flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated))
+        ])
         service.updateMonitoredFolders([downloads])
 
         await fulfillment(of: [staleCallback], timeout: 0.15)
+    }
+
+    func testDeleteEventsPopulateRemovedPaths() async {
+        let service = FileMonitorService(debounceInterval: 0.05)
+        let desktop = WatchedFolderDescriptor(location: .desktop, rootURL: URL(fileURLWithPath: "/Users/test/Desktop"))
+        let changeExpectation = expectation(description: "removed change callback")
+
+        var receivedChangeSet: WatchedFolderChangeSet?
+        service.startMonitoring(folders: [desktop]) { changeSet in
+            receivedChangeSet = changeSet
+            changeExpectation.fulfill()
+        }
+
+        service._testEmitEvents([
+            .init(path: "/Users/test/Desktop/deleted.txt", flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemRemoved))
+        ])
+
+        await fulfillment(of: [changeExpectation], timeout: 1.0)
+        XCTAssertEqual(receivedChangeSet?.updatedPaths, [])
+        XCTAssertEqual(receivedChangeSet?.removedPaths, ["/Users/test/Desktop/deleted.txt"])
+        XCTAssertFalse(receivedChangeSet?.requiresFallbackRootScan ?? true)
+    }
+
+    func testAmbiguousDirectoryEventsRequestFallbackRootScan() async {
+        let service = FileMonitorService(debounceInterval: 0.05)
+        let desktop = WatchedFolderDescriptor(location: .desktop, rootURL: URL(fileURLWithPath: "/Users/test/Desktop"))
+        let changeExpectation = expectation(description: "fallback change callback")
+
+        var receivedChangeSet: WatchedFolderChangeSet?
+        service.startMonitoring(folders: [desktop]) { changeSet in
+            receivedChangeSet = changeSet
+            changeExpectation.fulfill()
+        }
+
+        service._testEmitEvents([
+            .init(
+                path: "/Users/test/Desktop/Subfolder",
+                flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated | kFSEventStreamEventFlagItemIsDir)
+            )
+        ])
+
+        await fulfillment(of: [changeExpectation], timeout: 1.0)
+        XCTAssertEqual(receivedChangeSet?.touchedRoots, [desktop.standardizedRootPath])
+        XCTAssertTrue(receivedChangeSet?.updatedPaths.isEmpty ?? false)
+        XCTAssertTrue(receivedChangeSet?.removedPaths.isEmpty ?? false)
+        XCTAssertTrue(receivedChangeSet?.requiresFallbackRootScan ?? false)
     }
 
     func testCreateStreamFailureReleasesSecurityScopedAccess() {

@@ -8,6 +8,7 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
     var explicitSelectionResult = ExplicitSelectionScanResult(files: [], skippedItems: [], scannedRootPaths: [])
     var explicitSelectionError: Error?
     private(set) var explicitSelectionCallCount = 0
+    private(set) var explicitSelectionRequestedURLs: [[URL]] = []
 
     var hasDesktop: Bool = false
     var hasDownloads: Bool = false
@@ -56,6 +57,7 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
         options: FileScanOptions
     ) async throws -> ExplicitSelectionScanResult {
         explicitSelectionCallCount += 1
+        explicitSelectionRequestedURLs.append(urls.map(\.standardizedFileURL))
 
         if let explicitSelectionError {
             throw explicitSelectionError

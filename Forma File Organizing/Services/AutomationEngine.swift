@@ -148,7 +148,7 @@ final class AutomationEngine: ObservableObject {
     private var lastErrorNotificationDate: Date?
     private var notificationCountThisHour: Int = 0
     private var hourStartDate: Date
-    private var pendingRealtimeRoots: Set<FolderLocation> = []
+    private var pendingRealtimeChangeSet: WatchedFolderChangeSet = .empty
     private var bookmarkFolderObservationTask: Task<Void, Never>?
 
     // MARK: - Initialization
@@ -253,7 +253,7 @@ final class AutomationEngine: ObservableObject {
         // Scan on launch if enabled
         if policy.scanOnLaunch {
             Task {
-                await performScan(reason: .appLaunch, baseFolders: nil)
+                await performScan(reason: .appLaunch, request: .full)
             }
         }
 
@@ -271,7 +271,7 @@ final class AutomationEngine: ObservableObject {
         scheduledScanTask?.cancel()
         scheduledScanTask = nil
         state.nextScheduledRun = nil
-        pendingRealtimeRoots.removeAll()
+        pendingRealtimeChangeSet = .empty
         fileMonitor.stopMonitoring()
         state.isWatchingFolders = false
     }
@@ -308,7 +308,7 @@ final class AutomationEngine: ObservableObject {
     ///
     /// Use for user-initiated "Scan Now" actions.
     func triggerManualScan() async {
-        await performScan(reason: .manual, baseFolders: nil)
+        await performScan(reason: .manual, request: .full)
     }
 
     /// Triggers an auto-organize pass for eligible files.
@@ -344,15 +344,15 @@ final class AutomationEngine: ObservableObject {
 
     // MARK: - Private: Scanning
 
-    private func performScan(reason: ScanReason, baseFolders: [FolderLocation]?) async {
+    private func performScan(reason: ScanReason, request: AutomationScanRequest) async {
         guard let context = modelContext, let provider = scanProvider else {
             Log.warning("AutomationEngine: Cannot scan - not configured", category: .automation)
             return
         }
 
         if state.isRunning {
-            if reason == .fileSystemEvent, let baseFolders {
-                pendingRealtimeRoots.formUnion(baseFolders)
+            if reason == .fileSystemEvent {
+                enqueuePendingRealtimeRequest(request)
             } else {
                 Log.info("AutomationEngine: Ignoring \(reason.rawValue) while a scan is already running", category: .automation)
             }
@@ -379,7 +379,7 @@ final class AutomationEngine: ObservableObject {
 
         do {
             // Perform the scan via the provider
-            let result = try await provider.scanFiles(context: context, baseFolders: baseFolders)
+            let result = try await provider.scanFiles(context: context, request: request)
 
             // Update state
             lastScanDate = clock.now
@@ -663,7 +663,7 @@ final class AutomationEngine: ObservableObject {
             }
 
             guard !Task.isCancelled else { return }
-            await self?.performScan(reason: .scheduled, baseFolders: nil)
+            await self?.performScan(reason: .scheduled, request: .full)
         }
     }
 
@@ -882,17 +882,18 @@ final class AutomationEngine: ObservableObject {
             (lifecycleState == .activeWithWindow || lifecycleState == .menuBarOnly)
 
         guard shouldWatchFolders else {
-            pendingRealtimeRoots.removeAll()
+            pendingRealtimeChangeSet = .empty
             fileMonitor.stopMonitoring()
             state.isWatchingFolders = false
             return
         }
 
         let folders = watchedFoldersProvider()
-        let watchedLocations = Set(folders.map(\.location))
-        pendingRealtimeRoots = pendingRealtimeRoots.intersection(watchedLocations)
+        pendingRealtimeChangeSet = pendingRealtimeChangeSet.filtered(
+            to: Set(folders.map(\.standardizedRootPath))
+        )
         guard !folders.isEmpty else {
-            pendingRealtimeRoots.removeAll()
+            pendingRealtimeChangeSet = .empty
             fileMonitor.stopMonitoring()
             state.isWatchingFolders = false
             return
@@ -901,17 +902,17 @@ final class AutomationEngine: ObservableObject {
         if fileMonitor.isMonitoring {
             fileMonitor.updateMonitoredFolders(folders)
         } else {
-            fileMonitor.startMonitoring(folders: folders) { [weak self] changedFolders in
-                self?.handleWatchedFoldersChanged(changedFolders)
+            fileMonitor.startMonitoring(folders: folders) { [weak self] changeSet in
+                self?.handleWatchedFoldersChanged(changeSet)
             }
         }
 
         state.isWatchingFolders = fileMonitor.isMonitoring
     }
 
-    private func handleWatchedFoldersChanged(_ folders: Set<FolderLocation>) {
-        guard policy.canScan, !folders.isEmpty else { return }
-        pendingRealtimeRoots.formUnion(folders)
+    private func handleWatchedFoldersChanged(_ changeSet: WatchedFolderChangeSet) {
+        guard policy.canScan, !changeSet.isEmpty else { return }
+        pendingRealtimeChangeSet.formUnion(changeSet)
 
         Task { @MainActor [weak self] in
             await self?.drainPendingRealtimeRescansIfNeeded()
@@ -919,10 +920,66 @@ final class AutomationEngine: ObservableObject {
     }
 
     private func drainPendingRealtimeRescansIfNeeded() async {
-        guard !state.isRunning, !pendingRealtimeRoots.isEmpty else { return }
-        let roots = pendingRealtimeRoots.sorted { $0.displayName < $1.displayName }
-        pendingRealtimeRoots.removeAll()
-        await performScan(reason: .fileSystemEvent, baseFolders: roots)
+        guard !state.isRunning, !pendingRealtimeChangeSet.isEmpty else { return }
+        let request = pendingRealtimeScanRequest(
+            from: pendingRealtimeChangeSet,
+            watchedFolders: watchedFoldersProvider()
+        )
+        pendingRealtimeChangeSet = .empty
+        guard let request else { return }
+        await performScan(reason: .fileSystemEvent, request: request)
+    }
+
+    private func enqueuePendingRealtimeRequest(_ request: AutomationScanRequest) {
+        switch request {
+        case .full:
+            pendingRealtimeChangeSet.formUnion(
+                WatchedFolderChangeSet(
+                    touchedRoots: Set(watchedFoldersProvider().map(\.standardizedRootPath)),
+                    requiresFallbackRootScan: true
+                )
+            )
+        case .roots(let roots):
+            let touchedRoots = Set(
+                watchedFoldersProvider()
+                    .filter { roots.contains($0.location) }
+                    .map(\.standardizedRootPath)
+            )
+            pendingRealtimeChangeSet.formUnion(
+                WatchedFolderChangeSet(
+                    touchedRoots: touchedRoots,
+                    requiresFallbackRootScan: true
+                )
+            )
+        case .delta(let changeSet):
+            pendingRealtimeChangeSet.formUnion(changeSet)
+        }
+    }
+
+    private func pendingRealtimeScanRequest(
+        from changeSet: WatchedFolderChangeSet,
+        watchedFolders: [WatchedFolderDescriptor]
+    ) -> AutomationScanRequest? {
+        let foldersByRootPath = Dictionary(
+            uniqueKeysWithValues: watchedFolders.map { ($0.standardizedRootPath, $0) }
+        )
+        let filteredChangeSet = changeSet.filtered(to: Set(foldersByRootPath.keys))
+        guard !filteredChangeSet.isEmpty else { return nil }
+
+        let touchedLocations = Array(
+            Set(filteredChangeSet.touchedRoots.compactMap { foldersByRootPath[$0]?.location })
+        ).sorted { $0.displayName < $1.displayName }
+
+        let requiresFallbackRootScan =
+            filteredChangeSet.requiresFallbackRootScan ||
+            filteredChangeSet.uniqueAffectedPathCount >= 5 ||
+            filteredChangeSet.touchedRoots.count > 1
+
+        if requiresFallbackRootScan {
+            return .roots(touchedLocations)
+        }
+
+        return .delta(filteredChangeSet)
     }
 
     private func autoOrganizeTriggerSource(for reason: ScanReason) -> TrustedAutomationScopeRunTriggerSource {
@@ -1718,7 +1775,7 @@ private extension String {
 @MainActor
 protocol FileScanProvider: AnyObject {
     /// Performs a file scan and returns the result.
-    func scanFiles(context: ModelContext, baseFolders: [FolderLocation]?) async throws -> FileScanResult
+    func scanFiles(context: ModelContext, request: AutomationScanRequest) async throws -> FileScanResult
 
     /// Returns pending/ready files that should be classified for automation preflight.
     func getAutoOrganizeCandidates(context: ModelContext) async throws -> [FileItem]
@@ -1728,6 +1785,12 @@ protocol FileScanProvider: AnyObject {
         context: ModelContext,
         confidenceThreshold: Double
     ) async throws -> [FileItem]
+}
+
+enum AutomationScanRequest: Equatable, Sendable {
+    case full
+    case roots([FolderLocation])
+    case delta(WatchedFolderChangeSet)
 }
 
 /// Result of a file scan operation.
@@ -1778,7 +1841,7 @@ extension FileScanProvider {
     }
 
     func scanFiles(context: ModelContext) async throws -> FileScanResult {
-        try await scanFiles(context: context, baseFolders: nil)
+        try await scanFiles(context: context, request: .full)
     }
 }
 

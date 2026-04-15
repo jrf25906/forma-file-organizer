@@ -375,7 +375,7 @@ extension FormaConfig {
         static let scanDebounceDurationSeconds: TimeInterval = 60
 
         /// Debounce window for bursty filesystem events before rescanning.
-        static let fileWatcherDebounceDurationSeconds: TimeInterval = 1.5
+        static let fileWatcherDebounceDurationSeconds: TimeInterval = 0.2
 
         /// Number of pending files that triggers early action.
         static let backlogThreshold = 50

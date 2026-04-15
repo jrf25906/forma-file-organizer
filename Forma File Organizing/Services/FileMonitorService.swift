@@ -21,13 +21,90 @@ struct WatchedFolderDescriptor: Equatable, Sendable {
     }
 }
 
+struct WatchedFolderChangeSet: Equatable, Sendable {
+    var touchedRoots: Set<String>
+    var updatedPaths: Set<String>
+    var removedPaths: Set<String>
+    var requiresFallbackRootScan: Bool
+
+    init(
+        touchedRoots: Set<String> = [],
+        updatedPaths: Set<String> = [],
+        removedPaths: Set<String> = [],
+        requiresFallbackRootScan: Bool = false
+    ) {
+        self.touchedRoots = touchedRoots
+        self.updatedPaths = updatedPaths
+        self.removedPaths = removedPaths
+        self.requiresFallbackRootScan = requiresFallbackRootScan
+    }
+
+    static let empty = WatchedFolderChangeSet()
+
+    var isEmpty: Bool {
+        touchedRoots.isEmpty && updatedPaths.isEmpty && removedPaths.isEmpty && !requiresFallbackRootScan
+    }
+
+    var uniqueAffectedPathCount: Int {
+        updatedPaths.union(removedPaths).count
+    }
+
+    mutating func recordUpdatedPath(_ path: String) {
+        updatedPaths.insert(path)
+        removedPaths.remove(path)
+    }
+
+    mutating func recordRemovedPath(_ path: String) {
+        removedPaths.insert(path)
+        updatedPaths.remove(path)
+    }
+
+    mutating func formUnion(_ other: WatchedFolderChangeSet) {
+        touchedRoots.formUnion(other.touchedRoots)
+        requiresFallbackRootScan = requiresFallbackRootScan || other.requiresFallbackRootScan
+
+        for path in other.updatedPaths {
+            recordUpdatedPath(path)
+        }
+
+        for path in other.removedPaths {
+            recordRemovedPath(path)
+        }
+    }
+
+    func filtered(to allowedRootPaths: Set<String>) -> WatchedFolderChangeSet {
+        let allowedRoots = touchedRoots.intersection(allowedRootPaths)
+        guard !allowedRoots.isEmpty else { return .empty }
+
+        func belongsToAllowedRoot(_ path: String) -> Bool {
+            let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+            return allowedRoots.contains { rootPath in
+                let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+                return standardizedPath == rootPath || standardizedPath.hasPrefix(prefix)
+            }
+        }
+
+        return WatchedFolderChangeSet(
+            touchedRoots: allowedRoots,
+            updatedPaths: Set(updatedPaths.filter(belongsToAllowedRoot)),
+            removedPaths: Set(removedPaths.filter(belongsToAllowedRoot)),
+            requiresFallbackRootScan: requiresFallbackRootScan
+        )
+    }
+}
+
+struct WatchedFolderFileEvent: Equatable, Sendable {
+    let path: String
+    let flags: FSEventStreamEventFlags
+}
+
 @MainActor
 protocol FileMonitoring: AnyObject {
     var isMonitoring: Bool { get }
 
     func startMonitoring(
         folders: [WatchedFolderDescriptor],
-        onChange: @escaping @MainActor (Set<FolderLocation>) -> Void
+        onChange: @escaping @MainActor (WatchedFolderChangeSet) -> Void
     )
 
     func updateMonitoredFolders(_ folders: [WatchedFolderDescriptor])
@@ -129,10 +206,10 @@ final class FileMonitorService: FileMonitoring {
 
     private var currentFolders: [WatchedFolderDescriptor] = []
     private var foldersByRootPath: [String: WatchedFolderDescriptor] = [:]
-    private var callback: (@MainActor (Set<FolderLocation>) -> Void)?
+    private var callback: (@MainActor (WatchedFolderChangeSet) -> Void)?
     private var stream: EventStream?
     private var securityScopedURLs: [URL] = []
-    private var pendingRoots: Set<FolderLocation> = []
+    private var pendingChangeSet: WatchedFolderChangeSet = .empty
     private var debounceTask: Task<Void, Never>?
 
     init(
@@ -149,7 +226,7 @@ final class FileMonitorService: FileMonitoring {
 
     func startMonitoring(
         folders: [WatchedFolderDescriptor],
-        onChange: @escaping @MainActor (Set<FolderLocation>) -> Void
+        onChange: @escaping @MainActor (WatchedFolderChangeSet) -> Void
     ) {
         callback = onChange
         rebuildStream(with: folders)
@@ -164,7 +241,7 @@ final class FileMonitorService: FileMonitoring {
     func stopMonitoring() {
         debounceTask?.cancel()
         debounceTask = nil
-        pendingRoots.removeAll()
+        pendingChangeSet = .empty
         currentFolders = []
         foldersByRootPath = [:]
         callback = nil
@@ -175,14 +252,27 @@ final class FileMonitorService: FileMonitoring {
 
     #if DEBUG
     func _testEmitChangedPaths(_ changedPaths: [String]) {
-        handleChangedPaths(changedPaths)
+        handleChangedEvents(
+            changedPaths.map {
+                WatchedFolderFileEvent(
+                    path: $0,
+                    flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemModified)
+                )
+            }
+        )
+    }
+
+    func _testEmitEvents(_ events: [WatchedFolderFileEvent]) {
+        handleChangedEvents(events)
     }
     #endif
 
     private func rebuildStream(with folders: [WatchedFolderDescriptor]) {
         debounceTask?.cancel()
         debounceTask = nil
-        pendingRoots = pendingRoots.intersection(Set(folders.map(\.location)))
+        pendingChangeSet = pendingChangeSet.filtered(
+            to: Set(folders.map(\.standardizedRootPath))
+        )
         teardownStream()
         releaseSecurityScopedAccess()
 
@@ -191,7 +281,7 @@ final class FileMonitorService: FileMonitoring {
         foldersByRootPath = Dictionary(uniqueKeysWithValues: currentFolders.map { ($0.standardizedRootPath, $0) })
 
         guard !currentFolders.isEmpty else {
-            pendingRoots.removeAll()
+            pendingChangeSet = .empty
             return
         }
 
@@ -210,7 +300,7 @@ final class FileMonitorService: FileMonitoring {
             &context
         ) else {
             Log.warning("FileMonitorService: Failed to create FSEvent stream", category: .automation)
-            pendingRoots.removeAll()
+            pendingChangeSet = .empty
             releaseSecurityScopedAccess()
             return
         }
@@ -219,13 +309,13 @@ final class FileMonitorService: FileMonitoring {
         guard stream.start() else {
             Log.warning("FileMonitorService: Failed to start FSEvent stream", category: .automation)
             stream.invalidate()
-            pendingRoots.removeAll()
+            pendingChangeSet = .empty
             releaseSecurityScopedAccess()
             return
         }
 
         self.stream = stream
-        schedulePendingRootDelivery()
+        schedulePendingChangeDelivery()
     }
 
     private func startAccessIfNeeded(for folder: WatchedFolderDescriptor) -> Bool {
@@ -238,34 +328,99 @@ final class FileMonitorService: FileMonitoring {
         return true
     }
 
-    private func handleChangedPaths(_ changedPaths: [String]) {
-        guard !changedPaths.isEmpty else { return }
+    private func handleChangedEvents(_ events: [WatchedFolderFileEvent]) {
+        guard !events.isEmpty else { return }
 
-        let changedRoots = Set(changedPaths.compactMap(rootLocation(forChangedPath:)))
-        guard !changedRoots.isEmpty else { return }
+        var coalescedChanges = WatchedFolderChangeSet()
+        for event in events {
+            let standardizedPath = URL(fileURLWithPath: event.path).standardizedFileURL.path
+            guard let folder = rootDescriptor(forChangedPath: standardizedPath) else { continue }
 
-        pendingRoots.formUnion(changedRoots)
-        schedulePendingRootDelivery()
+            coalescedChanges.touchedRoots.insert(folder.standardizedRootPath)
+            if requiresFallbackRootScan(
+                flags: event.flags,
+                standardizedPath: standardizedPath,
+                rootPath: folder.standardizedRootPath
+            ) {
+                coalescedChanges.requiresFallbackRootScan = true
+                continue
+            }
+
+            if classifiesAsRemoved(flags: event.flags) {
+                coalescedChanges.recordRemovedPath(standardizedPath)
+            } else if classifiesAsUpdated(flags: event.flags) {
+                coalescedChanges.recordUpdatedPath(standardizedPath)
+            } else {
+                coalescedChanges.requiresFallbackRootScan = true
+            }
+        }
+
+        guard !coalescedChanges.isEmpty else { return }
+        pendingChangeSet.formUnion(coalescedChanges)
+        schedulePendingChangeDelivery()
     }
 
-    private func rootLocation(forChangedPath path: String) -> FolderLocation? {
-        let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+    private func rootDescriptor(forChangedPath path: String) -> WatchedFolderDescriptor? {
         for (rootPath, folder) in foldersByRootPath {
             let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
-            if standardizedPath == rootPath || standardizedPath.hasPrefix(prefix) {
-                return folder.location
+            if path == rootPath || path.hasPrefix(prefix) {
+                return folder
             }
         }
         return nil
     }
 
-    private static let handleEvents: FSEventStreamCallback = { _, info, eventCount, eventPaths, _, _ in
+    private func requiresFallbackRootScan(
+        flags: FSEventStreamEventFlags,
+        standardizedPath: String,
+        rootPath: String
+    ) -> Bool {
+        if standardizedPath == rootPath {
+            return true
+        }
+
+        let fallbackFlags = FSEventStreamEventFlags(
+            kFSEventStreamEventFlagMustScanSubDirs |
+            kFSEventStreamEventFlagUserDropped |
+            kFSEventStreamEventFlagKernelDropped |
+            kFSEventStreamEventFlagRootChanged |
+            kFSEventStreamEventFlagEventIdsWrapped |
+            kFSEventStreamEventFlagItemRenamed |
+            kFSEventStreamEventFlagItemIsDir
+        )
+
+        return (flags & fallbackFlags) != 0
+    }
+
+    private func classifiesAsUpdated(flags: FSEventStreamEventFlags) -> Bool {
+        let updateFlags = FSEventStreamEventFlags(
+            kFSEventStreamEventFlagItemCreated |
+            kFSEventStreamEventFlagItemModified |
+            kFSEventStreamEventFlagItemInodeMetaMod |
+            kFSEventStreamEventFlagItemFinderInfoMod |
+            kFSEventStreamEventFlagItemChangeOwner |
+            kFSEventStreamEventFlagItemXattrMod
+        )
+        return (flags & updateFlags) != 0
+    }
+
+    private func classifiesAsRemoved(flags: FSEventStreamEventFlags) -> Bool {
+        (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemRemoved)) != 0
+    }
+
+    private static let handleEvents: FSEventStreamCallback = { _, info, eventCount, eventPaths, eventFlags, _ in
         guard let info else { return }
         let service = Unmanaged<FileMonitorService>.fromOpaque(info).takeUnretainedValue()
         let paths = unsafeBitCast(eventPaths, to: NSArray.self) as? [String] ?? []
         let prefixCount = min(paths.count, Int(eventCount))
+        let events = zip(
+            Array(paths.prefix(prefixCount)),
+            UnsafeBufferPointer(start: eventFlags, count: prefixCount)
+        ).map { path, flags in
+            WatchedFolderFileEvent(path: path, flags: flags)
+        }
         Task { @MainActor in
-            service.handleChangedPaths(Array(paths.prefix(prefixCount)))
+            service.handleChangedEvents(events)
         }
     }
 
@@ -282,20 +437,21 @@ final class FileMonitorService: FileMonitoring {
         securityScopedURLs.removeAll()
     }
 
-    private func schedulePendingRootDelivery() {
+    private func schedulePendingChangeDelivery() {
         debounceTask?.cancel()
-        guard !pendingRoots.isEmpty else { return }
+        guard !pendingChangeSet.isEmpty else { return }
 
         debounceTask = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: UInt64(debounceInterval * 1_000_000_000))
             guard !Task.isCancelled else { return }
 
-            let watchedLocations = Set(currentFolders.map(\.location))
-            let roots = pendingRoots.intersection(watchedLocations)
-            pendingRoots.removeAll()
-            guard !roots.isEmpty else { return }
-            callback?(roots)
+            let changeSet = pendingChangeSet.filtered(
+                to: Set(currentFolders.map(\.standardizedRootPath))
+            )
+            pendingChangeSet = .empty
+            guard !changeSet.isEmpty else { return }
+            callback?(changeSet)
         }
     }
 }

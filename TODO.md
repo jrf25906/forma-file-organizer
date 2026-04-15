@@ -1,6 +1,6 @@
 # Project TODO
 
-**Last Updated:** April 10, 2026
+**Last Updated:** April 15, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
@@ -10,6 +10,7 @@ This file is ordered to match the strategic roadmap. Dated sprint logs and shipp
 Current wave implementation plan: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md](Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.md).
 
 ### Now (0-8 Weeks)
+- [x] Replace watched-folder full-refresh behavior with touched-path incremental updates so a one-file drop does not pay for a whole-dashboard refresh.
 - [x] Quick-win onboarding and first-run proof so Forma demonstrates value before asking users to configure rules.
 - [x] Batch UX that hides overwhelm with chunked review sessions and set-aside deferrals.
 - [x] Build trust infrastructure: rule simulation, stronger preflight checks, richer reasoning, and clearer scoped rollback.

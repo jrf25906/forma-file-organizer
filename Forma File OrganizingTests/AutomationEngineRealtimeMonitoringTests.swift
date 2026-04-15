@@ -25,7 +25,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         private(set) var updateCalls: [[WatchedFolderDescriptor]] = []
         private(set) var stopCallCount = 0
 
-        private var onChange: (@MainActor (Set<FolderLocation>) -> Void)?
+        private var onChange: (@MainActor (WatchedFolderChangeSet) -> Void)?
 
         var isMonitoring: Bool {
             !startCalls.isEmpty && stopCallCount == 0
@@ -33,7 +33,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
 
         func startMonitoring(
             folders: [WatchedFolderDescriptor],
-            onChange: @escaping @MainActor (Set<FolderLocation>) -> Void
+            onChange: @escaping @MainActor (WatchedFolderChangeSet) -> Void
         ) {
             startCalls.append(folders)
             self.onChange = onChange
@@ -47,13 +47,13 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
             stopCallCount += 1
         }
 
-        func emitChange(_ folders: Set<FolderLocation>) {
-            onChange?(folders)
+        func emitChange(_ changeSet: WatchedFolderChangeSet) {
+            onChange?(changeSet)
         }
     }
 
     private final class RecordingScanProvider: FileScanProvider {
-        private(set) var requestedBaseFolders: [[FolderLocation]?] = []
+        private(set) var requestedRequests: [AutomationScanRequest] = []
         private(set) var getEligibleFilesCallCount = 0
 
         var scanResult = FileScanResult(
@@ -73,18 +73,18 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
 
         func scanFiles(
             context: ModelContext,
-            baseFolders: [FolderLocation]?
+            request: AutomationScanRequest
         ) async throws -> FileScanResult {
-            requestedBaseFolders.append(baseFolders?.sorted { $0.displayName < $1.displayName })
+            requestedRequests.append(request)
 
-            if requestedBaseFolders.count == 1 {
+            if requestedRequests.count == 1 {
                 firstScanStarted.fulfill()
                 if suspendFirstScan {
                     await withCheckedContinuation { continuation in
                         scanContinuation = continuation
                     }
                 }
-            } else if requestedBaseFolders.count == 2 {
+            } else if requestedRequests.count == 2 {
                 secondScanStarted.fulfill()
             }
 
@@ -133,7 +133,7 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         XCTAssertTrue(engine.state.isWatchingFolders)
     }
 
-    func testRealtimeChangeTriggersTargetedScan() async throws {
+    func testRealtimeChangeTriggersDeltaScan() async throws {
         let monitor = MockFileMonitor()
         let provider = RecordingScanProvider()
         let harness = try makeEngine(
@@ -147,10 +147,21 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         let engine = harness.engine
         engine.start()
 
-        monitor.emitChange([.downloads, .desktop])
+        monitor.emitChange(
+            WatchedFolderChangeSet(
+                touchedRoots: ["/Users/test/Desktop"],
+                updatedPaths: ["/Users/test/Desktop/new.txt"],
+                removedPaths: [],
+                requiresFallbackRootScan: false
+            )
+        )
         await provider.waitForFirstScan(testCase: self)
 
-        XCTAssertEqual(provider.requestedBaseFolders, [[.desktop, .downloads]])
+        guard case .delta(let changeSet)? = provider.requestedRequests.first else {
+            return XCTFail("Expected a delta scan request")
+        }
+        XCTAssertEqual(changeSet.updatedPaths, ["/Users/test/Desktop/new.txt"])
+        XCTAssertEqual(changeSet.touchedRoots, ["/Users/test/Desktop"])
     }
 
     func testRealtimeChangeQueuedDuringActiveScanRunsFollowUpRescan() async throws {
@@ -169,16 +180,73 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         let engine = harness.engine
         engine.start()
 
-        monitor.emitChange([.desktop])
+        monitor.emitChange(
+            WatchedFolderChangeSet(
+                touchedRoots: ["/Users/test/Desktop"],
+                updatedPaths: ["/Users/test/Desktop/first.txt"],
+                removedPaths: [],
+                requiresFallbackRootScan: false
+            )
+        )
         await provider.waitForFirstScan(testCase: self)
 
-        monitor.emitChange([.downloads])
-        XCTAssertEqual(provider.requestedBaseFolders.count, 1)
+        monitor.emitChange(
+            WatchedFolderChangeSet(
+                touchedRoots: ["/Users/test/Downloads"],
+                updatedPaths: ["/Users/test/Downloads/second.txt"],
+                removedPaths: [],
+                requiresFallbackRootScan: false
+            )
+        )
+        XCTAssertEqual(provider.requestedRequests.count, 1)
 
         provider.resumeFirstScan()
         await provider.waitForSecondScan(testCase: self)
 
-        XCTAssertEqual(provider.requestedBaseFolders, [[.desktop], [.downloads]])
+        XCTAssertEqual(provider.requestedRequests.count, 2)
+        guard case .delta(let firstChange)? = provider.requestedRequests.first else {
+            return XCTFail("Expected first request to be delta")
+        }
+        guard case .delta(let secondChange)? = provider.requestedRequests.last else {
+            return XCTFail("Expected second request to be delta")
+        }
+        XCTAssertEqual(firstChange.updatedPaths, ["/Users/test/Desktop/first.txt"])
+        XCTAssertEqual(secondChange.updatedPaths, ["/Users/test/Downloads/second.txt"])
+    }
+
+    func testRealtimeFallbackThresholdRequestsRootRefresh() async throws {
+        let monitor = MockFileMonitor()
+        let provider = RecordingScanProvider()
+        let harness = try makeEngine(
+            monitor: monitor,
+            provider: provider,
+            watchedFolders: [
+                WatchedFolderDescriptor(location: .desktop, rootURL: URL(fileURLWithPath: "/Users/test/Desktop"))
+            ]
+        )
+        let engine = harness.engine
+        engine.start()
+
+        monitor.emitChange(
+            WatchedFolderChangeSet(
+                touchedRoots: ["/Users/test/Desktop"],
+                updatedPaths: [
+                    "/Users/test/Desktop/1.txt",
+                    "/Users/test/Desktop/2.txt",
+                    "/Users/test/Desktop/3.txt",
+                    "/Users/test/Desktop/4.txt",
+                    "/Users/test/Desktop/5.txt"
+                ],
+                removedPaths: [],
+                requiresFallbackRootScan: false
+            )
+        )
+        await provider.waitForFirstScan(testCase: self)
+
+        guard case .roots(let roots)? = provider.requestedRequests.first else {
+            return XCTFail("Expected a root refresh request")
+        }
+        XCTAssertEqual(roots, [.desktop])
     }
 
     func testQueuedRealtimeRootsDroppedWhenFolderStopsBeingWatched() async throws {
@@ -198,11 +266,25 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         let engine = harness.engine
         engine.start()
 
-        monitor.emitChange([.desktop])
+        monitor.emitChange(
+            WatchedFolderChangeSet(
+                touchedRoots: ["/Users/test/Desktop"],
+                updatedPaths: ["/Users/test/Desktop/first.txt"],
+                removedPaths: [],
+                requiresFallbackRootScan: false
+            )
+        )
         await provider.waitForFirstScan(testCase: self)
 
-        monitor.emitChange([.downloads])
-        XCTAssertEqual(provider.requestedBaseFolders.count, 1)
+        monitor.emitChange(
+            WatchedFolderChangeSet(
+                touchedRoots: ["/Users/test/Downloads"],
+                updatedPaths: ["/Users/test/Downloads/second.txt"],
+                removedPaths: [],
+                requiresFallbackRootScan: false
+            )
+        )
+        XCTAssertEqual(provider.requestedRequests.count, 1)
 
         watchedFolders = [desktop]
         engine.refreshPolicy()
@@ -210,7 +292,11 @@ final class AutomationEngineRealtimeMonitoringTests: XCTestCase {
         provider.resumeFirstScan()
         try? await Task.sleep(for: .milliseconds(150))
 
-        XCTAssertEqual(provider.requestedBaseFolders, [[.desktop]])
+        XCTAssertEqual(provider.requestedRequests.count, 1)
+        guard case .delta(let changeSet)? = provider.requestedRequests.first else {
+            return XCTFail("Expected the surviving request to be delta")
+        }
+        XCTAssertEqual(changeSet.updatedPaths, ["/Users/test/Desktop/first.txt"])
         XCTAssertEqual(monitor.updateCalls.last?.map(\.location), [.desktop])
     }
 
