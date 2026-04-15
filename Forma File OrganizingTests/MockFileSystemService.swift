@@ -7,6 +7,8 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
     var mockErrors: [String: Error] = [:]  // For testing error scenarios
     var explicitSelectionResult = ExplicitSelectionScanResult(files: [], skippedItems: [], scannedRootPaths: [])
     var explicitSelectionError: Error?
+    var requestDownloadsAccessResult: Bool = true
+    var downloadsAccessStateAfterRequest: Bool?
     private(set) var explicitSelectionCallCount = 0
     private(set) var explicitSelectionRequestedURLs: [[URL]] = []
 
@@ -78,8 +80,13 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
     }
     
     func requestDownloadsAccess() async throws -> Bool {
-        hasDownloads = true
-        return true
+        if let downloadsAccessStateAfterRequest {
+            hasDownloads = downloadsAccessStateAfterRequest
+        } else if requestDownloadsAccessResult {
+            hasDownloads = true
+        }
+
+        return requestDownloadsAccessResult
     }
     
     func requestDocumentsAccess() async throws -> Bool {

@@ -25,6 +25,7 @@ struct DashboardSplitViewPolicy {
 struct DashboardView: View {
     @StateObject private var nav = NavigationViewModel()
     @EnvironmentObject private var dashboardViewModel: DashboardViewModel
+    @EnvironmentObject private var panelStateManager: PanelStateManager
     @Environment(\.modelContext) private var modelContext
     @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
     @AppStorage("autoScanOnLaunch") private var autoScanOnLaunch = true
@@ -271,7 +272,7 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationStack(path: $nav.path) {
-            ToastHost(viewModel: dashboardViewModel) {
+            ToastHost(panelStateManager: panelStateManager) {
                 ZStack {
                     PrimaryBackgroundView()
 

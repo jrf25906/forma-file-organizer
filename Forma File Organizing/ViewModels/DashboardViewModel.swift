@@ -437,6 +437,14 @@ struct ProjectSpaceWorkflowRunSummary: Equatable {
 /// - BulkOperationViewModel: Batch operations and progress
 @MainActor
 class DashboardViewModel: ObservableObject {
+    struct InspectorSelectionState {
+        fileprivate let matchingRulesByPath: [String: Rule]
+
+        func matchingRule(for file: FileItem) -> Rule? {
+            matchingRulesByPath[file.path]
+        }
+    }
+
     private static let permissionRefreshDebounceDelay: Duration = .milliseconds(100)
 
     private enum FirstRunQuickWinDefaultsKeys {
@@ -562,6 +570,7 @@ class DashboardViewModel: ObservableObject {
     private let fileScanPipeline: FileScanPipelineProtocol
     private let storageService: StorageService
     private let ruleEngine = RuleEngine()
+    private let ruleAuthoringService = RuleAuthoringService()
     private let fileOperationsService = FileOperationsService()
     private let notificationService: NotificationService
     private let quickLookService: QuickLookService
@@ -588,6 +597,8 @@ class DashboardViewModel: ObservableObject {
     private var projectSpaceWorkflowCandidateFiles: [FileItem] = []
     private var isSynchronizingProjectSpaceWorkflowState = false
     private var selectedProjectSpaceAutomationPolicyID: UUID?
+    private var hasCompletedInitialStartupScan = false
+    private var isStartupFlowRunning = false
     private var skipGlobalRefreshForNextFileMutation = false
 
     // MARK: - Initialization
@@ -750,6 +761,30 @@ class DashboardViewModel: ObservableObject {
             filterViewModel.applyFilterImmediately()
         }
         #endif
+    }
+
+    func prepareStartupContext(_ context: ModelContext) {
+        setModelContext(context)
+    }
+
+    func handleDashboardStartup(
+        context: ModelContext,
+        autoScanOnLaunch: Bool
+    ) async {
+        prepareStartupContext(context)
+        restoreExternalReviewSessionIfNeeded()
+
+        guard !showOnboarding else { return }
+        guard !isStartupFlowRunning else { return }
+
+        isStartupFlowRunning = true
+        defer { isStartupFlowRunning = false }
+
+        if autoScanOnLaunch, !hasCompletedInitialStartupScan {
+            await scanFiles(context: context)
+            guard !Task.isCancelled else { return }
+            hasCompletedInitialStartupScan = true
+        }
     }
 
     func scheduleTrustedAutomationScopeRefresh(referenceDate: Date = Date()) {
@@ -1578,6 +1613,7 @@ class DashboardViewModel: ObservableObject {
 
     var bulkOperationProgress: Double { bulkOperationViewModel.bulkOperationProgress }
     var isBulkOperationInProgress: Bool { bulkOperationViewModel.isBulkOperationInProgress }
+    var panelStateManager: PanelStateManager { panelManager }
     var selectedWorkflowTemplate: BuiltInWorkflowTemplate? {
         WorkflowTemplateCatalog.template(for: selectedWorkflowTemplateID)
     }
@@ -3105,6 +3141,38 @@ class DashboardViewModel: ObservableObject {
 
     /// Type alias for backwards compatibility with tests
     typealias OrganizationAction = FileOrganizationCoordinator.OrganizationAction
+
+    func inspectorSelectionState(for selectedFiles: [FileItem]) -> InspectorSelectionState {
+        let matchingRulesByPath = Dictionary(
+            uniqueKeysWithValues: selectedFiles.compactMap { file in
+                getMatchingRules(for: file).first.map { (file.path, $0) }
+            }
+        )
+
+        return InspectorSelectionState(matchingRulesByPath: matchingRulesByPath)
+    }
+
+    func saveRuleDraft(
+        _ rule: Rule,
+        editingRule: Rule?,
+        source: RuleService.RuleSource,
+        context: ModelContext
+    ) throws {
+        let filesRevision = scanViewModel.allFiles.map(\.path).sorted().joined(separator: "\u{0}").hashValue
+        let mutation = try ruleAuthoringService.saveRule(
+            rule,
+            editingRule: editingRule,
+            source: source,
+            context: context,
+            files: scanViewModel.allFiles,
+            ruleEngine: ruleEngine,
+            filesRevision: filesRevision
+        )
+
+        rules = mutation.enabledRules
+        filterViewModel.applyFilterImmediately()
+        analyticsViewModel.updateAnalytics(from: scanViewModel.allFiles)
+    }
 
     #if DEBUG
     /// Test helper to set allFiles directly (bypasses scanning)
