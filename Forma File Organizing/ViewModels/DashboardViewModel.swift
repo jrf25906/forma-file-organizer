@@ -445,6 +445,11 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
+    private struct InspectorSelectionCacheKey: Hashable {
+        let selectedPaths: [String]
+        let filesRevision: Int
+        let rulesRevision: Int
+    }
     private static let permissionRefreshDebounceDelay: Duration = .milliseconds(100)
 
     private enum FirstRunQuickWinDefaultsKeys {
@@ -588,6 +593,7 @@ class DashboardViewModel: ObservableObject {
     )
     private var bulkOperationTask: Task<Void, Never>?
     private var permissionRefreshTask: Task<Void, Never>?
+    private var deferredStartupMaintenanceTask: Task<Void, Never>?
     private var projectSpaceWorkflowPreparationTask: Task<Void, Never>?
     private var trustedAutomationScopeRefreshTask: Task<Void, Never>?
     private var lastPresentedExternalSessionID: UUID?
@@ -599,6 +605,10 @@ class DashboardViewModel: ObservableObject {
     private var selectedProjectSpaceAutomationPolicyID: UUID?
     private var hasCompletedInitialStartupScan = false
     private var isStartupFlowRunning = false
+    private var filesRevision = 0
+    private var rulesRevision = 0
+    private var inspectorSelectionCacheKey: InspectorSelectionCacheKey?
+    private var inspectorSelectionCache = InspectorSelectionState(matchingRulesByPath: [:])
     private var skipGlobalRefreshForNextFileMutation = false
 
     // MARK: - Initialization
@@ -723,6 +733,7 @@ class DashboardViewModel: ObservableObject {
     deinit {
         bulkOperationTask?.cancel()
         permissionRefreshTask?.cancel()
+        deferredStartupMaintenanceTask?.cancel()
         projectSpaceWorkflowPreparationTask?.cancel()
         trustedAutomationScopeRefreshTask?.cancel()
     }
@@ -740,11 +751,60 @@ class DashboardViewModel: ObservableObject {
     func setModelContext(_ context: ModelContext) {
         guard adoptModelContextIfNeeded(context) else { return }
 
-        refreshContentTagQuickFilters()
-        refreshProjectSpaces()
+        completeModelContextAdoption(context, performsImmediateRefresh: true)
+    }
+
+    func prepareStartupContext(_ context: ModelContext) {
+        guard adoptModelContextIfNeeded(context) else { return }
+
+        completeModelContextAdoption(context, performsImmediateRefresh: false)
+    }
+
+    func handleDashboardStartup(
+        context: ModelContext,
+        autoScanOnLaunch: Bool
+    ) async {
+        prepareStartupContext(context)
+        restoreExternalReviewSessionIfNeeded()
+
+        guard !showOnboarding else { return }
+        guard !isStartupFlowRunning else { return }
+
+        isStartupFlowRunning = true
+        defer { isStartupFlowRunning = false }
+
+        _ = await ExternalIngressCoordinator.shared.processPendingRequestIfPossible()
+        restoreExternalReviewSessionIfNeeded()
+        guard !Task.isCancelled else { return }
+
+        if autoScanOnLaunch, !hasCompletedInitialStartupScan {
+            await scanFiles(context: context)
+            guard !Task.isCancelled else { return }
+            hasCompletedInitialStartupScan = true
+        }
+
+        guard !Task.isCancelled else { return }
+        scheduleDeferredStartupMaintenance()
+    }
+
+    private func completeModelContextAdoption(
+        _ context: ModelContext,
+        performsImmediateRefresh: Bool
+    ) {
+        do {
+            _ = try HistoryRetentionService(modelContext: context).pruneAllHistory()
+        } catch {
+            Log.error("Failed to prune retained history during dashboard startup: \(error.localizedDescription)", category: .analytics)
+        }
+
+        if performsImmediateRefresh {
+            refreshContentTagQuickFilters()
+            refreshProjectSpaces()
+        }
 
         #if DEBUG
-        if CommandLine.arguments.contains("--uitesting") {
+        if CommandLine.arguments.contains("--uitesting") ||
+            CommandLine.arguments.contains("--perf-signpost-harness") {
             // Seed deterministic UI test data without scanning the real filesystem.
             let descriptor = FetchDescriptor<FileItem>(
                 sortBy: [SortDescriptor(\.creationDate, order: .reverse)]
@@ -763,27 +823,19 @@ class DashboardViewModel: ObservableObject {
         #endif
     }
 
-    func prepareStartupContext(_ context: ModelContext) {
-        setModelContext(context)
-    }
+    private func scheduleDeferredStartupMaintenance() {
+        deferredStartupMaintenanceTask?.cancel()
+        deferredStartupMaintenanceTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(150))
+            } catch {
+                return
+            }
 
-    func handleDashboardStartup(
-        context: ModelContext,
-        autoScanOnLaunch: Bool
-    ) async {
-        prepareStartupContext(context)
-        restoreExternalReviewSessionIfNeeded()
-
-        guard !showOnboarding else { return }
-        guard !isStartupFlowRunning else { return }
-
-        isStartupFlowRunning = true
-        defer { isStartupFlowRunning = false }
-
-        if autoScanOnLaunch, !hasCompletedInitialStartupScan {
-            await scanFiles(context: context)
-            guard !Task.isCancelled else { return }
-            hasCompletedInitialStartupScan = true
+            guard let self else { return }
+            self.refreshContentTagQuickFilters()
+            self.refreshProjectSpaces()
+            self.deferredStartupMaintenanceTask = nil
         }
     }
 
@@ -2345,16 +2397,23 @@ class DashboardViewModel: ObservableObject {
     @discardableResult
     func loadRules(from context: ModelContext) -> [Rule] {
         let descriptor = FetchDescriptor<Rule>(
-            sortBy: [SortDescriptor(\.creationDate, order: .forward)]
+            sortBy: [
+                SortDescriptor(\.sortOrder, order: .forward),
+                SortDescriptor(\.creationDate, order: .forward)
+            ]
         )
 
         do {
             let fetchedRules = try context.fetch(descriptor)
             rules = fetchedRules.filter { $0.isEnabled }
+            rulesRevision += 1
+            inspectorSelectionCacheKey = nil
             Log.info("Successfully loaded \(rules.count) enabled rules", category: .pipeline)
         } catch {
             Log.error("Failed to load rules: \(error.localizedDescription)", category: .pipeline)
             rules = []
+            rulesRevision += 1
+            inspectorSelectionCacheKey = nil
         }
 
         return rules
@@ -2405,9 +2464,12 @@ class DashboardViewModel: ObservableObject {
             actionType: actionType
         )
 
-        return scanViewModel.allFiles.filter { file in
-            ruleEngine.fileMatchesRule(file: file, rule: rule)
-        }
+        return ruleAuthoringService.previewMatches(
+            for: rule,
+            among: scanViewModel.allFiles,
+            filesRevision: filesRevision,
+            using: ruleEngine
+        )
     }
 
     // MARK: - Permissions
@@ -2504,14 +2566,16 @@ class DashboardViewModel: ObservableObject {
                 guard let self else { return }
                 let skipGlobalRefresh = self.skipGlobalRefreshForNextFileMutation
                 self.skipGlobalRefreshForNextFileMutation = false
+                self.filesRevision += 1
+                self.inspectorSelectionCacheKey = nil
                 self.synchronizeOrganizationProgressTotal(with: files)
                 self.filterViewModel.updateSourceFiles(files)
-                self.synchronizeExternalReviewSession(with: files)
                 if !skipGlobalRefresh {
                     self.refreshContentTagQuickFilters(for: files)
                     self.refreshProjectSpaces()
-                    self.analyticsViewModel.updateAnalytics(from: files)
                 }
+                self.synchronizeExternalReviewSession(with: files)
+                self.analyticsViewModel.updateAnalytics(from: files)
             }
             .store(in: &cancellables)
 
@@ -2524,11 +2588,9 @@ class DashboardViewModel: ObservableObject {
 
         // Forward objectWillChange from nested ViewModels
         scanViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
-        bulkOperationViewModel.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         contentSearchController.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         scanRefreshController.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         organizationCoordinator.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
-        panelManager.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         permissionState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
     }
 
@@ -3020,10 +3082,56 @@ class DashboardViewModel: ObservableObject {
     var contentSearchResults: [ContentSearchService.SearchResult] { contentSearchController.results }
     var latestUndoableBatchSummary: UndoBatchSummary? { organizationCoordinator.latestUndoableBatchSummary }
 
+    func inspectorSelectionState(for selectedFiles: [FileItem]) -> InspectorSelectionState {
+        let key = InspectorSelectionCacheKey(
+            selectedPaths: selectedFiles.map(\.path).sorted(),
+            filesRevision: filesRevision,
+            rulesRevision: rulesRevision
+        )
+
+        if inspectorSelectionCacheKey == key {
+            return inspectorSelectionCache
+        }
+
+        let matchingRulesByPath = Dictionary(
+            uniqueKeysWithValues: selectedFiles.compactMap { file in
+                getMatchingRules(for: file).first.map { (file.path, $0) }
+            }
+        )
+
+        let state = InspectorSelectionState(matchingRulesByPath: matchingRulesByPath)
+        inspectorSelectionCacheKey = key
+        inspectorSelectionCache = state
+        return state
+    }
+
     func getMatchingRules(for file: FileItem) -> [Rule] {
         rules.filter { rule in
             ruleEngine.fileMatchesRule(file: file, rule: rule)
         }
+    }
+
+    func saveRuleDraft(
+        _ rule: Rule,
+        editingRule: Rule?,
+        source: RuleService.RuleSource,
+        context: ModelContext
+    ) throws {
+        let mutation = try ruleAuthoringService.saveRule(
+            rule,
+            editingRule: editingRule,
+            source: source,
+            context: context,
+            files: scanViewModel.allFiles,
+            ruleEngine: ruleEngine,
+            filesRevision: filesRevision
+        )
+
+        rules = mutation.enabledRules
+        rulesRevision += 1
+        inspectorSelectionCacheKey = nil
+        filterViewModel.applyFilterImmediately()
+        analyticsViewModel.updateAnalytics(from: scanViewModel.allFiles)
     }
 
     func applyRule(_ rule: Rule, to file: FileItem) {
@@ -3141,38 +3249,6 @@ class DashboardViewModel: ObservableObject {
 
     /// Type alias for backwards compatibility with tests
     typealias OrganizationAction = FileOrganizationCoordinator.OrganizationAction
-
-    func inspectorSelectionState(for selectedFiles: [FileItem]) -> InspectorSelectionState {
-        let matchingRulesByPath = Dictionary(
-            uniqueKeysWithValues: selectedFiles.compactMap { file in
-                getMatchingRules(for: file).first.map { (file.path, $0) }
-            }
-        )
-
-        return InspectorSelectionState(matchingRulesByPath: matchingRulesByPath)
-    }
-
-    func saveRuleDraft(
-        _ rule: Rule,
-        editingRule: Rule?,
-        source: RuleService.RuleSource,
-        context: ModelContext
-    ) throws {
-        let filesRevision = scanViewModel.allFiles.map(\.path).sorted().joined(separator: "\u{0}").hashValue
-        let mutation = try ruleAuthoringService.saveRule(
-            rule,
-            editingRule: editingRule,
-            source: source,
-            context: context,
-            files: scanViewModel.allFiles,
-            ruleEngine: ruleEngine,
-            filesRevision: filesRevision
-        )
-
-        rules = mutation.enabledRules
-        filterViewModel.applyFilterImmediately()
-        analyticsViewModel.updateAnalytics(from: scanViewModel.allFiles)
-    }
 
     #if DEBUG
     /// Test helper to set allFiles directly (bypasses scanning)
@@ -4160,7 +4236,10 @@ class DashboardViewModel: ObservableObject {
             organizedReviewPathsByScope[scopeKey] = organizedPaths
         }
 
-        let availableFilesByPath = Dictionary(uniqueKeysWithValues: availableFiles.map { ($0.path, $0) })
+        let availableFilesByPath = Dictionary(
+            availableFiles.map { ($0.path, $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
         let remainingFiles = prioritizedReviewFiles(
             in: snapshotPaths.compactMap { availableFilesByPath[$0] }
         )

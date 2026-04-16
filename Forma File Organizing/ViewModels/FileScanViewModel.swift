@@ -123,8 +123,8 @@ class FileScanViewModel: ObservableObject {
             if pathSet.contains(standardizedPath) {
                 return false
             }
-            guard let root = file.scanRootPath else { return true }
-            return !rootSet.contains(URL(fileURLWithPath: root).standardizedFileURL.path)
+            guard let root = normalizedScanRoot(for: file) else { return true }
+            return !rootSet.contains(root)
         }
 
         allFiles = retained + files
@@ -138,7 +138,10 @@ class FileScanViewModel: ObservableObject {
         let removedPathSet = Set(removedPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
         let updatedByPath = Dictionary(
             uniqueKeysWithValues: updatedFiles.map {
-                (URL(fileURLWithPath: $0.path).standardizedFileURL.path, $0)
+                (
+                    URL(fileURLWithPath: $0.path).standardizedFileURL.path,
+                    $0
+                )
             }
         )
 
@@ -169,7 +172,6 @@ class FileScanViewModel: ObservableObject {
         allFiles = nextFiles
         updateRecentFiles()
     }
-
     /// Update a file's metadata (called after organization)
     func updateFile(_ file: FileItem) {
         if let index = allFiles.firstIndex(where: { $0.path == file.path }) {
@@ -200,5 +202,15 @@ class FileScanViewModel: ObservableObject {
             .sorted { $0.modificationDate > $1.modificationDate }
             .prefix(8)
             .map { $0 }
+    }
+
+    private func normalizedScanRoot(for file: FileItem) -> String? {
+        if let scanRootPath = file.scanRootPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !scanRootPath.isEmpty {
+            return URL(fileURLWithPath: scanRootPath).standardizedFileURL.path
+        }
+
+        let parentPath = URL(fileURLWithPath: file.path).standardizedFileURL.deletingLastPathComponent().path
+        return parentPath.isEmpty ? nil : parentPath
     }
 }

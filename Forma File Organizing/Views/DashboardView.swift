@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AppKit
 
 struct DashboardSplitViewPolicy {
     static func visibility(for isInspectorVisible: Bool) -> NavigationSplitViewVisibility {
@@ -44,45 +45,10 @@ struct DashboardView: View {
 
     private var shouldRunPerfSignpostHarness: Bool {
         #if DEBUG
-        CommandLine.arguments.contains("--perf-signpost-harness")
+        PerformanceHarnessConfiguration.isEnabled
         #else
         false
         #endif
-    }
-
-    private var perfSignpostHarnessIterations: Int {
-        #if DEBUG
-        let rawValue = ProcessInfo.processInfo.environment["FORMA_PERF_HARNESS_ITERATIONS"] ?? "24"
-        return Int(rawValue) ?? 24
-        #else
-        0
-        #endif
-    }
-
-    private var perfSignpostHarnessWarmupIterations: Int {
-        #if DEBUG
-        let rawValue = ProcessInfo.processInfo.environment["FORMA_PERF_HARNESS_WARMUP"] ?? "3"
-        return Int(rawValue) ?? 3
-        #else
-        0
-        #endif
-    }
-
-    private func runStartupFlow() async {
-        dashboardViewModel.restoreExternalReviewSessionIfNeeded()
-
-        if dashboardViewModel.showOnboarding {
-            return
-        }
-
-        _ = await ExternalIngressCoordinator.shared.processPendingRequestIfPossible()
-        dashboardViewModel.restoreExternalReviewSessionIfNeeded()
-
-        guard autoScanOnLaunch else {
-            return
-        }
-
-        await dashboardViewModel.scanFiles(context: modelContext)
     }
 
     // MARK: - Extracted Views (helps compiler type-checking)
@@ -155,7 +121,7 @@ struct DashboardView: View {
     }
 
     private var showsAnalyticsAsPrimaryDetail: Bool {
-        if case .analytics = dashboardViewModel.rightPanelMode {
+        if case .analytics = panelStateManager.rightPanelMode {
             return true
         }
         return false
@@ -327,12 +293,8 @@ struct DashboardView: View {
         .environmentObject(nav)
         .preferredColorScheme(AppearanceMode(rawValue: appearanceMode)?.colorScheme)
         .task {
+            dashboardViewModel.prepareStartupContext(modelContext)
             if shouldRunPerfSignpostHarness {
-                await dashboardViewModel.runPerformanceSignpostHarness(
-                    iterations: perfSignpostHarnessIterations,
-                    warmupIterations: perfSignpostHarnessWarmupIterations,
-                    context: modelContext
-                )
                 return
             }
             // In UI tests, we rely on DashboardViewModel mock data and skip
@@ -340,7 +302,10 @@ struct DashboardView: View {
             if CommandLine.arguments.contains("--uitesting") {
                 return
             }
-            await runStartupFlow()
+            await dashboardViewModel.handleDashboardStartup(
+                context: modelContext,
+                autoScanOnLaunch: autoScanOnLaunch
+            )
         }
         .sheet(isPresented: $dashboardViewModel.showOnboarding) {
             OnboardingFlowView()
@@ -351,7 +316,10 @@ struct DashboardView: View {
             if wasShowingOnboarding && !isShowingOnboarding {
                 scanTask?.cancel()
                 scanTask = Task {
-                    await runStartupFlow()
+                    await dashboardViewModel.handleDashboardStartup(
+                        context: modelContext,
+                        autoScanOnLaunch: autoScanOnLaunch
+                    )
                 }
                 // Show guided tour after onboarding with delay for frames to populate
                 Task { @MainActor in
@@ -392,8 +360,8 @@ struct DashboardView: View {
             let session = notification.userInfo?[ExternalReviewSessionNotificationUserInfo.session] as? ExternalReviewSession
             dashboardViewModel.applyExternalReviewSession(session)
         }
-        .sheet(isPresented: $dashboardViewModel.showQuickLookSheet) {
-            if let url = dashboardViewModel.quickLookURL {
+        .sheet(isPresented: $panelStateManager.showQuickLookSheet) {
+            if let url = panelStateManager.quickLookURL {
                 QuickLookSheet(url: url)
             }
         }

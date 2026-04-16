@@ -800,7 +800,8 @@ final class DashboardViewModelTests: XCTestCase {
         defer { tempDirectory.cleanup() }
 
         let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
-        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let now = Date()
+        let timestamp = now.addingTimeInterval(-120)
         _ = try insertProjectSpaceRecord(
             using: service,
             path: alphaURL.path,
@@ -1327,7 +1328,8 @@ final class DashboardViewModelTests: XCTestCase {
         let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
         let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
         let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
-        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let now = Date()
+        let timestamp = now.addingTimeInterval(-120)
         _ = try insertProjectSpaceRecord(
             using: service,
             path: alphaURL.path,
@@ -1405,7 +1407,8 @@ final class DashboardViewModelTests: XCTestCase {
         let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
         let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
         let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
-        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let now = Date()
+        let timestamp = now.addingTimeInterval(-120)
         _ = try insertProjectSpaceRecord(
             using: service,
             path: alphaURL.path,
@@ -1485,7 +1488,8 @@ final class DashboardViewModelTests: XCTestCase {
         let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
         let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
         let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
-        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let now = Date()
+        let timestamp = now.addingTimeInterval(-120)
         _ = try insertProjectSpaceRecord(
             using: service,
             path: alphaURL.path,
@@ -1627,7 +1631,8 @@ final class DashboardViewModelTests: XCTestCase {
         let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
         let destinationFolder = try tempDirectory.createDirectory(name: "Projects/Alpha")
         let alphaURL = try tempDirectory.createFile(name: "Inbox/alpha.txt", contents: "alpha")
-        let timestamp = Date(timeIntervalSince1970: 1_000)
+        let now = Date()
+        let timestamp = now.addingTimeInterval(-120)
         _ = try insertProjectSpaceRecord(
             using: service,
             path: alphaURL.path,
@@ -1638,7 +1643,8 @@ final class DashboardViewModelTests: XCTestCase {
 
         let workflowExecution = WorkflowExecutionSpy()
         workflowExecution.runPrimaryStatus = .failed
-        workflowExecution.runEndedAt = Date(timeIntervalSince1970: 2_000)
+        workflowExecution.runStartedAt = now.addingTimeInterval(-120)
+        workflowExecution.runEndedAt = now.addingTimeInterval(-60)
         workflowExecution.persistRunRecordBeforeThrow = true
         workflowExecution.runError = WorkflowExecutionTestError.failed
 
@@ -2952,6 +2958,12 @@ final class DashboardViewModelTests: XCTestCase {
             destinationRoot.cleanup()
         }
 
+        let referenceDate = Date()
+        let scopeRefreshDate = referenceDate.addingTimeInterval(-120)
+        let initialRefreshDate = referenceDate.addingTimeInterval(-100)
+        let runStartDate = referenceDate.addingTimeInterval(-40)
+        let runEndDate = referenceDate.addingTimeInterval(-30)
+
         let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
         let scopeService = TrustedAutomationScopeService(modelContext: context)
         let scope = try scopeService.createOrReactivateScope(
@@ -2974,13 +2986,13 @@ final class DashboardViewModelTests: XCTestCase {
             confidenceSnapshot: 0.95,
             rationaleSummary: "You’ve approved this folder pattern 6 times with no recent undo in Exports.",
             allowedActions: [.move],
-            refreshedAt: Date(timeIntervalSince1970: 100)
+            refreshedAt: scopeRefreshDate
         )
 
-        localViewModel.refreshTrustedAutomationScopes(referenceDate: Date(timeIntervalSince1970: 120))
+        localViewModel.refreshTrustedAutomationScopes(referenceDate: initialRefreshDate)
         localViewModel.presentTrustedAutomationScopeDetail(
             id: scope.id,
-            referenceDate: Date(timeIntervalSince1970: 120)
+            referenceDate: initialRefreshDate
         )
 
         XCTAssertEqual(localViewModel.trustedAutomationAttentionScopeCount, 0)
@@ -2998,8 +3010,8 @@ final class DashboardViewModelTests: XCTestCase {
             heldBuckets: [.init(bucket: "Needs Review", count: 1)],
             summaryText: "Held 1 file for review.",
             exampleFileNames: ["Draft.csv"],
-            startedAt: Date(timeIntervalSince1970: 180),
-            endedAt: Date(timeIntervalSince1970: 190)
+            startedAt: runStartDate,
+            endedAt: runEndDate
         )
 
         await localViewModel.applyAutomationScanUpdate(
@@ -4234,6 +4246,8 @@ final class DashboardViewModelTests: XCTestCase {
             destinationRoot.cleanup()
         }
 
+        let referenceDate = Date()
+        let refreshedAt = referenceDate.addingTimeInterval(-180)
         let destination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
         let activeScope = try scopeService.createOrReactivateScope(
             scopeType: .folder,
@@ -4255,7 +4269,7 @@ final class DashboardViewModelTests: XCTestCase {
             confidenceSnapshot: 0.95,
             rationaleSummary: "Active scope rationale.",
             allowedActions: [.move],
-            refreshedAt: Date(timeIntervalSince1970: 100)
+            refreshedAt: Date().addingTimeInterval(-180)
         )
         let revokedScope = try scopeService.createOrReactivateScope(
             scopeType: .folder,
@@ -4277,7 +4291,7 @@ final class DashboardViewModelTests: XCTestCase {
             confidenceSnapshot: 0.95,
             rationaleSummary: "Revoked scope rationale.",
             allowedActions: [.move],
-            refreshedAt: Date(timeIntervalSince1970: 100)
+            refreshedAt: refreshedAt
         )
 
         _ = try scopeService.recordRun(
@@ -4292,10 +4306,10 @@ final class DashboardViewModelTests: XCTestCase {
             heldBuckets: [.init(bucket: "Needs Review", count: 1)],
             summaryText: "Held 1 active file.",
             exampleFileNames: ["active.csv"],
-            startedAt: Date(timeIntervalSince1970: 180),
-            endedAt: Date(timeIntervalSince1970: 190)
+            startedAt: referenceDate.addingTimeInterval(-80),
+            endedAt: referenceDate.addingTimeInterval(-70)
         )
-        try scopeService.removeScope(id: revokedScope.id, at: Date(timeIntervalSince1970: 195))
+        try scopeService.removeScope(id: revokedScope.id, at: referenceDate.addingTimeInterval(-65))
         _ = try scopeService.recordRun(
             scopeID: revokedScope.id,
             triggerSource: .scheduledAutomationPass,
@@ -4308,12 +4322,12 @@ final class DashboardViewModelTests: XCTestCase {
             heldBuckets: [.init(bucket: "Needs Review", count: 1)],
             summaryText: "Held 1 revoked file.",
             exampleFileNames: ["revoked.csv"],
-            startedAt: Date(timeIntervalSince1970: 200),
-            endedAt: Date(timeIntervalSince1970: 210)
+            startedAt: referenceDate.addingTimeInterval(-60),
+            endedAt: referenceDate.addingTimeInterval(-50)
         )
 
         viewModel.setModelContext(context)
-        viewModel.refreshTrustedAutomationScopes(referenceDate: Date(timeIntervalSince1970: 220))
+        viewModel.refreshTrustedAutomationScopes(referenceDate: referenceDate)
 
         XCTAssertEqual(viewModel.trustedAutomationAttentionScopeCount, 1)
     }
@@ -4944,13 +4958,14 @@ final class DashboardViewModelTests: XCTestCase {
         let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
         let sourceURL = try tempDirectory.createFile(name: "Inbox/April Receipt.pdf", contents: "receipt")
         let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+        let baseTimestamp = Date().addingTimeInterval(-600)
 
         let file = FileItem(
             path: sourceURL.path,
             sizeInBytes: 1_024,
-            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
-            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
-            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            creationDate: baseTimestamp,
+            modificationDate: baseTimestamp,
+            lastAccessedDate: baseTimestamp,
             location: .custom,
             scanRootPath: sourceFolder.path,
             destination: destination,
@@ -4966,7 +4981,7 @@ final class DashboardViewModelTests: XCTestCase {
             scopeID: UUID(),
             workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
             triggerSurface: .inspector,
-            startedAt: Date(timeIntervalSince1970: 1_712_620_810),
+            startedAt: baseTimestamp.addingTimeInterval(10),
             primaryStatus: .succeeded
         )
 
@@ -4974,8 +4989,8 @@ final class DashboardViewModelTests: XCTestCase {
             runID: run.id,
             stepID: "execute|rename|\(sourceURL.path)",
             status: .succeeded,
-            startedAt: Date(timeIntervalSince1970: 1_712_620_811),
-            endedAt: Date(timeIntervalSince1970: 1_712_620_812)
+            startedAt: baseTimestamp.addingTimeInterval(11),
+            endedAt: baseTimestamp.addingTimeInterval(12)
         )
         _ = try store.recordFileAction(
             runID: run.id,
@@ -4997,8 +5012,8 @@ final class DashboardViewModelTests: XCTestCase {
             runID: run.id,
             stepID: "execute|tag|\(sourceURL.path)",
             status: .succeeded,
-            startedAt: Date(timeIntervalSince1970: 1_712_620_813),
-            endedAt: Date(timeIntervalSince1970: 1_712_620_814)
+            startedAt: baseTimestamp.addingTimeInterval(13),
+            endedAt: baseTimestamp.addingTimeInterval(14)
         )
         _ = try store.recordFileAction(
             runID: run.id,
@@ -5028,8 +5043,8 @@ final class DashboardViewModelTests: XCTestCase {
             runID: run.id,
             stepID: "execute|move|\(sourceURL.path)",
             status: .succeeded,
-            startedAt: Date(timeIntervalSince1970: 1_712_620_815),
-            endedAt: Date(timeIntervalSince1970: 1_712_620_816)
+            startedAt: baseTimestamp.addingTimeInterval(15),
+            endedAt: baseTimestamp.addingTimeInterval(16)
         )
         _ = try store.recordFileAction(
             runID: run.id,
@@ -5049,7 +5064,7 @@ final class DashboardViewModelTests: XCTestCase {
         try store.updateRunStatus(
             runID: run.id,
             primaryStatus: .succeeded,
-            endedAt: Date(timeIntervalSince1970: 1_712_620_817)
+            endedAt: baseTimestamp.addingTimeInterval(17)
         )
 
         let summary = try XCTUnwrap(
@@ -5096,12 +5111,13 @@ final class DashboardViewModelTests: XCTestCase {
         let sourceURL = try tempDirectory.createFile(name: "Drop/Product Spec.pdf", contents: "project")
         let destination = try Destination.folder(from: destinationFolder, displayName: "Projects")
 
+        let baseTimestamp = Date().addingTimeInterval(-600)
         let file = FileItem(
             path: sourceURL.path,
             sizeInBytes: 1_024,
-            creationDate: Date(timeIntervalSince1970: 1_712_620_800),
-            modificationDate: Date(timeIntervalSince1970: 1_712_620_800),
-            lastAccessedDate: Date(timeIntervalSince1970: 1_712_620_800),
+            creationDate: baseTimestamp,
+            modificationDate: baseTimestamp,
+            lastAccessedDate: baseTimestamp,
             location: .custom,
             scanRootPath: sourceFolder.path,
             destination: destination,
@@ -5119,7 +5135,7 @@ final class DashboardViewModelTests: XCTestCase {
             triggerSurface: .projectPolicyManual,
             ownerDisplayName: "Alpha",
             policyName: "Project Drop Zone",
-            startedAt: Date(timeIntervalSince1970: 1_712_620_900),
+            startedAt: baseTimestamp.addingTimeInterval(100),
             primaryStatus: .succeeded
         )
 
@@ -5128,8 +5144,8 @@ final class DashboardViewModelTests: XCTestCase {
             runID: run.id,
             stepID: "execute|rename|\(sourceURL.path)",
             status: .succeeded,
-            startedAt: Date(timeIntervalSince1970: 1_712_620_901),
-            endedAt: Date(timeIntervalSince1970: 1_712_620_902)
+            startedAt: baseTimestamp.addingTimeInterval(101),
+            endedAt: baseTimestamp.addingTimeInterval(102)
         )
         _ = try store.recordFileAction(
             runID: run.id,
@@ -5151,8 +5167,8 @@ final class DashboardViewModelTests: XCTestCase {
             runID: run.id,
             stepID: "execute|tag|\(sourceURL.path)",
             status: .succeeded,
-            startedAt: Date(timeIntervalSince1970: 1_712_620_903),
-            endedAt: Date(timeIntervalSince1970: 1_712_620_904)
+            startedAt: baseTimestamp.addingTimeInterval(103),
+            endedAt: baseTimestamp.addingTimeInterval(104)
         )
         _ = try store.recordFileAction(
             runID: run.id,
@@ -5182,8 +5198,8 @@ final class DashboardViewModelTests: XCTestCase {
             runID: run.id,
             stepID: "execute|projectAssociation|\(sourceURL.path)",
             status: .succeeded,
-            startedAt: Date(timeIntervalSince1970: 1_712_620_905),
-            endedAt: Date(timeIntervalSince1970: 1_712_620_906)
+            startedAt: baseTimestamp.addingTimeInterval(105),
+            endedAt: baseTimestamp.addingTimeInterval(106)
         )
         _ = try store.recordFileAction(
             runID: run.id,
@@ -5213,8 +5229,8 @@ final class DashboardViewModelTests: XCTestCase {
             runID: run.id,
             stepID: "execute|workflowStatus|\(sourceURL.path)",
             status: .succeeded,
-            startedAt: Date(timeIntervalSince1970: 1_712_620_907),
-            endedAt: Date(timeIntervalSince1970: 1_712_620_908)
+            startedAt: baseTimestamp.addingTimeInterval(107),
+            endedAt: baseTimestamp.addingTimeInterval(108)
         )
         _ = try store.recordFileAction(
             runID: run.id,
@@ -5244,8 +5260,8 @@ final class DashboardViewModelTests: XCTestCase {
             runID: run.id,
             stepID: "execute|move|\(sourceURL.path)",
             status: .succeeded,
-            startedAt: Date(timeIntervalSince1970: 1_712_620_909),
-            endedAt: Date(timeIntervalSince1970: 1_712_620_910)
+            startedAt: baseTimestamp.addingTimeInterval(109),
+            endedAt: baseTimestamp.addingTimeInterval(110)
         )
         _ = try store.recordFileAction(
             runID: run.id,
@@ -5265,7 +5281,7 @@ final class DashboardViewModelTests: XCTestCase {
         try store.updateRunStatus(
             runID: run.id,
             primaryStatus: .succeeded,
-            endedAt: Date(timeIntervalSince1970: 1_712_620_911)
+            endedAt: baseTimestamp.addingTimeInterval(111)
         )
 
         let summary = try XCTUnwrap(
@@ -5630,6 +5646,7 @@ private final class WorkflowExecutionSpy {
     var lastRunFilePaths: [String] = []
     var runID = UUID()
     var runPrimaryStatus: WorkflowRunPrimaryStatus = .succeeded
+    var runStartedAt = Date(timeIntervalSince1970: 1_000)
     var runEndedAt = Date(timeIntervalSince1970: 1_500)
     var persistRunRecordBeforeThrow = false
     var runError: Error?
@@ -5654,13 +5671,14 @@ private final class WorkflowExecutionSpy {
             }
             let runID = await MainActor.run { self?.runID ?? UUID() }
             let primaryStatus = await MainActor.run { self?.runPrimaryStatus ?? .succeeded }
+            let startedAt = await MainActor.run { self?.runStartedAt ?? Date(timeIntervalSince1970: 1_000) }
             let endedAt = await MainActor.run { self?.runEndedAt }
             let runRecord = WorkflowRunRecord(
                 id: runID,
                 scopeID: request.scopeID,
                 workflowTemplateID: plan.definition.templateID,
                 primaryStatus: primaryStatus,
-                startedAt: Date(timeIntervalSince1970: 1_000),
+                startedAt: startedAt,
                 endedAt: endedAt,
                 updatedAt: endedAt
             )
@@ -5678,7 +5696,7 @@ private final class WorkflowExecutionSpy {
                         scopeID: request.scopeID,
                         workflowTemplateID: templateID,
                         primaryStatus: primaryStatus,
-                        startedAt: Date(timeIntervalSince1970: 1_000),
+                        startedAt: startedAt,
                         endedAt: endedAt,
                         updatedAt: endedAt
                     )

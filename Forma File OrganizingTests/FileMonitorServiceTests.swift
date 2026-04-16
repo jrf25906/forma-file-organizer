@@ -73,9 +73,7 @@ final class FileMonitorServiceTests: XCTestCase {
             XCTFail("Unexpected callback for non-watched path")
         }
 
-        service._testEmitEvents([
-            .init(path: "/Users/test/Documents/ignore.txt", flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated))
-        ])
+        service._testEmitChangedPaths(["/Users/test/Documents/ignore.txt"])
         try? await Task.sleep(for: .milliseconds(120))
     }
 

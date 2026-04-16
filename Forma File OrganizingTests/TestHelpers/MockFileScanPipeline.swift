@@ -23,6 +23,7 @@ final class MockFileScanPipeline: FileScanPipelineProtocol {
         errorSummary: nil,
         rawErrors: [:]
     )
+    var onEvaluateExplicitFiles: (([FileMetadata], [String], Bool, ModelContext) -> Void)?
 
     // MARK: - Call Tracking
 
@@ -32,7 +33,6 @@ final class MockFileScanPipeline: FileScanPipelineProtocol {
     private(set) var lastExplicitFiles: [FileMetadata] = []
     private(set) var lastExplicitScannedRootPaths: [String] = []
     private(set) var lastExplicitReconcileMissingFiles: Bool?
-    var onEvaluateExplicitFiles: (([FileMetadata], [String], Bool, ModelContext) -> Void)?
 
     // MARK: - FileScanPipelineProtocol Conformance
 

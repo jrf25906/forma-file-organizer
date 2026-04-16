@@ -81,16 +81,17 @@ final class ActivityLoggingTests: XCTestCase {
         let store = WorkflowAuditStore(modelContext: context)
         let service = ActivityLoggingService(modelContext: context)
 
+        let baseTimestamp = Date().addingTimeInterval(-60)
         let run = try store.createRun(
             scopeID: UUID(),
             workflowTemplateID: BuiltInWorkflowTemplate.StableID.screenshots,
-            startedAt: Date(timeIntervalSince1970: 3_000),
+            startedAt: baseTimestamp,
             primaryStatus: .succeeded
         )
         try store.updateRunStatus(
             runID: run.id,
             primaryStatus: .succeeded,
-            endedAt: Date(timeIntervalSince1970: 3_030)
+            endedAt: baseTimestamp.addingTimeInterval(30)
         )
 
         service.logWorkflowRunSummary(

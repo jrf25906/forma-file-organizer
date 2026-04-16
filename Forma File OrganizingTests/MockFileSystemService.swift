@@ -59,7 +59,7 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
         options: FileScanOptions
     ) async throws -> ExplicitSelectionScanResult {
         explicitSelectionCallCount += 1
-        explicitSelectionRequestedURLs.append(urls.map(\.standardizedFileURL))
+        explicitSelectionRequestedURLs.append(urls)
 
         if let explicitSelectionError {
             throw explicitSelectionError

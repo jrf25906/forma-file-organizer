@@ -4,6 +4,14 @@ import Combine
 
 @MainActor
 final class DashboardScanRefreshController: ObservableObject {
+    private struct HarnessEventRecord: Encodable {
+        let event: String
+        let kind: String
+        let index: Int
+        let startedAtNs: UInt64
+        let durationMs: Double
+    }
+
     struct Actions {
         let onScanErrorSummary: @MainActor (String) -> Void
         let onAutomationSummary: @MainActor (String?) -> Void
@@ -11,6 +19,25 @@ final class DashboardScanRefreshController: ObservableObject {
         let currentSearchText: @MainActor () -> String
         let triggerContentSearch: @MainActor (String) -> Void
         let refreshAvailableFolders: @MainActor () -> Void
+
+        init(
+            onScanErrorSummary: @escaping @MainActor (String) -> Void,
+            onAutomationSummary: @escaping @MainActor (String?) -> Void,
+            resetOrganizationProgress: @escaping @MainActor ([FileItem]) -> Void,
+            currentSearchText: @escaping @MainActor () -> String,
+            triggerContentSearch: @escaping @MainActor (String) -> Void,
+            refreshAvailableFolders: @escaping @MainActor () -> Void,
+            prepareForIncrementalFileUpdate: @escaping @MainActor () -> Void = {}
+        ) {
+            self.onScanErrorSummary = onScanErrorSummary
+            self.onAutomationSummary = onAutomationSummary
+            self.resetOrganizationProgress = resetOrganizationProgress
+            self.currentSearchText = currentSearchText
+            self.triggerContentSearch = triggerContentSearch
+            self.refreshAvailableFolders = refreshAvailableFolders
+            self.prepareForIncrementalFileUpdate = prepareForIncrementalFileUpdate
+        }
+
         let prepareForIncrementalFileUpdate: @MainActor () -> Void
     }
 
@@ -67,12 +94,10 @@ final class DashboardScanRefreshController: ObservableObject {
     }
 
     func applyAutomationScanUpdate(
-        updatedPaths: [String] = [],
-        removedPaths: [String] = [],
+        scannedPaths: [String] = [],
         scannedRootPaths: [String],
         errorSummary: String?,
         replacesAllFiles: Bool,
-        requiresClusterRefresh: Bool = true,
         context: ModelContext,
         actions: Actions
     ) async {
@@ -90,40 +115,10 @@ final class DashboardScanRefreshController: ObservableObject {
             )
         }
 
-        if !replacesAllFiles && !requiresClusterRefresh {
-            let files: [FileItem]
-            do {
-                files = try fetchFilesForUpdatedPaths(
-                    updatedPaths,
-                    context: context
-                )
-            } catch {
-                Log.error(
-                    "DashboardViewModel: Failed to fetch automation delta files - \(error.localizedDescription)",
-                    category: .pipeline
-                )
-                actions.onScanErrorSummary("Failed to refresh scanned files.")
-                return
-            }
-
-            actions.prepareForIncrementalFileUpdate()
-            scanViewModel.applyIncrementalAutomationUpdate(
-                updatedFiles: files,
-                removedPaths: removedPaths
-            )
-            actions.onAutomationSummary(errorSummary)
-            actions.resetOrganizationProgress(scanViewModel.allFiles)
-            publishVisibleState(
-                publishMetadata: "automation delta update",
-                actions: actions
-            )
-            return
-        }
-
         let files: [FileItem]
         do {
-            files = try fetchAutomationFiles(
-                updatedPaths: updatedPaths,
+            files = try fetchAutomationFilesForRootRefresh(
+                scannedPaths: scannedPaths,
                 scannedRootPaths: scannedRootPaths,
                 context: context
             )
@@ -141,7 +136,7 @@ final class DashboardScanRefreshController: ObservableObject {
         } else {
             scanViewModel.mergeScannedFiles(
                 files,
-                scannedPaths: updatedPaths,
+                scannedPaths: scannedPaths,
                 forScannedRootPaths: scannedRootPaths
             )
         }
@@ -152,6 +147,68 @@ final class DashboardScanRefreshController: ObservableObject {
             context: context,
             clusterMetadata: "automation update",
             publishMetadata: "automation update",
+            actions: actions
+        )
+    }
+
+    func applyAutomationScanUpdate(
+        updatedPaths: [String],
+        removedPaths: [String],
+        scannedRootPaths: [String],
+        errorSummary: String?,
+        replacesAllFiles: Bool,
+        requiresClusterRefresh: Bool,
+        context: ModelContext,
+        actions: Actions
+    ) async {
+        guard !requiresClusterRefresh, !replacesAllFiles else {
+            await applyAutomationScanUpdate(
+                scannedPaths: updatedPaths,
+                scannedRootPaths: scannedRootPaths,
+                errorSummary: errorSummary,
+                replacesAllFiles: replacesAllFiles,
+                context: context,
+                actions: actions
+            )
+            return
+        }
+
+        phaseStatusText = "Applying automation updates..."
+        let refreshId = PerformanceMonitor.shared.begin(
+            .dashboardScanRefresh,
+            metadata: "automation delta (\(scannedRootPaths.count) roots)"
+        )
+        defer {
+            phaseStatusText = nil
+            PerformanceMonitor.shared.end(
+                .dashboardScanRefresh,
+                id: refreshId,
+                metadata: "\(scanViewModel.allFiles.count) files, \(analyticsViewModel.detectedClusters.count) clusters"
+            )
+        }
+
+        let updatedFiles: [FileItem]
+        do {
+            updatedFiles = try fetchFilesForUpdatedPaths(updatedPaths, context: context)
+        } catch {
+            Log.error(
+                "DashboardViewModel: Failed to fetch automation delta files - \(error.localizedDescription)",
+                category: .pipeline
+            )
+            actions.onScanErrorSummary("Failed to refresh scanned files.")
+            return
+        }
+
+        actions.prepareForIncrementalFileUpdate()
+        scanViewModel.applyIncrementalAutomationUpdate(
+            updatedFiles: updatedFiles,
+            removedPaths: removedPaths
+        )
+        actions.onAutomationSummary(errorSummary)
+        actions.resetOrganizationProgress(scanViewModel.allFiles)
+
+        await publishDashboardRefresh(
+            metadata: "automation delta",
             actions: actions
         )
     }
@@ -168,7 +225,9 @@ final class DashboardScanRefreshController: ObservableObject {
         let boundedSampleIterations = max(1, iterations)
         let boundedWarmupIterations = max(0, warmupIterations)
         let totalIterations = boundedWarmupIterations + boundedSampleIterations
-        let scannedRootPaths = Array(Set(scanViewModel.allFiles.compactMap(\.scanRootPath)))
+        let scannedRootPaths = Array(
+            Set(scanViewModel.allFiles.compactMap { normalizedScanRoot(for: $0) })
+        ).sorted()
         guard !scannedRootPaths.isEmpty else { return }
         hasRunPerformanceSignpostHarness = true
 
@@ -178,6 +237,7 @@ final class DashboardScanRefreshController: ObservableObject {
             let phaseIteration = isWarmupIteration ? iteration : iteration - boundedWarmupIterations
             let metadata = "harness \(phaseLabel) \(phaseIteration)"
 
+            let dashboardStartNs = DispatchTime.now().uptimeNanoseconds
             let dashboardRefreshId = PerformanceMonitor.shared.begin(
                 .dashboardScanRefresh,
                 metadata: metadata
@@ -194,7 +254,15 @@ final class DashboardScanRefreshController: ObservableObject {
                 id: dashboardRefreshId,
                 metadata: "\(scanViewModel.allFiles.count) files, \(analyticsViewModel.detectedClusters.count) clusters"
             )
+            recordHarnessEventIfNeeded(
+                event: PerformanceMonitor.Operation.dashboardScanRefresh.rawValue,
+                kind: phaseLabel,
+                index: phaseIteration,
+                startedAtNs: dashboardStartNs,
+                durationMs: durationMs(since: dashboardStartNs)
+            )
 
+            let insightStartNs = DispatchTime.now().uptimeNanoseconds
             let insightRefreshId = PerformanceMonitor.shared.begin(
                 .defaultPanelInsightRefresh,
                 metadata: metadata
@@ -210,6 +278,13 @@ final class DashboardScanRefreshController: ObservableObject {
                 id: insightRefreshId,
                 metadata: "\(insights.count) insights"
             )
+            recordHarnessEventIfNeeded(
+                event: PerformanceMonitor.Operation.defaultPanelInsightRefresh.rawValue,
+                kind: phaseLabel,
+                index: phaseIteration,
+                startedAtNs: insightStartNs,
+                durationMs: durationMs(since: insightStartNs)
+            )
 
             if iteration < totalIterations {
                 try? await Task.sleep(nanoseconds: 50_000_000)
@@ -224,12 +299,12 @@ final class DashboardScanRefreshController: ObservableObject {
         #endif
     }
 
-    private func fetchAutomationFiles(
-        updatedPaths: [String],
+    private func fetchAutomationFilesForRootRefresh(
+        scannedPaths: [String],
         scannedRootPaths: [String],
         context: ModelContext
     ) throws -> [FileItem] {
-        let pathSet = Set(updatedPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
+        let pathSet = Set(scannedPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
         let rootSet = Set(scannedRootPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
         guard !pathSet.isEmpty || !rootSet.isEmpty else { return [] }
         let descriptor = FetchDescriptor<FileItem>()
@@ -239,8 +314,8 @@ final class DashboardScanRefreshController: ObservableObject {
                 return true
             }
 
-            guard let root = file.scanRootPath else { return false }
-            return rootSet.contains(URL(fileURLWithPath: root).standardizedFileURL.path)
+            guard let root = normalizedScanRoot(for: file) else { return false }
+            return rootSet.contains(root)
         }
     }
 
@@ -250,14 +325,62 @@ final class DashboardScanRefreshController: ObservableObject {
     ) throws -> [FileItem] {
         let pathSet = Set(updatedPaths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
         guard !pathSet.isEmpty else { return [] }
-        let descriptor = FetchDescriptor<FileItem>(
-            predicate: #Predicate<FileItem> { file in
-                pathSet.contains(file.path)
-            }
-        )
-        return try context.fetch(descriptor)
+
+        return try context.fetch(FetchDescriptor<FileItem>()).filter { file in
+            pathSet.contains(URL(fileURLWithPath: file.path).standardizedFileURL.path)
+        }
     }
 
+    private func normalizedScanRoot(for file: FileItem) -> String? {
+        if let scanRootPath = file.scanRootPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !scanRootPath.isEmpty {
+            return URL(fileURLWithPath: scanRootPath).standardizedFileURL.path
+        }
+
+        let parentPath = URL(fileURLWithPath: file.path).standardizedFileURL.deletingLastPathComponent().path
+        return parentPath.isEmpty ? nil : parentPath
+    }
+
+    private func durationMs(since startNs: UInt64) -> Double {
+        Double(DispatchTime.now().uptimeNanoseconds - startNs) / 1_000_000
+    }
+
+    private func recordHarnessEventIfNeeded(
+        event: String,
+        kind: String,
+        index: Int,
+        startedAtNs: UInt64,
+        durationMs: Double
+    ) {
+        guard let rawPath = PerformanceHarnessConfiguration.eventsFilePath,
+              !rawPath.isEmpty else {
+            return
+        }
+
+        let url = URL(fileURLWithPath: rawPath)
+        let record = HarnessEventRecord(
+            event: event,
+            kind: kind,
+            index: index,
+            startedAtNs: startedAtNs,
+            durationMs: durationMs
+        )
+
+        do {
+            let data = try JSONEncoder().encode(record)
+            var line = data
+            line.append(0x0A)
+
+            if FileManager.default.fileExists(atPath: url.path) {
+                let handle = try FileHandle(forWritingTo: url)
+                try handle.seekToEnd()
+                try handle.write(contentsOf: line)
+                try handle.close()
+            } else {
+                try line.write(to: url, options: .atomic)
+            }
+        } catch {}
+    }
     private func refreshClustersAndPublish(
         context: ModelContext,
         clusterMetadata: String,
@@ -276,19 +399,19 @@ final class DashboardScanRefreshController: ObservableObject {
             metadata: "\(analyticsViewModel.detectedClusters.count) clusters"
         )
 
-        publishVisibleState(
-            publishMetadata: publishMetadata,
+        await publishDashboardRefresh(
+            metadata: publishMetadata,
             actions: actions
         )
     }
 
-    private func publishVisibleState(
-        publishMetadata: String,
+    private func publishDashboardRefresh(
+        metadata: String,
         actions: Actions
-    ) {
+    ) async {
         let publishId = PerformanceMonitor.shared.begin(
             .dashboardPublish,
-            metadata: publishMetadata
+            metadata: metadata
         )
         phaseStatusText = "Updating dashboard..."
         if !actions.currentSearchText().trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

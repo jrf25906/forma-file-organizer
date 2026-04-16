@@ -23,16 +23,17 @@ final class WorkflowActivityProjectionTests: XCTestCase {
         let service = ActivityLoggingService(modelContext: context)
 
         try withExtendedLifetime(container) {
+            let baseTimestamp = Date().addingTimeInterval(-60)
             let run = try store.createRun(
                 scopeID: UUID(),
                 workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
-                startedAt: Date(timeIntervalSince1970: 1_000),
+                startedAt: baseTimestamp,
                 primaryStatus: .succeeded
             )
             try store.updateRunStatus(
                 runID: run.id,
                 primaryStatus: .succeeded,
-                endedAt: Date(timeIntervalSince1970: 1_030)
+                endedAt: baseTimestamp.addingTimeInterval(30)
             )
 
             service.logWorkflowRunSummary(
@@ -61,23 +62,24 @@ final class WorkflowActivityProjectionTests: XCTestCase {
         let service = ActivityLoggingService(modelContext: context)
 
         try withExtendedLifetime(container) {
+            let baseTimestamp = Date().addingTimeInterval(-120)
             let run = try store.createRun(
                 scopeID: UUID(),
                 workflowTemplateID: BuiltInWorkflowTemplate.StableID.receipts,
-                startedAt: Date(timeIntervalSince1970: 2_000),
+                startedAt: baseTimestamp,
                 primaryStatus: .failed
             )
             try store.updateRollbackStatus(
                 runID: run.id,
                 rollbackStatus: .failed,
                 rollbackReason: "Move rollback lost bookmark access.",
-                rollbackRequestedAt: Date(timeIntervalSince1970: 2_010),
-                rollbackCompletedAt: Date(timeIntervalSince1970: 2_040)
+                rollbackRequestedAt: baseTimestamp.addingTimeInterval(10),
+                rollbackCompletedAt: baseTimestamp.addingTimeInterval(40)
             )
             try store.updateRunStatus(
                 runID: run.id,
                 primaryStatus: .failed,
-                endedAt: Date(timeIntervalSince1970: 2_005)
+                endedAt: baseTimestamp.addingTimeInterval(5)
             )
 
             service.logWorkflowRunSummary(
@@ -126,19 +128,20 @@ final class WorkflowActivityProjectionTests: XCTestCase {
         let service = ActivityLoggingService(modelContext: context)
 
         try withExtendedLifetime(container) {
+            let baseTimestamp = Date().addingTimeInterval(-90)
             let run = try store.createRun(
                 scopeID: UUID(),
                 workflowTemplateID: BuiltInWorkflowTemplate.StableID.projectDrop,
                 triggerSurface: .projectPolicyRealtime,
                 ownerDisplayName: "Alpha",
                 policyName: "Project Drop Zone",
-                startedAt: Date(timeIntervalSince1970: 4_000),
+                startedAt: baseTimestamp,
                 primaryStatus: .succeeded
             )
             try store.updateRunStatus(
                 runID: run.id,
                 primaryStatus: .succeeded,
-                endedAt: Date(timeIntervalSince1970: 4_030)
+                endedAt: baseTimestamp.addingTimeInterval(30)
             )
 
             service.logWorkflowRunSummary(

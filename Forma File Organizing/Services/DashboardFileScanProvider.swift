@@ -8,7 +8,6 @@ import SwiftData
 /// scanning logic to provide a clean interface for automation.
 @MainActor
 final class DashboardFileScanProvider: FileScanProvider {
-
     // MARK: - Dependencies
 
     private let pipeline: FileScanPipelineProtocol
@@ -44,13 +43,6 @@ final class DashboardFileScanProvider: FileScanProvider {
 
         // Fetch current rules
         let rules = try fetchRules(context: context)
-        let scanResult: FileScanPipeline.ScanResult
-        let updatedPaths: [String]
-        let removedPaths: [String]
-        let replacesAllFiles: Bool
-        let requiresClusterRefresh: Bool
-        let scannedRootPaths: [String]
-
         switch request {
         case .full:
             let result = await runRootScan(
@@ -58,65 +50,61 @@ final class DashboardFileScanProvider: FileScanProvider {
                 context: context,
                 rules: rules
             )
-            scanResult = result
-            updatedPaths = result.files.map(\.path)
-            removedPaths = []
-            replacesAllFiles = true
-            requiresClusterRefresh = true
-            scannedRootPaths = result.scannedRootPaths
+            if result.timedOut {
+                throw ScanError.timeout
+            }
+            if let errorSummary = result.errorSummary, !result.rawErrors.isEmpty {
+                Log.warning("DashboardFileScanProvider: Scan completed with errors - \(errorSummary)", category: .automation)
+            }
+            let metrics = computeAggregateMetrics(
+                totalScanned: result.files.count,
+                context: context,
+                errorSummary: result.errorSummary,
+                rawErrors: result.rawErrors,
+                scannedRootPaths: result.scannedRootPaths
+            )
+            postDashboardUpdate(
+                updatedPaths: result.files.map(\.path),
+                removedPaths: [],
+                scannedRootPaths: result.scannedRootPaths,
+                replacesAllFiles: true,
+                requiresClusterRefresh: true,
+                errorSummary: result.errorSummary
+            )
+            Log.info("DashboardFileScanProvider: Scan complete - \(result.files.count) touched files, \(metrics.pendingCount) pending", category: .automation)
+            return metrics
         case .roots(let baseFolders):
             let result = await runRootScan(
                 baseFolders: baseFolders,
                 context: context,
                 rules: rules
             )
-            scanResult = result
-            updatedPaths = result.files.map(\.path)
-            removedPaths = []
-            replacesAllFiles = false
-            requiresClusterRefresh = true
-            scannedRootPaths = result.scannedRootPaths
-        case .delta(let changeSet):
-            let result = try await runDeltaScan(
-                changeSet: changeSet,
+            if result.timedOut {
+                throw ScanError.timeout
+            }
+            if let errorSummary = result.errorSummary, !result.rawErrors.isEmpty {
+                Log.warning("DashboardFileScanProvider: Scan completed with errors - \(errorSummary)", category: .automation)
+            }
+            let metrics = computeAggregateMetrics(
+                totalScanned: result.files.count,
                 context: context,
-                rules: rules
+                errorSummary: result.errorSummary,
+                rawErrors: result.rawErrors,
+                scannedRootPaths: result.scannedRootPaths
             )
-            scanResult = result.scanResult
-            updatedPaths = result.updatedPaths
-            removedPaths = result.removedPaths
-            replacesAllFiles = false
-            requiresClusterRefresh = false
-            scannedRootPaths = result.scannedRootPaths
+            postDashboardUpdate(
+                updatedPaths: result.files.map(\.path),
+                removedPaths: [],
+                scannedRootPaths: result.scannedRootPaths,
+                replacesAllFiles: false,
+                requiresClusterRefresh: true,
+                errorSummary: result.errorSummary
+            )
+            Log.info("DashboardFileScanProvider: Scan complete - \(result.files.count) touched files, \(metrics.pendingCount) pending", category: .automation)
+            return metrics
+        case .delta(let changeSet):
+            return try await scanDelta(context: context, changeSet: changeSet)
         }
-
-        if scanResult.timedOut {
-            throw ScanError.timeout
-        }
-
-        if let errorSummary = scanResult.errorSummary, !scanResult.rawErrors.isEmpty {
-            Log.warning("DashboardFileScanProvider: Scan completed with errors - \(errorSummary)", category: .automation)
-        }
-
-        let metrics = computeAggregateMetrics(
-            totalScanned: updatedPaths.count,
-            context: context,
-            errorSummary: scanResult.errorSummary,
-            rawErrors: scanResult.rawErrors,
-            scannedRootPaths: scannedRootPaths
-        )
-
-        postDashboardUpdate(
-            updatedPaths: updatedPaths,
-            removedPaths: removedPaths,
-            scannedRootPaths: scannedRootPaths,
-            replacesAllFiles: replacesAllFiles,
-            requiresClusterRefresh: requiresClusterRefresh,
-            errorSummary: scanResult.errorSummary
-        )
-
-        Log.info("DashboardFileScanProvider: Scan complete - \(updatedPaths.count) touched files, \(metrics.pendingCount) pending", category: .automation)
-        return metrics
     }
 
     func getAutoOrganizeEligibleFiles(
@@ -181,6 +169,82 @@ final class DashboardFileScanProvider: FileScanProvider {
         return try context.fetch(descriptor)
     }
 
+    private func scanDelta(
+        context: ModelContext,
+        changeSet: WatchedFolderChangeSet
+    ) async throws -> FileScanResult {
+        if changeSet.requiresFallbackRootScan {
+            let roots = changeSet.touchedRoots.compactMap { touchedRoot in
+                BookmarkFolderService.shared.availableFolders.first { folder in
+                    folder.isEnabled && folder.resolvedRootPath == touchedRoot
+                }?.folderType.folderLocation
+            }
+            return try await scanFiles(context: context, request: .roots(roots))
+        }
+
+        let rules = try fetchRules(context: context)
+        let scanOptions = ScanOptionsResolver.current()
+        let standardizedUpdatedPaths = Array(changeSet.updatedPaths).sorted().map {
+            URL(fileURLWithPath: $0).standardizedFileURL.path
+        }
+
+        let explicitSelection: ExplicitSelectionScanResult
+        if standardizedUpdatedPaths.isEmpty {
+            explicitSelection = ExplicitSelectionScanResult(
+                files: [],
+                skippedItems: [],
+                scannedRootPaths: Array(changeSet.touchedRoots).sorted()
+            )
+        } else {
+            explicitSelection = try await fileSystemService.scanExplicitSelection(
+                urls: standardizedUpdatedPaths.map(URL.init(fileURLWithPath:)),
+                options: scanOptions
+            )
+        }
+
+        let scannedRootPaths = explicitSelection.scannedRootPaths.isEmpty
+            ? Array(changeSet.touchedRoots).sorted()
+            : explicitSelection.scannedRootPaths
+
+        let pipelineResult = await pipeline.evaluateAndPersistExplicitFiles(
+            files: explicitSelection.files,
+            scannedRootPaths: scannedRootPaths,
+            reconcileMissingFiles: false,
+            ruleEngine: ruleEngine,
+            rules: rules,
+            context: context
+        )
+
+        try deletePersistedFiles(
+            at: Array(changeSet.removedPaths).sorted(),
+            context: context
+        )
+
+        let persistedFiles = try context.fetch(FetchDescriptor<FileItem>())
+
+        NotificationCenter.default.post(
+            name: .automationScanDidPersist,
+            object: nil,
+            userInfo: [
+                AutomationScanNotificationUserInfo.scannedPaths: standardizedUpdatedPaths,
+                AutomationScanNotificationUserInfo.updatedPaths: standardizedUpdatedPaths,
+                AutomationScanNotificationUserInfo.removedPaths: Array(changeSet.removedPaths).sorted(),
+                AutomationScanNotificationUserInfo.scannedRootPaths: scannedRootPaths,
+                AutomationScanNotificationUserInfo.replacesAllFiles: false,
+                AutomationScanNotificationUserInfo.requiresClusterRefresh: false,
+                AutomationScanNotificationUserInfo.errorSummary: pipelineResult.errorSummary as Any
+            ]
+        )
+
+        return computeAggregateMetrics(
+            totalScanned: persistedFiles.count,
+            context: context,
+            errorSummary: pipelineResult.errorSummary,
+            rawErrors: pipelineResult.rawErrors,
+            scannedRootPaths: scannedRootPaths
+        )
+    }
+
     private func runRootScan(
         baseFolders: [FolderLocation],
         context: ModelContext,
@@ -197,76 +261,18 @@ final class DashboardFileScanProvider: FileScanProvider {
         )
     }
 
-    private func runDeltaScan(
-        changeSet: WatchedFolderChangeSet,
-        context: ModelContext,
-        rules: [Rule]
-    ) async throws -> (
-        scanResult: FileScanPipeline.ScanResult,
-        updatedPaths: [String],
-        removedPaths: [String],
-        scannedRootPaths: [String]
-    ) {
-        let sortedTouchedRoots = Array(changeSet.touchedRoots).sorted()
-        let sortedUpdatedPaths = Array(changeSet.updatedPaths).sorted()
-        var explicitRemovalPaths = Set(changeSet.removedPaths)
-        var existingFileURLs: [URL] = []
-
-        for path in sortedUpdatedPaths {
-            let url = URL(fileURLWithPath: path).standardizedFileURL
-            var isDirectory = ObjCBool(false)
-            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue {
-                existingFileURLs.append(url)
-            } else {
-                explicitRemovalPaths.insert(url.path)
-            }
-        }
-
-        let explicitSelection: ExplicitSelectionScanResult
-        if existingFileURLs.isEmpty {
-            explicitSelection = ExplicitSelectionScanResult(
-                files: [],
-                skippedItems: [],
-                scannedRootPaths: []
-            )
-        } else {
-            explicitSelection = try await fileSystemService.scanExplicitSelection(
-                urls: existingFileURLs,
-                options: ScanOptionsResolver.current()
-            )
-        }
-
-        let pipelineResult = await pipeline.evaluateAndPersistExplicitFiles(
-            files: explicitSelection.files,
-            scannedRootPaths: sortedTouchedRoots,
-            reconcileMissingFiles: false,
-            ruleEngine: ruleEngine,
-            rules: rules,
-            context: context
-        )
-
-        if !explicitRemovalPaths.isEmpty {
-            try deletePersistedFiles(
-                at: explicitRemovalPaths,
-                context: context
-            )
-        }
-
-        return (
-            scanResult: pipelineResult,
-            updatedPaths: pipelineResult.files.map(\.path).sorted(),
-            removedPaths: Array(explicitRemovalPaths).sorted(),
-            scannedRootPaths: sortedTouchedRoots
-        )
-    }
-
     private func deletePersistedFiles(
-        at paths: Set<String>,
+        at removedPaths: [String],
         context: ModelContext
     ) throws {
+        let removedPathSet = Set(removedPaths.map {
+            URL(fileURLWithPath: $0).standardizedFileURL.path
+        })
+        guard !removedPathSet.isEmpty else { return }
+
         let descriptor = FetchDescriptor<FileItem>(
             predicate: #Predicate<FileItem> { file in
-                paths.contains(file.path)
+                removedPathSet.contains(file.path)
             }
         )
         let existingFiles = try context.fetch(descriptor)
@@ -370,7 +376,6 @@ final class DashboardFileScanProvider: FileScanProvider {
             ]
         )
     }
-
     // MARK: - Errors
 
     enum ScanError: Error, LocalizedError {
