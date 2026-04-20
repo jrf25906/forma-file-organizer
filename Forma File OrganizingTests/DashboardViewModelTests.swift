@@ -476,23 +476,27 @@ final class DashboardViewModelTests: XCTestCase {
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
 
-        await localViewModel.handleDashboardStartup(
+        let initialFollowUp = await localViewModel.handleDashboardStartup(
             context: container.mainContext,
             autoScanOnLaunch: true
         )
+        XCTAssertEqual(initialFollowUp, .none)
         XCTAssertEqual(localPipeline.scanCallCount, 0, "Startup should defer the initial scan while onboarding owns the launch flow")
 
         localViewModel.showOnboarding = false
-        await localViewModel.handleDashboardStartup(
+        let deferredFollowUp = await localViewModel.handleDashboardStartup(
             context: container.mainContext,
             autoScanOnLaunch: true
         )
+        XCTAssertEqual(deferredFollowUp, .deferredInitialAutoScan)
+        await localViewModel.runDeferredStartupAutoScan(context: container.mainContext)
         XCTAssertEqual(localPipeline.scanCallCount, 1, "Startup should run the initial scan once onboarding has been dismissed")
 
-        await localViewModel.handleDashboardStartup(
+        let repeatedFollowUp = await localViewModel.handleDashboardStartup(
             context: container.mainContext,
             autoScanOnLaunch: true
         )
+        XCTAssertEqual(repeatedFollowUp, .none)
         XCTAssertEqual(localPipeline.scanCallCount, 1, "The startup owner should not schedule duplicate initial scans once the first launch scan has completed")
     }
 
@@ -512,11 +516,14 @@ final class DashboardViewModelTests: XCTestCase {
         )
         localViewModel.showOnboarding = false
 
+        let cancelledFollowUp = await localViewModel.handleDashboardStartup(
+            context: container.mainContext,
+            autoScanOnLaunch: true
+        )
+        XCTAssertEqual(cancelledFollowUp, .deferredInitialAutoScan)
+
         let cancelledStartup = Task {
-            await localViewModel.handleDashboardStartup(
-                context: container.mainContext,
-                autoScanOnLaunch: true
-            )
+            await localViewModel.runDeferredStartupAutoScan(context: container.mainContext)
         }
 
         while localPipeline.scanCallCount == 0 {
@@ -528,10 +535,12 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertEqual(localPipeline.cancellationCount, 1, "The first launch attempt should be cancelled during the initial scan")
 
-        await localViewModel.handleDashboardStartup(
+        let retryFollowUp = await localViewModel.handleDashboardStartup(
             context: container.mainContext,
             autoScanOnLaunch: true
         )
+        XCTAssertEqual(retryFollowUp, .deferredInitialAutoScan)
+        await localViewModel.runDeferredStartupAutoScan(context: container.mainContext)
 
         XCTAssertEqual(
             localPipeline.scanCallCount,

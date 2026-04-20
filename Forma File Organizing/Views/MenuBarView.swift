@@ -531,6 +531,9 @@ struct MenuBarView: View {
     }
 }
 
+#if DEBUG
+// `#Preview` still gets compiled in Release/Xcode Cloud, so keep these
+// preview-only references behind the same build flag as the demo view models.
 #Preview("Menu Bar - Pending Destination") {
     MenuBarView(
         viewModel: .previewPendingWithDestination(),
@@ -551,3 +554,4 @@ struct MenuBarView: View {
         autoRefreshOnAppear: false
     )
 }
+#endif

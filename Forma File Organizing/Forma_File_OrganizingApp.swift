@@ -126,6 +126,7 @@ struct Forma_File_OrganizingApp: App {
     ])
 
     init() {
+        StartupTelemetry.mark("app_init_begin")
         let appServices = AppServices()
         let windowPresentationStore = WindowPresentationStore(defaults: Self.windowPresentationDefaults())
         if Self.shouldResetWindowPresentation {
@@ -141,6 +142,7 @@ struct Forma_File_OrganizingApp: App {
                 launchPresentation: Self.launchPresentation
             )
         )
+        StartupTelemetry.mark("app_services_ready")
         let harnessViewModel = _dashboardViewModel.wrappedValue
 
         // Deterministic UI/performance harnesses use an in-memory container with seeded mocks.
@@ -188,6 +190,7 @@ struct Forma_File_OrganizingApp: App {
             } catch {
                 fatalError("Could not create UI Test ModelContainer: \(error)")
             }
+            StartupTelemetry.mark("app_init_harness_container_ready")
             return
         }
 
@@ -200,6 +203,7 @@ struct Forma_File_OrganizingApp: App {
             } catch {
                 fatalError("Could not create Test ModelContainer: \(error)")
             }
+            StartupTelemetry.mark("app_init_test_container_ready")
             return
         }
 
@@ -213,6 +217,7 @@ struct Forma_File_OrganizingApp: App {
             )
 
             container = try ModelContainer(for: Self.appSchema, configurations: [modelConfiguration])
+            StartupTelemetry.mark("model_container_ready")
 
             // Seed default rules
             let context = ModelContext(container)
@@ -261,6 +266,7 @@ struct Forma_File_OrganizingApp: App {
             configureExternalIngress(using: appServices)
 
             scheduleAnalyticsMaintenance(using: appServices)
+            StartupTelemetry.mark("app_init_end")
 
         } catch {
             // FATAL: If the store cannot be opened or migrated, we MUST NOT delete it to try again.

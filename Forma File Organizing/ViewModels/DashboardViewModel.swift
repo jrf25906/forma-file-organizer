@@ -3,6 +3,11 @@ import SwiftUI
 import SwiftData
 import Combine
 
+enum DashboardStartupFollowUp: Equatable {
+    case none
+    case deferredInitialAutoScan
+}
+
 struct TrustedAutomationScopeRecommendationPreviewSummary: Hashable, Sendable {
     let matchedCount: Int
     let eligibleCount: Int
@@ -757,40 +762,73 @@ class DashboardViewModel: ObservableObject {
     func prepareStartupContext(_ context: ModelContext) {
         guard adoptModelContextIfNeeded(context) else { return }
 
+        StartupTelemetry.mark("prepare_startup_context_begin")
         completeModelContextAdoption(context, performsImmediateRefresh: false)
+        StartupTelemetry.mark("prepare_startup_context_end")
     }
 
     func handleDashboardStartup(
         context: ModelContext,
         autoScanOnLaunch: Bool
-    ) async {
+    ) async -> DashboardStartupFollowUp {
+        StartupTelemetry.mark("handle_dashboard_startup_begin")
         prepareStartupContext(context)
         restoreExternalReviewSessionIfNeeded()
 
-        guard !showOnboarding else { return }
-        guard !isStartupFlowRunning else { return }
-
-        isStartupFlowRunning = true
-        defer { isStartupFlowRunning = false }
-
-        _ = await ExternalIngressCoordinator.shared.processPendingRequestIfPossible()
-        restoreExternalReviewSessionIfNeeded()
-        guard !Task.isCancelled else { return }
-
-        if autoScanOnLaunch, !hasCompletedInitialStartupScan {
-            await scanFiles(context: context)
-            guard !Task.isCancelled else { return }
-            hasCompletedInitialStartupScan = true
+        guard !showOnboarding else {
+            StartupTelemetry.mark("handle_dashboard_startup_exit onboarding")
+            return .none
+        }
+        guard !isStartupFlowRunning else {
+            StartupTelemetry.mark("handle_dashboard_startup_exit already_running")
+            return .none
         }
 
-        guard !Task.isCancelled else { return }
+        isStartupFlowRunning = true
+        defer {
+            isStartupFlowRunning = false
+            StartupTelemetry.mark("handle_dashboard_startup_end")
+        }
+
+        StartupTelemetry.mark("external_ingress_begin")
+        _ = await ExternalIngressCoordinator.shared.processPendingRequestIfPossible()
+        StartupTelemetry.mark("external_ingress_end")
+        restoreExternalReviewSessionIfNeeded()
+        guard !Task.isCancelled else { return .none }
+
+        if autoScanOnLaunch, !hasCompletedInitialStartupScan {
+            StartupTelemetry.mark("startup_auto_scan_deferred")
+            return .deferredInitialAutoScan
+        } else {
+            StartupTelemetry.mark("startup_auto_scan_skipped")
+        }
+
+        guard !Task.isCancelled else { return .none }
         scheduleDeferredStartupMaintenance()
+        StartupTelemetry.mark("deferred_startup_maintenance_scheduled")
+        return .none
+    }
+
+    func runDeferredStartupAutoScan(context: ModelContext) async {
+        guard !hasCompletedInitialStartupScan else {
+            StartupTelemetry.mark("startup_auto_scan_skipped already_completed")
+            return
+        }
+
+        StartupTelemetry.mark("startup_auto_scan_begin")
+        await scanFiles(context: context)
+        guard !Task.isCancelled else { return }
+        guard hasCompletedInitialStartupScan else { return }
+        StartupTelemetry.mark("startup_auto_scan_end")
+        scheduleDeferredStartupMaintenance()
+        StartupTelemetry.mark("deferred_startup_maintenance_scheduled")
     }
 
     private func completeModelContextAdoption(
         _ context: ModelContext,
         performsImmediateRefresh: Bool
     ) {
+        StartupTelemetry.mark("model_context_adoption_begin immediateRefresh=\(performsImmediateRefresh)")
         do {
             _ = try HistoryRetentionService(modelContext: context).pruneAllHistory()
         } catch {
@@ -821,6 +859,8 @@ class DashboardViewModel: ObservableObject {
             filterViewModel.applyFilterImmediately()
         }
         #endif
+
+        StartupTelemetry.mark("model_context_adoption_end immediateRefresh=\(performsImmediateRefresh)")
     }
 
     private func scheduleDeferredStartupMaintenance() {
@@ -856,12 +896,16 @@ class DashboardViewModel: ObservableObject {
     // MARK: - File Scanning (Delegated to FileScanViewModel)
 
     func scanFiles(context: ModelContext) async {
+        guard !scanViewModel.isScanning else { return }
+
         let loadedRules = loadRules(from: context)
         await scanRefreshController.scanFiles(
             context: context,
             rules: loadedRules,
             actions: makeScanRefreshActions()
         )
+        guard !Task.isCancelled else { return }
+        hasCompletedInitialStartupScan = true
     }
 
     func refresh(context: ModelContext) async {

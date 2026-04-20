@@ -116,6 +116,39 @@ struct DashboardView: View {
         shouldFocusSearch = true
     }
 
+    @MainActor
+    private func scheduleStartupFollowUp(_ followUp: DashboardStartupFollowUp) {
+        guard followUp == .deferredInitialAutoScan else { return }
+
+        scanTask?.cancel()
+        scanTask = Task { @MainActor in
+            StartupTelemetry.mark("startup_auto_scan_waiting_for_window")
+            await waitForVisibleWindow()
+            guard !Task.isCancelled else { return }
+            StartupTelemetry.mark("startup_auto_scan_window_visible")
+            await dashboardViewModel.runDeferredStartupAutoScan(context: modelContext)
+            scanTask = nil
+        }
+    }
+
+    @MainActor
+    private func waitForVisibleWindow(timeout: Duration = .seconds(2)) async {
+        let clock = ContinuousClock()
+        let start = clock.now
+
+        while !Task.isCancelled {
+            if NSApp.windows.contains(where: { $0.isVisible }) {
+                return
+            }
+
+            if clock.now - start >= timeout {
+                return
+            }
+
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+    }
+
     private var splitLayoutMode: String {
         usesThreeColumnLayout ? "threeColumn" : "twoColumn"
     }
@@ -293,19 +326,26 @@ struct DashboardView: View {
         .environmentObject(nav)
         .preferredColorScheme(AppearanceMode(rawValue: appearanceMode)?.colorScheme)
         .task {
+            StartupTelemetry.mark("dashboard_task_begin autoScanOnLaunch=\(autoScanOnLaunch)")
             dashboardViewModel.prepareStartupContext(modelContext)
             if shouldRunPerfSignpostHarness {
+                StartupTelemetry.mark("dashboard_task_end perf_harness")
                 return
             }
             // In UI tests, we rely on DashboardViewModel mock data and skip
             // real file system scanning for determinism.
             if CommandLine.arguments.contains("--uitesting") {
+                StartupTelemetry.mark("dashboard_task_end ui_testing")
                 return
             }
-            await dashboardViewModel.handleDashboardStartup(
+            let followUp = await dashboardViewModel.handleDashboardStartup(
                 context: modelContext,
                 autoScanOnLaunch: autoScanOnLaunch
             )
+            await MainActor.run {
+                scheduleStartupFollowUp(followUp)
+            }
+            StartupTelemetry.mark("dashboard_task_end")
         }
         .sheet(isPresented: $dashboardViewModel.showOnboarding) {
             OnboardingFlowView()
@@ -314,12 +354,14 @@ struct DashboardView: View {
         .onChange(of: dashboardViewModel.showOnboarding) { wasShowingOnboarding, isShowingOnboarding in
             // Trigger scan when onboarding completes (was showing, now dismissed)
             if wasShowingOnboarding && !isShowingOnboarding {
-                scanTask?.cancel()
-                scanTask = Task {
-                    await dashboardViewModel.handleDashboardStartup(
+                Task {
+                    let followUp = await dashboardViewModel.handleDashboardStartup(
                         context: modelContext,
                         autoScanOnLaunch: autoScanOnLaunch
                     )
+                    await MainActor.run {
+                        scheduleStartupFollowUp(followUp)
+                    }
                 }
                 // Show guided tour after onboarding with delay for frames to populate
                 Task { @MainActor in
@@ -330,6 +372,7 @@ struct DashboardView: View {
         }
         .onDisappear {
             scanTask?.cancel()
+            scanTask = nil
         }
         .onReceive(NotificationCenter.default.publisher(for: .replayGuidedTour)) { _ in
             tourState.replayTour()

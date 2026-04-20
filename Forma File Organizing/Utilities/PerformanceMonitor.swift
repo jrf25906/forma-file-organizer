@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import os
 
 /// Centralized performance monitoring utility using OSSignpost for Instruments integration.
@@ -307,5 +308,29 @@ extension PerformanceMonitor {
     static func endFileScan(id: OSSignpostID? = nil, fileCount: Int? = nil) {
         let metadata = fileCount.map { "\($0) files" }
         shared.end(.fileScan, id: id, metadata: metadata)
+    }
+}
+
+enum StartupTelemetry {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "jamesfarmer.Forma-File-Organizing",
+        category: "Startup"
+    )
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var referenceUptime: TimeInterval?
+
+    @discardableResult
+    static func mark(_ label: String) -> TimeInterval {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let now = ProcessInfo.processInfo.systemUptime
+        if referenceUptime == nil {
+            referenceUptime = now
+        }
+
+        let elapsedMs = ((now - (referenceUptime ?? now)) * 1000.0).rounded()
+        logger.info("\(label, privacy: .public) t=\(Int(elapsedMs), privacy: .public)ms")
+        return elapsedMs
     }
 }
