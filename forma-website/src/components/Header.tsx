@@ -48,7 +48,7 @@ export function Header() {
       >
         <div className={`site-container pointer-events-auto ${HEADER_SHELL_LAYOUT.topInsetClassName}`}>
           <FormaShellCard
-            variant="floating"
+            tone="floating"
             data-shell-mode={shellMode}
             className={cn(
               HEADER_SHELL_LAYOUT.baseShellClassName,

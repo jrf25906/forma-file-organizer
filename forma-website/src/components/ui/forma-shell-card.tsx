@@ -1,34 +1,27 @@
-import * as React from "react"
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import type { ComponentProps } from "react";
 
-import { Card } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
+type FormaShellCardProps = ComponentProps<typeof Card> & {
+  /**
+   * "canvas"  — default; clean outlined card on warm canvas, minimal shadow
+   * "anchor"  — dark scoped anchor (product shell, hero-adjacent)
+   * "floating" — translucent header treatment (Header.tsx floating pill)
+   */
+  tone?: "canvas" | "anchor" | "floating";
+};
 
-const SHELL_CARD_VARIANTS = {
-  default:
-    "rounded-2xl border border-[var(--shell-border)] bg-[var(--shell-surface)] text-[var(--text-primary)] shadow-[var(--shell-shadow)] ring-0",
+const TONE_CLASS = {
+  canvas:
+    "rounded-2xl border border-[var(--rule-faint)] bg-[var(--canvas-paper)] text-[var(--ink-primary)] shadow-[var(--shell-shadow-soft)] ring-0",
+  anchor:
+    "anchor-dark rounded-2xl border border-[var(--rule-faint)] bg-[var(--shell-surface)] text-[var(--ink-primary)] shadow-[var(--shell-shadow)] ring-0",
   floating:
-    "rounded-2xl border border-[var(--header-shell-border)] bg-[var(--header-shell-surface)] text-[var(--text-primary)] shadow-[var(--header-shell-shadow)] ring-0 backdrop-blur-xl backdrop-saturate-150",
-} as const
+    "rounded-2xl border border-[var(--header-shell-border)] bg-[var(--header-shell-surface)] text-[var(--ink-primary)] shadow-[var(--header-shell-shadow)] ring-0 backdrop-blur-xl backdrop-saturate-150",
+} as const;
 
-type FormaShellCardProps = React.ComponentProps<typeof Card> & {
-  variant?: keyof typeof SHELL_CARD_VARIANTS
+function FormaShellCard({ tone = "canvas", className, ...props }: FormaShellCardProps) {
+  return <Card className={cn(TONE_CLASS[tone], className)} {...props} />;
 }
 
-function FormaShellCard({
-  className,
-  variant = "default",
-  ...props
-}: FormaShellCardProps) {
-  return (
-    <Card
-      data-shell-variant={variant}
-      className={cn(
-        SHELL_CARD_VARIANTS[variant],
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-export { FormaShellCard }
+export { FormaShellCard };
