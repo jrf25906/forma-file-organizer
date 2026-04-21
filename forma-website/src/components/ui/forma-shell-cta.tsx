@@ -10,7 +10,7 @@ export const formaShellCtaVariants = cva(
         secondary:
           "border-[var(--shell-cta-secondary-border)] bg-[var(--shell-cta-secondary-bg)] text-[var(--shell-cta-secondary-text)] hover:bg-[var(--shell-cta-secondary-bg-hover)]",
         ghost:
-          "border-transparent bg-transparent text-[var(--ink-secondary)] hover:bg-[rgba(26,26,26,0.04)] hover:text-[var(--ink-primary)]",
+          "border-transparent bg-transparent text-[var(--ink-secondary)] hover:bg-[var(--rule-faint)] hover:text-[var(--ink-primary)]",
       },
     },
     defaultVariants: { variant: "primary" },
