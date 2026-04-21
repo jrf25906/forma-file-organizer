@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
+
+// useLayoutEffect warns during SSR; fall back to useEffect on the server.
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function subscribeReducedMotion(onChange: () => void) {
   if (typeof window === "undefined") return () => {};
@@ -61,11 +64,25 @@ export function ScribeLine({
 }: ScribeLineProps) {
   const ref = useRef<SVGPathElement>(null);
   const [entered, setEntered] = useState(false);
+  // Measured path length. 0 until the path mounts, then set from getTotalLength().
+  const [pathLength, setPathLength] = useState(0);
   const reducedMotion = useSyncExternalStore(
     subscribeReducedMotion,
     getReducedMotionSnapshot,
     getReducedMotionServerSnapshot
   );
+
+  // Measure the actual path length on mount. Falls back to 320 if measurement fails.
+  useIsomorphicLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    try {
+      const measured = node.getTotalLength();
+      setPathLength(Number.isFinite(measured) && measured > 0 ? measured : 320);
+    } catch {
+      setPathLength(320);
+    }
+  }, [path]);
 
   useEffect(() => {
     const node = ref.current;
@@ -84,11 +101,11 @@ export function ScribeLine({
   }, []);
 
   const animate = shouldAnimateScribe({ reducedMotion });
-  const length = 320;
+  const effectiveLength = pathLength || 320;
   const style: CSSProperties = animate
     ? {
-        strokeDasharray: strokeDasharray ?? `${length} ${length}`,
-        strokeDashoffset: entered ? 0 : length,
+        strokeDasharray: strokeDasharray ?? `${effectiveLength} ${effectiveLength}`,
+        strokeDashoffset: entered ? 0 : effectiveLength,
         transition: `stroke-dashoffset ${durationMs}ms cubic-bezier(0.22, 1, 0.36, 1) ${delayMs}ms`,
       }
     : { strokeDasharray, strokeDashoffset: 0 };
