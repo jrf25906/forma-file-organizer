@@ -132,24 +132,24 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
         <Link
           href="/blog"
-          className="inline-flex text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+          className="inline-flex text-sm text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
         >
           &larr; Back to guides
         </Link>
 
         <article className="mt-6">
-          <header className="border-b border-[var(--border-subtle)] pb-8">
-            <p className="text-xs text-[var(--text-muted)]">
+          <header className="border-b border-[var(--rule-faint)] pb-8">
+            <p className="text-xs text-[var(--ink-faint)]">
               {formatDate(post.publishedAt)} · Updated {formatDate(post.updatedAt)}{" "}
               · {post.readingTimeMinutes} min read
             </p>
-            <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-[-0.02em] text-[var(--text-primary)] md:text-5xl">
+            <h1 className="display-lg mt-3 text-[var(--ink-primary)]">
               {post.title}
             </h1>
-            <p className="mt-4 text-base leading-relaxed text-[var(--text-secondary)]">
+            <p className="prose-editorial mt-4">
               {post.description}
             </p>
-            <p className="mt-3 text-sm text-[var(--text-muted)]">
+            <p className="mt-3 text-sm text-[var(--ink-faint)]">
               By {post.author}
             </p>
           </header>
@@ -163,16 +163,16 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             className="mt-8"
           />
 
-          <div className="mt-8 rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7 shadow-[0_18px_40px_rgba(15,18,24,0.05)] md:p-8">
+          <article className="mt-8 max-w-[68ch]">
             <div className="blog-content">{post.content}</div>
-          </div>
+          </article>
         </article>
 
-        <section className="mt-12 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+        <section className="mt-12 rounded-2xl border border-[var(--rule-faint)] bg-[var(--canvas-bone)] p-7">
+          <h2 className="font-display text-[1.5rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)]">
             Apply this workflow with Forma
           </h2>
-          <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+          <p className="mt-3 text-[15px] leading-relaxed text-[var(--ink-secondary)]">
             Set rules in plain language, preview every change, and undo the recent batch if something was wrong.
           </p>
           <div className="mt-5">
@@ -192,8 +192,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         </section>
 
         {relatedPosts.length > 0 ? (
-          <section className="mt-10 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
-            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+          <section className="mt-10 rounded-2xl border border-[var(--rule-faint)] bg-[var(--canvas-bone)] p-7">
+            <h2 className="font-display text-[1.5rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)]">
               Related guides
             </h2>
             <ul className="mt-4 space-y-3">

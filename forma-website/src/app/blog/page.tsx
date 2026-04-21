@@ -27,15 +27,13 @@ export default async function BlogIndexPage() {
 
   return (
     <main id="main-content" className={`relative ${HEADER_SHELL_LAYOUT.routeClearanceClassName}`}>
-      <div className="site-container mx-auto max-w-4xl">
-        <header className="mb-10 border-b border-[var(--border-subtle)] pb-8">
-          <p className="mb-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            Guides
-          </p>
-          <h1 className="text-4xl font-semibold tracking-[-0.02em] text-[var(--text-primary)] md:text-5xl">
+      <section className="mx-auto w-full max-w-[1100px] px-6">
+        <header className="mb-12 border-b border-[var(--rule-faint)] pb-10">
+          <p className="eyebrow">Guides</p>
+          <h1 className="display-lg mt-5 text-[var(--ink-primary)]">
             Practical guides for organizing Mac files
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--text-secondary)]">
+          <p className="prose-editorial mt-5">
             Step-by-step workflows you can apply right away, without adding more complexity.
           </p>
         </header>
@@ -45,48 +43,47 @@ export default async function BlogIndexPage() {
           title="Read the workflow. Then run it in Forma."
           body="These guides are built around the same preview-first system Forma uses in the app: write the rule, review the batch, and approve only what belongs."
           eventLocation="blog_index_top"
-          className="mb-10"
+          className="mb-12"
         />
 
-        <section className="space-y-4" aria-label="Blog posts">
+        <ul className="space-y-4" aria-label="Blog posts">
           {posts.map((post) => (
-            <article
-              key={post.slug}
-              className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6 transition-colors hover:border-[var(--border-medium)]"
-            >
-              <p className="text-xs text-[var(--text-muted)]">
-                {post.publishedAt} · {post.readingTimeMinutes} min read
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
-                <Link href={`/blog/${post.slug}`} className="hover:underline">
-                  {post.title}
-                </Link>
-              </h2>
-              <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-                {post.description}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {post.tags.slice(0, 3).map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full border border-[var(--border-medium)] px-2.5 py-1 text-xs text-[var(--text-muted)]"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </article>
+            <li key={post.slug}>
+              <article className="rounded-2xl border border-[var(--rule-faint)] bg-[var(--canvas-bone)] p-8 transition-colors hover:border-[var(--rule-strong)]">
+                <p className="text-xs text-[var(--ink-faint)]">
+                  {post.publishedAt} · {post.readingTimeMinutes} min read
+                </p>
+                <h2 className="mt-3 font-display text-[1.625rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)]">
+                  <Link href={`/blog/${post.slug}`} className="hover:underline">
+                    {post.title}
+                  </Link>
+                </h2>
+                <p className="mt-3 text-[15px] leading-relaxed text-[var(--ink-secondary)]">
+                  {post.description}
+                </p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {post.tags.slice(0, 3).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-[var(--rule-faint)] px-2.5 py-1 text-xs text-[var(--ink-faint)]"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            </li>
           ))}
-        </section>
+        </ul>
 
-        <section className="mt-12 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-7">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+        <section className="mt-16 rounded-2xl border border-[var(--rule-faint)] bg-[var(--canvas-bone)] p-8">
+          <h2 className="font-display text-[1.5rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)]">
             Put this into practice on your Mac
           </h2>
-          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
+          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-[var(--ink-secondary)]">
             Build preview-first rules, review every move, and undo when needed.
           </p>
-          <div className="mt-5">
+          <div className="mt-6">
             <TrackedAppStoreLink
               location="blog_inline"
               extraEvents={[
@@ -101,7 +98,7 @@ export default async function BlogIndexPage() {
             </TrackedAppStoreLink>
           </div>
         </section>
-      </div>
+      </section>
     </main>
   );
 }
