@@ -272,6 +272,12 @@ export default function Home() {
           <div className="mx-auto w-full max-w-[1200px] px-6">
             <ScrollReveal direction="up" distance={24}>
               <div className="max-w-2xl">
+                <MonoLabel
+                  variant="fig"
+                  className="mb-3 flex items-center gap-2.5 before:block before:h-px before:w-7 before:bg-[var(--ink-draft)]"
+                >
+                  FIG.&nbsp;04 · BEFORE &amp; AFTER
+                </MonoLabel>
                 <p className="eyebrow">Before and after</p>
                 <h2 id="before-after-heading" className="display-lg mt-5 text-[var(--ink-primary)]">
                   One rule. Hundreds of files. Zero guilt.
@@ -283,7 +289,13 @@ export default function Home() {
             </ScrollReveal>
 
             <ScrollReveal direction="up" distance={30} className="mt-12">
-              <FormaBeforeAfter />
+              <DraftedPlate
+                dimensionTop="— 840 files → 4 folders —"
+                innerClassName="p-3 md:p-4"
+                className="bg-transparent"
+              >
+                <FormaBeforeAfter />
+              </DraftedPlate>
             </ScrollReveal>
           </div>
         </section>
