@@ -105,7 +105,7 @@ describe("Header DOM behavior", () => {
     expect(header).not.toBeNull()
     expect(header?.getAttribute("data-header-shell-mode")).toBe("top")
     expect(
-      container.querySelector('[data-shell-variant="floating"]')?.getAttribute("data-shell-mode")
+      container.querySelector('[data-shell-mode]')?.getAttribute("data-shell-mode")
     ).toBe("top")
 
     const topNav = container.querySelector('nav[aria-label="Main navigation"]')
@@ -129,7 +129,7 @@ describe("Header DOM behavior", () => {
     const scrolledHeader = container.querySelector('[data-header-shell="floating"]')
     expect(scrolledHeader?.getAttribute("data-header-shell-mode")).toBe("scrolled")
     expect(
-      container.querySelector('[data-shell-variant="floating"]')?.getAttribute("data-shell-mode")
+      container.querySelector('[data-shell-mode]')?.getAttribute("data-shell-mode")
     ).toBe("scrolled")
 
     const scrolledNav = container.querySelector('nav[aria-label="Main navigation"]')
@@ -195,7 +195,7 @@ describe("Header DOM behavior", () => {
     const scrolledHeader = container.querySelector('[data-header-shell="floating"]')
     expect(scrolledHeader?.getAttribute("data-header-shell-mode")).toBe("scrolled")
     expect(
-      container.querySelector('[data-shell-variant="floating"]')?.getAttribute("data-shell-mode")
+      container.querySelector('[data-shell-mode]')?.getAttribute("data-shell-mode")
     ).toBe("scrolled")
   })
 })

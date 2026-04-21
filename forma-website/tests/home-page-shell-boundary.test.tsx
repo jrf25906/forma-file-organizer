@@ -27,17 +27,20 @@ describe("Home", () => {
     expect(heroSection).toContain('data-hero-clearance="floating-header-shell"')
     expect(heroSection).toContain('<h1 data-hero="headline"')
     expect(heroSection).toContain('data-hero="window"')
-    expect(heroSection).toContain("bg-transparent")
+    // bg-transparent was removed in the canvas redesign; the hero now inherits
+    // canvas-paper from the body via HeroCanvasBackground. Verify the layout
+    // contract attributes that replaced it are still present instead.
+    expect(heroSection).toContain('data-hero-layout=')
     clearanceClasses.forEach((className) => {
       expect(heroSection).toContain(className)
     })
     expect(heroSection).not.toContain("rounded-[2.25rem]")
     expect(heroSection).not.toContain("shadow-[var(--shell-shadow)]")
 
-    expect(pricingSection).toContain("border-y border-[var(--shell-border)]")
-    expect(pricingSection).toContain("bg-[var(--bg-secondary)]")
-    expect(pricingSection).toContain("rounded-[2.25rem]")
-    expect(pricingSection).toContain("bg-[var(--shell-surface)]")
-    expect(pricingSection).toContain("shadow-[var(--shell-shadow)]")
+    // Canvas redesign: pricing section uses rule-faint border and canvas-paper surface.
+    expect(pricingSection).toContain("border-y border-[var(--rule-faint)]")
+    expect(pricingSection).toContain("bg-[var(--canvas-paper)]")
+    // The pricing card uses an anchor-dark shell with its own bespoke shadow.
+    expect(pricingSection).toContain("anchor-dark")
   })
 })

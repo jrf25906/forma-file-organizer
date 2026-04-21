@@ -53,7 +53,9 @@ function firstInnerDiv(html: string) {
 }
 
 function firstFloatingShell(html: string) {
-  const match = html.match(/<div\b[^>]*data-shell-variant="floating"[^>]*>/)
+  // FormaShellCard with tone="floating" no longer writes data-shell-variant.
+  // Identify it by the backdrop-blur-xl class that the floating tone always applies.
+  const match = html.match(/<div\b[^>]*\bbackdrop-blur-xl\b[^>]*>/)
 
   if (!match) {
     throw new Error("Missing floating shell card")

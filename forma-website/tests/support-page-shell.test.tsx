@@ -7,7 +7,10 @@ import { SUPPORT_EMAIL } from "../src/lib/site"
 describe("SupportPage", () => {
   it("keeps a single page-level h1 while using shell cards for the support sections", () => {
     const html = renderToStaticMarkup(<SupportPage />)
-    const cardShadowMatches = html.match(/shadow-\[var\(--shell-shadow\)\]/g)
+    // The outer decorative shell wrapper was removed in Task 16; the three inner
+    // section cards (Contact, Quick fixes, Guides) use FormaShellCard tone="canvas"
+    // which renders shadow-[var(--shell-shadow-soft)].
+    const cardShadowMatches = html.match(/shadow-\[var\(--shell-shadow-soft\)\]/g)
 
     expect(html).toContain("<h1")
     expect(html).toContain(">Support without a ticket maze</h1>")
