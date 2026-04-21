@@ -5,7 +5,7 @@ export const HEADER_SHELL_LAYOUT = {
   topMode: "top",
   scrolledMode: "scrolled",
   baseShellClassName:
-    "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out data-[shell-mode=top]:border-[var(--header-shell-surface-top-border)] data-[shell-mode=top]:bg-[var(--header-shell-surface-top)] data-[shell-mode=top]:shadow-[var(--header-shell-shadow-top)] data-[shell-mode=scrolled]:anchor-dark data-[shell-mode=scrolled]:border-[var(--header-shell-surface-scrolled-border)] data-[shell-mode=scrolled]:bg-[var(--header-shell-surface-scrolled)] data-[shell-mode=scrolled]:shadow-[var(--header-shell-shadow-scrolled)]",
+    "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out data-[shell-mode=top]:border-[var(--header-shell-surface-top-border)] data-[shell-mode=top]:bg-[var(--header-shell-surface-top)] data-[shell-mode=top]:shadow-[var(--header-shell-shadow-top)] data-[shell-mode=scrolled]:border-[var(--header-shell-surface-scrolled-border)] data-[shell-mode=scrolled]:bg-[var(--header-shell-surface-scrolled)] data-[shell-mode=scrolled]:shadow-[var(--header-shell-shadow-scrolled)]",
   topStateShellClassName:
     "flex items-center justify-between gap-2.5 px-3.5 md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-4 md:px-4",
   scrolledStateShellClassName:

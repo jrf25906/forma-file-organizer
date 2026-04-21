@@ -55,7 +55,8 @@ export function Header() {
               HEADER_SHELL_LAYOUT.cardHeightClassName,
               shellMode === HEADER_SHELL_LAYOUT.topMode
                 ? HEADER_SHELL_LAYOUT.topStateShellClassName
-                : HEADER_SHELL_LAYOUT.scrolledStateShellClassName
+                : HEADER_SHELL_LAYOUT.scrolledStateShellClassName,
+              shellMode === HEADER_SHELL_LAYOUT.scrolledMode && "anchor-dark"
             )}
           >
             <Link

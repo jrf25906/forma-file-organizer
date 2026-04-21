@@ -561,6 +561,19 @@
   --shell-cta-secondary-bg-hover: rgba(255, 255, 255, 0.08);
   --shell-cta-secondary-text:     #F0F0F2;
   --shell-cta-secondary-border:   rgba(255, 255, 255, 0.12);
+
+  /* Legacy aliases — rescope so unlayered rules like h1-h6 { color: var(--text-primary) } pick up dark ink */
+  --text-primary:   #F0F0F2;
+  --text-secondary: rgba(240, 240, 242, 0.7);
+  --text-muted:     rgba(240, 240, 242, 0.48);
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-medium:  rgba(255, 255, 255, 0.14);
+
+  /* Header nav tokens — so nav container inside a scrolled anchor-dark pill doesn't flash light */
+  --header-shell-surface-muted:  rgba(255, 255, 255, 0.06);
+  --header-shell-surface-strong: rgba(255, 255, 255, 0.10);
+  --header-shell-border:         rgba(255, 255, 255, 0.10);
+
   color-scheme: dark;
 }
 
