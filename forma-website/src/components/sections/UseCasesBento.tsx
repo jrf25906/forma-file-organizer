@@ -674,18 +674,6 @@ const trustSignals = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SUBSECTION LABEL
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function SubsectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-5 text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-      {children}
-    </p>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
    EXPORTED SECTION
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -697,7 +685,7 @@ export default function UseCasesBento() {
     >
       <div className="mx-auto w-full max-w-[1200px] px-6">
         <FormaShellSectionHeading
-          eyebrow="Who it's for"
+          eyebrow="Where it clicks"
           title="Start with the folder that bothers you most."
           description="One rule, one folder, one visible payoff. Expand from there."
           size="lg"
