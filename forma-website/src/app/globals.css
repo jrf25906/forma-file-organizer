@@ -760,7 +760,7 @@ input, textarea { background-color: var(--input-bg); border-color: var(--input-b
   }
   .btn-primary {
     @apply px-6 py-3 rounded-xl font-medium;
-    font-family: var(--font-display);
+    font-family: var(--font-newsreader);
     background: linear-gradient(135deg, var(--forma-steel-blue) 0%, #5B7C99 100%);
     box-shadow: 0 4px 16px rgba(91, 124, 153, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
     transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, filter 0.2s ease-out;
@@ -885,7 +885,7 @@ footer[role="contentinfo"] .forma-logo-dot {
 
 /* Blog content typography */
 .blog-content {
-  font-family: var(--font-body);
+  font-family: var(--font-inter-tight);
   font-size: 1.0625rem;
   line-height: 1.7;
   color: var(--ink-primary);
@@ -897,7 +897,7 @@ footer[role="contentinfo"] .forma-logo-dot {
 }
 
 .blog-content h2 {
-  font-family: var(--font-display);
+  font-family: var(--font-newsreader);
   font-weight: 500;
   font-size: 1.875rem;
   line-height: 1.15;
@@ -913,7 +913,7 @@ footer[role="contentinfo"] .forma-logo-dot {
 }
 
 .blog-content h3 {
-  font-family: var(--font-display);
+  font-family: var(--font-newsreader);
   font-weight: 500;
   font-size: 1.375rem;
   line-height: 1.2;
@@ -970,7 +970,7 @@ footer[role="contentinfo"] .forma-logo-dot {
 .blog-content blockquote {
   border-left: 2px solid var(--rule-strong);
   padding-left: 1em;
-  font-family: var(--font-display);
+  font-family: var(--font-newsreader);
   font-size: 1.25rem;
   color: var(--ink-primary);
 }
@@ -983,54 +983,50 @@ footer[role="contentinfo"] .forma-logo-dot {
   html {
     @apply font-sans;}}
 
-@layer utilities {
-  .font-display {
-    font-family: var(--font-display);
-    font-feature-settings: "ss01";
-    font-optical-sizing: auto;
-  }
-
-  .display-xl {
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(2.75rem, 4vw + 1rem, 5.25rem);
-    line-height: 1.02;
-    letter-spacing: -0.02em;
-    text-wrap: balance;
-  }
-
-  .display-lg {
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(2.25rem, 2.5vw + 1rem, 3.75rem);
-    line-height: 1.05;
-    letter-spacing: -0.015em;
-    text-wrap: balance;
-  }
-
-  .display-md {
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(1.75rem, 1.5vw + 1rem, 2.5rem);
-    line-height: 1.1;
-    letter-spacing: -0.01em;
-    text-wrap: balance;
-  }
-
-  .prose-editorial {
-    font-size: 1.0625rem;
-    line-height: 1.65;
-    color: var(--ink-secondary);
-    max-width: 64ch;
-    text-wrap: pretty;
-  }
-
-  .eyebrow {
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-  }
+/* Editorial typography utilities — plain selectors (Tailwind v4 @layer/utility in this setup don't compile reliably) */
+.display-xl {
+  font-family: var(--font-newsreader);
+  font-weight: 500;
+  font-size: clamp(2.75rem, 4vw + 1rem, 5.25rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
+
+.display-lg {
+  font-family: var(--font-newsreader);
+  font-weight: 500;
+  font-size: clamp(2.25rem, 2.5vw + 1rem, 3.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.display-md {
+  font-family: var(--font-newsreader);
+  font-weight: 500;
+  font-size: clamp(1.75rem, 1.5vw + 1rem, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.prose-editorial {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--ink-secondary);
+  max-width: 64ch;
+  text-wrap: pretty;
+}
+
+.eyebrow {
+  font-family: var(--font-inter-tight);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* Font-loading CLS prevention rule at line 681 remains — it sets transition only.
+   Typographic properties for .font-display are applied via component usage of display-* utilities. */
