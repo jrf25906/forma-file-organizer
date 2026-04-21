@@ -2,24 +2,34 @@ import SwiftUI
 import SwiftData
 import AppKit
 
-struct DashboardSplitViewPolicy {
-    static func visibility(for isInspectorVisible: Bool) -> NavigationSplitViewVisibility {
-        isInspectorVisible ? .all : .doubleColumn
+struct DashboardSplitLayoutConfiguration {
+    enum Arrangement: String {
+        case sidebarAndContent
+        case sidebarAndRightPanel
+        case sidebarContentAndInspector
     }
 
-    static func explicitInspectorVisibility(for visibility: NavigationSplitViewVisibility) -> Bool? {
-        switch visibility {
-        case .all:
-            true
-        case .doubleColumn:
-            false
-        default:
-            nil
+    let isInspectorVisible: Bool
+    let showsAnalyticsAsPrimaryDetail: Bool
+
+    var arrangement: Arrangement {
+        if showsAnalyticsAsPrimaryDetail {
+            return .sidebarAndRightPanel
         }
+
+        if isInspectorVisible {
+            return .sidebarContentAndInspector
+        }
+
+        return .sidebarAndContent
     }
 
-    static func isInspectorVisible(for visibility: NavigationSplitViewVisibility) -> Bool {
-        visibility != .doubleColumn
+    var usesThreeColumnLayout: Bool {
+        arrangement == .sidebarContentAndInspector
+    }
+
+    var mode: String {
+        usesThreeColumnLayout ? "threeColumn" : "twoColumn"
     }
 }
 
@@ -150,7 +160,7 @@ struct DashboardView: View {
     }
 
     private var splitLayoutMode: String {
-        usesThreeColumnLayout ? "threeColumn" : "twoColumn"
+        splitLayoutConfiguration.mode
     }
 
     private var showsAnalyticsAsPrimaryDetail: Bool {
@@ -160,24 +170,23 @@ struct DashboardView: View {
         return false
     }
 
-    private var usesThreeColumnLayout: Bool {
-        dashboardViewModel.isRightPanelVisible && !showsAnalyticsAsPrimaryDetail
+    private var splitLayoutArrangement: String {
+        splitLayoutConfiguration.arrangement.rawValue
     }
 
-    private var splitViewColumnVisibility: Binding<NavigationSplitViewVisibility> {
-        Binding(
-            get: {
-                DashboardSplitViewPolicy.visibility(for: usesThreeColumnLayout)
-            },
-            set: { newVisibility in
-                guard !showsAnalyticsAsPrimaryDetail else { return }
-                guard let isInspectorVisible = DashboardSplitViewPolicy.explicitInspectorVisibility(for: newVisibility) else {
-                    return
-                }
-                guard isInspectorVisible != dashboardViewModel.isRightPanelVisible else { return }
-                dashboardViewModel.setRightPanelVisible(isInspectorVisible)
-            }
+    private var inspectorVisibilityState: String {
+        dashboardViewModel.isRightPanelVisible ? "visible" : "hidden"
+    }
+
+    private var splitLayoutConfiguration: DashboardSplitLayoutConfiguration {
+        DashboardSplitLayoutConfiguration(
+            isInspectorVisible: dashboardViewModel.isRightPanelVisible,
+            showsAnalyticsAsPrimaryDetail: showsAnalyticsAsPrimaryDetail
         )
+    }
+
+    private var usesThreeColumnLayout: Bool {
+        splitLayoutConfiguration.usesThreeColumnLayout
     }
 
     private var shouldCollectGuidedTourFrames: Bool {
@@ -214,34 +223,52 @@ struct DashboardView: View {
     }
 
     @ViewBuilder
-    private var centerOrAnalyticsColumn: some View {
-        if usesThreeColumnLayout {
-            centerColumn
+    private var twoColumnDetailColumn: some View {
+        if showsAnalyticsAsPrimaryDetail {
+            rightPanelColumn
         } else {
-            sidebarColumn
+            centerColumn
         }
+    }
+
+    private var analyticsSplitViewLayout: some View {
+        NavigationSplitView {
+            sidebarColumn
+        } detail: {
+            twoColumnDetailColumn
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    private var contentSplitViewLayout: some View {
+        NavigationSplitView {
+            sidebarColumn
+        } detail: {
+            centerColumn
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    private var inspectorSplitViewLayout: some View {
+        NavigationSplitView {
+            sidebarColumn
+        } content: {
+            centerColumn
+        } detail: {
+            rightPanelColumn
+        }
+        .navigationSplitViewStyle(.balanced)
     }
 
     @ViewBuilder
-    private var inspectorDetailColumn: some View {
-        if usesThreeColumnLayout {
-            rightPanelColumn
-        } else if showsAnalyticsAsPrimaryDetail {
-            rightPanelColumn
-        } else {
-            centerColumn
-        }
-    }
-
     private var splitViewLayout: some View {
-        NavigationSplitView(columnVisibility: splitViewColumnVisibility) {
-            sidebarColumn
-        } content: {
-            centerOrAnalyticsColumn
-        } detail: {
-            inspectorDetailColumn
+        if showsAnalyticsAsPrimaryDetail {
+            analyticsSplitViewLayout
+        } else if dashboardViewModel.isRightPanelVisible {
+            inspectorSplitViewLayout
+        } else {
+            contentSplitViewLayout
         }
-        .navigationSplitViewStyle(.balanced)
     }
 
     @ViewBuilder
@@ -283,6 +310,20 @@ struct DashboardView: View {
                         .accessibilityIdentifier("dashboardSplitLayoutProbe")
                         .accessibilityLabel(splitLayoutMode)
                         .accessibilityValue(splitLayoutMode)
+                        .allowsHitTesting(false)
+
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .accessibilityIdentifier("dashboardSplitArrangementProbe")
+                        .accessibilityLabel(splitLayoutArrangement)
+                        .accessibilityValue(splitLayoutArrangement)
+                        .allowsHitTesting(false)
+
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .accessibilityIdentifier("dashboardInspectorVisibilityProbe")
+                        .accessibilityLabel(inspectorVisibilityState)
+                        .accessibilityValue(inspectorVisibilityState)
                         .allowsHitTesting(false)
 
                     // Rule Editor Overlay - Centered Modal

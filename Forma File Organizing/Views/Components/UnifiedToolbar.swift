@@ -189,6 +189,14 @@ struct UnifiedToolbar: View {
         }
         .frame(height: primaryRowHeight)
         .frame(maxWidth: .infinity)
+        .overlay(alignment: .topLeading) {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("toolbarInspectorVisibilityProbe")
+                .accessibilityLabel(isInspectorEffectivelyVisible ? "visible" : "hidden")
+                .accessibilityValue(isInspectorEffectivelyVisible ? "visible" : "hidden")
+                .allowsHitTesting(false)
+        }
         .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
         .animation(.easeInOut(duration: 0.2), value: reviewFilterMode)
         .animation(.easeInOut(duration: 0.2), value: currentViewMode)
@@ -596,10 +604,7 @@ struct UnifiedToolbar: View {
 
     private func toggleInspector() {
         guard !isInspectorDisabled else { return }
-
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            viewModel.setRightPanelVisible(!viewModel.isRightPanelVisible)
-        }
+        viewModel.setRightPanelVisible(!viewModel.isRightPanelVisible)
     }
 
     private func shortSortTitle(_ mode: SortMode) -> String {

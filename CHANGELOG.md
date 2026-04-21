@@ -10,6 +10,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 - Added `script/build_and_run.sh` as the repo-local kill/build/launch entrypoint for the native macOS app, and repointed `.codex/environments/environment.toml` so the Codex app `Run` action now uses that maintained script instead of an inline `xcodebuild && open` chain.
 
 ### Fixed
+- Dashboard split-view layout now keeps the left pane on the real sidebar column in both two-column and three-column states, so hiding or restoring the inspector no longer re-routes the sidebar through the middle column or waits for an inspector toggle to “correct” its structure. The inspector toggle also now uses a shorter transition, and UI coverage asserts the exact sidebar/content/right-panel arrangement for two-column, three-column, and Analytics states.
 - Batched persistence, retention, and onboarding verification:
   - `FileOrganizationCoordinator` now prefetches bulk organize/undo/redo state once, stages file-item, metadata-history, activity, and personal-memory mutations in one `ModelContext`, and performs one persistence save per batch instead of per-file saves.
   - Bulk organize/undo/redo still tolerate per-file move failures, but a final persistence failure now compensates successful disk moves and restores model state so Forma does not leave disk and SwiftData out of sync.
@@ -50,7 +51,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
   - Sidebar and default-panel Analytics actions now reveal the right panel before switching into analytics mode, matching the Smart Rules path instead of silently updating hidden panel state.
   - The old navigation-based Smart Rules/Analytics compatibility path has been removed from `NavigationSelection`, `MainContentView`, and the dashboard default-panel CTA logic so those surfaces no longer carry dead center-column routing branches.
   - `DashboardView` now takes its minimum and preferred window sizing from `FormaSpacing.Window` instead of keeping a stale hardcoded 1200px minimum alongside the newer 1280px layout tokens.
-  - `DashboardView` now keeps one persistent three-column `NavigationSplitView` and drives inspector reveal/collapse through `columnVisibility`, so opening the right panel no longer reassigns the center column or knocks the sidebar/toolbar geometry out of place.
+  - `DashboardView` now uses explicit `sidebar + content`, `sidebar + content + inspector`, and `sidebar + analytics` split-view layouts instead of relying on three-column `.doubleColumn` behavior, so hiding the inspector keeps the real sidebar on-screen and reopening it returns to the expected wide-window geometry without the old slow left-pane morph.
 - Review-flow hierarchy and review-pass clarity:
   - `DashboardViewModel` now groups the active review pass into explicit `Ready to organize`, `Needs review`, and `Needs destination` sections while preserving the existing chunking and deferral model.
   - `MainContentView`, `FileMetaStrip`, and the shared file-surface actions now use outcome-based review verbs (`Organize`, `Review`, `Choose Destination`), add file size to the metadata strip, and promote rule provenance without treating pre-action ready rows as success states.

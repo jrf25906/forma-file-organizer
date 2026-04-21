@@ -53,6 +53,21 @@ final class UITestHarness {
     }
 
     @MainActor
+    func splitArrangementProbe() -> XCUIElement {
+        element(withIdentifier: "dashboardSplitArrangementProbe")
+    }
+
+    @MainActor
+    func dashboardInspectorVisibilityProbe() -> XCUIElement {
+        element(withIdentifier: "dashboardInspectorVisibilityProbe")
+    }
+
+    @MainActor
+    func toolbarInspectorVisibilityProbe() -> XCUIElement {
+        element(withIdentifier: "toolbarInspectorVisibilityProbe")
+    }
+
+    @MainActor
     func inspectorToggle() -> XCUIElement {
         app.buttons["toolbarInspectorToggle"]
     }
@@ -191,7 +206,12 @@ final class UITestHarness {
         let predicate = NSPredicate(format: "value == %@ OR label == %@", value, value)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
-        XCTAssertEqual(result, .completed, "Expected value to be \(value)")
+        let currentValue = (element.value as? String) ?? String(describing: element.value ?? "nil")
+        XCTAssertEqual(
+            result,
+            .completed,
+            "Expected value to be \(value); label='\(element.label)' value='\(currentValue)'"
+        )
     }
 
     @MainActor
@@ -270,6 +290,11 @@ final class UITestHarness {
     @MainActor
     func waitForSplitLayout(_ mode: String, timeout: TimeInterval = 4) {
         waitForValue(splitLayoutProbe(), equals: mode, timeout: timeout)
+    }
+
+    @MainActor
+    func waitForSplitArrangement(_ arrangement: String, timeout: TimeInterval = 4) {
+        waitForValue(splitArrangementProbe(), equals: arrangement, timeout: timeout)
     }
 
     @MainActor

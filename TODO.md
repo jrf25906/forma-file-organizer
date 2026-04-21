@@ -98,8 +98,8 @@ The sections below capture dated implementation slices that have already shipped
 - [x] Align `DashboardView` window sizing with `FormaSpacing.Window` tokens so the shipped 1280px minimum layout no longer competes with a stale hardcoded 1200px frame.
 
 ## Split-View Inspector Stability (April 9, 2026)
-- [x] Keep `DashboardView` on one persistent three-column `NavigationSplitView` and drive inspector reveal/collapse through `NavigationSplitViewVisibility` so opening the right panel no longer reassigns the center column or shifts sidebar/toolbar geometry.
-- [x] Add a focused `DashboardSplitViewPolicy` seam so the inspector-visible state maps cleanly to split-view column visibility alongside the existing medium/large launch and relaunch persistence UI coverage.
+- [x] Keep `DashboardView` on explicit `sidebar + content`, `sidebar + content + inspector`, and `sidebar + analytics` split-view layouts so hiding the inspector keeps the real sidebar visible and reopening it restores the expected wide-window geometry without the old left-pane morph.
+- [x] Add focused split-layout coverage so the hidden/visible inspector states and relaunch persistence are asserted directly alongside the existing medium/large launch UI coverage.
 
 ## Workflow Engine v2 Notify + Log (April 8, 2026)
 - [x] Add `WorkflowInvocationContext` and template-level notification policy so review-driven runs always plan `log`, while trusted-scope `Project Drop Zone` runs can append workflow-native `notify`.

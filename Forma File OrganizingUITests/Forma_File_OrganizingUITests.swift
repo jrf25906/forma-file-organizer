@@ -36,6 +36,8 @@ final class Forma_File_OrganizingUITests: XCTestCase {
             // Pass a launch argument to indicate UI test mode, which can be used
             // to seed mock data or skip onboarding
             app.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
+            app.launchEnvironment["FORMA_UI_TEST_SHOW_ONBOARDING"] = "0"
+            app.launchEnvironment["FORMA_UI_TEST_ACCESSIBLE_FOLDERS"] = "desktop,downloads"
             app.launchEnvironment["FORMA_WINDOW_PRESENTATION_SUITE"] = defaultWindowPresentationSuiteName
             app.launchEnvironment["FORMA_RESET_WINDOW_PRESENTATION"] = "1"
 
@@ -511,6 +513,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         let splitProbe = harness.element(withIdentifier: "dashboardSplitLayoutProbe")
         harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
         harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
+        harness.waitForSplitArrangement("sidebarAndRightPanel", timeout: 4)
 
         let inspectorToggle = harness.element(withIdentifier: "toolbarInspectorToggle")
         if inspectorToggle.waitForExistence(timeout: 1) {
@@ -527,13 +530,19 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         let splitProbe = harness.element(withIdentifier: "dashboardSplitLayoutProbe")
         harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
         harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+        harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "visible", timeout: 4)
+        harness.waitForValue(harness.toolbarInspectorVisibilityProbe(), equals: "visible", timeout: 4)
 
         let inspectorToggle = harness.element(withIdentifier: "toolbarInspectorToggle")
         XCTAssertTrue(inspectorToggle.waitForExistence(timeout: 4), "Inspector toggle should exist")
         XCTAssertTrue(inspectorToggle.isEnabled, "Inspector toggle should be enabled on non-Analytics views")
 
         inspectorToggle.click()
+        harness.waitForValue(harness.toolbarInspectorVisibilityProbe(), equals: "hidden", timeout: 4)
+        harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "hidden", timeout: 4)
         harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
+        harness.waitForSplitArrangement("sidebarAndContent", timeout: 4)
 
         XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4), "Sidebar container should remain visible when inspector is hidden")
         let smartRulesButton = harness.sidebarAction("sidebarAction_smartRules")
@@ -547,14 +556,23 @@ final class Forma_File_OrganizingUITests: XCTestCase {
 
         let splitProbe = harness.element(withIdentifier: "dashboardSplitLayoutProbe")
         harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+        harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "visible", timeout: 4)
+        harness.waitForValue(harness.toolbarInspectorVisibilityProbe(), equals: "visible", timeout: 4)
 
         let inspectorToggle = harness.element(withIdentifier: "toolbarInspectorToggle")
         inspectorToggle.click()
+        harness.waitForValue(harness.toolbarInspectorVisibilityProbe(), equals: "hidden", timeout: 4)
+        harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "hidden", timeout: 4)
         harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
+        harness.waitForSplitArrangement("sidebarAndContent", timeout: 4)
         XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4))
 
         inspectorToggle.click()
+        harness.waitForValue(harness.toolbarInspectorVisibilityProbe(), equals: "visible", timeout: 4)
+        harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "visible", timeout: 4)
         harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
         XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4))
     }
 
@@ -985,6 +1003,8 @@ private extension Forma_File_OrganizingUITests {
 
         let launchedApp = XCUIApplication()
         launchedApp.launchArguments = ["--uitesting", "-ApplePersistenceIgnoreState", "YES"]
+        launchedApp.launchEnvironment["FORMA_UI_TEST_SHOW_ONBOARDING"] = "0"
+        launchedApp.launchEnvironment["FORMA_UI_TEST_ACCESSIBLE_FOLDERS"] = "desktop,downloads"
         launchedApp.launchEnvironment["FORMA_WINDOW_SIZE"] = windowSize
         if let restoredFrame {
             launchedApp.launchEnvironment["FORMA_RESTORED_WINDOW_FRAME"] = restoredFrame

@@ -1,43 +1,37 @@
 import XCTest
-import SwiftUI
 @testable import Forma_File_Organizing
 
-final class DashboardSplitViewPolicyTests: XCTestCase {
-    func testVisibleInspectorUsesAllColumns() {
-        XCTAssertEqual(
-            DashboardSplitViewPolicy.visibility(for: true),
-            .all
+final class DashboardSplitLayoutConfigurationTests: XCTestCase {
+    func testVisibleInspectorUsesThreeColumnArrangement() {
+        let configuration = DashboardSplitLayoutConfiguration(
+            isInspectorVisible: true,
+            showsAnalyticsAsPrimaryDetail: false
         )
+
+        XCTAssertEqual(configuration.arrangement, .sidebarContentAndInspector)
+        XCTAssertTrue(configuration.usesThreeColumnLayout)
+        XCTAssertEqual(configuration.mode, "threeColumn")
     }
 
-    func testHiddenInspectorUsesDoubleColumn() {
-        XCTAssertEqual(
-            DashboardSplitViewPolicy.visibility(for: false),
-            .doubleColumn
+    func testHiddenInspectorUsesSidebarAndContentArrangement() {
+        let configuration = DashboardSplitLayoutConfiguration(
+            isInspectorVisible: false,
+            showsAnalyticsAsPrimaryDetail: false
         )
+
+        XCTAssertEqual(configuration.arrangement, .sidebarAndContent)
+        XCTAssertFalse(configuration.usesThreeColumnLayout)
+        XCTAssertEqual(configuration.mode, "twoColumn")
     }
 
-    func testDoubleColumnVisibilityMapsToHiddenInspector() {
-        XCTAssertFalse(
-            DashboardSplitViewPolicy.isInspectorVisible(for: .doubleColumn)
+    func testAnalyticsKeepsSidebarAndRightPanelArrangement() {
+        let configuration = DashboardSplitLayoutConfiguration(
+            isInspectorVisible: false,
+            showsAnalyticsAsPrimaryDetail: true
         )
-    }
 
-    func testAllVisibilityMapsToVisibleInspector() {
-        XCTAssertTrue(
-            DashboardSplitViewPolicy.isInspectorVisible(for: .all)
-        )
-    }
-
-    func testExplicitInspectorVisibilityTreatsAutomaticAsHiddenFallback() {
-        XCTAssertFalse(
-            DashboardSplitViewPolicy.explicitInspectorVisibility(for: .automatic) ?? true
-        )
-    }
-
-    func testExplicitInspectorVisibilityIgnoresDetailOnlyVisibility() {
-        XCTAssertNil(
-            DashboardSplitViewPolicy.explicitInspectorVisibility(for: .detailOnly)
-        )
+        XCTAssertEqual(configuration.arrangement, .sidebarAndRightPanel)
+        XCTAssertFalse(configuration.usesThreeColumnLayout)
+        XCTAssertEqual(configuration.mode, "twoColumn")
     }
 }
