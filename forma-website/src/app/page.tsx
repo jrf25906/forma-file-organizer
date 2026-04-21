@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 import dynamic from "next/dynamic";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
@@ -41,18 +39,6 @@ const workflowSteps = [
   },
 ] as const;
 
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SECTION COMPONENTS
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function SectionEyebrow({ children }: { children: ReactNode }) {
-  return (
-    <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-forma-steel-blue">
-      {children}
-    </p>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PAGE
@@ -178,14 +164,14 @@ export default function Home() {
         <section
           id="how-it-works"
           aria-labelledby="how-it-works-heading"
-          className="relative z-10 scroll-mt-16 border-b border-[var(--border-subtle)] bg-[var(--workflow-section-bg)] py-24 md:py-32"
+          className="relative z-10 scroll-mt-16 border-b border-[var(--rule-faint)] py-24 md:py-32"
         >
-          <div className="site-container">
-            <div className="mx-auto max-w-5xl md:grid md:grid-cols-[1fr_2fr] md:gap-18 md:items-start">
+          <div className="mx-auto w-full max-w-[1200px] px-6">
+            <div className="md:grid md:grid-cols-[1fr_2fr] md:gap-18 md:items-start">
               {/* Left: section intro */}
               <div className="mb-12 md:mb-0 md:sticky md:top-28">
-                <SectionEyebrow>How Forma works</SectionEyebrow>
-                <h2 id="how-it-works-heading" className="mt-5 text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
+                <p className="eyebrow">How Forma works</p>
+                <h2 id="how-it-works-heading" className="display-lg mt-5 text-[var(--ink-primary)]">
                   Three steps. No manual.
                 </h2>
               </div>
@@ -195,23 +181,23 @@ export default function Home() {
                 {workflowSteps.map((step) => (
                   <div
                     key={step.number}
-                    className="border-t border-[var(--workflow-step-divider)] pt-8 first:border-t-0 first:pt-0"
+                    className="border-t border-[var(--rule-faint)] pt-8 first:border-t-0 first:pt-0"
                   >
                     <div className="flex items-baseline gap-3">
                       <span
                         aria-hidden="true"
-                        className="text-[4rem] font-bold leading-none tracking-[-0.04em] text-[var(--workflow-step-number)] sm:text-[4.5rem] md:text-[5.5rem]"
+                        className="text-[4rem] font-bold leading-none tracking-[-0.04em] text-[var(--ink-faint)] sm:text-[4.5rem] md:text-[5.5rem]"
                       >
                         {step.number}
                       </span>
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--workflow-step-label)]">
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--forma-steel-blue)]">
                         {step.label}
                       </p>
                     </div>
-                    <h3 className="mt-5 text-xl font-semibold tracking-[-0.02em] text-[var(--text-primary)] md:text-[1.65rem]">
+                    <h3 className="mt-5 font-display text-[1.375rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)] md:text-[1.65rem]">
                       {step.title}
                     </h3>
-                    <p className="mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--text-secondary)] md:text-[1.03rem]">
+                    <p className="mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--ink-secondary)] md:text-[1.03rem]">
                       {step.body}
                     </p>
                   </div>
@@ -222,24 +208,22 @@ export default function Home() {
         </section>
 
         {/* ─── BEFORE & AFTER ───────────────────────────────────────────── */}
-        <section aria-labelledby="before-after-heading" className="relative z-10 border-y border-[var(--shell-border)] bg-transparent py-20 md:py-28">
-          <div className="site-container">
-            <ScrollReveal direction="up" distance={24} className="mx-auto max-w-4xl">
-              <div>
-                <SectionEyebrow>Before and after</SectionEyebrow>
-                <h2 id="before-after-heading" className="mt-5 max-w-xl text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
+        <section aria-labelledby="before-after-heading" className="relative z-10 border-y border-[var(--rule-faint)] bg-[var(--canvas-bone)] py-24 md:py-32">
+          <div className="mx-auto w-full max-w-[1200px] px-6">
+            <ScrollReveal direction="up" distance={24}>
+              <div className="max-w-2xl">
+                <p className="eyebrow">Before and after</p>
+                <h2 id="before-after-heading" className="display-lg mt-5 text-[var(--ink-primary)]">
                   One rule. Hundreds of files. Zero guilt.
                 </h2>
-                <p className="mt-5 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
+                <p className="prose-editorial mt-5">
                   That folder you&apos;ve been meaning to clean since 2023? One rule handles it.
                 </p>
               </div>
             </ScrollReveal>
 
-            <ScrollReveal direction="up" distance={30} className="mx-auto mt-8 max-w-4xl">
-              <div>
-                <FormaBeforeAfter />
-              </div>
+            <ScrollReveal direction="up" distance={30} className="mt-12">
+              <FormaBeforeAfter />
             </ScrollReveal>
           </div>
         </section>
@@ -247,75 +231,66 @@ export default function Home() {
         {/* ─── USE CASES (bento cards + trust signals) ──────────────────── */}
         <UseCasesBento />
 
-        {/* ─── OPAQUE BACKGROUND WRAPPER TO HIDE 3D CANVAS BELOW USE CASES ─ */}
-        <div className="relative z-20 bg-[var(--bg-primary)]">
-          {/* ─── PRICING (split card) ─────────────────────────────────────── */}
-          <section
-            id="pricing"
-            aria-labelledby="pricing-heading"
-            className="scroll-mt-16 border-y border-[var(--shell-border)] bg-[var(--bg-secondary)] py-20 md:py-28"
-            style={{
-              backgroundImage:
-                "linear-gradient(135deg, var(--bg-secondary), color-mix(in srgb, var(--forma-warm-orange) 7%, transparent), color-mix(in srgb, var(--forma-steel-blue) 8%, transparent))",
-            }}
-          >
-            <ScrollReveal direction="up" distance={30} className="site-container">
-              <div className="mx-auto max-w-5xl rounded-[2.25rem] border border-[var(--shell-border)] bg-[var(--shell-surface)] p-3 shadow-[var(--shell-shadow)] md:p-4">
-                <div className="overflow-hidden rounded-[1.8rem] border-[3px] border-forma-warm-orange bg-[var(--bg-primary)]">
-                  <div className="grid md:grid-cols-2">
-                    {/* Left: headline */}
-                    <div className="flex flex-col justify-center p-8 md:p-10 lg:p-14">
-                      <SectionEyebrow>Pricing</SectionEyebrow>
-                      <h2 id="pricing-heading" className="mt-5 text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]">
-                        One price. You own it.
-                      </h2>
-                      <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--text-secondary)]">
-                        No account. No cloud. No &ldquo;Pro tier&rdquo; that unlocks the features you actually need. A Mac app. Yours.
-                      </p>
-                    </div>
+        {/* ─── PRICING (split card) ─────────────────────────────────────── */}
+        <section
+          id="pricing"
+          aria-labelledby="pricing-heading"
+          className="scroll-mt-16 border-y border-[var(--rule-faint)] py-24 md:py-32"
+        >
+          <ScrollReveal direction="up" distance={30} className="mx-auto w-full max-w-[1200px] px-6">
+            <div className="anchor-dark overflow-hidden rounded-[1.8rem] border border-[var(--rule-faint)] bg-[var(--canvas-paper)] shadow-[0_40px_80px_rgba(60,48,24,0.14)]">
+              <div className="grid md:grid-cols-2">
+                {/* Left: headline */}
+                <div className="flex flex-col justify-center p-8 md:p-10 lg:p-14">
+                  <p className="eyebrow">Pricing</p>
+                  <h2 id="pricing-heading" className="display-lg mt-5 text-[var(--ink-primary)]">
+                    One price. You own it.
+                  </h2>
+                  <p className="prose-editorial mt-5 max-w-md">
+                    No account. No cloud. No &ldquo;Pro tier&rdquo; that unlocks the features you actually need. A Mac app. Yours.
+                  </p>
+                </div>
 
-                    {/* Right: price + features + CTA */}
-                    <div className="border-t border-[var(--border-subtle)] p-8 md:border-l md:border-t-0 md:p-10 lg:p-14">
-                      <p className="text-[3.5rem] font-bold tracking-[-0.04em] text-[var(--text-primary)] md:text-[4.5rem] md:leading-none">
-                        $29
-                      </p>
-                      <p className="mt-1 text-[13px] font-medium tracking-[0.12em] uppercase text-[var(--text-muted)]">
-                        One-time purchase
-                      </p>
+                {/* Right: price + features + CTA */}
+                <div className="border-t border-[var(--rule-faint)] p-8 md:border-l md:border-t-0 md:p-10 lg:p-14">
+                  <p className="font-display text-[3.5rem] font-medium tracking-[-0.02em] text-[var(--ink-primary)] md:text-[4.5rem] md:leading-none">
+                    $29
+                  </p>
+                  <p className="mt-1 text-[13px] font-medium tracking-[0.12em] uppercase text-[var(--ink-faint)]">
+                    One-time purchase
+                  </p>
 
-                      <ul className="mt-8 space-y-3.5">
-                        {[
-                          "Preview every move before it runs",
-                          "Pay once, keep it forever",
-                          "Runs locally on your Mac. macOS 15+",
-                        ].map((item) => (
-                          <li key={item} className="flex items-start gap-3">
-                            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-forma-steel-blue" aria-hidden="true" />
-                            <span className="text-[15px] leading-relaxed text-[var(--text-secondary)]">
-                              {item}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                  <ul className="mt-8 space-y-3.5">
+                    {[
+                      "Preview every move before it runs",
+                      "Pay once, keep it forever",
+                      "Runs locally on your Mac. macOS 15+",
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-3">
+                        <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-forma-steel-blue" aria-hidden="true" />
+                        <span className="text-[15px] leading-relaxed text-[var(--ink-secondary)]">
+                          {item}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
 
-                      <div className="mt-10">
-                        <TrackedAppStoreLink
-                          location="pricing_primary"
-                          className="btn-forma-primary w-full px-7 py-4 text-[15px]"
-                        >
-                          Get Forma &mdash; $29
-                        </TrackedAppStoreLink>
-                      </div>
-                    </div>
+                  <div className="mt-10">
+                    <TrackedAppStoreLink
+                      location="pricing_primary"
+                      className="btn-forma-primary w-full px-7 py-4 text-[15px]"
+                    >
+                      Get Forma &mdash; $29
+                    </TrackedAppStoreLink>
                   </div>
                 </div>
               </div>
-            </ScrollReveal>
-          </section>
+            </div>
+          </ScrollReveal>
+        </section>
 
         {/* ─── FAQ ──────────────────────────────────────────────────────── */}
         <FAQSection />
-        </div>
       </main>
     </>
   );
