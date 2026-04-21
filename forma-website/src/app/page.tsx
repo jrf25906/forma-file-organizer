@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
+import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
 import dynamic from "next/dynamic";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
@@ -8,11 +10,16 @@ import { cn } from "@/lib/utils";
 const FAQSection = dynamic(() => import("@/components/sections/FAQSection"));
 const FormaBeforeAfter = dynamic(() => import("@/components/sections/FormaBeforeAfter"));
 const UseCasesBento = dynamic(() => import("@/components/sections/UseCasesBento"));
-const FeaturesBento = dynamic(() => import("@/components/sections/FeaturesBento"));
+const IllustratedStorySection = dynamic(() => import("@/components/sections/IllustratedStorySection"));
+const IllustratedTrustSection = dynamic(() => import("@/components/sections/IllustratedTrustSection"));
 import FormaHeroWindow from "@/components/sections/FormaHeroWindow";
 import HeroEntrance from "@/components/animation/HeroEntrance";
+import { MonoLabel } from "@/components/ui/MonoLabel";
+import { DraftedPlate } from "@/components/ui/DraftedPlate";
+import { FolderFigure } from "@/components/illustrations/AxonometricFigures";
+import { formatFolioRevision } from "@/lib/folio";
 import { faqs } from "@/lib/faq";
-import { SITE_NAME, SITE_URL, WEBSITE_LAST_UPDATED_ISO } from "@/lib/site";
+import { SITE_NAME, SITE_URL, SUPPORT_EMAIL, WEBSITE_LAST_UPDATED_ISO } from "@/lib/site";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    CONTENT DATA
@@ -37,6 +44,12 @@ const workflowSteps = [
     title: "Undo the batch.",
     body: "If something was wrong, reverse the recent batch in Forma without moving everything back by hand.",
   },
+] as const;
+
+const closingChecklist = [
+  "Start with one folder, not your whole Mac.",
+  "Write one plain-language rule.",
+  "Review the batch, then approve only what belongs.",
 ] as const;
 
 
@@ -100,6 +113,8 @@ export default function Home() {
 
   const jsonLdString = JSON.stringify({ "@context": "https://schema.org", "@graph": jsonLdGraph }).replace(/<\//g, "<\\/");
 
+  const folioRev = formatFolioRevision(WEBSITE_LAST_UPDATED_ISO);
+
   return (
     <>
       {/* Structured data — generated from trusted site constants, safe to inline */}
@@ -116,12 +131,28 @@ export default function Home() {
         >
           <HeroCanvasBackground />
 
+          {/* Drafting folio bar */}
+          <div className="relative z-10 border-b border-[var(--rule-draft-faint)] bg-[rgba(255,253,248,0.66)] backdrop-blur-[2px]">
+            <div className="site-container flex items-center justify-between py-2.5">
+              <MonoLabel variant="dim">Forma · Homepage · Hero</MonoLabel>
+              <MonoLabel variant="dim" className="text-right">
+                Sheet&nbsp;01 / 07 · Scale&nbsp;1:1 · Rev&nbsp;{folioRev}
+              </MonoLabel>
+            </div>
+          </div>
+
           <HeroEntrance
             className={`site-container relative z-10 ${HEADER_SHELL_LAYOUT.heroClearanceClassName}`}
           >
             <div className="grid items-center gap-10 lg:grid-cols-[5fr_6fr] lg:items-center lg:gap-14">
               {/* Left: copy */}
               <div className="min-w-0">
+                <MonoLabel
+                  variant="fig"
+                  className="mb-3 flex items-center gap-2.5 before:block before:h-px before:w-7 before:bg-[var(--ink-draft)]"
+                >
+                  FIG.&nbsp;01 · WHAT FORMA IS
+                </MonoLabel>
                 <p data-hero="eyebrow" className="eyebrow">
                   For the perpetually messy
                 </p>
@@ -149,16 +180,37 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Right: live app replica */}
+              {/* Right: live app replica inside a drafting plate */}
               <div data-hero="window" className="relative min-w-0">
-                <FormaHeroWindow />
+                <DraftedPlate
+                  fig="FIG. 02 — PREVIEW QUEUE · STAGED, NOT EXECUTED"
+                  dimensionTop="— max 1200 —"
+                  dimensionSide="§ 01"
+                  innerClassName="p-3 md:p-4"
+                  className="bg-transparent"
+                >
+                  <FormaHeroWindow />
+                </DraftedPlate>
+                <FolderFigure
+                  aria-hidden
+                  className="pointer-events-none absolute -bottom-6 -left-6 h-[72px] w-[90px]"
+                />
+              </div>
+            </div>
+
+            {/* Bottom drafting footer */}
+            <div className="mt-12 border-t border-[var(--rule-draft-faint)] pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <MonoLabel variant="dim">§ 01 · Plain-language rules</MonoLabel>
+                <MonoLabel variant="dim">§ 02 · Preview first · § 03 · Undo batch</MonoLabel>
+                <MonoLabel variant="dim">Forma · Mac App Store</MonoLabel>
               </div>
             </div>
           </HeroEntrance>
         </section>
 
-        {/* ─── FEATURE HIGHLIGHTS (bento cards) ────────────────────────── */}
-        <FeaturesBento />
+        {/* ─── ILLUSTRATED STORY ───────────────────────────────────────── */}
+        <IllustratedStorySection />
 
         {/* ─── HOW FORMA WORKS (3 steps) ────────────────────────────────── */}
         <section
@@ -231,6 +283,9 @@ export default function Home() {
         {/* ─── USE CASES (bento cards + trust signals) ──────────────────── */}
         <UseCasesBento />
 
+        {/* ─── ILLUSTRATED TRUST ──────────────────────────────────────── */}
+        <IllustratedTrustSection />
+
         {/* ─── PRICING (split card) ─────────────────────────────────────── */}
         <section
           id="pricing"
@@ -284,9 +339,12 @@ export default function Home() {
                   <div className="mt-10">
                     <TrackedAppStoreLink
                       location="pricing_primary"
-                      className="btn-forma-primary w-full px-7 py-4 text-[15px]"
+                      className={cn(
+                        formaShellCtaVariants({ variant: "primary" }),
+                        "h-12 w-full px-6 text-[15px]"
+                      )}
                     >
-                      Get Forma &mdash; $29
+                      Get Forma for Mac
                     </TrackedAppStoreLink>
                   </div>
                 </div>
@@ -297,6 +355,82 @@ export default function Home() {
 
         {/* ─── FAQ ──────────────────────────────────────────────────────── */}
         <FAQSection />
+
+        {/* ─── FINAL CTA ────────────────────────────────────────────────── */}
+        <section
+          aria-labelledby="closing-heading"
+          className="border-t border-[var(--rule-faint)] bg-[var(--canvas-bone)] py-20 md:py-24"
+        >
+          <div className="mx-auto w-full max-w-[1200px] px-6">
+            <div
+              className="anchor-dark overflow-hidden rounded-[2rem] border border-[rgba(255,255,255,0.08)] shadow-[0_32px_72px_rgba(36,24,14,0.18)]"
+              style={{
+                background:
+                  "radial-gradient(110% 90% at 85% 15%, rgba(201, 126, 102, 0.14) 0%, rgba(201, 126, 102, 0) 52%), radial-gradient(90% 70% at 10% 90%, rgba(91, 124, 153, 0.1) 0%, rgba(91, 124, 153, 0) 48%), linear-gradient(180deg, #1E1A16 0%, #16120E 100%)",
+              }}
+            >
+              <div className="grid gap-10 p-8 md:p-10 lg:grid-cols-[1.1fr,0.9fr] lg:p-14">
+                <div>
+                  <p className="eyebrow">Start with one folder</p>
+                  <h2 id="closing-heading" className="display-lg mt-5 text-[var(--ink-primary)]">
+                    Give the messiest folder one clean pass.
+                  </h2>
+                  <p className="prose-editorial mt-5 max-w-[34rem]">
+                    You do not need a whole system overhaul to know whether Forma is useful.
+                    Start with the folder you keep avoiding, review the batch, and keep what works.
+                  </p>
+
+                  <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                    <TrackedAppStoreLink
+                      location="homepage_final_primary"
+                      className={cn(
+                        formaShellCtaVariants({ variant: "primary" }),
+                        "h-12 px-6 text-[15px]"
+                      )}
+                    >
+                      Get Forma for Mac
+                    </TrackedAppStoreLink>
+                    <Link
+                      href="/blog"
+                      className={cn(
+                        formaShellCtaVariants({ variant: "secondary" }),
+                        "h-12 px-6 text-[15px]"
+                      )}
+                    >
+                      Read the preview-first guides
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.5rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-6 shadow-[var(--shell-shadow-soft)]">
+                  <p className="eyebrow">What happens next</p>
+                  <ol className="mt-5 space-y-4">
+                    {closingChecklist.map((item, index) => (
+                      <li key={item} className="flex items-start gap-4">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.04)] text-[13px] font-semibold text-[var(--ink-primary)] tabular-nums">
+                          {index + 1}
+                        </span>
+                        <span className="pt-1 text-[15px] leading-relaxed text-[var(--ink-secondary)]">
+                          {item}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="mt-6 text-[14px] leading-relaxed text-[var(--ink-faint)]">
+                    Want to ask before buying?{" "}
+                    <TrackedMailtoLink
+                      email={SUPPORT_EMAIL}
+                      location="homepage_final_cta"
+                      className="font-medium text-forma-steel-blue underline underline-offset-4 decoration-forma-steel-blue/30 transition-[text-decoration-color,color] duration-200 hover:decoration-forma-steel-blue/60"
+                    >
+                      {SUPPORT_EMAIL}
+                    </TrackedMailtoLink>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </>
   );
