@@ -38,33 +38,6 @@ export function FolderFigure({ className, title = "Folder" }: FigureProps) {
   );
 }
 
-/** Isometric Mac window outline — used in "how it works". */
-export function MacWindowFigure({ className, title = "Window" }: FigureProps) {
-  return (
-    <svg
-      role="img"
-      aria-label={title}
-      viewBox="0 0 120 90"
-      fill="none"
-      className={cn("block", className)}
-    >
-      <title>{title}</title>
-      <path d="M10 22 L90 10 L110 22 L30 34 Z" stroke={stroke} strokeWidth="1.2" fill="rgba(45,63,82,0.04)" />
-      <path d="M10 22 L10 70 L30 82 L30 34 Z" stroke={stroke} strokeWidth="1.2" fill="#FFFDF8" />
-      <path d="M30 34 L110 22 L110 70 L30 82 Z" stroke={stroke} strokeWidth="1.2" fill="rgba(45,63,82,0.08)" />
-      <circle cx="18" cy="28" r="1.6" fill={stroke} />
-      <circle cx="22" cy="27" r="1.6" fill={stroke} />
-      <circle cx="26" cy="26" r="1.6" fill={stroke} />
-      <path
-        d="M42 46 L96 40 M42 54 L96 48 M42 62 L96 56"
-        stroke={stroke}
-        strokeOpacity="0.4"
-        strokeWidth="0.8"
-      />
-    </svg>
-  );
-}
-
 /** Preview queue — a stack of rows being checked. */
 export function PreviewQueueFigure({ className, title = "Preview queue" }: FigureProps) {
   return (
