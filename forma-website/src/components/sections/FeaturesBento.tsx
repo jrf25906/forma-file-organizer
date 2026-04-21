@@ -1,4 +1,5 @@
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
+import { FormaShellSectionHeading } from "@/components/ui/forma-shell-section-heading";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SCENE: NATURAL LANGUAGE RULES — rule rows with keywords + destination pills
@@ -177,14 +178,14 @@ function BentoCard({
 }) {
   return (
     <article
-      className={`group overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] transition-shadow duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] ${className ?? ""}`}
+      className={`group overflow-hidden rounded-2xl border border-[var(--rule-faint)] bg-[var(--canvas-bone)] shadow-[var(--shell-shadow-soft)] transition-shadow duration-300 hover:shadow-[var(--shell-shadow-strong)] ${className ?? ""}`}
     >
       {scene}
-      <div className="border-t border-[var(--border-subtle)] px-6 py-5">
-        <h3 className="text-[16px] font-semibold text-[var(--text-primary)]">
+      <div className="border-t border-[var(--rule-faint)] px-6 py-5">
+        <h3 className="font-display text-[1.125rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)]">
           {title}
         </h3>
-        <p className="mt-2 text-[14px] leading-relaxed text-[var(--text-secondary)]">
+        <p className="mt-2 text-[14px] leading-relaxed text-[var(--ink-secondary)]">
           {description}
         </p>
       </div>
@@ -199,40 +200,30 @@ function BentoCard({
 export default function FeaturesBento() {
   return (
     <section
-      aria-labelledby="features-heading"
-      className="relative z-10 border-b border-[var(--border-subtle)] bg-transparent py-20 md:py-28"
+      className="relative z-10 border-b border-[var(--rule-faint)] py-24 md:py-32"
     >
-      <div className="site-container">
-        {/* Section header */}
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-forma-steel-blue">
-            What makes it different
-          </p>
-          <h2
-            id="features-heading"
-            className="mx-auto mt-5 max-w-2xl text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]"
-          >
-            Automation you can actually see.
-          </h2>
-          <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
-            Most file organizers run in the background and hope for the best.
-            Forma shows you what it&apos;s about to do.
-          </p>
-        </div>
+      <div className="mx-auto w-full max-w-[1200px] px-6">
+        <FormaShellSectionHeading
+          eyebrow="What makes it different"
+          title="Automation you can actually see."
+          description="Most file organizers run in the background and hope for the best. Forma shows you what it's about to do."
+          size="xl"
+          className="max-w-3xl"
+        />
 
         {/* Bento grid — 2×2 asymmetric */}
-        <div className="mx-auto mt-14 max-w-5xl">
+        <div className="mt-16">
           <ScrollReveal direction="up" distance={24} stagger={0.08}>
-            <div className="grid gap-4 md:grid-cols-5">
+            <div className="grid gap-6 md:grid-cols-12">
               {/* Row 1: Natural Language (wider) + Auto-grouping */}
               <BentoCard
-                className="md:col-span-3"
+                className="md:col-span-7"
                 scene={<NaturalLanguageScene />}
                 title="Natural language rules"
                 description="Describe what you want in words, not code. No regex, no scripts &mdash; just conditions and destinations."
               />
               <BentoCard
-                className="md:col-span-2"
+                className="md:col-span-5"
                 scene={<AutoGroupingScene />}
                 title="Auto-grouping"
                 description="One rule catches 200 similar files. Not 200 rules for 200 files."
@@ -240,13 +231,13 @@ export default function FeaturesBento() {
 
               {/* Row 2: Preview + Undo (wider) */}
               <BentoCard
-                className="md:col-span-2"
+                className="md:col-span-5"
                 scene={<PreviewScene />}
                 title="Preview before action"
                 description="See every file that matched before anything moves. Uncheck the ones you&rsquo;re not sure about."
               />
               <BentoCard
-                className="md:col-span-3"
+                className="md:col-span-7"
                 scene={<UndoScene />}
                 title="Undo recent batches"
                 description="If a batch was wrong, reverse it in Forma without moving everything back by hand."
