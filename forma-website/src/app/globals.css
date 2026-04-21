@@ -236,9 +236,11 @@
   --shell-surface-muted:   var(--canvas-parchment);
   --shell-border:          var(--rule-faint);
   --shell-border-strong:   var(--rule-strong);
-  --shell-shadow:          0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 28px rgba(60, 48, 24, 0.08);
-  --shell-shadow-soft:     0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 4px 14px rgba(60, 48, 24, 0.06);
-  --shell-shadow-strong:   0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 22px 48px rgba(60, 48, 24, 0.12);
+  /* Shell shadows on canvas — clean warm drop shadows, no white inset (that was a dark-mode
+     glass trick that read as an unwanted bright seam on warm paper). */
+  --shell-shadow:          0 12px 28px rgba(60, 48, 24, 0.08);
+  --shell-shadow-soft:     0 4px 14px rgba(60, 48, 24, 0.055);
+  --shell-shadow-strong:   0 22px 48px rgba(60, 48, 24, 0.12);
 
   --header-shell-surface:          rgba(251, 247, 238, 0.82);
   --header-shell-surface-scrolled: rgba(26, 26, 26, 0.92);
@@ -864,8 +866,8 @@ footer[role="contentinfo"] .forma-logo-dot {
 .display-xl {
   font-family: var(--font-newsreader);
   font-weight: 500;
-  font-size: clamp(2.75rem, 4vw + 1rem, 5.25rem);
-  line-height: 1.02;
+  font-size: clamp(2.5rem, 3vw + 1rem, 4.25rem);
+  line-height: 1.04;
   letter-spacing: -0.02em;
   text-wrap: balance;
 }
@@ -899,10 +901,10 @@ footer[role="contentinfo"] .forma-logo-dot {
 .eyebrow {
   font-family: var(--font-inter-tight);
   font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--forma-steel-blue);
 }
 
 /* Font-loading CLS prevention rule at line 681 remains — it sets transition only.

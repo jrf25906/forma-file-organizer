@@ -119,7 +119,7 @@ export default function Home() {
           <HeroEntrance
             className={`site-container relative z-10 ${HEADER_SHELL_LAYOUT.heroClearanceClassName}`}
           >
-            <div className="grid items-center gap-10 lg:grid-cols-[3fr_4fr] lg:items-center lg:gap-14">
+            <div className="grid items-center gap-10 lg:grid-cols-[5fr_6fr] lg:items-center lg:gap-14">
               {/* Left: copy */}
               <div className="min-w-0">
                 <p data-hero="eyebrow" className="eyebrow">
@@ -128,7 +128,7 @@ export default function Home() {
                 <h1 data-hero="headline" className="display-xl mt-6 text-[var(--ink-primary)]">
                   A file organizer for people who gave up on file organizers.
                 </h1>
-                <p data-hero="subtext" className="prose-editorial mt-6">
+                <p data-hero="subtext" className="prose-editorial mt-6 max-w-[48ch]">
                   Your files are already out of control. Tell Forma where they should go &mdash; in plain English, not regex.
                   Preview the batch. Undo the recent batch if something was wrong.
                 </p>
