@@ -10,6 +10,7 @@ import {
   formaReveal,
 } from "@/lib/animation/ease-curves";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
+import { FormaShellSectionHeading } from "@/components/ui/forma-shell-section-heading";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    macOS FILE ICON (reusable base shape)
@@ -623,14 +624,14 @@ function BentoCard({
     <article
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] transition-all duration-300 hover:-translate-y-1 hover:border-[var(--border-medium)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
+      className="group overflow-hidden rounded-2xl border border-[var(--rule-faint)] bg-[var(--canvas-paper)] transition-[transform,border-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-[var(--rule-strong)] hover:shadow-[var(--shell-shadow-strong)]"
     >
       {children(isHovered)}
-      <div className="border-t border-[var(--border-subtle)] px-6 py-5">
-        <h3 className="text-[16px] font-semibold text-[var(--text-primary)]">
+      <div className="border-t border-[var(--rule-faint)] px-6 py-5">
+        <h3 className="mt-4 font-display text-[1.125rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)]">
           {title}
         </h3>
-        <p className="mt-2 text-[14px] leading-relaxed text-[var(--text-secondary)]">
+        <p className="mt-2 text-[14px] leading-relaxed text-[var(--ink-secondary)]">
           {description}
         </p>
       </div>
@@ -691,34 +692,27 @@ function SubsectionLabel({ children }: { children: React.ReactNode }) {
 export default function UseCasesBento() {
   return (
     <section
-      aria-labelledby="use-cases-heading"
-      className="relative z-10 bg-transparent py-20 md:py-28"
+      id="use-cases"
+      className="relative z-10 border-y border-[var(--rule-faint)] bg-[var(--canvas-bone)] py-24 md:py-32"
     >
-      <div className="site-container">
-        {/* Section header */}
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-forma-steel-blue">
-            Where it clicks
-          </p>
-          <h2
-            id="use-cases-heading"
-            className="mx-auto mt-5 max-w-2xl text-[1.875rem] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem] md:leading-[1.1]"
-          >
-            Start with the folder that bothers you most.
-          </h2>
-          <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
-            One rule, one folder, one visible payoff. Expand from there.
-          </p>
-        </div>
+      <div className="mx-auto w-full max-w-[1200px] px-6">
+        <FormaShellSectionHeading
+          eyebrow="Who it's for"
+          title="Start with the folder that bothers you most."
+          description="One rule, one folder, one visible payoff. Expand from there."
+          size="lg"
+          ruled
+          className="max-w-3xl"
+        />
 
         {/* WHAT YOU ORGANIZE — bento cards */}
-        <div className="mx-auto mt-14 max-w-5xl">
-          <SubsectionLabel>What you organize</SubsectionLabel>
+        <div className="mt-16">
+          <p className="eyebrow mb-6">What you organize</p>
           <ScrollReveal
             direction="up"
             distance={24}
             stagger={0.08}
-            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
           >
             <BentoCard
               title="Screenshots and exports"
@@ -742,20 +736,20 @@ export default function UseCasesBento() {
         </div>
 
         {/* HOW IT WORKS — trust signal cards */}
-        <div className="mx-auto mt-14 max-w-5xl">
-          <SubsectionLabel>How it works</SubsectionLabel>
+        <div className="mt-16">
+          <p className="eyebrow mb-6">How it works</p>
           <ScrollReveal
             direction="up"
             distance={24}
             stagger={0.08}
-            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
           >
             {trustSignals.map((signal) => {
               const Icon = signal.icon;
               return (
                 <article
                   key={signal.title}
-                  className="group rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-[var(--border-medium)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
+                  className="group rounded-2xl border border-[var(--rule-faint)] bg-[var(--canvas-paper)] p-6 transition-[transform,border-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-[var(--rule-strong)] hover:shadow-[var(--shell-shadow-strong)]"
                 >
                   <div
                     className={`flex h-11 w-11 items-center justify-center rounded-xl border ${signal.borderTint} ${signal.bgTint}`}
@@ -765,10 +759,10 @@ export default function UseCasesBento() {
                       strokeWidth={1.5}
                     />
                   </div>
-                  <h3 className="mt-4 text-[16px] font-semibold text-[var(--text-primary)]">
+                  <h3 className="mt-4 font-display text-[1.125rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)]">
                     {signal.title}
                   </h3>
-                  <p className="mt-2 text-[14px] leading-relaxed text-[var(--text-secondary)]">
+                  <p className="mt-2 text-[14px] leading-relaxed text-[var(--ink-secondary)]">
                     {signal.body}
                   </p>
                 </article>
