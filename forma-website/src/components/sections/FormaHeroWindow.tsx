@@ -8,6 +8,7 @@
 
 import Image from "next/image";
 import { heroWindowTheme as t } from "@/lib/hero-window-theme";
+import { cn } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    THEME TOKENS
@@ -1021,7 +1022,7 @@ function Inspector() {
 export default function FormaHeroWindow() {
   return (
     <div
-      className="relative overflow-hidden rounded-[10px]"
+      className={cn("anchor-dark bg-[var(--canvas-paper)] relative overflow-hidden rounded-[10px] shadow-[0_40px_80px_rgba(60,48,24,0.18)]")}
       style={{
         fontFamily: t.font,
         background: t.windowBg,

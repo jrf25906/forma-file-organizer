@@ -4,8 +4,9 @@ import { TrackedAppStoreLink } from "@/components/TrackedAppStoreLink";
 import dynamic from "next/dynamic";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import { HEADER_SHELL_LAYOUT } from "@/lib/header-shell-layout";
-
-const ScrollDrivenTornado = dynamic(() => import("@/components/effects/ScrollDrivenTornado"));
+import { HeroCanvasBackground } from "@/components/effects/HeroCanvasBackground";
+import { formaShellCtaVariants } from "@/components/ui/forma-shell-cta";
+import { cn } from "@/lib/utils";
 const FAQSection = dynamic(() => import("@/components/sections/FAQSection"));
 const FormaBeforeAfter = dynamic(() => import("@/components/sections/FormaBeforeAfter"));
 const UseCasesBento = dynamic(() => import("@/components/sections/UseCasesBento"));
@@ -125,10 +126,9 @@ export default function Home() {
           id="top"
           data-hero-layout={HEADER_SHELL_LAYOUT.heroLayout}
           data-hero-clearance={HEADER_SHELL_LAYOUT.heroClearanceContract}
-          className="relative overflow-hidden border-b border-[var(--shell-border)] bg-transparent"
+          className="relative overflow-hidden border-b border-[var(--rule-faint)]"
         >
-          <ScrollDrivenTornado />
-          {/* We removed the static background gradients here so the WebGL shines through */}
+          <HeroCanvasBackground />
 
           <HeroEntrance
             className={`site-container relative z-10 ${HEADER_SHELL_LAYOUT.heroClearanceClassName}`}
@@ -136,27 +136,28 @@ export default function Home() {
             <div className="grid items-center gap-10 lg:grid-cols-[3fr_4fr] lg:items-center lg:gap-14">
               {/* Left: copy */}
               <div className="min-w-0">
-                <div data-hero="eyebrow">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-forma-steel-blue [text-shadow:0_1px_8px_rgba(0,0,0,0.5)]">
-                    For the perpetually messy
-                  </p>
-                </div>
-                <h1 data-hero="headline" className="mt-6 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.035em] text-[var(--text-primary)] sm:text-balance sm:text-[2.5rem] md:text-[3rem] lg:text-[3.5rem]">
+                <p data-hero="eyebrow" className="eyebrow">
+                  For the perpetually messy
+                </p>
+                <h1 data-hero="headline" className="display-xl mt-6 text-[var(--ink-primary)]">
                   A file organizer for people who gave up on file organizers.
                 </h1>
-                <p data-hero="subtext" className="mt-6 max-w-lg text-base leading-relaxed text-[var(--text-secondary)] md:text-[1.125rem]">
+                <p data-hero="subtext" className="prose-editorial mt-6">
                   Your files are already out of control. Tell Forma where they should go &mdash; in plain English, not regex.
                   Preview the batch. Undo the recent batch if something was wrong.
                 </p>
 
-                <div data-hero="cta" className="mt-8">
+                <div data-hero="cta" className="mt-10">
                   <TrackedAppStoreLink
                     location="hero_primary"
-                    className="btn-forma-primary px-8 py-4 text-[15px]"
+                    className={cn(
+                      formaShellCtaVariants({ variant: "primary" }),
+                      "h-12 px-6 text-[15px]"
+                    )}
                   >
                     Get Forma for Mac
                   </TrackedAppStoreLink>
-                  <p className="mt-3 text-[13px] text-[var(--text-muted)]">
+                  <p className="mt-3 text-[13px] text-[var(--ink-faint)]">
                     $29 once. No subscription. No account. Just a Mac app.
                   </p>
                 </div>
