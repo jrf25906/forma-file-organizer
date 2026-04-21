@@ -316,22 +316,17 @@ export default function FormaBeforeAfter() {
     <div className="mx-auto w-full max-w-[960px]">
       {/* Before / After labels */}
       <div className="mb-3 flex justify-between px-1">
-        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          Before
-        </span>
-        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          After
-        </span>
+        <span className="eyebrow">Before</span>
+        <span className="eyebrow">After</span>
       </div>
 
       {/* Slider container */}
       <div
         ref={containerRef}
-        className="relative w-full select-none overflow-hidden rounded-2xl border border-[var(--border-subtle)]"
+        className="relative w-full select-none overflow-hidden rounded-2xl border border-[var(--rule-faint)] shadow-[var(--shell-shadow-strong)]"
         style={{
           aspectRatio: "16 / 10",
           cursor: isDragging ? "grabbing" : "default",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)",
         }}
         role="img"
         aria-label="Interactive before and after comparison showing a cluttered desktop transformed into organized folders by Forma"
@@ -405,7 +400,7 @@ export default function FormaBeforeAfter() {
         </div>
       </div>
 
-      <p className="mt-3.5 text-center text-[13px] text-[var(--text-muted)]">
+      <p className="mt-3.5 text-center text-[13px] text-[var(--ink-faint)]">
         Drag the slider to see the transformation
       </p>
     </div>
