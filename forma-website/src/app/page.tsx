@@ -139,8 +139,8 @@ export default function Home() {
         >
           <HeroCanvasBackground />
 
-          {/* Drafting folio bar */}
-          <div className="relative z-10 border-b border-[var(--rule-draft-faint)] bg-[rgba(255,253,248,0.66)] backdrop-blur-[2px]">
+          {/* Drafting folio bar — decorative only */}
+          <div aria-hidden="true" className="relative z-10 border-b border-[var(--rule-draft-faint)] bg-[rgba(255,253,248,0.66)] backdrop-blur-[2px]">
             <div className="site-container flex items-center justify-between py-2.5">
               <MonoLabel variant="dim">Forma · Homepage · Hero</MonoLabel>
               <MonoLabel variant="dim" className="text-right">
@@ -206,8 +206,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Bottom drafting footer */}
-            <div className="mt-12 border-t border-[var(--rule-draft-faint)] pt-3">
+            {/* Bottom drafting footer — decorative only; step copy lives in the how-it-works section */}
+            <div aria-hidden="true" className="mt-12 border-t border-[var(--rule-draft-faint)] pt-3">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <MonoLabel variant="dim">§ 01 · Plain-language rules</MonoLabel>
                 <MonoLabel variant="dim">§ 02 · Preview first · § 03 · Undo batch</MonoLabel>
