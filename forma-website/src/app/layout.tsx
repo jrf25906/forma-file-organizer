@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter_Tight, JetBrains_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import clsx from "clsx";
 import { Header } from "@/components/Header";
@@ -8,11 +8,19 @@ import Footer from "@/components/Footer";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
-const inter = Inter({
+const interTight = Inter_Tight({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-inter-tight",
   display: "swap",
   adjustFontFallback: true,
+});
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-newsreader",
+  display: "swap",
+  axes: ["opsz"],
+  weight: ["400", "500", "600"],
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -114,9 +122,10 @@ export default function RootLayout({
       </head>
       <body
         className={clsx(
-          "min-h-screen antialiased overflow-x-hidden font-body bg-[var(--bg-secondary)] text-[var(--text-primary)]",
-          inter.variable,
-          jetbrainsMono.variable
+          "min-h-screen antialiased overflow-x-hidden font-body bg-[var(--canvas-paper)] text-[var(--ink-primary)]",
+          interTight.variable,
+          newsreader.variable,
+          jetbrainsMono.variable,
         )}
       >
         {plausibleDomain ? (
