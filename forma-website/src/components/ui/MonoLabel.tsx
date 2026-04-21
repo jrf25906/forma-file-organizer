@@ -18,10 +18,7 @@ const variantClasses: Record<MonoLabelVariant, string> = {
 
 export function MonoLabel({ variant, children, className, as: As = "span" }: MonoLabelProps) {
   return (
-    <As
-      className={cn("font-mono inline-flex items-center", variantClasses[variant], className)}
-      style={{ fontFamily: "var(--font-mono)" }}
-    >
+    <As className={cn("font-mono inline-flex items-center", variantClasses[variant], className)}>
       {children}
     </As>
   );
