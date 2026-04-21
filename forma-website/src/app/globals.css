@@ -678,7 +678,7 @@
   animation: float 6s ease-in-out infinite;
 }
 
-/* Font loading CLS prevention */
+/* Font loading CLS prevention — typographic properties live in @layer utilities below */
 .font-display {
   transition: opacity 0.1s ease-out;
 }
@@ -974,7 +974,7 @@ footer[role="contentinfo"] .forma-logo-dot {
 @layer utilities {
   .font-display {
     font-family: var(--font-display);
-    font-feature-settings: "ss01", "cv11";
+    font-feature-settings: "ss01";
     font-optical-sizing: auto;
   }
 
