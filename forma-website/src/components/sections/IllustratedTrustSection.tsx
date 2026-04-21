@@ -35,7 +35,7 @@ export default function IllustratedTrustSection() {
       aria-labelledby="trust-heading"
       className="grid-stronger relative z-10 overflow-hidden border-b border-[var(--rule-faint)] py-24 md:py-32"
     >
-      <div className="mx-auto grid w-full max-w-[1200px] gap-12 px-6 lg:grid-cols-[0.92fr,1.08fr] lg:items-start lg:gap-16">
+      <div className="mx-auto grid w-full max-w-[1200px] gap-12 px-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-start lg:gap-16">
         <ScrollReveal direction="up" distance={20}>
           <div className="max-w-[34rem]">
             <MonoLabel
@@ -86,7 +86,7 @@ export default function IllustratedTrustSection() {
                   key={row.mark}
                   className="grid grid-cols-[54px_1fr] items-baseline gap-3 border-b border-[var(--rule-draft-faint)] pb-4 last:border-b-0 last:pb-0"
                 >
-                  <MonoLabel variant="section" className="pt-0.5 tabular-nums">
+                  <MonoLabel variant="section" className="shrink-0 whitespace-nowrap pt-0.5 tabular-nums">
                     {row.mark}
                   </MonoLabel>
                   <div>

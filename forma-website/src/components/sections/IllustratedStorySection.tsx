@@ -30,7 +30,7 @@ const callouts = [
 export default function IllustratedStorySection() {
   return (
     <section className="grid-stronger relative z-10 overflow-hidden border-b border-[var(--rule-faint)] py-24 md:py-32">
-      <div className="mx-auto grid w-full max-w-[1200px] gap-12 px-6 lg:grid-cols-[0.88fr,1.12fr] lg:items-center lg:gap-16">
+      <div className="mx-auto grid w-full max-w-[1200px] gap-12 px-6 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:gap-16">
         <ScrollReveal direction="up" distance={20}>
           <div className="max-w-[34rem]">
             <MonoLabel
@@ -54,7 +54,7 @@ export default function IllustratedStorySection() {
                   key={bullet.eyebrow}
                   className="flex gap-4 border-t border-[var(--rule-draft-faint)] pt-5 first:border-t-0 first:pt-0"
                 >
-                  <MonoLabel variant="section" className="pt-0.5 tabular-nums">
+                  <MonoLabel variant="section" className="shrink-0 whitespace-nowrap pt-0.5 tabular-nums">
                     § 0{index + 1}
                   </MonoLabel>
                   <div>

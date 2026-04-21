@@ -10,6 +10,8 @@ export interface DraftedPlateProps {
   tone?: "paper" | "ink";
   /** Border radius in any valid CSS length. Default is "2px" for the sharp drafting plate look. */
   borderRadius?: string;
+  /** Show the 8 corner-tick marks. Defaults to true for paper tone, false for ink (rounded dark plates don't benefit from corner ticks). */
+  cornerTicks?: boolean;
   className?: string;
   innerClassName?: string;
   /** Extra inline style merged onto the root (border and borderRadius are managed by the component). */
@@ -28,6 +30,7 @@ export function DraftedPlate({
   dimensionSide,
   tone = "paper",
   borderRadius = "2px",
+  cornerTicks,
   className,
   innerClassName,
   style,
@@ -36,21 +39,26 @@ export function DraftedPlate({
   const strokeColor = isInk ? "rgba(255,252,248,0.55)" : "var(--ink-draft)";
   const tickStyle = { background: strokeColor } as const;
   const labelChipBg = isInk ? "rgba(20,18,14,0.72)" : "var(--canvas-paper)";
+  const showTicks = cornerTicks ?? !isInk;
 
   return (
     <div
       className={cn("relative", isInk ? "" : "bg-[rgba(255,253,248,0.72)]", className)}
       style={{ ...style, border: `1.5px solid ${strokeColor}`, borderRadius }}
     >
-      {/* corner ticks — 8 small bars forming an L at each corner */}
-      <span aria-hidden="true" className="absolute -top-px -left-px h-[1.5px] w-4" style={tickStyle} />
-      <span aria-hidden="true" className="absolute -top-px -left-px h-4 w-[1.5px]" style={tickStyle} />
-      <span aria-hidden="true" className="absolute -top-px -right-px h-[1.5px] w-4" style={tickStyle} />
-      <span aria-hidden="true" className="absolute -top-px -right-px h-4 w-[1.5px]" style={tickStyle} />
-      <span aria-hidden="true" className="absolute -bottom-px -left-px h-[1.5px] w-4" style={tickStyle} />
-      <span aria-hidden="true" className="absolute -bottom-px -left-px h-4 w-[1.5px]" style={tickStyle} />
-      <span aria-hidden="true" className="absolute -bottom-px -right-px h-[1.5px] w-4" style={tickStyle} />
-      <span aria-hidden="true" className="absolute -bottom-px -right-px h-4 w-[1.5px]" style={tickStyle} />
+      {showTicks ? (
+        <>
+          {/* corner ticks — 8 small bars forming an L at each corner */}
+          <span aria-hidden="true" className="absolute -top-px -left-px h-[1.5px] w-4" style={tickStyle} />
+          <span aria-hidden="true" className="absolute -top-px -left-px h-4 w-[1.5px]" style={tickStyle} />
+          <span aria-hidden="true" className="absolute -top-px -right-px h-[1.5px] w-4" style={tickStyle} />
+          <span aria-hidden="true" className="absolute -top-px -right-px h-4 w-[1.5px]" style={tickStyle} />
+          <span aria-hidden="true" className="absolute -bottom-px -left-px h-[1.5px] w-4" style={tickStyle} />
+          <span aria-hidden="true" className="absolute -bottom-px -left-px h-4 w-[1.5px]" style={tickStyle} />
+          <span aria-hidden="true" className="absolute -bottom-px -right-px h-[1.5px] w-4" style={tickStyle} />
+          <span aria-hidden="true" className="absolute -bottom-px -right-px h-4 w-[1.5px]" style={tickStyle} />
+        </>
+      ) : null}
 
       {dimensionTop ? (
         <span

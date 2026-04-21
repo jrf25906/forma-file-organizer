@@ -139,20 +139,21 @@ export default function Home() {
         >
           <HeroCanvasBackground />
 
-          {/* Drafting folio bar — decorative only */}
-          <div aria-hidden="true" className="relative z-10 border-b border-[var(--rule-draft-faint)] bg-[rgba(255,253,248,0.66)] backdrop-blur-[2px]">
-            <div className="site-container flex items-center justify-between py-2.5">
+          <HeroEntrance
+            className={`site-container relative z-10 ${HEADER_SHELL_LAYOUT.heroClearanceClassName}`}
+          >
+            {/* Drafting folio bar — decorative, sits inside the hero clearance so it clears the floating header */}
+            <div
+              aria-hidden="true"
+              className="-mx-6 mb-10 flex items-center justify-between border-b border-[var(--rule-draft-faint)] px-6 pb-3 md:mb-12"
+            >
               <MonoLabel variant="dim">Forma · Homepage · Hero</MonoLabel>
               <MonoLabel variant="dim" className="text-right">
                 Sheet&nbsp;01 / 07 · Scale&nbsp;1:1 · Rev&nbsp;{folioRev}
               </MonoLabel>
             </div>
-          </div>
 
-          <HeroEntrance
-            className={`site-container relative z-10 ${HEADER_SHELL_LAYOUT.heroClearanceClassName}`}
-          >
-            <div className="grid items-center gap-10 lg:grid-cols-[5fr_6fr] lg:items-center lg:gap-14">
+            <div className="grid items-center gap-10 lg:grid-cols-[4.5fr_6.5fr] lg:items-center lg:gap-12">
               {/* Left: copy */}
               <div className="min-w-0">
                 <MonoLabel
@@ -194,7 +195,7 @@ export default function Home() {
                   fig="FIG. 02 — PREVIEW QUEUE · STAGED, NOT EXECUTED"
                   dimensionTop="— max 1200 —"
                   dimensionSide="§ 01"
-                  innerClassName="p-3 md:p-4"
+                  innerClassName="overflow-hidden p-2 md:p-3"
                   className="bg-transparent"
                 >
                   <FormaHeroWindow />
@@ -316,7 +317,7 @@ export default function Home() {
             <DraftedPlate
               tone="ink"
               borderRadius="1.8rem"
-              className="anchor-dark overflow-hidden shadow-[0_40px_80px_rgba(60,48,24,0.14)]"
+              className="anchor-dark shadow-[0_40px_80px_rgba(60,48,24,0.14)]"
               innerClassName="p-0"
               style={{
                 background:
@@ -394,14 +395,14 @@ export default function Home() {
             <DraftedPlate
               tone="ink"
               borderRadius="2rem"
-              className="anchor-dark overflow-hidden shadow-[0_32px_72px_rgba(36,24,14,0.18)]"
+              className="anchor-dark shadow-[0_32px_72px_rgba(36,24,14,0.18)]"
               innerClassName="p-0"
               style={{
                 background:
                   "radial-gradient(110% 90% at 85% 15%, rgba(201, 126, 102, 0.14) 0%, rgba(201, 126, 102, 0) 52%), radial-gradient(90% 70% at 10% 90%, rgba(91, 124, 153, 0.1) 0%, rgba(91, 124, 153, 0) 48%), linear-gradient(180deg, #1E1A16 0%, #16120E 100%)",
               }}
             >
-              <div className="grid gap-10 p-8 md:p-10 lg:grid-cols-[1.1fr,0.9fr] lg:p-14">
+              <div className="grid gap-10 p-8 md:p-10 lg:grid-cols-[1.1fr_0.9fr] lg:p-14">
                 <div>
                   <MonoLabel
                     variant="fig"
