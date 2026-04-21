@@ -1,51 +1,47 @@
-import * as React from "react"
+import { cn } from "@/lib/utils";
+import type { HTMLAttributes, ReactNode } from "react";
 
-import { cn } from "@/lib/utils"
-
-type FormaShellSectionHeadingProps = React.HTMLAttributes<HTMLDivElement> & {
-  eyebrow?: React.ReactNode
-  title: React.ReactNode
-  description?: React.ReactNode
-  align?: "left" | "center"
+interface FormaShellSectionHeadingProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
+  title: ReactNode;
+  eyebrow?: ReactNode;
+  description?: ReactNode;
+  align?: "left" | "center";
+  size?: "md" | "lg" | "xl";
+  /** When true, draws a hairline rule above the eyebrow for editorial section breaks */
+  ruled?: boolean;
 }
 
-function FormaShellSectionHeading({
-  eyebrow,
+const SIZE_CLASS = {
+  md: "display-md",
+  lg: "display-lg",
+  xl: "display-xl",
+} as const;
+
+export function FormaShellSectionHeading({
   title,
+  eyebrow,
   description,
   align = "left",
+  size = "lg",
+  ruled = false,
   className,
-  ...props
+  ...rest
 }: FormaShellSectionHeadingProps) {
   return (
     <div
       className={cn(
-        "space-y-3",
+        "space-y-4",
         align === "center" && "mx-auto max-w-3xl text-center",
-        className
+        ruled && "border-t border-[var(--rule-faint)] pt-8",
+        className,
       )}
-      {...props}
+      {...rest}
     >
-      {eyebrow ? (
-        <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-forma-steel-blue">
-          {eyebrow}
-        </p>
-      ) : null}
-      <h2 className="font-display text-[1.875rem] leading-[1.1] tracking-[-0.03em] text-[var(--text-primary)] md:text-[2.75rem]">
-        {title}
-      </h2>
+      {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+      <h2 className={cn(SIZE_CLASS[size], "text-[var(--ink-primary)]")}>{title}</h2>
       {description ? (
-        <p
-          className={cn(
-            "max-w-2xl text-[15px] leading-relaxed text-[var(--text-secondary)]",
-            align === "center" && "mx-auto"
-          )}
-        >
-          {description}
-        </p>
+        <p className={cn("prose-editorial", align === "center" && "mx-auto")}>{description}</p>
       ) : null}
     </div>
-  )
+  );
 }
-
-export { FormaShellSectionHeading }
