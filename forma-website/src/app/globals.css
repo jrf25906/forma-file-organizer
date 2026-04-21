@@ -244,6 +244,13 @@
   --header-shell-surface-scrolled: rgba(26, 26, 26, 0.92);
   --header-shell-border:           var(--rule-faint);
   --header-shell-shadow:           0 10px 30px rgba(60, 48, 24, 0.08);
+  --header-shell-surface-muted:        rgba(251, 247, 238, 0.50);
+  --header-shell-surface-strong:       rgba(26, 26, 26, 0.06);
+  --header-shell-surface-top:          rgba(251, 247, 238, 0.72);
+  --header-shell-surface-top-border:   rgba(26, 26, 26, 0.06);
+  --header-shell-shadow-top:           0 10px 24px rgba(60, 48, 24, 0.06);
+  --header-shell-surface-scrolled-border: rgba(26, 26, 26, 0.08);
+  --header-shell-shadow-scrolled:      0 12px 28px rgba(60, 48, 24, 0.10);
 
   /* Shell CTA tokens for canvas */
   --shell-cta-bg:            #1A1A1A;
