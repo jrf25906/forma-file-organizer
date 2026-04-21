@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 
@@ -8,8 +8,12 @@ export interface DraftedPlateProps {
   dimensionTop?: string;
   dimensionSide?: string;
   tone?: "paper" | "ink";
+  /** Border radius in any valid CSS length. Default is "2px" for the sharp drafting plate look. */
+  borderRadius?: string;
   className?: string;
   innerClassName?: string;
+  /** Extra inline style merged onto the root (border and borderRadius are managed by the component). */
+  style?: CSSProperties;
 }
 
 /**
@@ -23,8 +27,10 @@ export function DraftedPlate({
   dimensionTop,
   dimensionSide,
   tone = "paper",
+  borderRadius = "2px",
   className,
   innerClassName,
+  style,
 }: DraftedPlateProps) {
   const isInk = tone === "ink";
   const strokeColor = isInk ? "rgba(255,252,248,0.55)" : "var(--ink-draft)";
@@ -34,7 +40,7 @@ export function DraftedPlate({
   return (
     <div
       className={cn("relative", isInk ? "" : "bg-[rgba(255,253,248,0.72)]", className)}
-      style={{ border: `1.5px solid ${strokeColor}`, borderRadius: "2px" }}
+      style={{ ...style, border: `1.5px solid ${strokeColor}`, borderRadius }}
     >
       {/* corner ticks — 8 small bars forming an L at each corner */}
       <span aria-hidden="true" className="absolute -top-px -left-px h-[1.5px] w-4" style={tickStyle} />

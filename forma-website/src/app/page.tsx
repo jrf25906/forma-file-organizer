@@ -313,19 +313,11 @@ export default function Home() {
           className="scroll-mt-16 border-y border-[var(--rule-faint)] py-24 md:py-32"
         >
           <ScrollReveal direction="up" distance={30} className="mx-auto w-full max-w-[1200px] px-6">
-            <div className="relative">
-              {/* Corner ticks (pricing plate) */}
-              <span aria-hidden="true" className="pointer-events-none absolute -top-px -left-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -top-px -left-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -top-px -right-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -top-px -right-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -left-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -left-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -right-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -right-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
-
-            <div
-              className="anchor-dark overflow-hidden rounded-[1.8rem] border border-[rgba(255,255,255,0.06)] shadow-[0_40px_80px_rgba(60,48,24,0.14)]"
+            <DraftedPlate
+              tone="ink"
+              borderRadius="1.8rem"
+              className="anchor-dark overflow-hidden shadow-[0_40px_80px_rgba(60,48,24,0.14)]"
+              innerClassName="p-0"
               style={{
                 background:
                   "radial-gradient(120% 80% at 85% 10%, rgba(201, 126, 102, 0.16) 0%, rgba(201, 126, 102, 0) 55%), radial-gradient(100% 70% at 10% 90%, rgba(91, 124, 153, 0.08) 0%, rgba(91, 124, 153, 0) 50%), linear-gradient(180deg, #1F1A14 0%, #1A1611 100%)",
@@ -386,8 +378,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            </div>
-            </div>
+            </DraftedPlate>
           </ScrollReveal>
         </section>
 
@@ -400,19 +391,11 @@ export default function Home() {
           className="border-t border-[var(--rule-faint)] bg-[var(--canvas-bone)] py-20 md:py-24"
         >
           <div className="mx-auto w-full max-w-[1200px] px-6">
-            <div className="relative">
-              {/* Corner ticks (final CTA plate) */}
-              <span aria-hidden="true" className="pointer-events-none absolute -top-px -left-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -top-px -left-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -top-px -right-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -top-px -right-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -left-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -left-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -right-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
-              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -right-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
-
-            <div
-              className="anchor-dark overflow-hidden rounded-[2rem] border border-[rgba(255,255,255,0.08)] shadow-[0_32px_72px_rgba(36,24,14,0.18)]"
+            <DraftedPlate
+              tone="ink"
+              borderRadius="2rem"
+              className="anchor-dark overflow-hidden shadow-[0_32px_72px_rgba(36,24,14,0.18)]"
+              innerClassName="p-0"
               style={{
                 background:
                   "radial-gradient(110% 90% at 85% 15%, rgba(201, 126, 102, 0.14) 0%, rgba(201, 126, 102, 0) 52%), radial-gradient(90% 70% at 10% 90%, rgba(91, 124, 153, 0.1) 0%, rgba(91, 124, 153, 0) 48%), linear-gradient(180deg, #1E1A16 0%, #16120E 100%)",
@@ -483,8 +466,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-            </div>
-            </div>
+            </DraftedPlate>
           </div>
         </section>
       </main>
