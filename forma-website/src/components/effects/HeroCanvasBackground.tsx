@@ -9,8 +9,9 @@ type HeroCanvasBackgroundProps = HTMLAttributes<HTMLDivElement>;
  * Static editorial background for the hero. Layers:
  *   1. Warm canvas base (inherits --canvas-paper)
  *   2. Diagonal warm wash (top-right → bottom-left) for light direction
- *   3. Subtle grain via SVG fractalNoise filter
- *   4. A single hairline horizontal rule where hero meets next section
+ *   3. Faint ruled-paper structure
+ *   4. Grain via SVG fractalNoise filter
+ *   5. A single hairline horizontal rule where hero meets next section
  *
  * No RAF, no scroll listener, no IntersectionObserver. Respects reduced motion by default.
  */
@@ -29,9 +30,12 @@ export function HeroCanvasBackground({ className, ...rest }: HeroCanvasBackgroun
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(120% 80% at 85% 10%, rgba(201, 126, 102, 0.10) 0%, rgba(201, 126, 102, 0) 55%), radial-gradient(100% 70% at 10% 90%, rgba(91, 124, 153, 0.08) 0%, rgba(91, 124, 153, 0) 50%)",
+            "radial-gradient(120% 80% at 85% 10%, rgba(201, 126, 102, 0.12) 0%, rgba(201, 126, 102, 0) 55%), radial-gradient(100% 70% at 10% 90%, rgba(91, 124, 153, 0.1) 0%, rgba(91, 124, 153, 0) 50%), radial-gradient(70% 50% at 18% 18%, rgba(122, 157, 126, 0.08) 0%, rgba(122, 157, 126, 0) 46%)",
         }}
       />
+
+      {/* Faint printed lines */}
+      <div className="absolute inset-0 opacity-55 [background-image:repeating-linear-gradient(0deg,transparent_0,transparent_30px,rgba(26,26,26,0.016)_30px,rgba(26,26,26,0.016)_31px)]" />
 
       {/* Grain */}
       <svg
