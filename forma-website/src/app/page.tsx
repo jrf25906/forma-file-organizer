@@ -400,6 +400,17 @@ export default function Home() {
           className="border-t border-[var(--rule-faint)] bg-[var(--canvas-bone)] py-20 md:py-24"
         >
           <div className="mx-auto w-full max-w-[1200px] px-6">
+            <div className="relative">
+              {/* Corner ticks (final CTA plate) */}
+              <span aria-hidden="true" className="pointer-events-none absolute -top-px -left-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -top-px -left-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -top-px -right-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -top-px -right-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -left-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -left-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -right-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -right-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
+
             <div
               className="anchor-dark overflow-hidden rounded-[2rem] border border-[rgba(255,255,255,0.08)] shadow-[0_32px_72px_rgba(36,24,14,0.18)]"
               style={{
@@ -409,6 +420,12 @@ export default function Home() {
             >
               <div className="grid gap-10 p-8 md:p-10 lg:grid-cols-[1.1fr,0.9fr] lg:p-14">
                 <div>
+                  <MonoLabel
+                    variant="fig"
+                    className="mb-3 flex items-center gap-2.5 text-[rgba(255,252,248,0.64)] before:block before:h-px before:w-7 before:bg-[rgba(255,252,248,0.48)]"
+                  >
+                    FIG.&nbsp;08 · START WITH ONE FOLDER
+                  </MonoLabel>
                   <p className="eyebrow">Start with one folder</p>
                   <h2 id="closing-heading" className="display-lg mt-5 text-[var(--ink-primary)]">
                     Give the messiest folder one clean pass.
@@ -466,6 +483,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </section>
