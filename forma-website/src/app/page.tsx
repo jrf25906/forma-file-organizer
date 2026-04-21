@@ -313,6 +313,17 @@ export default function Home() {
           className="scroll-mt-16 border-y border-[var(--rule-faint)] py-24 md:py-32"
         >
           <ScrollReveal direction="up" distance={30} className="mx-auto w-full max-w-[1200px] px-6">
+            <div className="relative">
+              {/* Corner ticks (pricing plate) */}
+              <span aria-hidden="true" className="pointer-events-none absolute -top-px -left-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -top-px -left-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -top-px -right-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -top-px -right-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -left-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -left-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -right-px z-10 h-[1.5px] w-4 bg-[rgba(255,252,248,0.55)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute -bottom-px -right-px z-10 h-4 w-[1.5px] bg-[rgba(255,252,248,0.55)]" />
+
             <div
               className="anchor-dark overflow-hidden rounded-[1.8rem] border border-[rgba(255,255,255,0.06)] shadow-[0_40px_80px_rgba(60,48,24,0.14)]"
               style={{
@@ -323,6 +334,12 @@ export default function Home() {
               <div className="grid md:grid-cols-2">
                 {/* Left: headline */}
                 <div className="flex flex-col justify-center p-8 md:p-10 lg:p-14">
+                  <MonoLabel
+                    variant="fig"
+                    className="mb-3 flex items-center gap-2.5 text-[rgba(255,252,248,0.64)] before:block before:h-px before:w-7 before:bg-[rgba(255,252,248,0.48)]"
+                  >
+                    FIG.&nbsp;07 · PRICING PLATE
+                  </MonoLabel>
                   <p className="eyebrow">Pricing</p>
                   <h2 id="pricing-heading" className="display-lg mt-5 text-[var(--ink-primary)]">
                     One price. You own it.
@@ -369,6 +386,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           </ScrollReveal>
         </section>
