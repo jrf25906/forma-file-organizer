@@ -238,7 +238,13 @@ export default function Home() {
           className="scroll-mt-16 border-y border-[var(--rule-faint)] py-24 md:py-32"
         >
           <ScrollReveal direction="up" distance={30} className="mx-auto w-full max-w-[1200px] px-6">
-            <div className="anchor-dark overflow-hidden rounded-[1.8rem] border border-[var(--rule-faint)] bg-[var(--canvas-paper)] shadow-[0_40px_80px_rgba(60,48,24,0.14)]">
+            <div
+              className="anchor-dark overflow-hidden rounded-[1.8rem] border border-[rgba(255,255,255,0.06)] shadow-[0_40px_80px_rgba(60,48,24,0.14)]"
+              style={{
+                background:
+                  "radial-gradient(120% 80% at 85% 10%, rgba(201, 126, 102, 0.16) 0%, rgba(201, 126, 102, 0) 55%), radial-gradient(100% 70% at 10% 90%, rgba(91, 124, 153, 0.08) 0%, rgba(91, 124, 153, 0) 50%), linear-gradient(180deg, #1F1A14 0%, #1A1611 100%)",
+              }}
+            >
               <div className="grid md:grid-cols-2">
                 {/* Left: headline */}
                 <div className="flex flex-col justify-center p-8 md:p-10 lg:p-14">
