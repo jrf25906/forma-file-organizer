@@ -9,6 +9,7 @@ import { faqs } from "@/lib/faq";
 import { SUPPORT_EMAIL } from "@/lib/site";
 import { TrackedMailtoLink } from "@/components/TrackedMailtoLink";
 import { FormaShellSectionHeading } from "@/components/ui/forma-shell-section-heading";
+import { MonoLabel } from "@/components/ui/MonoLabel";
 import {
   Accordion,
   AccordionContent,
@@ -94,14 +95,20 @@ export default function FAQSection() {
 
           <div className="mt-10 border-y border-[var(--rule-faint)]">
             <Accordion type="single" collapsible defaultValue={faqs[0]?.id}>
-              {faqs.map((faq) => (
+              {faqs.map((faq, index) => (
                 <AccordionItem
                   key={faq.id}
                   value={faq.id}
                   className="border-b border-[var(--rule-faint)] last:border-b-0"
                 >
                   <AccordionTrigger className="py-5 text-left text-[16px] leading-6 font-medium text-[var(--ink-primary)] hover:no-underline md:py-6 md:text-[17px]">
-                    {faq.question}
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden="true" className="inline-block h-3 w-[1.5px] bg-[var(--ink-draft)]" />
+                      <MonoLabel variant="section" className="tabular-nums">
+                        § 09.{String(index + 1).padStart(2, "0")}
+                      </MonoLabel>
+                      <span>{faq.question}</span>
+                    </span>
                   </AccordionTrigger>
                   <AccordionContent className="pr-8 text-[15px] leading-relaxed text-[var(--ink-secondary)]">
                     {faq.answer}
