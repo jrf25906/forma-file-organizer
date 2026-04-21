@@ -266,7 +266,6 @@
   --surface-glass: rgba(26, 26, 26, 0.04);
   --surface-glass-hover: rgba(26, 26, 26, 0.08);
   --shadow-color: rgba(60, 48, 24, 0.12);
-  --overlay-scrim: rgba(17, 17, 19, 0.25);
 
   /* Section-specific tokens */
   --features-bg-from: #F0ECE2;
@@ -278,59 +277,13 @@
   --scrollbar-thumb: rgba(26, 26, 26, 0.15);
   --scrollbar-thumb-hover: rgba(26, 26, 26, 0.25);
 
-  /* Credibility divider */
-  --divider-color: rgba(26, 26, 26, 0.15);
-
   /* Logo dot */
   --logo-dot: #1A1A1A;
-  --accent-steel-blue: #5B7C99;
 
   /* Form elements */
   --input-bg: rgba(26, 26, 26, 0.04);
   --input-border: rgba(26, 26, 26, 0.12);
   --input-text: #1A1A1A;
-
-  /* Feature card tokens (canvas-mode) */
-  --feature-card-bg-from: rgba(255, 255, 255, 0.7);
-  --feature-card-bg-to: rgba(255, 255, 255, 0.4);
-  --feature-card-shadow: 0 4px 24px rgba(60, 48, 24, 0.08), 0 1px 2px rgba(60, 48, 24, 0.06);
-  --feature-demo-bg-from: rgba(26, 26, 26, 0.03);
-  --feature-demo-bg-to: rgba(26, 26, 26, 0.01);
-  --feature-demo-inset: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-
-  /* Gradient background accents */
-  --gradient-accent-blue: rgba(91, 124, 153, 0.12);
-  --gradient-accent-green: rgba(122, 157, 126, 0.09);
-
-  /* Feature demo row tokens */
-  --demo-row-bg: rgba(26, 26, 26, 0.03);
-  --demo-row-bg-strong: rgba(26, 26, 26, 0.05);
-  --demo-row-border: rgba(26, 26, 26, 0.10);
-  --demo-placeholder: rgba(26, 26, 26, 0.20);
-  --demo-muted-chip-bg: rgba(26, 26, 26, 0.08);
-
-  /* macOS frame tokens (canvas-mode — light chrome) */
-  --mac-window-shell-bg: #F5F5F3;
-  --mac-window-toolbar-bg: #EBEBE7;
-  --mac-window-toolbar-border: rgba(0, 0, 0, 0.08);
-  --mac-window-control-muted: rgba(0, 0, 0, 0.06);
-  --mac-window-title: rgba(26, 26, 26, 0.62);
-  --mac-window-outline: rgba(0, 0, 0, 0.12);
-  --mac-window-shadow-near: rgba(0, 0, 0, 0.10);
-  --mac-window-shadow-mid: rgba(0, 0, 0, 0.12);
-  --mac-window-shadow-far: rgba(0, 0, 0, 0.20);
-
-  /* Forma file card tokens */
-  --file-card-bg: #F4F4F2;
-  --file-card-border: rgba(0, 0, 0, 0.10);
-  --file-card-label-primary: rgba(26, 26, 26, 0.88);
-  --file-card-label-secondary: rgba(26, 26, 26, 0.60);
-  --file-card-label-tertiary: rgba(26, 26, 26, 0.66);
-  --file-card-pill-bg: rgba(91, 124, 153, 0.12);
-  --file-card-pill-border: rgba(91, 124, 153, 0.20);
-  --file-card-pill-text: #5B7C99;
-  --file-card-status-ready: #7A9D7E;
-  --file-card-status-pending: #C97E66;
 
   /* Hero window tokens (canvas-mode — light chrome) */
   --hero-window-bg: #FAFAF7;
@@ -392,12 +345,6 @@
     0 8px 20px rgba(0, 0, 0, 0.10),
     0 24px 48px -8px rgba(0, 0, 0, 0.15);
 
-  /* Workflow section tokens */
-  --workflow-section-bg: rgba(253, 252, 251, 0.5);
-  --workflow-step-divider: rgba(26, 26, 26, 0.08);
-  --workflow-step-number: rgba(91, 124, 153, 0.6);
-  --workflow-step-label: #5B7C99;
-
   /* shadcn/ui base tokens */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -454,11 +401,8 @@
   /* Shell tokens */
   --shell-surface: rgba(255, 255, 255, 0.04);
   --shell-surface-muted: rgba(255, 255, 255, 0.025);
-  --shell-surface-strong: rgba(255, 255, 255, 0.08);
   --shell-border: rgba(255, 255, 255, 0.10);
   --shell-border-strong: rgba(255, 255, 255, 0.16);
-  --shell-highlight: rgba(255, 255, 255, 0.06);
-  --shell-highlight-strong: rgba(255, 255, 255, 0.12);
   --shell-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 36px rgba(0, 0, 0, 0.28);
   --shell-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.18);
   --shell-shadow-strong: 0 22px 48px rgba(0, 0, 0, 0.32);
@@ -486,7 +430,6 @@
   --cta-bg: #F0F0F2;
   --cta-text: #0A0A0B;
   --cta-bg-hover: #E0E0E2;
-  --overlay-scrim: rgba(0, 0, 0, 0.5);
 
   /* Section-specific tokens */
   --features-bg-from: #0F0F11;
@@ -498,59 +441,13 @@
   --scrollbar-thumb: rgba(255, 255, 255, 0.15);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
 
-  /* Credibility divider */
-  --divider-color: rgba(255, 255, 255, 0.20);
-
   /* Logo dot */
   --logo-dot: #F0F0F2;
-  --accent-steel-blue: #5B7C99;
 
   /* Form elements */
   --input-bg: rgba(255, 255, 255, 0.06);
   --input-border: rgba(255, 255, 255, 0.10);
   --input-text: #F0F0F2;
-
-  /* Feature card glass */
-  --feature-card-bg-from: rgba(255, 255, 255, 0.06);
-  --feature-card-bg-to: rgba(255, 255, 255, 0.02);
-  --feature-card-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --feature-demo-bg-from: rgba(255, 255, 255, 0.04);
-  --feature-demo-bg-to: rgba(255, 255, 255, 0.02);
-  --feature-demo-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-
-  /* Gradient background accents */
-  --gradient-accent-blue: rgba(91, 124, 153, 0.15);
-  --gradient-accent-green: rgba(122, 157, 126, 0.12);
-
-  /* Feature demo row tokens */
-  --demo-row-bg: rgba(255, 255, 255, 0.04);
-  --demo-row-bg-strong: rgba(255, 255, 255, 0.06);
-  --demo-row-border: rgba(255, 255, 255, 0.08);
-  --demo-placeholder: rgba(255, 255, 255, 0.20);
-  --demo-muted-chip-bg: rgba(255, 255, 255, 0.08);
-
-  /* macOS frame tokens */
-  --mac-window-shell-bg: #1C1C1E;
-  --mac-window-toolbar-bg: #2A2A2C;
-  --mac-window-toolbar-border: rgba(255, 255, 255, 0.08);
-  --mac-window-control-muted: rgba(255, 255, 255, 0.06);
-  --mac-window-title: rgba(255, 255, 255, 0.70);
-  --mac-window-outline: rgba(255, 255, 255, 0.10);
-  --mac-window-shadow-near: rgba(0, 0, 0, 0.20);
-  --mac-window-shadow-mid: rgba(0, 0, 0, 0.20);
-  --mac-window-shadow-far: rgba(0, 0, 0, 0.50);
-
-  /* Forma file card tokens */
-  --file-card-bg: #22252A;
-  --file-card-border: rgba(255, 255, 255, 0.08);
-  --file-card-label-primary: rgba(255, 255, 255, 0.92);
-  --file-card-label-secondary: rgba(255, 255, 255, 0.55);
-  --file-card-label-tertiary: rgba(255, 255, 255, 0.56);
-  --file-card-pill-bg: rgba(91, 124, 153, 0.12);
-  --file-card-pill-border: rgba(91, 124, 153, 0.20);
-  --file-card-pill-text: #5B7C99;
-  --file-card-status-ready: #7A9D7E;
-  --file-card-status-pending: #FF9F0A;
 
   /* Hero window tokens */
   --hero-window-bg: #191b20;
@@ -611,12 +508,6 @@
     0 1px 3px rgba(0, 0, 0, 0.26),
     0 16px 32px rgba(0, 0, 0, 0.24),
     0 36px 68px -12px rgba(0, 0, 0, 0.56);
-
-  /* Workflow section tokens */
-  --workflow-section-bg: linear-gradient(180deg, rgba(18, 19, 22, 0.94) 0%, rgba(14, 15, 18, 0.98) 100%);
-  --workflow-step-divider: rgba(255, 255, 255, 0.08);
-  --workflow-step-number: rgba(136, 168, 194, 0.58);
-  --workflow-step-label: rgba(168, 190, 211, 0.92);
 
   /* shadcn/ui dark overrides */
   --background: oklch(0.145 0 0);
@@ -798,12 +689,6 @@ input, textarea { background-color: var(--input-bg); border-color: var(--input-b
   }
 }
 
-.gradient-bg {
-  background:
-    radial-gradient(ellipse 80% 50% at 20% 40%, var(--gradient-accent-blue) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 40% at 80% 60%, var(--gradient-accent-green) 0%, transparent 50%),
-    var(--bg-primary);
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ACCESSIBILITY
@@ -847,27 +732,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 
 @media (pointer: coarse) {
   button, a, [role="button"] { min-height: 44px; min-width: 44px; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   FEATURES SECTION
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.features-section {
-  background: linear-gradient(180deg, var(--features-bg-from) 0%, var(--features-bg-mid) 50%, var(--features-bg-from) 100%);
-}
-
-.features-section .feature-card.glass-card {
-  background: linear-gradient(135deg, var(--feature-card-bg-from) 0%, var(--feature-card-bg-to) 100%);
-  border: 1px solid var(--border-medium);
-  box-shadow: var(--feature-card-shadow);
-}
-
-.features-section .feature-card .demo-area {
-  background: linear-gradient(180deg, var(--feature-demo-bg-from) 0%, var(--feature-demo-bg-to) 100%);
-  border-color: var(--border-medium);
-  border-radius: 12px;
-  box-shadow: var(--feature-demo-inset);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
