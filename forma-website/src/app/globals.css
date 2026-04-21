@@ -652,7 +652,7 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* Scoped dark anchor — use for product shells, hero window, CTA buttons that must stay dark regardless of canvas */
+/* Scoped dark anchor — rescopes canvas/ink/rule tokens. Callers set their own background explicitly. */
 .anchor-dark {
   --canvas-paper:  #0A0A0B;
   --canvas-bone:   #111113;
@@ -664,8 +664,9 @@
   --shell-surface:       rgba(255, 255, 255, 0.04);
   --shell-border:        var(--rule-faint);
   --shell-shadow:        0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 36px rgba(0, 0, 0, 0.28);
-  background: var(--canvas-paper);
-  color: var(--ink-primary);
+  --shell-cta-bg:        #F0F0F2;
+  --shell-cta-text:      #0A0A0B;
+  --shell-cta-bg-hover:  #DCDCDE;
   color-scheme: dark;
 }
 
