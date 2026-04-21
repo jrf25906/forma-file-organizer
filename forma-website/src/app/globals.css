@@ -667,6 +667,9 @@
   --shell-cta-bg:        #F0F0F2;
   --shell-cta-text:      #0A0A0B;
   --shell-cta-bg-hover:  #DCDCDE;
+  --shell-cta-secondary-bg-hover: rgba(255, 255, 255, 0.08);
+  --shell-cta-secondary-text:     #F0F0F2;
+  --shell-cta-secondary-border:   rgba(255, 255, 255, 0.12);
   color-scheme: dark;
 }
 
