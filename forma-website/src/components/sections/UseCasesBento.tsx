@@ -11,6 +11,7 @@ import {
 } from "@/lib/animation/ease-curves";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import { FormaShellSectionHeading } from "@/components/ui/forma-shell-section-heading";
+import { MonoLabel } from "@/components/ui/MonoLabel";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    macOS FILE ICON (reusable base shape)
@@ -611,12 +612,18 @@ function ProjectsScene({ isHovered }: { isHovered: boolean }) {
 
 function BentoCard({
   children,
+  sectionMark,
   title,
   description,
+  ruleHint,
+  payoff,
 }: {
   children: (isHovered: boolean) => React.ReactNode;
+  sectionMark: string;
   title: string;
   description: string;
+  ruleHint: string;
+  payoff: string;
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -628,12 +635,26 @@ function BentoCard({
     >
       {children(isHovered)}
       <div className="border-t border-[var(--rule-faint)] px-6 py-5">
-        <h3 className="mt-4 font-display text-[1.125rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)]">
+        <MonoLabel variant="section" className="tabular-nums">
+          {sectionMark}
+        </MonoLabel>
+        <h3 className="mt-3 font-display text-[1.125rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)]">
           {title}
         </h3>
         <p className="mt-2 text-[14px] leading-relaxed text-[var(--ink-secondary)]">
           {description}
         </p>
+        <div className="mt-4 rounded-[1rem] border border-[var(--rule-faint)] bg-[var(--canvas-bone)] px-4 py-4 shadow-[var(--shell-shadow-soft)]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ink-faint)]">
+            Good first rule
+          </p>
+          <p className="mt-2 font-mono text-[12px] leading-relaxed text-[var(--ink-primary)]">
+            {ruleHint}
+          </p>
+          <p className="mt-3 text-[13px] leading-relaxed text-[var(--ink-secondary)]">
+            {payoff}
+          </p>
+        </div>
       </div>
     </article>
   );
@@ -681,9 +702,15 @@ export default function UseCasesBento() {
   return (
     <section
       id="use-cases"
-      className="relative z-10 border-y border-[var(--rule-faint)] bg-[var(--canvas-bone)] py-24 md:py-32"
+      className="grid-stronger relative z-10 border-y border-[var(--rule-faint)] bg-[var(--canvas-bone)] py-24 md:py-32"
     >
       <div className="mx-auto w-full max-w-[1200px] px-6">
+        <MonoLabel
+          variant="fig"
+          className="mb-3 flex items-center gap-2.5 before:block before:h-px before:w-7 before:bg-[var(--ink-draft)]"
+        >
+          FIG.&nbsp;05 · USE CASES
+        </MonoLabel>
         <FormaShellSectionHeading
           eyebrow="Where it clicks"
           title="Start with the folder that bothers you most."
@@ -703,20 +730,29 @@ export default function UseCasesBento() {
             className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
           >
             <BentoCard
+              sectionMark="§ 05.01"
               title="Screenshots and exports"
               description="Your desktop has 400 screenshots on it right now. Don&rsquo;t look. Just write a rule."
+              ruleHint='name contains "Screenshot" → ~/Screenshots'
+              payoff="Clear the files that create visible mess first, then build from there."
             >
               {(isHovered) => <ScreenshotsScene isHovered={isHovered} />}
             </BentoCard>
             <BentoCard
+              sectionMark="§ 05.02"
               title="PDFs and paperwork"
               description="Invoices, tax forms, bank statements. Rules you can still understand when tax season hits."
+              ruleHint='kind is PDF and name includes "invoice" → ~/Finance'
+              payoff="Make admin folders predictable without turning the workflow into a tax-season puzzle."
             >
               {(isHovered) => <PDFsScene isHovered={isHovered} />}
             </BentoCard>
             <BentoCard
+              sectionMark="§ 05.03"
               title="Project overflow"
               description="Exports, renders, drafts — the files that pile up mid-project. Move them without losing track."
+              ruleHint='folder is Exports and age > 14 days → ~/Projects/Archive'
+              payoff="Keep active project folders usable without losing the trail of drafts behind them."
             >
               {(isHovered) => <ProjectsScene isHovered={isHovered} />}
             </BentoCard>
@@ -725,7 +761,7 @@ export default function UseCasesBento() {
 
         {/* HOW IT WORKS — trust signal cards */}
         <div className="mt-16">
-          <p className="eyebrow mb-6">How it works</p>
+          <p className="eyebrow mb-6">What keeps it safe</p>
           <ScrollReveal
             direction="up"
             distance={24}
