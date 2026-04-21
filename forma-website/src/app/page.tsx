@@ -16,7 +16,12 @@ import FormaHeroWindow from "@/components/sections/FormaHeroWindow";
 import HeroEntrance from "@/components/animation/HeroEntrance";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { DraftedPlate } from "@/components/ui/DraftedPlate";
-import { FolderFigure } from "@/components/illustrations/AxonometricFigures";
+import {
+  FolderFigure,
+  RuleCardFigure,
+  PreviewQueueFigure,
+  UndoStackFigure,
+} from "@/components/illustrations/AxonometricFigures";
 import { formatFolioRevision } from "@/lib/folio";
 import { faqs } from "@/lib/faq";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL, WEBSITE_LAST_UPDATED_ISO } from "@/lib/site";
@@ -27,22 +32,25 @@ import { SITE_NAME, SITE_URL, SUPPORT_EMAIL, WEBSITE_LAST_UPDATED_ISO } from "@/
 
 const workflowSteps = [
   {
-    number: "1",
+    number: "§ 01",
     label: "WRITE\u00b7RULE",
     title: "Describe the rule.",
     body: "\u2018PDFs with invoice in the name go to Finances.\u2019 That\u2019s a real rule. No twelve-tab settings panel.",
+    Glyph: RuleCardFigure,
   },
   {
-    number: "2",
+    number: "§ 02",
     label: "LOCAL\u00b7PREVIEW",
     title: "Preview the batch.",
     body: "See every file that matched, where it\u2019s going, and why. Uncheck anything that shouldn\u2019t move. Nothing happens until you say so.",
+    Glyph: PreviewQueueFigure,
   },
   {
-    number: "3",
+    number: "§ 03",
     label: "UNDO\u00b7BUILT\u00b7IN",
     title: "Undo the batch.",
     body: "If something was wrong, reverse the recent batch in Forma without moving everything back by hand.",
+    Glyph: UndoStackFigure,
   },
 ] as const;
 
@@ -221,7 +229,7 @@ export default function Home() {
           <div className="mx-auto w-full max-w-[1200px] px-6">
             <div className="md:grid md:grid-cols-[1fr_2fr] md:gap-18 md:items-start">
               {/* Left: section intro */}
-              <div className="mb-12 md:mb-0 md:sticky md:top-28">
+              <div className="mb-12 md:mb-0 md:sticky md:top-28 md:border-r md:border-[var(--rule-draft-faint)] md:pr-10">
                 <p className="eyebrow">How Forma works</p>
                 <h2 id="how-it-works-heading" className="display-lg mt-5 text-[var(--ink-primary)]">
                   Three steps. No manual.
@@ -233,25 +241,25 @@ export default function Home() {
                 {workflowSteps.map((step) => (
                   <div
                     key={step.number}
-                    className="border-t border-[var(--rule-faint)] pt-8 first:border-t-0 first:pt-0"
+                    className="grid grid-cols-[1fr_96px] items-start gap-6 border-t border-[var(--rule-draft-faint)] pt-8 first:border-t-0 first:pt-0"
                   >
-                    <div className="flex items-baseline gap-3">
-                      <span
-                        aria-hidden="true"
-                        className="text-[4rem] font-bold leading-none tracking-[-0.04em] text-[var(--ink-faint)] sm:text-[4.5rem] md:text-[5.5rem]"
-                      >
-                        {step.number}
-                      </span>
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--forma-steel-blue)]">
-                        {step.label}
+                    <div>
+                      <div className="flex items-baseline gap-3">
+                        <MonoLabel variant="section" className="text-[1.25rem] tracking-[0.08em]">
+                          {step.number}
+                        </MonoLabel>
+                        <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--ink-draft)]">
+                          {step.label}
+                        </p>
+                      </div>
+                      <h3 className="mt-5 font-display text-[1.375rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)] md:text-[1.65rem]">
+                        {step.title}
+                      </h3>
+                      <p className="mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--ink-secondary)] md:text-[1.03rem]">
+                        {step.body}
                       </p>
                     </div>
-                    <h3 className="mt-5 font-display text-[1.375rem] font-medium tracking-[-0.01em] text-[var(--ink-primary)] md:text-[1.65rem]">
-                      {step.title}
-                    </h3>
-                    <p className="mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--ink-secondary)] md:text-[1.03rem]">
-                      {step.body}
-                    </p>
+                    <step.Glyph className="mt-2 hidden h-20 w-24 md:block" />
                   </div>
                 ))}
               </ScrollReveal>
