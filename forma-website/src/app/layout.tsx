@@ -19,7 +19,6 @@ const newsreader = Newsreader({
   subsets: ["latin"],
   variable: "--font-newsreader",
   display: "swap",
-  axes: ["opsz"],
   weight: ["400", "500", "600"],
 });
 
@@ -116,7 +115,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=window.matchMedia('(prefers-color-scheme: light)').matches;document.documentElement.setAttribute('data-theme',m?'light':'dark')}catch(e){}})()`,
+            __html: `(function(){try{var stored=localStorage.getItem('forma-theme');if(stored==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}})()`,
           }}
         />
       </head>
