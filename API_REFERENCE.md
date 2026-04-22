@@ -4,6 +4,39 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Dashboard workspace-state contract
+  - `DashboardWorkspaceDestination`
+    - `home`
+    - `analytics`
+    - `rules`
+  - `DashboardHomeWorkspaceSnapshot`
+    - `isRightPanelVisible`
+    - `rightPanelWidth`
+    - `rightPanelMode`
+  - `DashboardViewModel`
+    - `workspaceDestination`
+    - `showAnalyticsWorkspace()`
+    - `showRulesWorkspace()`
+    - `returnToHomeWorkspace()`
+    - `recordHomeInspectorWidth(_:)`
+    - `homeInspectorPreferredWidth`
+    - Sidebar/global `Analytics` and `Smart Rules` entry points now route through explicit full-workspace destinations, while contextual rule-builder flows stay in `home` and continue using the compact right panel.
+  - `WindowPresentationStore`
+    - `savedInspectorWidth`
+    - `setInspectorWidth(_:)`
+    - `resetInspectorWidth()`
+  - `DashboardLaunchPresentation`
+    - `defaultInspectorWidth`
+    - `preferredInspectorWidth`
+    - `startupInspectorWidth(savedPreference:)`
+    - `clampedInspectorWidth(_:)`
+    - Launch and restore behavior now preserve inspector width directly instead of deriving the home layout from the older wide-window threshold.
+  - `DashboardView`
+    - Exposes `homeWorkspace`, `analyticsWorkspace`, and `rulesWorkspace` through dedicated split-view arrangements while keeping the left sidebar persistent across all root states.
+  - `ProductivityReportView` / `RulesManagementView`
+    - `init(..., onBackToDashboard:)`
+    - Full-workspace destination screens now own an explicit `Back to Dashboard` action instead of relying on the inspector toggle for navigation.
+
 - Batched organize/undo persistence, bounded retention, and verified onboarding access
   - `RetentionConfig`
     - `historyWindowDays`

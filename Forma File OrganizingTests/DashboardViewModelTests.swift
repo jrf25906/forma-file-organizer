@@ -4708,7 +4708,7 @@ final class DashboardViewModelTests: XCTestCase {
         }
     }
 
-    func testSavedInspectorPreferenceVisibleDefersToTwoColumnOnNarrowLaunch() {
+    func testDefaultLaunchShowsInspectorWhenDefaultPanelHasMeaningfulContent() {
         let suiteName = "DashboardViewModelTests.WindowPresentation.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -4717,7 +4717,6 @@ final class DashboardViewModelTests: XCTestCase {
         }
 
         let store = WindowPresentationStore(defaults: defaults)
-        store.setInspectorVisible(true)
 
         let viewModel = DashboardViewModel(
             services: AppServices(),
@@ -4726,19 +4725,23 @@ final class DashboardViewModelTests: XCTestCase {
             windowPresentationStore: store,
             userDefaults: defaults,
             launchPresentation: DashboardLaunchPresentation(
-                launchWidth: DashboardLaunchPresentation.inspectorEligibleWidth - 1,
+                launchWidth: FormaSpacing.Window.preferredWidth,
                 hasMeaningfulDefaultPanelContent: true
             )
         )
 
-        XCTAssertFalse(
+        XCTAssertTrue(
             viewModel.isRightPanelVisible,
-            "Saved inspector visibility should be guarded off when the launch width is too narrow for a comfortable three-column layout"
+            "Home should launch with the inspector visible when the default panel has meaningful content"
         )
-        XCTAssertEqual(store.savedInspectorVisibility, true, "The saved preference should remain intact for future wide launches")
+        XCTAssertEqual(
+            viewModel.homeInspectorPreferredWidth,
+            DashboardLaunchPresentation.defaultInspectorWidth,
+            accuracy: 0.5
+        )
     }
 
-    func testSavedInspectorPreferenceVisibleRestoresThreeColumnOnWideLaunch() {
+    func testSavedInspectorWidthRestoresPreferredWidthOnLaunch() {
         let suiteName = "DashboardViewModelTests.WindowPresentation.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -4748,6 +4751,7 @@ final class DashboardViewModelTests: XCTestCase {
 
         let store = WindowPresentationStore(defaults: defaults)
         store.setInspectorVisible(true)
+        store.setInspectorWidth(412)
 
         let viewModel = DashboardViewModel(
             services: AppServices(),
@@ -4756,15 +4760,16 @@ final class DashboardViewModelTests: XCTestCase {
             windowPresentationStore: store,
             userDefaults: defaults,
             launchPresentation: DashboardLaunchPresentation(
-                launchWidth: DashboardLaunchPresentation.inspectorEligibleWidth,
+                launchWidth: FormaSpacing.Window.preferredWidth,
                 hasMeaningfulDefaultPanelContent: true
             )
         )
 
         XCTAssertTrue(viewModel.isRightPanelVisible)
+        XCTAssertEqual(viewModel.homeInspectorPreferredWidth, 412, accuracy: 0.5)
     }
 
-    func testSavedInspectorPreferenceHiddenRemainsHiddenOnWideLaunch() {
+    func testSavedInspectorPreferenceHiddenRemainsHiddenOnLaunch() {
         let suiteName = "DashboardViewModelTests.WindowPresentation.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -4782,7 +4787,7 @@ final class DashboardViewModelTests: XCTestCase {
             windowPresentationStore: store,
             userDefaults: defaults,
             launchPresentation: DashboardLaunchPresentation(
-                launchWidth: DashboardLaunchPresentation.inspectorEligibleWidth + 100,
+                launchWidth: FormaSpacing.Window.preferredWidth,
                 hasMeaningfulDefaultPanelContent: true
             )
         )
@@ -5340,6 +5345,78 @@ final class DashboardViewModelTests: XCTestCase {
             XCTFail("Right panel mode should switch to .ruleBuilder even without file")
         }
         XCTAssertTrue(viewModel.isRightPanelVisible, "Opening the inline rule builder should reveal the right panel")
+    }
+
+    func testSidebarAnalyticsEntersAnalyticsWorkspaceWithoutMutatingHomePanelState() {
+        viewModel.setRightPanelVisible(false)
+        viewModel.rightPanelMode = .rulesManagement
+
+        viewModel.showAnalyticsWorkspace()
+
+        XCTAssertEqual(viewModel.workspaceDestination, .analytics)
+        XCTAssertFalse(viewModel.isRightPanelVisible)
+
+        if case .rulesManagement = viewModel.rightPanelMode {
+            // Success
+        } else {
+            XCTFail("Entering analytics workspace should preserve the captured Home panel mode")
+        }
+    }
+
+    func testSidebarSmartRulesEntersRulesWorkspaceWithoutMutatingHomePanelState() {
+        viewModel.setRightPanelVisible(true)
+        viewModel.rightPanelMode = .default
+
+        viewModel.showRulesWorkspace()
+
+        XCTAssertEqual(viewModel.workspaceDestination, .rules)
+        XCTAssertTrue(viewModel.isRightPanelVisible)
+
+        if case .default = viewModel.rightPanelMode {
+            // Success
+        } else {
+            XCTFail("Entering rules workspace should preserve the captured Home panel mode")
+        }
+    }
+
+    func testReturnToHomeWorkspaceRestoresCapturedInspectorVisibilityAndPanelMode() {
+        viewModel.setRightPanelVisible(false)
+        viewModel.recordHomeInspectorWidth(404)
+        viewModel.rightPanelMode = .rulesManagement
+
+        viewModel.showAnalyticsWorkspace()
+
+        viewModel.setRightPanelVisible(true)
+        viewModel.recordHomeInspectorWidth(320)
+        viewModel.rightPanelMode = .default
+
+        viewModel.returnToHomeWorkspace()
+
+        XCTAssertEqual(viewModel.workspaceDestination, .home)
+        XCTAssertFalse(viewModel.isRightPanelVisible)
+        XCTAssertEqual(viewModel.homeInspectorPreferredWidth, 404, accuracy: 0.5)
+
+        if case .rulesManagement = viewModel.rightPanelMode {
+            // Success
+        } else {
+            XCTFail("Returning Home should restore the previously captured Home panel mode")
+        }
+    }
+
+    func testContextualRuleBuilderStaysInHomeWorkspace() {
+        let file = FileItem(path: "/f/test.txt", sizeInBytes: 1_000, creationDate: Date(), destination: nil, status: .pending)
+
+        viewModel.showRuleBuilderPanel(fileContext: file)
+
+        XCTAssertEqual(viewModel.workspaceDestination, .home)
+        XCTAssertTrue(viewModel.isRightPanelVisible)
+
+        if case .ruleBuilder(let editingRule, let contextFile) = viewModel.rightPanelMode {
+            XCTAssertNil(editingRule)
+            XCTAssertEqual(contextFile?.path, file.path)
+        } else {
+            XCTFail("Contextual rule creation should stay in the Home right panel")
+        }
     }
 
     func testShowAnalyticsPanelRevealsRightPanel() {

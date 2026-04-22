@@ -60,6 +60,28 @@ final class AnalyticsViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.folderHealthEvaluation.hasActiveAlerts)
     }
 
+    func testOpenPendingReviewQueueReturnsAnalyticsWorkspaceToHome() {
+        let dashboardViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: MockFileSystemService(),
+            fileScanPipeline: MockFileScanPipeline()
+        )
+        let navigation = NavigationViewModel()
+        let reportViewModel = ProductivityReportViewModel(
+            modelContext: context,
+            navigation: navigation,
+            dashboardViewModel: dashboardViewModel
+        )
+
+        dashboardViewModel.showAnalyticsWorkspace()
+
+        reportViewModel.openPendingReviewQueue()
+
+        XCTAssertEqual(dashboardViewModel.workspaceDestination, .home)
+        XCTAssertEqual(navigation.selection, .home)
+        XCTAssertEqual(dashboardViewModel.reviewFilterMode, .needsReview)
+    }
+
     func testDetectClustersSkipsPublishingAndPersistingUnchangedClusterSet() async throws {
         let viewModel = AnalyticsDashboardViewModel(services: AppServices())
         let baselineDate = Date(timeIntervalSince1970: 1_710_000_000)

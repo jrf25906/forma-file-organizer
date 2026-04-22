@@ -507,7 +507,7 @@ struct DefaultPanelView: View {
                 // Next actions
                 HStack(spacing: FormaSpacing.tight) {
                     Button(action: {
-                        dashboardViewModel.showAnalyticsPanel()
+                        dashboardViewModel.showAnalyticsWorkspace()
                     }) {
                         HStack(spacing: FormaSpacing.micro) {
                             Image(systemName: "chart.bar")
@@ -526,7 +526,7 @@ struct DefaultPanelView: View {
                     .buttonStyle(.plain)
 
                     Button(action: {
-                        dashboardViewModel.showRulesManagementPanel()
+                        dashboardViewModel.showRulesWorkspace()
                     }) {
                         HStack(spacing: FormaSpacing.micro) {
                             Image(systemName: "gearshape")

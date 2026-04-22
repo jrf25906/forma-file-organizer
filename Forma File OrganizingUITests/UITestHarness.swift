@@ -63,13 +63,39 @@ final class UITestHarness {
     }
 
     @MainActor
+    func dashboardWorkspaceDestinationProbe() -> XCUIElement {
+        element(withIdentifier: "dashboardWorkspaceDestinationProbe")
+    }
+
+    @MainActor
     func toolbarInspectorVisibilityProbe() -> XCUIElement {
         element(withIdentifier: "toolbarInspectorVisibilityProbe")
     }
 
     @MainActor
+    func homeInspectorWidthProbe() -> XCUIElement {
+        element(withIdentifier: "homeInspectorWidthProbe")
+    }
+
+    @MainActor
+    func homeInspectorModeProbe() -> XCUIElement {
+        element(withIdentifier: "homeInspectorModeProbe")
+    }
+
+    @MainActor
     func inspectorToggle() -> XCUIElement {
         app.buttons["toolbarInspectorToggle"]
+    }
+
+    @MainActor
+    func backToDashboardButton() -> XCUIElement {
+        let predicate = NSPredicate(
+            format: "identifier == %@ OR identifier BEGINSWITH %@ OR label == %@",
+            "backToDashboardButton",
+            "backToDashboardButton__",
+            "Dashboard"
+        )
+        return app.descendants(matching: .button).matching(predicate).firstMatch
     }
 
     @MainActor
@@ -295,6 +321,32 @@ final class UITestHarness {
     @MainActor
     func waitForSplitArrangement(_ arrangement: String, timeout: TimeInterval = 4) {
         waitForValue(splitArrangementProbe(), equals: arrangement, timeout: timeout)
+    }
+
+    @MainActor
+    func waitForWorkspaceDestination(_ destination: String, timeout: TimeInterval = 4) {
+        waitForValue(dashboardWorkspaceDestinationProbe(), equals: destination, timeout: timeout)
+    }
+
+    @MainActor
+    func homeInspectorWidth(timeout: TimeInterval = 4) -> Int {
+        let probe = homeInspectorWidthProbe()
+        waitForExists(probe, timeout: timeout, message: "Home inspector width probe should exist")
+
+        let rawValue = badgeValue(probe)
+        guard let width = Int(rawValue) else {
+            XCTFail("Expected home inspector width probe to be an integer, got: \(rawValue)")
+            return 0
+        }
+
+        return width
+    }
+
+    @MainActor
+    func homeInspectorMode(timeout: TimeInterval = 4) -> String {
+        let probe = homeInspectorModeProbe()
+        waitForExists(probe, timeout: timeout, message: "Home inspector mode probe should exist")
+        return badgeValue(probe)
     }
 
     @MainActor

@@ -5,16 +5,16 @@ import AppKit
 struct DashboardSplitLayoutConfiguration {
     enum Arrangement: String {
         case sidebarAndContent
-        case sidebarAndRightPanel
+        case sidebarAndWorkspace
         case sidebarContentAndInspector
     }
 
+    let workspaceDestination: DashboardWorkspaceDestination
     let isInspectorVisible: Bool
-    let showsAnalyticsAsPrimaryDetail: Bool
 
     var arrangement: Arrangement {
-        if showsAnalyticsAsPrimaryDetail {
-            return .sidebarAndRightPanel
+        guard workspaceDestination == .home else {
+            return .sidebarAndWorkspace
         }
 
         if isInspectorVisible {
@@ -163,15 +163,19 @@ struct DashboardView: View {
         splitLayoutConfiguration.mode
     }
 
-    private var showsAnalyticsAsPrimaryDetail: Bool {
-        if case .analytics = panelStateManager.rightPanelMode {
-            return true
-        }
-        return false
-    }
-
     private var splitLayoutArrangement: String {
         splitLayoutConfiguration.arrangement.rawValue
+    }
+
+    private var workspaceDestinationState: String {
+        switch dashboardViewModel.workspaceDestination {
+        case .home:
+            "homeWorkspace"
+        case .analytics:
+            "analyticsWorkspace"
+        case .rules:
+            "rulesWorkspace"
+        }
     }
 
     private var inspectorVisibilityState: String {
@@ -180,8 +184,8 @@ struct DashboardView: View {
 
     private var splitLayoutConfiguration: DashboardSplitLayoutConfiguration {
         DashboardSplitLayoutConfiguration(
-            isInspectorVisible: dashboardViewModel.isRightPanelVisible,
-            showsAnalyticsAsPrimaryDetail: showsAnalyticsAsPrimaryDetail
+            workspaceDestination: dashboardViewModel.workspaceDestination,
+            isInspectorVisible: dashboardViewModel.isRightPanelVisible
         )
     }
 
@@ -222,24 +226,6 @@ struct DashboardView: View {
         )
     }
 
-    @ViewBuilder
-    private var twoColumnDetailColumn: some View {
-        if showsAnalyticsAsPrimaryDetail {
-            rightPanelColumn
-        } else {
-            centerColumn
-        }
-    }
-
-    private var analyticsSplitViewLayout: some View {
-        NavigationSplitView {
-            sidebarColumn
-        } detail: {
-            twoColumnDetailColumn
-        }
-        .navigationSplitViewStyle(.balanced)
-    }
-
     private var contentSplitViewLayout: some View {
         NavigationSplitView {
             sidebarColumn
@@ -261,13 +247,57 @@ struct DashboardView: View {
     }
 
     @ViewBuilder
+    private var analyticsWorkspaceColumn: some View {
+        GeometryReader { proxy in
+            ProductivityReportView(
+                modelContext: modelContext,
+                navigation: nav,
+                dashboardViewModel: dashboardViewModel,
+                onBackToDashboard: dashboardViewModel.returnToHomeWorkspace
+            )
+            .environment(\.rightPanelLayout, RightPanelLayout(width: proxy.size.width))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    @ViewBuilder
+    private var rulesWorkspaceColumn: some View {
+        GeometryReader { proxy in
+            RulesManagementView(onBackToDashboard: dashboardViewModel.returnToHomeWorkspace)
+                .environment(\.rightPanelLayout, RightPanelLayout(width: proxy.size.width))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var analyticsWorkspaceSplitViewLayout: some View {
+        NavigationSplitView {
+            sidebarColumn
+        } detail: {
+            analyticsWorkspaceColumn
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    private var rulesWorkspaceSplitViewLayout: some View {
+        NavigationSplitView {
+            sidebarColumn
+        } detail: {
+            rulesWorkspaceColumn
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    @ViewBuilder
     private var splitViewLayout: some View {
-        if showsAnalyticsAsPrimaryDetail {
-            analyticsSplitViewLayout
-        } else if dashboardViewModel.isRightPanelVisible {
+        switch dashboardViewModel.workspaceDestination {
+        case .home where dashboardViewModel.isRightPanelVisible:
             inspectorSplitViewLayout
-        } else {
+        case .home:
             contentSplitViewLayout
+        case .analytics:
+            analyticsWorkspaceSplitViewLayout
+        case .rules:
+            rulesWorkspaceSplitViewLayout
         }
     }
 
@@ -277,7 +307,7 @@ struct DashboardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .navigationSplitViewColumnWidth(
                 min: FormaSpacing.Column.rightPanelMin,
-                ideal: FormaSpacing.Column.rightPanelIdeal,
+                ideal: dashboardViewModel.homeInspectorPreferredWidth,
                 max: FormaSpacing.Column.rightPanelMax
             )
     }
@@ -324,6 +354,13 @@ struct DashboardView: View {
                         .accessibilityIdentifier("dashboardInspectorVisibilityProbe")
                         .accessibilityLabel(inspectorVisibilityState)
                         .accessibilityValue(inspectorVisibilityState)
+                        .allowsHitTesting(false)
+
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .accessibilityIdentifier("dashboardWorkspaceDestinationProbe")
+                        .accessibilityLabel(workspaceDestinationState)
+                        .accessibilityValue(workspaceDestinationState)
                         .allowsHitTesting(false)
 
                     // Rule Editor Overlay - Centered Modal

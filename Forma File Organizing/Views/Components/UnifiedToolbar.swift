@@ -204,7 +204,7 @@ struct UnifiedToolbar: View {
     }
 
     private var isInspectorDisabled: Bool {
-        panelStateManager.rightPanelMode == .analytics
+        viewModel.workspaceDestination != .home || panelStateManager.rightPanelMode == .analytics
     }
 
     private var isInspectorEffectivelyVisible: Bool {

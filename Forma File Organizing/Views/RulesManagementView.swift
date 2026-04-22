@@ -97,6 +97,11 @@ struct RulesManagementView: View {
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
     private let listRowSpacing: CGFloat = FormaSpacing.tight
     private let listContentPadding: CGFloat = FormaSpacing.standard
+    private let onBackToDashboard: (() -> Void)?
+
+    init(onBackToDashboard: (() -> Void)? = nil) {
+        self.onBackToDashboard = onBackToDashboard
+    }
 
     private var rightPanelWidthClassText: String {
         rightPanelLayout.isCompact ? "compact" : "regular"
@@ -270,6 +275,17 @@ struct RulesManagementView: View {
 
             // Header
             VStack(spacing: FormaSpacing.standard) {
+                if let onBackToDashboard {
+                    Button(action: onBackToDashboard) {
+                        Label("Dashboard", systemImage: "chevron.left")
+                            .font(.formaSmallSemibold)
+                            .foregroundColor(.formaSteelBlue)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("backToDashboardButton")
+                }
+
                 if rightPanelLayout.isCompact {
                     VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                         rulesHeaderSummary(totalEnabledCount: totalEnabledCount)
@@ -367,6 +383,7 @@ struct RulesManagementView: View {
         .onChange(of: allRules.map(\.id)) { _, remainingRuleIDs in
             pendingDeletionRuleIDs.formIntersection(Set(remainingRuleIDs))
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("smartRulesView")
         .accessibilityLabel(isUITesting ? smartRulesAccessibilityValue : "")
         .accessibilityValue(isUITesting ? smartRulesAccessibilityValue : "")
@@ -1286,13 +1303,23 @@ struct RulesManagementView: View {
     }
 
     private func openRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {
-        nav.beginRuleDraft(
-            editingRule: editingRule,
-            fileContext: fileContext,
-            presentation: .panel,
-            returnTarget: .defaultPanel
-        )
-        dashboardViewModel.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
+        if onBackToDashboard != nil {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                nav.openRuleEditor(
+                    editingRule: editingRule,
+                    fileContext: fileContext,
+                    returnTarget: .none
+                )
+            }
+        } else {
+            nav.beginRuleDraft(
+                editingRule: editingRule,
+                fileContext: fileContext,
+                presentation: .panel,
+                returnTarget: .defaultPanel
+            )
+            dashboardViewModel.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
+        }
     }
     
     private func liveRule(withID id: UUID) -> Rule? {

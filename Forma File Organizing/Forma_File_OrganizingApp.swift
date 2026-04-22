@@ -131,6 +131,7 @@ struct Forma_File_OrganizingApp: App {
         let windowPresentationStore = WindowPresentationStore(defaults: Self.windowPresentationDefaults())
         if Self.shouldResetWindowPresentation {
             windowPresentationStore.resetInspectorVisibility()
+            windowPresentationStore.resetInspectorWidth()
         }
         _services = StateObject(wrappedValue: appServices)
         _dashboardViewModel = StateObject(

@@ -6,6 +6,7 @@ struct RightPanelView: View {
     @EnvironmentObject private var panelStateManager: PanelStateManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var panelTransition
+    @State private var lastObservedMeasuredWidth: CGFloat?
 
     private var defaultPanelTopAlignmentOffset: CGFloat {
         FormaSpacing.Toolbar.topOffset + FormaSpacing.tight
@@ -49,9 +50,29 @@ struct RightPanelView: View {
         }
     }
 
+    private var modeProbeValue: String {
+        switch panelStateManager.rightPanelMode {
+        case .default:
+            "default"
+        case .inspector:
+            "inspector"
+        case .rulesManagement:
+            "rulesManagement"
+        case .ruleBuilder:
+            "ruleBuilder"
+        case .celebration:
+            "celebration"
+        case .completionCelebration:
+            "completionCelebration"
+        case .analytics:
+            "analytics"
+        }
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let panelLayout = RightPanelLayout(width: proxy.size.width)
+            let measuredWidth = proxy.size.width
 
             VStack(spacing: 0) {
                 // Mode indicator header (visible in non-default modes)
@@ -104,10 +125,34 @@ struct RightPanelView: View {
             }
             .environment(\.rightPanelLayout, panelLayout)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .overlay(alignment: .topLeading) {
+                VStack(spacing: 0) {
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .accessibilityIdentifier("homeInspectorWidthProbe")
+                        .accessibilityLabel(String(Int(measuredWidth.rounded())))
+                        .accessibilityValue(String(Int(measuredWidth.rounded())))
+
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .accessibilityIdentifier("homeInspectorModeProbe")
+                        .accessibilityLabel(modeProbeValue)
+                        .accessibilityValue(modeProbeValue)
+                }
+            }
             .background(
                 PaneMaterialBackground(role: .inspector)
                     .ignoresSafeArea(edges: .top)
             )
+            .onAppear {
+                lastObservedMeasuredWidth = measuredWidth
+            }
+            .onChange(of: measuredWidth) { _, newWidth in
+                defer { lastObservedMeasuredWidth = newWidth }
+                guard let previousWidth = lastObservedMeasuredWidth else { return }
+                guard abs(previousWidth - newWidth) > 1 else { return }
+                dashboardViewModel.recordHomeInspectorWidth(newWidth)
+            }
             .animation(
                 reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85),
                 value: panelStateManager.rightPanelMode

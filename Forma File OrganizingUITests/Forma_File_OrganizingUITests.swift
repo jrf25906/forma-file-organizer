@@ -93,23 +93,31 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     // MARK: - Keyboard Navigation Tests
 
     @MainActor
-    func testMediumWindowLaunchDefaultsToTwoColumnLayout() throws {
+    func testMediumWindowLaunchDefaultsToHomeWorkspaceThreeColumnLayout() throws {
         launchApp(windowSize: "1340x900")
         harness.waitForMainContent()
 
         let splitProbe = harness.splitLayoutProbe()
         harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
-        harness.waitForSplitLayout("twoColumn", timeout: 4)
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
     }
 
     @MainActor
-    func testLargeWindowLaunchDefaultsToThreeColumnLayoutWhenInspectorHasMeaningfulContent() throws {
+    func testLargeWindowLaunchUsesPreferredInspectorWidth() throws {
         launchApp(windowSize: "1600x980")
         harness.waitForMainContent()
 
         let splitProbe = harness.splitLayoutProbe()
         harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
         harness.waitForSplitLayout("threeColumn", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+
+        let widthValue = harness.homeInspectorWidth()
+        XCTAssertGreaterThanOrEqual(widthValue, 360, "Home should launch with a non-thin inspector width")
+        XCTAssertLessThanOrEqual(widthValue, 420, "Home inspector width should stay within the supported range")
     }
 
     @MainActor
@@ -125,10 +133,12 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         let splitProbe = harness.splitLayoutProbe()
         harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
         harness.waitForSplitLayout("threeColumn", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
 
         app.activate()
         app.typeKey("i", modifierFlags: .command)
         harness.waitForSplitLayout("twoColumn", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
 
         launchApp(
             windowSize: "1600x980",
@@ -137,6 +147,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         )
         harness.waitForMainContent()
         harness.waitForSplitLayout("twoColumn", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
     }
 
     @MainActor
@@ -149,6 +160,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         )
         harness.waitForMainContent()
         harness.waitForSplitLayout("threeColumn", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
 
         let selectedCountProbe = harness.element(withIdentifier: "mainContent_selectedCount")
         harness.waitForExists(selectedCountProbe, timeout: 4, message: "Selected-count probe should exist")
@@ -167,6 +179,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         )
         harness.waitForMainContent()
         harness.waitForSplitLayout("threeColumn", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
 
         app.activate()
         app.typeKey("a", modifierFlags: .command)
@@ -201,7 +214,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     }
 
     @MainActor
-    func testNarrowThreeColumnRightPanelUsesCompactLayoutContractAcrossModes() throws {
+    func testNarrowHomeWorkspacePreservesCompactInspectorAndContextualRuleBuilder() throws {
         let suiteName = "\(defaultWindowPresentationSuiteName).compactRightPanel"
         launchApp(
             windowSize: "1600x980",
@@ -211,12 +224,6 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForMainContent()
         harness.waitForSplitLayout("threeColumn", timeout: 4)
 
-        app.activate()
-        app.typeKey("i", modifierFlags: .command)
-        harness.waitForSplitLayout("twoColumn", timeout: 4)
-        app.typeKey("i", modifierFlags: .command)
-        harness.waitForSplitLayout("threeColumn", timeout: 4)
-
         launchApp(
             windowSize: "1200x900",
             suiteName: suiteName,
@@ -224,54 +231,117 @@ final class Forma_File_OrganizingUITests: XCTestCase {
             restoredFrame: "120,120,1200,900"
         )
         harness.waitForMainContent()
-        harness.waitForSplitLayout("twoColumn", timeout: 4)
-
-        harness.toggleInspector(timeout: 4)
         harness.waitForSplitLayout("threeColumn", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+        let homeInspectorWidth = harness.homeInspectorWidth()
+        XCTAssertLessThan(homeInspectorWidth, 340, "Narrow home workspace should keep the inspector in compact width")
 
-        let defaultProbe = harness.element(withIdentifier: "defaultPanelContrastProbe")
-        harness.waitForExists(defaultProbe, timeout: 4, message: "Default panel probe should exist")
-        harness.waitForValue(defaultProbe, contains: "widthClass=compact", timeout: 4)
+        let widthProbe = harness.homeInspectorWidthProbe()
+        harness.waitForExists(widthProbe, timeout: 4, message: "Home inspector width probe should exist")
+        let compactWidth = Int(harness.badgeValue(widthProbe)) ?? 0
+        XCTAssertLessThan(compactWidth, 340, "Narrow Home should compress the inspector into the compact contract")
 
-        let automationCard = harness.element(withIdentifier: "defaultPanelAutomationStatusCard")
-        XCTAssertTrue(automationCard.waitForExistence(timeout: 4), "Compact default panel should keep the automation card visible")
-
-        let selectedCountProbe = harness.element(withIdentifier: "mainContent_selectedCount")
-        harness.waitForExists(selectedCountProbe, timeout: 4, message: "Selected-count probe should exist")
-        harness.waitForValue(selectedCountProbe, equals: "0", timeout: 4)
-
-        app.activate()
-        app.typeKey("a", modifierFlags: .command)
-        harness.waitForValue(selectedCountProbe, notEquals: "0", timeout: 4)
-
-        let inspectorView = harness.element(withIdentifier: "fileInspectorView")
-        harness.waitForExists(inspectorView, timeout: 4, message: "Inspector view should exist")
-        harness.waitForValue(inspectorView, contains: "widthClass=compact", timeout: 4)
-
-        let smartRulesButton = harness.sidebarAction("sidebarAction_smartRules")
-        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Smart Rules sidebar action should exist")
-        smartRulesButton.click()
-
-        let smartRulesView = harness.element(withIdentifier: "smartRulesView")
-        harness.waitForExists(smartRulesView, timeout: 4, message: "Smart Rules view should exist")
-        harness.waitForValue(smartRulesView, contains: "widthClass=compact", timeout: 4)
-        let smartRulesState = harness.badgeValue(smartRulesView)
-        XCTAssertTrue(
-            smartRulesState.contains("builderEntry=header") || smartRulesState.contains("builderEntry=emptyState"),
-            "Smart Rules should expose a builder entry state"
-        )
-
-        let newRuleButton = harness.sidebarAction("sidebarAction_newRule")
+        harness.ensureSidebarVisible()
+        let newRuleButton = harness.sidebarActionLabel("New Rule")
         XCTAssertTrue(newRuleButton.waitForExistence(timeout: 4), "Sidebar New Rule action should remain visible")
         newRuleButton.click()
 
         let builder = harness.element(withIdentifier: "inlineRuleBuilderView")
         harness.waitForExists(builder, timeout: 4, message: "Inline rule builder should appear")
-
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
         harness.waitForValue(builder, contains: "widthClass=compact", timeout: 4)
 
         let saveButton = harness.element(withIdentifier: "ruleComposerSaveButton")
         XCTAssertTrue(saveButton.waitForExistence(timeout: 4), "Compact inline rule builder should keep the save action visible")
+    }
+
+    @MainActor
+    func testWideHomeSidebarNewRuleUsesInlineBuilder() throws {
+        launchApp(windowSize: "1600x980")
+        harness.waitForMainContent()
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+
+        harness.ensureSidebarVisible()
+        let newRuleButton = harness.sidebarAction("sidebarAction_newRule")
+        XCTAssertTrue(newRuleButton.waitForExistence(timeout: 4), "Sidebar New Rule action should remain visible")
+        newRuleButton.click()
+
+        harness.waitForValue(harness.homeInspectorModeProbe(), equals: "ruleBuilder", timeout: 4)
+        let saveButton = harness.element(withIdentifier: "ruleComposerSaveButton")
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 4), "Wide Home New Rule should surface the inline rule builder")
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+    }
+
+    @MainActor
+    func testSmartRulesSelectionKeepsSidebarVisibleAndUsesFullWorkspaceLayout() throws {
+        launchApp(windowSize: "1600x980")
+        harness.waitForMainContent()
+        let homeInspectorWidth = harness.homeInspectorWidth()
+
+        harness.ensureSidebarVisible()
+        let smartRulesButton = harness.sidebarAction("sidebarAction_smartRules")
+        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Smart Rules sidebar action should exist")
+        smartRulesButton.click()
+
+        XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4), "Sidebar should remain visible in Smart Rules workspace")
+        let smartRulesView = harness.element(withIdentifier: "smartRulesView")
+        harness.waitForExists(smartRulesView, timeout: 4, message: "Smart Rules view should exist")
+        harness.waitForValue(smartRulesView, contains: "widthClass=regular", timeout: 4)
+        harness.waitForWorkspaceDestination("rulesWorkspace", timeout: 4)
+        harness.waitForSplitLayout("twoColumn", timeout: 4)
+        harness.waitForSplitArrangement("sidebarAndWorkspace", timeout: 4)
+
+        let backButton = harness.backToDashboardButton()
+        XCTAssertTrue(backButton.waitForExistence(timeout: 4), "Rules workspace should expose a back affordance")
+        assertInspectorToggleUnavailableOrDisabled()
+
+        backButton.click()
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+        XCTAssertEqual(harness.homeInspectorWidth(), homeInspectorWidth, "Returning from Smart Rules should restore the prior Home inspector width")
+    }
+
+    @MainActor
+    func testRulesWorkspaceRuleCreationUsesModalEditor() throws {
+        launchApp(windowSize: "1600x980")
+        harness.waitForMainContent()
+
+        harness.ensureSidebarVisible()
+        let smartRulesButton = harness.sidebarAction("sidebarAction_smartRules")
+        XCTAssertTrue(smartRulesButton.waitForExistence(timeout: 4), "Smart Rules sidebar action should exist")
+        smartRulesButton.click()
+
+        harness.waitForWorkspaceDestination("rulesWorkspace", timeout: 4)
+        harness.waitForSplitArrangement("sidebarAndWorkspace", timeout: 4)
+
+        let headerNewRuleButton = harness.element(withIdentifier: "smartRulesNewRuleButton")
+        let emptyStateCreateRuleButton = harness.element(withIdentifier: "smartRulesCreateRuleButton")
+        let workspaceCreateRuleButton =
+            headerNewRuleButton.waitForExistence(timeout: 1) ? headerNewRuleButton : emptyStateCreateRuleButton
+        XCTAssertTrue(workspaceCreateRuleButton.waitForExistence(timeout: 4), "Rules workspace should expose a visible create-rule button")
+        workspaceCreateRuleButton.click()
+
+        let modalSaveButton = app.buttons["ruleComposerSaveButton"]
+        XCTAssertTrue(modalSaveButton.waitForExistence(timeout: 4), "Rules workspace create actions should open the modal rule editor")
+        harness.waitForWorkspaceDestination("rulesWorkspace", timeout: 4)
+
+        let discardButton = app.buttons["Discard Draft"]
+        XCTAssertTrue(discardButton.waitForExistence(timeout: 4), "Modal rule editor should expose a discard action")
+        discardButton.click()
+        harness.waitForWorkspaceDestination("rulesWorkspace", timeout: 4)
+
+        harness.ensureSidebarVisible()
+        let sidebarNewRuleButton = harness.sidebarAction("sidebarAction_newRule")
+        XCTAssertTrue(sidebarNewRuleButton.waitForExistence(timeout: 4), "Sidebar New Rule action should remain visible in Rules workspace")
+        sidebarNewRuleButton.click()
+
+        XCTAssertTrue(modalSaveButton.waitForExistence(timeout: 4), "Sidebar New Rule should use a visible modal editor when Rules workspace is active")
+        harness.waitForWorkspaceDestination("rulesWorkspace", timeout: 4)
     }
 
     @MainActor
@@ -292,46 +362,48 @@ final class Forma_File_OrganizingUITests: XCTestCase {
             restoredFrame: "120,120,1200,900"
         )
         harness.waitForMainContent()
-        harness.waitForSplitLayout("twoColumn", timeout: 4)
-
-        harness.toggleInspector(timeout: 4)
         harness.waitForSplitLayout("threeColumn", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
 
         harness.tapAllFilesSegment()
 
-        let noDestinationRow = harness.fileRow(named: "IMG_1042.JPG")
-        XCTAssertTrue(noDestinationRow.waitForExistence(timeout: 4), "Expected the no-destination UI test row to stay visible in a narrow three-column layout")
+        let fileName = "IMG_1042.JPG"
+        let initialRow = harness.fileRow(named: fileName)
+        XCTAssertTrue(initialRow.waitForExistence(timeout: 4), "Expected the no-destination UI test row to stay visible in a narrow three-column layout")
 
         harness.tapCardViewSegment()
         harness.waitForViewMode("card")
-        let cardState = harness.element(withIdentifier: "fileRowState_IMG_1042.JPG")
+        let cardState = harness.element(withIdentifier: "fileRowState_\(fileName)")
         harness.waitForExists(cardState, timeout: 4, message: "Compact card-state probe should exist")
         harness.waitForValue(cardState, contains: "widthClass=compact", timeout: 4)
 
-        let cardPrimaryAction = noDestinationRow.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_IMG_1042.JPG__")
+        let cardRow = harness.fileRow(named: fileName)
+        let cardPrimaryAction = cardRow.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_\(fileName)__")
         ).firstMatch
         XCTAssertTrue(cardPrimaryAction.waitForExistence(timeout: 4), "Compact card view should keep the Choose Destination action visible")
 
         harness.tapListViewSegment()
         harness.waitForViewMode("list")
-        let listState = harness.element(withIdentifier: "fileListRowState_IMG_1042.JPG")
+        let listState = harness.element(withIdentifier: "fileListRowState_\(fileName)")
         harness.waitForExists(listState, timeout: 4, message: "Compact list-state probe should exist")
         harness.waitForValue(listState, contains: "widthClass=compact", timeout: 4)
 
-        let listPrimaryAction = noDestinationRow.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_IMG_1042.JPG__")
+        let listRow = harness.fileRow(named: fileName)
+        let listPrimaryAction = listRow.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_\(fileName)__")
         ).firstMatch
         XCTAssertTrue(listPrimaryAction.waitForExistence(timeout: 4), "Compact list view should keep the Choose Destination action visible")
 
         harness.tapGridViewSegment()
         harness.waitForViewMode("grid")
-        let gridState = harness.element(withIdentifier: "fileGridItemState_IMG_1042.JPG")
+        let gridState = harness.element(withIdentifier: "fileGridItemState_\(fileName)")
         harness.waitForExists(gridState, timeout: 4, message: "Compact grid-state probe should exist")
         harness.waitForValue(gridState, contains: "widthClass=compact", timeout: 4)
 
-        let gridPrimaryAction = noDestinationRow.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_IMG_1042.JPG__")
+        let gridRow = harness.fileRow(named: fileName)
+        let gridPrimaryAction = gridRow.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "filePrimaryAction_chooseDestination_\(fileName)__")
         ).firstMatch
         XCTAssertTrue(gridPrimaryAction.waitForExistence(timeout: 4), "Compact grid view should keep the Choose Destination action visible")
     }
@@ -492,9 +564,10 @@ final class Forma_File_OrganizingUITests: XCTestCase {
     }
 
     @MainActor
-    func testAnalyticsSelectionKeepsSidebarVisibleAndUsesTwoColumnLayout() throws {
+    func testAnalyticsSelectionKeepsSidebarVisibleAndUsesFullWorkspaceLayout() throws {
         harness.waitForMainContent()
         app.activate()
+        let homeInspectorWidth = harness.homeInspectorWidth()
 
         let analyticsButton = harness.sidebarActionLabel("Analytics")
         guard analyticsButton.exists else {
@@ -503,8 +576,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
 
         analyticsButton.click()
 
-        let analyticsPanel = harness.element(withIdentifier: "compactAnalyticsPanel")
-        XCTAssertTrue(analyticsPanel.waitForExistence(timeout: 4), "Analytics content should be visible")
+        XCTAssertTrue(app.staticTexts["Productivity Health"].waitForExistence(timeout: 4), "Analytics workspace should be visible")
 
         XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4), "Sidebar container should remain visible on Analytics")
         let smartRulesButton = harness.sidebarAction("sidebarAction_smartRules")
@@ -513,12 +585,18 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         let splitProbe = harness.element(withIdentifier: "dashboardSplitLayoutProbe")
         harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
         harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
-        harness.waitForSplitArrangement("sidebarAndRightPanel", timeout: 4)
+        harness.waitForSplitArrangement("sidebarAndWorkspace", timeout: 4)
+        harness.waitForWorkspaceDestination("analyticsWorkspace", timeout: 4)
 
-        let inspectorToggle = harness.element(withIdentifier: "toolbarInspectorToggle")
-        if inspectorToggle.waitForExistence(timeout: 1) {
-            XCTAssertFalse(inspectorToggle.isEnabled, "Inspector toggle should be disabled while viewing Analytics")
-        }
+        let backButton = harness.backToDashboardButton()
+        XCTAssertTrue(backButton.waitForExistence(timeout: 4), "Analytics workspace should expose a back affordance")
+        assertInspectorToggleUnavailableOrDisabled()
+
+        backButton.click()
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
+        harness.waitForSplitLayout("threeColumn", timeout: 4)
+        harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+        XCTAssertEqual(harness.homeInspectorWidth(), homeInspectorWidth, "Returning from Analytics should restore the prior Home inspector width")
     }
 
     @MainActor
@@ -531,6 +609,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForExists(splitProbe, timeout: 4, message: "Split layout probe should exist")
         harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
         harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
         harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "visible", timeout: 4)
         harness.waitForValue(harness.toolbarInspectorVisibilityProbe(), equals: "visible", timeout: 4)
 
@@ -543,6 +622,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "hidden", timeout: 4)
         harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
         harness.waitForSplitArrangement("sidebarAndContent", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
 
         XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4), "Sidebar container should remain visible when inspector is hidden")
         let smartRulesButton = harness.sidebarAction("sidebarAction_smartRules")
@@ -557,6 +637,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         let splitProbe = harness.element(withIdentifier: "dashboardSplitLayoutProbe")
         harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
         harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
         harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "visible", timeout: 4)
         harness.waitForValue(harness.toolbarInspectorVisibilityProbe(), equals: "visible", timeout: 4)
 
@@ -566,6 +647,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "hidden", timeout: 4)
         harness.waitForValue(splitProbe, equals: "twoColumn", timeout: 4)
         harness.waitForSplitArrangement("sidebarAndContent", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
         XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4))
 
         inspectorToggle.click()
@@ -573,6 +655,7 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         harness.waitForValue(harness.dashboardInspectorVisibilityProbe(), equals: "visible", timeout: 4)
         harness.waitForValue(splitProbe, equals: "threeColumn", timeout: 4)
         harness.waitForSplitArrangement("sidebarContentAndInspector", timeout: 4)
+        harness.waitForWorkspaceDestination("homeWorkspace", timeout: 4)
         XCTAssertTrue(harness.sidebar().waitForExistence(timeout: 4))
     }
 
@@ -981,8 +1064,8 @@ final class Forma_File_OrganizingUITests: XCTestCase {
 
 private extension Forma_File_OrganizingUITests {
     var requiresManualLaunch: Bool {
-        name.contains("testMediumWindowLaunchDefaultsToTwoColumnLayout") ||
-        name.contains("testLargeWindowLaunchDefaultsToThreeColumnLayoutWhenInspectorHasMeaningfulContent") ||
+        name.contains("testMediumWindowLaunchDefaultsToHomeWorkspaceThreeColumnLayout") ||
+        name.contains("testLargeWindowLaunchUsesPreferredInspectorWidth") ||
         name.contains("testInspectorVisibilityPersistsAcrossRelaunches")
     }
 
@@ -1042,6 +1125,17 @@ private extension Forma_File_OrganizingUITests {
             return "_"
         }
         return "FormaUITests.\(String(sanitized))"
+    }
+
+    @MainActor
+    func assertInspectorToggleUnavailableOrDisabled(timeout: TimeInterval = 1) {
+        let inspectorToggle = harness.inspectorToggle()
+        if inspectorToggle.waitForExistence(timeout: timeout) {
+            XCTAssertFalse(inspectorToggle.isEnabled, "Inspector toggle should be unavailable outside Home workspace")
+            return
+        }
+
+        XCTAssertFalse(inspectorToggle.exists, "Inspector toggle should be hidden when the workspace does not support it")
     }
 
     private func containsWindowFrame(_ visibleFrame: CGRect, windowFrame: CGRect, tolerance: CGFloat = 4) -> Bool {

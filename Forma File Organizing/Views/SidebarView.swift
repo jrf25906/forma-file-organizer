@@ -19,6 +19,10 @@ struct SidebarView: View {
     @SceneStorage("sidebarExpandedNestedFolders") private var expandedNestedFoldersStorage = ""
     @AppStorage(ScanOptionsResolver.scanSubfoldersKey) private var scanSubfolders = false
 
+    private var shouldUseModalRuleEditor: Bool {
+        dashboardViewModel.workspaceDestination != .home
+    }
+
     var body: some View {
         // Sidebar content
         VStack(alignment: .leading, spacing: 0) {
@@ -61,8 +65,7 @@ struct SidebarView: View {
                 sectionHeader("ACTIONS")
 
                 SidebarActionRow(title: "New Rule", icon: "plus", accessibilityIdentifier: "sidebarAction_newRule") {
-                    nav.openRuleBuilderPanel(returnTarget: .defaultPanel)
-                    dashboardViewModel.showRuleBuilderPanel()
+                    openNewRule()
                 }
                 .help("Create a new organization rule (R)")
                 .guidedTourRegion(.newRuleButton)
@@ -75,14 +78,14 @@ struct SidebarView: View {
 
                 // Smart Rules — opens right panel in rules list mode
                 SidebarActionRow(title: "Smart Rules", icon: "list.bullet.rectangle", accessibilityIdentifier: "sidebarAction_smartRules") {
-                    dashboardViewModel.showRulesManagementPanel()
+                    dashboardViewModel.showRulesWorkspace()
                 }
                 .help("View and manage organization rules")
 
                 // Analytics — opens right panel in analytics mode
                 if services.featureFlags.isEnabled(.analyticsAndInsights) {
                     SidebarActionRow(title: "Analytics", icon: "chart.bar", accessibilityIdentifier: "sidebarAction_analytics") {
-                        dashboardViewModel.showAnalyticsPanel()
+                        dashboardViewModel.showAnalyticsWorkspace()
                     }
                     .help("View activity and insights")
                 }
@@ -183,6 +186,17 @@ struct SidebarView: View {
                     relativePath: relativePath,
                     includeSubfolders: includeSubfolders
                 )
+        }
+    }
+
+    private func openNewRule() {
+        if shouldUseModalRuleEditor {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                nav.openRuleEditor(returnTarget: .none)
+            }
+        } else {
+            nav.openRuleBuilderPanel(returnTarget: .defaultPanel)
+            dashboardViewModel.showRuleBuilderPanel()
         }
     }
     

@@ -1,6 +1,6 @@
 # Project TODO
 
-**Last Updated:** April 15, 2026
+**Last Updated:** April 21, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
@@ -52,6 +52,11 @@ Current active plans: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.m
 
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
+
+## Dashboard Workspace State Contract (April 21, 2026)
+- [x] Add an explicit dashboard root-workspace contract so `Home`, `Analytics`, and left-nav `Smart Rules` are routed as distinct destinations instead of overloading compact right-panel modes.
+- [x] Keep `Home` on the working three-area layout by default, persist the preferred inspector width through `WindowPresentationStore`, and restore the exact prior inspector visibility/mode/width when returning from destination screens.
+- [x] Route left-sidebar and global dashboard `Analytics` / `Smart Rules` actions to full-workspace destinations with `Back to Dashboard`, while preserving compact right-panel rule creation for contextual file and review flows.
 
 ## Right-Panel Responsive Width Classes (April 10, 2026)
 - [x] Introduce a shared `RightPanelLayout` / `RightPanelWidthClass` contract driven by measured detail-column width, using `FormaSpacing.Column.rightPanelMin/Ideal/Max` as the single right-panel width source of truth.

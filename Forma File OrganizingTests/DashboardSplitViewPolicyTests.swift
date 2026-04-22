@@ -4,8 +4,8 @@ import XCTest
 final class DashboardSplitLayoutConfigurationTests: XCTestCase {
     func testVisibleInspectorUsesThreeColumnArrangement() {
         let configuration = DashboardSplitLayoutConfiguration(
-            isInspectorVisible: true,
-            showsAnalyticsAsPrimaryDetail: false
+            workspaceDestination: .home,
+            isInspectorVisible: true
         )
 
         XCTAssertEqual(configuration.arrangement, .sidebarContentAndInspector)
@@ -15,8 +15,8 @@ final class DashboardSplitLayoutConfigurationTests: XCTestCase {
 
     func testHiddenInspectorUsesSidebarAndContentArrangement() {
         let configuration = DashboardSplitLayoutConfiguration(
-            isInspectorVisible: false,
-            showsAnalyticsAsPrimaryDetail: false
+            workspaceDestination: .home,
+            isInspectorVisible: false
         )
 
         XCTAssertEqual(configuration.arrangement, .sidebarAndContent)
@@ -24,13 +24,13 @@ final class DashboardSplitLayoutConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.mode, "twoColumn")
     }
 
-    func testAnalyticsKeepsSidebarAndRightPanelArrangement() {
+    func testDestinationWorkspaceUsesSidebarAndWorkspaceArrangement() {
         let configuration = DashboardSplitLayoutConfiguration(
-            isInspectorVisible: false,
-            showsAnalyticsAsPrimaryDetail: true
+            workspaceDestination: .analytics,
+            isInspectorVisible: false
         )
 
-        XCTAssertEqual(configuration.arrangement, .sidebarAndRightPanel)
+        XCTAssertEqual(configuration.arrangement, .sidebarAndWorkspace)
         XCTAssertFalse(configuration.usesThreeColumnLayout)
         XCTAssertEqual(configuration.mode, "twoColumn")
     }

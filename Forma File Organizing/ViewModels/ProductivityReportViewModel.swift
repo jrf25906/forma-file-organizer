@@ -165,6 +165,7 @@ final class ProductivityReportViewModel: ObservableObject {
 
         // If a category node is tapped, navigate to that category view
         if let category = node.category {
+            activateHomeWorkspaceIfNeeded()
             navigation.select(.category(category))
             dashboardViewModel.selectCategory(category)
             dashboardViewModel.setSecondaryFilter(.none)
@@ -240,7 +241,13 @@ final class ProductivityReportViewModel: ObservableObject {
 
     // MARK: - Navigation Helpers
 
+    private func activateHomeWorkspaceIfNeeded() {
+        guard dashboardViewModel.workspaceDestination != .home else { return }
+        dashboardViewModel.returnToHomeWorkspace()
+    }
+
     private func navigateToHome(secondaryFilter: SecondaryFilter, reviewMode: ReviewFilterMode) {
+        activateHomeWorkspaceIfNeeded()
         navigation.select(.home)
         dashboardViewModel.selectFolder(.home)
         dashboardViewModel.setSecondaryFilter(secondaryFilter)
@@ -255,6 +262,7 @@ final class ProductivityReportViewModel: ObservableObject {
         secondaryFilter: SecondaryFilter,
         reviewMode: ReviewFilterMode
     ) {
+        activateHomeWorkspaceIfNeeded()
         navigation.select(navigationSelection(for: folder))
         dashboardViewModel.selectFolder(folder)
         dashboardViewModel.setSecondaryFilter(secondaryFilter)
@@ -265,6 +273,7 @@ final class ProductivityReportViewModel: ObservableObject {
     }
 
     private func navigateToFolder(_ url: URL) {
+        activateHomeWorkspaceIfNeeded()
         let standardizedPath = url.standardizedFileURL.path
         let folderService = BookmarkFolderService.shared
 

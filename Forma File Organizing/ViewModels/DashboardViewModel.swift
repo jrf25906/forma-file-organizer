@@ -358,6 +358,7 @@ struct DashboardAutomationStatusPresentation: Equatable {
 final class WindowPresentationStore {
     private enum Keys {
         static let inspectorVisible = "windowPresentation.inspectorVisible"
+        static let inspectorWidth = "windowPresentation.inspectorWidth"
     }
 
     private let defaults: UserDefaults
@@ -371,23 +372,40 @@ final class WindowPresentationStore {
         return defaults.bool(forKey: Keys.inspectorVisible)
     }
 
+    var savedInspectorWidth: CGFloat? {
+        guard defaults.object(forKey: Keys.inspectorWidth) != nil else { return nil }
+        return CGFloat(defaults.double(forKey: Keys.inspectorWidth))
+    }
+
     func setInspectorVisible(_ isVisible: Bool) {
         defaults.set(isVisible, forKey: Keys.inspectorVisible)
+    }
+
+    func setInspectorWidth(_ width: CGFloat) {
+        defaults.set(Double(width), forKey: Keys.inspectorWidth)
     }
 
     func resetInspectorVisibility() {
         defaults.removeObject(forKey: Keys.inspectorVisible)
     }
+
+    func resetInspectorWidth() {
+        defaults.removeObject(forKey: Keys.inspectorWidth)
+    }
 }
 
 struct DashboardLaunchPresentation {
-    static let inspectorEligibleWidth: CGFloat = 1500
+    static let defaultInspectorWidth: CGFloat = 380
 
     let launchWidth: CGFloat
     let hasMeaningfulDefaultPanelContent: Bool
 
     var defaultInspectorVisibility: Bool {
-        launchWidth >= Self.inspectorEligibleWidth && hasMeaningfulDefaultPanelContent
+        hasMeaningfulDefaultPanelContent
+    }
+
+    var preferredInspectorWidth: CGFloat {
+        Self.clampedInspectorWidth(Self.defaultInspectorWidth)
     }
 
     func startupInspectorVisibility(savedPreference: Bool?) -> Bool {
@@ -395,11 +413,18 @@ struct DashboardLaunchPresentation {
             return defaultInspectorVisibility
         }
 
-        guard savedPreference else {
-            return false
-        }
+        return savedPreference && hasMeaningfulDefaultPanelContent
+    }
 
-        return launchWidth >= Self.inspectorEligibleWidth
+    func startupInspectorWidth(savedPreference: CGFloat?) -> CGFloat {
+        Self.clampedInspectorWidth(savedPreference ?? preferredInspectorWidth)
+    }
+
+    static func clampedInspectorWidth(_ width: CGFloat) -> CGFloat {
+        min(
+            max(width, FormaSpacing.Column.rightPanelMin),
+            FormaSpacing.Column.rightPanelMax
+        )
     }
 }
 
@@ -528,6 +553,7 @@ class DashboardViewModel: ObservableObject {
     @ObservedObject private(set) var permissionState = DashboardPermissionState()
 
     // MARK: - UI State
+    @Published var workspaceDestination: DashboardWorkspaceDestination = .home
     @Published var isRightPanelVisible: Bool = true
     @Published var errorMessage: String?
     @Published var shouldRequestAppReview: Bool = false
@@ -615,6 +641,8 @@ class DashboardViewModel: ObservableObject {
     private var inspectorSelectionCacheKey: InspectorSelectionCacheKey?
     private var inspectorSelectionCache = InspectorSelectionState(matchingRulesByPath: [:])
     private var skipGlobalRefreshForNextFileMutation = false
+    private var homeWorkspaceSnapshot: DashboardHomeWorkspaceSnapshot?
+    private var preferredHomeInspectorWidth: CGFloat
 
     // MARK: - Initialization
 
@@ -635,6 +663,9 @@ class DashboardViewModel: ObservableObject {
         self.organizationCoordinator = coordinator
         self.undoRedoController = DashboardUndoRedoController(coordinator: coordinator)
         self.windowPresentationStore = windowPresentationStore
+        self.preferredHomeInspectorWidth = launchPresentation.startupInspectorWidth(
+            savedPreference: windowPresentationStore.savedInspectorWidth
+        )
         self.isRightPanelVisible = launchPresentation.startupInspectorVisibility(
             savedPreference: windowPresentationStore.savedInspectorVisibility
         )
@@ -2146,9 +2177,35 @@ class DashboardViewModel: ObservableObject {
     }
 
     private func selectFileForInspector(_ file: FileItem) {
-        isRightPanelVisible = true
+        setRightPanelVisible(true)
         selectionViewModel.selectedFileIDs = [file.path]
         selectionViewModel.focusedFilePath = file.path
+    }
+
+    private func currentHomeWorkspaceSnapshot() -> DashboardHomeWorkspaceSnapshot {
+        DashboardHomeWorkspaceSnapshot(
+            isRightPanelVisible: isRightPanelVisible,
+            rightPanelWidth: preferredHomeInspectorWidth,
+            rightPanelMode: panelManager.rightPanelMode
+        )
+    }
+
+    private func captureHomeWorkspaceSnapshotIfNeeded() {
+        guard workspaceDestination == .home else { return }
+        homeWorkspaceSnapshot = currentHomeWorkspaceSnapshot()
+    }
+
+    private func restoreHomeWorkspaceSnapshotIfAvailable() {
+        guard let homeWorkspaceSnapshot else { return }
+        restoreHomeInspectorWidth(homeWorkspaceSnapshot.rightPanelWidth)
+        panelManager.rightPanelMode = homeWorkspaceSnapshot.rightPanelMode
+        setRightPanelVisible(homeWorkspaceSnapshot.isRightPanelVisible)
+    }
+
+    private func restoreHomeInspectorWidth(_ width: CGFloat) {
+        let clampedWidth = DashboardLaunchPresentation.clampedInspectorWidth(width)
+        preferredHomeInspectorWidth = clampedWidth
+        windowPresentationStore.setInspectorWidth(clampedWidth)
     }
 
     private func openInspector(for file: FileItem) {
@@ -2182,18 +2239,40 @@ class DashboardViewModel: ObservableObject {
     }
 
     func showRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {
-        isRightPanelVisible = true
+        setRightPanelVisible(true)
         panelManager.showRuleBuilderPanel(editingRule: editingRule, fileContext: fileContext)
     }
 
+    func showAnalyticsWorkspace() {
+        captureHomeWorkspaceSnapshotIfNeeded()
+        workspaceDestination = .analytics
+    }
+
+    func showRulesWorkspace() {
+        captureHomeWorkspaceSnapshotIfNeeded()
+        workspaceDestination = .rules
+    }
+
+    func returnToHomeWorkspace() {
+        restoreHomeWorkspaceSnapshotIfAvailable()
+        workspaceDestination = .home
+    }
+
     func showRulesManagementPanel() {
-        isRightPanelVisible = true
+        setRightPanelVisible(true)
         panelManager.showRulesManagementPanel()
     }
 
     func showAnalyticsPanel() {
-        isRightPanelVisible = true
+        setRightPanelVisible(true)
         panelManager.showAnalyticsPanel()
+    }
+
+    func recordHomeInspectorWidth(_ width: CGFloat) {
+        let clampedWidth = DashboardLaunchPresentation.clampedInspectorWidth(width)
+        guard abs(preferredHomeInspectorWidth - clampedWidth) > 1 else { return }
+        preferredHomeInspectorWidth = clampedWidth
+        windowPresentationStore.setInspectorWidth(clampedWidth)
     }
 
     func showRuleBuilderPanelForInspector(_ file: FileItem, editingRule: Rule? = nil) {
@@ -2243,6 +2322,10 @@ class DashboardViewModel: ObservableObject {
     func setRightPanelVisible(_ isVisible: Bool) {
         isRightPanelVisible = isVisible
         windowPresentationStore.setInspectorVisible(isVisible)
+    }
+
+    var homeInspectorPreferredWidth: CGFloat {
+        preferredHomeInspectorWidth
     }
 
     var rightPanelMode: PanelStateManager.RightPanelMode {

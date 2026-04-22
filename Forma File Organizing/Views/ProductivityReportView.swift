@@ -6,8 +6,15 @@ import SwiftData
 struct ProductivityReportView: View {
     @StateObject private var viewModel: ProductivityReportViewModel
     @Environment(\.colorScheme) private var colorScheme
+    private let onBackToDashboard: (() -> Void)?
 
-    init(modelContext: ModelContext, navigation: NavigationViewModel, dashboardViewModel: DashboardViewModel) {
+    init(
+        modelContext: ModelContext,
+        navigation: NavigationViewModel,
+        dashboardViewModel: DashboardViewModel,
+        onBackToDashboard: (() -> Void)? = nil
+    ) {
+        self.onBackToDashboard = onBackToDashboard
         _viewModel = StateObject(
             wrappedValue: ProductivityReportViewModel(
                 modelContext: modelContext,
@@ -73,6 +80,16 @@ struct ProductivityReportView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            if let onBackToDashboard {
+                Button(action: onBackToDashboard) {
+                    Label("Dashboard", systemImage: "chevron.left")
+                        .font(.formaSmallSemibold)
+                        .foregroundColor(.formaSteelBlue)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("backToDashboardButton")
+            }
+
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Productivity Health")
@@ -85,10 +102,7 @@ struct ProductivityReportView: View {
                 }
                 Spacer()
 
-                HStack(spacing: FormaSpacing.tight) {
-                    periodSelector
-                    analyticsInspectorToggle
-                }
+                periodSelector
             }
 
             if viewModel.isLoading {
@@ -109,18 +123,6 @@ struct ProductivityReportView: View {
         .pickerStyle(.segmented)
         .controlSize(.small)
         .frame(width: 170)
-    }
-
-    private var analyticsInspectorToggle: some View {
-        Toggle(isOn: .constant(false)) {
-            Image(systemName: "sidebar.right")
-        }
-        .toggleStyle(.button)
-        .controlSize(.small)
-        .disabled(true)
-        .opacity(0.4)
-        .help("Inspector unavailable in Analytics")
-        .accessibilityIdentifier("toolbarInspectorToggle")
     }
 
     private func errorBanner(_ message: String) -> some View {
