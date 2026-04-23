@@ -4,6 +4,16 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Security audit Tier A cleanup
+  - `ThumbnailService.shared`
+    - Still exposes the singleton thumbnail cache, but startup cache maintenance is now scheduled after singleton construction with a retained `Task` handle instead of launching untracked async work from `init`.
+  - `UITestFolderAccessConfiguration.isEnabled`
+    - Reads UI/perf harness argv only in `DEBUG` or `UI_TESTS` builds; Release builds compile a false-only stub so argv cannot relax bookmark enforcement.
+  - `UITestFolderAccessConfiguration.isEnabled(arguments:)`
+    - Provides an injectable argument parser for unit coverage while preserving the false-only Release stub.
+  - `Scripts/verify_security_configuration.sh`
+    - Builds the Release app, asserts the compiled binary does not contain UI-test env overrides or the legacy thumbnail `/tmp` log path, and verifies Release builds fail if `UI_TESTS` is defined.
+
 - Destination prediction evaluator repair
   - `CoreMLPredictionEngine.outcome(from:)`
     - Extracts the predicted label plus sorted top-confidence values from a Core ML `MLFeatureProvider`, giving production prediction and evaluation paths one shared probability parser when probabilities are available.

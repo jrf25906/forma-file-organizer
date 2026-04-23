@@ -3,26 +3,10 @@ import CryptoKit
 import Darwin
 import QuickLookThumbnailing
 
-// MARK: - Debug Logging Helper (temporary)
+// MARK: - Debug Logging Helper
 
-private func debugLog(_ message: String) {
-    let timestamp = ISO8601DateFormatter().string(from: Date())
-    let logMessage = "[\(timestamp)] \(message)\n"
-    let logPath = "/tmp/thumbnail_debug.log"
-
-    if let data = logMessage.data(using: .utf8) {
-        if FileManager.default.fileExists(atPath: logPath) {
-            if let handle = FileHandle(forWritingAtPath: logPath) {
-                handle.seekToEndOfFile()
-                handle.write(data)
-                handle.closeFile()
-            }
-        } else {
-            FileManager.default.createFile(atPath: logPath, contents: data)
-        }
-    }
-    // Also log to the app logger
-    Log.debug(message, category: .filesystem)
+private func debugLog(_ message: @autoclosure () -> String) {
+    Log.debug(message(), category: .filesystem)
 }
 
 // MARK: - Thumbnail Cache Error
@@ -38,7 +22,13 @@ enum ThumbnailCacheError: Error {
 // MARK: - Thumbnail Service
 
 actor ThumbnailService {
-    static let shared = ThumbnailService()
+    static let shared: ThumbnailService = {
+        let service = ThumbnailService()
+        Task {
+            await service.startStartupMaintenance()
+        }
+        return service
+    }()
 
     // MARK: - Configuration
 
@@ -48,6 +38,7 @@ actor ThumbnailService {
     // Two-tier caching: Memory (fast) + Disk (persistent)
     private let memoryCache = NSCache<NSString, NSImage>()
     private let fileManager = FileManager.default
+    private var startupMaintenanceTask: Task<Void, Never>?
 
     // MARK: - Security-Scoped Access
 
@@ -65,11 +56,11 @@ actor ThumbnailService {
         memoryCache.countLimit = 200
         memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50 MB (reduced since disk cache exists)
 
-        // Async cleanup on init
-        Task {
-            await performStartupMaintenance()
-        }
         debugLog("🚀 ThumbnailService: Initialized successfully")
+    }
+
+    deinit {
+        startupMaintenanceTask?.cancel()
     }
 
     // MARK: - Security Scope Helpers
@@ -384,6 +375,14 @@ actor ThumbnailService {
     }
 
     // MARK: - Cache Maintenance
+
+    private func startStartupMaintenance() {
+        guard startupMaintenanceTask == nil else { return }
+
+        startupMaintenanceTask = Task { [weak self] in
+            await self?.performStartupMaintenance()
+        }
+    }
 
     private func performStartupMaintenance() async {
         await cleanupOldThumbnails()

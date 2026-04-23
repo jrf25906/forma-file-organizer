@@ -67,6 +67,9 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 
 ### Recent API Updates (April 2026)
 
+- `ThumbnailService.shared` now constructs the singleton before scheduling startup cache maintenance, retains that maintenance `Task`, and routes thumbnail diagnostics through `Log.debug` instead of writing previewed file paths to a shared `/tmp` file.
+- `UITestFolderAccessConfiguration.isEnabled` now reads UI/perf harness argv only in `DEBUG` or `UI_TESTS` builds; `isEnabled(arguments:)` exposes the same parser for unit coverage, Release builds compile a false-only stub, and a compile-time guard prevents `UI_TESTS` from being defined outside Debug.
+- `Scripts/verify_security_configuration.sh` builds the Release app, verifies the compiled binary omits UI-test env overrides plus the legacy thumbnail `/tmp` log path, and confirms Release builds fail when `UI_TESTS` is defined.
 - `CoreMLPredictionEngine.outcome(from:)` now extracts destination-prediction labels and sorted confidence values from Core ML feature-provider output when probabilities are available, and `CoreMLPredictionEngine.predictedLabel(from:)` supports label-only evaluator scoring without inventing confidence.
 - `DestinationPredictionService` now trains and evaluates destination classifiers through off-main `DestinationModelTrainer`, `DestinationModelEvaluator`, and `MLModel.prediction(from:)`, uses real probabilities when exposed, rejects label-only output with an explicit missing-probability note, reports weak confidence separation with threshold-specific notes, compiles classifiers off the main actor through `DestinationModelCompiler`, uses bounded sample-before-cap dataset preparation through `DestinationTrainingDatasetPreparer.prepare(records:maximumDatasetSize:trainFraction:sampler:)`, and emits POSIX UTC model versions through `DestinationModelVersion.string(for:)`.
 - `RetentionConfig` and `FormaConfig.retention` now define the shared retention window/caps used for workflow audit, trusted-scope run history, and personal-memory event history.
@@ -2502,10 +2505,10 @@ actor ThumbnailService
 ### Singleton Access
 
 ```swift
-static let shared = ThumbnailService()
+static let shared: ThumbnailService
 ```
 
-Always use the shared instance for consistent cache state across the app.
+Always use the shared instance for consistent cache state across the app. The singleton is constructed first, then startup cache maintenance is scheduled asynchronously and retained so the task can be cancelled if the actor is torn down.
 
 ### Configuration Constants
 
@@ -2713,7 +2716,7 @@ First 2 characters of cache key become subdirectory name.
 
 #### Startup Maintenance
 
-On initialization, ThumbnailService performs:
+After singleton construction, ThumbnailService schedules startup maintenance:
 1. **Age-based cleanup**: Removes thumbnails older than 30 days
 2. **Size-based eviction**: If cache > 100MB, evicts oldest entries (LRU)
 

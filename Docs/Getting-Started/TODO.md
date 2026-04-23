@@ -27,8 +27,8 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 Full report: [`Docs/audits/2026-04-23-forma-audit.md`](../audits/2026-04-23-forma-audit.md). Ten must-fix items from a full-codebase parallel review. Tiers are execution-ordered — A before B before C. Items within a tier are independent.
 
 **Tier A — Same day / pre-release:**
-- [ ] A1 — Delete the unconditional `/tmp/thumbnail_debug.log` writer in `ThumbnailService`.
-- [ ] A2 — Gate `UITestFolderAccessConfiguration` behind `#if DEBUG || UI_TESTS` so a shipped Release binary cannot be coerced via `--uitesting` argv.
+- [x] A1 — Deleted the unconditional `/tmp/thumbnail_debug.log` writer in `ThumbnailService`; thumbnail diagnostics now stay inside the shared logging facade, startup maintenance is scheduled after singleton construction with a retained task handle, and runtime coverage verifies the legacy shared `/tmp` log is not recreated.
+- [x] A2 — Gated `UITestFolderAccessConfiguration` behind `#if DEBUG || UI_TESTS`; Release builds now compile a false-only stub so UI/perf argv cannot relax bookmark enforcement, with `Scripts/verify_security_configuration.sh` checking Release binary env/path constraints and the Release `UI_TESTS` compile guard.
 - [ ] A3 — Fix `xctestplan` hygiene: add `selectedTests` to the default plan, un-orphan the ~10 tests missing from the Unit allowlist, add CI lint for drift.
 - [ ] A4 — Add `resolvingSymlinksInPath()` to `PathValidator` and `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)` to close the symlink escape in sandboxed scope enforcement.
 

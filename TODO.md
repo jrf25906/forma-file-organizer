@@ -33,8 +33,8 @@ Current active plans: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.m
 Reference: [Docs/audits/2026-04-23-forma-audit.md](Docs/audits/2026-04-23-forma-audit.md). Ten must-fix items extracted from a full-codebase parallel review. Tiers are ordered — work A before B before C. Within a tier, items are independent.
 
 **Tier A — Same day / pre-release (low-risk, high-impact):**
-- [ ] A1 — Delete the unconditional `/tmp/thumbnail_debug.log` writer in `ThumbnailService` (privacy leak in all build configs).
-- [ ] A2 — Gate `UITestFolderAccessConfiguration` behind `#if DEBUG || UI_TESTS` so `--uitesting` argv cannot relax bookmark enforcement in a shipped Release binary.
+- [x] A1 — Deleted the unconditional `/tmp/thumbnail_debug.log` writer in `ThumbnailService`; thumbnail diagnostics now stay inside the shared logging facade, startup maintenance is scheduled after singleton construction with a retained task handle, and runtime coverage verifies the legacy shared `/tmp` log is not recreated.
+- [x] A2 — Gated `UITestFolderAccessConfiguration` behind `#if DEBUG || UI_TESTS`; Release builds now compile a false-only stub so UI/perf argv cannot relax bookmark enforcement, with `Scripts/verify_security_configuration.sh` checking Release binary env/path constraints and the Release `UI_TESTS` compile guard.
 - [ ] A3 — Add `selectedTests` to the default `Forma File Organizing.xctestplan`, un-orphan the ~10 missing test files from the Unit plan allowlist, and add a CI lint diffing test files against plan membership.
 - [ ] A4 — Add `resolvingSymlinksInPath()` to `PathValidator` and `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)` so a symlink inside a trusted/scanned scope cannot escape the boundary check.
 

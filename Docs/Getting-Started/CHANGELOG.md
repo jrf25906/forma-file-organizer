@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Security Audit Tier A
+- **Thumbnail privacy leak removed**: `ThumbnailService` no longer writes previewed file paths to `/tmp/thumbnail_debug.log`; thumbnail diagnostics now route through the shared logging facade, startup thumbnail-cache maintenance is scheduled after singleton construction with a retained task handle, and runtime coverage verifies the legacy shared `/tmp` log is not recreated.
+- **Release-safe UI-test folder overrides**: `UITestFolderAccessConfiguration` now compiles argv-driven UI/perf folder-access overrides only in `DEBUG` or `UI_TESTS` builds. Release builds get a false-only stub, a compile-time guard against defining `UI_TESTS`, and `Scripts/verify_security_configuration.sh` checks the compiled Release binary for forbidden UI-test env overrides plus the legacy thumbnail log path while separately proving Release rejects `UI_TESTS`.
+
 ### Fixed - Destination Prediction Evaluation
 - **Explicit off-main evaluation confidence**: `DestinationPredictionService` now trains and evaluates destination classifiers through Core ML feature-provider predictions off the main actor, using actual label probabilities when the model exposes them instead of placeholder `1.0` confidence values. Label-only models now fail with an explicit missing-probability note rather than receiving invented confidence, and weak confidence separation now reports a threshold-specific rejection note.
 - **Representative bounded training split**: Destination training data is sampled before applying the maximum dataset cap without shuffling the full activity history, so older or later records are not systematically excluded before train/test splitting and training memory remains bounded by the cap.

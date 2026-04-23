@@ -1,17 +1,26 @@
 import Foundation
 
+#if !DEBUG && UI_TESTS
+#error("UI_TESTS must not be defined for Release app builds")
+#endif
+
 enum UITestFolderAccessConfiguration {
     static let accessibleFoldersEnvironmentKey = "FORMA_UI_TEST_ACCESSIBLE_FOLDERS"
     static let showOnboardingEnvironmentKey = "FORMA_UI_TEST_SHOW_ONBOARDING"
 
+    #if DEBUG || UI_TESTS
     static let defaultAccessibleFolderNames: Set<String> = [
         "desktop",
         "downloads"
     ]
 
     static var isEnabled: Bool {
-        CommandLine.arguments.contains("--uitesting") ||
-        CommandLine.arguments.contains("--perf-signpost-harness")
+        isEnabled(arguments: CommandLine.arguments)
+    }
+
+    static func isEnabled(arguments: [String]) -> Bool {
+        arguments.contains("--uitesting") ||
+        arguments.contains("--perf-signpost-harness")
     }
 
     static func accessibleFolderNames(
@@ -31,4 +40,17 @@ enum UITestFolderAccessConfiguration {
 
         return parsed.isEmpty ? defaultAccessibleFolderNames : parsed
     }
+    #else
+    static var isEnabled: Bool { false }
+
+    static func isEnabled(arguments: [String] = []) -> Bool {
+        false
+    }
+
+    static func accessibleFolderNames(
+        environment: [String: String] = [:]
+    ) -> Set<String> {
+        []
+    }
+    #endif
 }
