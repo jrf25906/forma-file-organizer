@@ -78,7 +78,9 @@ struct PaneMaterialBackground: View {
 
     var body: some View {
         ZStack {
-            if reduceTransparency {
+            if usesOpaquePanelSurface {
+                inspectorOpaqueBackground
+            } else if reduceTransparency {
                 fallbackColor
             } else {
                 Rectangle()
@@ -133,6 +135,20 @@ struct PaneMaterialBackground: View {
 
             edgeDivider
         }
+    }
+
+    @ViewBuilder
+    private var inspectorOpaqueBackground: some View {
+        Rectangle()
+            .fill(
+                colorScheme == .dark
+                    ? Color.formaControlBackground
+                    : Color.formaBoneWhite
+            )
+    }
+
+    private var usesOpaquePanelSurface: Bool {
+        role == .inspector
     }
 
     private var paneAmbientGradient: LinearGradient {

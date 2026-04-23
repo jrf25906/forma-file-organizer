@@ -337,6 +337,29 @@ extension Color {
     ]
 }
 
+enum RightRailSemanticTone: Equatable {
+    case progress
+    case live
+    case blocked
+    case failure
+    case neutral
+
+    var color: Color {
+        switch self {
+        case .progress:
+            return .formaSteelBlue
+        case .live:
+            return .formaSage
+        case .blocked:
+            return .formaWarmOrange
+        case .failure:
+            return .formaError
+        case .neutral:
+            return .formaSecondaryLabelHigh
+        }
+    }
+}
+
 // MARK: - NSColor Extensions (for AppKit compatibility)
 
 extension NSColor {

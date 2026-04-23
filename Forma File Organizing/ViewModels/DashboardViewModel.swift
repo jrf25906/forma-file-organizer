@@ -214,10 +214,23 @@ struct ReviewFlowSection: Identifiable {
     var id: ReviewFlowSectionKind { kind }
 }
 
+struct ReviewPassCategorySummary: Equatable {
+    let category: FileTypeCategory
+    let count: Int
+}
+
+enum ReviewActionBarState: Equatable {
+    case ready(Int)
+    case needsDestination(Int)
+    case needsReview(Int)
+    case clear
+}
+
 private struct ReviewPassSnapshotState {
     let snapshotPaths: [String]
     let remainingFiles: [FileItem]
     let organizedPaths: Set<String>
+    let categorySummaries: [ReviewPassCategorySummary]
 }
 
 struct DashboardAutomationStatusPresentation: Equatable {
@@ -631,6 +644,7 @@ class DashboardViewModel: ObservableObject {
     private var deferredReviewPathsByScope: [ReviewChunkScopeKey: Set<String>] = [:]
     private var reviewPassPathsByScope: [ReviewChunkScopeKey: [String]] = [:]
     private var organizedReviewPathsByScope: [ReviewChunkScopeKey: Set<String>] = [:]
+    private var reviewPassCategoriesByScope: [ReviewChunkScopeKey: [String: FileTypeCategory]] = [:]
     private var projectSpaceWorkflowCandidateFiles: [FileItem] = []
     private var isSynchronizingProjectSpaceWorkflowState = false
     private var selectedProjectSpaceAutomationPolicyID: UUID?
@@ -2047,6 +2061,7 @@ class DashboardViewModel: ObservableObject {
         deferredReviewPathsByScope[scopeKey] = existingDeferredPaths
         reviewPassPathsByScope.removeValue(forKey: scopeKey)
         organizedReviewPathsByScope.removeValue(forKey: scopeKey)
+        reviewPassCategoriesByScope.removeValue(forKey: scopeKey)
 
         deselectAll()
         objectWillChange.send()
@@ -2065,6 +2080,7 @@ class DashboardViewModel: ObservableObject {
 
         reviewPassPathsByScope.removeValue(forKey: scopeKey)
         organizedReviewPathsByScope.removeValue(forKey: scopeKey)
+        reviewPassCategoriesByScope.removeValue(forKey: scopeKey)
         deselectAll()
         objectWillChange.send()
         showToast(
@@ -3297,6 +3313,26 @@ class DashboardViewModel: ObservableObject {
         return Double(currentPassOrganizedCount) / Double(total)
     }
     var currentPassReadyCount: Int { readyFiles.count }
+    var currentPassCategorySummaries: [ReviewPassCategorySummary] {
+        currentReviewPassState.categorySummaries
+    }
+    var currentPassReviewActionBarState: ReviewActionBarState {
+        if currentPassReadyCount > 0 {
+            return .ready(currentPassReadyCount)
+        }
+
+        let needsDestinationCount = needsDestinationFiles.count
+        if needsDestinationCount > 0 {
+            return .needsDestination(needsDestinationCount)
+        }
+
+        let needsReviewCount = needsReviewFiles.count
+        if needsReviewCount > 0 {
+            return .needsReview(needsReviewCount)
+        }
+
+        return .clear
+    }
     var totalPendingCount: Int { filterViewModel.needsReviewCount }
     var currentReviewChunkCount: Int { currentPassTotalCount }
     var currentReviewChunkPaths: [String] { currentReviewChunkFiles.map(\.path) }
@@ -4327,7 +4363,12 @@ class DashboardViewModel: ObservableObject {
 
     private var currentReviewPassState: ReviewPassSnapshotState {
         guard let scopeKey = currentReviewChunkScopeKey else {
-            return ReviewPassSnapshotState(snapshotPaths: [], remainingFiles: [], organizedPaths: [])
+            return ReviewPassSnapshotState(
+                snapshotPaths: [],
+                remainingFiles: [],
+                organizedPaths: [],
+                categorySummaries: []
+            )
         }
 
         let baseVisibleFiles = filterViewModel.visibleFiles
@@ -4344,15 +4385,20 @@ class DashboardViewModel: ObservableObject {
 
         let hasRemainingSnapshotItems = snapshotPaths.contains(where: availablePaths.contains)
         if snapshotPaths.isEmpty || (!hasRemainingSnapshotItems && !availableFiles.isEmpty) {
-            snapshotPaths = Array(availableFiles.prefix(reviewChunkSize).map(\.path))
+            let snapshotFiles = Array(availableFiles.prefix(reviewChunkSize))
+            snapshotPaths = snapshotFiles.map(\.path)
             reviewPassPathsByScope[scopeKey] = snapshotPaths
             organizedPaths = []
             organizedReviewPathsByScope.removeValue(forKey: scopeKey)
+            reviewPassCategoriesByScope[scopeKey] = Dictionary(
+                uniqueKeysWithValues: snapshotFiles.map { ($0.path, $0.category) }
+            )
         } else if !hasRemainingSnapshotItems {
             snapshotPaths = []
             reviewPassPathsByScope.removeValue(forKey: scopeKey)
             organizedPaths = []
             organizedReviewPathsByScope.removeValue(forKey: scopeKey)
+            reviewPassCategoriesByScope.removeValue(forKey: scopeKey)
         } else if reviewPassPathsByScope[scopeKey] != snapshotPaths {
             reviewPassPathsByScope[scopeKey] = snapshotPaths
         }
@@ -4367,14 +4413,33 @@ class DashboardViewModel: ObservableObject {
             availableFiles.map { ($0.path, $0) },
             uniquingKeysWith: { _, latest in latest }
         )
+        var categoryByPath = (reviewPassCategoriesByScope[scopeKey] ?? [:])
+            .filter { snapshotPaths.contains($0.key) }
+        for path in snapshotPaths where categoryByPath[path] == nil {
+            if let file = availableFilesByPath[path] {
+                categoryByPath[path] = file.category
+            }
+        }
+
+        if snapshotPaths.isEmpty {
+            reviewPassCategoriesByScope.removeValue(forKey: scopeKey)
+        } else if reviewPassCategoriesByScope[scopeKey] != categoryByPath {
+            reviewPassCategoriesByScope[scopeKey] = categoryByPath
+        }
+
         let remainingFiles = prioritizedReviewFiles(
             in: snapshotPaths.compactMap { availableFilesByPath[$0] }
+        )
+        let categorySummaries = summarizedReviewPassCategories(
+            snapshotPaths: snapshotPaths,
+            categoryByPath: categoryByPath
         )
 
         return ReviewPassSnapshotState(
             snapshotPaths: snapshotPaths,
             remainingFiles: remainingFiles,
-            organizedPaths: organizedPaths
+            organizedPaths: organizedPaths,
+            categorySummaries: categorySummaries
         )
     }
 
@@ -4400,6 +4465,44 @@ class DashboardViewModel: ObservableObject {
         reviewFiles(for: .ready, in: files)
         + reviewFiles(for: .review, in: files)
         + reviewFiles(for: .destination, in: files)
+    }
+
+    private func summarizedReviewPassCategories(
+        snapshotPaths: [String],
+        categoryByPath: [String: FileTypeCategory]
+    ) -> [ReviewPassCategorySummary] {
+        guard !snapshotPaths.isEmpty else { return [] }
+
+        let preferredOrder: [FileTypeCategory] = [.documents, .images, .videos, .audio, .archives]
+        var countsByCategory: [FileTypeCategory: Int] = [:]
+
+        for path in snapshotPaths {
+            guard let category = categoryByPath[path] else { continue }
+            countsByCategory[category, default: 0] += 1
+        }
+
+        let ranked = preferredOrder
+            .map { ReviewPassCategorySummary(category: $0, count: countsByCategory[$0, default: 0]) }
+            .sorted { lhs, rhs in
+                if lhs.count != rhs.count {
+                    return lhs.count > rhs.count
+                }
+
+                let lhsIndex = preferredOrder.firstIndex(of: lhs.category) ?? preferredOrder.count
+                let rhsIndex = preferredOrder.firstIndex(of: rhs.category) ?? preferredOrder.count
+                return lhsIndex < rhsIndex
+            }
+
+        let populated = ranked.filter { $0.count > 0 }
+        if populated.count >= 3 {
+            return Array(populated.prefix(3))
+        }
+
+        let fillers = ranked.filter { summary in
+            populated.contains(where: { $0.category == summary.category }) == false
+        }
+
+        return Array((populated + fillers).prefix(3))
     }
 
     private func reviewFiles(for kind: ReviewFlowSectionKind, in files: [FileItem]) -> [FileItem] {

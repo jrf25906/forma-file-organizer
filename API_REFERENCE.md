@@ -4,6 +4,73 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Right-rail editorial mission control
+  - `ReviewPassCategorySummary`
+    - `category`
+    - `count`
+  - `ReviewActionBarState`
+    - `ready(Int)`
+    - `needsDestination(Int)`
+    - `needsReview(Int)`
+    - `clear`
+  - `RightRailSemanticTone`
+    - `progress`
+    - `live`
+    - `blocked`
+    - `failure`
+    - `neutral`
+  - `DefaultPanelEditorialSuggestionSource`
+    - `promotion`
+    - `insight`
+    - `pattern`
+  - `DefaultPanelEditorialSuggestionAccent`
+    - `steelBlue`
+    - `warm`
+    - `sage`
+  - `DefaultPanelEditorialSuggestionSnapshot`
+    - `title`
+    - `summary`
+    - `actionTitle`
+    - `provenanceText`
+    - `whyNowText`
+    - `metricText`
+    - `iconName`
+    - `accent`
+  - `DefaultPanelEditorialSuggestionFactory`
+    - `build(promotion:insights:patterns:)`
+    - `promotionSnapshot(for:)`
+    - `normalizedTitle(_:)`
+    - The default panel now normalizes external review promotions, live file insights, and learned-pattern suggestions into one deterministic featured-first editorial feed instead of rendering separate `Smart Rules` and `Quick Actions` stacks.
+  - `DefaultPanelView`
+    - `currentTaskHeroPresentation`
+    - `currentTaskProgressValue`
+    - `editorialSuggestionItems`
+    - `displayedEditorialSuggestionItems`
+    - `handleEditorialInsightAction(_:)`
+    - The default right rail now treats `Current Task` as a soft editorial hero with a reduced large count, one pass-scoped linear progress row, and a divider-based shared stat shelf whose category counts come from the active review-pass snapshot instead of filtered analytics totals.
+    - Stable UI hooks:
+      - `defaultPanelHeroCategoryBand`
+      - `defaultPanelSuggestionsSectionProbe`
+    - The hero category shelf now resolves as a compact fixed-height footer band, and the outer `Next Moves` section now exposes a quieter wrapper so the featured recommendation remains the primary visible boundary.
+  - `DashboardViewModel`
+    - `currentPassCategorySummaries`
+    - `currentPassReviewActionBarState`
+  - `AutomationStatusWidget`
+    - The automation surface now exposes a live/paused/scanning chip with schedule timing moved into hover help, a flattened summary block inside the main card, human-facing divider-based trust metrics, and a full-width split `Scan now` plus `Pause/Resume` footer control.
+    - The automation status module now renders as a single surface instead of nesting a second summary card inside the beacon.
+  - `FloatingActionBar`
+    - `reviewState`
+    - Review mode now reports truthful blocked-state copy (`needs destination`, `needs review`) instead of only reflecting the ready subset.
+    - Stable UI hooks:
+      - `defaultPanelAutomationSummaryProbe`
+      - `defaultPanelAutomationStatusChip`
+      - `defaultPanelAutomationScanButton`
+      - `defaultPanelAutomationPauseResumeButton`
+      - `defaultPanelFeaturedNextMove`
+      - `defaultPanelFeaturedNextMoveProbe`
+    - Featured and secondary `Next Moves` cards now use bottom footer CTAs so headline and summary text can span the full content width.
+    - The `v4` featured Next Move now starts with a compact metadata row, keeps the title and summary on a full-width editorial column, and exposes the supporting `Why it matters` copy through the same footer-led recommendation shape used across the ranked feed.
+
 - Dashboard workspace-state contract
   - `DashboardWorkspaceDestination`
     - `home`

@@ -15,6 +15,7 @@ struct FloatingActionBar: View {
     let mode: FloatingActionBarMode
     let count: Int
     let canOrganizeAll: Bool
+    let reviewState: ReviewActionBarState
     let onOrganize: () -> Void
     let onSkip: () -> Void
     let onBulkEdit: (() -> Void)?
@@ -32,6 +33,7 @@ struct FloatingActionBar: View {
         self.mode = .selection
         self.count = selectedCount
         self.canOrganizeAll = canOrganizeAll
+        self.reviewState = .clear
         self.onOrganize = onOrganizeAll
         self.onSkip = onSkipAll
         self.onBulkEdit = onBulkEdit
@@ -43,6 +45,7 @@ struct FloatingActionBar: View {
         mode: FloatingActionBarMode,
         count: Int,
         canOrganizeAll: Bool,
+        reviewState: ReviewActionBarState = .clear,
         onOrganize: @escaping () -> Void,
         onSkip: @escaping () -> Void,
         onBulkEdit: (() -> Void)? = nil,
@@ -51,6 +54,7 @@ struct FloatingActionBar: View {
         self.mode = mode
         self.count = count
         self.canOrganizeAll = canOrganizeAll
+        self.reviewState = reviewState
         self.onOrganize = onOrganize
         self.onSkip = onSkip
         self.onBulkEdit = onBulkEdit
@@ -62,14 +66,50 @@ struct FloatingActionBar: View {
         case .selection:
             return "file\(count == 1 ? "" : "s") selected"
         case .review:
-            switch count {
-            case 0:
-                return "No files ready to organize"
-            case 1:
-                return "1 file ready to organize"
-            default:
-                return "\(count) files ready to organize"
-            }
+            return reviewStatusText
+        }
+    }
+
+    private var reviewStatusText: String {
+        switch reviewState {
+        case .ready(let readyCount):
+            return readyCount == 1 ? "1 file ready to organize" : "\(readyCount) files ready to organize"
+        case .needsDestination(let destinationCount):
+            return destinationCount == 1
+                ? "1 file needs a destination first"
+                : "\(destinationCount) files need destinations first"
+        case .needsReview(let reviewCount):
+            return reviewCount == 1
+                ? "1 file still needs review"
+                : "\(reviewCount) files still need review"
+        case .clear:
+            return "This pass is clear"
+        }
+    }
+
+    private var reviewStatusIconName: String {
+        switch reviewState {
+        case .ready:
+            return "tray.full.fill"
+        case .needsDestination:
+            return "folder.badge.questionmark"
+        case .needsReview:
+            return "doc.text.magnifyingglass"
+        case .clear:
+            return "checkmark.circle.fill"
+        }
+    }
+
+    private var reviewStatusTone: RightRailSemanticTone {
+        switch reviewState {
+        case .ready:
+            return .live
+        case .needsDestination:
+            return .blocked
+        case .needsReview:
+            return .progress
+        case .clear:
+            return .neutral
         }
     }
     
@@ -86,9 +126,9 @@ struct FloatingActionBar: View {
         HStack(spacing: 0) {
             // Left: Folder icon + status
             HStack(spacing: FormaSpacing.tight) {
-                Image(systemName: mode == .selection ? "checkmark.circle.fill" : "tray.full.fill")
+                Image(systemName: mode == .selection ? "checkmark.circle.fill" : reviewStatusIconName)
                     .font(.formaBodyLarge)
-                    .foregroundColor(mode == .selection ? Color.formaSteelBlue : Color.formaSteelBlue)
+                    .foregroundColor(mode == .selection ? Color.formaSteelBlue : reviewStatusTone.color)
 
                 Text(statusText)
                     .font(.formaBodyMedium)

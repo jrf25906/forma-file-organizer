@@ -1,6 +1,6 @@
 # Project TODO
 
-**Last Updated:** April 21, 2026
+**Last Updated:** April 22, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
@@ -52,6 +52,15 @@ Current active plans: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.m
 
 ## Historical Delivery Log
 The sections below capture dated implementation slices that have already shipped or were completed as part of earlier waves. Active roadmap work is tracked above.
+
+## Right-Rail Editorial Mission Control (April 22, 2026)
+- [x] Rework `DefaultPanelView` so the default right rail reads as a narrative instead of stacked neutral widgets: a soft editorial `Current Task` hero, a live automation beacon, and a unified `Next Moves` briefing feed.
+- [x] Replace the old automation card treatment with a stateful `AutomationStatusWidget` that keeps schedule timing in hover help on the live chip, surfaces compact trust metrics, and uses a full-width split `Scan now` / `Pause or Resume` footer control.
+- [x] Normalize external review promotion, file insights, and learned-pattern suggestions into one deterministic editorial recommendation model with a featured first item, subtle provenance, and full-card actions.
+- [x] Flatten the second-pass right-rail composition so hero and automation metrics render as divider-based shared shelves instead of nested mini-cards, the automation summary lives directly in the main beacon card, and `Next Moves` actions sit in footer rows rather than compressing the title line.
+- [x] Tighten the third-pass semantics so the hero is fully pass-scoped, the ring is removed, the category shelf stays stable for the life of the pass, automation metrics use human-facing labels, the review floating bar reports blocked states honestly, and the rail accents map to a smaller semantic color system.
+- [x] Land the compressed-editorial `v4` follow-through so the featured `Next Moves` card uses a compact metadata row, full-width title/summary copy, explicit `Why it matters` framing, and a pinned footer CTA with deterministic UI-test probes.
+- [x] Finish the boundary-flattening follow-up so the hero category shelf stays compact, the automation module reads as one surface instead of a card within a card, and the outer `Next Moves` wrapper quiets down enough for the featured recommendation to carry the hierarchy.
 
 ## Dashboard Workspace State Contract (April 21, 2026)
 - [x] Add an explicit dashboard root-workspace contract so `Home`, `Analytics`, and left-nav `Smart Rules` are routed as distinct destinations instead of overloading compact right-panel modes.

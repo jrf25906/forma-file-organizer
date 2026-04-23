@@ -739,11 +739,37 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         let setAsideButton = app.buttons["Set Aside"]
         let legacyButton = app.buttons["Done for now"]
         let reviewStatusProbe = harness.element(withIdentifier: "floatingActionBar_reviewStatus")
+        let sectionCountsProbe = harness.element(withIdentifier: "mainContent_reviewSectionCounts")
 
         XCTAssertTrue(setAsideButton.waitForExistence(timeout: 3), "Needs-review bar should expose Set Aside")
         XCTAssertFalse(legacyButton.exists, "Legacy Done for now copy should be removed")
         harness.waitForExists(reviewStatusProbe, timeout: 3, message: "Review floating bar status probe should exist")
-        harness.waitForValue(reviewStatusProbe, contains: "ready to organize", timeout: 3)
+        harness.waitForExists(sectionCountsProbe, timeout: 3, message: "Review section counts probe should exist")
+
+        let sectionCountsValue = (sectionCountsProbe.value as? String) ?? sectionCountsProbe.label
+        let readyCount = reviewSectionCount(named: "ready", from: sectionCountsValue)
+        let reviewCount = reviewSectionCount(named: "review", from: sectionCountsValue)
+        let destinationCount = reviewSectionCount(named: "destination", from: sectionCountsValue)
+        let reviewStatusValue = (reviewStatusProbe.value as? String) ?? reviewStatusProbe.label
+
+        XCTAssertNotEqual(reviewStatusValue, "No files ready to organize")
+        if !reviewStatusValue.isEmpty {
+            if readyCount > 0 {
+                XCTAssertTrue(reviewStatusValue.contains("ready to organize"), "Review status should describe the ready subset when files are ready")
+            } else if destinationCount > 0 {
+                XCTAssertTrue(reviewStatusValue.contains("destination"), "Review status should describe missing destinations when the pass is blocked there")
+            } else if reviewCount > 0 {
+                XCTAssertTrue(reviewStatusValue.contains("review"), "Review status should describe pending review when nothing is ready")
+            }
+        }
+    }
+
+    private func reviewSectionCount(named key: String, from countsValue: String) -> Int {
+        let marker = "\(key)="
+        guard let range = countsValue.range(of: marker) else { return 0 }
+        let suffix = countsValue[range.upperBound...]
+        let digits = suffix.prefix { $0.isNumber }
+        return Int(digits) ?? 0
     }
 
     @MainActor
@@ -752,6 +778,35 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         app.activate()
 
         harness.tapNeedsReviewSegment()
+
+        let hero = harness.element(withIdentifier: "defaultPanelHeroSection")
+        harness.waitForExists(hero, timeout: 3, message: "Current-task hero should exist")
+
+        let heroCount = harness.element(withIdentifier: "defaultPanelHeroCount")
+        harness.waitForExists(heroCount, timeout: 3, message: "Current-task hero should expose the pass count")
+        harness.waitForValue(heroCount, equals: "8", timeout: 3)
+
+        let heroSummary = harness.element(withIdentifier: "defaultPanelHeroSummary")
+        harness.waitForExists(heroSummary, timeout: 3, message: "Current-task hero should expose the pass-scoped summary")
+        harness.waitForValue(heroSummary, contains: "8 files in this pass.", timeout: 3)
+        harness.waitForValue(heroSummary, contains: "wait outside this pass.", timeout: 3)
+
+        let heroSummaryValue = harness.badgeValue(heroSummary)
+        XCTAssertTrue(heroSummaryValue.hasPrefix("8 files in this pass."), "Hero summary should lead with the active pass")
+        XCTAssertFalse(heroSummaryValue.contains("Start with"), "Hero summary should use the v4 pass-first copy posture")
+
+        XCTAssertTrue(
+            harness.element(withIdentifier: "defaultPanelHeroCategoryBand").waitForExistence(timeout: 3),
+            "Current-task hero should expose the compact category band"
+        )
+        let heroCategoryBand = harness.element(withIdentifier: "defaultPanelHeroCategoryBand")
+        let heroCategoryBandHeight = heroCategoryBand.frame.size.height
+        XCTAssertGreaterThan(heroCategoryBandHeight, 20, "Current-task hero category band should remain visible after the compressed spacing pass")
+        XCTAssertLessThan(heroCategoryBandHeight, 60, "Current-task hero category band should stay tighter than the earlier tall shelf")
+        XCTAssertFalse(
+            harness.element(withIdentifier: "defaultPanelHeroRing").exists,
+            "Current-task hero should not render a ring-based progress treatment"
+        )
 
         let progressSummary = harness.element(withIdentifier: "defaultPanelProgressSummary")
         harness.waitForExists(progressSummary, timeout: 3, message: "Current-task progress summary should exist")
@@ -768,6 +823,105 @@ final class Forma_File_OrganizingUITests: XCTestCase {
         XCTAssertTrue(
             app.staticTexts["No destination yet — choose one to continue."].waitForExistence(timeout: 3),
             "Needs destination section should use the tightened subtitle copy"
+        )
+    }
+
+    @MainActor
+    func testNeedsReviewAutomationCardCollapsesZeroValueMetrics() throws {
+        harness.waitForMainContent()
+        app.activate()
+
+        harness.tapNeedsReviewSegment()
+
+        let automationCard = harness.element(withIdentifier: "defaultPanelAutomationStatusCard")
+        harness.waitForExists(automationCard, timeout: 3, message: "Automation status card should exist")
+        harness.waitForValue(automationCard, contains: "title=attached", timeout: 3)
+        let automationSummary = harness.element(withIdentifier: "defaultPanelAutomationSummaryProbe")
+        harness.waitForExists(
+            automationSummary,
+            timeout: 3,
+            message: "Automation card should expose the combined state summary"
+        )
+        harness.waitForValue(automationSummary, contains: "surface=single", timeout: 3)
+        harness.waitForValue(automationSummary, contains: "Watching Desktop and Downloads", timeout: 3)
+        harness.waitForValue(automationSummary, contains: "waiting for review", timeout: 3)
+
+        let summaryValue = harness.badgeValue(automationSummary)
+        XCTAssertTrue(
+            summaryValue.contains("secondary=none"),
+            "Automation card should encode the flattened no-secondary-state contract when only review backlog is present"
+        )
+        XCTAssertFalse(
+            summaryValue.contains("autopilot"),
+            "Automation card should collapse zero-value autopilot metrics"
+        )
+        XCTAssertFalse(
+            summaryValue.contains("blocked"),
+            "Automation card should collapse zero-value blocked metrics"
+        )
+
+        let automationWidthProbe = harness.element(withIdentifier: "defaultPanelAutomationWidthProbe")
+        harness.waitForExists(
+            automationWidthProbe,
+            timeout: 3,
+            message: "Automation section should expose a width probe"
+        )
+        harness.waitForValue(automationWidthProbe, contains: "delta=", timeout: 3)
+
+        let probeValue = harness.badgeValue(automationWidthProbe)
+        let widthDelta = Double(probeValue.replacingOccurrences(of: "delta=", with: "")) ?? .greatestFiniteMagnitude
+        XCTAssertLessThan(
+            widthDelta,
+            4,
+            "Automation card should span the section width instead of sitting inset inside an outer shell"
+        )
+    }
+
+    @MainActor
+    func testNeedsReviewFeaturedNextMoveUsesEditorialBodyAndFooterProbe() throws {
+        harness.waitForMainContent()
+        app.activate()
+
+        harness.tapNeedsReviewSegment()
+
+        let suggestionsProbe = harness.element(withIdentifier: "defaultPanelSuggestionsSectionProbe")
+        harness.waitForExists(
+            suggestionsProbe,
+            timeout: 8,
+            message: "Next Moves should expose a lightweight outer-section probe"
+        )
+        harness.waitForValue(suggestionsProbe, contains: "outer=none", timeout: 8)
+        harness.waitForValue(suggestionsProbe, contains: "featured=primary", timeout: 8)
+        harness.waitForValue(suggestionsProbe, contains: "count=1", timeout: 8)
+        harness.waitForValue(suggestionsProbe, contains: "delta=", timeout: 8)
+
+        let suggestionsProbeValue = harness.badgeValue(suggestionsProbe)
+        let suggestionsWidthDeltaString = suggestionsProbeValue
+            .split(separator: "|")
+            .first(where: { $0.hasPrefix("delta=") })?
+            .replacingOccurrences(of: "delta=", with: "") ?? ""
+        let suggestionsWidthDelta = Double(suggestionsWidthDeltaString) ?? .greatestFiniteMagnitude
+        XCTAssertLessThan(
+            suggestionsWidthDelta,
+            4,
+            "Featured next move should span the section width once the outer card is removed"
+        )
+
+        let featuredProbe = harness.element(withIdentifier: "defaultPanelFeaturedNextMoveProbe")
+        harness.waitForExists(
+            featuredProbe,
+            timeout: 8,
+            message: "Featured next move should expose an editorial-structure probe"
+        )
+        harness.waitForValue(featuredProbe, contains: "style=featured", timeout: 8)
+        harness.waitForValue(featuredProbe, contains: "summary=", timeout: 8)
+        harness.waitForValue(featuredProbe, contains: "why=Why it matters:", timeout: 8)
+        harness.waitForValue(featuredProbe, contains: "action=", timeout: 8)
+
+        let probeValue = harness.badgeValue(featuredProbe)
+        XCTAssertFalse(
+            probeValue.contains("metric=none"),
+            "Featured next move should surface a quiet supporting metric above the footer CTA"
         )
     }
 

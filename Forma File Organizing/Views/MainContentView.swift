@@ -355,6 +355,7 @@ struct MainContentView: View {
                     mode: .review,
                     count: dashboardViewModel.currentPassReadyCount,
                     canOrganizeAll: dashboardViewModel.currentPassReadyCount > 0,
+                    reviewState: dashboardViewModel.currentPassReviewActionBarState,
                     onOrganize: {
                         dashboardViewModel.organizeAllReadyFiles(context: modelContext)
                     },

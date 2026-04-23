@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-enum FileTypeCategory: String, CaseIterable, Identifiable, Sendable {
+enum FileTypeCategory: String, CaseIterable, Identifiable, Hashable, Sendable {
     case documents
     case images
     case videos

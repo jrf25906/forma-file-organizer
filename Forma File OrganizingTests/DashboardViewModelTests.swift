@@ -3639,6 +3639,45 @@ final class DashboardViewModelTests: XCTestCase {
         )
     }
 
+    func testCurrentPassCategorySummariesStayScopedToSnapshotAfterOrganizing() {
+        let now = Date()
+        let files = (0..<10).map { index -> FileItem in
+            let pathExtension: String
+            switch index % 3 {
+            case 0:
+                pathExtension = "png"
+            case 1:
+                pathExtension = "pdf"
+            default:
+                pathExtension = "zip"
+            }
+
+            let hasDestination = index.isMultiple(of: 2)
+            return FileItem(
+                path: "/review/file-\(index).\(pathExtension)",
+                sizeInBytes: Int64(1_000 + index),
+                creationDate: now.addingTimeInterval(TimeInterval(index)),
+                destination: hasDestination ? .mockFolder("Documents/Sorted") : nil,
+                status: hasDestination ? .ready : .pending
+            )
+        }
+
+        viewModel._testSetFiles(files)
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        let initialSummaries = viewModel.currentPassCategorySummaries
+
+        XCTAssertEqual(initialSummaries.count, 3)
+        XCTAssertEqual(initialSummaries.map(\.count).reduce(0, +), viewModel.currentPassTotalCount)
+
+        let organizedFile = try! XCTUnwrap(viewModel.readyFiles.first)
+        viewModel.organizeFile(organizedFile)
+
+        XCTAssertEqual(viewModel.currentPassCategorySummaries, initialSummaries)
+        XCTAssertEqual(viewModel.currentPassCategorySummaries.map(\.count).reduce(0, +), viewModel.currentPassTotalCount)
+    }
+
     func testCurrentPassProgressExcludesDeferredPassAndAdvancesToNextBatch() {
         let files = makeReviewFiles(count: 12)
 
@@ -3667,6 +3706,54 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.totalPendingCount, 12)
         XCTAssertEqual(viewModel.currentPassTotalCount, viewModel.reviewChunkSize)
         XCTAssertEqual(viewModel.currentPassRemainingCount, viewModel.reviewChunkSize)
+    }
+
+    func testCurrentPassReviewActionBarStatePrefersDestinationBlockersWhenNothingIsReady() {
+        let now = Date()
+        let needsReview = FileItem(
+            path: "/f/review.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(20),
+            destination: .mockFolder("Documents/Inbox"),
+            status: .pending
+        )
+        let needsDestination = FileItem(
+            path: "/f/destinationless.png",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(10),
+            destination: nil,
+            status: .pending
+        )
+
+        viewModel._testSetFiles([needsDestination, needsReview])
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        XCTAssertEqual(viewModel.currentPassReviewActionBarState, .needsDestination(1))
+    }
+
+    func testCurrentPassReviewActionBarStateFallsBackToReviewWhenNothingIsReady() {
+        let now = Date()
+        let first = FileItem(
+            path: "/f/review-a.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(20),
+            destination: .mockFolder("Documents/Inbox"),
+            status: .pending
+        )
+        let second = FileItem(
+            path: "/f/review-b.pdf",
+            sizeInBytes: 1_024,
+            creationDate: now.addingTimeInterval(10),
+            destination: .mockFolder("Documents/Inbox"),
+            status: .pending
+        )
+
+        viewModel._testSetFiles([first, second])
+        viewModel.selectedFolder = .home
+        viewModel.reviewFilterMode = .needsReview
+
+        XCTAssertEqual(viewModel.currentPassReviewActionBarState, .needsReview(2))
     }
 
     func testAutomationStatusPresentationShowsWatchedRootsAndRecentSummaries() {
