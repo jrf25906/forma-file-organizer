@@ -1,6 +1,6 @@
 # Project TODO
 
-**Last Updated:** April 22, 2026
+**Last Updated:** April 23, 2026
 
 Strategic roadmap: [forma-feature-roadmap.md](forma-feature-roadmap.md). Execution checklist: [Docs/Getting-Started/TODO.md](Docs/Getting-Started/TODO.md).
 
@@ -28,6 +28,25 @@ Current active plans: [Docs/plans/2026-03-30-preview-first-roadmap-wave-1-plan.m
 - [x] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
 - [x] Convert successful one-time Finder/Spotlight folder review flows into persistent monitored folders.
 - [x] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
+
+#### Codebase Audit Remediation (April 23, 2026)
+Reference: [Docs/audits/2026-04-23-forma-audit.md](Docs/audits/2026-04-23-forma-audit.md). Ten must-fix items extracted from a full-codebase parallel review. Tiers are ordered — work A before B before C. Within a tier, items are independent.
+
+**Tier A — Same day / pre-release (low-risk, high-impact):**
+- [ ] A1 — Delete the unconditional `/tmp/thumbnail_debug.log` writer in `ThumbnailService` (privacy leak in all build configs).
+- [ ] A2 — Gate `UITestFolderAccessConfiguration` behind `#if DEBUG || UI_TESTS` so `--uitesting` argv cannot relax bookmark enforcement in a shipped Release binary.
+- [ ] A3 — Add `selectedTests` to the default `Forma File Organizing.xctestplan`, un-orphan the ~10 missing test files from the Unit plan allowlist, and add a CI lint diffing test files against plan membership.
+- [ ] A4 — Add `resolvingSymlinksInPath()` to `PathValidator` and `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)` so a symlink inside a trusted/scanned scope cannot escape the boundary check.
+
+**Tier B — This week (medium complexity, high-value):**
+- [ ] B1 — Route `FileOperationsService.moveFileUsingBookmark` through `secureFileMove` so TOCTOU protection, FD-validated `renameat`, and `withExtendedLifetime` apply on the production bookmark move path.
+- [ ] B2 — Make `WorkflowRunner` emit `.skipped` step audits and `WorkflowFileActionRecord` rows for every file abandoned after a `fileLoop: break`, with an explicit `abandonedAfterUpstreamFailure` reason.
+- [ ] B3 — Gate every `FormaAppIntents.perform()` on `FormaActions.shared.isFullyConfigured`, require `requestConfirmation` for `ToggleAutomationIntent`, and validate each `IntentFile` URL is bookmark-backed before dispatch.
+- [ ] B4 — Decide fate of `DestinationPredictionService` drift detection and confidence-separation acceptance gate: either wire real accept/override counters and per-prediction probabilities, or remove the branches. Plan doc required before code.
+
+**Tier C — Planning required (structural, do before next schema change or release):**
+- [ ] C1 — Adopt `VersionedSchema` / `SchemaMigrationPlan` across `Models/` and wrap every `Data`-blob field (`RuleCategory.scopeData`, `LearnedPattern.destinationData`, `FileItem._destinationBookmarkData`, `TrustedAutomationScope.boundaryDescriptorData`, workflow compensation payloads, etc.) in a `VersionedBlob<T>` envelope. Needs its own plan doc under `Docs/plans/`.
+- [ ] C2 — Extract `FileOperationsServiceProtocol`, inject at every call site (`UndoCommand`, `ReviewViewModel`, `BulkOperationViewModel`, `DashboardViewModel`, `MoveWorkflowStepExecutor`, `RenameWorkflowStepExecutor`), add `MockFileOperationsService`, and delete every inline `FileOperationsService()` construction.
 
 ### Next (2-4 Months)
 #### Optimization Follow-Ons

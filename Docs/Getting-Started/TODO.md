@@ -1,6 +1,6 @@
 # Forma - Project TODO
 
-**Last Updated:** April 15, 2026
+**Last Updated:** April 23, 2026
 
 Strategic roadmap: [`forma-feature-roadmap.md`](../../forma-feature-roadmap.md). This document is the execution checklist and historical backlog reference.
 
@@ -22,6 +22,25 @@ Implementation plan for the active wave: [`Docs/plans/2026-03-30-preview-first-r
 - [x] Tighten the preview-first flagship workflow so review, rules, explanation, and undo feel like one coherent flow.
 - [x] Convert successful one-time Finder/Spotlight review flows into persistent monitored folders.
 - [x] Validate native window frame restoration when a saved main window reopens on a smaller display or after display-topology changes.
+
+#### Codebase Audit Remediation (April 23, 2026)
+Full report: [`Docs/audits/2026-04-23-forma-audit.md`](../audits/2026-04-23-forma-audit.md). Ten must-fix items from a full-codebase parallel review. Tiers are execution-ordered — A before B before C. Items within a tier are independent.
+
+**Tier A — Same day / pre-release:**
+- [ ] A1 — Delete the unconditional `/tmp/thumbnail_debug.log` writer in `ThumbnailService`.
+- [ ] A2 — Gate `UITestFolderAccessConfiguration` behind `#if DEBUG || UI_TESTS` so a shipped Release binary cannot be coerced via `--uitesting` argv.
+- [ ] A3 — Fix `xctestplan` hygiene: add `selectedTests` to the default plan, un-orphan the ~10 tests missing from the Unit allowlist, add CI lint for drift.
+- [ ] A4 — Add `resolvingSymlinksInPath()` to `PathValidator` and `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)` to close the symlink escape in sandboxed scope enforcement.
+
+**Tier B — This week:**
+- [ ] B1 — Route `FileOperationsService.moveFileUsingBookmark` through the TOCTOU-safe `secureFileMove` path with `withExtendedLifetime` around scoped access.
+- [ ] B2 — `WorkflowRunner` must emit `.skipped` step + file-action audit rows when `fileLoop: break` abandons remaining planned files.
+- [ ] B3 — Add `isFullyConfigured` gates and `requestConfirmation` to state-mutating `FormaAppIntents`; validate `IntentFile` URLs are bookmark-backed before dispatch.
+- [ ] B4 — Decide: wire up or remove `DestinationPredictionService` drift detection + confidence-separation acceptance gate. Plan doc first.
+
+**Tier C — Planning required (structural):**
+- [ ] C1 — Adopt SwiftData `VersionedSchema` / `SchemaMigrationPlan` and wrap every `Data`-blob field in a versioned envelope before the next breaking schema change. Needs a dedicated plan doc under `Docs/plans/`.
+- [ ] C2 — Extract `FileOperationsServiceProtocol`, inject at every call site, add `MockFileOperationsService`, and delete every inline `FileOperationsService()` construction.
 
 ### Next (2-4 Months)
 - [x] Start the personal-organization-memory layer before broad cloud or chatbot-style AI expansion.
