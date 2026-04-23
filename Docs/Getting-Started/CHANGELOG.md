@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Destination Prediction Evaluation
+- **Explicit off-main evaluation confidence**: `DestinationPredictionService` now trains and evaluates destination classifiers through Core ML feature-provider predictions off the main actor, using actual label probabilities when the model exposes them instead of placeholder `1.0` confidence values. Label-only models now fail with an explicit missing-probability note rather than receiving invented confidence, and weak confidence separation now reports a threshold-specific rejection note.
+- **Representative bounded training split**: Destination training data is sampled before applying the maximum dataset cap without shuffling the full activity history, so older or later records are not systematically excluded before train/test splitting and training memory remains bounded by the cap.
+- **Stable model versions**: Destination prediction model version strings now use a POSIX UTC formatter for locale-independent ASCII output.
+
 ### Fixed - Batched Persistence, Retention, and Onboarding Verification
 - **Single-save bulk organize/undo/redo**: `FileOrganizationCoordinator` now prefetches once per bulk operation, stages file-item, metadata-history, activity, and personal-memory mutations into one shared `ModelContext`, and commits a single save per organize, undo, or redo batch.
 - **Honest rollback on final-save failure**: Bulk operations still allow individual file-move failures, but a final persistence failure now compensates any successful disk moves and restores the in-memory SwiftData state so undoable batches cannot leave disk and persistence out of sync.

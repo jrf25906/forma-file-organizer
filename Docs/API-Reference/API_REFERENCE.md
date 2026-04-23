@@ -67,6 +67,8 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 
 ### Recent API Updates (April 2026)
 
+- `CoreMLPredictionEngine.outcome(from:)` now extracts destination-prediction labels and sorted confidence values from Core ML feature-provider output when probabilities are available, and `CoreMLPredictionEngine.predictedLabel(from:)` supports label-only evaluator scoring without inventing confidence.
+- `DestinationPredictionService` now trains and evaluates destination classifiers through off-main `DestinationModelTrainer`, `DestinationModelEvaluator`, and `MLModel.prediction(from:)`, uses real probabilities when exposed, rejects label-only output with an explicit missing-probability note, reports weak confidence separation with threshold-specific notes, compiles classifiers off the main actor through `DestinationModelCompiler`, uses bounded sample-before-cap dataset preparation through `DestinationTrainingDatasetPreparer.prepare(records:maximumDatasetSize:trainFraction:sampler:)`, and emits POSIX UTC model versions through `DestinationModelVersion.string(for:)`.
 - `RetentionConfig` and `FormaConfig.retention` now define the shared retention window/caps used for workflow audit, trusted-scope run history, and personal-memory event history.
 - `HistoryRetentionService` now centralizes full-sweep and surface-specific pruning with a 90-day cutoff plus default caps of 2,000 workflow runs, 100 trusted-scope runs per scope, and 10,000 personal-memory events.
 - `WorkflowAuditStore.init(modelContext:nowProvider:)` now supports deterministic cutoff testing, and latest-run / latest-path / step / file-action lookups now use bounded predicates, sort descriptors, and fetch limits instead of fetch-all plus in-memory filtering.

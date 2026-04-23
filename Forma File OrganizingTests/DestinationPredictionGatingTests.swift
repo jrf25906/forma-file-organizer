@@ -123,8 +123,24 @@ final class DestinationPredictionGatingTests: XCTestCase {
         // Note: Actual model training may still fail evaluation gates, so we check attempt was made
         // by verifying training history exists
         let descriptor = FetchDescriptor<MLTrainingHistory>()
-        let history = try? modelContext.fetch(descriptor)
-        XCTAssertNotNil(history, "Training should be attempted when thresholds are met")
+        let history = try modelContext.fetch(descriptor)
+        XCTAssertEqual(history.count, 1, "Training should record a model history row when thresholds are met")
+    }
+
+    func testColdStart_LabelOnlyClassifierRecordsMissingProbabilityRejection() async throws {
+        let destinations = ["Documents/Work", "Documents/Personal", "Archive"]
+        let activityItems = createSyntheticActivityItems(count: 50, destinations: destinations)
+
+        await service.scheduleTrainingIfNeeded(activityItems: activityItems)
+
+        let descriptor = FetchDescriptor<MLTrainingHistory>()
+        let history = try XCTUnwrap(modelContext.fetch(descriptor).first)
+        XCTAssertFalse(history.accepted, "Label-only CreateML output should not be accepted as confidence-gated")
+        let notes = try XCTUnwrap(history.notes)
+        XCTAssertTrue(
+            notes.localizedCaseInsensitiveContains("confidence probabilities"),
+            "Rejection notes should identify missing probability output instead of implying poor accuracy alone"
+        )
     }
     
     // MARK: - Confidence Threshold Gating Tests
@@ -386,6 +402,118 @@ final class DestinationPredictionGatingTests: XCTestCase {
         let activeModel = try modelContext.fetch(descriptor).first
         XCTAssertEqual(activeModel?.version, "1-2024-01-01", "Should roll back to last accepted model")
     }
+
+    // MARK: - Evaluation Helper Tests
+
+    func testPredictionOutcomeExtractsSortedProbabilitiesFromCoreMLProvider() throws {
+        let provider = try MLDictionaryFeatureProvider(dictionary: [
+            "label": "Documents/Work",
+            "labelProbability": [
+                "Archive": 0.12,
+                "Documents/Work": 0.74,
+                "Pictures": 0.14
+            ]
+        ])
+
+        let outcome = try CoreMLPredictionEngine.outcome(from: provider)
+
+        XCTAssertEqual(outcome.label, "Documents/Work")
+        XCTAssertEqual(outcome.confidence, 0.74, accuracy: 0.0001)
+        XCTAssertEqual(outcome.top2Confidence ?? -1, 0.14, accuracy: 0.0001)
+    }
+
+    func testPredictionLabelExtractionAllowsMissingProbabilitiesWithoutInventingConfidence() throws {
+        let provider = try MLDictionaryFeatureProvider(dictionary: [
+            "label": "Documents/Work"
+        ])
+
+        XCTAssertEqual(try CoreMLPredictionEngine.predictedLabel(from: provider), "Documents/Work")
+        XCTAssertNil(CoreMLPredictionEngine.confidence(for: "Documents/Work", from: provider))
+        XCTAssertThrowsError(try CoreMLPredictionEngine.outcome(from: provider))
+    }
+
+    func testDatasetPreparationSamplesBeforeCapping() {
+        let records = createTrainingRecords(count: 10)
+        var observedLimit: Int?
+
+        let prepared = DestinationTrainingDatasetPreparer.prepare(
+            records: records,
+            maximumDatasetSize: 5,
+            trainFraction: 0.8,
+            sampler: { records, limit in
+                observedLimit = limit
+                return Array(records.reversed().prefix(limit))
+            }
+        )
+
+        XCTAssertEqual(observedLimit, 5)
+        XCTAssertEqual(prepared.train.map(\.fileName), ["file-9.pdf", "file-8.pdf", "file-7.pdf", "file-6.pdf"])
+        XCTAssertEqual(prepared.test.map(\.fileName), ["file-5.pdf"])
+    }
+
+    func testAcceptanceGateRejectsMissingConfidenceSamples() {
+        let metrics = DestinationEvaluationMetrics(
+            accuracy: 0.95,
+            falsePositiveRate: 0.05,
+            avgCorrectConfidence: nil,
+            avgIncorrectConfidence: nil,
+            confidenceSampleCount: 0,
+            missingConfidenceCount: 10
+        )
+
+        XCTAssertFalse(
+            DestinationModelAcceptanceGate.accepts(
+                metrics: metrics,
+                minimumAccuracy: 0.7,
+                maximumFalsePositiveRate: 0.2,
+                minimumConfidenceSeparation: 0.15
+            ),
+            "Models without probability output should fail explicitly instead of receiving invented confidence"
+        )
+        XCTAssertTrue(
+            DestinationModelAcceptanceGate.rejectionNotes(
+                for: metrics,
+                minimumAccuracy: 0.7,
+                maximumFalsePositiveRate: 0.2,
+                minimumConfidenceSeparation: 0.15
+            ).localizedCaseInsensitiveContains("confidence probabilities")
+        )
+    }
+
+    func testAcceptanceGateNotesConfidenceSeparationFailures() {
+        let metrics = DestinationEvaluationMetrics(
+            accuracy: 0.95,
+            falsePositiveRate: 0.05,
+            avgCorrectConfidence: 0.64,
+            avgIncorrectConfidence: 0.55,
+            confidenceSampleCount: 10,
+            missingConfidenceCount: 0
+        )
+
+        XCTAssertFalse(
+            DestinationModelAcceptanceGate.accepts(
+                metrics: metrics,
+                minimumAccuracy: 0.7,
+                maximumFalsePositiveRate: 0.2,
+                minimumConfidenceSeparation: 0.15
+            )
+        )
+        XCTAssertTrue(
+            DestinationModelAcceptanceGate.rejectionNotes(
+                for: metrics,
+                minimumAccuracy: 0.7,
+                maximumFalsePositiveRate: 0.2,
+                minimumConfidenceSeparation: 0.15
+            ).localizedCaseInsensitiveContains("confidence separation")
+        )
+    }
+
+    func testModelVersionStringUsesPOSIXLocaleAndUTC() {
+        let version = DestinationModelVersion.string(for: Date(timeIntervalSince1970: 0))
+
+        XCTAssertEqual(version, "1-1970-01-01T000000Z")
+        XCTAssertTrue(version.allSatisfy(\.isASCII), "Version strings should stay ASCII across user locales")
+    }
     
     // MARK: - Helper Methods
     
@@ -420,5 +548,18 @@ final class DestinationPredictionGatingTests: XCTestCase {
             destination: nil,
             status: .pending
         )
+    }
+
+    private func createTrainingRecords(count: Int) -> [DestinationTrainingRecord] {
+        (0..<count).map { index in
+            DestinationTrainingRecord(
+                fileName: "file-\(index).pdf",
+                fileExtension: "pdf",
+                sourceLocation: "Downloads",
+                destinationPath: "Documents/\(index % 3)",
+                timestamp: Date(timeIntervalSince1970: TimeInterval(index)),
+                projectCluster: nil
+            )
+        }
     }
 }

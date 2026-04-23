@@ -23,15 +23,65 @@ struct CoreMLPredictionEngine: PredictionEngine {
         let input = try MLDictionaryFeatureProvider(dictionary: ["text": features.combinedText()])
         let prediction = try await model.prediction(from: input)
 
-        guard let predictedLabel = prediction.featureValue(for: "label")?.stringValue,
-              let probabilities = prediction.featureValue(for: "labelProbability")?.dictionaryValue as? [String: Double] else {
+        return try Self.outcome(from: prediction)
+    }
+
+    static func outcome(from prediction: MLFeatureProvider) throws -> PredictionOutcome {
+        let predictedLabel = try predictedLabel(from: prediction)
+        let probabilities = try labelProbabilities(from: prediction)
+        let sorted = probabilities.sorted { $0.probability > $1.probability }
+        let top1 = sorted.first?.probability ?? 0.0
+        let top2 = sorted.count > 1 ? sorted[1].probability : nil
+
+        return PredictionOutcome(label: predictedLabel, confidence: top1, top2Confidence: top2)
+    }
+
+    static func predictedLabel(from prediction: MLFeatureProvider) throws -> String {
+        if let label = prediction.featureValue(for: "label")?.stringValue {
+            return label
+        }
+
+        if let label = prediction.featureValue(for: "classLabel")?.stringValue {
+            return label
+        }
+
+        throw DestinationPredictionService.PredictionError.predictionFailed
+    }
+
+    static func confidence(
+        for predictedLabel: String,
+        from prediction: MLFeatureProvider
+    ) -> Double? {
+        guard let probabilities = try? labelProbabilities(from: prediction) else {
+            return nil
+        }
+
+        let sorted = probabilities.sorted { $0.probability > $1.probability }
+        return sorted.first { $0.label == predictedLabel }?.probability
+    }
+
+    private static func labelProbabilities(
+        from prediction: MLFeatureProvider
+    ) throws -> [(label: String, probability: Double)] {
+        let probabilityFeatureNames = ["labelProbability", "classProbability"]
+        let rawProbabilities = probabilityFeatureNames
+            .lazy
+            .compactMap { prediction.featureValue(for: $0)?.dictionaryValue }
+            .first
+
+        guard let rawProbabilities else {
             throw DestinationPredictionService.PredictionError.predictionFailed
         }
 
-        let sorted = probabilities.sorted { $0.value > $1.value }
-        let top1 = sorted.first?.value ?? 0.0
-        let top2 = sorted.count > 1 ? sorted[1].value : nil
+        let probabilities = rawProbabilities.compactMap { key, value -> (label: String, probability: Double)? in
+            guard let label = key as? String else { return nil }
+            return (label, value.doubleValue)
+        }
 
-        return PredictionOutcome(label: predictedLabel, confidence: top1, top2Confidence: top2)
+        guard !probabilities.isEmpty else {
+            throw DestinationPredictionService.PredictionError.predictionFailed
+        }
+
+        return probabilities
     }
 }

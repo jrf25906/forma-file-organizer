@@ -4,6 +4,28 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Destination prediction evaluator repair
+  - `CoreMLPredictionEngine.outcome(from:)`
+    - Extracts the predicted label plus sorted top-confidence values from a Core ML `MLFeatureProvider`, giving production prediction and evaluation paths one shared probability parser when probabilities are available.
+  - `CoreMLPredictionEngine.predictedLabel(from:)`
+    - Extracts label-only Core ML output so evaluators can score accuracy without inventing confidence.
+  - `DestinationTrainingDatasetPreparer.prepare(records:maximumDatasetSize:trainFraction:sampler:)`
+    - Samples records before applying the dataset cap, bounds sampling work to the configured maximum, then splits train/test data from the sampled set.
+  - `DestinationModelVersion.string(for:)`
+    - Generates ASCII, POSIX-locale, UTC model version strings for destination prediction training.
+  - `DestinationModelAcceptanceGate.accepts(metrics:minimumAccuracy:maximumFalsePositiveRate:minimumConfidenceSeparation:)`
+    - Applies destination-model acceptance gates while rejecting missing probability output explicitly instead of treating it as zero confidence.
+  - `DestinationModelAcceptanceGate.rejectionNotes(for:minimumAccuracy:maximumFalsePositiveRate:minimumConfidenceSeparation:)`
+    - Emits threshold-specific rejection notes for accuracy, false-positive-rate, missing-probability, and confidence-separation failures.
+  - `DestinationModelTrainer.train(data:)`
+    - Trains destination classifiers from sampled records on a utility task using the shared feature extractor.
+  - `DestinationModelCompiler.compileClassifier(_:fileName:in:)`
+    - Compiles trained destination classifiers on a utility task before model save or evaluation.
+  - `DestinationModelEvaluator.evaluate(classifier:testData:)`
+    - Runs compile/load/predict evaluation on a utility task while preserving the shared Core ML probability parser.
+  - `DestinationPredictionService.evaluateModel(...)`
+    - Now delegates trained-classifier scoring to the off-main evaluator and real probabilities when available; label-only models fail with a missing-probability rejection note instead of receiving placeholder confidence.
+
 - Right-rail editorial mission control
   - `ReviewPassCategorySummary`
     - `category`

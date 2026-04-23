@@ -1,275 +1,224 @@
-# Destination Prediction ML Fix — Implementation Plan
+# Destination Prediction ML Fix - Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` for task-by-task execution. Use `superpowers:test-driven-development` for code changes and `superpowers:verification-before-completion` before reporting completion.
 
-**Goal:** Resolve item **B4** from the [2026-04-23 codebase audit](../audits/2026-04-23-forma-audit.md) by wiring up `DestinationPredictionService`'s drift-detection and confidence-acceptance gates, gated behind a measurement phase that proves the ML layer earns its place over simpler predictors.
+**Goal:** Resolve item **B4** from the [2026-04-23 codebase audit](../audits/2026-04-23-forma-audit.md) by first repairing the broken evaluator, dataset split, and version-string paths in `DestinationPredictionService`; then measuring whether the ML layer earns a larger role before accept/override telemetry is wired.
 
-**Architecture:** Three-phase approach with explicit early-exit gates. Phase 1 runs an offline backtest harness against the developer's own `ActivityItem` history to measure the ML layer's standalone contribution. Phase 2 ships shadow-mode instrumentation to compare predictors live during normal dev use. Phase 3 — only reached if both prior gates pass — lands the accept/override wiring, replaces the `confidence = 1.0` placeholder with real per-prediction probabilities, fixes the training split ordering, and patches the locale issue in version string generation. No feature flag on the fix itself; shadow-mode data is the de-risking signal. If either gate fails, pivot to Option B (remove) per the audit's alternative.
+**Architecture:** Four-phase approach with explicit gates. Phase 0 repairs the evaluator so future decisions are based on exposed model probabilities when available, off-main Core ML train/compile/load/evaluation work, explicit missing-probability rejection when not available, and representative bounded data. Phase 1 runs an offline backtest using the existing `LearningService.makeTrainingRecords(from:)` extraction path. Phase 2 captures live shadow outcomes from `FileScanPipeline.applyMLPredictions(...)` using dev-only file logging, not a new SwiftData model. Phase 3 wires accept/override telemetry only after the prediction identity/capture contract is durable enough to do so correctly.
 
-**Tech Stack:** Swift, SwiftUI, SwiftData, `CreateML`, `CoreML`, XCTest, `XCTMetric` / custom benchmarks, security-scoped bookmarks (for the harness reading dev data).
+**Tech Stack:** Swift, `CreateML`, `CoreML`, XCTest, SwiftData reads for existing `ActivityItem` history, and dev-only CSV/JSONL artifacts for shadow results.
 
 ---
 
 ## Scope and sequencing
 
-This plan covers audit item **B4** only. It does not touch `LearningService` (pattern-based prediction), `PersonalMemoryService`, or the rule engine — those are reference predictors, used as the comparison baseline.
+This plan covers audit item **B4** only. It does not change the rule engine, `PersonalMemoryService`, or the pattern-learning contract except where those surfaces are used as baselines.
 
-The plan is **measurement-gated**: each phase only begins if the prior phase's gate passes. Early-exit pivots to Option B (remove the broken ML paths entirely) per the original audit decision fork.
+The plan is **measurement-gated**. If Phase 1 or Phase 2 shows that the ML layer does not outperform simpler predictors, stop and pivot to Option B from the audit: remove the broken ML branches rather than preserving code that is not earning its maintenance cost.
 
 Execution order:
 
-1. **Phase 1 — Offline backtest.** Dev-only harness, scores pattern-only vs. ML standalone, gate: ML beats pattern-only on Top-1 accuracy by ≥10 percentage points across ≥500 historical activities.
-2. **Phase 2 — Shadow mode.** Live shadow logging behind a compile-time flag; runs for 2–3 weeks of normal dev use; gate: shadow-ML acceptance-rate-if-shown ≥ pattern-only's acceptance rate.
-3. **Phase 3 — The fix.** Direct replacement, no feature flag. Accept/override counters wired, probability placeholder replaced, training split fixed, locale fix.
-4. **M4 — Shadow-mode cleanup.** Separate PR, 2 weeks after Phase 3 stable: removes `enableShadowPredictionLogging` flag and `ShadowPredictionLog` model.
+1. **Phase 0 - Evaluator repair.** Replace placeholder confidence scoring, move Core ML train/compile/load/evaluation work off the main actor, reject missing probability output explicitly, sample before capping datasets, and make model version strings locale-stable.
+2. **Phase 1 - Offline backtest.** Score pattern-only vs. ML on historical training records extracted through the production learning-service path.
+3. **Phase 2 - Live shadow measurement.** Collect dev-only shadow results from the scan pipeline without adding an unversioned SwiftData model.
+4. **Phase 3 - Accept/override telemetry.** Add drift counters only after a stable prediction identity can be carried through organize/review flows.
 
 This order is deliberate:
 
-- Phase 1's backtest can run the same day the harness lands, giving you a decision signal within hours — not weeks.
-- Phase 2 only ships if Phase 1 is promising, so shadow instrumentation (which adds a new `@Model`) is never wasted work.
-- Phase 3's fix is unambiguous by the time it lands, because Phase 2 produced real-world data. No feature flag is warranted because the measurement phase IS the flag.
-- M4 keeps the codebase clean: shadow instrumentation served its purpose and should not accumulate as permanent maintenance.
+- Phase 0 removes known evaluator defects immediately, so later gates are not measuring placeholder behavior.
+- Phase 1 gives a same-day signal using the same activity parsing Forma already trusts.
+- Phase 2 avoids schema churn before C1 `VersionedSchema` work while still collecting live decision evidence.
+- Phase 3 is only valid once the app can reliably connect a shown prediction to the user's later accept/override action.
 
 ## File map
 
-### Test-target harness (Phase 1)
+### Phase 0 - evaluator repair
+
+- `Forma File Organizing/Services/PredictionEngine.swift` *(changed - shared Core ML probability extraction helper)*
+- `Forma File Organizing/Services/DestinationPredictionService.swift` *(changed - off-main explicit evaluation confidence, bounded sample-before-cap dataset split, POSIX UTC version helper)*
+- `Forma File OrganizingTests/DestinationPredictionGatingTests.swift` *(changed - focused regression coverage)*
+
+### Phase 1 - offline backtest
 
 - `Forma File OrganizingTests/Benchmarks/DestinationPredictionBacktest.swift` *(new)*
-- `Forma File OrganizingTests/Benchmarks/DestinationPredictionBacktestTests.swift` *(new — meta-tests for the harness itself)*
-- `Docs/audits/2026-04-23-forma-audit/phase-1-backtest-results.md` *(new — results transcript, committed after run)*
+- `Forma File OrganizingTests/Benchmarks/DestinationPredictionBacktestTests.swift` *(new - meta-tests for the harness)*
+- `Docs/audits/2026-04-23-forma-audit/phase-1-backtest-results.md` *(new - committed after run)*
 
-### Services (Phase 2 + Phase 3)
+### Phase 2 - dev-only live shadow logging
 
-- `Forma File Organizing/Services/DestinationPredictionService.swift` *(changed — Phase 2 adds `shadowPredict`; Phase 3 lands all B4 fixes)*
-- `Forma File Organizing/Services/AnalyticsService.swift` *(changed, Phase 2 only — adds shadow-log sink)*
-- `Forma File Organizing/Services/HistoryRetentionService.swift` *(changed, Phase 2 only — adds `ShadowPredictionLog` 90-day pruning)*
+- `Forma File Organizing/Services/FileScanPipeline.swift` *(changed - optional dev-only shadow record at the point ML predictions are applied)*
+- `Forma File Organizing/Services/DestinationPredictionService.swift` *(changed only if the shadow evaluator needs a non-user-facing helper)*
+- `Docs/audits/2026-04-23-forma-audit/phase-2-shadow-results.md` *(new - committed after collection)*
+- Dev-only runtime artifact: CSV or JSONL under a local ignored output path.
 
-### ViewModels (Phase 2 + Phase 3)
+### Phase 3 - durable telemetry
 
-- `Forma File Organizing/ViewModels/DashboardOrganizationController.swift` *(changed — Phase 2 shadow-capture wiring; Phase 3 accept/override wiring)*
-- `Forma File Organizing/ViewModels/ReviewViewModel.swift` *(changed — Phase 2 shadow-capture wiring; Phase 3 accept/override wiring)*
+- `Forma File Organizing/Models/DestinationPredictionTypes.swift` *(changed only if `PredictedDestination` gains a stable prediction identity)*
+- `Forma File Organizing/Services/DestinationPredictionService.swift` *(changed - accept/override counters and drift math)*
+- `Forma File Organizing/Services/FileScanPipeline.swift` and organize/review call paths *(changed - carry prediction identity when needed)*
+- `Forma File OrganizingTests/DestinationPredictionServiceTests.swift` or `DestinationPredictionGatingTests.swift` *(changed - counter and drift coverage)*
+- Focused controller/view-model tests only after the prediction identity contract is present.
 
-### Models (Phase 2, temporary)
-
-- `Forma File Organizing/Models/ShadowPredictionLog.swift` *(new, Phase 2 — deleted in M4)*
-
-### Configuration
-
-- `Forma File Organizing/Configuration/FormaConfig.swift` *(changed, Phase 2 — adds `Features.enableShadowPredictionLogging`, removed in M4)*
-- `Forma File Organizing/Forma_File_OrganizingApp.swift` *(changed, Phase 2 — registers `ShadowPredictionLog` in schema list; removed in M4)*
-
-### Tests
-
-- `Forma File OrganizingTests/DestinationPredictionServiceTests.swift` *(changed — Phase 3)*
-- `Forma File OrganizingTests/DashboardOrganizationControllerTests.swift` *(changed — Phase 3)*
-- `Forma File OrganizingTests/ShadowPredictionLogTests.swift` *(new, Phase 2 only — deleted in M4)*
+No `ShadowPredictionLog` `@Model`, app schema registration, `HistoryRetentionService` pruning, or temporary SwiftData migration work belongs in this plan before C1.
 
 ---
 
-## Phase 1 — Offline backtest harness
+## Phase 0 - Evaluator and dataset repair
 
-**Goal:** Measure the ML layer's standalone contribution against pattern-only prediction, on the developer's own historical activity data, to decide whether Phase 2 is worth starting.
-
-**Gate to Phase 2:** ML beats pattern-only on Top-1 accuracy by ≥10 percentage points, measured across ≥500 historical `ActivityItem` records with resolved destinations. If the gate fails, stop and convert this plan's remaining work into a "Remove `DestinationPredictionService` ML paths" sub-task under audit item B4 pivot.
-
-### Design
-
-Chronological train/holdout split. Earliest 80% of `ActivityItem.moved` records with resolved destinations → training set. Latest 20% → holdout test set. For each holdout activity, reconstruct the file context (extension, category, source path, relative parent) and run BOTH predictors:
-
-- **Predictor A (pattern-only):** `LearningService.predictDestination(for:in:)` trained on the training set
-- **Predictor B (ML-only):** `DestinationPredictionService` trained on the same training set, using the current (pre-fix) code path; prediction via `predictDestination(for:in:)` public API
-
-Score each holdout item: did the top prediction's destination match the user's actual destination (`ActivityItem.destination`)? Top-1 and Top-3 accuracy reported per predictor, broken down by file category and by source folder.
+**Goal:** Fix the known broken evaluator paths before using the service to make roadmap decisions.
 
 ### Implementation tasks
 
-- [ ] Create `Forma File OrganizingTests/Benchmarks/DestinationPredictionBacktest.swift`
-- [ ] Gate the class with `try TestGating.requireIntegration()` at `setUpWithError` — this harness belongs in the Integration plan, not Unit
-- [ ] Load `ActivityItem` records from the active SwiftData store (inject via test argument or fall back to `ModelContainer` at a configurable URL)
-- [ ] Filter to `.moved` activities with non-nil resolved `destination`; discard the rest
-- [ ] Sort by `timestamp` ascending; split 80/20 at the chronological boundary
-- [ ] Build a minimal `ActivityContext → (ext, category, sourcePath, relativeParent)` projection matching what `DestinationPredictionService.trainingFeature(from:)` expects
-- [ ] Train `LearningService` against the training set by running its normal pattern-detection pipeline; capture the resulting `[LearnedPattern]`
-- [ ] Train `DestinationPredictionService` against the training set via its existing `trainModel()` path
-- [ ] For each holdout item: record `patternPrediction = LearningService.predict(...)` and `mlPrediction = DestinationPredictionService.predict(...)`; record Top-1 + Top-3
-- [ ] Compute aggregate: Top-1 accuracy per predictor, Top-3 accuracy per predictor, broken down by `FileTypeCategory` and by source folder (`FileLocationKind`)
-- [ ] Write CSV of per-item results + JSON summary to a `DerivedData`-local path passed via env var (default: `./backtest-results/`)
-- [ ] Print summary to test output so `xcodebuild test` captures it in the log
+- [x] Add shared `CoreMLPredictionEngine` helpers that extract predicted labels and sorted probabilities from an `MLFeatureProvider` when probabilities are exposed.
+- [x] Replace `evaluateModel()` placeholder confidence values with real off-main `MLModel.prediction(from:)` scoring; models without probability output now fail with explicit missing-probability notes instead of receiving invented confidence.
+- [x] Move Core ML classifier train/compile/load/evaluation work to utility tasks so retraining does not run that loop on the main actor.
+- [x] Sample records before applying `maximumDatasetSize` without shuffling the full activity history, so recent records are not systematically dropped and training memory stays bounded by the cap.
+- [x] Move model version formatting into a testable helper using `en_US_POSIX` locale and UTC.
+- [x] Add focused regression tests for probability extraction, label-only output handling, sample-before-cap ordering, and locale-stable version strings.
+- [x] Run the focused `DestinationPredictionGatingTests` suite.
+- [x] Run the repo-declared non-UI Xcode suite if the focused suite is clean.
+- [x] Sync `TODO.md`, `CHANGELOG.md`, and `API_REFERENCE.md`.
+
+### Exit criteria
+
+- Focused tests pass.
+- Full non-UI tests either pass or any unrelated failures are documented with exact failing tests.
+- B4 remains open until the measurement and telemetry decision is complete, but TODO should note that Phase 0 evaluator repairs have landed.
+
+---
+
+## Phase 1 - Offline backtest harness
+
+**Goal:** Measure whether ML adds useful signal over pattern-only prediction on the developer's historical activity data.
+
+**Gate to Phase 2:** ML beats pattern-only on Top-1 accuracy by at least 10 percentage points across at least 500 historical training records with resolved destinations. If the gate fails, stop and convert remaining work into the audit's remove/pivot path.
+
+### Design
+
+Use `LearningService.makeTrainingRecords(from:)` as the source of truth for extracting `DestinationTrainingRecord` values from `ActivityItem` rows. Do not assume an `ActivityItem.moved` case or direct `ActivityItem.destination` property; the existing parser derives destinations from activity details.
+
+Split the resulting `DestinationTrainingRecord` list chronologically by `timestamp`: earliest 80% for training, latest 20% for holdout. For each holdout record, reconstruct the minimal file context needed by the predictor.
+
+Predictors:
+
+- **Pattern-only:** Run `LearningService.detectPatterns(from:)` on the training activities, then score holdout files with `LearningService.findMatchingPattern(for:in:)`.
+- **ML-only:** Train/evaluate through the repaired `DestinationPredictionService` path or a harness-local equivalent that uses the same feature extraction and probability helper.
+
+Score Top-1 accuracy. Only report Top-N if the harness explicitly exposes ranked labels beyond the current top-1/top-2 confidence contract.
+
+### Implementation tasks
+
+- [ ] Create `Forma File OrganizingTests/Benchmarks/DestinationPredictionBacktest.swift`.
+- [ ] Gate the harness with `try TestGating.requireIntegration()` at setup.
+- [ ] Load `ActivityItem` rows from the configured development SwiftData store.
+- [ ] Convert activities through `LearningService.makeTrainingRecords(from:)`.
+- [ ] Sort records by `timestamp` ascending and split 80/20 at the chronological boundary.
+- [ ] Build a lightweight holdout-file projection matching `DestinationPredictionService` feature extraction.
+- [ ] Train pattern-only and ML-only predictors from the same training window.
+- [ ] Score Top-1 accuracy by predictor, file category, and source-location bucket.
+- [ ] Write per-item CSV and JSON summary to a DerivedData-local or explicitly ignored output path.
+- [ ] Print a compact summary so `xcodebuild test` captures the run.
 
 ### Meta-tests
 
-- [ ] Create `Forma File OrganizingTests/Benchmarks/DestinationPredictionBacktestTests.swift`
-- [ ] Test: 80/20 split is correct on a synthetic 100-item activity fixture
-- [ ] Test: scoring correctly handles Top-1 match, Top-1 miss / Top-3 match, complete miss
-- [ ] Test: category/folder breakdown handles empty buckets without crashing
-- [ ] Test: harness gracefully skips activities with nil destination or unresolvable context
+- [ ] Test chronological 80/20 split on a synthetic 100-record fixture.
+- [ ] Test scoring for Top-1 match and miss.
+- [ ] Test empty category/source buckets do not crash.
+- [ ] Test malformed or unparseable activities are skipped before split and reported.
 
 ### Run and record
 
-- [ ] Run the harness against the developer's dev-machine SwiftData store
-- [ ] Verify sample size is ≥500 holdout activities with resolved destinations (if not, collect more data before deciding — the gate is statistical)
-- [ ] Transcribe results to `Docs/audits/2026-04-23-forma-audit/phase-1-backtest-results.md` with Top-1 / Top-3 numbers, category breakdown, and decision
-- [ ] Commit the results doc; tag the commit `b4-phase-1-results`
-
-### Gate decision
-
-- [ ] If ML beats pattern-only on Top-1 by ≥10 pp → proceed to Phase 2
-- [ ] If not → stop this plan, convert remaining sections into Option B (remove) follow-up work, update the root `TODO.md` to reflect the pivot
+- [ ] Run the harness against the development store.
+- [ ] Verify sample size is at least 500 resolved records.
+- [ ] Transcribe results to `Docs/audits/2026-04-23-forma-audit/phase-1-backtest-results.md`.
+- [ ] Record the gate decision in the results doc and `TODO.md`.
 
 ---
 
-## Phase 2 — Shadow-mode live instrumentation
+## Phase 2 - Dev-only live shadow measurement
 
-**Goal:** Validate Phase 1's finding against real user decisions (not backtested reconstructions) across 2–3 weeks of normal dev use.
+**Goal:** Validate the offline result against real scan-pipeline predictions and later user decisions without adding schema risk.
 
 **Prerequisite:** Phase 1 gate passed.
 
-**Gate to Phase 3:** Shadow-ML acceptance-rate (i.e., "if we had shown the ML prediction instead of the pattern-only one, how often would the user have accepted it?") is ≥ pattern-only's acceptance rate, measured across ≥200 predictions with logged user decisions.
+**Gate to Phase 3:** ML shadow acceptance-rate-if-shown is at least the pattern/default suggestion acceptance rate across at least 200 logged decisions.
 
 ### Design
 
-When `DashboardOrganizationController` or `ReviewViewModel` requests a prediction, both predictors run concurrently. The pattern-only prediction is shown (today's user-facing behavior, unchanged). The ML prediction is logged to a new `ShadowPredictionLog` SwiftData row. When the user subsequently organizes the file, the log row is completed with the actual destination so the pair can be scored.
+Capture shadow records at `FileScanPipeline.applyMLPredictions(...)`, because this is where ML predictions are actually applied to `FileItem.destination` and `originalSuggestedDestination`. Controllers and view models consume that state later; they are not the primary prediction producer.
 
-Privacy-conscious: source paths stored as FNV1a hashes (pattern already used in `TrustedAutomationScopeBoundaryDescriptor.fnv1a64`), destinations stored as display labels only (no bookmark data). Nothing leaves the local SwiftData store.
+Use a dev-only CSV or JSONL sink behind a debug-only switch or environment variable. Do not add `ShadowPredictionLog` to SwiftData before C1 `VersionedSchema` work. If durable local storage is still required later, that decision belongs in Phase 3 after the schema migration contract exists.
 
 ### Implementation tasks
 
-#### Shadow log model
-
-- [ ] Create `Forma File Organizing/Models/ShadowPredictionLog.swift`
-- [ ] `@Model final class ShadowPredictionLog`
-- [ ] Properties: `id: UUID` (marked `@Attribute(.unique)`), `timestamp: Date`, `fileExt: String`, `fileCategory: String` (rawValue of `FileTypeCategory`), `sourcePathHash: UInt64`, `patternPrediction: String?` (top-1 destination display name), `patternConfidence: Double?`, `mlPrediction: String?`, `mlConfidence: Double?`, `actualDestination: String?` (filled on organize), `wasAcceptedByUser: Bool?` (filled on organize)
-- [ ] Register in `Forma_File_OrganizingApp.swift:104-126` `appSchema` list
-
-#### Feature flag
-
-- [ ] Add `enableShadowPredictionLogging: Bool = false` to `Forma File Organizing/Configuration/FormaConfig.swift` `Features` section
-- [ ] Document that it is dev-machine-only; off for shipping builds
-
-#### Shadow capture surface
-
-- [ ] Add `func shadowPredict(context: PredictionContext) async -> ShadowPrediction` to `DestinationPredictionService` — returns `(mlPrediction: Destination?, confidence: Double?)` structure; *does not* go through drift/acceptance gates (we're measuring, not gating)
-- [ ] Define `struct ShadowPrediction: Sendable` with `mlPrediction: Destination?`, `confidence: Double?`
-
-#### Integration points
-
-- [ ] In `DashboardOrganizationController`: after a pattern-only prediction is served, if `FormaConfig.Features.enableShadowPredictionLogging` is true, fire `shadowPredict` and create a pending `ShadowPredictionLog` row with `actualDestination == nil`
-- [ ] In `DashboardOrganizationController.organizeFile(_:to:)`: when organize succeeds, find the pending `ShadowPredictionLog` row by `id` (pass the row `id` through the organize call path or match by `sourcePathHash` + most-recent within a time window), fill `actualDestination` and `wasAcceptedByUser`
-- [ ] Mirror the wiring in `ReviewViewModel` for review-flow organize paths
-- [ ] Add `recordShadowPrediction(_:)` on `AnalyticsService` as a thin write sink so VM code doesn't talk to the model context directly
-
-#### Retention
-
-- [ ] Extend `HistoryRetentionService` to prune `ShadowPredictionLog` rows older than 90 days (matches the `trustedScopeRunRecord` retention pattern already in that file)
-
-#### Tests
-
-- [ ] Create `Forma File OrganizingTests/ShadowPredictionLogTests.swift`
-- [ ] Test: `ShadowPredictionLog` round-trips through a `ModelContainer` correctly
-- [ ] Test: pending row (no `actualDestination`) is discoverable via a predicate filter
-- [ ] Test: completing a pending row with `actualDestination` correctly sets `wasAcceptedByUser` based on match
-- [ ] Test: retention pruning removes rows older than 90 days but preserves younger ones
+- [ ] Add a debug/dev-only shadow sink that writes one record per ML candidate from `FileScanPipeline.applyMLPredictions(...)`.
+- [ ] Log only minimal privacy-conscious fields: timestamp, extension, category, source-location bucket or hash, pattern/default suggestion display label, ML suggestion display label, ML confidence, and a correlation token.
+- [ ] Capture the eventual organized destination by joining on the correlation token where the organize/review path already carries enough state; otherwise document the missing identity as a Phase 3 precondition.
+- [ ] Keep the output path ignored and local-only.
+- [ ] Add focused tests for formatting and disabled-by-default behavior, not a SwiftData model round-trip.
 
 ### Run and record
 
-- [ ] Enable `enableShadowPredictionLogging` on dev machine
-- [ ] Collect 2–3 weeks of normal organize activity (≥200 logged predictions)
-- [ ] Query the shadow log via a one-off script or ad-hoc test, compute pattern-only acceptance-rate-if-shown vs. ML acceptance-rate-if-shown
-- [ ] Transcribe results to `Docs/audits/2026-04-23-forma-audit/phase-2-shadow-results.md`
-- [ ] Commit the results doc; tag the commit `b4-phase-2-results`
-
-### Gate decision
-
-- [ ] If ML acceptance-rate ≥ pattern-only acceptance-rate → proceed to Phase 3
-- [ ] If not → either loop back to Phase 1 (maybe the offline signal was noisy) or pivot to Option B (remove), depending on how far apart the results are
+- [ ] Enable the shadow sink only on the development machine.
+- [ ] Collect at least 200 predictions with subsequent decisions.
+- [ ] Summarize results in `Docs/audits/2026-04-23-forma-audit/phase-2-shadow-results.md`.
+- [ ] Record the gate decision in the results doc and `TODO.md`.
 
 ---
 
-## Phase 3 — The fix (direct replacement)
+## Phase 3 - Accept/override telemetry
 
-**Goal:** Land the actual fix from audit item B4. By this point the ML layer is validated; the work is unambiguous.
+**Goal:** Wire the actual B4 drift counters and acceptance gate after measurement proves the ML layer should remain.
 
-**Prerequisite:** Phase 2 gate passed.
+**Prerequisite:** Phase 2 gate passed and a stable prediction identity/correlation contract is available.
 
-### Changes to `Services/DestinationPredictionService.swift`
+### Precondition
 
-- [ ] Add `func recordAccepted(predictionID: UUID)` — increments `PredictionStatistics.acceptedCount` and prunes old IDs outside the `windowSize` bound
-- [ ] Add `func recordOverridden(predictionID: UUID, actualDestination: Destination)` — increments `overriddenCount` and stores a capped-length trace of `(predicted, actual)` pairs for future diagnostics
-- [ ] Verify `isDriftDetected()` now signals correctly: denominator is `acceptedCount + overriddenCount` (not `predictionCount`), threshold stays at 0.5, drift only fires when accept/override data justifies it
-- [ ] Replace `evaluateModel()` line 480-515 `confidence = 1.0` placeholder with real per-prediction probability extraction via `MLModel.prediction(from:)` — pattern already exists in `CoreMLPredictionEngine.predict` at `PredictionEngine.swift:27-33`; lift it into a helper and reuse
-- [ ] Replace `Array(records.prefix(maximumDatasetSize))` at line 432-445 with `records.shuffled().prefix(maximumDatasetSize)` so recent patterns are not systematically dropped
-- [ ] In `generateVersionString()` (line 839-845), add `formatter.locale = Locale(identifier: "en_US_POSIX")` so version strings are monotonic regardless of user locale
+`PredictedDestination` currently has no prediction ID. Before adding `recordAccepted` or `recordOverridden`, the app must be able to distinguish:
 
-### Changes to `DashboardOrganizationController`
+- which prediction was shown,
+- whether the user accepted that exact destination,
+- whether the user chose a different destination,
+- and whether the suggestion came from ML, learned pattern, project-space memory, or another producer.
 
-- [ ] When an organize operation completes, if the served prediction came from `DestinationPredictionService` (flag carried in the prediction's `suggestionSource` already, per existing code), call either `recordAccepted(predictionID:)` (user accepted the predicted destination) or `recordOverridden(predictionID:actualDestination:)` (user chose a different destination)
-- [ ] Thread the `predictionID` through the organize call chain — likely requires extending `OrganizeFileRequest` or similar context struct to carry it
-
-### Changes to `ReviewViewModel`
-
-- [ ] Mirror the same wiring on the review-flow organize paths; review-sourced suggestions also need accept/override feedback
-
-### Tests
-
-- [ ] Add `testRecordAccepted_incrementsAcceptedCount` and `testRecordOverridden_incrementsOverriddenCount` to `DestinationPredictionServiceTests`
-- [ ] Add `testDriftDetection_onlyFiresWhenOverrideRateCrossesThreshold` — exercise the drift math with accept/override volumes below, at, and above the 0.5 threshold
-- [ ] Add `testEvaluateModel_producesRealConfidenceSeparation` — train on known-good vs known-bad fixture data, assert confidence separation is > 0.15 (the existing `minimumConfidenceSeparation`)
-- [ ] Add `testPrepareTrainingData_shufflesBeforePrefix` — assert two successive calls produce different orderings (with determinism via seeded RNG in tests)
-- [ ] Add accept/override assertions to `DashboardOrganizationControllerTests`: organize-accepted flow calls `recordAccepted`; organize-overridden flow calls `recordOverridden` with the right arguments
-- [ ] Add matching assertions to `ReviewViewModelTests` for review-flow accept/override
-
-### No feature flag
-
-- [ ] Confirm no new flag is introduced; Phase 2 data is the de-risking signal
-- [ ] Update `Docs/audits/2026-04-23-forma-audit.md` B4 status to RESOLVED after merge; mark `[x]` in both `TODO.md` files
-
----
-
-## Milestone 4 — Shadow-mode cleanup (separate PR)
-
-**Goal:** Remove the shadow instrumentation after Phase 3 has been stable in production for 2 weeks.
-
-**Prerequisite:** Phase 3 merged; no regressions observed for 2 weeks; `recordAccepted` / `recordOverridden` are receiving calls normally.
+This may require a stable prediction identity on `PredictedDestination`, a durable pending-prediction event, or an existing organize request structure extended with prediction provenance.
 
 ### Implementation tasks
 
-- [ ] Delete `Forma File Organizing/Models/ShadowPredictionLog.swift`
-- [ ] Remove `ShadowPredictionLog` from `Forma_File_OrganizingApp.swift` `appSchema` list (note: this is a **breaking schema change** — coordinate with C1 `VersionedSchema` adoption; if C1 has not landed yet, defer M4 until it has, or document the one-time drop in `AppStoreMigrationTests`)
-- [ ] Delete `Forma File Organizing/Configuration/FormaConfig.swift` `Features.enableShadowPredictionLogging` entry
-- [ ] Delete `DestinationPredictionService.shadowPredict(context:)` method
-- [ ] Remove shadow-capture wiring from `DashboardOrganizationController` and `ReviewViewModel`
-- [ ] Remove `recordShadowPrediction(_:)` from `AnalyticsService`
-- [ ] Delete `Forma File OrganizingTests/ShadowPredictionLogTests.swift`
-- [ ] Remove shadow-log retention from `HistoryRetentionService`
+- [ ] Add a stable prediction identity/provenance contract if one does not already exist by then.
+- [ ] Add `recordAccepted(predictionID:)` and `recordOverridden(predictionID:actualDestination:)`.
+- [ ] Change drift detection to use accepted plus overridden outcomes as the denominator, not raw prediction attempts.
+- [ ] Add tests for accepted count, overridden count, and drift threshold behavior.
+- [ ] Wire organize/review paths only where they can pass exact prediction provenance.
+- [ ] Re-run Phase 1 and Phase 2 summaries after wiring to confirm the active path still meets the gates.
+- [ ] Update the audit B4 status to resolved only after this phase is verified.
+
+### Exit criteria
+
+- Accept/override counters are exercised by real organize/review flows.
+- Drift detection cannot fire from prediction volume alone.
+- B4 is marked complete in `TODO.md` and the audit only after tests and measurement evidence are recorded.
 
 ---
 
-## Testing strategy (summary)
+## Deferred schema-backed shadow store
 
-- **Phase 1** tests the harness itself (meta-tests); no production code is exercised. Plan: Integration (`try TestGating.requireIntegration()`).
-- **Phase 2** tests the new model's persistence, retention, and the shadow-capture wiring. Plan: Unit for model tests; Integration for end-to-end shadow-log-on-organize scenarios.
-- **Phase 3** tests the counter wiring, drift math, confidence separation, training-split shuffle, and controller/VM integration. All Unit plan except the end-to-end organize-with-recording flow which is Integration.
-- No UI tests needed — all changes are below the view layer.
+If a durable shadow-prediction store is still useful after C1 lands, plan it as a separate schema-versioned change. That future plan must include a `VersionedSchema` migration, retention policy, privacy review, and deletion path. It should not be implemented as an unversioned temporary `@Model` in this B4 fix.
+
+## Testing strategy
+
+- **Phase 0:** Unit tests for the evaluator helpers plus the focused destination-prediction suite.
+- **Phase 1:** Integration-gated benchmark harness with meta-tests for split/scoring behavior.
+- **Phase 2:** Unit tests for debug sink formatting and disabled-by-default behavior; manual/dev collection for real decision data.
+- **Phase 3:** Unit and integration tests for prediction identity, accept/override counters, drift math, and organize/review wiring.
+
+No UI tests are required unless Phase 3 changes user-visible organize/review state.
 
 ## Milestones and exit criteria
 
 | # | Milestone | Exit criteria |
 |---|---|---|
-| M1 | Phase 1 harness shipped; backtest run | Results doc committed; gate decision recorded |
-| M2 | Phase 2 shadow-mode instrumented | Dev machine collecting shadow logs; model + retention tested |
-| M3 | Phase 3 fix merged to main | All Phase 3 tests pass; re-running Phase 1 harness against post-fix code still shows improvement; B4 audit item marked RESOLVED |
-| M4 | Shadow cleanup shipped (separate PR, +2 weeks) | Shadow model + flag + instrumentation deleted; schema change coordinated with C1 |
-
-## Open questions
-
-- **Sample size for Phase 1 gate.** The "≥500 activities" floor assumes the developer has accumulated that much data. If the dev store has fewer, the gate is deferred until enough accumulate — not loosened.
-- **Phase 2 duration.** "2-3 weeks" is a starting estimate; if organize velocity is low (few predictions served per day), extend until ≥200 logged predictions regardless of calendar time.
-- **Pattern-only predictor training.** `LearningService`'s pattern detection pipeline isn't currently designed to retrain on a subset of activities; Phase 1 may need a small adaptation to `LearningService` to accept an override activity set. If that adaptation is non-trivial, alternative: use the *current* in-memory set of `LearnedPattern` rows as the pattern-only predictor (less rigorous but avoids touching `LearningService`).
-- **Prediction ID plumbing for Phase 3.** Accept/override recording requires a stable `predictionID` flowing from predict-time to organize-time. The existing prediction API may or may not carry one; if not, adding one is a Phase 3 prerequisite and should be scoped at the start of that phase.
-
-## Risks
-
-- **Pattern-only baseline is weaker than expected** — if `LearningService` has its own latent bugs, the ML layer may look artificially strong in Phase 1. Mitigation: sanity-check Top-1 accuracy against a third reference (personal memory + rules) to sniff-test the baseline.
-- **Shadow-mode privacy** — even with hashed paths, shadow logs could potentially reveal organize patterns if the SwiftData store is shared. Mitigation: `enableShadowPredictionLogging` is dev-machine-only, off in shipping configs; M4 deletes the model entirely.
-- **Schema churn** — adding and later removing `ShadowPredictionLog` is two breaking schema changes. Mitigation: coordinate with C1 (`VersionedSchema` adoption) so both additions and removals flow through a proper migration plan.
-- **Early-exit pivot complexity** — if Phase 1 gate fails, the "remove the broken ML paths" pivot becomes audit item B4's new actual work. The original audit doc has enough detail to execute that pivot without a new plan doc.
+| M0 | Evaluator repair shipped | Focused tests pass; docs synced; B4 TODO notes partial repair |
+| M1 | Offline backtest run | Results doc committed; gate decision recorded |
+| M2 | Live shadow results collected | Results doc committed; schema-backed storage avoided unless C1 has landed |
+| M3 | Accept/override telemetry merged | Counters receive real organize/review outcomes; B4 marked resolved |

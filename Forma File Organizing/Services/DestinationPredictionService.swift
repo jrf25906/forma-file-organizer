@@ -400,7 +400,12 @@ final class DestinationPredictionService {
                 validationAccuracy: metrics.accuracy,
                 falsePositiveRate: metrics.falsePositiveRate,
                 accepted: accepted,
-                notes: accepted ? "Passed evaluation gates" : "Failed evaluation: accuracy \(metrics.accuracy)"
+                notes: accepted ? "Passed evaluation gates" : DestinationModelAcceptanceGate.rejectionNotes(
+                    for: metrics,
+                    minimumAccuracy: minimumAccuracy,
+                    maximumFalsePositiveRate: maximumFalsePositiveRate,
+                    minimumConfidenceSeparation: minimumConfidenceSeparation
+                )
             )
             
             modelContext.insert(history)
@@ -430,98 +435,35 @@ final class DestinationPredictionService {
     
     /// Prepare training and test datasets with stratified split.
     private func prepareDataset(from records: [DestinationTrainingRecord]) -> (train: [DestinationTrainingRecord], test: [DestinationTrainingRecord]) {
-        // Cap dataset size
-        let cappedRecords = Array(records.prefix(maximumDatasetSize))
-        
-        // Shuffle
-        let shuffled = cappedRecords.shuffled()
-        
-        // 80/20 split
-        let splitIndex = Int(Double(shuffled.count) * 0.8)
-        let train = Array(shuffled.prefix(splitIndex))
-        let test = Array(shuffled.suffix(shuffled.count - splitIndex))
-        
-        return (train, test)
+        DestinationTrainingDatasetPreparer.prepare(
+            records: records,
+            maximumDatasetSize: maximumDatasetSize
+        )
     }
     
     /// Train a text classifier using Create ML.
     private func trainClassifier(data: [DestinationTrainingRecord]) async throws -> MLTextClassifier {
-        // Convert to DataFrame for Create ML training
-        var textFeatures: [String] = []
-        var labels: [String] = []
-        
-        for record in data {
-            let features = extractFeaturesFromRecord(record)
-            textFeatures.append(features.combinedText())
-            labels.append(record.destinationPath)
-        }
-        
-        let textColumn = Column(name: "text", contents: textFeatures)
-        let labelColumn = Column(name: "label", contents: labels)
-        let dataFrame = DataFrame(columns: [
-            textColumn.eraseToAnyColumn(),
-            labelColumn.eraseToAnyColumn()
-        ])
-
-        // Train classifier
-        let classifier = try MLTextClassifier(
-            trainingData: dataFrame,
-            textColumn: "text",
-            labelColumn: "label"
-        )
-        
-        return classifier
+        try await DestinationModelTrainer.train(data: data)
     }
     
     /// Evaluate model on test set and compute metrics.
     private func evaluateModel(
         classifier: MLTextClassifier,
         testData: [DestinationTrainingRecord]
-    ) async throws -> EvaluationMetrics {
-        var correct = 0
-        var falsePositives = 0
-        var correctConfidences: [Double] = []
-        var incorrectConfidences: [Double] = []
-        
-        for record in testData {
-            let features = extractFeaturesFromRecord(record)
-            // Use MLTextClassifier's prediction method directly (takes String)
-            let predictedLabel = try classifier.prediction(from: features.combinedText())
-            
-            // Get probabilities - MLTextClassifier returns most likely label but doesn't expose probabilities easily
-            // For evaluation, we'll use a simplified approach: correct/incorrect only
-            let confidence = 1.0 // Placeholder - MLTextClassifier doesn't expose probabilities directly
-            
-            if predictedLabel == record.destinationPath {
-                correct += 1
-                correctConfidences.append(confidence)
-            } else {
-                incorrectConfidences.append(confidence)
-                falsePositives += 1 // Count all errors as potential false positives
-            }
-        }
-        
-        let accuracy = Double(correct) / Double(testData.count)
-        let fpRate = Double(falsePositives) / Double(testData.count)
-        let avgCorrectConfidence = correctConfidences.isEmpty ? 0.0 : correctConfidences.reduce(0, +) / Double(correctConfidences.count)
-        let avgIncorrectConfidence = incorrectConfidences.isEmpty ? 0.0 : incorrectConfidences.reduce(0, +) / Double(incorrectConfidences.count)
-        
-        return EvaluationMetrics(
-            accuracy: accuracy,
-            falsePositiveRate: fpRate,
-            avgCorrectConfidence: avgCorrectConfidence,
-            avgIncorrectConfidence: avgIncorrectConfidence
-        )
+    ) async throws -> DestinationEvaluationMetrics {
+        try await DestinationModelEvaluator.evaluate(classifier: classifier, testData: testData)
     }
     
     /// Check if evaluation metrics meet acceptance criteria.
-    private func meetsAcceptanceCriteria(metrics: EvaluationMetrics) -> Bool {
-        guard metrics.accuracy >= minimumAccuracy else { return false }
-        guard metrics.falsePositiveRate <= maximumFalsePositiveRate else { return false }
-        guard metrics.avgCorrectConfidence - metrics.avgIncorrectConfidence >= minimumConfidenceSeparation else { return false }
-        return true
+    private func meetsAcceptanceCriteria(metrics: DestinationEvaluationMetrics) -> Bool {
+        DestinationModelAcceptanceGate.accepts(
+            metrics: metrics,
+            minimumAccuracy: minimumAccuracy,
+            maximumFalsePositiveRate: maximumFalsePositiveRate,
+            minimumConfidenceSeparation: minimumConfidenceSeparation
+        )
     }
-    
+
     // MARK: - Model Management
     
     /// Load the active model from disk.
@@ -557,9 +499,28 @@ final class DestinationPredictionService {
         // Ensure directory exists
         let directory = modelURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        
-        // Write model
-        try classifier.write(to: modelURL)
+
+        let stagingDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FormaDestinationPredictionSave-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: stagingDirectory)
+        }
+
+        let compiledModelURL = try await DestinationModelCompiler.compileClassifier(
+            classifier,
+            fileName: "\(modelName)_\(version)",
+            in: stagingDirectory
+        )
+        defer {
+            try? FileManager.default.removeItem(at: compiledModelURL)
+        }
+
+        if FileManager.default.fileExists(atPath: modelURL.path) {
+            try FileManager.default.removeItem(at: modelURL)
+        }
+
+        try FileManager.default.copyItem(at: compiledModelURL, to: modelURL)
         
         // Clean up old versions (keep latest 3)
         cleanupOldModels(keepCount: 3)
@@ -642,40 +603,14 @@ final class DestinationPredictionService {
         )
     }
     
-    /// Extract features from a training record.
-    private func extractFeaturesFromRecord(_ record: DestinationTrainingRecord) -> DestinationFeatures {
-        let keywords = extractKeywords(from: record.fileName)
-        let category = FileTypeCategory.category(for: record.fileExtension).rawValue
-        let timeBucket = generateTimeBucket(date: record.timestamp)
-        
-        return DestinationFeatures(
-            fileExtension: record.fileExtension,
-            nameKeywords: keywords,
-            fileTypeCategory: category,
-            timeBucket: timeBucket,
-            sourceFolder: record.sourceLocation,
-            projectCluster: record.projectCluster
-        )
-    }
-    
     /// Extract keywords from a filename.
     private func extractKeywords(from fileName: String) -> [String] {
-        let normalized = fileName.lowercased()
-        let separators = CharacterSet(charactersIn: "_- ")
-        let words = normalized.components(separatedBy: separators)
-        return words.filter { $0.count > 2 } // Filter out short tokens
+        DestinationTrainingFeatureExtractor.keywords(from: fileName)
     }
     
     /// Generate time bucket from a date.
     private func generateTimeBucket(date: Date) -> String {
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: date)
-        let weekday = calendar.component(.weekday, from: date)
-        
-        let isWeekend = weekday == 1 || weekday == 7
-        let timeLabel = isWeekend ? "weekend" : (hour >= 9 && hour <= 17 ? "workday" : "evening")
-        
-        return "\(timeLabel)_hour_\(hour)"
+        DestinationTrainingFeatureExtractor.timeBucket(for: date)
     }
 
     // MARK: - Context Detection
@@ -838,20 +773,10 @@ final class DestinationPredictionService {
     
     /// Generate a version string for a new model.
     private func generateVersionString() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HHmmss'Z'"
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        return "1-\(formatter.string(from: Date()))"
+        DestinationModelVersion.string(for: Date())
     }
     
     // MARK: - Supporting Types
-    
-    private struct EvaluationMetrics {
-        var accuracy: Double
-        var falsePositiveRate: Double
-        var avgCorrectConfidence: Double
-        var avgIncorrectConfidence: Double
-    }
     
     enum PredictionError: Error {
         case noModelAvailable
@@ -879,5 +804,284 @@ final class DestinationPredictionService {
             // Drift if acceptance < 50% or override > 40%
             return acceptanceRate < 0.5 || overrideRate > 0.4
         }
+    }
+}
+
+enum DestinationModelTrainer {
+    static func train(data: [DestinationTrainingRecord]) async throws -> MLTextClassifier {
+        try await Task.detached(priority: .utility) {
+            try trainOnCurrentExecutor(data: data)
+        }.value
+    }
+
+    private static func trainOnCurrentExecutor(data: [DestinationTrainingRecord]) throws -> MLTextClassifier {
+        var textFeatures: [String] = []
+        var labels: [String] = []
+
+        for record in data {
+            let features = DestinationTrainingFeatureExtractor.features(from: record)
+            textFeatures.append(features.combinedText())
+            labels.append(record.destinationPath)
+        }
+
+        let textColumn = Column(name: "text", contents: textFeatures)
+        let labelColumn = Column(name: "label", contents: labels)
+        let dataFrame = DataFrame(columns: [
+            textColumn.eraseToAnyColumn(),
+            labelColumn.eraseToAnyColumn()
+        ])
+
+        return try MLTextClassifier(
+            trainingData: dataFrame,
+            textColumn: "text",
+            labelColumn: "label"
+        )
+    }
+}
+
+enum DestinationModelCompiler {
+    static func compileClassifier(
+        _ classifier: MLTextClassifier,
+        fileName: String,
+        in directory: URL
+    ) async throws -> URL {
+        try await Task.detached(priority: .utility) {
+            try compileClassifierOnCurrentExecutor(classifier, fileName: fileName, in: directory)
+        }.value
+    }
+
+    static func compileClassifierOnCurrentExecutor(
+        _ classifier: MLTextClassifier,
+        fileName: String,
+        in directory: URL
+    ) throws -> URL {
+        let rawModelURL = directory.appendingPathComponent("\(fileName).mlmodel")
+        try classifier.write(to: rawModelURL)
+        return try MLModel.compileModel(at: rawModelURL)
+    }
+}
+
+enum DestinationModelEvaluator {
+    static func evaluate(
+        classifier: MLTextClassifier,
+        testData: [DestinationTrainingRecord]
+    ) async throws -> DestinationEvaluationMetrics {
+        try await Task.detached(priority: .utility) {
+            try await evaluateOnCurrentExecutor(classifier: classifier, testData: testData)
+        }.value
+    }
+
+    private static func evaluateOnCurrentExecutor(
+        classifier: MLTextClassifier,
+        testData: [DestinationTrainingRecord]
+    ) async throws -> DestinationEvaluationMetrics {
+        let evaluationModelDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FormaDestinationPredictionEvaluation-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: evaluationModelDirectory, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: evaluationModelDirectory)
+        }
+
+        let compiledModelURL = try DestinationModelCompiler.compileClassifierOnCurrentExecutor(
+            classifier,
+            fileName: "destinationPredictionEvaluation",
+            in: evaluationModelDirectory
+        )
+        defer {
+            try? FileManager.default.removeItem(at: compiledModelURL)
+        }
+
+        let evaluationModel = try MLModel(contentsOf: compiledModelURL)
+        var correct = 0
+        var falsePositives = 0
+        var correctConfidences: [Double] = []
+        var incorrectConfidences: [Double] = []
+        var missingConfidenceCount = 0
+
+        for record in testData {
+            let features = DestinationTrainingFeatureExtractor.features(from: record)
+            let input = try MLDictionaryFeatureProvider(dictionary: ["text": features.combinedText()])
+            let prediction = try await evaluationModel.prediction(from: input)
+            let predictedLabel = try CoreMLPredictionEngine.predictedLabel(from: prediction)
+            let confidence = CoreMLPredictionEngine.confidence(
+                for: predictedLabel,
+                from: prediction
+            )
+
+            if predictedLabel == record.destinationPath {
+                correct += 1
+                if let confidence {
+                    correctConfidences.append(confidence)
+                } else {
+                    missingConfidenceCount += 1
+                }
+            } else {
+                if let confidence {
+                    incorrectConfidences.append(confidence)
+                } else {
+                    missingConfidenceCount += 1
+                }
+                falsePositives += 1 // Count all errors as potential false positives
+            }
+        }
+
+        return DestinationEvaluationMetrics(
+            accuracy: Double(correct) / Double(testData.count),
+            falsePositiveRate: Double(falsePositives) / Double(testData.count),
+            avgCorrectConfidence: average(correctConfidences),
+            avgIncorrectConfidence: average(incorrectConfidences),
+            confidenceSampleCount: correctConfidences.count + incorrectConfidences.count,
+            missingConfidenceCount: missingConfidenceCount
+        )
+    }
+
+    private static func average(_ values: [Double]) -> Double? {
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +) / Double(values.count)
+    }
+}
+
+enum DestinationTrainingFeatureExtractor {
+    static func features(from record: DestinationTrainingRecord) -> DestinationFeatures {
+        DestinationFeatures(
+            fileExtension: record.fileExtension,
+            nameKeywords: keywords(from: record.fileName),
+            fileTypeCategory: FileTypeCategory.category(for: record.fileExtension).rawValue,
+            timeBucket: timeBucket(for: record.timestamp),
+            sourceFolder: record.sourceLocation,
+            projectCluster: record.projectCluster
+        )
+    }
+
+    static func keywords(from fileName: String) -> [String] {
+        let normalized = fileName.lowercased()
+        let separators = CharacterSet(charactersIn: "_- ")
+        let words = normalized.components(separatedBy: separators)
+        return words.filter { $0.count > 2 }
+    }
+
+    static func timeBucket(for date: Date) -> String {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: date)
+        let weekday = calendar.component(.weekday, from: date)
+
+        let isWeekend = weekday == 1 || weekday == 7
+        let timeLabel = isWeekend ? "weekend" : (hour >= 9 && hour <= 17 ? "workday" : "evening")
+
+        return "\(timeLabel)_hour_\(hour)"
+    }
+}
+
+enum DestinationTrainingDatasetPreparer {
+    typealias Sampler = ([DestinationTrainingRecord], Int) -> [DestinationTrainingRecord]
+
+    static func prepare(
+        records: [DestinationTrainingRecord],
+        maximumDatasetSize: Int,
+        trainFraction: Double = 0.8,
+        sampler: Sampler = boundedRandomSample
+    ) -> (train: [DestinationTrainingRecord], test: [DestinationTrainingRecord]) {
+        let sampleLimit = min(max(maximumDatasetSize, 0), records.count)
+        let sampledRecords = Array(sampler(records, sampleLimit).prefix(sampleLimit))
+        let splitIndex = Int(Double(sampledRecords.count) * trainFraction)
+        let train = Array(sampledRecords.prefix(splitIndex))
+        let test = Array(sampledRecords.suffix(sampledRecords.count - splitIndex))
+
+        return (train, test)
+    }
+
+    private static func boundedRandomSample(
+        records: [DestinationTrainingRecord],
+        maximumCount: Int
+    ) -> [DestinationTrainingRecord] {
+        guard maximumCount > 0 else { return [] }
+        guard records.count > maximumCount else {
+            return records.shuffled()
+        }
+
+        var selectedIndices = Set<Int>()
+        selectedIndices.reserveCapacity(maximumCount)
+
+        while selectedIndices.count < maximumCount {
+            selectedIndices.insert(Int.random(in: records.indices))
+        }
+
+        return selectedIndices.map { records[$0] }.shuffled()
+    }
+}
+
+enum DestinationModelVersion {
+    static func string(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd'T'HHmmss'Z'"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        return "1-\(formatter.string(from: date))"
+    }
+}
+
+struct DestinationEvaluationMetrics: Equatable {
+    var accuracy: Double
+    var falsePositiveRate: Double
+    var avgCorrectConfidence: Double?
+    var avgIncorrectConfidence: Double?
+    var confidenceSampleCount: Int
+    var missingConfidenceCount: Int
+}
+
+enum DestinationModelAcceptanceGate {
+    static func accepts(
+        metrics: DestinationEvaluationMetrics,
+        minimumAccuracy: Double,
+        maximumFalsePositiveRate: Double,
+        minimumConfidenceSeparation: Double
+    ) -> Bool {
+        guard metrics.accuracy >= minimumAccuracy else { return false }
+        guard metrics.falsePositiveRate <= maximumFalsePositiveRate else { return false }
+        guard metrics.confidenceSampleCount > 0, let avgCorrectConfidence = metrics.avgCorrectConfidence else {
+            return false
+        }
+
+        let avgIncorrectConfidence = metrics.avgIncorrectConfidence ?? 0
+        guard avgCorrectConfidence - avgIncorrectConfidence >= minimumConfidenceSeparation else {
+            return false
+        }
+
+        return true
+    }
+
+    static func rejectionNotes(
+        for metrics: DestinationEvaluationMetrics,
+        minimumAccuracy: Double,
+        maximumFalsePositiveRate: Double,
+        minimumConfidenceSeparation: Double
+    ) -> String {
+        if metrics.confidenceSampleCount == 0 {
+            return "Failed evaluation: model output did not expose confidence probabilities"
+        }
+
+        if metrics.accuracy < minimumAccuracy {
+            return "Failed evaluation: accuracy \(formatted(metrics.accuracy)) below \(formatted(minimumAccuracy))"
+        }
+
+        if metrics.falsePositiveRate > maximumFalsePositiveRate {
+            return "Failed evaluation: false positive rate \(formatted(metrics.falsePositiveRate)) above \(formatted(maximumFalsePositiveRate))"
+        }
+
+        guard let avgCorrectConfidence = metrics.avgCorrectConfidence else {
+            return "Failed evaluation: model output did not expose correct confidence probabilities"
+        }
+
+        let avgIncorrectConfidence = metrics.avgIncorrectConfidence ?? 0
+        let confidenceSeparation = avgCorrectConfidence - avgIncorrectConfidence
+        if confidenceSeparation < minimumConfidenceSeparation {
+            return "Failed evaluation: confidence separation \(formatted(confidenceSeparation)) below \(formatted(minimumConfidenceSeparation))"
+        }
+
+        return "Failed evaluation: accuracy \(formatted(metrics.accuracy)), false positive rate \(formatted(metrics.falsePositiveRate))"
+    }
+
+    private static func formatted(_ value: Double) -> String {
+        String(format: "%.3f", value)
     }
 }
