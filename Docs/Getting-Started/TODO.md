@@ -36,7 +36,7 @@ Full report: [`Docs/audits/2026-04-23-forma-audit.md`](../audits/2026-04-23-form
 - [x] B1 — Routed `FileOperationsService.moveFileUsingBookmark` through the TOCTOU-safe `secureFileMove` path with no-replace `renameatx_np` moves, strict-flag/no-replace retries, descriptor-walked search-only directory descriptors, temp/final-copy cross-volume fallback, fail-closed unopenable sources, and `withExtendedLifetime` around scoped access.
 - [x] B2 — `WorkflowRunner` now emits `.skipped` step + file-action audit rows when `fileLoop: break` abandons remaining planned files, using the explicit `abandonedAfterUpstreamFailure` reason.
 - [x] B3 — `FormaAppIntents` now gate `perform()` on `FormaActions.shared.isFullyConfigured`, require explicit current-to-next `requestConfirmation` before `ToggleAutomationIntent` mutates automation mode, and reject selection intents unless every `IntentFile` URL is bookmark-backed or inside an existing granted folder scope.
-- [ ] B4 — Decide: wire up or remove `DestinationPredictionService` drift detection + confidence-separation acceptance gate. Plan doc first.
+- [ ] B4 — Decide: wire up or remove `DestinationPredictionService` drift detection + confidence-separation acceptance gate. Phase 1 backtest harness now writes CSV/JSON evidence; the first local run found only 116 resolved records (below the 500-record gate), with pattern-only Top-1 at 2/24 and ML Top-1 at 0/24, so Phase 2 is not unlocked.
 
 **Tier C — Planning required (structural):**
 - [ ] C1 — Adopt SwiftData `VersionedSchema` / `SchemaMigrationPlan` and wrap every `Data`-blob field in a versioned envelope before the next breaking schema change. Needs a dedicated plan doc under `Docs/plans/`.

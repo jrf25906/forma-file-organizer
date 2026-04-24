@@ -108,30 +108,30 @@ Score Top-1 accuracy. Only report Top-N if the harness explicitly exposes ranked
 
 ### Implementation tasks
 
-- [ ] Create `Forma File OrganizingTests/Benchmarks/DestinationPredictionBacktest.swift`.
-- [ ] Gate the harness with `try TestGating.requireIntegration()` at setup.
-- [ ] Load `ActivityItem` rows from the configured development SwiftData store.
-- [ ] Convert activities through `LearningService.makeTrainingRecords(from:)`.
-- [ ] Sort records by `timestamp` ascending and split 80/20 at the chronological boundary.
-- [ ] Build a lightweight holdout-file projection matching `DestinationPredictionService` feature extraction.
-- [ ] Train pattern-only and ML-only predictors from the same training window.
-- [ ] Score Top-1 accuracy by predictor, file category, and source-location bucket.
-- [ ] Write per-item CSV and JSON summary to a DerivedData-local or explicitly ignored output path.
-- [ ] Print a compact summary so `xcodebuild test` captures the run.
+- [x] Create `Forma File OrganizingTests/Benchmarks/DestinationPredictionBacktest.swift`.
+- [x] Gate the harness with `try TestGating.requireIntegration()` at setup.
+- [x] Load `ActivityItem` rows from the configured development SwiftData store.
+- [x] Convert activities through `LearningService.makeTrainingRecords(from:)`.
+- [x] Sort records by `timestamp` ascending and split 80/20 at the chronological boundary.
+- [x] Build a lightweight holdout-file projection matching `DestinationPredictionService` feature extraction.
+- [x] Train pattern-only and ML-only predictors from the same training window.
+- [x] Score Top-1 accuracy by predictor, file category, and source-location bucket.
+- [x] Write per-item CSV and JSON summary to a DerivedData-local or explicitly ignored output path.
+- [x] Print a compact summary so `xcodebuild test` captures the run.
 
 ### Meta-tests
 
-- [ ] Test chronological 80/20 split on a synthetic 100-record fixture.
-- [ ] Test scoring for Top-1 match and miss.
-- [ ] Test empty category/source buckets do not crash.
-- [ ] Test malformed or unparseable activities are skipped before split and reported.
+- [x] Test chronological 80/20 split on a synthetic 100-record fixture.
+- [x] Test scoring for Top-1 match and miss.
+- [x] Test empty category/source buckets do not crash.
+- [x] Test malformed or unparseable activities are skipped before split and reported.
 
 ### Run and record
 
-- [ ] Run the harness against the development store.
-- [ ] Verify sample size is at least 500 resolved records.
-- [ ] Transcribe results to `Docs/audits/2026-04-23-forma-audit/phase-1-backtest-results.md`.
-- [ ] Record the gate decision in the results doc and `TODO.md`.
+- [x] Run the harness against the development store.
+- [x] Verify sample size against the 500 resolved-record gate. First local run found 116 resolved records, so Phase 2 is not unlocked.
+- [x] Transcribe results to `Docs/audits/2026-04-23-forma-audit/phase-1-backtest-results.md`.
+- [x] Record the gate decision in the results doc and `TODO.md`.
 
 ---
 

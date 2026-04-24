@@ -40,6 +40,8 @@
         "DashboardViewModelPerformanceTests",
         "DashboardViewModelTests",
         "DefaultPanelEditorialSuggestionFactoryTests",
+        "DestinationPredictionBacktest",
+        "DestinationPredictionBacktestTests",
         "DestinationPredictionGatingTests",
         "DestinationPredictionPerformanceTests",
         "DestinationTests",

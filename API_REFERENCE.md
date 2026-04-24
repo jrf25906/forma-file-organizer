@@ -13,6 +13,10 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - When execution stops after an upstream file failure, remaining planned files now receive `.skipped` execution-step audit rows plus a skipped `WorkflowFileActionRecord` with `failureReason == "abandonedAfterUpstreamFailure"` so previewed files are not invisible in run audit history.
   - `FormaIntentRuntime`
     - Centralizes App Intent preflight checks: every `FormaAppIntents.perform()` path now fails before action dispatch unless `FormaActions.shared.isFullyConfigured`, selected-item intents require bookmark-backed access or an existing granted folder scope, and `ToggleAutomationIntent` requests explicit current-to-next confirmation before toggling automation.
+  - `DestinationPredictionBacktestRunner.run(activities:learningService:outputDirectory:)` *(test target)*
+    - Runs the B4 Phase 1 offline gate by extracting historical destination training records through `LearningService.makeTrainingRecords(from:)`, chronologically splitting 80/20, scoring pattern-only and ML-only Top-1 accuracy overall plus category/source buckets, and writing CSV/JSON evidence for the audit record.
+  - `DestinationPredictionBacktestRunner.minimumResolvedRecordCount` *(test target)*
+    - Keeps the Phase 2 unlock threshold at 500 resolved destination records; the first local run recorded 116 resolved records and therefore did not unlock live shadow measurement.
 
 - Security audit Tier A cleanup
   - `PathValidator.validate(_:)`

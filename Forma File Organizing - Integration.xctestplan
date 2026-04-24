@@ -27,6 +27,7 @@
       "selectedTests": [
         "AutomationIntegrationTests",
         "BookmarkValidationSecurityTests",
+        "DestinationPredictionBacktest",
         "FileOperationsSecurityTests",
         "FileOperationsServiceTests",
         "FileSystemServiceTests",

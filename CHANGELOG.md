@@ -6,6 +6,7 @@ Use this short template to stage upcoming notes; add finalized entries to the ca
 
 ## [Unreleased]
 ### Added
+- Added an integration-gated destination prediction backtest harness that scores pattern-only versus ML-only destination predictions against historical `ActivityItem` records, writes per-run CSV/JSON summaries, and records the first local B4 Phase 1 gate result: 116 resolved records, below the 500-record threshold, so live shadow measurement remains blocked.
 - Developer workflow guidance for the `build-macos-apps` plugin now lives in `Docs/Development/BUILD_MACOS_APPS_PLUGIN.md`, with a Forma-specific reusable prompt and verification expectations aligned to `codex-project.toml`, `AGENTS.md`, `fastlane/`, and `Scripts/`.
 - Added `script/build_and_run.sh` as the repo-local kill/build/launch entrypoint for the native macOS app, and repointed `.codex/environments/environment.toml` so the Codex app `Run` action now uses that maintained script instead of an inline `xcodebuild && open` chain.
 

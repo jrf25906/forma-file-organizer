@@ -37,6 +37,7 @@
         "DashboardSplitLayoutConfigurationTests",
         "DashboardViewModelTests",
         "DefaultPanelEditorialSuggestionFactoryTests",
+        "DestinationPredictionBacktestTests",
         "DestinationPredictionGatingTests",
         "DestinationTests",
         "DuplicateDetectionServiceTests",
