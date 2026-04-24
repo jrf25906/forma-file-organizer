@@ -4,6 +4,12 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 
 ## Recent Additions (Unreleased)
 
+- Security audit Tier B cleanup
+  - `FileOperationsService.moveFile(_:)`
+    - Bookmark-backed organize moves now route through the same secure move path as `secureMoveOnDisk`, keep security-scoped access alive for the whole disk operation, reject destination collisions without deleting the source, descriptor-walk search-only parent directories for same-volume renames, fail closed when the source cannot be pinned with an open descriptor, retry no-replace renames when filesystems reject strict rename flags, and use metadata-preserving open-FD copy with a data-only retry through inode-verified temporary/final destinations before cross-volume source unlink.
+  - `FileOperationsService.secureMoveOnDisk(from:to:)`
+    - Uses `renameatx_np` with no-replace and no-symlink flags when supported, verifies the source path still matches the validated open file descriptor before moving, retries no-replace renames before copy fallback when strict flags are unsupported, falls back to inode-verified temp/final copy plus source revalidation for cross-volume moves, and maps destination collisions to `FormaError.fileSystem(.alreadyExists)`.
+
 - Security audit Tier A cleanup
   - `PathValidator.validate(_:)`
     - Resolves symlinks before enforcing the sandbox/home boundary and emits release-visible security logs when a relative path escapes through a symlink.

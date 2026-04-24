@@ -470,32 +470,36 @@ None (stateless service with bookmark management).
 
 ### Methods
 
-#### moveFile(_:)
+#### moveFile(_:modelContext:)
 
 Moves a single file to its suggested destination with permission handling.
 
 **Signature:**
 ```swift
-func moveFile(_ fileItem: FileItem) async throws -> MoveResult
+func moveFile(_ fileItem: FileItem, modelContext: ModelContext? = nil) async throws -> MoveResult
 ```
 
 **Parameters:**
-- `fileItem`: FileItem with `suggestedDestination` set
+- `fileItem`: `FileItem` with a resolved destination
+- `modelContext`: Optional SwiftData context for activity logging
 
 **Returns:** `MoveResult` struct with operation details.
 
-**Throws:** `FileOperationError` if move fails.
+**Throws:** `FormaError` if move fails.
 
 **Behavior:**
 1. Validates source file exists
-2. Parses destination path into top-level folder + subpath
-3. Ensures permission for top-level folder (prompts if needed)
-4. Validates folder selection
-5. Starts security-scoped access
+2. Resolves destination bookmark or placeholder destination
+3. Starts security-scoped access for the destination and, when sandboxed, the source folder
+4. Keeps scoped access alive with `withExtendedLifetime` for the full disk operation
+5. Preserves same-file destination moves as successful no-ops
 6. Creates destination directories
-7. Moves file
-8. Stops security-scoped access
-9. Returns result
+7. Rejects destination collisions with `.alreadyExists` without deleting the source
+8. Moves through `secureFileMove`, which validates the source with an open file descriptor, uses `renameatx_np` with no-replace/no-symlink flags through descriptor-walked search-only parent directories when supported, and retries no-replace renames before copy fallback when filesystems reject the strict flags
+9. Fails closed when the source cannot be pinned with an open descriptor
+10. For cross-volume fallback, copies data and metadata from a validated readable file descriptor into inode-verified temporary/final destinations, retries data-only when the destination cannot represent macOS metadata, avoids replacing existing files, and revalidates the source inode before `unlinkat`
+11. Stops security-scoped access
+12. Returns result
 
 **Example:**
 ```swift

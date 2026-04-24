@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Security Audit Tier B
+- **Bookmark moves use the secure move path**: `FileOperationsService.moveFileUsingBookmark` now routes production organize moves through `secureFileMove`, keeping destination/source security-scoped access alive with `withExtendedLifetime`, moving with `renameatx_np` no-replace/no-symlink flags through descriptor-walked search-only parent directories when supported, retrying no-replace renames before copy fallback when filesystems reject the strict flags, preserving the source on destination collisions, failing closed when the source cannot be pinned with an open descriptor, and using metadata-preserving open-FD copy through inode-verified temporary/final destinations before cross-volume source unlink.
+
 ### Fixed - Security Audit Tier A
 - **Trusted scope symlink escapes closed**: `PathValidator` and `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)` now resolve symlinks before home/scope boundary checks, reject symlink escapes from scanned trusted scopes, and keep security rejection logs active outside Debug builds.
 - **Test-plan membership locked down**: Default, Unit, Performance, and UI `xctestplan` files now list explicit `selectedTests`; current Unit-plan suites are back in the allowlist; and `Scripts/verify_test_plan_membership.py` plus CI coverage now catch drift between Swift test files and Xcode plan membership.

@@ -2,7 +2,6 @@ import Foundation
 import AppKit
 import SwiftData
 import Darwin
-import CryptoKit
 
 /// Service responsible for file operations (move, copy, delete)
 @MainActor
@@ -24,6 +23,35 @@ final class FileOperationsService {
         "Pictures": "PicturesFolderBookmark",
         "Music": "MusicFolderBookmark"
     ]
+
+    private enum SourceValidationAccess {
+        case metadataOnly
+        case readable
+
+        var openFlagCandidates: [Int32] {
+            switch self {
+            case .metadataOnly:
+                [
+                    O_EVTONLY | O_NOFOLLOW | O_NONBLOCK,
+                    O_RDONLY | O_NOFOLLOW | O_NONBLOCK,
+                    O_WRONLY | O_NOFOLLOW | O_NONBLOCK
+                ]
+            case .readable:
+                [O_RDONLY | O_NOFOLLOW | O_NONBLOCK]
+            }
+        }
+    }
+
+    private struct DestinationCopyIdentity {
+        let device: dev_t
+        let inode: ino_t
+    }
+
+    private struct DestinationCopy {
+        let fd: Int32
+        let temporaryFileName: String
+        let identity: DestinationCopyIdentity
+    }
 
     /// RAII-style wrapper for security-scoped resource access
     /// Ensures resources are always released, even if errors occur
@@ -62,18 +90,37 @@ final class FileOperationsService {
     /// - Parameter url: The file URL to validate
     /// - Returns: An open file descriptor (caller must close it with defer { close(fd) })
     /// - Throws: FormaError if validation fails
-    private func secureValidateFile(at url: URL) throws -> Int32 {
+    private func secureValidateFile(
+        at url: URL,
+        access: SourceValidationAccess = .readable,
+        logOpenFailure: Bool = true
+    ) throws -> Int32 {
         let path = url.path
 
-        // Open file descriptor with O_RDONLY (read-only) and O_NOFOLLOW (don't follow symlinks)
-        // O_NOFOLLOW prevents symlink race condition attacks where attacker replaces file with symlink
-        let fd = open(path, O_RDONLY | O_NOFOLLOW)
+        // O_NOFOLLOW prevents symlink race condition attacks where an attacker
+        // replaces the file with a symlink. Same-volume renames only need an FD
+        // that can be fstat'd, while cross-volume copy fallback opens a readable FD.
+        var fd: Int32 = -1
+        var openErrno: Int32 = 0
+        for flags in access.openFlagCandidates {
+            fd = open(path, flags)
+            if fd >= 0 {
+                break
+            }
+
+            openErrno = errno
+            if openErrno == ENOENT || openErrno == ELOOP {
+                break
+            }
+        }
 
         guard fd >= 0 else {
             // Failed to open - check specific errno
-            let err = errno
+            let err = openErrno
             #if DEBUG
-            Log.error("SECURITY: Failed to open file descriptor for \(path), errno: \(err)", category: .security)
+            if logOpenFailure {
+                Log.error("SECURITY: Failed to open file descriptor for \(path), errno: \(err)", category: .security)
+            }
             #endif
 
             switch err {
@@ -133,15 +180,6 @@ final class FileOperationsService {
             throw FormaError.operationFailed("Source is a \(typeString), not a regular file")
         }
 
-        // Verify we have read permissions
-        guard fileStat.st_mode & S_IRUSR != 0 else {
-            close(fd)
-            #if DEBUG
-            Log.error("SECURITY: No read permission for \(path)", category: .security)
-            #endif
-            throw FormaError.permissionDenied(for: path)
-        }
-
         #if DEBUG
         Log.debug("SECURITY: File validated at \(path), size: \(fileStat.st_size) bytes, perms: \(String(format: "%o", fileStat.st_mode & 0o777))", category: .security)
         #endif
@@ -151,11 +189,132 @@ final class FileOperationsService {
         return fd
     }
 
-    /// Securely moves a file with TOCTOU protection using POSIX renameat()
+    private func openDirectoryDescriptor(at path: String) throws -> Int32 {
+        let normalizedPath = pathByResolvingSystemSymlinkAlias(path)
+        let pathComponents = normalizedPath.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+
+        let rootFD = open("/", O_SEARCH | O_NOFOLLOW)
+        guard rootFD >= 0 else {
+            let err = errno
+            throw FormaError.operationFailed("Cannot open move root directory (errno: \(err))")
+        }
+
+        var currentFD = rootFD
+        var displayComponents: [String] = []
+
+        do {
+            for component in pathComponents {
+                if component == "." || component.isEmpty {
+                    continue
+                }
+
+                let componentDisplayPath: String
+                if component == ".." {
+                    if !displayComponents.isEmpty {
+                        displayComponents.removeLast()
+                    }
+                    componentDisplayPath = makeDisplayPath(from: displayComponents)
+                } else {
+                    displayComponents.append(component)
+                    componentDisplayPath = makeDisplayPath(from: displayComponents)
+                }
+
+                let nextFD = try openDirectoryComponent(
+                    named: component,
+                    relativeTo: currentFD,
+                    displayPath: componentDisplayPath
+                )
+                close(currentFD)
+                currentFD = nextFD
+            }
+
+            return currentFD
+        } catch {
+            close(currentFD)
+            throw error
+        }
+    }
+
+    private func openDirectoryComponent(named component: String, relativeTo parentFD: Int32, displayPath: String) throws -> Int32 {
+        let fd = component.withCString { componentName in
+            openat(parentFD, componentName, O_SEARCH | O_NOFOLLOW)
+        }
+        guard fd >= 0 else {
+            let err = errno
+            switch err {
+            case ENOENT:
+                throw FormaError.fileNotFound(displayPath)
+            case EACCES, EPERM:
+                throw FormaError.permissionDenied(for: displayPath)
+            case ELOOP:
+                throw FormaError.fileSystem(.symlinkDetected(displayPath))
+            case ENOTDIR:
+                if directoryComponentIsSymlink(named: component, relativeTo: parentFD) {
+                    throw FormaError.fileSystem(.symlinkDetected(displayPath))
+                }
+                throw FormaError.operationFailed("Move parent is not a directory: \(displayPath)")
+            default:
+                throw FormaError.operationFailed("Cannot open move directory component (errno: \(err))")
+            }
+        }
+
+        var directoryStat = stat()
+        guard fstat(fd, &directoryStat) == 0 else {
+            let err = errno
+            close(fd)
+            throw FormaError.operationFailed("Cannot stat move directory component (errno: \(err))")
+        }
+
+        guard directoryStat.st_mode & S_IFMT == S_IFDIR else {
+            close(fd)
+            throw FormaError.operationFailed("Move parent is not a directory: \(displayPath)")
+        }
+
+        return fd
+    }
+
+    private func directoryComponentIsSymlink(named component: String, relativeTo parentFD: Int32) -> Bool {
+        var componentStat = stat()
+        let result = component.withCString { componentName in
+            fstatat(parentFD, componentName, &componentStat, AT_SYMLINK_NOFOLLOW)
+        }
+
+        return result == 0 && componentStat.st_mode & S_IFMT == S_IFLNK
+    }
+
+    private func makeDisplayPath(from components: [String]) -> String {
+        components.isEmpty ? "/" : "/\(components.joined(separator: "/"))"
+    }
+
+    private func pathByResolvingSystemSymlinkAlias(_ path: String) -> String {
+        let rawPath = path.hasPrefix("/") ? path : URL(fileURLWithPath: path).path
+        let systemSymlinkAliases: [(alias: String, resolved: String)] = [
+            ("/var", "/private/var"),
+            ("/tmp", "/private/tmp"),
+            ("/etc", "/private/etc")
+        ]
+
+        for mapping in systemSymlinkAliases {
+            if rawPath == mapping.alias {
+                return mapping.resolved
+            }
+
+            let aliasPrefix = "\(mapping.alias)/"
+            if rawPath.hasPrefix(aliasPrefix) {
+                return mapping.resolved + rawPath.dropFirst(mapping.alias.count)
+            }
+        }
+
+        return rawPath
+    }
+
+    /// Securely moves a file with TOCTOU protection using POSIX renameatx_np()
     /// Uses file descriptor-based operations to prevent race conditions
     ///
-    /// This is the secure, FD-based approach that eliminates TOCTOU completely.
-    /// The renameat() call operates on directory file descriptors, not paths.
+    /// This is the secure approach for production moves. It validates with an
+    /// open source FD before moving, uses search-only directory descriptors for
+    /// renameatx_np(), refuses destination replacement, and rejects symlinks
+    /// encountered during rename.
     ///
     /// - Parameters:
     ///   - sourceURL: Source file URL
@@ -166,98 +325,629 @@ final class FileOperationsService {
         Log.debug("SECURE FILE MOVE (FD-based): \(sourceURL.path) → \(destURL.path)", category: .fileOperations)
         #endif
 
-        // Step 1: Validate source file and get file descriptor
-        let sourceFD = try secureValidateFile(at: sourceURL)
+        // Step 1: Validate source file and get a metadata descriptor.
+        let sourceFD = try secureValidateFile(at: sourceURL, access: .metadataOnly)
         defer { close(sourceFD) }
 
         #if DEBUG
         Log.debug("Source file validated with FD: \(sourceFD)", category: .fileOperations)
         #endif
 
-        // Step 2: Open directory file descriptors for renameat()
+        // Step 2: Open directory file descriptors for renameatx_np()
         let sourceDirPath = sourceURL.deletingLastPathComponent().path
         let destDirPath = destURL.deletingLastPathComponent().path
         
-        let sourceDirFD = open(sourceDirPath, O_RDONLY | O_DIRECTORY)
-        guard sourceDirFD >= 0 else {
-            throw FormaError.permissionDenied(for: sourceDirPath)
-        }
+        let sourceDirFD = try openDirectoryDescriptor(at: sourceDirPath)
         defer { close(sourceDirFD) }
 
-        let destDirFD = open(destDirPath, O_RDONLY | O_DIRECTORY)
-        guard destDirFD >= 0 else {
-            throw FormaError.permissionDenied(for: destDirPath)
-        }
+        let destDirFD = try openDirectoryDescriptor(at: destDirPath)
         defer { close(destDirFD) }
 
         // Step 3: Extract file names (not full paths)
         let sourceFileName = sourceURL.lastPathComponent
         let destFileName = destURL.lastPathComponent
         
+        try verifySourcePathStillMatchesOpenFile(
+            sourceFD: sourceFD,
+            sourceDirFD: sourceDirFD,
+            sourceFileName: sourceFileName,
+            sourceURL: sourceURL
+        )
+
         #if DEBUG
         Log.debug("Source dir FD: \(sourceDirFD), dest dir FD: \(destDirFD), file: \(sourceFileName) → \(destFileName)", category: .fileOperations)
         #endif
 
-        // Step 4: Perform atomic rename using renameat()
-        // This is FD-based and immune to TOCTOU attacks
-        let result = renameat(sourceDirFD, sourceFileName, destDirFD, destFileName)
-        
-        if result != 0 {
-            let err = errno
-            
+        // Step 4: Perform atomic no-replace rename using directory descriptors.
+        let strictRenameFlags = UInt32(RENAME_EXCL | RENAME_NOFOLLOW_ANY | RENAME_RESOLVE_BENEATH)
+        let strictRenameErrno = renameUsingDirectoryDescriptors(
+            sourceDirFD: sourceDirFD,
+            sourceFileName: sourceFileName,
+            destDirFD: destDirFD,
+            destFileName: destFileName,
+            flags: strictRenameFlags
+        )
+
+        if strictRenameErrno != 0 {
             #if DEBUG
-            Log.error("renameat() failed with errno: \(err)", category: .fileOperations)
+            Log.error("renameatx_np() failed with errno: \(strictRenameErrno)", category: .fileOperations)
             #endif
-            
-            switch err {
-            case ENOENT:
-                throw FormaError.fileNotFound(sourceURL.path)
-            case EACCES, EPERM:
-                throw FormaError.permissionDenied(for: sourceURL.path)
-            case EEXIST:
-                throw FormaError.fileSystem(.alreadyExists(destURL.path))
-            case ENOSPC:
-                throw FormaError.fileSystem(.diskFull)
-            case EXDEV:
-                // Cross-device move - fall back to copy+delete
-                #if DEBUG
-                Log.info("Cross-device move detected, falling back to copy+delete", category: .fileOperations)
-                #endif
-                try fallbackCopyAndDelete(from: sourceURL, to: destURL, sourceFD: sourceFD)
-            case EBUSY:
-                throw FormaError.fileSystem(.fileInUse(sourceURL.path))
-            default:
-                throw FormaError.operationFailed("renameat() failed with errno \(err)")
+
+            if shouldRetryRenameWithoutStrictFlags(after: strictRenameErrno) {
+                let noReplaceRenameErrno = renameUsingDirectoryDescriptors(
+                    sourceDirFD: sourceDirFD,
+                    sourceFileName: sourceFileName,
+                    destDirFD: destDirFD,
+                    destFileName: destFileName,
+                    flags: UInt32(RENAME_EXCL)
+                )
+
+                if noReplaceRenameErrno == 0 {
+                    #if DEBUG
+                    Log.info("Rename completed with no-replace fallback flags", category: .fileOperations)
+                    #endif
+                    return
+                }
+
+                if shouldUseCopyAndDeleteFallback(after: noReplaceRenameErrno) {
+                    #if DEBUG
+                    Log.info("Rename unavailable after no-replace retry, falling back to copy+delete", category: .fileOperations)
+                    #endif
+                    try fallbackCopyAndDelete(
+                        from: sourceURL,
+                        to: destURL,
+                        validatedSourceFD: sourceFD,
+                        sourceDirFD: sourceDirFD,
+                        sourceFileName: sourceFileName,
+                        destDirFD: destDirFD,
+                        destFileName: destFileName
+                    )
+                    return
+                }
+
+                try throwRenameError(noReplaceRenameErrno, sourceURL: sourceURL, destURL: destURL)
             }
+
+            if shouldUseCopyAndDeleteFallback(after: strictRenameErrno) {
+                #if DEBUG
+                Log.info("Cross-device rename unavailable, falling back to copy+delete", category: .fileOperations)
+                #endif
+                try fallbackCopyAndDelete(
+                    from: sourceURL,
+                    to: destURL,
+                    validatedSourceFD: sourceFD,
+                    sourceDirFD: sourceDirFD,
+                    sourceFileName: sourceFileName,
+                    destDirFD: destDirFD,
+                    destFileName: destFileName
+                )
+                return
+            }
+
+            try throwRenameError(strictRenameErrno, sourceURL: sourceURL, destURL: destURL)
         }
         
         #if DEBUG
         Log.debug("SECURITY: Atomic FD-based move completed successfully", category: .security)
         #endif
     }
-    
-    /// Fallback for cross-device moves (different file systems)
-    /// Uses copy+delete when renameat() returns EXDEV
-    private func fallbackCopyAndDelete(from sourceURL: URL, to destURL: URL, sourceFD: Int32) throws {
-        // Use FileManager for cross-device copy
-        // The source FD ensures we're copying the validated file
-        do {
-            try fileManager.copyItem(at: sourceURL, to: destURL)
-            
-            // Verify the copy succeeded before deleting source
-            guard fileManager.fileExists(atPath: destURL.path) else {
-                throw FormaError.operationFailed("Copy verification failed")
+
+    private func renameUsingDirectoryDescriptors(
+        sourceDirFD: Int32,
+        sourceFileName: String,
+        destDirFD: Int32,
+        destFileName: String,
+        flags: UInt32
+    ) -> Int32 {
+        let result = sourceFileName.withCString { sourceName in
+            destFileName.withCString { destName in
+                renameatx_np(sourceDirFD, sourceName, destDirFD, destName, flags)
             }
-            
-            // Delete the source file
-            try fileManager.removeItem(at: sourceURL)
-            
-            #if DEBUG
-            Log.info("Cross-device copy+delete completed", category: .fileOperations)
-            #endif
+        }
+
+        return result == 0 ? 0 : errno
+    }
+
+    private func shouldRetryRenameWithoutStrictFlags(after errorCode: Int32) -> Bool {
+        errorCode == ENOTSUP || errorCode == EOPNOTSUPP || errorCode == EINVAL
+    }
+
+    private func shouldUseCopyAndDeleteFallback(after errorCode: Int32) -> Bool {
+        errorCode == EXDEV || errorCode == ENOTSUP || errorCode == EOPNOTSUPP || errorCode == EINVAL
+    }
+
+    private func throwRenameError(_ errorCode: Int32, sourceURL: URL, destURL: URL) throws {
+        switch errorCode {
+        case ENOENT:
+            throw FormaError.fileNotFound(sourceURL.path)
+        case EACCES, EPERM:
+            throw FormaError.permissionDenied(for: sourceURL.path)
+        case EEXIST:
+            throw FormaError.fileSystem(.alreadyExists(destURL.path))
+        case ENOSPC:
+            throw FormaError.fileSystem(.diskFull)
+        case EBUSY:
+            throw FormaError.fileSystem(.fileInUse(sourceURL.path))
+        case ELOOP:
+            throw FormaError.fileSystem(.symlinkDetected(sourceURL.path))
+        case ENOTCAPABLE:
+            throw FormaError.operationFailed("Move path escaped its directory boundary")
+        default:
+            throw FormaError.operationFailed("renameatx_np() failed with errno \(errorCode)")
+        }
+    }
+
+    /// Fallback for cross-device moves (different file systems).
+    /// Copies from the already validated source FD, then unlinks only if the
+    /// source path still resolves to that same open file.
+    private func fallbackCopyAndDelete(
+        from sourceURL: URL,
+        to destURL: URL,
+        validatedSourceFD: Int32,
+        sourceDirFD: Int32,
+        sourceFileName: String,
+        destDirFD: Int32,
+        destFileName: String
+    ) throws {
+        let sourceFD = try openReadableSourceFDMatchingValidatedSource(
+            sourceURL: sourceURL,
+            validatedSourceFD: validatedSourceFD,
+            sourceDirFD: sourceDirFD,
+            sourceFileName: sourceFileName
+        )
+        defer { close(sourceFD) }
+
+        let destinationCopy = try copyOpenFileDescriptorToTemporaryFile(
+            sourceFD,
+            to: destURL,
+            destDirFD: destDirFD
+        )
+        defer { close(destinationCopy.fd) }
+
+        var shouldRemoveTemporaryCopyOnFailure = true
+        defer {
+            if shouldRemoveTemporaryCopyOnFailure {
+                removeDestinationCopyIfStillMatches(
+                    destDirFD: destDirFD,
+                    destFileName: destinationCopy.temporaryFileName,
+                    identity: destinationCopy.identity
+                )
+            }
+        }
+
+        var finalDestinationIdentity = destinationCopy.identity
+        var shouldRemoveFinalDestinationOnFailure = false
+        defer {
+            if shouldRemoveFinalDestinationOnFailure {
+                removeDestinationCopyIfStillMatches(
+                    destDirFD: destDirFD,
+                    destFileName: destFileName,
+                    identity: finalDestinationIdentity
+                )
+            }
+        }
+
+        do {
+            try verifySourcePathStillMatchesOpenFile(
+                sourceFD: sourceFD,
+                sourceDirFD: sourceDirFD,
+                sourceFileName: sourceFileName,
+                sourceURL: sourceURL
+            )
+
+            let finalDestinationCopy = try promoteTemporaryDestinationCopy(
+                destinationCopy,
+                to: destURL,
+                destDirFD: destDirFD,
+                destFileName: destFileName
+            )
+            let finalDestinationFDToClose = finalDestinationCopy.fd == destinationCopy.fd ? nil : finalDestinationCopy.fd
+            defer {
+                if let finalDestinationFDToClose {
+                    close(finalDestinationFDToClose)
+                }
+            }
+            finalDestinationIdentity = finalDestinationCopy.identity
+            shouldRemoveTemporaryCopyOnFailure = false
+            shouldRemoveFinalDestinationOnFailure = true
+
+            try verifyDestinationPathStillMatchesCopy(
+                destURL: destURL,
+                destDirFD: destDirFD,
+                destFileName: destFileName,
+                identity: finalDestinationCopy.identity
+            )
+
+            try verifySourcePathStillMatchesOpenFile(
+                sourceFD: sourceFD,
+                sourceDirFD: sourceDirFD,
+                sourceFileName: sourceFileName,
+                sourceURL: sourceURL
+            )
+
+            let unlinkResult = sourceFileName.withCString { sourceName in
+                unlinkat(sourceDirFD, sourceName, 0)
+            }
+
+            guard unlinkResult == 0 else {
+                let err = errno
+                switch err {
+                case ENOENT:
+                    throw FormaError.fileNotFound(sourceURL.path)
+                case EACCES, EPERM:
+                    throw FormaError.permissionDenied(for: sourceURL.path)
+                default:
+                    throw FormaError.operationFailed("unlinkat() failed with errno \(err)")
+                }
+            }
         } catch {
-            // Convert any error to FormaError
-            throw FormaError.from(error)
+            if !sourceDescriptorStillHasReachableLink(sourceFD) {
+                shouldRemoveFinalDestinationOnFailure = false
+            }
+            throw error
+        }
+
+        #if DEBUG
+        Log.info("Cross-device FD copy+unlink completed", category: .fileOperations)
+        #endif
+        shouldRemoveFinalDestinationOnFailure = false
+    }
+
+    private func sourceDescriptorStillHasReachableLink(_ sourceFD: Int32) -> Bool {
+        var sourceStat = stat()
+        guard fstat(sourceFD, &sourceStat) == 0 else {
+            return true
+        }
+
+        return sourceStat.st_nlink > 0
+    }
+
+    private func copyOpenFileDescriptorToTemporaryFile(
+        _ sourceFD: Int32,
+        to destURL: URL,
+        destDirFD: Int32
+    ) throws -> DestinationCopy {
+        var sourceStat = stat()
+        guard fstat(sourceFD, &sourceStat) == 0 else {
+            throw FormaError.operationFailed("Cannot stat source file")
+        }
+
+        var tempFileName = makeDestinationTempFileName()
+        var destFD: Int32 = -1
+        for _ in 0..<5 {
+            tempFileName = makeDestinationTempFileName()
+            destFD = tempFileName.withCString { destName in
+                openat(destDirFD, destName, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, sourceStat.st_mode & 0o777)
+            }
+            if destFD >= 0 {
+                break
+            }
+            if errno != EEXIST {
+                break
+            }
+        }
+
+        guard destFD >= 0 else {
+            throw destinationCreateError(errno, destURL: destURL)
+        }
+
+        var shouldRemoveDestination = true
+        defer {
+            if shouldRemoveDestination {
+                removeDestinationCopyIfStillMatches(
+                    destDirFD: destDirFD,
+                    destFileName: tempFileName,
+                    identity: destinationIdentity(forOpenFD: destFD)
+                )
+                close(destFD)
+            }
+        }
+
+        guard lseek(sourceFD, 0, SEEK_SET) >= 0 else {
+            throw FormaError.operationFailed("Cannot rewind source file")
+        }
+
+        try copyFileDescriptorContents(sourceFD, to: destFD)
+
+        guard fsync(destFD) == 0 else {
+            throw FormaError.operationFailed("Destination sync failed during secure copy (errno: \(errno))")
+        }
+
+        let identity = try destinationIdentity(for: destFD)
+        shouldRemoveDestination = false
+        return DestinationCopy(fd: destFD, temporaryFileName: tempFileName, identity: identity)
+    }
+
+    private func makeDestinationTempFileName() -> String {
+        ".forma-\(UUID().uuidString).tmp"
+    }
+
+    private func destinationCreateError(_ errorCode: Int32, destURL: URL) -> FormaError {
+        switch errorCode {
+        case EEXIST:
+            return FormaError.fileSystem(.alreadyExists(destURL.path))
+        case EACCES, EPERM:
+            return FormaError.permissionDenied(for: destURL.path)
+        case ENOSPC:
+            return FormaError.fileSystem(.diskFull)
+        case ELOOP:
+            return FormaError.fileSystem(.symlinkDetected(destURL.path))
+        default:
+            return FormaError.operationFailed("Cannot create destination file (errno: \(errorCode))")
+        }
+    }
+
+    private func destinationIdentity(for fd: Int32) throws -> DestinationCopyIdentity {
+        var destStat = stat()
+        guard fstat(fd, &destStat) == 0 else {
+            throw FormaError.operationFailed("Cannot stat destination copy")
+        }
+        return DestinationCopyIdentity(device: destStat.st_dev, inode: destStat.st_ino)
+    }
+
+    private func destinationIdentity(forOpenFD fd: Int32) -> DestinationCopyIdentity? {
+        var destStat = stat()
+        guard fstat(fd, &destStat) == 0 else {
+            return nil
+        }
+        return DestinationCopyIdentity(device: destStat.st_dev, inode: destStat.st_ino)
+    }
+
+    private func promoteTemporaryDestinationCopy(
+        _ destinationCopy: DestinationCopy,
+        to destURL: URL,
+        destDirFD: Int32,
+        destFileName: String
+    ) throws -> DestinationCopy {
+        try verifyDestinationPathStillMatchesCopy(
+            destURL: destURL,
+            destDirFD: destDirFD,
+            destFileName: destinationCopy.temporaryFileName,
+            identity: destinationCopy.identity
+        )
+
+        let renameErrno = renameUsingDirectoryDescriptors(
+            sourceDirFD: destDirFD,
+            sourceFileName: destinationCopy.temporaryFileName,
+            destDirFD: destDirFD,
+            destFileName: destFileName,
+            flags: UInt32(RENAME_EXCL)
+        )
+        guard renameErrno != 0 else {
+            return destinationCopy
+        }
+
+        if shouldUseFinalCopyPromotionFallback(after: renameErrno) {
+            return try copyTemporaryDestinationToFinalDestination(
+                destinationCopy,
+                to: destURL,
+                destDirFD: destDirFD,
+                destFileName: destFileName
+            )
+        }
+
+        try throwRenameError(renameErrno, sourceURL: destURL, destURL: destURL)
+        throw FormaError.operationFailed("Temporary destination promote failed with errno \(renameErrno)")
+    }
+
+    private func shouldUseFinalCopyPromotionFallback(after errorCode: Int32) -> Bool {
+        errorCode == ENOTSUP || errorCode == EOPNOTSUPP || errorCode == EINVAL
+    }
+
+    private func copyTemporaryDestinationToFinalDestination(
+        _ destinationCopy: DestinationCopy,
+        to destURL: URL,
+        destDirFD: Int32,
+        destFileName: String
+    ) throws -> DestinationCopy {
+        var tempStat = stat()
+        guard fstat(destinationCopy.fd, &tempStat) == 0 else {
+            throw FormaError.operationFailed("Cannot stat temporary destination copy")
+        }
+
+        let finalFD = destFileName.withCString { destName in
+            openat(destDirFD, destName, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, tempStat.st_mode & 0o777)
+        }
+        guard finalFD >= 0 else {
+            throw destinationCreateError(errno, destURL: destURL)
+        }
+
+        var shouldRemoveFinalDestination = true
+        defer {
+            if shouldRemoveFinalDestination {
+                removeDestinationCopyIfStillMatches(
+                    destDirFD: destDirFD,
+                    destFileName: destFileName,
+                    identity: destinationIdentity(forOpenFD: finalFD)
+                )
+                close(finalFD)
+            }
+        }
+
+        guard lseek(destinationCopy.fd, 0, SEEK_SET) >= 0 else {
+            throw FormaError.operationFailed("Cannot rewind temporary destination copy")
+        }
+
+        try copyFileDescriptorContents(destinationCopy.fd, to: finalFD)
+
+        guard fsync(finalFD) == 0 else {
+            throw FormaError.operationFailed("Final destination sync failed during secure copy (errno: \(errno))")
+        }
+
+        let finalIdentity = try destinationIdentity(for: finalFD)
+        removeDestinationCopyIfStillMatches(
+            destDirFD: destDirFD,
+            destFileName: destinationCopy.temporaryFileName,
+            identity: destinationCopy.identity
+        )
+
+        shouldRemoveFinalDestination = false
+        return DestinationCopy(
+            fd: finalFD,
+            temporaryFileName: destinationCopy.temporaryFileName,
+            identity: finalIdentity
+        )
+    }
+
+    private func verifyDestinationPathStillMatchesCopy(
+        destURL: URL,
+        destDirFD: Int32,
+        destFileName: String,
+        identity: DestinationCopyIdentity
+    ) throws {
+        guard destinationPathMatchesCopy(destDirFD: destDirFD, destFileName: destFileName, identity: identity) else {
+            throw FormaError.operationFailed("Destination copy changed during secure move: \(destURL.path)")
+        }
+    }
+
+    private func destinationPathMatchesCopy(
+        destDirFD: Int32,
+        destFileName: String,
+        identity: DestinationCopyIdentity
+    ) -> Bool {
+        var currentStat = stat()
+        let statResult = destFileName.withCString { destName in
+            fstatat(destDirFD, destName, &currentStat, AT_SYMLINK_NOFOLLOW)
+        }
+
+        return statResult == 0 &&
+            currentStat.st_dev == identity.device &&
+            currentStat.st_ino == identity.inode
+    }
+
+    private func removeDestinationCopyIfStillMatches(
+        destDirFD: Int32,
+        destFileName: String,
+        identity: DestinationCopyIdentity?
+    ) {
+        guard let identity,
+              destinationPathMatchesCopy(destDirFD: destDirFD, destFileName: destFileName, identity: identity) else {
+            return
+        }
+
+        destFileName.withCString { destName in
+            _ = unlinkat(destDirFD, destName, 0)
+        }
+    }
+
+    private func copyFileDescriptorContents(_ sourceFD: Int32, to destFD: Int32) throws {
+        if fcopyfile(sourceFD, destFD, nil, copyfile_flags_t(COPYFILE_ALL)) == 0 {
+            return
+        }
+
+        let metadataCopyErrno = errno
+        if metadataCopyErrno == ENOSPC {
+            throw FormaError.fileSystem(.diskFull)
+        }
+
+        guard shouldRetryCopyWithoutMetadata(after: metadataCopyErrno) else {
+            throw FormaError.operationFailed("Metadata-preserving copy failed (errno: \(metadataCopyErrno))")
+        }
+
+        guard ftruncate(destFD, 0) == 0 else {
+            throw FormaError.operationFailed("Cannot reset destination after metadata copy failed (errno: \(errno))")
+        }
+        guard lseek(sourceFD, 0, SEEK_SET) >= 0,
+              lseek(destFD, 0, SEEK_SET) >= 0 else {
+            throw FormaError.operationFailed("Cannot rewind files after metadata copy failed")
+        }
+
+        guard fcopyfile(sourceFD, destFD, nil, copyfile_flags_t(COPYFILE_DATA)) == 0 else {
+            let dataCopyErrno = errno
+            if dataCopyErrno == ENOSPC {
+                throw FormaError.fileSystem(.diskFull)
+            }
+            throw FormaError.operationFailed("Data copy failed after metadata fallback (errno: \(dataCopyErrno))")
+        }
+    }
+
+    private func shouldRetryCopyWithoutMetadata(after errnoValue: Int32) -> Bool {
+        [ENOTSUP, EOPNOTSUPP, EINVAL].contains(errnoValue)
+    }
+
+    private func openReadableSourceFDMatchingValidatedSource(
+        sourceURL: URL,
+        validatedSourceFD: Int32,
+        sourceDirFD: Int32,
+        sourceFileName: String
+    ) throws -> Int32 {
+        let readableSourceFD = try secureValidateFile(at: sourceURL, access: .readable)
+
+        do {
+            try verifyOpenFileDescriptor(
+                readableSourceFD,
+                matches: validatedSourceFD,
+                sourceURL: sourceURL
+            )
+            try verifySourcePathStillMatchesOpenFile(
+                sourceFD: readableSourceFD,
+                sourceDirFD: sourceDirFD,
+                sourceFileName: sourceFileName,
+                sourceURL: sourceURL
+            )
+            return readableSourceFD
+        } catch {
+            close(readableSourceFD)
+            throw error
+        }
+    }
+
+    private func verifyOpenFileDescriptor(
+        _ sourceFD: Int32,
+        matches validatedSourceFD: Int32,
+        sourceURL: URL
+    ) throws {
+        var sourceStat = stat()
+        guard fstat(sourceFD, &sourceStat) == 0 else {
+            throw FormaError.operationFailed("Cannot stat readable source file")
+        }
+
+        var validatedStat = stat()
+        guard fstat(validatedSourceFD, &validatedStat) == 0 else {
+            throw FormaError.operationFailed("Cannot stat validated source file")
+        }
+
+        guard sourceStat.st_dev == validatedStat.st_dev,
+              sourceStat.st_ino == validatedStat.st_ino else {
+            Log.error("SECURITY: Source changed before cross-device copy: \(sourceURL.path)", category: .security)
+            throw FormaError.operationFailed("Source changed during move")
+        }
+    }
+
+    private func verifySourcePathStillMatchesOpenFile(
+        sourceFD: Int32,
+        sourceDirFD: Int32,
+        sourceFileName: String,
+        sourceURL: URL
+    ) throws {
+        var openStat = stat()
+        guard fstat(sourceFD, &openStat) == 0 else {
+            throw FormaError.operationFailed("Cannot stat open source file")
+        }
+
+        var pathStat = stat()
+        let statResult = sourceFileName.withCString { sourceName in
+            fstatat(sourceDirFD, sourceName, &pathStat, AT_SYMLINK_NOFOLLOW)
+        }
+
+        guard statResult == 0 else {
+            let err = errno
+            switch err {
+            case ENOENT:
+                throw FormaError.fileNotFound(sourceURL.path)
+            case ELOOP:
+                throw FormaError.fileSystem(.symlinkDetected(sourceURL.path))
+            case EACCES, EPERM:
+                throw FormaError.permissionDenied(for: sourceURL.path)
+            default:
+                throw FormaError.operationFailed("Cannot verify source path (errno: \(err))")
+            }
+        }
+
+        guard openStat.st_dev == pathStat.st_dev,
+              openStat.st_ino == pathStat.st_ino else {
+            Log.error("SECURITY: Source changed after validation: \(sourceURL.path)", category: .security)
+            throw FormaError.operationFailed("Source changed during move")
         }
     }
 
@@ -414,10 +1104,6 @@ final class FileOperationsService {
         Log.debug("BOOKMARK MOVE START — source: \(sourceURL.path), using bookmark data", category: .fileOperations)
         #endif
 
-        // 🔒 SECURITY: Validate source file with TOCTOU protection
-        let sourceFD = try secureValidateFile(at: sourceURL)
-        defer { close(sourceFD) }
-
         // Resolve the bookmark to get the destination URL
         var isStale = false
         let destinationFolderURL: URL
@@ -442,26 +1128,19 @@ final class FileOperationsService {
             // Stale bookmarks may still work, but we log it
         }
 
-        // Start security-scoped access to the destination via RAII wrapper
-        var destinationAccess: SecurityScopedAccess? = nil
-        _ = destinationAccess // Silence "never read" warning - RAII pattern
-
-        guard let access = SecurityScopedAccess(url: destinationFolderURL) else {
+        guard let destinationAccess = SecurityScopedAccess(url: destinationFolderURL) else {
             #if DEBUG
             Log.error("BOOKMARK MOVE: Failed to start security-scoped access to \(destinationFolderURL.path)", category: .security)
             #endif
             throw FormaError.permissionDenied(for: destinationFolderURL.path)
         }
-        destinationAccess = access
 
         // Also need access to the source folder
         let sourceFolder = sourceURL.deletingLastPathComponent()
         let sourceFolderName = sourceFolder.lastPathComponent
         let resolvedSourceFolderURL = try resolveSourceFolderBookmark(for: sourceFolderName)
 
-        var sourceAccess: SecurityScopedAccess? = nil
-        _ = sourceAccess // Silence "never read" warning - RAII pattern
-
+        let sourceAccess: SecurityScopedAccess?
         if isAppSandboxed, let sourceFolderURL = resolvedSourceFolderURL {
             guard let access = SecurityScopedAccess(url: sourceFolderURL) else {
                 #if DEBUG
@@ -470,9 +1149,30 @@ final class FileOperationsService {
                 throw FormaError.permissionDenied(for: sourceFolderURL.path)
             }
             sourceAccess = access
+        } else {
+            sourceAccess = nil
         }
 
-        // Build destination file URL
+        return try withExtendedLifetime(destinationAccess) {
+            try withExtendedLifetime(sourceAccess) {
+                try moveFileUsingResolvedBookmark(
+                    fileItem,
+                    sourceURL: sourceURL,
+                    destinationFolderURL: destinationFolderURL,
+                    destination: destination,
+                    modelContext: modelContext
+                )
+            }
+        }
+    }
+
+    private func moveFileUsingResolvedBookmark(
+        _ fileItem: FileItem,
+        sourceURL: URL,
+        destinationFolderURL: URL,
+        destination: Destination,
+        modelContext: ModelContext?
+    ) throws -> MoveResult {
         let destinationURL = destinationFolderURL.appendingPathComponent(fileItem.name)
 
         #if DEBUG
@@ -501,34 +1201,12 @@ final class FileOperationsService {
 
         // Check if destination already exists
         if fileManager.fileExists(atPath: destinationURL.path) {
-            if isEquivalentFile(at: sourceURL, and: destinationURL) {
-                // Destination already contains identical content; remove duplicate source.
-                try fileManager.removeItem(at: sourceURL)
-
-                if let context = modelContext {
-                    let activityService = ActivityLoggingService(modelContext: context)
-                    activityService.logFileOrganized(
-                        fileName: fileItem.name,
-                        destination: destination.displayName,
-                        fileExtension: fileItem.fileExtension
-                    )
-                }
-
-                Log.info("BOOKMARK MOVE DEDUPED: Removed duplicate source '\(sourceURL.path)' (destination already had identical file)", category: .fileOperations)
-                return MoveResult(
-                    success: true,
-                    originalPath: sourceURL.path,
-                    destinationPath: destinationURL.path,
-                    error: nil
-                )
-            }
-
             throw FormaError.fileSystem(.alreadyExists(destinationURL.path))
         }
 
         // Perform the move
         do {
-            try fileManager.moveItem(at: sourceURL, to: destinationURL)
+            try secureFileMove(from: sourceURL, to: destinationURL)
 
             #if DEBUG
             Log.info("BOOKMARK MOVE SUCCESS: \(sourceURL.lastPathComponent) → \(destinationFolderURL.lastPathComponent)", category: .fileOperations)
@@ -559,64 +1237,6 @@ final class FileOperationsService {
         }
     }
 
-    /// Returns true when source and destination refer to equivalent regular files.
-    /// Uses resource identifiers first, then falls back to bounded SHA-256 comparison.
-    private func isEquivalentFile(at sourceURL: URL, and destinationURL: URL) -> Bool {
-        let keys: Set<URLResourceKey> = [
-            .isRegularFileKey,
-            .fileSizeKey,
-            .fileResourceIdentifierKey
-        ]
-
-        do {
-            let sourceValues = try sourceURL.resourceValues(forKeys: keys)
-            let destinationValues = try destinationURL.resourceValues(forKeys: keys)
-
-            guard sourceValues.isRegularFile == true, destinationValues.isRegularFile == true else {
-                return false
-            }
-
-            if let sourceID = sourceValues.fileResourceIdentifier as AnyObject?,
-               let destinationID = destinationValues.fileResourceIdentifier as AnyObject?,
-               sourceID.isEqual(destinationID) {
-                return true
-            }
-
-            let sourceSize = Int64(sourceValues.fileSize ?? -1)
-            let destinationSize = Int64(destinationValues.fileSize ?? -2)
-            guard sourceSize >= 0, sourceSize == destinationSize else {
-                return false
-            }
-
-            guard sourceSize <= Self.duplicateHashMaxBytes else {
-                Log.info(
-                    "Duplicate comparison skipped for large file (\(sourceURL.lastPathComponent), \(sourceSize) bytes)",
-                    category: .fileOperations
-                )
-                return false
-            }
-
-            return try hashFileContents(at: sourceURL) == hashFileContents(at: destinationURL)
-        } catch {
-            Log.warning("Duplicate comparison failed for \(sourceURL.lastPathComponent): \(error.localizedDescription)", category: .fileOperations)
-            return false
-        }
-    }
-
-    private func hashFileContents(at url: URL) throws -> String {
-        let fileHandle = try FileHandle(forReadingFrom: url)
-        defer { try? fileHandle.close() }
-
-        var hasher = SHA256()
-        while true {
-            let chunk = try fileHandle.read(upToCount: Self.duplicateHashChunkSize) ?? Data()
-            if chunk.isEmpty { break }
-            hasher.update(data: chunk)
-        }
-
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
-    }
-
     // MARK: - Rate Limiting Configuration
 
     /// Maximum batch size for file operations to prevent resource exhaustion
@@ -634,10 +1254,6 @@ final class FileOperationsService {
     /// - System resource exhaustion
     /// - Thermal throttling on sustained operations
     private static let operationDelayNanoseconds: UInt64 = 100_000_000 // 100ms
-    /// Chunk size for SHA-256 duplicate comparisons (1 MB).
-    private static let duplicateHashChunkSize = 1_048_576
-    /// Maximum file size to hash for duplicate-equivalence checks (50 MB).
-    private static let duplicateHashMaxBytes: Int64 = 50 * 1024 * 1024
 
     /// Moves multiple files with rate limiting to prevent resource exhaustion
     ///

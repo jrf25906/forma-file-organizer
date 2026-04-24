@@ -33,7 +33,7 @@ Full report: [`Docs/audits/2026-04-23-forma-audit.md`](../audits/2026-04-23-form
 - [x] A4 — Added `resolvingSymlinksInPath()` to `PathValidator` and `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)`; symlink escapes from home-relative paths and trusted scanned scopes now fail with release-visible security logs.
 
 **Tier B — This week:**
-- [ ] B1 — Route `FileOperationsService.moveFileUsingBookmark` through the TOCTOU-safe `secureFileMove` path with `withExtendedLifetime` around scoped access.
+- [x] B1 — Routed `FileOperationsService.moveFileUsingBookmark` through the TOCTOU-safe `secureFileMove` path with no-replace `renameatx_np` moves, strict-flag/no-replace retries, descriptor-walked search-only directory descriptors, temp/final-copy cross-volume fallback, fail-closed unopenable sources, and `withExtendedLifetime` around scoped access.
 - [ ] B2 — `WorkflowRunner` must emit `.skipped` step + file-action audit rows when `fileLoop: break` abandons remaining planned files.
 - [ ] B3 — Add `isFullyConfigured` gates and `requestConfirmation` to state-mutating `FormaAppIntents`; validate `IntentFile` URLs are bookmark-backed before dispatch.
 - [ ] B4 — Decide: wire up or remove `DestinationPredictionService` drift detection + confidence-separation acceptance gate. Plan doc first.
