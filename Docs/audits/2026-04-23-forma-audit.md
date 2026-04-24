@@ -251,6 +251,8 @@ abandoned file using `abandonedAfterUpstreamFailure`; covered by
 
 ### B3 — Gate `FormaAppIntents` on `isFullyConfigured` + require confirmation for state-mutating intents
 
+**Status:** COMPLETE (April 23, 2026) — `FormaIntentRuntime` now gates App Intent `perform()` paths before dispatch, selected-item intents require security-scoped bookmark access or an existing granted folder scope, and `ToggleAutomationIntent` prompts with the explicit current and next automation modes before mutating settings. Targeted `FormaAppIntentsTests` cover not-configured, unauthorized URL, and confirmation paths.
+
 - **Severity:** HIGH (Shortcuts/Siri/Spotlight can mutate state without app ever being opened)
 - **Effort:** 4–8 hours
 - **File:** `Forma File Organizing/Services/FormaAppIntents.swift:41-305`

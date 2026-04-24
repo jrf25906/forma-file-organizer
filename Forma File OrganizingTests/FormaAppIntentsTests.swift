@@ -1,8 +1,178 @@
+import AppIntents
 import XCTest
 @testable import Forma_File_Organizing
 
 @MainActor
 final class FormaAppIntentsTests: XCTestCase {
+    override func tearDown() async throws {
+        FormaIntentRuntime.resetForTesting()
+        UserDefaults.standard.removeObject(forKey: AutomationUserSettings.Keys.mode)
+        try await super.tearDown()
+    }
+
+    func testScanFilesIntent_ThrowsNotConfiguredBeforeScanning() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = false
+        let intent = ScanFilesIntent()
+
+        await assertThrowsIntentError(.notConfigured) {
+            _ = try await intent.perform()
+        }
+    }
+
+    func testOrganizeFilesIntent_ThrowsNotConfiguredBeforeOrganizing() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = false
+        let intent = OrganizeFilesIntent()
+
+        await assertThrowsIntentError(.notConfigured) {
+            _ = try await intent.perform()
+        }
+    }
+
+    func testGetPendingCountIntent_ThrowsNotConfiguredBeforeReadingCounts() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = false
+        let intent = GetPendingCountIntent()
+
+        await assertThrowsIntentError(.notConfigured) {
+            _ = try await intent.perform()
+        }
+    }
+
+    func testOrganizeSelectionIntent_ThrowsNotConfiguredBeforeDispatch() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = false
+        let intent = OrganizeSelectionIntent()
+        intent.item = IntentFile(fileURL: URL(fileURLWithPath: "/tmp/forma-unconfigured.txt"))
+
+        await assertThrowsIntentError(.notConfigured) {
+            _ = try await intent.perform()
+        }
+    }
+
+    func testOrganizeSelectionIntent_RejectsUnauthorizedFileURLBeforeDispatch() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = true
+        FormaIntentRuntime.selectionAccessOverride = { _ in false }
+        let intent = OrganizeSelectionIntent()
+        intent.item = IntentFile(fileURL: URL(fileURLWithPath: "/tmp/forma-unauthorized.txt"))
+
+        await assertThrowsIntentError(.selectionUnauthorized) {
+            _ = try await intent.perform()
+        }
+    }
+
+    func testReviewSelectionIntent_ThrowsNotConfiguredBeforeDispatch() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = false
+        let intent = ReviewSelectionIntent()
+        intent.items = [IntentFile(fileURL: URL(fileURLWithPath: "/tmp/forma-unconfigured-a.txt"))]
+
+        await assertThrowsIntentError(.notConfigured) {
+            _ = try await intent.perform()
+        }
+    }
+
+    func testReviewSelectionIntent_RejectsAnyUnauthorizedFileURLBeforeDispatch() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = true
+        FormaIntentRuntime.selectionAccessOverride = { url in
+            url.lastPathComponent == "allowed.txt"
+        }
+        let intent = ReviewSelectionIntent()
+        intent.items = [
+            IntentFile(fileURL: URL(fileURLWithPath: "/tmp/allowed.txt")),
+            IntentFile(fileURL: URL(fileURLWithPath: "/tmp/blocked.txt"))
+        ]
+
+        await assertThrowsIntentError(.selectionUnauthorized) {
+            _ = try await intent.perform()
+        }
+    }
+
+    func testToggleAutomationIntent_ThrowsNotConfiguredBeforePrompting() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = false
+        var didPrompt = false
+        FormaIntentRuntime.toggleAutomationConfirmationOverride = { _, _ in
+            didPrompt = true
+        }
+        let intent = ToggleAutomationIntent()
+
+        await assertThrowsIntentError(.notConfigured) {
+            _ = try await intent.perform()
+        }
+
+        XCTAssertFalse(didPrompt)
+    }
+
+    func testToggleAutomationIntent_RequestsExplicitCurrentToNextConfirmationBeforeMutating() async throws {
+        FormaIntentRuntime.isFullyConfiguredOverride = true
+        UserDefaults.standard.set(AutomationMode.off.rawValue, forKey: AutomationUserSettings.Keys.mode)
+        var promptedTransition: (current: AutomationMode, next: AutomationMode)?
+        FormaIntentRuntime.toggleAutomationConfirmationOverride = { currentMode, nextMode in
+            promptedTransition = (currentMode, nextMode)
+        }
+        let intent = ToggleAutomationIntent()
+
+        _ = try await intent.perform()
+
+        XCTAssertEqual(promptedTransition?.current, .off)
+        XCTAssertEqual(promptedTransition?.next, .scanOnly)
+        XCTAssertEqual(
+            ToggleAutomationIntent.confirmationMessage(currentMode: .off, nextMode: .scanOnly),
+            "Change Forma automation from Off to Scan Only?"
+        )
+        XCTAssertEqual(AutomationUserSettings.current.mode, .scanOnly)
+    }
+
+    func testGetAutomationStatusIntent_ThrowsNotConfiguredBeforeReadingStatus() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = false
+        let intent = GetAutomationStatusIntent()
+
+        await assertThrowsIntentError(.notConfigured) {
+            _ = try await intent.perform()
+        }
+    }
+
+    func testOpenFormaIntent_ThrowsNotConfiguredWhenAppIsStillUnavailable() async {
+        FormaIntentRuntime.isFullyConfiguredOverride = false
+        let intent = OpenFormaIntent()
+
+        await assertThrowsIntentError(.notConfigured) {
+            _ = try await intent.perform()
+        }
+    }
+
+    func testIntentSelectionAccess_AllowsBookmarkBackedSelection() {
+        let url = URL(fileURLWithPath: "/tmp/forma-bookmarked.txt")
+
+        let isAuthorized = FormaIntentRuntime.hasAuthorizedSelectionAccess(
+            to: url,
+            createBookmarkData: { _ in Data([0x01]) },
+            scopeRootPaths: { [] }
+        )
+
+        XCTAssertTrue(isAuthorized)
+    }
+
+    func testIntentSelectionAccess_AllowsSelectionInsideExistingBookmarkedScope() {
+        let url = URL(fileURLWithPath: "/tmp/FormaScope/Nested/file.txt")
+
+        let isAuthorized = FormaIntentRuntime.hasAuthorizedSelectionAccess(
+            to: url,
+            createBookmarkData: { _ in nil },
+            scopeRootPaths: { ["/tmp/FormaScope"] }
+        )
+
+        XCTAssertTrue(isAuthorized)
+    }
+
+    func testIntentSelectionAccess_RejectsSelectionWithoutBookmarkOrExistingScope() {
+        let url = URL(fileURLWithPath: "/tmp/FormaOther/file.txt")
+
+        let isAuthorized = FormaIntentRuntime.hasAuthorizedSelectionAccess(
+            to: url,
+            createBookmarkData: { _ in nil },
+            scopeRootPaths: { ["/tmp/FormaScope"] }
+        )
+
+        XCTAssertFalse(isAuthorized)
+    }
+
     func testOrganizeSelectionIntentFeedback_AppendsReviewFollowUpWhenReviewIsNeeded() {
         let result = ExternalIngressResult(
             autoOrganizedCount: 1,
@@ -160,5 +330,32 @@ final class FormaAppIntentsTests: XCTestCase {
         let message = ReviewSelectionIntentFeedback.message(for: .needsOnboarding(request))
 
         XCTAssertEqual(message, "Finish Forma setup in the app, then the selected items will resume automatically.")
+    }
+}
+
+private enum ExpectedFormaIntentError {
+    case notConfigured
+    case selectionUnauthorized
+}
+
+private func assertThrowsIntentError(
+    _ expected: ExpectedFormaIntentError,
+    operation: () async throws -> Void,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async {
+    do {
+        try await operation()
+        XCTFail("Expected FormaIntentError.\(expected)", file: file, line: line)
+    } catch let error as FormaIntentError {
+        switch (expected, error) {
+        case (.notConfigured, .notConfigured),
+             (.selectionUnauthorized, .selectionUnauthorized):
+            return
+        default:
+            XCTFail("Unexpected FormaIntentError: \(error)", file: file, line: line)
+        }
+    } catch {
+        XCTFail("Unexpected error: \(error)", file: file, line: line)
     }
 }

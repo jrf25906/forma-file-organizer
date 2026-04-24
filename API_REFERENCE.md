@@ -11,6 +11,8 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - Uses `renameatx_np` with no-replace and no-symlink flags when supported, verifies the source path still matches the validated open file descriptor before moving, retries no-replace renames before copy fallback when strict flags are unsupported, falls back to inode-verified temp/final copy plus source revalidation for cross-volume moves, and maps destination collisions to `FormaError.fileSystem(.alreadyExists)`.
   - `WorkflowRunner`
     - When execution stops after an upstream file failure, remaining planned files now receive `.skipped` execution-step audit rows plus a skipped `WorkflowFileActionRecord` with `failureReason == "abandonedAfterUpstreamFailure"` so previewed files are not invisible in run audit history.
+  - `FormaIntentRuntime`
+    - Centralizes App Intent preflight checks: every `FormaAppIntents.perform()` path now fails before action dispatch unless `FormaActions.shared.isFullyConfigured`, selected-item intents require bookmark-backed access or an existing granted folder scope, and `ToggleAutomationIntent` requests explicit current-to-next confirmation before toggling automation.
 
 - Security audit Tier A cleanup
   - `PathValidator.validate(_:)`
@@ -1138,8 +1140,10 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `scannedRootPaths`
   - `replacesAllFiles`
 - App Intents (`Forma File Organizing/Services/FormaAppIntents.swift`)
+  - `FormaIntentRuntime`
   - `OrganizeSelectionIntent`
   - `ReviewSelectionIntent`
+  - `ToggleAutomationIntent.confirmationMessage(currentMode:nextMode:)`
   - `ReviewSelectionIntentFeedback`
 - Automation status
   - `AutomationState.isWatchingFolders`

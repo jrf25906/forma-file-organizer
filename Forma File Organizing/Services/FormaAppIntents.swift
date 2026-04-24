@@ -1,6 +1,112 @@
 import AppIntents
+import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
+
+@MainActor
+enum FormaIntentRuntime {
+    #if DEBUG
+    static var isFullyConfiguredOverride: Bool?
+    static var selectionAccessOverride: ((URL) -> Bool)?
+    static var toggleAutomationConfirmationOverride: ((AutomationMode, AutomationMode) async throws -> Void)?
+
+    static func resetForTesting() {
+        isFullyConfiguredOverride = nil
+        selectionAccessOverride = nil
+        toggleAutomationConfirmationOverride = nil
+    }
+    #endif
+
+    static var isFullyConfigured: Bool {
+        #if DEBUG
+        if let isFullyConfiguredOverride {
+            return isFullyConfiguredOverride
+        }
+        #endif
+
+        return FormaActions.shared.isFullyConfigured
+    }
+
+    static func ensureFullyConfigured() throws {
+        guard isFullyConfigured else {
+            throw FormaIntentError.notConfigured
+        }
+    }
+
+    static func validateSelectionURLs(_ urls: [URL]) throws {
+        guard urls.allSatisfy(isSelectionAuthorized) else {
+            throw FormaIntentError.selectionUnauthorized
+        }
+    }
+
+    static func isSelectionAuthorized(_ url: URL) -> Bool {
+        #if DEBUG
+        if let selectionAccessOverride {
+            return selectionAccessOverride(url)
+        }
+        #endif
+
+        return hasAuthorizedSelectionAccess(to: url)
+    }
+
+    static func hasAuthorizedSelectionAccess(
+        to url: URL,
+        createBookmarkData: @MainActor (URL) throws -> Data? = createSecurityScopedBookmarkData,
+        scopeRootPaths: @MainActor () -> [String] = bookmarkedScopeRootPaths
+    ) -> Bool {
+        let standardizedURL = url.standardizedFileURL
+        var bookmarkValidationError: Error?
+
+        do {
+            if let bookmarkData = try createBookmarkData(standardizedURL), !bookmarkData.isEmpty {
+                return true
+            }
+        } catch {
+            bookmarkValidationError = error
+        }
+
+        let selectionPath = resolvedPath(standardizedURL.path)
+        let isWithinGrantedScope = scopeRootPaths().contains { rootPath in
+            let resolvedRootPath = resolvedPath(rootPath)
+            return isPath(selectionPath, inside: resolvedRootPath)
+        }
+
+        if !isWithinGrantedScope, let bookmarkValidationError {
+            Log.warning(
+                "FormaIntentRuntime: Selection bookmark validation failed for \(standardizedURL.path) - \(bookmarkValidationError.localizedDescription)",
+                category: .bookmark
+            )
+        }
+
+        return isWithinGrantedScope
+    }
+
+    private static func createSecurityScopedBookmarkData(for url: URL) throws -> Data? {
+        try url.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+    }
+
+    private static func bookmarkedScopeRootPaths() -> [String] {
+        BookmarkFolder.FolderType.allCases.compactMap { folderType in
+            BookmarkFolder(folderType: folderType).resolvedRootPath
+        }
+    }
+
+    private static func resolvedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+            .path
+    }
+
+    private static func isPath(_ path: String, inside rootPath: String) -> Bool {
+        let rootWithSeparator = rootPath.hasSuffix("/") ? rootPath : "\(rootPath)/"
+        return path == rootPath || path.hasPrefix(rootWithSeparator)
+    }
+}
 
 enum WorkflowTemplateIntentSelection: String, AppEnum {
     case savedSelection
@@ -46,6 +152,8 @@ struct ScanFilesIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        try FormaIntentRuntime.ensureFullyConfigured()
+
         let result = await FormaActions.shared.scanFiles()
 
         if result.success {
@@ -92,6 +200,8 @@ struct OrganizeFilesIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        try FormaIntentRuntime.ensureFullyConfigured()
+
         let threshold = Double(confidencePercent) / 100.0
         let result = await FormaActions.shared.organizeHighConfidenceFiles(
             confidenceThreshold: threshold,
@@ -126,6 +236,8 @@ struct GetPendingCountIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<Int> {
+        try FormaIntentRuntime.ensureFullyConfigured()
+
         let counts = await FormaActions.shared.getPendingFileCounts()
         return .result(value: counts.total)
     }
@@ -160,9 +272,12 @@ struct OrganizeSelectionIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        guard let url = item.fileURL else {
+        try FormaIntentRuntime.ensureFullyConfigured()
+
+        guard let url = item.fileURL?.standardizedFileURL else {
             throw FormaIntentError.selectionUnavailable
         }
+        try FormaIntentRuntime.validateSelectionURLs([url])
 
         let disposition = try await ExternalIngressCoordinator.shared.handleRequest(
             source: .spotlightIntent,
@@ -210,10 +325,19 @@ struct ReviewSelectionIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        let urls = items.compactMap(\.fileURL).map(\.standardizedFileURL)
+        try FormaIntentRuntime.ensureFullyConfigured()
+
+        let urls = try items.map { item in
+            guard let url = item.fileURL?.standardizedFileURL else {
+                throw FormaIntentError.selectionUnavailable
+            }
+
+            return url
+        }
         guard !urls.isEmpty else {
             throw FormaIntentError.selectionUnavailable
         }
+        try FormaIntentRuntime.validateSelectionURLs(urls)
 
         let disposition = try await ExternalIngressCoordinator.shared.handleRequest(
             source: .spotlightIntent,
@@ -254,6 +378,12 @@ struct ToggleAutomationIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        try FormaIntentRuntime.ensureFullyConfigured()
+
+        let currentMode = AutomationUserSettings.current.mode
+        let nextMode = Self.nextMode(after: currentMode)
+        try await requestToggleAutomationConfirmation(currentMode: currentMode, nextMode: nextMode)
+
         let newMode = FormaActions.shared.toggleAutomation()
         let modeDescription = newMode == .off ? "off" : "on (\(newMode.displayName))"
         return .result(value: "Automation is now \(modeDescription)")
@@ -261,6 +391,37 @@ struct ToggleAutomationIntent: AppIntent {
 
     static var parameterSummary: some ParameterSummary {
         Summary("Toggle automation on/off")
+    }
+
+    static func nextMode(after currentMode: AutomationMode) -> AutomationMode {
+        currentMode == .off ? .scanOnly : .off
+    }
+
+    static func confirmationMessage(currentMode: AutomationMode, nextMode: AutomationMode) -> String {
+        "Change Forma automation from \(currentMode.displayName) to \(nextMode.displayName)?"
+    }
+
+    static func confirmationDialog(currentMode: AutomationMode, nextMode: AutomationMode) -> IntentDialog {
+        "Change Forma automation from \(currentMode.displayName) to \(nextMode.displayName)?"
+    }
+
+    @MainActor
+    private func requestToggleAutomationConfirmation(
+        currentMode: AutomationMode,
+        nextMode: AutomationMode
+    ) async throws {
+        #if DEBUG
+        if let toggleAutomationConfirmationOverride = FormaIntentRuntime.toggleAutomationConfirmationOverride {
+            try await toggleAutomationConfirmationOverride(currentMode, nextMode)
+            return
+        }
+        #endif
+
+        try await requestConfirmation(
+            conditions: [],
+            actionName: .continue,
+            dialog: Self.confirmationDialog(currentMode: currentMode, nextMode: nextMode)
+        )
     }
 }
 
@@ -275,6 +436,8 @@ struct GetAutomationStatusIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        try FormaIntentRuntime.ensureFullyConfigured()
+
         let status = FormaActions.shared.getAutomationStatus()
         return .result(value: status.statusText)
     }
@@ -295,7 +458,10 @@ struct OpenFormaIntent: AppIntent {
 
     static let openAppWhenRun: Bool = true
 
+    @MainActor
     func perform() async throws -> some IntentResult {
+        try FormaIntentRuntime.ensureFullyConfigured()
+
         return .result()
     }
 
@@ -311,6 +477,7 @@ enum FormaIntentError: Error, CustomLocalizedStringResourceConvertible {
     case organizeFailed(String)
     case notConfigured
     case selectionUnavailable
+    case selectionUnauthorized
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
@@ -322,6 +489,8 @@ enum FormaIntentError: Error, CustomLocalizedStringResourceConvertible {
             return "Forma is not fully configured. Please open the app first."
         case .selectionUnavailable:
             return "Forma couldn't access the selected file or folder."
+        case .selectionUnauthorized:
+            return "Forma can only organize selections that include bookmark access or live inside a folder you've granted to Forma."
         }
     }
 }

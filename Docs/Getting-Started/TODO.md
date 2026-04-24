@@ -35,7 +35,7 @@ Full report: [`Docs/audits/2026-04-23-forma-audit.md`](../audits/2026-04-23-form
 **Tier B — This week:**
 - [x] B1 — Routed `FileOperationsService.moveFileUsingBookmark` through the TOCTOU-safe `secureFileMove` path with no-replace `renameatx_np` moves, strict-flag/no-replace retries, descriptor-walked search-only directory descriptors, temp/final-copy cross-volume fallback, fail-closed unopenable sources, and `withExtendedLifetime` around scoped access.
 - [x] B2 — `WorkflowRunner` now emits `.skipped` step + file-action audit rows when `fileLoop: break` abandons remaining planned files, using the explicit `abandonedAfterUpstreamFailure` reason.
-- [ ] B3 — Add `isFullyConfigured` gates and `requestConfirmation` to state-mutating `FormaAppIntents`; validate `IntentFile` URLs are bookmark-backed before dispatch.
+- [x] B3 — `FormaAppIntents` now gate `perform()` on `FormaActions.shared.isFullyConfigured`, require explicit current-to-next `requestConfirmation` before `ToggleAutomationIntent` mutates automation mode, and reject selection intents unless every `IntentFile` URL is bookmark-backed or inside an existing granted folder scope.
 - [ ] B4 — Decide: wire up or remove `DestinationPredictionService` drift detection + confidence-separation acceptance gate. Plan doc first.
 
 **Tier C — Planning required (structural):**
