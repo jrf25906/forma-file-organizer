@@ -386,6 +386,52 @@ final class PerFolderTemplateCategoryTests: XCTestCase {
         XCTAssertEqual(picturesRules.count, 7, "Pictures (chronological) should have 7 rules")
     }
 
+    func testPerFolderTemplateApplicationSkipsHistoricalTemplateRules() throws {
+        for (index, folder) in OnboardingFolder.allCases.enumerated() {
+            let category = RuleCategory(
+                name: folder.title,
+                colorHex: folder.colorHex,
+                iconName: folder.iconName,
+                scope: .folders([]),
+                isEnabled: true,
+                sortOrder: index,
+                isDefault: false
+            )
+            modelContext.insert(category)
+
+            let rules = OrganizationTemplate.para.generateRules(baseDocumentsPath: folder.title)
+            for rule in rules {
+                rule.category = category
+                modelContext.insert(rule)
+            }
+        }
+        try modelContext.save()
+
+        let controller = DashboardTemplateController(
+            modelContext: modelContext,
+            filterViewModel: FilterViewModel()
+        )
+        var templateSelection = FolderTemplateSelection()
+        for folder in OnboardingFolder.allCases {
+            templateSelection.setTemplate(.para, for: folder)
+        }
+
+        controller.applyPerFolderTemplates(
+            folderSelection: OnboardingFolderSelection(),
+            templateSelection: templateSelection,
+            personality: nil
+        )
+
+        let ruleFetch = FetchDescriptor<Rule>()
+        let allRules = try modelContext.fetch(ruleFetch)
+
+        XCTAssertEqual(allRules.count, 50)
+        for folder in OnboardingFolder.allCases {
+            let folderRules = allRules.filter { $0.category?.name == folder.title }
+            XCTAssertEqual(folderRules.count, 10, "\(folder.title) should keep one PARA rule set")
+        }
+    }
+
     // MARK: - Helper Methods
 
     private func createTestCategory(

@@ -222,9 +222,8 @@ class BulkOperationViewModel: ObservableObject {
         // Create rules if requested
         if createRules, let context = context {
             let extensionGroups = Dictionary(grouping: files, by: { $0.fileExtension })
-
-            for (ext, _) in extensionGroups {
-                let rule = Rule(
+            let rules = extensionGroups.keys.map { ext in
+                Rule(
                     name: "\(ext.uppercased()) files → \(trimmed)",
                     conditionType: .fileExtension,
                     conditionValue: ext,
@@ -232,11 +231,11 @@ class BulkOperationViewModel: ObservableObject {
                     destination: bulkDestination,
                     isEnabled: true
                 )
-                context.insert(rule)
             }
 
             do {
-                try context.save()
+                let ruleService = RuleService(modelContext: context)
+                try ruleService.createRules(rules, source: .bulkEdit)
             } catch {
                 Log.error("Failed to save bulk edit rules: \(error.localizedDescription)", category: .pipeline)
                 onShowErrorToast?("Failed to create rules. Please try again.")

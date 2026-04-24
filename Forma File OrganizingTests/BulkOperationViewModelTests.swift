@@ -259,6 +259,55 @@ final class BulkOperationViewModelTests: XCTestCase {
         XCTAssertEqual(runRecord.primaryStatus, .succeeded)
         XCTAssertEqual(file.status, .completed)
     }
+
+    func testBulkEditDestinationCreateRulesUsesRuleServiceDeduplication() throws {
+        let files = [
+            FileItem(
+                path: "/Users/example/Downloads/receipt.pdf",
+                sizeInBytes: 1_024,
+                creationDate: Date(),
+                status: .pending
+            ),
+            FileItem(
+                path: "/Users/example/Downloads/contract.pdf",
+                sizeInBytes: 1_024,
+                creationDate: Date(),
+                status: .pending
+            ),
+            FileItem(
+                path: "/Users/example/Downloads/notes.txt",
+                sizeInBytes: 1_024,
+                creationDate: Date(),
+                status: .pending
+            )
+        ]
+
+        for file in files {
+            modelContext.insert(file)
+        }
+        try modelContext.save()
+
+        viewModel.bulkEditDestination(
+            "Documents/Sorted",
+            createRules: true,
+            files: files,
+            context: modelContext
+        )
+        viewModel.bulkEditDestination(
+            "Documents/Sorted",
+            createRules: true,
+            files: files,
+            context: modelContext
+        )
+
+        let rules = try modelContext.fetch(
+            FetchDescriptor<Rule>(sortBy: [SortDescriptor(\Rule.conditionValue)])
+        )
+
+        XCTAssertEqual(rules.count, 2)
+        XCTAssertEqual(rules.map(\.conditionValue), ["pdf", "txt"])
+        XCTAssertEqual(Set(rules.map { $0.destination?.displayName }), ["Documents/Sorted"])
+    }
 }
 
 @MainActor

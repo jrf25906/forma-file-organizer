@@ -14,6 +14,7 @@ final class DashboardOrganizationController {
     private let appReviewEligibility: AppReviewEligibilityProviding
     private let usesTestingFastPath: Bool
     private let workflowExecution: WorkflowExecutionClient
+    private let refreshesFilterAfterScanMutation: Bool
 
     var onShowToast: ((String, Bool) -> Void)?
     var onShowError: ((String) -> Void)?
@@ -29,7 +30,8 @@ final class DashboardOrganizationController {
         panelManager: PanelStateManager,
         appReviewEligibility: AppReviewEligibilityProviding = AppReviewEligibilityService(),
         usesTestingFastPath: Bool = DashboardOrganizationController.defaultUsesTestingFastPath(),
-        workflowExecution: WorkflowExecutionClient = .live
+        workflowExecution: WorkflowExecutionClient = .live,
+        refreshesFilterAfterScanMutation: Bool = true
     ) {
         self.coordinator = coordinator
         self.scanViewModel = scanViewModel
@@ -39,6 +41,7 @@ final class DashboardOrganizationController {
         self.appReviewEligibility = appReviewEligibility
         self.usesTestingFastPath = usesTestingFastPath
         self.workflowExecution = workflowExecution
+        self.refreshesFilterAfterScanMutation = refreshesFilterAfterScanMutation
     }
 
     // MARK: - Organization Status
@@ -76,7 +79,7 @@ final class DashboardOrganizationController {
         if usesTestingFastPath {
             file.status = .completed
             scanViewModel.removeFile(at: file.path)
-            filterViewModel.updateSourceFiles(scanViewModel.allFiles)
+            refreshFilterAfterScanMutationIfNeeded()
             onDidOrganizeFile?(file.path)
             return
         }
@@ -107,7 +110,7 @@ final class DashboardOrganizationController {
 
             // Update scan ViewModel
             self.scanViewModel.removeFile(at: file.path)
-            self.filterViewModel.updateSourceFiles(self.scanViewModel.allFiles)
+            self.refreshFilterAfterScanMutationIfNeeded()
             self.onDidOrganizeFile?(file.path)
         }
     }
@@ -167,7 +170,7 @@ final class DashboardOrganizationController {
                     shouldRecordPersonalMemoryDecision: true
                 )
                 self.scanViewModel.removeFile(at: file.path)
-                self.filterViewModel.updateSourceFiles(self.scanViewModel.allFiles)
+                self.refreshFilterAfterScanMutationIfNeeded()
                 self.onDidOrganizeFile?(file.path)
             } catch {
                 self.onShowError?(error.localizedDescription)
@@ -271,6 +274,11 @@ final class DashboardOrganizationController {
         } catch {
             Log.error("Failed to record personal memory decision: \(error.localizedDescription)", category: .analytics)
         }
+    }
+
+    private func refreshFilterAfterScanMutationIfNeeded() {
+        guard refreshesFilterAfterScanMutation else { return }
+        filterViewModel.updateSourceFiles(scanViewModel.allFiles)
     }
 
     #if DEBUG

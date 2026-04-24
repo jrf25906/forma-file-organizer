@@ -40,8 +40,9 @@ final class DashboardTemplateController {
         _ = personality
 
         // Collect required rules
+        let operationRuleService = RuleService(modelContext: modelContext)
         var allRulesToCreate: [Rule] = []
-        let existingRules = (try? ruleService.fetchRules()) ?? []
+        let existingRules = (try? operationRuleService.fetchRules()) ?? []
         var existingRuleKeys = Set(existingRules.map(ruleSignature))
 
         for folder in OnboardingFolder.allCases {
@@ -51,12 +52,11 @@ final class DashboardTemplateController {
 
             let templateRules = template.generateRules(baseDocumentsPath: folder.title)
             for rule in templateRules {
-                rule.category = category
-
                 let signature = ruleSignature(rule)
                 guard !existingRuleKeys.contains(signature) else { continue }
 
                 existingRuleKeys.insert(signature)
+                rule.category = category
                 allRulesToCreate.append(rule)
             }
         }
@@ -67,10 +67,17 @@ final class DashboardTemplateController {
                 return
             }
 
-            try ruleService.createRules(
+            try operationRuleService.createRules(
                 allRulesToCreate,
                 source: .template(name: "Per-folder templates")
             )
+            let cleanupSummary = try RuleService(modelContext: modelContext).deleteExactDuplicateRules()
+            if cleanupSummary.deletedCount > 0 {
+                Log.info(
+                    "Removed \(cleanupSummary.deletedCount) duplicate per-folder template rules after template application",
+                    category: .general
+                )
+            }
             Log.info("Successfully applied per-folder templates", category: .general)
         } catch {
             Log.error("Failed to apply per-folder templates: \(error.localizedDescription)", category: .general)
@@ -154,11 +161,22 @@ final class DashboardTemplateController {
 
     private func ruleSignature(_ rule: Rule) -> String {
         [
-            rule.category?.name ?? "General",
-            rule.name,
+            rule.logicalOperator.rawValue,
+            rule.conditionType.rawValue,
+            normalizedRuleSignatureValue(rule.conditionValue),
             rule.actionType.rawValue,
-            rule.conditionsSummary,
-            rule.destination?.displayName ?? "Trash"
+            normalizedRuleSignatureValue(rule.destination?.displayName ?? "Trash"),
+            rule.exclusionConditions
+                .map { "\($0.type.rawValue):\(normalizedRuleSignatureValue($0.value))" }
+                .sorted()
+                .joined(separator: ",")
         ].joined(separator: "|")
+    }
+
+    private func normalizedRuleSignatureValue(_ value: String) -> String {
+        value
+            .precomposedStringWithCanonicalMapping
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 }

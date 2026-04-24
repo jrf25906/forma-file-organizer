@@ -29,6 +29,7 @@ class RuleService: ObservableObject {
         case template(name: String)
         case defaultSeeding
         case learnedPattern
+        case bulkEdit
 
         var activityDescription: String {
             switch self {
@@ -47,8 +48,22 @@ class RuleService: ObservableObject {
                 return "Default rule"
             case .learnedPattern:
                 return "Learned from file patterns"
+            case .bulkEdit:
+                return "Created during bulk destination edit"
             }
         }
+    }
+
+    struct DuplicateCleanupSummary: Equatable {
+        let scannedCount: Int
+        let duplicateGroupCount: Int
+        let deletedCount: Int
+
+        static let empty = DuplicateCleanupSummary(
+            scannedCount: 0,
+            duplicateGroupCount: 0,
+            deletedCount: 0
+        )
     }
 
     /// Events published when rules change
@@ -194,9 +209,9 @@ class RuleService: ObservableObject {
     ///   - save: Whether to save the context immediately (default: true).
     /// - Throws: An error if saving fails.
     func createRule(_ rule: Rule, source: RuleSource, save: Bool = true) throws {
-        let signature = RuleService.semanticSignature(for: rule)
+        let signatures = RuleService.dedupeSignatures(for: rule)
         let existingSignatures = try self.existingRuleSignatureSet()
-        guard !existingSignatures.contains(signature) else {
+        guard existingSignatures.isDisjoint(with: signatures) else {
             #if DEBUG
             Log.info("RuleService: Skipped semantic duplicate rule '\(rule.name)' from \(source.activityDescription)", category: .analytics)
             #endif
@@ -236,8 +251,8 @@ class RuleService: ObservableObject {
         var knownSignatures = try self.existingRuleSignatureSet()
         var insertedRules: [Rule] = []
         for rule in rules {
-            let signature = RuleService.semanticSignature(for: rule)
-            guard !knownSignatures.contains(signature) else {
+            let signatures = RuleService.dedupeSignatures(for: rule)
+            guard knownSignatures.isDisjoint(with: signatures) else {
                 #if DEBUG
                 Log.info("RuleService: Skipped semantic duplicate rule '\(rule.name)' in batch from \(source.activityDescription)", category: .analytics)
                 #endif
@@ -246,7 +261,7 @@ class RuleService: ObservableObject {
 
             modelContext.insert(rule)
             insertedRules.append(rule)
-            knownSignatures.insert(signature)
+            knownSignatures.formUnion(signatures)
         }
 
         guard !insertedRules.isEmpty else {
@@ -341,6 +356,76 @@ class RuleService: ObservableObject {
         #endif
     }
 
+    /// Removes exact duplicate persisted rules while preserving one keeper per behavior.
+    ///
+    /// This is a store maintenance path for historical data where templates or bulk
+    /// actions may have inserted the same enabled rule repeatedly. Disabled and
+    /// enabled copies are grouped separately so a user's disabled copy is not
+    /// silently collapsed into an enabled one.
+    @discardableResult
+    func deleteExactDuplicateRules() throws -> DuplicateCleanupSummary {
+        let rules = try fetchRulesByPriority(enabledOnly: false)
+        guard rules.count > 1 else {
+            return DuplicateCleanupSummary(
+                scannedCount: rules.count,
+                duplicateGroupCount: 0,
+                deletedCount: 0
+            )
+        }
+
+        let groupedRules = Dictionary(grouping: rules, by: RuleService.exactDuplicateCleanupSignature(for:))
+
+        var duplicateGroups = 0
+        var rulesToDelete: [Rule] = []
+
+        for group in groupedRules.values where group.count > 1 {
+            duplicateGroups += 1
+            let sortedRules = group.sorted(by: duplicateCleanupOrder)
+            guard let keeper = sortedRules.first else { continue }
+
+            let duplicates = Array(sortedRules.dropFirst())
+            let newestTrigger = duplicates
+                .compactMap(\.lastTriggeredDate)
+                .max()
+
+            if let newestTrigger,
+               keeper.lastTriggeredDate.map({ $0 < newestTrigger }) ?? true {
+                keeper.lastTriggeredDate = newestTrigger
+            }
+
+            rulesToDelete.append(contentsOf: duplicates)
+        }
+
+        guard !rulesToDelete.isEmpty else {
+            return DuplicateCleanupSummary(
+                scannedCount: rules.count,
+                duplicateGroupCount: duplicateGroups,
+                deletedCount: 0
+            )
+        }
+
+        for rule in rulesToDelete {
+            modelContext.delete(rule)
+        }
+
+        let activityService = ActivityLoggingService(modelContext: modelContext)
+        activityService.logBulkRulesDeleted(count: rulesToDelete.count)
+
+        try modelContext.save()
+        updateRuleCount()
+        ruleChanges.send(.bulkDeleted(count: rulesToDelete.count))
+
+        #if DEBUG
+        Log.info("RuleService: Deleted \(rulesToDelete.count) exact duplicate rules across \(duplicateGroups) groups", category: .analytics)
+        #endif
+
+        return DuplicateCleanupSummary(
+            scannedCount: rules.count,
+            duplicateGroupCount: duplicateGroups,
+            deletedCount: rulesToDelete.count
+        )
+    }
+
     // MARK: - Private Helpers
 
     private func updateRuleCount() {
@@ -354,7 +439,17 @@ class RuleService: ObservableObject {
     }
 
     private func existingRuleSignatureSet() throws -> Set<String> {
-        Set(try fetchRules().map(RuleService.semanticSignature(for:)))
+        Set(try fetchRules().flatMap(RuleService.dedupeSignatures(for:)))
+    }
+
+    private func duplicateCleanupOrder(lhs: Rule, rhs: Rule) -> Bool {
+        if lhs.sortOrder != rhs.sortOrder {
+            return lhs.sortOrder < rhs.sortOrder
+        }
+        if lhs.creationDate != rhs.creationDate {
+            return lhs.creationDate < rhs.creationDate
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
     }
 
     private static func semanticSignature(for rule: Rule) -> String {
@@ -380,6 +475,37 @@ class RuleService: ObservableObject {
             "action:\(actionType)",
             "destination:\(destinationIdentity)",
             "scope:\(scopeIdentity)"
+        ].joined(separator: "|")
+    }
+
+    private static func dedupeSignatures(for rule: Rule) -> Set<String> {
+        [
+            "semantic:\(semanticSignature(for: rule))",
+            "exact:\(exactDuplicateCleanupSignature(for: rule))"
+        ]
+    }
+
+    private static func exactDuplicateCleanupSignature(for rule: Rule) -> String {
+        let primaryConditions = canonicalConditionSet(
+            rule.conditions,
+            fallbackType: rule.conditionType,
+            fallbackValue: rule.conditionValue
+        )
+        let exclusionConditions = canonicalConditionSet(
+            rule.exclusionConditions,
+            fallbackType: nil,
+            fallbackValue: nil
+        )
+        let categoryName = normalizedText(rule.category?.name ?? "General")
+
+        return [
+            "conditions:\(primaryConditions)",
+            "exclusions:\(exclusionConditions)",
+            "operator:\(rule.logicalOperator.rawValue)",
+            "action:\(rule.actionType.rawValue)",
+            "destination:\(destinationIdentity(for: rule.destination))",
+            "category:\(categoryName)",
+            "enabled:\(rule.isEnabled)"
         ].joined(separator: "|")
     }
 

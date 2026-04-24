@@ -256,6 +256,39 @@ final class RuleServiceTests: XCTestCase {
         XCTAssertEqual(bulkCount, 2)
     }
 
+    func testDeleteExactDuplicateRulesRemovesHistoricalBypassDuplicates() throws {
+        let keeper = makeRule(name: "Health Records A", conditionValue: "health")
+        keeper.sortOrder = 0
+        keeper.creationDate = Date(timeIntervalSince1970: 1_000)
+        keeper.lastTriggeredDate = Date(timeIntervalSince1970: 1_500)
+
+        let duplicate = makeRule(name: "Health Records B", conditionValue: "health")
+        duplicate.sortOrder = 1
+        duplicate.creationDate = Date(timeIntervalSince1970: 2_000)
+        duplicate.lastTriggeredDate = Date(timeIntervalSince1970: 2_500)
+
+        let unique = makeRule(name: "Tax Documents", conditionValue: "tax")
+        unique.sortOrder = 2
+        unique.creationDate = Date(timeIntervalSince1970: 3_000)
+
+        modelContext.insert(keeper)
+        modelContext.insert(duplicate)
+        modelContext.insert(unique)
+        try modelContext.save()
+
+        let summary = try ruleService.deleteExactDuplicateRules()
+        let fetched = try ruleService.fetchRules()
+
+        XCTAssertEqual(summary.scannedCount, 3)
+        XCTAssertEqual(summary.duplicateGroupCount, 1)
+        XCTAssertEqual(summary.deletedCount, 1)
+        XCTAssertEqual(fetched.count, 2)
+        XCTAssertTrue(fetched.contains { $0.id == keeper.id })
+        XCTAssertFalse(fetched.contains { $0.id == duplicate.id })
+        XCTAssertEqual(keeper.lastTriggeredDate, Date(timeIntervalSince1970: 2_500))
+        XCTAssertEqual(ruleService.ruleCount, 2)
+    }
+
     func testSeedDefaultRulesIsIdempotentAndCreatesMixedActions() throws {
         try ruleService.seedDefaultRules()
         let firstSeed = try ruleService.fetchRules()

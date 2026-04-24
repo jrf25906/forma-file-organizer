@@ -530,6 +530,13 @@ class DashboardViewModel: ObservableObject {
         let externalReviewRequestID: UUID?
     }
 
+    private struct ReviewPassCacheKey: Hashable {
+        let scopeKey: ReviewChunkScopeKey
+        let filesRevision: Int
+        let presentationRevision: Int
+        let passStateRevision: Int
+    }
+
     private static let defaultReviewChunkSize = 8
 
     // MARK: - Focused ViewModels (New Architecture)
@@ -645,6 +652,10 @@ class DashboardViewModel: ObservableObject {
     private var reviewPassPathsByScope: [ReviewChunkScopeKey: [String]] = [:]
     private var organizedReviewPathsByScope: [ReviewChunkScopeKey: Set<String>] = [:]
     private var reviewPassCategoriesByScope: [ReviewChunkScopeKey: [String: FileTypeCategory]] = [:]
+    private var reviewPresentationRevision = 0
+    private var reviewPassStateRevision = 0
+    private var cachedReviewPassStateKey: ReviewPassCacheKey?
+    private var cachedReviewPassState: ReviewPassSnapshotState?
     private var projectSpaceWorkflowCandidateFiles: [FileItem] = []
     private var isSynchronizingProjectSpaceWorkflowState = false
     private var selectedProjectSpaceAutomationPolicyID: UUID?
@@ -2062,6 +2073,7 @@ class DashboardViewModel: ObservableObject {
         reviewPassPathsByScope.removeValue(forKey: scopeKey)
         organizedReviewPathsByScope.removeValue(forKey: scopeKey)
         reviewPassCategoriesByScope.removeValue(forKey: scopeKey)
+        invalidateReviewPassStateCache(passStateDidChange: true)
 
         deselectAll()
         objectWillChange.send()
@@ -2081,6 +2093,7 @@ class DashboardViewModel: ObservableObject {
         reviewPassPathsByScope.removeValue(forKey: scopeKey)
         organizedReviewPathsByScope.removeValue(forKey: scopeKey)
         reviewPassCategoriesByScope.removeValue(forKey: scopeKey)
+        invalidateReviewPassStateCache(passStateDidChange: true)
         deselectAll()
         objectWillChange.send()
         showToast(
@@ -2143,7 +2156,8 @@ class DashboardViewModel: ObservableObject {
             scanViewModel: scanViewModel,
             filterViewModel: filterViewModel,
             selectionViewModel: selectionViewModel,
-            panelManager: panelManager
+            panelManager: panelManager,
+            refreshesFilterAfterScanMutation: false
         )
         controller.onShowToast = { [weak self] message, canUndo in
             self?.showToast(message: message, canUndo: canUndo)
@@ -2711,6 +2725,7 @@ class DashboardViewModel: ObservableObject {
                 self.skipGlobalRefreshForNextFileMutation = false
                 self.filesRevision += 1
                 self.inspectorSelectionCacheKey = nil
+                self.invalidateReviewPassStateCache()
                 self.synchronizeOrganizationProgressTotal(with: files)
                 self.filterViewModel.updateSourceFiles(files)
                 if !skipGlobalRefresh {
@@ -2725,7 +2740,14 @@ class DashboardViewModel: ObservableObject {
         // Forward filtered files changes to AnalyticsViewModel
         filterViewModel.$filteredFiles
             .sink { [weak self] files in
+                self?.invalidateReviewPresentationCache()
                 self?.analyticsViewModel.updateFilteredAnalytics(from: files)
+            }
+            .store(in: &cancellables)
+
+        filterViewModel.$cachedVisibleFiles
+            .sink { [weak self] _ in
+                self?.invalidateReviewPresentationCache()
             }
             .store(in: &cancellables)
 
@@ -3422,6 +3444,8 @@ class DashboardViewModel: ObservableObject {
         refreshProjectSpaces()
         resetOrganizationProgress(with: files)
     }
+
+    private(set) var _testReviewPassComputationCount = 0
 
     func _testSimulateBulkOperationCompletion(successCount: Int = 0, failedCount: Int = 0) {
         bulkOperationViewModel.onOperationComplete?(successCount, failedCount)
@@ -4350,8 +4374,11 @@ class DashboardViewModel: ObservableObject {
         )
     }
 
-    private func activeDeferredReviewPaths(in files: [FileItem]) -> Set<String> {
-        guard let scopeKey = currentReviewChunkScopeKey,
+    private func activeDeferredReviewPaths(
+        in files: [FileItem],
+        scopeKey: ReviewChunkScopeKey? = nil
+    ) -> Set<String> {
+        guard let scopeKey = scopeKey ?? currentReviewChunkScopeKey,
               let deferredPaths = deferredReviewPathsByScope[scopeKey],
               !deferredPaths.isEmpty else {
             return []
@@ -4371,8 +4398,31 @@ class DashboardViewModel: ObservableObject {
             )
         }
 
+        let cacheKey = ReviewPassCacheKey(
+            scopeKey: scopeKey,
+            filesRevision: filesRevision,
+            presentationRevision: reviewPresentationRevision,
+            passStateRevision: reviewPassStateRevision
+        )
+
+        if cachedReviewPassStateKey == cacheKey,
+           let cachedReviewPassState {
+            return cachedReviewPassState
+        }
+
+        let state = computeCurrentReviewPassState(scopeKey: scopeKey)
+        cachedReviewPassStateKey = cacheKey
+        cachedReviewPassState = state
+        return state
+    }
+
+    private func computeCurrentReviewPassState(scopeKey: ReviewChunkScopeKey) -> ReviewPassSnapshotState {
+        #if DEBUG
+        _testReviewPassComputationCount += 1
+        #endif
+
         let baseVisibleFiles = filterViewModel.visibleFiles
-        let deferredPaths = activeDeferredReviewPaths(in: baseVisibleFiles)
+        let deferredPaths = activeDeferredReviewPaths(in: baseVisibleFiles, scopeKey: scopeKey)
         let availableFiles = baseVisibleFiles.filter { !deferredPaths.contains($0.path) }
         let availablePaths = Set(availableFiles.map(\.path))
         let allKnownPaths = Set(scanViewModel.allFiles.map(\.path))
@@ -4443,6 +4493,19 @@ class DashboardViewModel: ObservableObject {
         )
     }
 
+    private func invalidateReviewPresentationCache() {
+        reviewPresentationRevision &+= 1
+        invalidateReviewPassStateCache()
+    }
+
+    private func invalidateReviewPassStateCache(passStateDidChange: Bool = false) {
+        if passStateDidChange {
+            reviewPassStateRevision &+= 1
+        }
+        cachedReviewPassStateKey = nil
+        cachedReviewPassState = nil
+    }
+
     private var currentReviewChunkFiles: [FileItem] {
         currentReviewPassState.remainingFiles
     }
@@ -4458,6 +4521,7 @@ class DashboardViewModel: ObservableObject {
         guard inserted else { return }
 
         organizedReviewPathsByScope[scopeKey] = organizedPaths
+        invalidateReviewPassStateCache(passStateDidChange: true)
         objectWillChange.send()
     }
 

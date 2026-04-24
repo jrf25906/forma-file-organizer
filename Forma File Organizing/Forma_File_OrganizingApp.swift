@@ -244,6 +244,18 @@ struct Forma_File_OrganizingApp: App {
             }
 
             do {
+                let cleanupSummary = try ruleService.deleteExactDuplicateRules()
+                if cleanupSummary.deletedCount > 0 {
+                    Log.info(
+                        "Removed \(cleanupSummary.deletedCount) exact duplicate rules across \(cleanupSummary.duplicateGroupCount) groups",
+                        category: .general
+                    )
+                }
+            } catch {
+                Log.error("Failed to clean up duplicate rules: \(error.localizedDescription)", category: .general)
+            }
+
+            do {
                 let restoredScreenshotRule = try ruleService.restoreDeletedScreenshotRuleIfNeeded()
                 if restoredScreenshotRule {
                     let categoryService = CategoryService(modelContext: context)

@@ -512,10 +512,10 @@ final class Rule: Ruleable {
             if _destinationIsTrash {
                 return .trash
             }
-            guard let bookmark = _destinationBookmarkData,
-                  let displayName = _destinationDisplayName else {
+            guard let displayName = _destinationDisplayName else {
                 return nil
             }
+            let bookmark = _destinationBookmarkData ?? Data()
             return .folder(bookmark: bookmark, displayName: displayName)
         }
         set {

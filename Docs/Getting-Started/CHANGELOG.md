@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Dashboard Responsiveness
+- **Historical duplicate Smart Rules are cleaned up**: startup now removes exact duplicate rule rows while preserving one keeper per behavior, addressing older stores where per-folder templates could be applied repeatedly and leave thousands of identical enabled rules.
+- **Per-folder templates stop re-adding skipped rules**: onboarding now checks generated template-rule signatures before assigning a category relationship, preventing SwiftData from tracking duplicate skipped rules, and persisted placeholder destinations remain readable even when bookmark data is absent.
+- **Bulk destination edits stop creating repeat rules**: the `Create Rules` option now uses `RuleService` batch creation, so repeating the same bulk edit reuses semantic de-duping instead of inserting duplicate extension rules directly.
+- **Review queue reads stop redoing the same work**: review-mode dashboard state now caches the active review-pass projection, so repeated SwiftUI reads for visible files, sections, ready counts, category summaries, and action-bar state reuse one computed chunk until the file list, filters, or pass state changes.
+- **Single-file organize avoids duplicate filter refreshes**: the live dashboard organization path now relies on the existing scan-list publisher to refresh filters after removing an organized file, while standalone controller usage keeps its direct refresh path for tests and isolated callers.
+
 ### Fixed - Security Audit Tier B
 - **Bookmark moves use the secure move path**: `FileOperationsService.moveFileUsingBookmark` now routes production organize moves through `secureFileMove`, keeping destination/source security-scoped access alive with `withExtendedLifetime`, moving with `renameatx_np` no-replace/no-symlink flags through descriptor-walked search-only parent directories when supported, retrying no-replace renames before copy fallback when filesystems reject the strict flags, preserving the source on destination collisions, failing closed when the source cannot be pinned with an open descriptor, and using metadata-preserving open-FD copy through inode-verified temporary/final destinations before cross-volume source unlink.
 - **Abandoned workflow files stay auditable**: when `WorkflowRunner` stops after an upstream file failure, remaining planned files now receive skipped execution-step audit rows plus a skipped `WorkflowFileActionRecord` with the explicit `abandonedAfterUpstreamFailure` reason.

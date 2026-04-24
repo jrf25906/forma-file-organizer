@@ -910,6 +910,10 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 - Rule lookup helpers (`Forma File Organizing/Services/RuleService.swift`)
   - `fetchRule(id:)`
   - `findMatchingMoveRule(conditions:logicalOperator:destination:)`
+  - `deleteExactDuplicateRules()`
+    - Removes historical exact duplicate persisted rules while preserving one keeper per behavior; startup invokes this after category migration so older stores affected by repeated template application do not keep thousands of redundant enabled rules.
+  - `Rule.destination`
+    - Reconstructs folder placeholders from `displayName` even when bookmark data is absent, so dedupe, health checks, and template cleanup can still identify historical generated rule destinations.
 - Review celebration trust-promotion flow
   - `PanelStateManager.trustedScopeRecommendation`
   - `PanelStateManager.isTrustedScopeRecommendationPresented`

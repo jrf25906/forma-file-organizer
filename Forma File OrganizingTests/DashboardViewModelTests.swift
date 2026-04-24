@@ -3319,6 +3319,42 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.currentReviewChunkCount, viewModel.reviewChunkSize)
     }
 
+    func testReviewChunkProjectionCachesRepeatedDashboardReads() {
+        let files = makeReviewFiles(count: 1_000)
+
+        viewModel._testSetFiles(files)
+
+        let initialComputationCount = viewModel._testReviewPassComputationCount
+        _ = viewModel.visibleFiles
+        let firstReadComputationCount = viewModel._testReviewPassComputationCount
+
+        XCTAssertEqual(firstReadComputationCount, initialComputationCount + 1)
+
+        for _ in 0..<20 {
+            _ = viewModel.visibleFiles
+            _ = viewModel.currentReviewChunkPaths
+            _ = viewModel.reviewSections
+            _ = viewModel.currentPassReadyCount
+            _ = viewModel.currentPassCategorySummaries
+            _ = viewModel.currentPassReviewActionBarState
+        }
+
+        XCTAssertEqual(
+            viewModel._testReviewPassComputationCount,
+            firstReadComputationCount,
+            "Repeated SwiftUI-style reads of the same review pass should reuse the cached projection."
+        )
+
+        viewModel.doneForNow()
+        _ = viewModel.visibleFiles
+
+        XCTAssertGreaterThan(
+            viewModel._testReviewPassComputationCount,
+            firstReadComputationCount,
+            "Changing review pass state should invalidate the cached projection."
+        )
+    }
+
     func testSelectAllInNeedsReviewModeSelectsCurrentChunkOnly() {
         let files = makeReviewFiles(count: 12)
 
