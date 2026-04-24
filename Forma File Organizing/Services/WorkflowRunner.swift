@@ -530,6 +530,8 @@ final class WorkflowRunner {
     private let sideEffectExecutorsByKind: [WorkflowStepKind: any WorkflowRunSideEffectExecutor]
     private let clock: () -> Date
 
+    private static let abandonedAfterUpstreamFailureReason = "abandonedAfterUpstreamFailure"
+
     init(
         auditStore: WorkflowAuditStore,
         rollbackCoordinator: WorkflowRollbackCoordinator = WorkflowRollbackCoordinator(),
@@ -597,8 +599,9 @@ final class WorkflowRunner {
         )
         var executedActions: [ExecutedFileAction] = []
         var terminalError: Error?
+        var firstAbandonedFileIndex: Int?
 
-        fileLoop: for plannedFile in plan.files {
+        fileLoop: for (plannedFileIndex, plannedFile) in plan.files.enumerated() {
             guard let file = fileLookup[FileMetadataRecord.normalizedPath(plannedFile.sourcePath)] else {
                 throw RunnerError.missingFile(plannedFile.sourcePath)
             }
@@ -701,6 +704,7 @@ final class WorkflowRunner {
                         modelContext: modelContext
                     )
                     terminalError = failure.underlyingError
+                    firstAbandonedFileIndex = plannedFileIndex + 1
                     break fileLoop
                 } catch {
                     let endedAt = clock()
@@ -725,9 +729,20 @@ final class WorkflowRunner {
                         modelContext: modelContext
                     )
                     terminalError = error
+                    firstAbandonedFileIndex = plannedFileIndex + 1
                     break fileLoop
                 }
             }
+        }
+
+        if let firstAbandonedFileIndex,
+           firstAbandonedFileIndex < plan.files.count {
+            recordAbandonedFileAudits(
+                runID: runRecord.id,
+                plannedFiles: plan.files[firstAbandonedFileIndex...],
+                fileLookup: fileLookup,
+                metadataService: metadataService
+            )
         }
 
         var finalPrimaryStatus: WorkflowRunPrimaryStatus
@@ -1014,6 +1029,65 @@ final class WorkflowRunner {
                 } catch {
                     // Preflight audit failures must not block execution or rollback.
                 }
+            }
+        }
+    }
+
+    private func recordAbandonedFileAudits(
+        runID: UUID,
+        plannedFiles: ArraySlice<WorkflowPlannedFile>,
+        fileLookup: [String: FileItem],
+        metadataService: FileMetadataFoundationService
+    ) {
+        for plannedFile in plannedFiles {
+            let file = fileLookup[FileMetadataRecord.normalizedPath(plannedFile.sourcePath)]
+            let sourcePath = file?.path ?? plannedFile.sourcePath
+            let fileIdentity = metadataService.resolveIdentity(for: sourcePath).canonicalIdentity
+            let recordedAt = clock()
+            var firstStepRunID: UUID?
+
+            for plannedStep in plannedFile.steps
+            where plannedStep.disposition == .planned && !Self.isSideEffectStep(plannedStep.kind) {
+                do {
+                    let stepRun = try auditOperations.recordStepStatus(
+                        AuditStepStatusRequest(
+                            runID: runID,
+                            stepID: Self.stepID(
+                                phase: "execute",
+                                stepKind: plannedStep.kind,
+                                filePath: plannedFile.sourcePath
+                            ),
+                            status: .skipped,
+                            startedAt: nil,
+                            endedAt: recordedAt,
+                            errorMessage: Self.abandonedAfterUpstreamFailureReason,
+                            recordedAt: recordedAt
+                        )
+                    )
+                    firstStepRunID = firstStepRunID ?? stepRun.id
+                } catch {
+                    // Abandoned-file audit rows should not mask the original execution failure.
+                }
+            }
+
+            do {
+                _ = try auditOperations.recordFileAction(
+                    AuditFileActionRequest(
+                        runID: runID,
+                        stepRunID: firstStepRunID,
+                        fileIdentity: fileIdentity,
+                        sourcePath: sourcePath,
+                        destinationPath: sourcePath,
+                        disposition: .skipped,
+                        compensationStatus: .notNeeded,
+                        compensationPayload: nil,
+                        metadataDelta: nil,
+                        failureReason: Self.abandonedAfterUpstreamFailureReason,
+                        recordedAt: recordedAt
+                    )
+                )
+            } catch {
+                // The terminal execution failure remains the surfaced error.
             }
         }
     }

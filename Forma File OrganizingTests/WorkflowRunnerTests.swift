@@ -1522,6 +1522,108 @@ final class WorkflowRunnerTests: XCTestCase {
         XCTAssertTrue(fileActions.contains(where: { $0.disposition == .restored && $0.compensationStatus == .applied }))
     }
 
+    func testRunner_RecordsAbandonedFilesAfterFileLoopBreak() async throws {
+        let environment = try makeEnvironment()
+        let tempDirectory = try TemporaryDirectory()
+        defer { tempDirectory.cleanup() }
+
+        let sourceFolder = try tempDirectory.createDirectory(name: "Inbox")
+        let destinationFolder = try tempDirectory.createDirectory(name: "Receipts")
+        let destination = try Destination.folder(from: destinationFolder, displayName: "Receipts")
+        let creationDate = Date(timeIntervalSince1970: 1_712_620_800)
+
+        let fileNames = [
+            "First Receipt.pdf",
+            "Second Receipt.pdf",
+            "Third Receipt.pdf",
+            "Fourth Receipt.pdf",
+            "Fifth Receipt.pdf"
+        ]
+        let sourceURLs = try fileNames.map { fileName in
+            try tempDirectory.createFile(name: "Inbox/\(fileName)", contents: fileName)
+        }
+        let files = sourceURLs.map { sourceURL in
+            FileItem(
+                path: sourceURL.path,
+                sizeInBytes: 100,
+                creationDate: creationDate,
+                modificationDate: creationDate,
+                lastAccessedDate: creationDate,
+                location: .custom,
+                scanRootPath: sourceFolder.path,
+                destination: destination,
+                status: .pending
+            )
+        }
+        files.forEach(environment.context.insert)
+        try environment.context.save()
+
+        let plan = WorkflowPlanner().plan(
+            templateID: BuiltInWorkflowTemplate.StableID.receipts,
+            files: files
+        )
+        XCTAssertFalse(plan.hasBlockers)
+
+        let moveExecutor = FailingMoveExecutor(
+            baseExecutor: MoveWorkflowStepExecutor(fileOrganizationCoordinator: environment.coordinator),
+            failingSourcePath: sourceURLs[2].path
+        )
+        let runner = WorkflowRunner(
+            auditStore: environment.auditStore,
+            rollbackCoordinator: WorkflowRollbackCoordinator(),
+            executorsByKind: [
+                .rename: RenameWorkflowStepExecutor(),
+                .tag: TagWorkflowStepExecutor(),
+                .move: moveExecutor
+            ]
+        )
+
+        do {
+            _ = try await runner.run(
+                plan: plan,
+                files: files,
+                scopeID: UUID(),
+                modelContext: environment.context
+            )
+            XCTFail("Runner should fail on the third file move")
+        } catch {
+            XCTAssertTrue(error is InjectedMoveFailure)
+        }
+
+        let run = try XCTUnwrap(environment.context.fetch(FetchDescriptor<WorkflowRunRecord>()).first)
+        let stepRuns = try environment.auditStore.stepRuns(runID: run.id)
+        let fileActions = try environment.auditStore.fileActions(runID: run.id)
+
+        for plannedFile in plan.files.suffix(from: 3) {
+            let abandonedStepKinds = plannedFile.steps
+                .filter { $0.disposition == .planned && $0.kind != .log && $0.kind != .notify }
+                .map(\.kind)
+            XCTAssertFalse(abandonedStepKinds.isEmpty)
+
+            for stepKind in abandonedStepKinds {
+                XCTAssertTrue(
+                    stepRuns.contains(where: {
+                        $0.stepID == "execute|\(stepKind.rawValue)|\(plannedFile.sourcePath)" &&
+                        $0.status == .skipped &&
+                        $0.errorMessage == "abandonedAfterUpstreamFailure"
+                    }),
+                    "Expected abandoned skipped \(stepKind.rawValue) step audit for \(plannedFile.sourcePath)"
+                )
+            }
+
+            XCTAssertTrue(
+                fileActions.contains(where: {
+                    $0.sourcePath == plannedFile.sourcePath &&
+                    $0.destinationPath == plannedFile.sourcePath &&
+                    $0.disposition == .skipped &&
+                    $0.compensationStatus == .notNeeded &&
+                    $0.failureReason == "abandonedAfterUpstreamFailure"
+                }),
+                "Expected abandoned skipped file-action audit for \(plannedFile.sourcePath)"
+            )
+        }
+    }
+
     func testRunner_SuccessFinalizationAuditWriteFailureDoesNotThrowAfterFilesystemMutation() async throws {
         let environment = try makeEnvironment()
         let tempDirectory = try TemporaryDirectory()

@@ -242,6 +242,11 @@ files 4 and 5 have audit rows with the new reason. Integration test:
 confirm `WorkflowRunDetailSheet` surfaces the skipped files with honest
 wording.
 
+**Implementation note.** Landed with `WorkflowRunner` emitting skipped
+execution-step rows and one skipped `WorkflowFileActionRecord` per
+abandoned file using `abandonedAfterUpstreamFailure`; covered by
+`WorkflowRunnerTests.testRunner_RecordsAbandonedFilesAfterFileLoopBreak`.
+
 ---
 
 ### B3 — Gate `FormaAppIntents` on `isFullyConfigured` + require confirmation for state-mutating intents

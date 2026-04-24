@@ -40,7 +40,7 @@ Reference: [Docs/audits/2026-04-23-forma-audit.md](Docs/audits/2026-04-23-forma-
 
 **Tier B — This week (medium complexity, high-value):**
 - [x] B1 — Routed `FileOperationsService.moveFileUsingBookmark` through `secureFileMove` so TOCTOU protection, FD-validated `renameatx_np`, strict-flag/no-replace retries, descriptor-walked search-only directory descriptors, temp/final-copy cross-volume fallback, fail-closed unopenable sources, and `withExtendedLifetime` apply on the production bookmark move path.
-- [ ] B2 — Make `WorkflowRunner` emit `.skipped` step audits and `WorkflowFileActionRecord` rows for every file abandoned after a `fileLoop: break`, with an explicit `abandonedAfterUpstreamFailure` reason.
+- [x] B2 — `WorkflowRunner` now emits `.skipped` step audits and `WorkflowFileActionRecord` rows for every file abandoned after a `fileLoop: break`, with an explicit `abandonedAfterUpstreamFailure` reason.
 - [ ] B3 — Gate every `FormaAppIntents.perform()` on `FormaActions.shared.isFullyConfigured`, require `requestConfirmation` for `ToggleAutomationIntent`, and validate each `IntentFile` URL is bookmark-backed before dispatch.
 - [ ] B4 — Decide fate of `DestinationPredictionService` drift detection and confidence-separation acceptance gate: Phase 0 evaluator repairs landed (shared Core ML probability parsing when exposed, off-main train/compile/load/evaluation, explicit label-only rejection without invented confidence, confidence-separation rejection notes, bounded sample-before-cap dataset split, POSIX UTC model versions); remaining work is the offline backtest, live shadow measurement, and either accept/override telemetry or removal of the drift branch.
 
