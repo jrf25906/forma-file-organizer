@@ -36,7 +36,7 @@ Reference: [Docs/audits/2026-04-23-forma-audit.md](Docs/audits/2026-04-23-forma-
 - [x] A1 — Deleted the unconditional `/tmp/thumbnail_debug.log` writer in `ThumbnailService`; thumbnail diagnostics now stay inside the shared logging facade, startup maintenance is scheduled after singleton construction with a retained task handle, and runtime coverage verifies the legacy shared `/tmp` log is not recreated.
 - [x] A2 — Gated `UITestFolderAccessConfiguration` behind `#if DEBUG || UI_TESTS`; Release builds now compile a false-only stub so UI/perf argv cannot relax bookmark enforcement, with `Scripts/verify_security_configuration.sh` checking Release binary env/path constraints and the Release `UI_TESTS` compile guard.
 - [x] A3 — Added explicit `selectedTests` to the default, Unit, Performance, and UI `xctestplan` files; un-orphaned current Unit-plan suites; added `Scripts/verify_test_plan_membership.py` plus CI coverage to diff discovered test suites against plan membership.
-- [ ] A4 — Add `resolvingSymlinksInPath()` to `PathValidator` and `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)` so a symlink inside a trusted/scanned scope cannot escape the boundary check.
+- [x] A4 — Added `resolvingSymlinksInPath()` to `PathValidator` and `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)`; symlink escapes from home-relative paths and trusted scanned scopes now fail with release-visible security logs.
 
 **Tier B — This week (medium complexity, high-value):**
 - [ ] B1 — Route `FileOperationsService.moveFileUsingBookmark` through `secureFileMove` so TOCTOU protection, FD-validated `renameat`, and `withExtendedLifetime` apply on the production bookmark move path.

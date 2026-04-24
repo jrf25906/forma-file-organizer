@@ -84,7 +84,21 @@ enum TrustedAutomationScopeBoundaryDescriptor: Codable, Equatable, Hashable, Sen
                 }
             }
 
-            return Self.relativePath(file.relativeParentPath, isWithin: relativeParentPath)
+            guard Self.relativePath(file.relativeParentPath, isWithin: relativeParentPath) else {
+                return false
+            }
+
+            if let scanRootPath {
+                guard Self.resolvedFilePath(file.path, isWithinScanRoot: scanRootPath, relativeScope: relativeParentPath) else {
+                    Log.error(
+                        "SECURITY: Trusted automation source boundary rejected symlink escape. File: \(file.path), Scan root: \(scanRootPath), Relative scope: \(relativeParentPath ?? "<root>")",
+                        category: .security
+                    )
+                    return false
+                }
+            }
+
+            return true
         }
 
         private static func normalizedPath(_ value: String?) -> String? {
@@ -115,6 +129,47 @@ enum TrustedAutomationScopeBoundaryDescriptor: Codable, Equatable, Hashable, Sen
             }
 
             return candidate == scope || candidate.hasPrefix("\(scope)/")
+        }
+
+        private static func resolvedFilePath(
+            _ filePath: String,
+            isWithinScanRoot scanRootPath: String,
+            relativeScope: String?
+        ) -> Bool {
+            guard
+                let resolvedScanRootPath = resolvedPath(scanRootPath),
+                let scopeRoot = scopeRootPath(scanRootPath: scanRootPath, relativeScope: relativeScope),
+                let resolvedFilePath = resolvedPath(filePath)
+            else {
+                return false
+            }
+
+            return isPath(scopeRoot, inside: resolvedScanRootPath)
+                && isPath(resolvedFilePath, inside: scopeRoot)
+        }
+
+        private static func scopeRootPath(scanRootPath: String, relativeScope: String?) -> String? {
+            guard let relativeScope = normalizedRelativeParentPath(relativeScope) else {
+                return resolvedPath(scanRootPath)
+            }
+
+            let scopeURL = URL(fileURLWithPath: scanRootPath)
+                .appendingPathComponent(relativeScope)
+
+            return resolvedPath(scopeURL.path)
+        }
+
+        private static func resolvedPath(_ value: String?) -> String? {
+            guard let value, !value.isEmpty else { return nil }
+            return URL(fileURLWithPath: value)
+                .resolvingSymlinksInPath()
+                .standardizedFileURL
+                .path
+        }
+
+        private static func isPath(_ path: String, inside rootPath: String) -> Bool {
+            let rootWithSeparator = rootPath.hasSuffix("/") ? rootPath : "\(rootPath)/"
+            return path == rootPath || path.hasPrefix(rootWithSeparator)
         }
     }
 

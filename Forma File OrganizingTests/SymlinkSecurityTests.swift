@@ -316,4 +316,63 @@ final class SymlinkSecurityTests: XCTestCase {
             "External symlink should point to /etc"
         )
     }
+
+    func testPathValidatorRejectsRelativePathEscapingHomeThroughSymlink() throws {
+        let homeDir = testDirectory.appendingPathComponent("RealHome")
+        let outsideHome = testDirectory.appendingPathComponent("OutsideHome")
+        try FileManager.default.createDirectory(at: homeDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outsideHome, withIntermediateDirectories: true)
+
+        PathValidator.debugHomeDirectoryOverride = homeDir
+        defer {
+            PathValidator.debugHomeDirectoryOverride = nil
+        }
+
+        let fixtureSuffix = UUID().uuidString.filter { $0.isLetter }
+        let homeFixture = homeDir.appendingPathComponent("FormaSymlinkBoundary\(fixtureSuffix)")
+
+        try FileManager.default.createDirectory(at: homeFixture, withIntermediateDirectories: true)
+
+        let symlink = homeFixture.appendingPathComponent("escape")
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: outsideHome)
+
+        let relativePath = "\(homeFixture.lastPathComponent)/escape"
+
+        XCTAssertThrowsError(try PathValidator.validate(relativePath)) { error in
+            guard case PathValidator.ValidationError.symlinkEscape = error else {
+                return XCTFail("Expected symlinkEscape, got \(error)")
+            }
+        }
+    }
+
+    func testPathValidatorIgnoresContainerOnlySymlinkForRelativeDestination() throws {
+        let homeDir = testDirectory.appendingPathComponent("RealHome")
+        try FileManager.default.createDirectory(at: homeDir, withIntermediateDirectories: true)
+
+        PathValidator.debugHomeDirectoryOverride = homeDir
+        defer {
+            PathValidator.debugHomeDirectoryOverride = nil
+        }
+
+        let containerHome = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        guard containerHome.path != homeDir.standardizedFileURL.path else {
+            throw XCTSkip("Container home and validation home are identical in this test environment")
+        }
+
+        let fixtureSuffix = UUID().uuidString.filter { $0.isLetter }
+        let containerFixture = containerHome.appendingPathComponent("FormaContainerOnlyBoundary\(fixtureSuffix)")
+        let outsideContainer = URL(fileURLWithPath: "/private/tmp")
+
+        try FileManager.default.createDirectory(at: containerFixture, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: containerFixture)
+        }
+
+        let symlink = containerFixture.appendingPathComponent("escape")
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: outsideContainer)
+
+        let relativePath = "\(containerFixture.lastPathComponent)/escape"
+
+        XCTAssertEqual(try PathValidator.validate(relativePath), relativePath)
+    }
 }

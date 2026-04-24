@@ -67,6 +67,8 @@ All service methods are thread-safe and use `async/await` for concurrency. ViewM
 
 ### Recent API Updates (April 2026)
 
+- `PathValidator.validate(_:)` now resolves symlinks before enforcing the sandbox/home boundary and emits release-visible security logs when a relative path escapes through a symlink.
+- `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)` now resolves the scanned scope root and candidate file before accepting trusted automation scope matches, rejecting symlink escapes that are lexically inside the trusted scope but physically outside it.
 - `Scripts/verify_test_plan_membership.py` now discovers XCTest and Swift Testing suites from the app and UI test targets, classifies Unit/Integration/Performance/UI ownership, and fails when Xcode `selectedTests` membership drifts from the filesystem.
 - `ThumbnailService.shared` now constructs the singleton before scheduling startup cache maintenance, retains that maintenance `Task`, and routes thumbnail diagnostics through `Log.debug` instead of writing previewed file paths to a shared `/tmp` file.
 - `UITestFolderAccessConfiguration.isEnabled` now reads UI/perf harness argv only in `DEBUG` or `UI_TESTS` builds; `isEnabled(arguments:)` exposes the same parser for unit coverage, Release builds compile a false-only stub, and a compile-time guard prevents `UI_TESTS` from being defined outside Debug.

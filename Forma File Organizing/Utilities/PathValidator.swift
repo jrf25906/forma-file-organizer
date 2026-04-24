@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Centralized path validation utility for secure destination path checking.
 ///
@@ -11,6 +12,10 @@ import Foundation
 ///
 /// OWASP Reference: A01:2021 – Broken Access Control
 enum PathValidator {
+
+    #if DEBUG
+    nonisolated(unsafe) static var debugHomeDirectoryOverride: URL?
+    #endif
     
     // MARK: - Constants
     
@@ -87,17 +92,13 @@ enum PathValidator {
         
         // 3. SECURITY: Check for null byte injection (CWE-158)
         guard !trimmed.contains("\0") else {
-            #if DEBUG
             Log.error("SECURITY: Null byte injection attempt detected in path: \(path)", category: .security)
-            #endif
             throw ValidationError.nullByteInjection
         }
         
         // 4. SECURITY: REJECT absolute paths outright (prevent directory escape)
         if trimmed.hasPrefix("/") || trimmed.hasPrefix("~") {
-            #if DEBUG
             Log.error("SECURITY: Absolute path rejected: \(trimmed)", category: .security)
-            #endif
             throw ValidationError.absolutePath
         }
         
@@ -105,9 +106,7 @@ enum PathValidator {
         // e.g., "Users/username/..." or "Volumes/..." (common attack vector)
         if trimmed.hasPrefix("Users/") || trimmed.hasPrefix("Volumes/") ||
            trimmed.hasPrefix("System/") || trimmed.hasPrefix("Library/") {
-            #if DEBUG
             Log.error("SECURITY: Suspicious absolute-like path rejected: \(trimmed)", category: .security)
-            #endif
             throw ValidationError.suspiciousPath(reason: "Use relative paths like 'Pictures' or 'Documents/Work'.")
         }
         
@@ -131,54 +130,71 @@ enum PathValidator {
             // 7b. SECURITY: REJECT directory traversal attempts (CWE-22)
             // Block ".." and "." as entire components (but allow ".hidden" folders)
             if component == ".." || component == "." {
-                #if DEBUG
                 Log.error("SECURITY: Path traversal attempt detected: \(component) in \(trimmed)", category: .security)
-                #endif
                 throw ValidationError.pathTraversal(component: component)
             }
             
             // 7c. SECURITY: Check for invalid macOS filename characters
             let invalidChars = CharacterSet(charactersIn: ":<>|\"\\0")
             if component.rangeOfCharacter(from: invalidChars) != nil {
-                #if DEBUG
                 Log.error("SECURITY: Invalid characters in path component: \(component)", category: .security)
-                #endif
                 throw ValidationError.invalidCharacters(characters: component)
             }
             
             // 7d. SECURITY: Check for reserved macOS system names
             if reservedMacOSNames.contains(component) || reservedMacOSNames.contains("." + component) {
-                #if DEBUG
                 Log.error("SECURITY: Reserved macOS system name rejected: \(component)", category: .security)
-                #endif
                 throw ValidationError.reservedName(name: component)
             }
         }
         
-        // 8. Construct the full path relative to home directory
-        let homeURL = FileManager.default.homeDirectoryForCurrentUser
-        let proposedURL = homeURL.appendingPathComponent(trimmed)
-        
-        // 9. SECURITY: Resolve symlinks and verify the canonical path stays within home directory
+        // 8. SECURITY: Resolve symlinks against the real home root used by DestinationResolver
         // This prevents symlink-based directory traversal attacks (CWE-61)
-        let standardizedURL = proposedURL.standardized
-        let canonicalPath = standardizedURL.path
-        
-        // Verify the resolved path is still within the home directory
-        let homeDir = homeURL.path
-        guard canonicalPath.hasPrefix(homeDir) else {
-            #if DEBUG
+        let homeURL = validatedHomeDirectory().standardizedFileURL
+        let proposedURL = homeURL.appendingPathComponent(trimmed)
+        let canonicalPath = proposedURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+            .path
+
+        let homeDir = homeURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+            .path
+        guard isPath(canonicalPath, inside: homeDir) else {
             Log.error("SECURITY: Symlink escape attempt detected. Proposed: \(proposedURL.path), Resolved: \(canonicalPath), Home: \(homeDir)", category: .security)
-            #endif
             throw ValidationError.symlinkEscape
         }
         
-        // 10. Return the sanitized relative path (not the canonical one, to preserve user intent)
+        // 9. Return the sanitized relative path (not the canonical one, to preserve user intent)
         #if DEBUG
         Log.debug("SECURITY: Path validated successfully: \(trimmed), canonical: \(canonicalPath)", category: .security)
         #endif
         
         return trimmed
+    }
+
+    private static func isPath(_ path: String, inside rootPath: String) -> Bool {
+        let rootWithSeparator = rootPath.hasSuffix("/") ? rootPath : "\(rootPath)/"
+        return path == rootPath || path.hasPrefix(rootWithSeparator)
+    }
+
+    private static func validatedHomeDirectory() -> URL {
+        #if DEBUG
+        if let debugHomeDirectoryOverride {
+            return debugHomeDirectoryOverride
+        }
+        #endif
+
+        return realHomeDirectory()
+    }
+
+    private static func realHomeDirectory() -> URL {
+        if let pw = getpwuid(getuid()) {
+            return URL(fileURLWithPath: String(cString: pw.pointee.pw_dir))
+        }
+
+        return FileManager.default.homeDirectoryForCurrentUser
     }
     
     /// Quick validation check without throwing (returns Bool).

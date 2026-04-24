@@ -357,6 +357,130 @@ final class TrustedAutomationScopeResolverTests: XCTestCase {
         }
     }
 
+    func testResolveMatch_RejectsSymlinkEscapeFromPersistedSourceBoundary() throws {
+        let sourceRoot = try TemporaryDirectory()
+        let outsideRoot = try TemporaryDirectory()
+        let destinationRoot = try TemporaryDirectory()
+        let trustedDestination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
+
+        let trustedSubtree = try sourceRoot.createDirectory(name: "Trusted")
+        let outsideFile = try outsideRoot.createFile(name: "Escaped.pdf")
+        let symlink = trustedSubtree.appendingPathComponent("escape")
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: outsideRoot.url)
+
+        let candidatePath = symlink.appendingPathComponent(outsideFile.lastPathComponent).path
+
+        try withServices { _, service, resolver in
+            let scope = try service.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "\(sourceRoot.url.path)|Trusted",
+                displayName: "Trusted",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .custom,
+                        scanRootPath: sourceRoot.url.path,
+                        relativeParentPath: "Trusted"
+                    ),
+                    destination: .init(trustedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.91,
+                rationaleSummary: "Trusted subtree should not include symlink escapes.",
+                allowedActions: [.move]
+            )
+            let candidate = makeCandidateFile(
+                path: candidatePath,
+                fileExtension: "pdf",
+                sourceLocation: .custom,
+                scanRootPath: sourceRoot.url.path,
+                relativeParentPath: "Trusted/escape"
+            )
+
+            XCTAssertNil(try resolver.resolveMatch(for: candidate, destination: trustedDestination))
+            XCTAssertEqual(scope.displayName, "Trusted")
+        }
+    }
+
+    func testResolveMatch_RejectsSymlinkedScopeRootEscapingScanRoot() throws {
+        let sourceRoot = try TemporaryDirectory()
+        let outsideRoot = try TemporaryDirectory()
+        let destinationRoot = try TemporaryDirectory()
+        let trustedDestination = try Destination.folder(from: try destinationRoot.createDirectory(name: "Exports"))
+
+        let outsideFile = try outsideRoot.createFile(name: "Escaped.pdf")
+        let symlinkedScopeRoot = sourceRoot.url.appendingPathComponent("Trusted")
+        try FileManager.default.createSymbolicLink(at: symlinkedScopeRoot, withDestinationURL: outsideRoot.url)
+
+        let candidatePath = symlinkedScopeRoot.appendingPathComponent(outsideFile.lastPathComponent).path
+
+        try withServices { _, service, resolver in
+            let scope = try service.createOrReactivateScope(
+                scopeType: .folder,
+                scopeKey: "\(sourceRoot.url.path)|Trusted",
+                displayName: "Trusted",
+                boundaryDescriptor: .folder(
+                    source: .init(
+                        sourceLocation: .custom,
+                        scanRootPath: sourceRoot.url.path,
+                        relativeParentPath: "Trusted"
+                    ),
+                    destination: .init(trustedDestination)
+                ),
+                promotionSource: .reviewFlow,
+                recommendationSource: .repeatedReviewAcceptance,
+                acceptedEvidenceCount: 4,
+                overrideEvidenceCount: 0,
+                undoEvidenceCount: 0,
+                confidenceSnapshot: 0.91,
+                rationaleSummary: "Trusted scope root should stay inside scan root.",
+                allowedActions: [.move]
+            )
+            let candidate = makeCandidateFile(
+                path: candidatePath,
+                fileExtension: "pdf",
+                sourceLocation: .custom,
+                scanRootPath: sourceRoot.url.path,
+                relativeParentPath: "Trusted"
+            )
+
+            XCTAssertNil(try resolver.resolveMatch(for: candidate, destination: trustedDestination))
+            XCTAssertEqual(scope.displayName, "Trusted")
+        }
+    }
+
+    func testSourceBoundaryMatch_PreservesDecodedLexicalSymlinkScanRootIdentity() throws {
+        let sourceRoot = try TemporaryDirectory()
+        let aliasParent = try TemporaryDirectory()
+        let aliasRoot = aliasParent.url.appendingPathComponent("ScannedAlias")
+        try FileManager.default.createSymbolicLink(at: aliasRoot, withDestinationURL: sourceRoot.url)
+        _ = try sourceRoot.createFile(name: "Trusted/Receipt.pdf")
+
+        let boundaryData = try JSONSerialization.data(withJSONObject: [
+            "sourceLocation": "custom",
+            "scanRootPath": aliasRoot.path,
+            "relativeParentPath": "Trusted"
+        ])
+        let sourceBoundary = try JSONDecoder().decode(
+            TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.self,
+            from: boundaryData
+        )
+        let candidate = makeCandidateFile(
+            path: aliasRoot.appendingPathComponent("Trusted/Receipt.pdf").path,
+            fileExtension: "pdf",
+            sourceLocation: .custom,
+            scanRootPath: aliasRoot.path,
+            relativeParentPath: "Trusted"
+        )
+
+        XCTAssertTrue(sourceBoundary.matches(file: candidate))
+        XCTAssertTrue(sourceBoundary.identityKey.hasPrefix(aliasRoot.standardizedFileURL.path))
+        XCTAssertFalse(sourceBoundary.identityKey.hasPrefix(sourceRoot.url.resolvingSymlinksInPath().standardizedFileURL.path))
+    }
+
     private func makeCandidateFile(
         path: String,
         fileExtension: String,

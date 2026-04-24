@@ -5,6 +5,10 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 ## Recent Additions (Unreleased)
 
 - Security audit Tier A cleanup
+  - `PathValidator.validate(_:)`
+    - Resolves symlinks before enforcing the sandbox/home boundary and emits release-visible security logs when a relative path escapes through a symlink.
+  - `TrustedAutomationScopeBoundaryDescriptor.SourceBoundary.matches(file:)`
+    - Resolves the scanned scope root and candidate file before accepting trusted automation scope matches, rejecting symlink escapes that are lexically inside the trusted scope but physically outside it.
   - `Scripts/verify_test_plan_membership.py`
     - Discovers XCTest and Swift Testing suites from the app and UI test targets, classifies Unit/Integration/Performance/UI ownership, and fails when Xcode `selectedTests` membership drifts from the filesystem.
   - `ThumbnailService.shared`
