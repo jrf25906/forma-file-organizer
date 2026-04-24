@@ -23,7 +23,16 @@
         "containerPath": "container:Forma File Organizing.xcodeproj",
         "identifier": "50A492902ECC4C4A006868D5",
         "name": "Forma File OrganizingUITests"
-      }
+      },
+      "selectedTests": [
+        "AppStoreScreenshotTests",
+        "FileRowUITests",
+        "FileSurfaceToolbarValidationTests",
+        "Forma_File_OrganizingUITests",
+        "Forma_File_OrganizingUITestsLaunchTests",
+        "MicroInteractionsUITests",
+        "RuleEditingWorkflowUITests"
+      ]
     }
   ],
   "version": 1

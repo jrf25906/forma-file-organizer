@@ -1,0 +1,13 @@
+name: Test Plan Membership
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Xcode test plan membership
+        run: Scripts/verify_test_plan_membership.py

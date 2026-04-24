@@ -1,31 +1,157 @@
 {
-  "configurations" : [
+  "configurations": [
     {
-      "id" : "8BDD1A3D-CC1F-4BAB-AD79-5230F3BE24E3",
-      "name" : "All Tests",
-      "options" : {
-
-      }
+      "id": "8BDD1A3D-CC1F-4BAB-AD79-5230F3BE24E3",
+      "name": "All Tests",
+      "options": {}
     }
   ],
-  "defaultOptions" : {
-    "testTimeoutsEnabled" : true
+  "defaultOptions": {
+    "testTimeoutsEnabled": true
   },
-  "testTargets" : [
+  "testTargets": [
     {
-      "target" : {
-        "containerPath" : "container:Forma File Organizing.xcodeproj",
-        "identifier" : "50A492862ECC4C4A006868D5",
-        "name" : "Forma File OrganizingTests"
-      }
+      "target": {
+        "containerPath": "container:Forma File Organizing.xcodeproj",
+        "identifier": "50A492862ECC4C4A006868D5",
+        "name": "Forma File OrganizingTests"
+      },
+      "selectedTests": [
+        "ActivityLoggingTests",
+        "AnalyticsServiceTests",
+        "AnalyticsViewModelTests",
+        "AppReviewEligibilityServiceTests",
+        "AppStoreMigrationTests",
+        "AutomationEngineNotificationTests",
+        "AutomationEngineRealtimeMonitoringTests",
+        "AutomationEngineTests",
+        "AutomationIntegrationTests",
+        "AutomationPolicyTests",
+        "BookmarkFolderServiceTests",
+        "BookmarkValidationSecurityTests",
+        "BulkOperationViewModelTests",
+        "ConfidenceIndicatorTests",
+        "ContextDetectionServiceTests",
+        "DashboardFileScanProviderTests",
+        "DashboardOrganizationControllerTests",
+        "DashboardPermissionStateTests",
+        "DashboardScanRefreshControllerTests",
+        "DashboardSplitLayoutConfigurationTests",
+        "DashboardViewModelPerformanceTests",
+        "DashboardViewModelTests",
+        "DefaultPanelEditorialSuggestionFactoryTests",
+        "DestinationPredictionGatingTests",
+        "DestinationPredictionPerformanceTests",
+        "DestinationTests",
+        "DuplicateDetectionServiceTests",
+        "EnhancedReviewFeatureTests",
+        "ExternalIngressCoordinatorTests",
+        "FileFilterManagerTests",
+        "FileItemDestinationTests",
+        "FileMetadataFoundationIntegrationTests",
+        "FileMetadataFoundationServiceTests",
+        "FileMetadataTests",
+        "FileMonitorServiceTests",
+        "FileOperationsSecurityTests",
+        "FileOperationsServiceTests",
+        "FileRowTests",
+        "FileScanPipelinePrecedenceTests",
+        "FileScanPipelineTests",
+        "FileSurfaceStyleTests",
+        "FileSystemServiceTests",
+        "FilenameUtilitiesTests",
+        "FilterViewModelTests",
+        "FinderServicesRegistrationControllerTests",
+        "FolderTemplateSelectionTests",
+        "FormaAppIntentsTests",
+        "FormaBordersTests",
+        "FormaColorsTests",
+        "FormaControlChromePaletteTests",
+        "FormaEasingTests",
+        "FormaShadowsTests",
+        "FormaSpacingTests",
+        "FormaTypographyTests",
+        "Forma_File_OrganizingTests",
+        "GuidedTourMeasurementPolicyTests",
+        "InlineRuleBuilderTests",
+        "InsightsServiceTests",
+        "LoggingPolicyTests",
+        "MainContentViewTests",
+        "MainWindowFrameValidatorTests",
+        "MenuBarFileReviewCardSnapshotTests",
+        "MenuBarWorkflowGuidanceTests",
+        "MetadataContentTagResolverTests",
+        "MetadataProjectAssociationResolverTests",
+        "NaturalLanguageRuleParserDatasetTests",
+        "NaturalLanguageRuleParserEdgeCaseTests",
+        "NaturalLanguageRuleParserTests",
+        "NaturalLanguageRuleViewModelTests",
+        "NavigationViewModelTests",
+        "NotificationServiceTests",
+        "OptimizationBenchmarksTests",
+        "OrganizationPersonalityTests",
+        "OrganizationTemplateTests",
+        "PanelStateManagerTests",
+        "PerFolderTemplateCategoryTests",
+        "PerformanceHarnessConfigurationTests",
+        "PersonalMemoryServiceTests",
+        "ProjectAutomationOwnershipResolverTests",
+        "ProjectSpaceAdmissionResolverTests",
+        "ProjectSpaceAutomationCoordinatorTests",
+        "ProjectSpaceAutomationRecommendationServiceTests",
+        "ProjectSpaceAutomationServiceTests",
+        "ProjectSpaceMemoryResolverTests",
+        "ProjectSpaceSnapshotTests",
+        "ProjectSpaceWorkflowProfileServiceTests",
+        "RateLimitingPerformanceTests",
+        "RateLimitingTests",
+        "ReportServiceTests",
+        "ReviewViewModelTests",
+        "RuleConditionTypeSafetyTests",
+        "RuleEngineTests",
+        "RuleHealthServiceTests",
+        "RuleManagementCardSnapshotTests",
+        "RuleOverlapDetectorTests",
+        "RuleServiceTests",
+        "SecureBookmarkStoreTests",
+        "SecurityConfigurationRegressionTests",
+        "StorageServicePerformanceTests",
+        "StorageServiceTests",
+        "SuggestionSourcePersistenceTests",
+        "SymlinkSecurityTests",
+        "TestGatingTests",
+        "TrustedAutomationScopeCatalogServiceTests",
+        "TrustedAutomationScopeResolverTests",
+        "TrustedAutomationScopeServiceTests",
+        "TrustedAutomationScopeSnapshotTests",
+        "WorkflowActivityProjectionTests",
+        "WorkflowAuditStoreTests",
+        "WorkflowEntryPointOrganizerTests",
+        "WorkflowPlannerTests",
+        "WorkflowRollbackCoordinatorTests",
+        "WorkflowRunDetailSheetTests",
+        "WorkflowRunnerTests",
+        "WorkflowStepExecutorTests",
+        "WorkflowTemplateCatalogTests",
+        "WorkflowTemplateSelectionStoreTests"
+      ]
     },
     {
-      "target" : {
-        "containerPath" : "container:Forma File Organizing.xcodeproj",
-        "identifier" : "50A492902ECC4C4A006868D5",
-        "name" : "Forma File OrganizingUITests"
-      }
+      "target": {
+        "containerPath": "container:Forma File Organizing.xcodeproj",
+        "identifier": "50A492902ECC4C4A006868D5",
+        "name": "Forma File OrganizingUITests"
+      },
+      "selectedTests": [
+        "AppStoreScreenshotTests",
+        "FileRowUITests",
+        "FileSurfaceToolbarValidationTests",
+        "Forma_File_OrganizingUITests",
+        "Forma_File_OrganizingUITestsLaunchTests",
+        "MicroInteractionsUITests",
+        "RuleEditingWorkflowUITests"
+      ]
     }
   ],
-  "version" : 1
+  "version": 1
 }

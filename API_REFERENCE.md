@@ -5,6 +5,8 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
 ## Recent Additions (Unreleased)
 
 - Security audit Tier A cleanup
+  - `Scripts/verify_test_plan_membership.py`
+    - Discovers XCTest and Swift Testing suites from the app and UI test targets, classifies Unit/Integration/Performance/UI ownership, and fails when Xcode `selectedTests` membership drifts from the filesystem.
   - `ThumbnailService.shared`
     - Still exposes the singleton thumbnail cache, but startup cache maintenance is now scheduled after singleton construction with a retained `Task` handle instead of launching untracked async work from `init`.
   - `UITestFolderAccessConfiguration.isEnabled`

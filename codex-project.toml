@@ -21,6 +21,9 @@ test = [
 test_no_ui = [
   "xcodebuild test -project \"Forma File Organizing.xcodeproj\" -scheme \"Forma File Organizing\" -destination 'platform=macOS' -skip-testing:\"Forma File OrganizingUITests\""
 ]
+test_plan_lint = [
+  "Scripts/verify_test_plan_membership.py"
+]
 clean = [
   "xcodebuild clean -project \"Forma File Organizing.xcodeproj\" -scheme \"Forma File Organizing\""
 ]
