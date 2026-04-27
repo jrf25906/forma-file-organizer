@@ -90,19 +90,12 @@ struct SmartFeaturesSection: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: FormaSpacing.generous) {
                 // Header with explanation
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Smart Features")
-                        .font(.formaH2)
-                        .foregroundColor(.formaLabel)
-
-                    Text("Control how Forma learns from your organization habits and makes suggestions. All smart processing runs on-device.")
-                        .font(.formaBody)
-                        .foregroundColor(.formaSecondaryLabelHigh)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, FormaSpacing.tight)
+                SettingsPageHeader(
+                    "Smart Features",
+                    subtitle: "Control how Forma learns from your organization habits and makes suggestions. All smart processing runs on-device."
+                )
 
                 // Master Toggle Section
                 SettingsSection("AI Features") {
@@ -203,7 +196,7 @@ struct SmartFeaturesSection: View {
                                 }
                                 .buttonStyle(.plain)
                                 .font(.formaBodySemibold)
-                                .foregroundColor(.red)
+                                .foregroundColor(.formaError)
                             }
                         }
                     }
@@ -594,7 +587,7 @@ struct SmartFeaturesSection: View {
                 .buttonStyle(.plain)
                 .padding(.top, FormaSpacing.tight)
             }
-            .padding(FormaSpacing.generous)
+            .padding(.vertical, FormaSpacing.standard)
         }
         .background(Color.clear)
         .frame(minWidth: 400)

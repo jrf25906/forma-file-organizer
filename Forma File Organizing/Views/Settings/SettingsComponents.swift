@@ -5,6 +5,7 @@ import SwiftUI
 
 struct SettingsTabShell<Content: View>: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     let content: Content
 
     init(@ViewBuilder content: () -> Content) {
@@ -12,22 +13,64 @@ struct SettingsTabShell<Content: View>: View {
     }
 
     private var backdropFill: Color {
-        colorScheme == .dark ? .formaSurfaceAnchor : .formaSurfaceChrome
+        .formaSurfaceChrome
+    }
+
+    private var ambientOverlay: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.10 : 0.07),
+                Color.formaSurfaceChrome.opacity(0),
+                Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.04 : 0.025)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     var body: some View {
         ZStack {
             backdropFill
 
-            GradientBackdropView(
-                intensity: colorScheme == .dark ? Color.FormaOpacity.light : Color.FormaOpacity.subtle,
-                blurRadius: FormaSpacing.huge + FormaSpacing.tight
-            )
+            if !reduceTransparency {
+                ambientOverlay
+                    .allowsHitTesting(false)
+            }
 
             content
-                .padding(FormaSpacing.standard)
+                .padding(.horizontal, FormaSpacing.generous)
+                .padding(.vertical, FormaSpacing.large)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .tint(.formaSteelBlue)
+    }
+}
+
+struct SettingsPageHeader: View {
+    let title: String
+    let subtitle: String?
+
+    init(_ title: String, subtitle: String? = nil) {
+        self.title = title
+        self.subtitle = subtitle
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            Text(title)
+                .font(.formaH1)
+                .foregroundColor(.formaLabel)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            if let subtitle {
+                Text(subtitle)
+                    .font(.formaBody)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -46,8 +89,7 @@ struct SettingsSection<Content: View>: View {
             // Section header - matches FormaSection styling
             Text(title)
                 .font(.formaSmallSemibold)
-                .tracking(0.3)
-                .foregroundColor(.formaLabel)
+                .foregroundColor(.formaSecondaryLabelHigh)
                 .padding(.leading, FormaSpacing.micro)
 
             // Content card - work surface with a restrained edge
@@ -58,14 +100,14 @@ struct SettingsSection<Content: View>: View {
                     RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                         .stroke(
                             colorScheme == .dark
-                                ? Color.formaBoneWhite.opacity(0.16)
-                                : Color.formaObsidian.opacity(Color.FormaOpacity.light),
-                            lineWidth: 1
+                                ? Color.formaBoneWhite.opacity(0.14)
+                                : Color.formaObsidian.opacity(0.08),
+                            lineWidth: FormaBorderWidth.thin
                         )
                 )
                 .shadow(
                     color: colorScheme == .dark
-                        ? Color.black.opacity(0.14)
+                        ? Color.formaObsidian.opacity(0.24)
                         : Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle),
                     radius: 2,
                     x: 0,
@@ -91,7 +133,7 @@ struct SettingsRow<Accessory: View>: View {
             VStack(alignment: .leading, spacing: 2) {
                 // Title
                 Text(title)
-                    .font(.formaBody)
+                    .font(.formaBodySemibold)
                     .foregroundColor(.formaLabel)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -110,8 +152,9 @@ struct SettingsRow<Accessory: View>: View {
             Spacer(minLength: FormaSpacing.standard)
             accessory
         }
-        .padding(FormaSpacing.large)
-        .frame(minHeight: 56)
+        .padding(.horizontal, FormaSpacing.large)
+        .padding(.vertical, FormaSpacing.standard)
+        .frame(minHeight: 54)
     }
 }
 

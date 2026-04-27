@@ -43,6 +43,7 @@ struct SettingsView: View {
         }
         .frame(minWidth: 720, idealWidth: 760, maxWidth: 860, minHeight: 560, idealHeight: 600, maxHeight: 720)
         .background(Color.clear)
+        .tint(.formaSteelBlue)
         .preferredColorScheme(AppearanceMode(rawValue: appearanceMode)?.colorScheme)
     }
 }

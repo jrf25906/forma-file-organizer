@@ -243,7 +243,7 @@ struct CalendarHeatmap: View {
         case .aging:
             return Color.formaWarning.opacity(0.7)
         case .stale:
-            return Color.orange.opacity(0.8)
+            return Color.formaWarmOrange.opacity(0.8)
         case .digitalDust:
             return Color.formaError.opacity(0.9)
         }
@@ -270,7 +270,7 @@ private struct CalendarCell: View {
         case .aging:
             return Color.formaWarning.opacity(0.7)
         case .stale:
-            return Color.orange.opacity(0.8)
+            return Color.formaWarmOrange.opacity(0.8)
         case .digitalDust:
             return Color.formaError.opacity(0.9)
         }

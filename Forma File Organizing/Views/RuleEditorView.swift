@@ -818,7 +818,7 @@ struct RuleEditorView: View {
             case .unresolvable(let reason):
                 HStack(alignment: .top, spacing: FormaSpacing.tight) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(.formaWarmOrange)
                         .font(.system(size: 14))
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -848,7 +848,7 @@ struct RuleEditorView: View {
                 }
                 .padding(FormaSpacing.standard)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.1))
+                .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light))
                 .cornerRadius(FormaRadius.control)
             }
         }

@@ -21,11 +21,12 @@ struct RulesManagerSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            HStack {
-                Text("Organization Rules")
-                    .font(.formaH2)
-                    .foregroundColor(.formaLabel)
+        VStack(alignment: .leading, spacing: FormaSpacing.generous) {
+            HStack(alignment: .top, spacing: FormaSpacing.large) {
+                SettingsPageHeader(
+                    "Organization Rules",
+                    subtitle: "Create and manage rules that organize matching files automatically."
+                )
                 Spacer()
 
                 Button(action: {
@@ -46,20 +47,19 @@ struct RulesManagerSection: View {
                 }
                 .buttonStyle(.plain)
                 .background(Color.formaSteelBlue)
-                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                 .shadow(
                     color: colorScheme == .dark
-                        ? Color.black.opacity(0.24)
-                        : Color.formaObsidian.opacity(Color.FormaOpacity.medium),
-                    radius: 4,
+                        ? Color.formaObsidian.opacity(0.24)
+                        : Color.formaObsidian.opacity(Color.FormaOpacity.light),
+                    radius: 3,
                     x: 0,
-                    y: 2
+                    y: 1
                 )
                 .matchedGeometryEffect(id: "ruleButton", in: ruleButtonNamespace, isSource: !showingEditor)
                 .hoverLift(scale: 1.03, shadowRadius: 8)
             }
-            .padding(.horizontal, FormaSpacing.generous)
-            .padding(.top, FormaSpacing.generous)
+            .padding(.top, FormaSpacing.standard)
 
             if sortedRules.isEmpty {
                 FormaEmptyState(
@@ -78,7 +78,7 @@ struct RulesManagerSection: View {
                             ruleCard(for: rule)
                         }
                     }
-                    .padding(FormaSpacing.generous)
+                    .padding(.bottom, FormaSpacing.generous)
                 }
             }
         }

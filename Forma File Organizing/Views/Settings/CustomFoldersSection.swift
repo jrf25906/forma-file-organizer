@@ -13,20 +13,11 @@ struct CustomFoldersSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            HStack {
-                Text("Folder Access")
-                    .font(.formaH2)
-                    .foregroundColor(.formaLabel)
-                Spacer()
-            }
-            .padding(FormaSpacing.generous)
-
-            // Description
-            Text("Forma can organize files in the folders you've granted access to. Toggle folders on or off to control which are scanned.")
-                .font(.formaBody)
-                .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
-                .padding(.horizontal, FormaSpacing.generous)
-                .padding(.bottom, FormaSpacing.standard)
+            SettingsPageHeader(
+                "Folder Access",
+                subtitle: "Forma can organize files in the folders you've granted access to. Toggle folders on or off to control which are scanned."
+            )
+            .padding(.vertical, FormaSpacing.standard)
 
             if folderService.availableFolders.isEmpty {
                 // Empty state
@@ -53,7 +44,6 @@ struct CustomFoldersSection: View {
                             )
                         }
                     }
-                    .padding(.horizontal, FormaSpacing.generous)
                     .padding(.bottom, FormaSpacing.generous)
                 }
             }
@@ -67,7 +57,6 @@ struct CustomFoldersSection: View {
                     .font(.formaCaption)
                     .foregroundColor(colorScheme == .dark ? .formaTertiaryLabelHigh : .formaTertiaryLabel)
             }
-            .padding(.horizontal, FormaSpacing.generous)
             .padding(.bottom, FormaSpacing.standard)
         }
         .background(Color.clear)
@@ -159,15 +148,15 @@ private struct FolderAccessRow: View {
             }
         }
         .padding(FormaSpacing.standard)
-        .background(Color.formaControlBackground)
+        .background(Color.formaSurfaceWork)
         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .stroke(
                     colorScheme == .dark
-                        ? Color.formaSeparator.opacity(0.35)
-                        : Color.formaSeparator.opacity(Color.FormaOpacity.light),
-                    lineWidth: 1
+                        ? Color.formaBoneWhite.opacity(0.14)
+                        : Color.formaObsidian.opacity(0.08),
+                    lineWidth: FormaBorderWidth.thin
                 )
         )
         .onHover { hovering in

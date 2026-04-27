@@ -281,7 +281,7 @@ final class RuleCategory {
 
     /// SwiftUI Color from the hex string.
     var color: Color {
-        Color(hex: colorHex) ?? .blue
+        Color(hex: colorHex) ?? .formaSteelBlue
     }
 
     /// Whether files from the given URL would be evaluated by rules in this category.
