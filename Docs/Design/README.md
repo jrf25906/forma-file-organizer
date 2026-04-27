@@ -15,6 +15,7 @@
 | [BRAND-POSITIONING.md](BRAND-POSITIONING.md) | **Strategic source of truth** - Messaging, positioning, voice | Core |
 | [DesignSystem.md](DesignSystem.md) | Design tokens, colors, typography | Core |
 | [UI-GUIDELINES.md](UI-GUIDELINES.md) | UI implementation patterns | Core |
+| [Primary-Screen-Review-BlueSlate.md](Primary-Screen-Review-BlueSlate.md) | Native app primary-screen design review and Blue Slate direction | Active |
 | [Forma-Brand-Guidelines.md](Forma-Brand-Guidelines.md) | Comprehensive brand implementation | Reference |
 
 ---
@@ -36,6 +37,7 @@
 
 ### User Experience
 - **[Forma-Onboarding-Flow.md](Forma-Onboarding-Flow.md)** - Multi-step onboarding flow design
+- **[Primary-Screen-Review-BlueSlate.md](Primary-Screen-Review-BlueSlate.md)** - Native app primary-screen design review and Blue Slate direction
 - **[Forma-Design-Doc.md](Forma-Design-Doc.md)** - Core design documentation
 - **[forma-ui-spec.md](forma-ui-spec.md)** - UI specifications
 - **[Forma-Empty-States.md](Forma-Empty-States.md)** - Empty state designs
