@@ -117,14 +117,18 @@ struct DefaultPanelView: View {
 
     private var heroCardBorder: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.15)
-            : Color.formaSteelBlue.opacity(0.18)
+            ? Color.formaSteelBlue.opacity(0.34)
+            : Color.formaSteelBlue.opacity(0.30)
     }
 
     private var heroCardShadow: Color {
         colorScheme == .dark
-            ? Color.black.opacity(0.28)
-            : Color.formaObsidian.opacity(0.09)
+            ? Color.black.opacity(0.34)
+            : Color.formaObsidian.opacity(0.12)
+    }
+
+    private var commandPrimaryActionShadow: Color {
+        Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.22 : 0.16)
     }
 
     private var projectSpacesFeatureEnabled: Bool {
@@ -525,44 +529,36 @@ struct DefaultPanelView: View {
     ) -> some View {
         content()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, FormaSpacing.large)
-            .padding(.vertical, FormaSpacing.generous)
+            .padding(.horizontal, rightPanelLayout.isCompact ? FormaSpacing.standard : FormaSpacing.large)
+            .padding(.vertical, rightPanelLayout.isCompact ? FormaSpacing.standard : FormaSpacing.generous)
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
-                        .fill(colorScheme == .dark ? Color.formaObsidian.opacity(0.62) : Color.formaBoneWhite)
+                        .fill(Color.formaSurfaceAnchor)
 
                     RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.28 : 0.16),
-                                    Color.formaSage.opacity(colorScheme == .dark ? 0.14 : 0.07)
+                                    Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.20 : 0.14),
+                                    Color.formaSurfaceWork.opacity(colorScheme == .dark ? 0.05 : 0.38)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
 
-                    Circle()
-                        .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.10 : 0.34))
-                        .frame(width: 220, height: 220)
-                        .blur(radius: 52)
-                        .offset(x: 108, y: -118)
-
-                    Rectangle()
+                    RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.clear,
-                                    Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.04 : 0.16)
+                                    Color.formaObsidian.opacity(colorScheme == .dark ? 0.22 : 0.055),
+                                    Color.clear
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
-                        .frame(height: 96)
-                        .offset(y: 108)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous))
             )
@@ -572,9 +568,9 @@ struct DefaultPanelView: View {
             )
             .shadow(
                 color: heroCardShadow,
-                radius: 14,
+                radius: 18,
                 x: 0,
-                y: 4
+                y: 5
             )
     }
 
@@ -970,17 +966,13 @@ struct DefaultPanelView: View {
         
         return VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             if dashboardViewModel.hasDeferredReviewFiles && dashboardViewModel.currentReviewChunkCount == 0 {
-                Button(action: {
+                commandPrimaryActionButton(
+                    title: "Resume \(dashboardViewModel.deferredReviewFileCount) Deferred \(dashboardViewModel.deferredReviewFileCount == 1 ? "File" : "Files")",
+                    systemImage: "arrow.triangle.2.circlepath",
+                    help: "Bring back the files you set aside for now"
+                ) {
                     dashboardViewModel.resumeDeferredReviewFiles()
-                }) {
-                    Text("Resume \(dashboardViewModel.deferredReviewFileCount) Deferred \(dashboardViewModel.deferredReviewFileCount == 1 ? "File" : "Files")")
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 40)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.formaSteelBlue)
-                .controlSize(.large)
-                .help("Bring back the files you set aside for now")
             } else if !readyFiles.isEmpty {
                 if dashboardViewModel.showsDashboardWorkflowTemplatePicker {
                     WorkflowTemplatePicker(
@@ -989,19 +981,52 @@ struct DefaultPanelView: View {
                     )
                 }
 
-                Button(action: {
+                commandPrimaryActionButton(
+                    title: "Organize \(readyFiles.count) \(readyFiles.count == 1 ? "File" : "Files")",
+                    systemImage: "tray.and.arrow.down.fill",
+                    help: "Organize all ready files"
+                ) {
                     dashboardViewModel.organizeAllReadyFiles(context: modelContext)
-                }) {
-                    Text("Organize \(readyFiles.count) \(readyFiles.count == 1 ? "File" : "Files")")
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 40)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.formaSteelBlue)
-                .controlSize(.large)
-                .help("Organize all ready files")
             }
         }
+    }
+
+    private func commandPrimaryActionButton(
+        title: String,
+        systemImage: String,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                    .accessibilityHidden(true)
+
+                Text(title)
+                    .font(.formaBodySemibold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.84)
+
+                Spacer(minLength: FormaSpacing.tight)
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(Color.formaBoneWhite)
+            .frame(maxWidth: .infinity, minHeight: rightPanelLayout.isCompact ? 44 : 46)
+            .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.roundedRectangle(radius: FormaRadius.control))
+        .controlSize(.large)
+        .tint(Color.formaSteelBlue)
+        .shadow(color: commandPrimaryActionShadow, radius: 8, x: 0, y: 3)
+        .accessibilityLabel(Text(title))
+        .accessibilityHint(Text(help))
+        .help(help)
     }
 
     // MARK: - Automation Status Section (v1.5 - Promoted to status bar)
@@ -1316,7 +1341,7 @@ struct DefaultPanelView: View {
         let items = displayedEditorialSuggestionItems
 
         if !items.isEmpty {
-            VStack(alignment: .leading, spacing: FormaSpacing.generous) {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 HStack(alignment: .firstTextBaseline, spacing: FormaSpacing.tight) {
                     Text("NEXT MOVES")
                         .font(.formaCaptionSemibold)
@@ -1875,6 +1900,7 @@ private struct FeaturedEditorialSuggestionCard: View {
     @State private var isHovered = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.rightPanelLayout) private var rightPanelLayout
 
     var body: some View {
         Button(action: action) {
@@ -1908,7 +1934,7 @@ private struct FeaturedEditorialSuggestionCard: View {
                     accent: snapshot.accent
                 )
             }
-            .frame(maxWidth: .infinity, minHeight: 204, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: rightPanelLayout.isCompact ? 176 : 188, alignment: .topLeading)
             .padding(FormaSpacing.standard)
             .background(featuredBackground)
             .overlay(featuredBorder)
@@ -1926,21 +1952,25 @@ private struct FeaturedEditorialSuggestionCard: View {
 
     private var featuredBackground: some View {
         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        editorialAccentColor(snapshot.accent).opacity(colorScheme == .dark ? 0.24 : 0.13),
-                        Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.05 : 0.50)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+            .fill(Color.formaSurfaceWork.opacity(colorScheme == .dark ? 0.72 : 0.94))
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                editorialAccentColor(snapshot.accent).opacity(colorScheme == .dark ? 0.14 : 0.075),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                     .fill(
                         isHovered
-                            ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.14 : Color.FormaOpacity.light)
+                            ? Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.08 : 0.04)
                             : Color.clear
                     )
             )
@@ -1949,7 +1979,7 @@ private struct FeaturedEditorialSuggestionCard: View {
     private var featuredBorder: some View {
         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
             .strokeBorder(
-                editorialAccentColor(snapshot.accent).opacity(colorScheme == .dark ? 0.34 : 0.18),
+                Color.formaObsidian.opacity(colorScheme == .dark ? 0.22 : 0.08),
                 lineWidth: 1
             )
     }
@@ -2003,8 +2033,8 @@ private struct EditorialSuggestionCard: View {
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                     .fill(
                         isHovered
-                            ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.26 : Color.FormaOpacity.light)
-                            : Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : Color.FormaOpacity.subtle)
+                            ? Color.formaSurfaceWork.opacity(colorScheme == .dark ? 0.86 : 1.0)
+                            : Color.formaSurfaceWork.opacity(colorScheme == .dark ? 0.68 : 0.84)
                     )
             )
             .overlay(
@@ -2012,8 +2042,8 @@ private struct EditorialSuggestionCard: View {
                     .strokeBorder(
                         Color.formaObsidian.opacity(
                             isHovered
-                                ? (colorScheme == .dark ? 0.34 : Color.FormaOpacity.medium)
-                                : (colorScheme == .dark ? 0.25 : Color.FormaOpacity.light)
+                                ? (colorScheme == .dark ? 0.30 : 0.12)
+                                : (colorScheme == .dark ? 0.20 : 0.07)
                         ),
                         lineWidth: 1
                     )
@@ -2078,7 +2108,9 @@ private func editorialFooter(
     HStack(spacing: FormaSpacing.tight) {
         Text(actionTitle)
             .font(.formaCaptionSemibold)
-        .foregroundStyle(editorialAccentColor(accent))
+            .foregroundStyle(editorialAccentColor(accent))
+            .lineLimit(1)
+            .minimumScaleFactor(0.84)
 
         Spacer(minLength: FormaSpacing.tight)
 

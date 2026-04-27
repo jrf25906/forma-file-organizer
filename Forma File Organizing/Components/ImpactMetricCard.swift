@@ -11,6 +11,34 @@ struct ImpactMetricCard: View {
     var showsScoreRamp: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
+    private var tileFill: Color {
+        colorScheme == .dark
+            ? Color.formaSurfaceFloating.opacity(0.78)
+            : Color.formaSurfaceFloating
+    }
+
+    private var tileBorder: Color {
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.46 : 0.30)
+    }
+
+    private var iconFill: Color {
+        color.opacity(colorScheme == .dark ? 0.18 : 0.10)
+    }
+
+    private var accessibilitySummary: String {
+        var parts = [title, value]
+
+        if let subtitle {
+            parts.append(subtitle)
+        }
+
+        if let trendLabel = trend?.label {
+            parts.append("Trend \(trendLabel)")
+        }
+
+        return parts.joined(separator: ", ")
+    }
+
     enum Trend {
         case up(String)
         case down(String)
@@ -61,65 +89,63 @@ struct ImpactMetricCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            // Header with icon
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             HStack(spacing: FormaSpacing.tight) {
                 Image(systemName: icon)
-                    .font(.formaH3)
+                    .font(.formaSmallSemibold)
                     .foregroundColor(color)
+                    .frame(width: 24, height: 24)
+                    .background(
+                        RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+                            .fill(iconFill)
+                    )
 
                 Text(title)
-                    .font(.formaCompactMedium)
+                    .font(.formaCompactSemibold)
                     .foregroundColor(.formaSecondaryLabelHigh)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
 
-                Spacer()
+                Spacer(minLength: FormaSpacing.tight)
 
-                // Trend indicator
                 if let trend {
                     trendChip(trend)
                 }
             }
 
-            // Hero value
             Text(value)
-                .font(.formaHero)
+                .font(.formaH1)
                 .foregroundColor(.formaLabel)
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.64)
 
-            // Optional subtitle
             if let subtitle {
                 Text(subtitle)
                     .font(.formaSmall)
                     .foregroundColor(.formaSecondaryLabelHigh)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
 
             if showsScoreRamp {
                 scoreRamp
             }
         }
-        .padding(FormaSpacing.generous)
+        .padding(.vertical, FormaSpacing.large)
+        .padding(.horizontal, FormaSpacing.standard)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 124, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaSurfaceWork)
+            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                .fill(tileFill)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(
-                    Color.formaSeparator.opacity(colorScheme == .dark ? 0.64 : 0.42),
-                    lineWidth: 1
-                )
+            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                .strokeBorder(tileBorder, lineWidth: FormaBorderWidth.thin)
         )
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(color.opacity(colorScheme == .dark ? 0.92 : 0.86))
-                .frame(width: 4)
-                .padding(.vertical, FormaSpacing.standard)
-                .padding(.leading, FormaSpacing.tight)
-        }
-        .formaShadow(.resting)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(accessibilitySummary))
     }
 
     private func trendChip(_ trend: Trend) -> some View {
@@ -133,15 +159,15 @@ struct ImpactMetricCard: View {
             }
         }
         .foregroundColor(trend.color)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
         .background(
             Capsule()
-                .fill(trend.color.opacity(colorScheme == .dark ? 0.20 : 0.12))
+                .fill(trend.color.opacity(colorScheme == .dark ? 0.16 : 0.08))
         )
         .overlay(
             Capsule()
-                .strokeBorder(trend.color.opacity(colorScheme == .dark ? 0.34 : 0.22), lineWidth: 0.75)
+                .strokeBorder(trend.color.opacity(colorScheme == .dark ? 0.28 : 0.18), lineWidth: FormaBorderWidth.hairline)
         )
     }
 

@@ -39,14 +39,22 @@ struct StackedAreaChart: View {
 
     private var cardBackground: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.06)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+            ? Color.formaSurfaceFloating.opacity(0.52)
+            : Color.formaSurfaceFloating.opacity(0.76)
     }
 
     private var cardBorder: Color {
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.38 : 0.24)
+    }
+
+    private var plotAreaBackground: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.12)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
+            ? Color.formaSurfaceAnchor.opacity(0.22)
+            : Color.formaSurfaceChrome.opacity(0.58)
+    }
+
+    private var plotAreaBorder: Color {
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.24 : 0.18)
     }
 
     private var axisLineColor: Color {
@@ -131,6 +139,17 @@ struct StackedAreaChart: View {
             }
         }
         .chartLegend(.hidden)
+        .chartPlotStyle { plotArea in
+            plotArea
+                .background(
+                    RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+                        .fill(plotAreaBackground)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
+                        .strokeBorder(plotAreaBorder, lineWidth: FormaBorderWidth.hairline)
+                )
+        }
         .frame(minHeight: 200)
     }
 
@@ -165,6 +184,9 @@ struct StackedAreaChart: View {
                     .font(.formaSmall)
                 Text("\(Int(automationRate * 100))% automated")
                     .font(.formaSmallSemibold)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
             .foregroundColor(.formaSoftGreen)
         }
@@ -174,16 +196,19 @@ struct StackedAreaChart: View {
     private var emptyState: some View {
         VStack(spacing: FormaSpacing.tight) {
             Image(systemName: "chart.xyaxis.line")
-                .font(.title)
-                .foregroundColor(emptyStatePrimaryColor)
+                .font(.formaH3)
+                .foregroundColor(emptyStateSecondaryColor)
             Text("No activity data yet")
-                .font(.formaBody)
+                .font(.formaSmallSemibold)
                 .foregroundColor(emptyStatePrimaryColor)
             Text("Organize some files to see your automation efficiency.")
                 .font(.formaSmall)
                 .foregroundColor(emptyStateSecondaryColor)
                 .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(FormaSpacing.large)
         .frame(maxWidth: .infinity)
         .frame(minHeight: 200)
     }

@@ -45,7 +45,7 @@ struct AutomationStatusWidget: View {
                 Text("AUTOMATION")
                     .font(.formaCaptionSemibold)
                     .tracking(0.8)
-                    .foregroundStyle(Color.formaSecondaryLabelHigh)
+                    .foregroundStyle(Color.formaTertiaryLabelHigh)
                     .accessibilityIdentifier("defaultPanelAutomationTitle")
 
                 Spacer()
@@ -65,6 +65,12 @@ struct AutomationStatusWidget: View {
             .padding(.vertical, 14)
             .background(cardBackground)
             .overlay(cardBorder)
+            .shadow(
+                color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : 0.055),
+                radius: 7,
+                x: 0,
+                y: 2
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier("defaultPanelAutomationStatusCard")
@@ -79,21 +85,25 @@ struct AutomationStatusWidget: View {
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.formaSage.opacity(colorScheme == .dark ? 0.11 : 0.07),
-                        Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.05 : 0.02)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+            .fill(Color.formaSurfaceWork.opacity(colorScheme == .dark ? 0.72 : 0.90))
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.10 : 0.055),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                     .fill(
                         isHovered
-                            ? Color.formaObsidian.opacity(colorScheme == .dark ? 0.12 : Color.FormaOpacity.ultraSubtle)
+                            ? Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.08 : 0.035)
                             : Color.clear
                     )
             )
@@ -102,7 +112,7 @@ struct AutomationStatusWidget: View {
     private var cardBorder: some View {
         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
             .strokeBorder(
-                Color.formaSage.opacity(colorScheme == .dark ? 0.20 : 0.11),
+                Color.formaObsidian.opacity(colorScheme == .dark ? 0.24 : 0.085),
                 lineWidth: 1
             )
     }
@@ -170,7 +180,7 @@ struct AutomationStatusWidget: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(headlineText)
                 .font(.formaSmallSemibold)
-                .foregroundStyle(Color.formaLabel.opacity(0.92))
+                .foregroundStyle(Color.formaLabel)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("defaultPanelAutomationHeadline")
@@ -234,11 +244,11 @@ struct AutomationStatusWidget: View {
         .frame(height: 40)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaObsidian.opacity(colorScheme == .dark ? 0.12 : 0.035))
+                .fill(Color.formaObsidian.opacity(colorScheme == .dark ? 0.16 : 0.045))
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(colorScheme == .dark ? 0.14 : 0.08), lineWidth: 1)
+                .strokeBorder(Color.formaObsidian.opacity(colorScheme == .dark ? 0.20 : 0.095), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
     }
@@ -267,6 +277,8 @@ struct AutomationStatusWidget: View {
                     if !isCompact {
                         Text(title)
                             .font(.formaCaptionSemibold)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.86)
                     }
                 }
                 .foregroundStyle(foreground)

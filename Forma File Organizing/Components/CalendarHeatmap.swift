@@ -16,26 +16,24 @@ struct CalendarHeatmap: View {
 
     private var cardBackground: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.06)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+            ? Color.formaSurfaceFloating.opacity(0.52)
+            : Color.formaSurfaceFloating.opacity(0.76)
     }
 
     private var cardBorder: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.12)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.38 : 0.24)
     }
 
     private var emptyCellColor: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.08)
-            : Color.formaObsidian.opacity(0.05)
+            ? Color.formaBoneWhite.opacity(0.07)
+            : Color.formaObsidian.opacity(0.045)
     }
 
     private var hoverStrokeColor: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.35)
-            : Color.formaObsidian.opacity(0.5)
+            ? Color.formaSteelBlue.opacity(0.88)
+            : Color.formaSteelBlue.opacity(0.76)
     }
 
     /// Organize data into a grid (52 weeks x 7 days)
@@ -224,6 +222,8 @@ struct CalendarHeatmap: View {
                     .font(.formaSmall)
                 Text("\(digitalDustCount) \(digitalDustCount == 1 ? "file needs" : "files need") attention")
                     .font(.formaSmallSemibold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
             .foregroundColor(.formaError)
             .padding(.horizontal, FormaSpacing.standard)
@@ -258,6 +258,7 @@ private struct CalendarCell: View {
     let emptyColor: Color
     let hoverStrokeColor: Color
     let isHovered: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var backgroundColor: Color {
         let level = staleness.dominantLevel
@@ -283,8 +284,8 @@ private struct CalendarCell: View {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .stroke(isHovered ? hoverStrokeColor : Color.clear, lineWidth: 1)
             )
-            .scaleEffect(isHovered ? 1.2 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isHovered)
+            .scaleEffect(isHovered && !reduceMotion ? 1.16 : 1.0)
+            .animation(reduceMotion ? nil : .spring(response: 0.2, dampingFraction: 0.7), value: isHovered)
             .help(tooltipText)
     }
 

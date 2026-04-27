@@ -6,6 +6,18 @@ struct TreemapChart: View {
     var onNodeTap: ((TreemapNode) -> Void)?
 
     @State private var selectedNode: TreemapNode?
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var plotSurfaceFill: Color {
+        colorScheme == .dark
+            ? Color.formaSurfaceAnchor.opacity(0.24)
+            : Color.formaSurfaceChrome.opacity(0.52)
+    }
+
+    private var plotSurfaceBorder: Color {
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.28 : 0.20)
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -21,20 +33,40 @@ struct TreemapChart: View {
                         rect: item.rect,
                         isSelected: selectedNode?.id == item.node.id,
                         onTap: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                if selectedNode?.id == item.node.id {
-                                    selectedNode = nil
-                                } else {
-                                    selectedNode = item.node
-                                    onNodeTap?(item.node)
-                                }
-                            }
+                            selectNode(item.node)
                         }
                     )
                 }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                .fill(plotSurfaceFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                .strokeBorder(plotSurfaceBorder, lineWidth: FormaBorderWidth.hairline)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+    }
+
+    private func selectNode(_ node: TreemapNode) {
+        let updateSelection = {
+            if selectedNode?.id == node.id {
+                selectedNode = nil
+            } else {
+                selectedNode = node
+                onNodeTap?(node)
+            }
+        }
+
+        if reduceMotion {
+            updateSelection()
+        } else {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                updateSelection()
+            }
+        }
     }
 
     /// Compute squarified treemap layout.
@@ -211,12 +243,13 @@ private struct TreemapCell: View {
     let onTap: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var backgroundColor: Color {
         if let category = node.category {
-            return category.color.opacity(0.6)
+            return category.color.opacity(colorScheme == .dark ? 0.58 : 0.48)
         }
-        return Color.formaSteelBlue.opacity(0.4)
+        return Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.42 : 0.30)
     }
 
     private var showLabel: Bool {
@@ -236,6 +269,15 @@ private struct TreemapCell: View {
         colorScheme == .dark ? .white.opacity(0.8) : Color.formaObsidian.opacity(0.7)
     }
 
+    private var cellBorderColor: Color {
+        if isSelected {
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.88 : 0.76)
+        }
+        return colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaBoneWhite.opacity(0.56)
+    }
+
     var body: some View {
         Button(action: onTap) {
             ZStack {
@@ -243,7 +285,7 @@ private struct TreemapCell: View {
                     .fill(backgroundColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .stroke(Color.formaBoneWhite.opacity(0.3), lineWidth: 1)
+                            .stroke(cellBorderColor, lineWidth: isSelected ? FormaBorderWidth.medium : FormaBorderWidth.hairline)
                     )
 
                 if node.isLeaf {
@@ -253,6 +295,7 @@ private struct TreemapCell: View {
                                 .font(.formaSmallSemibold)
                                 .foregroundColor(labelColor)
                                 .lineLimit(2)
+                                .minimumScaleFactor(0.82)
                                 .multilineTextAlignment(.center)
                         }
 
@@ -260,6 +303,8 @@ private struct TreemapCell: View {
                             Text(node.formattedSize)
                                 .font(.formaMicro)
                                 .foregroundColor(sizeColor)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.82)
                         }
                     }
                     .padding(4)
@@ -269,7 +314,7 @@ private struct TreemapCell: View {
         .buttonStyle(.plain)
         .frame(width: rect.width - 2, height: rect.height - 2)
         .position(x: rect.midX, y: rect.midY)
-        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .scaleEffect(isSelected && !reduceMotion ? 1.015 : 1.0)
         .shadow(
             color: isSelected ? Color.black.opacity(0.2) : Color.clear,
             radius: 4,

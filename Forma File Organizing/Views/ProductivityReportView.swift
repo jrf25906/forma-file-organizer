@@ -24,6 +24,26 @@ struct ProductivityReportView: View {
         )
     }
 
+    private var quietInstructionFill: Color {
+        colorScheme == .dark
+            ? Color.formaSurfaceFloating.opacity(0.36)
+            : Color.formaSurfaceFloating.opacity(0.72)
+    }
+
+    private var quietInstructionBorder: Color {
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.38 : 0.24)
+    }
+
+    private var metricPlaceholderFill: Color {
+        colorScheme == .dark
+            ? Color.formaSurfaceFloating.opacity(0.58)
+            : Color.formaSurfaceFloating.opacity(0.84)
+    }
+
+    private var metricPlaceholderColor: Color {
+        Color.formaLabel.opacity(colorScheme == .dark ? 0.13 : 0.07)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             headerBand
@@ -169,9 +189,15 @@ struct ProductivityReportView: View {
 
     private var noDataGuidanceSection: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            Label("No Activity Yet", systemImage: "sparkles")
-                .font(.formaBodyBold)
-                .foregroundColor(.formaLabel)
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: "sparkles")
+                    .font(.formaBodySemibold)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+
+                Text("No Activity Yet")
+                    .font(.formaBodyBold)
+                    .foregroundColor(.formaLabel)
+            }
 
             Text("Run one scan and organize a few files to unlock insights in this dashboard.")
                 .font(.formaSmall)
@@ -202,20 +228,11 @@ struct ProductivityReportView: View {
         .padding(FormaSpacing.generous)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(
-                    colorScheme == .dark
-                        ? Color.formaBoneWhite.opacity(0.05)
-                        : Color.formaBoneWhite.opacity(0.70)
-                )
+                .fill(quietInstructionFill)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(
-                    colorScheme == .dark
-                        ? Color.formaBoneWhite.opacity(0.11)
-                        : Color.formaSeparator.opacity(0.38),
-                    lineWidth: FormaBorderWidth.thin
-                )
+                .strokeBorder(quietInstructionBorder, lineWidth: FormaBorderWidth.thin)
         )
     }
 
@@ -243,11 +260,11 @@ struct ProductivityReportView: View {
         .padding(FormaSpacing.generous)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+                .fill(quietInstructionFill)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaSteelBlue.opacity(Color.FormaOpacity.strong), lineWidth: FormaBorderWidth.thin)
+                .strokeBorder(quietInstructionBorder, lineWidth: FormaBorderWidth.thin)
         )
     }
 
@@ -255,7 +272,7 @@ struct ProductivityReportView: View {
         HStack(alignment: .top, spacing: FormaSpacing.tight) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.formaSmallSemibold)
-                .foregroundColor(.formaSteelBlue)
+                .foregroundColor(.formaSecondaryLabelHigh)
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -297,33 +314,35 @@ struct ProductivityReportView: View {
     }
 
     private var impactMetricPlaceholder: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             HStack {
                 RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                    .fill(Color.formaLabel.opacity(colorScheme == .dark ? 0.16 : 0.08))
+                    .fill(metricPlaceholderColor)
                     .frame(width: 24, height: 24)
                 RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                    .fill(Color.formaLabel.opacity(colorScheme == .dark ? 0.16 : 0.08))
+                    .fill(metricPlaceholderColor)
                     .frame(width: 80, height: 16)
             }
 
             RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                .fill(Color.formaLabel.opacity(colorScheme == .dark ? 0.16 : 0.08))
-                .frame(width: 100, height: 36)
+                .fill(metricPlaceholderColor)
+                .frame(width: 96, height: 28)
 
             RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                .fill(Color.formaLabel.opacity(colorScheme == .dark ? 0.16 : 0.08))
+                .fill(metricPlaceholderColor)
                 .frame(width: 60, height: 14)
         }
-        .padding(FormaSpacing.generous)
+        .padding(.vertical, FormaSpacing.large)
+        .padding(.horizontal, FormaSpacing.standard)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 124, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.045) : Color.formaBoneWhite.opacity(0.68))
+            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                .fill(metricPlaceholderFill)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34), lineWidth: FormaBorderWidth.thin)
+            RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.42 : 0.26), lineWidth: FormaBorderWidth.thin)
         )
     }
 
@@ -421,32 +440,28 @@ private struct ProductivityEmptyState: View {
     let icon: String
     let title: String
     let message: String
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: FormaSpacing.tight) {
             Image(systemName: icon)
-                .font(.title)
-                .foregroundColor(.formaSecondaryLabelHigh)
+                .font(.formaH3)
+                .foregroundColor(.formaTertiaryLabelHigh)
 
             Text(title)
-                .font(.formaBody)
+                .font(.formaSmallSemibold)
                 .foregroundColor(.formaLabel)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
 
             Text(message)
                 .font(.formaSmall)
                 .foregroundColor(.formaSecondaryLabelHigh)
                 .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(FormaSpacing.large)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.045) : Color.formaBoneWhite.opacity(0.68))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34), lineWidth: FormaBorderWidth.thin)
-        )
     }
 }
 
@@ -459,6 +474,24 @@ private struct AnalyticsPanel<Trailing: View, Content: View>: View {
     let trailing: Trailing
     let content: Content
     @Environment(\.colorScheme) private var colorScheme
+
+    private var panelBorder: Color {
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.50 : 0.34)
+    }
+
+    private var sectionDivider: Color {
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.36 : 0.24)
+    }
+
+    private var plotSurfaceFill: Color {
+        colorScheme == .dark
+            ? Color.formaSurfaceAnchor.opacity(0.30)
+            : Color.formaSurfaceChrome.opacity(0.64)
+    }
+
+    private var plotSurfaceBorder: Color {
+        Color.formaSeparator.opacity(colorScheme == .dark ? 0.32 : 0.22)
+    }
 
     init(
         eyebrow: String,
@@ -475,22 +508,27 @@ private struct AnalyticsPanel<Trailing: View, Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: FormaSpacing.standard) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(eyebrow)
-                        .font(.formaCompactMedium)
+                        .font(.formaMicro)
                         .foregroundColor(.formaTertiaryLabelHigh)
                         .textCase(.uppercase)
+                        .lineLimit(1)
 
                     Text(title)
-                        .font(.formaH2)
+                        .font(.formaH3)
                         .foregroundColor(.formaLabel)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     if let subtitle {
                         Text(subtitle)
                             .font(.formaSmall)
                             .foregroundColor(.formaSecondaryLabelHigh)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
@@ -498,22 +536,37 @@ private struct AnalyticsPanel<Trailing: View, Content: View>: View {
 
                 trailing
             }
+            .padding(.horizontal, FormaSpacing.large)
+            .padding(.top, FormaSpacing.large)
+            .padding(.bottom, FormaSpacing.standard)
 
-            content
+            Rectangle()
+                .fill(sectionDivider)
+                .frame(height: FormaBorderWidth.hairline)
+
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                content
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(FormaSpacing.standard)
+            .background(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .fill(plotSurfaceFill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .strokeBorder(plotSurfaceBorder, lineWidth: FormaBorderWidth.hairline)
+            )
+            .padding(FormaSpacing.large)
         }
-        .padding(FormaSpacing.large)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .fill(Color.formaSurfaceWork)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(
-                    Color.formaSeparator.opacity(colorScheme == .dark ? 0.64 : 0.44),
-                    lineWidth: FormaBorderWidth.thin
-                )
+                .strokeBorder(panelBorder, lineWidth: FormaBorderWidth.thin)
         )
-        .formaShadow(.resting)
     }
 }
 
