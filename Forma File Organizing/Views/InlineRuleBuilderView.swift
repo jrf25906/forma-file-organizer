@@ -75,6 +75,26 @@ struct InlineRuleBuilderView: View {
             : Color.formaObsidian.opacity(0.055)
     }
 
+    private var guidedFormBackground: Color {
+        Color.formaSurfaceAnchor
+    }
+
+    private var guidedFormBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.20)
+            : Color.formaObsidian.opacity(0.14)
+    }
+
+    private var guidedFormDivider: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.13)
+            : Color.formaObsidian.opacity(0.08)
+    }
+
+    private var supportCardBackground: Color {
+        Color.formaSurfaceWork.opacity(colorScheme == .dark ? 0.74 : 0.90)
+    }
+
     private var chromeSurfaceBackground: Color {
         Color.formaSurfaceAnchor
     }
@@ -241,19 +261,7 @@ struct InlineRuleBuilderView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                        ruleNameField
-
-                        // 2. Natural Language Input (Magical Entry)
-                        if editingRule == nil {
-                            NaturalLanguageInputBar(
-                                viewModel: naturalLanguageViewModel,
-                                onParsedRuleChanged: applyParsedRuleLive
-                            )
-                            .padding(.bottom, 8)
-                        }
-
-                        whenSectionCard
-                        thenSectionCard
+                        guidedRuleFormCard
                         categorySelectionCard
                         impactPreviewCard
 
@@ -517,6 +525,38 @@ struct InlineRuleBuilderView: View {
         .accessibilityIdentifier("ruleComposerSaveButton")
     }
 
+    private var guidedRuleFormCard: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.large) {
+            ruleNameField
+
+            if editingRule == nil {
+                NaturalLanguageInputBar(
+                    viewModel: naturalLanguageViewModel,
+                    onParsedRuleChanged: applyParsedRuleLive
+                )
+            }
+
+            formDivider
+            whenSectionCard
+            formDivider
+            thenSectionCard
+        }
+        .padding(FormaSpacing.large)
+        .background(guidedFormBackground)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(guidedFormBorder, lineWidth: FormaBorderWidth.thin)
+        )
+        .shadow(color: ruleCardShadow, radius: 5, x: 0, y: 2)
+    }
+
+    private var formDivider: some View {
+        Rectangle()
+            .fill(guidedFormDivider)
+            .frame(height: 1)
+    }
+
     private var ruleNameField: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             HStack(spacing: FormaSpacing.tight) {
@@ -545,14 +585,6 @@ struct InlineRuleBuilderView: View {
                         )
                 )
         }
-        .padding(FormaSpacing.standard)
-        .background(ruleCardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(ruleCardBorder, lineWidth: FormaBorderWidth.thin)
-        )
-        .shadow(color: ruleCardShadow, radius: 3, x: 0, y: 1)
         .id("name-section")
     }
 
@@ -626,14 +658,20 @@ struct InlineRuleBuilderView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         content()
-            .padding(FormaSpacing.large)
-            .background(ruleCardBackground)
-            .cornerRadius(FormaRadius.card)
+            .padding(.vertical, FormaSpacing.tight)
+    }
+
+    private func supportingBuilderCard<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .padding(FormaSpacing.standard)
+            .background(supportCardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .strokeBorder(ruleCardBorder, lineWidth: FormaBorderWidth.thin)
+                    .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.38 : 0.26), lineWidth: FormaBorderWidth.thin)
             )
-            .shadow(color: ruleCardShadow, radius: 3, x: 0, y: 1)
     }
 
     private var whenSectionCard: some View {
@@ -903,7 +941,7 @@ struct InlineRuleBuilderView: View {
     }
 
     private var categorySelectionCard: some View {
-        builderSectionCard {
+        supportingBuilderCard {
             VStack(alignment: .leading, spacing: 12) {
                 ruleSectionHeader(
                     step: "3",
@@ -1056,7 +1094,7 @@ struct InlineRuleBuilderView: View {
     }
 
     private var impactPreviewCard: some View {
-        builderSectionCard {
+        supportingBuilderCard {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 Group {
                     if rightPanelLayout.isCompact {
@@ -1615,11 +1653,11 @@ private struct NaturalLanguageInputBar: View {
             }
         }
         .padding(FormaSpacing.standard)
-        .background(Color.formaSurfaceWork)
+        .background(Color.formaSurfaceFloating.opacity(colorScheme == .dark ? 0.66 : 0.72))
         .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.46 : 0.30), lineWidth: FormaBorderWidth.thin)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.36 : 0.24), lineWidth: FormaBorderWidth.thin)
         )
         // Observe changes to the parsed result via confidence (which is Equatable)
         .onChange(of: viewModel.parsedRule?.overallConfidence) { _, _ in

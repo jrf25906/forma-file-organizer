@@ -346,20 +346,7 @@ struct RulesManagementView: View {
                 smartRulesLoadingState
             } else if content.filteredRules.isEmpty {
                 if searchText.isEmpty {
-                    VStack(spacing: FormaSpacing.generous) {
-                        FormaEmptyState(
-                            title: "No Rules Yet",
-                            message: "Create your first rule to automatically organize files.",
-                            actionTitle: "Create Rule",
-                            action: {
-                                openRuleBuilderPanel()
-                            },
-                            actionAccessibilityIdentifier: "smartRulesCreateRuleButton"
-                        )
-
-                        starterTemplatesSection
-                            .padding(.horizontal, FormaSpacing.generous)
-                    }
+                    initialEmptyRulesState
                 } else {
                     FormaEmptyState(
                         title: "No Matching Rules",
@@ -1262,20 +1249,101 @@ struct RulesManagementView: View {
         staleRuleThresholdDaysStorage > 0 ? staleRuleThresholdDaysStorage : nil
     }
 
+    private var initialEmptyRulesState: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                emptyRulesIntro
+                starterTemplatesSection
+            }
+            .padding(.horizontal, FormaSpacing.generous)
+            .padding(.vertical, FormaSpacing.standard)
+        }
+    }
+
+    private var emptyRulesIntro: some View {
+        Group {
+            if rightPanelLayout.isCompact {
+                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                    emptyRulesIntroCopy
+                    emptyRulesIntroButton(fillWidth: true)
+                }
+            } else {
+                HStack(alignment: .center, spacing: FormaSpacing.large) {
+                    emptyRulesIntroCopy
+                    Spacer(minLength: FormaSpacing.standard)
+                    emptyRulesIntroButton(fillWidth: false)
+                }
+            }
+        }
+        .padding(FormaSpacing.standard)
+        .background(Color.formaSurfaceAnchor)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(
+                    colorScheme == .dark
+                        ? Color.formaBoneWhite.opacity(0.16)
+                        : Color.formaObsidian.opacity(0.10),
+                    lineWidth: FormaBorderWidth.thin
+                )
+        )
+    }
+
+    private var emptyRulesIntroCopy: some View {
+        HStack(alignment: .top, spacing: FormaSpacing.standard) {
+            Image(systemName: "list.bullet.rectangle")
+                .font(.formaBodySemibold)
+                .foregroundColor(.formaSteelBlue)
+                .frame(width: 28, height: 28)
+                .background(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.18 : 0.10))
+                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Start with a rule")
+                    .font(.formaH3)
+                    .foregroundColor(.formaLabel)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                Text("Create one from scratch or choose a template below.")
+                    .font(.formaSmall)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func emptyRulesIntroButton(fillWidth: Bool) -> some View {
+        PrimaryButton("Create Rule", icon: "plus", accessibilityIdentifier: "smartRulesCreateRuleButton") {
+            openRuleBuilderPanel()
+        }
+        .frame(maxWidth: fillWidth ? .infinity : nil)
+    }
+
     private var starterTemplatesSection: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Quick starts")
+                Text("Starter templates")
                     .font(.formaBodySemibold)
                     .foregroundColor(.formaLabel)
-                Text("Common cleanup rules you can turn into working automation.")
+                Text("Common cleanup rules that open directly in the builder.")
                     .font(.formaCaption)
                     .foregroundColor(.formaSecondaryLabelHigh)
             }
 
-            HStack(spacing: FormaSpacing.tight) {
-                ForEach(starterTemplates) { template in
-                    starterTemplateCard(template)
+            if rightPanelLayout.isCompact {
+                VStack(spacing: FormaSpacing.tight) {
+                    ForEach(starterTemplates) { template in
+                        starterTemplateCard(template)
+                    }
+                }
+            } else {
+                HStack(spacing: FormaSpacing.tight) {
+                    ForEach(starterTemplates) { template in
+                        starterTemplateCard(template)
+                    }
                 }
             }
         }
@@ -1298,9 +1366,11 @@ struct RulesManagementView: View {
                         Text(template.title)
                             .font(.formaBodySemibold)
                             .foregroundColor(.formaLabel)
+                            .lineLimit(1)
                         Text(template.detail)
                             .font(.formaCaption)
                             .foregroundColor(.formaSecondaryLabelHigh)
+                            .lineLimit(1)
                     }
                 }
 
@@ -1319,7 +1389,7 @@ struct RulesManagementView: View {
                 }
                 .foregroundColor(.formaSteelBlue)
             }
-            .frame(maxWidth: .infinity, minHeight: 152, maxHeight: 152, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 132, maxHeight: 132, alignment: .topLeading)
             .padding(FormaSpacing.standard)
             .background(cardBackgroundColor)
             .cornerRadius(FormaRadius.card)
@@ -1345,7 +1415,7 @@ struct RulesManagementView: View {
             Text(text)
                 .font(.formaCaption)
                 .foregroundColor(.formaSecondaryLabelHigh)
-                .lineLimit(2)
+                .lineLimit(1)
         }
     }
 
