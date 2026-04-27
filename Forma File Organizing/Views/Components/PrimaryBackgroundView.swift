@@ -189,7 +189,7 @@ struct PaneMaterialBackground: View {
     private var tintColor: Color {
         switch role {
         case .sidebar:
-            return Color.formaSteelBlue
+            return Color.formaMutedBlue
         case .content:
             return Color.formaMutedBlue
         case .inspector:
@@ -286,8 +286,8 @@ struct PaneMaterialBackground: View {
 
         switch role {
         case .sidebar:
-            top = Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.44 : 0.34)
-            middle = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.28 : 0.20)
+            top = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.34 : 0.24)
+            middle = Color.formaSurfaceAnchor.opacity(colorScheme == .dark ? 0.20 : 0.16)
         case .content:
             top = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.18 : 0.12)
             middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.10 : 0.06)

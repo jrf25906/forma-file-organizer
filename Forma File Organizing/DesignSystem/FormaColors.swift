@@ -37,9 +37,9 @@ extension Color {
     
     // MARK: - Accent Colors
     
-    /// Interactive accent color - use for primary actions, interactive elements, links, selected states, progress indicators
-    /// HEX: #5B7C99 | RGB: 91, 124, 153 | HSL: 208° 25% 48%
-    static let formaSteelBlue = Color(red: 91/255, green: 124/255, blue: 153/255)
+    /// Interactive accent color - use for primary actions, active selections, focus, and current-state indicators.
+    /// HEX: #4A7C9B | RGB: 74, 124, 155 | HSL: 203° 35% 45%
+    static let formaSteelBlue = Color(red: 74/255, green: 124/255, blue: 155/255)
     
     /// Success accent color - use for success states, confirmation messages, completed actions, positive feedback
     /// HEX: #7A9D7E | RGB: 122, 157, 126 | HSL: 126° 17% 55%
@@ -151,78 +151,78 @@ extension Color {
     /// Shared hover overlay for file surfaces. Hover should read as proximity, not commitment.
     static let formaFileSurfaceHoverOverlay = formaDynamicColor(named: "formaFileSurfaceHoverOverlay") { isDark in
         if isDark {
-            return NSColor.formaBoneWhite.withAlphaComponent(0.05)
+            return NSColor.formaBoneWhite.withAlphaComponent(0.035)
         }
-        return NSColor.formaObsidian.withAlphaComponent(0.03)
+        return NSColor.formaObsidian.withAlphaComponent(0.018)
     }
 
     /// Shared selected/focused overlay for file surfaces.
     static let formaFileSurfaceSelectionOverlay = formaDynamicColor(named: "formaFileSurfaceSelectionOverlay") { isDark in
-        let alpha: CGFloat = isDark ? 0.20 : 0.12
+        let alpha: CGFloat = isDark ? 0.14 : 0.08
         return NSColor.formaSteelBlue.withAlphaComponent(alpha)
     }
 
     /// Pending overlay for files awaiting review or confirmation.
     static let formaFileSurfacePendingOverlay = formaDynamicColor(named: "formaFileSurfacePendingOverlay") { isDark in
-        let alpha: CGFloat = isDark ? 0.20 : 0.12
+        let alpha: CGFloat = isDark ? 0.14 : 0.08
         return NSColor.systemOrange.withAlphaComponent(alpha)
     }
 
     /// Processing overlay for active work in progress.
     static let formaFileSurfaceProcessingOverlay = formaDynamicColor(named: "formaFileSurfaceProcessingOverlay") { isDark in
-        let alpha: CGFloat = isDark ? 0.24 : 0.14
+        let alpha: CGFloat = isDark ? 0.16 : 0.09
         return NSColor.systemBlue.withAlphaComponent(alpha)
     }
 
     /// Error overlay for failed file operations or permission states.
     static let formaFileSurfaceErrorOverlay = formaDynamicColor(named: "formaFileSurfaceErrorOverlay") { isDark in
-        let alpha: CGFloat = isDark ? 0.22 : 0.14
+        let alpha: CGFloat = isDark ? 0.16 : 0.10
         return NSColor.systemRed.withAlphaComponent(alpha)
     }
 
     /// Rest-state border for shared file surfaces.
     static let formaFileSurfaceBorder = formaDynamicColor(named: "formaFileSurfaceBorder") { isDark in
         if isDark {
-            return NSColor.formaBoneWhite.withAlphaComponent(0.14)
+            return NSColor.formaBoneWhite.withAlphaComponent(0.10)
         }
-        return NSColor.formaObsidian.withAlphaComponent(0.10)
+        return NSColor.formaObsidian.withAlphaComponent(0.07)
     }
 
     /// Hover border for shared file surfaces.
     static let formaFileSurfaceHoverBorder = formaDynamicColor(named: "formaFileSurfaceHoverBorder") { isDark in
         if isDark {
-            return NSColor.formaBoneWhite.withAlphaComponent(0.22)
+            return NSColor.formaBoneWhite.withAlphaComponent(0.16)
         }
-        return NSColor.formaObsidian.withAlphaComponent(0.16)
+        return NSColor.formaObsidian.withAlphaComponent(0.11)
     }
 
     /// Selected border for shared file surfaces.
     static let formaFileSurfaceSelectedBorder = formaDynamicColor(named: "formaFileSurfaceSelectedBorder") { isDark in
-        let alpha: CGFloat = isDark ? 0.58 : 0.42
+        let alpha: CGFloat = isDark ? 0.50 : 0.34
         return NSColor.formaSteelBlue.withAlphaComponent(alpha)
     }
 
     /// Focus border for shared file surfaces.
     static let formaFileSurfaceFocusedBorder = formaDynamicColor(named: "formaFileSurfaceFocusedBorder") { isDark in
-        let alpha: CGFloat = isDark ? 0.86 : 0.70
+        let alpha: CGFloat = isDark ? 0.78 : 0.62
         return NSColor.formaSteelBlue.withAlphaComponent(alpha)
     }
 
     /// Pending border for shared file surfaces.
     static let formaFileSurfacePendingBorder = formaDynamicColor(named: "formaFileSurfacePendingBorder") { isDark in
-        let alpha: CGFloat = isDark ? 0.68 : 0.46
+        let alpha: CGFloat = isDark ? 0.58 : 0.38
         return NSColor.systemOrange.withAlphaComponent(alpha)
     }
 
     /// Processing border for shared file surfaces.
     static let formaFileSurfaceProcessingBorder = formaDynamicColor(named: "formaFileSurfaceProcessingBorder") { isDark in
-        let alpha: CGFloat = isDark ? 0.72 : 0.50
+        let alpha: CGFloat = isDark ? 0.60 : 0.40
         return NSColor.systemBlue.withAlphaComponent(alpha)
     }
 
     /// Error border for shared file surfaces.
     static let formaFileSurfaceErrorBorder = formaDynamicColor(named: "formaFileSurfaceErrorBorder") { isDark in
-        let alpha: CGFloat = isDark ? 0.76 : 0.54
+        let alpha: CGFloat = isDark ? 0.64 : 0.44
         return NSColor.systemRed.withAlphaComponent(alpha)
     }
 
@@ -307,7 +307,7 @@ extension Color {
     // MARK: - Liquid Glass Tints (macOS 26.0+)
     // Use these with .glassEffect() for consistent brand appearance
     
-    /// Steel blue glass tint for primary interactive elements
+    /// Steel blue glass tint for primary, selection, focus, and current-state glass effects.
     static let glassBlue = Color.formaSteelBlue.opacity(Color.FormaOpacity.strong - Color.FormaOpacity.subtle)
     
     /// Sage green glass tint for success states
@@ -365,12 +365,12 @@ extension Color {
     // Use these for subtle background gradients that make glass materials more visible
     
     /// Brand color palette for gradient backdrops
-    /// Order: Steel Blue (top-left), Sage (bottom-right), Warm Orange (center), Muted Blue (accent)
+    /// Order: Muted Blue (top-left), Sage (bottom-right), Warm Orange (center), Surface Anchor (depth)
     static let gradientBackdropColors: [Color] = [
-        .formaSteelBlue,
+        .formaMutedBlue,
         .formaSage,
         .formaWarmOrange,
-        .formaMutedBlue
+        .formaSurfaceAnchor
     ]
 }
 
@@ -408,7 +408,7 @@ extension NSColor {
     static let formaBoneWhite = NSColor(red: 250/255, green: 250/255, blue: 248/255, alpha: 1.0)
     
     /// Forma Steel Blue - Interactive accent
-    static let formaSteelBlue = NSColor(red: 91/255, green: 124/255, blue: 153/255, alpha: 1.0)
+    static let formaSteelBlue = NSColor(red: 74/255, green: 124/255, blue: 155/255, alpha: 1.0)
     
     /// Forma Sage - Success accent
     static let formaSage = NSColor(red: 122/255, green: 157/255, blue: 126/255, alpha: 1.0)

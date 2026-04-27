@@ -990,7 +990,7 @@ struct MainContentView: View {
             .padding(.vertical, FormaSpacing.tight)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .fill(tint.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle))
+                    .fill(tint.opacity(Color.FormaOpacity.subtle + Color.FormaOpacity.ultraSubtle))
             )
 
             content()
@@ -998,13 +998,13 @@ struct MainContentView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaSurfaceWork)
+                .fill(Color.formaSurfaceWork.opacity(Color.FormaOpacity.prominent))
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(tint.opacity(Color.FormaOpacity.medium + Color.FormaOpacity.ultraSubtle), lineWidth: 0.85)
+                .strokeBorder(tint.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle), lineWidth: 0.75)
         )
-        .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle), radius: 7, x: 0, y: 3)
+        .shadow(color: Color.formaObsidian.opacity(0.012), radius: 4, x: 0, y: 2)
     }
 
     private var cardView: some View {
@@ -1087,7 +1087,7 @@ struct MainContentView: View {
                                 )
 
                                 if index < section.files.count - 1 {
-                                    Color.formaSeparator.opacity(0.3)
+                                    Color.formaSeparator.opacity(0.18)
                                         .frame(height: 0.5)
                                         .padding(.leading, 52)
                                 }
@@ -1103,7 +1103,7 @@ struct MainContentView: View {
 
                     // Separator between list rows (not after the last row)
                     if index < visibleFiles.count - 1 {
-                        Color.formaSeparator.opacity(0.3)
+                        Color.formaSeparator.opacity(0.18)
                             .frame(height: 0.5)
                             .padding(.leading, 52)
                     }

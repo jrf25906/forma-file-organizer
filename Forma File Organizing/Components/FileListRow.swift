@@ -291,9 +291,9 @@ struct FileListRow: View {
                 LinearGradient(
                     colors: [
                         Color.formaBoneWhite.opacity(
-                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.20 : 0.08
+                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.14 : 0.04
                         ),
-                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.06 : 0.02),
+                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.035 : 0.01),
                         Color.formaBoneWhite.opacity(0)
                     ],
                     startPoint: .topLeading,
@@ -311,31 +311,31 @@ struct FileListRow: View {
         if surfaceStyle.interactionState == .selected {
             return FormaBorderWidth.thin
         }
-        return colorScheme == .dark ? 0.75 : 0.6
+        return colorScheme == .dark ? 0.55 : 0.45
     }
 
     private var rowInnerBorderColor: Color {
         switch surfaceStyle.interactionState {
         case .focused, .selected:
-            return Color.formaBoneWhite.opacity(0.30)
+            return Color.formaBoneWhite.opacity(0.20)
         case .hover:
-            return Color.formaBoneWhite.opacity(0.18)
+            return Color.formaBoneWhite.opacity(0.10)
         case .rest:
             if surfaceStyle.activityState != .none {
-                return Color.formaBoneWhite.opacity(0.12)
+                return Color.formaBoneWhite.opacity(0.08)
             }
-            return Color.formaBoneWhite.opacity(0.04)
+            return Color.formaBoneWhite.opacity(0.025)
         }
     }
 
     private var rowAmbientShadowColor: Color {
         switch surfaceStyle.interactionState {
         case .focused:
-            return Color.formaSteelBlue.opacity(0.10)
+            return Color.formaSteelBlue.opacity(0.07)
         case .selected:
-            return Color.formaObsidian.opacity(0.05)
+            return Color.formaObsidian.opacity(0.025)
         case .hover:
-            return Color.formaObsidian.opacity(0.06)
+            return Color.formaObsidian.opacity(0.035)
         case .rest:
             return .clear
         }
@@ -343,17 +343,17 @@ struct FileListRow: View {
 
     private var rowAmbientShadowRadius: CGFloat {
         switch surfaceStyle.interactionState {
-        case .focused: return 8
-        case .selected: return 5
-        case .hover: return 4
+        case .focused: return 6
+        case .selected: return 3
+        case .hover: return 2
         case .rest: return 0
         }
     }
 
     private var rowAmbientShadowY: CGFloat {
         switch surfaceStyle.interactionState {
-        case .focused: return 3
-        case .selected, .hover: return 2
+        case .focused: return 2
+        case .selected, .hover: return 1
         case .rest: return 0
         }
     }
@@ -361,7 +361,7 @@ struct FileListRow: View {
     private var rowContactShadowColor: Color {
         switch surfaceStyle.interactionState {
         case .focused, .hover:
-            return Color.formaObsidian.opacity(0.08)
+            return Color.formaObsidian.opacity(0.04)
         case .selected, .rest:
             return .clear
         }
@@ -369,7 +369,7 @@ struct FileListRow: View {
 
     private var rowContactShadowRadius: CGFloat {
         switch surfaceStyle.interactionState {
-        case .focused, .hover: return 1
+        case .focused, .hover: return 0.75
         case .selected, .rest: return 0
         }
     }

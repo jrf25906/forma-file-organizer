@@ -361,9 +361,9 @@ struct FileGridItem: View {
                 LinearGradient(
                     colors: [
                         Color.formaBoneWhite.opacity(
-                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.20 : 0.09
+                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.14 : 0.05
                         ),
-                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.06 : 0.025),
+                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.035 : 0.012),
                         Color.formaBoneWhite.opacity(0)
                     ],
                     startPoint: .topLeading,
@@ -376,9 +376,9 @@ struct FileGridItem: View {
 
     private var footerBackground: some View {
         ZStack(alignment: .top) {
-            surfaceStyle.fillColor.opacity(Color.FormaOpacity.strong)
+            surfaceStyle.fillColor.opacity(colorScheme == .dark ? 0.36 : 0.44)
 
-            Color.formaSeparator.opacity(0.3)
+            Color.formaSeparator.opacity(colorScheme == .dark ? 0.18 : 0.12)
                 .frame(height: 0.5)
         }
     }
@@ -387,13 +387,13 @@ struct FileGridItem: View {
         ZStack(alignment: .top) {
             Rectangle()
                 .fill(colorScheme == .dark
-                    ? Color.formaControlBackground.opacity(0.88)
-                    : Color.formaBoneWhite.opacity(0.90))
+                    ? Color.formaControlBackground.opacity(0.76)
+                    : Color.formaSurfaceFloating.opacity(0.82))
 
             Rectangle()
                 .fill(.ultraThinMaterial)
 
-            Color.formaSeparator.opacity(colorScheme == .dark ? 0.22 : 0.16)
+            Color.formaSeparator.opacity(colorScheme == .dark ? 0.16 : 0.10)
                 .frame(height: 0.5)
         }
     }
@@ -401,14 +401,14 @@ struct FileGridItem: View {
     private var tileInnerBorderColor: Color {
         switch surfaceStyle.interactionState {
         case .focused, .selected:
-            return Color.formaBoneWhite.opacity(0.32)
+            return Color.formaBoneWhite.opacity(0.22)
         case .hover:
-            return Color.formaBoneWhite.opacity(0.18)
+            return Color.formaBoneWhite.opacity(0.10)
         case .rest:
             if surfaceStyle.activityState != .none {
-                return Color.formaBoneWhite.opacity(0.12)
+                return Color.formaBoneWhite.opacity(0.08)
             }
-            return Color.formaBoneWhite.opacity(0.05)
+            return Color.formaBoneWhite.opacity(0.025)
         }
     }
 
@@ -419,38 +419,38 @@ struct FileGridItem: View {
         case .selected:
             return FormaBorderWidth.thin
         case .hover:
-            return 0.75
+            return 0.6
         case .rest:
-            return surfaceStyle.activityState == .none ? 0.5 : 0.75
+            return surfaceStyle.activityState == .none ? 0.5 : 0.6
         }
     }
 
     private var tileAmbientShadowColor: Color {
         switch surfaceStyle.interactionState {
         case .focused:
-            return Color.formaSteelBlue.opacity(0.12)
+            return Color.formaSteelBlue.opacity(0.08)
         case .selected:
-            return Color.formaObsidian.opacity(0.06)
+            return Color.formaObsidian.opacity(0.03)
         case .hover:
-            return Color.formaObsidian.opacity(0.08)
+            return Color.formaObsidian.opacity(0.04)
         case .rest:
-            return surfaceStyle.activityState == .none ? .clear : Color.formaObsidian.opacity(0.02)
+            return surfaceStyle.activityState == .none ? .clear : Color.formaObsidian.opacity(0.01)
         }
     }
 
     private var tileAmbientShadowRadius: CGFloat {
         switch surfaceStyle.interactionState {
-        case .focused: return 12
-        case .selected: return 8
-        case .hover: return 6
-        case .rest: return surfaceStyle.activityState == .none ? 0 : 2
+        case .focused: return 8
+        case .selected: return 5
+        case .hover: return 4
+        case .rest: return surfaceStyle.activityState == .none ? 0 : 1.5
         }
     }
 
     private var tileAmbientShadowY: CGFloat {
         switch surfaceStyle.interactionState {
-        case .focused: return 4
-        case .selected, .hover: return 3
+        case .focused: return 3
+        case .selected, .hover: return 2
         case .rest: return surfaceStyle.activityState == .none ? 0 : 1
         }
     }
@@ -458,18 +458,18 @@ struct FileGridItem: View {
     private var tileContactShadowColor: Color {
         switch surfaceStyle.interactionState {
         case .focused, .hover:
-            return Color.formaObsidian.opacity(0.10)
+            return Color.formaObsidian.opacity(0.06)
         case .selected, .rest:
             return surfaceStyle.interactionState == .selected
-                ? Color.formaObsidian.opacity(0.04)
+                ? Color.formaObsidian.opacity(0.02)
                 : .clear
         }
     }
 
     private var tileContactShadowRadius: CGFloat {
         switch surfaceStyle.interactionState {
-        case .focused: return 2
-        case .selected, .hover: return 1.5
+        case .focused: return 1.5
+        case .selected, .hover: return 1
         case .rest: return 0
         }
     }

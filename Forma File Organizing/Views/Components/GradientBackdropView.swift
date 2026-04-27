@@ -36,10 +36,10 @@ struct GradientBackdropView: View {
     
     var body: some View {
         ZStack {
-            // Top-left: Steel Blue radial gradient
+            // Top-left: muted blue radial gradient
             RadialGradient(
                 gradient: Gradient(colors: [
-                    Color.formaSteelBlue.opacity(isDarkMode ? Color.FormaOpacity.overlay : Color.FormaOpacity.strong),
+                    Color.formaMutedBlue.opacity(isDarkMode ? Color.FormaOpacity.medium : Color.FormaOpacity.overlay),
                     Color.clear
                 ]),
                 center: .topLeading,
