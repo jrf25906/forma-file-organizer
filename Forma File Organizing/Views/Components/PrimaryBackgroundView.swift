@@ -6,6 +6,7 @@ import AppKit
 struct PrimaryBackgroundView: View {
     @State private var isKeyWindow = true
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -21,9 +22,9 @@ struct PrimaryBackgroundView: View {
 
             // Active State: Gradient Backdrop
             // This is the vibrant Forma-brand gradient content.
-            GradientBackdropView(intensity: 1.0, animated: isKeyWindow)
+            GradientBackdropView(intensity: Color.FormaOpacity.high, animated: isKeyWindow)
                 .opacity(isKeyWindow ? 1 : 0)
-                .animation(.easeInOut(duration: 0.2), value: isKeyWindow)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isKeyWindow)
             
             // Key Window Observer
             WindowKeyObserver(isKeyWindow: $isKeyWindow)
@@ -152,9 +153,9 @@ struct PaneMaterialBackground: View {
     }
 
     private var paneAmbientGradient: LinearGradient {
-        let top = Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.10 : 0.14)
-        let mid = tintColor.opacity(colorScheme == .dark ? 0.18 : 0.14)
-        let bottom = Color.formaObsidian.opacity(colorScheme == .dark ? 0.10 : 0.05)
+        let top = Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.08 : 0.10)
+        let mid = tintColor.opacity(colorScheme == .dark ? 0.12 : 0.10)
+        let bottom = Color.formaObsidian.opacity(colorScheme == .dark ? 0.08 : 0.04)
 
         return LinearGradient(
             colors: [top, mid, bottom],
@@ -202,11 +203,11 @@ struct PaneMaterialBackground: View {
         let base: Double
         switch role {
         case .sidebar:
-            base = colorScheme == .dark ? 0.86 : 0.72
+            base = colorScheme == .dark ? 0.78 : 0.62
         case .content:
-            base = colorScheme == .dark ? 0.50 : 0.38
+            base = colorScheme == .dark ? 0.40 : 0.28
         case .inspector:
-            base = colorScheme == .dark ? 0.68 : 0.56
+            base = colorScheme == .dark ? 0.56 : 0.44
         }
 
         return base * activeMultiplier
@@ -218,11 +219,11 @@ struct PaneMaterialBackground: View {
         let base: Double
         switch role {
         case .sidebar:
-            base = colorScheme == .dark ? 0.08 : 0.13
-        case .content:
-            base = colorScheme == .dark ? 0.04 : 0.08
-        case .inspector:
             base = colorScheme == .dark ? 0.06 : 0.10
+        case .content:
+            base = colorScheme == .dark ? 0.025 : 0.055
+        case .inspector:
+            base = colorScheme == .dark ? 0.04 : 0.07
         }
 
         return base * activeMultiplier
@@ -249,33 +250,33 @@ struct PaneMaterialBackground: View {
 
         switch role {
         case .sidebar:
-            return (colorScheme == .dark ? 0.40 : 0.30) * activeMultiplier
+            return (colorScheme == .dark ? 0.30 : 0.22) * activeMultiplier
         case .content:
-            return (colorScheme == .dark ? 0.18 : 0.12) * activeMultiplier
+            return (colorScheme == .dark ? 0.12 : 0.08) * activeMultiplier
         case .inspector:
-            return (colorScheme == .dark ? 0.24 : 0.18) * activeMultiplier
+            return (colorScheme == .dark ? 0.16 : 0.12) * activeMultiplier
         }
     }
 
     private var grainIntensity: Float {
         switch role {
         case .sidebar:
-            return 0.95
-        case .content:
-            return 0.65
-        case .inspector:
             return 0.72
+        case .content:
+            return 0.42
+        case .inspector:
+            return 0.50
         }
     }
 
     private var grainOpacity: Double {
         switch role {
         case .sidebar:
-            return colorScheme == .dark ? 0.16 : 0.12
+            return colorScheme == .dark ? 0.10 : 0.07
         case .content:
-            return colorScheme == .dark ? 0.08 : 0.06
+            return colorScheme == .dark ? 0.05 : 0.035
         case .inspector:
-            return colorScheme == .dark ? 0.10 : 0.08
+            return colorScheme == .dark ? 0.06 : 0.045
         }
     }
 
@@ -285,14 +286,14 @@ struct PaneMaterialBackground: View {
 
         switch role {
         case .sidebar:
-            top = Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.62 : 0.48)
-            middle = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.44 : 0.32)
+            top = Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.44 : 0.34)
+            middle = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.28 : 0.20)
         case .content:
-            top = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.28 : 0.18)
-            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.16 : 0.10)
+            top = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.18 : 0.12)
+            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.10 : 0.06)
         case .inspector:
-            top = Color.formaSage.opacity(colorScheme == .dark ? 0.42 : 0.28)
-            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.18 : 0.12)
+            top = Color.formaSage.opacity(colorScheme == .dark ? 0.28 : 0.18)
+            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.12 : 0.08)
         }
 
         return LinearGradient(
@@ -307,11 +308,11 @@ struct PaneMaterialBackground: View {
 
         switch role {
         case .sidebar:
-            return (colorScheme == .dark ? 0.28 : 0.20) * activeMultiplier
+            return (colorScheme == .dark ? 0.18 : 0.13) * activeMultiplier
         case .content:
-            return (colorScheme == .dark ? 0.10 : 0.08) * activeMultiplier
+            return (colorScheme == .dark ? 0.06 : 0.04) * activeMultiplier
         case .inspector:
-            return (colorScheme == .dark ? 0.14 : 0.10) * activeMultiplier
+            return (colorScheme == .dark ? 0.08 : 0.06) * activeMultiplier
         }
     }
 
@@ -322,7 +323,7 @@ struct PaneMaterialBackground: View {
             HStack(spacing: 0) {
                 Spacer()
                 Rectangle()
-                    .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.12 : 0.2))
+                    .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.10 : 0.16))
                     .frame(width: 1)
             }
         case .content:
@@ -330,7 +331,7 @@ struct PaneMaterialBackground: View {
         case .inspector:
             HStack(spacing: 0) {
                 Rectangle()
-                    .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.1 : 0.18))
+                    .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.08 : 0.14))
                     .frame(width: 1)
                 Spacer()
             }

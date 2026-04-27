@@ -67,13 +67,13 @@ extension Color {
     static let formaBackground = Color(NSColor.windowBackgroundColor)
     
     /// Control backgrounds (buttons, cards, etc.).
-    /// Uses a deeper charcoal in dark mode so controls remain legible and intentional
+    /// Uses a blue-slate charcoal in dark mode so controls remain legible and intentional
     /// without collapsing into pure black.
     static let formaControlBackground = Color(
         NSColor(name: NSColor.Name("formaControlBackground")) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             if isDark {
-                return NSColor(red: 32/255, green: 37/255, blue: 44/255, alpha: 1.0) // #20252C
+                return NSColor(red: 31/255, green: 38/255, blue: 48/255, alpha: 1.0) // #1F2630
             }
             return NSColor.controlBackgroundColor
         }
@@ -85,21 +85,21 @@ extension Color {
         NSColor(name: NSColor.Name("formaTextBackground")) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             if isDark {
-                return NSColor(red: 27/255, green: 32/255, blue: 38/255, alpha: 1.0) // #1B2026
+                return NSColor(red: 27/255, green: 36/255, blue: 45/255, alpha: 1.0) // #1B242D
             }
             return NSColor.textBackgroundColor
         }
     )
     
     /// Card backgrounds with appearance-aware contrast.
-    /// Light: #F9F9F9 | Dark: #22252A
+    /// Light: #F7FAFC | Dark: #2A323C
     static let formaCardBackground = Color(
         NSColor(name: NSColor.Name("formaCardBackground")) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             if isDark {
-                return NSColor(red: 39/255, green: 44/255, blue: 52/255, alpha: 1.0) // #272C34
+                return NSColor(red: 42/255, green: 50/255, blue: 60/255, alpha: 1.0) // #2A323C
             }
-            return NSColor(red: 249/255, green: 249/255, blue: 249/255, alpha: 1.0)
+            return NSColor(red: 247/255, green: 250/255, blue: 252/255, alpha: 1.0) // #F7FAFC
         }
     )
 
@@ -107,33 +107,33 @@ extension Color {
     /// This adapts instead of forcing a flat dark sidebar in every appearance.
     static let formaSurfaceAnchor = formaDynamicColor(named: "formaSurfaceAnchor") { isDark in
         if isDark {
-            return NSColor(red: 18/255, green: 27/255, blue: 36/255, alpha: 1.0) // #121B24
+            return NSColor(red: 15/255, green: 24/255, blue: 33/255, alpha: 1.0) // #0F1821
         }
-        return NSColor(red: 224/255, green: 233/255, blue: 241/255, alpha: 1.0) // #E0E9F1
+        return NSColor(red: 215/255, green: 227/255, blue: 236/255, alpha: 1.0) // #D7E3EC
     }
 
     /// Primary work surface for dense review rows, cards, and settings groups.
     static let formaSurfaceWork = formaDynamicColor(named: "formaSurfaceWork") { isDark in
         if isDark {
-            return NSColor(red: 37/255, green: 43/255, blue: 51/255, alpha: 1.0) // #252B33
+            return NSColor(red: 41/255, green: 49/255, blue: 59/255, alpha: 1.0) // #29313B
         }
-        return NSColor(red: 253/255, green: 254/255, blue: 255/255, alpha: 1.0) // #FDFEFF
+        return NSColor(red: 252/255, green: 254/255, blue: 255/255, alpha: 1.0) // #FCFEFF
     }
 
     /// Cooler application chrome behind work surfaces.
     static let formaSurfaceChrome = formaDynamicColor(named: "formaSurfaceChrome") { isDark in
         if isDark {
-            return NSColor(red: 28/255, green: 35/255, blue: 43/255, alpha: 1.0) // #1C232B
+            return NSColor(red: 24/255, green: 34/255, blue: 44/255, alpha: 1.0) // #18222C
         }
-        return NSColor(red: 237/255, green: 242/255, blue: 247/255, alpha: 1.0) // #EDF2F7
+        return NSColor(red: 232/255, green: 238/255, blue: 245/255, alpha: 1.0) // #E8EEF5
     }
 
     /// Floating surface for popovers, command palette chrome, and transient controls.
     static let formaSurfaceFloating = formaDynamicColor(named: "formaSurfaceFloating") { isDark in
         if isDark {
-            return NSColor(red: 45/255, green: 53/255, blue: 63/255, alpha: 1.0) // #2D353F
+            return NSColor(red: 51/255, green: 61/255, blue: 73/255, alpha: 1.0) // #333D49
         }
-        return NSColor(red: 251/255, green: 252/255, blue: 253/255, alpha: 1.0) // #FBFCFD
+        return NSColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1.0) // #FFFFFF
     }
 
     /// List-row base surface. In dark mode this sits slightly above panel surfaces,
@@ -253,7 +253,7 @@ extension Color {
     /// Tertiary text (metadata, timestamps)
     static let formaTertiaryLabel = Color(NSColor.tertiaryLabelColor)
 
-    /// Secondary text with extra contrast in dark mode (for glass/low-contrast surfaces)
+    /// Secondary text with extra contrast for glass/low-contrast surfaces.
     static let formaSecondaryLabelHigh = Color(
         NSColor(name: NSColor.Name("formaSecondaryLabelHigh")) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -263,10 +263,12 @@ extension Color {
                     ?? NSColor.secondaryLabelColor
             }
             return NSColor.secondaryLabelColor
+                .blended(withFraction: 0.16, of: NSColor.labelColor)
+                ?? NSColor.secondaryLabelColor
         }
     )
 
-    /// Tertiary text with extra contrast in dark mode (for captions and metadata)
+    /// Tertiary text with extra contrast for captions and metadata.
     static let formaTertiaryLabelHigh = Color(
         NSColor(name: NSColor.Name("formaTertiaryLabelHigh")) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -276,6 +278,8 @@ extension Color {
                     ?? NSColor.tertiaryLabelColor
             }
             return NSColor.tertiaryLabelColor
+                .blended(withFraction: 0.20, of: NSColor.labelColor)
+                ?? NSColor.tertiaryLabelColor
         }
     )
 

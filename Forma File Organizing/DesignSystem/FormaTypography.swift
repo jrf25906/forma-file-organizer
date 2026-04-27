@@ -15,16 +15,16 @@ extension Font {
     // MARK: - Type Scale (Desktop/Window Sizes)
     
     /// Hero text for welcome screens and large displays
-    /// 32pt Bold - Use for major welcome screens
-    static let formaHero = Font.system(size: 32, weight: .bold, design: .default)
+    /// 34pt Bold - Use for major welcome screens
+    static let formaHero = Font.system(size: 34, weight: .bold, design: .default)
     
     /// H1 for main screen titles
-    /// 24pt Semibold - Use for primary screen headers
-    static let formaH1 = Font.system(size: 24, weight: .semibold, design: .default)
+    /// 26pt Semibold - Use for primary screen headers
+    static let formaH1 = Font.system(size: 26, weight: .semibold, design: .default)
     
     /// H2 for section headers
-    /// 20pt Semibold - Use for major section divisions
-    static let formaH2 = Font.system(size: 20, weight: .semibold, design: .default)
+    /// 21pt Semibold - Use for major section divisions
+    static let formaH2 = Font.system(size: 21, weight: .semibold, design: .default)
     
     /// H3 for subsections
     /// 17pt Semibold - Use for subsection headers

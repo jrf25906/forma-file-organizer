@@ -246,19 +246,20 @@ private struct TypographyTokensSection: View {
             // Headlines
             GroupBox("Headlines") {
                 VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                    TypographyTokenRow(name: "formaH1", font: .formaH1, size: "32pt Bold")
-                    TypographyTokenRow(name: "formaH2", font: .formaH2, size: "24pt Semibold")
-                    TypographyTokenRow(name: "formaH3", font: .formaH3, size: "20pt Semibold")
+                    TypographyTokenRow(name: "formaHero", font: .formaHero, size: "34pt Bold")
+                    TypographyTokenRow(name: "formaH1", font: .formaH1, size: "26pt Semibold")
+                    TypographyTokenRow(name: "formaH2", font: .formaH2, size: "21pt Semibold")
+                    TypographyTokenRow(name: "formaH3", font: .formaH3, size: "17pt Semibold")
                 }
             }
 
             // Body Text
             GroupBox("Body Text") {
                 VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                    TypographyTokenRow(name: "formaBody", font: .formaBody, size: "14pt Regular")
-                    TypographyTokenRow(name: "formaBodyMedium", font: .formaBodyMedium, size: "14pt Medium")
-                    TypographyTokenRow(name: "formaBodySemibold", font: .formaBodySemibold, size: "14pt Semibold")
-                    TypographyTokenRow(name: "formaBodyBold", font: .formaBodyBold, size: "14pt Bold")
+                    TypographyTokenRow(name: "formaBody", font: .formaBody, size: "13pt Regular")
+                    TypographyTokenRow(name: "formaBodyMedium", font: .formaBodyMedium, size: "13pt Medium")
+                    TypographyTokenRow(name: "formaBodySemibold", font: .formaBodySemibold, size: "13pt Semibold")
+                    TypographyTokenRow(name: "formaBodyBold", font: .formaBodyBold, size: "13pt Bold")
                 }
             }
 
@@ -284,9 +285,9 @@ private struct TypographyTokensSection: View {
             // Special
             GroupBox("Special") {
                 VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                    TypographyTokenRow(name: "formaMono", font: .formaMono, size: "12pt Mono")
-                    TypographyTokenRow(name: "formaPrimaryButton", font: .formaPrimaryButton, size: "14pt Semibold")
-                    TypographyTokenRow(name: "formaSecondaryButton", font: .formaSecondaryButton, size: "14pt Medium")
+                    TypographyTokenRow(name: "formaMono", font: .formaMono, size: "13pt Mono")
+                    TypographyTokenRow(name: "formaPrimaryButton", font: .formaPrimaryButton, size: "13pt Semibold")
+                    TypographyTokenRow(name: "formaSecondaryButton", font: .formaSecondaryButton, size: "13pt Regular")
                 }
             }
 
