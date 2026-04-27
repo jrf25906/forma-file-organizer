@@ -246,7 +246,13 @@ private struct PatternCard: View {
                     lineWidth: 1
                 )
         )
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .shadow(
+            color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.08 : 0.018),
+            radius: isHovered ? 5 : 1.5,
+            x: 0,
+            y: isHovered ? 2 : 1
+        )
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }
@@ -300,6 +306,7 @@ private struct PatternCard: View {
             }
             .foregroundColor(.formaBoneWhite)
             .frame(maxWidth: frameToFill ? .infinity : nil)
+            .frame(minHeight: 40)
             .padding(.horizontal, FormaSpacing.large)
             .padding(.vertical, FormaSpacing.Button.vertical)
             .background(
@@ -316,6 +323,7 @@ private struct PatternCard: View {
                 .font(.formaBodyMedium)
                 .foregroundColor(.formaSecondaryLabel)
                 .frame(maxWidth: frameToFill ? .infinity : nil)
+                .frame(minHeight: 40)
                 .padding(.horizontal, FormaSpacing.large)
                 .padding(.vertical, FormaSpacing.Button.vertical)
                 .background(

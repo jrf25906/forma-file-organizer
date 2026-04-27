@@ -11,43 +11,20 @@ struct SettingsTabShell<Content: View>: View {
         self.content = content()
     }
 
-    private var shellFill: Color {
-        colorScheme == .dark
-            ? Color.formaObsidian.opacity(0.38)
-            : Color.formaBoneWhite.opacity(0.84)
-    }
-
-    private var shellStroke: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
+    private var backdropFill: Color {
+        colorScheme == .dark ? .formaSurfaceAnchor : .formaSurfaceChrome
     }
 
     var body: some View {
         ZStack {
+            backdropFill
+
             GradientBackdropView(
-                intensity: colorScheme == .dark ? Color.FormaOpacity.medium : Color.FormaOpacity.overlay,
+                intensity: colorScheme == .dark ? Color.FormaOpacity.light : Color.FormaOpacity.subtle,
                 blurRadius: FormaSpacing.huge + FormaSpacing.tight
             )
 
             content
-                .padding(FormaSpacing.tight)
-                .background(
-                    RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
-                        .fill(shellFill)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
-                                .stroke(shellStroke, lineWidth: 1)
-                        )
-                        .shadow(
-                            color: colorScheme == .dark
-                                ? Color.black.opacity(0.22)
-                                : Color.formaObsidian.opacity(Color.FormaOpacity.light),
-                            radius: 10,
-                            x: 0,
-                            y: 4
-                        )
-                )
                 .padding(FormaSpacing.standard)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -68,21 +45,21 @@ struct SettingsSection<Content: View>: View {
         VStack(alignment: .leading, spacing: FormaSpacing.tight) {
             // Section header - matches FormaSection styling
             Text(title)
-                .font(.formaCaptionSemibold)
-                .tracking(0.5)
-                .foregroundColor(colorScheme == .dark ? Color.formaSecondaryLabelHigh : Color.formaSecondaryLabel)
+                .font(.formaSmallSemibold)
+                .tracking(0.3)
+                .foregroundColor(.formaLabel)
                 .padding(.leading, FormaSpacing.micro)
 
-            // Content card - white background with subtle border
+            // Content card - work surface with a restrained edge
             content
-                .background(Color.formaControlBackground)
+                .background(Color.formaSurfaceWork)
                 .formaCornerRadius(FormaRadius.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                         .stroke(
                             colorScheme == .dark
-                                ? Color.formaSeparator.opacity(0.35)
-                                : Color.formaSeparator.opacity(Color.FormaOpacity.light),
+                                ? Color.formaBoneWhite.opacity(0.16)
+                                : Color.formaObsidian.opacity(Color.FormaOpacity.light),
                             lineWidth: 1
                         )
                 )
@@ -102,7 +79,6 @@ struct SettingsRow<Accessory: View>: View {
     let title: String
     let subtitle: String?
     let accessory: Accessory
-    @Environment(\.colorScheme) private var colorScheme
 
     init(_ title: String, subtitle: String? = nil, @ViewBuilder accessory: () -> Accessory) {
         self.title = title
@@ -111,24 +87,31 @@ struct SettingsRow<Accessory: View>: View {
     }
 
     var body: some View {
-        HStack {
+        HStack(alignment: .center, spacing: FormaSpacing.standard) {
             VStack(alignment: .leading, spacing: 2) {
                 // Title
                 Text(title)
                     .font(.formaBody)
                     .foregroundColor(.formaLabel)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 // Subtitle
                 if let subtitle = subtitle {
                     Text(subtitle)
                         .font(.formaSmall)
-                        .foregroundColor(colorScheme == .dark ? Color.formaSecondaryLabelHigh : Color.formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            Spacer()
+            .layoutPriority(1)
+
+            Spacer(minLength: FormaSpacing.standard)
             accessory
         }
         .padding(FormaSpacing.large)
+        .frame(minHeight: 56)
     }
 }
 

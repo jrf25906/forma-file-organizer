@@ -51,9 +51,17 @@ class OnboardingState {
 struct OnboardingFolderSelection: Codable, Equatable {
     var desktop: Bool = true
     var downloads: Bool = true
-    var documents: Bool = true
-    var pictures: Bool = true
-    var music: Bool = true
+    var documents: Bool = false
+    var pictures: Bool = false
+    var music: Bool = false
+
+    static let allStandardFolders = OnboardingFolderSelection(
+        desktop: true,
+        downloads: true,
+        documents: true,
+        pictures: true,
+        music: true
+    )
 
     var selectedCount: Int {
         [desktop, downloads, documents, pictures, music].filter { $0 }.count

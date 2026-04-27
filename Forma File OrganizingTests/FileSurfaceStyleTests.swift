@@ -126,7 +126,7 @@ final class FileSurfaceStyleTests: XCTestCase {
         )
 
         XCTAssertEqual(style.overlayColors.count, 2)
-        XCTAssertColor(style.fillColor, matches: .formaCardBackground)
+        XCTAssertColor(style.fillColor, matches: .formaSurfaceWork)
         XCTAssertColor(style.overlayColors[0], matches: .formaFileSurfaceSelectionOverlay)
         XCTAssertColor(style.overlayColors[1], matches: .formaFileSurfaceProcessingOverlay)
         XCTAssertColor(style.primaryBorderColor, matches: .formaFileSurfaceFocusedBorder)

@@ -16,19 +16,24 @@ struct GuidedTourCard: View {
     let totalSteps: Int
     let onNext: () -> Void
     let onSkip: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         cardBody
-            .frame(maxWidth: 300)
+            .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
             .padding(FormaSpacing.standard)
             .background(
                 ZStack {
-                    Color.formaCardBackground
+                    colorScheme == .dark ? Color.formaBoneWhite.opacity(0.08) : Color.formaBoneWhite.opacity(0.82)
                     Rectangle().fill(.ultraThinMaterial)
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-            .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 4)
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.55 : 0.32), lineWidth: 1)
+            )
+            .shadow(color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.26 : 0.12), radius: 12, x: 0, y: 4)
             .overlay(arrowOverlay)
     }
 
@@ -112,6 +117,7 @@ struct GuidedTourCard: View {
                 Text("Skip tour")
                     .font(.formaSmall)
                     .foregroundColor(.formaSecondaryLabel)
+                    .frame(minHeight: 40)
             }
             .buttonStyle(.plain)
 
@@ -123,6 +129,7 @@ struct GuidedTourCard: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, FormaSpacing.standard)
                     .padding(.vertical, FormaSpacing.micro + 2)
+                    .frame(minHeight: 40)
                     .background(Color.formaSteelBlue)
                     .clipShape(Capsule())
             }
@@ -137,7 +144,7 @@ struct GuidedTourCard: View {
         GeometryReader { geometry in
             let arrowSize: CGFloat = 8
             arrowShape(for: step.tooltipPlacement, size: arrowSize)
-                .fill(Color.formaCardBackground)
+                .fill(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.08) : Color.formaBoneWhite.opacity(0.82))
                 .frame(width: arrowSize * 2, height: arrowSize * 2)
                 .position(
                     arrowPosition(

@@ -32,6 +32,7 @@ struct FormaPrimaryButton: View {
             .foregroundColor(.formaBoneWhite)
             .formaButtonPadding()
             .frame(maxWidth: .infinity)
+            .frame(minHeight: 40)
         }
         .background(isEnabled ? tint : tint.opacity(Color.FormaOpacity.light * 4))
         .formaCornerRadius(cornerRadius)
@@ -64,6 +65,7 @@ struct FormaSecondaryButton: View {
             .foregroundColor(.formaObsidian)
             .formaButtonPadding()
             .frame(maxWidth: .infinity)
+            .frame(minHeight: 40)
         }
         .background(Color.clear)
         .overlay(

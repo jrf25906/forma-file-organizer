@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BulkEditSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     
     let selectedFiles: [FileItem]
     let onSave: (String, Bool) -> Void
@@ -25,11 +26,11 @@ struct BulkEditSheet: View {
             VStack(spacing: FormaSpacing.tight) {
                 Text("Edit Destination for \(selectedFiles.count) \(selectedFiles.count == 1 ? "File" : "Files")")
                     .font(.formaH1)
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
                 
                 Text("Choose a destination for the selected files")
                     .font(.formaBody)
-                    .foregroundColor(.formaObsidian.opacity(Color.FormaOpacity.high))
+                    .foregroundColor(.formaSecondaryLabelHigh)
             }
             .padding(.top, FormaSpacing.large)
             
@@ -40,28 +41,28 @@ struct BulkEditSheet: View {
                 VStack(alignment: .leading, spacing: FormaSpacing.tight) {
                     Text("Current Suggestions:")
                         .font(.formaBody.weight(.semibold))
-                        .foregroundColor(.formaObsidian.opacity(Color.FormaOpacity.prominent))
+                        .foregroundColor(.formaLabel)
                     
                     ForEach(uniqueDestinations.prefix(3), id: \.self) { destination in
                         HStack(spacing: FormaSpacing.tight) {
                             Image(systemName: "arrow.right")
                                 .font(.formaCaption)
-                                .foregroundColor(.formaObsidian.opacity(Color.FormaOpacity.strong - Color.FormaOpacity.light))
+                                .foregroundColor(.formaSecondaryLabelHigh)
                             Text(destination)
                                 .font(.formaSmall)
-                                .foregroundColor(.formaObsidian.opacity(Color.FormaOpacity.high))
+                                .foregroundColor(.formaSecondaryLabelHigh)
                         }
                     }
                     
                     if uniqueDestinations.count > 3 {
                         Text("+ \(uniqueDestinations.count - 3) more")
                             .font(.formaSmall)
-                            .foregroundColor(.formaObsidian.opacity(Color.FormaOpacity.strong))
+                            .foregroundColor(.formaSecondaryLabel)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(FormaSpacing.standard)
-                .background(Color.formaObsidian.opacity(Color.FormaOpacity.subtle - Color.FormaOpacity.ultraSubtle))
+                .background(colorScheme == .dark ? Color.formaControlBackground.opacity(0.38) : Color.formaBoneWhite.opacity(0.68))
                 .formaCornerRadius(FormaRadius.control)
             }
             
@@ -69,7 +70,7 @@ struct BulkEditSheet: View {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                 Text("Override with:")
                     .font(.formaBody.weight(.semibold))
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
                 
                 Picker("Destination", selection: $selectedDestination) {
                     Text("Select...").tag("")
@@ -90,6 +91,7 @@ struct BulkEditSheet: View {
                     }
                     .font(.formaBody)
                     .foregroundColor(.formaSteelBlue)
+                    .frame(minHeight: 40)
                 }
                 .buttonStyle(.plain)
             }
@@ -100,12 +102,12 @@ struct BulkEditSheet: View {
                     VStack(alignment: .leading, spacing: FormaSpacing.micro) {
                         Text("Apply this rule to future files")
                             .font(.formaBody.weight(.medium))
-                            .foregroundColor(.formaObsidian)
+                            .foregroundColor(.formaLabel)
                         
                         if createRules && !fileTypeGroups.isEmpty {
                             Text("Will create rules for: \(fileTypeGroups.map { ".\($0.0)" }.joined(separator: ", "))")
                                 .font(.formaSmall)
-                                .foregroundColor(.formaObsidian.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light))
+                                .foregroundColor(.formaSecondaryLabelHigh)
                         }
                     }
                 }
@@ -132,8 +134,8 @@ struct BulkEditSheet: View {
             .padding(.bottom, FormaSpacing.large)
         }
         .padding(.horizontal, FormaSpacing.generous)
-        .frame(width: 500, height: 550)
-        .background(Color.formaBoneWhite)
+        .frame(minWidth: 500, idealWidth: 540, maxWidth: 620, minHeight: 520, idealHeight: 550, maxHeight: 680)
+        .background(Color.formaBackground)
     }
 }
 

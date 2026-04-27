@@ -7,6 +7,7 @@ struct RulePreviewCard: View {
     var onApplyToEditor: ((NLParsedRule) -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     // Track which conditions the user has chosen to remove in the preview.
     @State private var removedConditionIndices: Set<Int> = []
@@ -105,6 +106,7 @@ struct RulePreviewCard: View {
             // Header: action + confidence
             HStack(spacing: FormaSpacing.tight) {
                 HStack(spacing: FormaSpacing.tight - (FormaSpacing.micro / 2)) {
+                    FormaBadge(text: "PARSED", color: .formaSteelBlue, size: .small, style: .subtle)
                     Image(systemName: iconForAction())
                         .font(.formaBodySemibold)
                         .foregroundColor(.formaSteelBlue)
@@ -157,8 +159,12 @@ struct RulePreviewCard: View {
                 Spacer()
             }
             .padding(FormaSpacing.tight)
-            .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.ultraSubtle * 3))
-            .formaCornerRadius(FormaRadius.control)
+            .background(Color.formaSurfaceFloating)
+            .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .strokeBorder(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.34 : 0.22), lineWidth: FormaBorderWidth.thin)
+            )
 
             // Issues / Uncertainty
             if hasWarnings || hasErrors {
@@ -177,8 +183,12 @@ struct RulePreviewCard: View {
                     }
                 }
                 .padding(FormaSpacing.tight)
-                .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.subtle))
-                .formaCornerRadius(FormaRadius.control)
+                .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light - Color.FormaOpacity.ultraSubtle))
+                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                        .strokeBorder(Color.formaWarmOrange.opacity(0.24), lineWidth: FormaBorderWidth.thin)
+                )
             }
 
             // Apply button
@@ -221,13 +231,13 @@ struct RulePreviewCard: View {
         .padding(FormaSpacing.standard)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaBoneWhite.opacity(Color.FormaOpacity.prominent))
+                .fill(Color.formaSurfaceFloating)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light), lineWidth: 1)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.36), lineWidth: FormaBorderWidth.thin)
         )
-        .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle * 2), radius: 6, x: 0, y: 3)
+        .shadow(color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.18 : 0.06), radius: 5, x: 0, y: 2)
         .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: parsedRule.overallConfidence)
     }
 

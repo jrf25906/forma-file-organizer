@@ -400,9 +400,9 @@ struct FileRow: View {
                 LinearGradient(
                     colors: [
                         Color.formaBoneWhite.opacity(
-                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.28 : 0.18
+                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.24 : 0.10
                         ),
-                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.10 : 0.06),
+                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.08 : 0.03),
                         Color.formaBoneWhite.opacity(0)
                     ],
                     startPoint: .topLeading,
@@ -421,9 +421,9 @@ struct FileRow: View {
             return Color.formaBoneWhite.opacity(0.22)
         case .rest:
             if surfaceStyle.activityState != .none {
-                return Color.formaBoneWhite.opacity(0.18)
+                return Color.formaBoneWhite.opacity(0.14)
             }
-            return Color.formaBoneWhite.opacity(0.14)
+            return Color.formaBoneWhite.opacity(0.06)
         }
     }
 
@@ -433,8 +433,10 @@ struct FileRow: View {
             return FormaBorderWidth.medium
         case .selected:
             return FormaBorderWidth.thin
-        case .hover, .rest:
+        case .hover:
             return 0.75
+        case .rest:
+            return surfaceStyle.activityState == .none ? 0.5 : 0.75
         }
     }
 
@@ -447,7 +449,7 @@ struct FileRow: View {
         case .hover:
             return Color.formaObsidian.opacity(0.08)
         case .rest:
-            return Color.formaObsidian.opacity(0.03)
+            return surfaceStyle.activityState == .none ? .clear : Color.formaObsidian.opacity(0.02)
         }
     }
 
@@ -456,7 +458,7 @@ struct FileRow: View {
         case .focused: return 10
         case .selected: return 6
         case .hover: return 5
-        case .rest: return 3
+        case .rest: return surfaceStyle.activityState == .none ? 0 : 2
         }
     }
 
@@ -464,7 +466,7 @@ struct FileRow: View {
         switch surfaceStyle.interactionState {
         case .focused: return 4
         case .selected, .hover: return 2
-        case .rest: return 1
+        case .rest: return surfaceStyle.activityState == .none ? 0 : 1
         }
     }
 
@@ -473,7 +475,9 @@ struct FileRow: View {
         case .focused, .hover:
             return Color.formaObsidian.opacity(0.10)
         case .selected, .rest:
-            return Color.formaObsidian.opacity(0.05)
+            return surfaceStyle.interactionState == .selected
+                ? Color.formaObsidian.opacity(0.04)
+                : .clear
         }
     }
 
@@ -481,12 +485,19 @@ struct FileRow: View {
         switch surfaceStyle.interactionState {
         case .focused: return 2
         case .selected, .hover: return 1.5
-        case .rest: return 1
+        case .rest: return 0
         }
     }
 
     private var cardContactShadowY: CGFloat {
-        surfaceStyle.interactionState == .focused ? 2 : 1
+        switch surfaceStyle.interactionState {
+        case .focused:
+            return 2
+        case .selected, .hover:
+            return 1
+        case .rest:
+            return 0
+        }
     }
 }
 

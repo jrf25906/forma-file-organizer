@@ -43,6 +43,8 @@ struct FormaStatusPill: View {
             Text(config.text)
                 .font(.formaCaption)
                 .fontWeight(.medium)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
         .foregroundStyle(config.color)
         .padding(.horizontal, FormaSpacing.tight)

@@ -12,6 +12,7 @@ import Combine
 struct AIInsightsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allPatterns: [LearnedPattern]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @StateObject private var viewModel = AIInsightsViewModel()
 
@@ -125,7 +126,7 @@ struct AIInsightsView: View {
                     isSelected: viewModel.selectedTab == tab,
                     badgeCount: badgeCount(for: tab)
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8)) {
                         viewModel.selectedTab = tab
                     }
                 }
@@ -324,6 +325,7 @@ private struct StatCard: View {
     let value: String
     let label: String
     let color: Color
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: FormaSpacing.tight) {
@@ -343,11 +345,15 @@ private struct StatCard: View {
         .padding(.vertical, FormaSpacing.large)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(color.opacity(Color.FormaOpacity.subtle))
+                .fill(
+                    colorScheme == .dark
+                        ? color.opacity(0.11)
+                        : color.opacity(0.055)
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(color.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                .strokeBorder(color.opacity(colorScheme == .dark ? 0.28 : 0.18), lineWidth: 1)
         )
     }
 }
@@ -471,6 +477,7 @@ private struct TabButton: View {
             .foregroundColor(isSelected ? .formaBoneWhite : .formaSecondaryLabel)
             .padding(.horizontal, FormaSpacing.large)
             .padding(.vertical, FormaSpacing.standard)
+            .frame(minHeight: 40)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.control - (FormaRadius.micro / 2), style: .continuous)
                     .fill(isSelected ? Color.formaSteelBlue : Color.clear)
@@ -512,6 +519,7 @@ private struct PatternSuggestionCard: View {
     let onDismiss: () -> Void
 
     @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: FormaSpacing.standard) {
@@ -565,6 +573,7 @@ private struct PatternSuggestionCard: View {
                         .foregroundColor(.formaBoneWhite)
                         .padding(.horizontal, FormaSpacing.standard - FormaSpacing.micro)
                         .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
+                        .frame(minHeight: 40)
                         .background(
                             Capsule()
                                 .fill(Color.formaSteelBlue)
@@ -576,6 +585,7 @@ private struct PatternSuggestionCard: View {
                     Image(systemName: "xmark")
                         .font(.formaCompact)
                         .foregroundColor(.formaTertiaryLabel)
+                        .frame(width: 40, height: 40)
                 }
                 .buttonStyle(.plain)
             }
@@ -585,15 +595,15 @@ private struct PatternSuggestionCard: View {
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .fill(
                     isHovered
-                        ? Color.formaBoneWhite.opacity(Color.FormaOpacity.prominent)
-                        : Color.formaBoneWhite.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light)
+                        ? (colorScheme == .dark ? Color.formaBoneWhite.opacity(0.075) : Color.formaBoneWhite.opacity(0.82))
+                        : (colorScheme == .dark ? Color.formaBoneWhite.opacity(0.045) : Color.formaBoneWhite.opacity(0.68))
                 )
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.55 : 0.34), lineWidth: 1)
         )
-        .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.subtle - Color.FormaOpacity.ultraSubtle), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.08 : 0.018), radius: 1.5, x: 0, y: 1)
         .onHover { hovering in
             isHovered = hovering
         }
@@ -602,6 +612,7 @@ private struct PatternSuggestionCard: View {
 
 private struct ProjectClusterCard: View {
     let cluster: ProjectCluster
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: FormaSpacing.standard) {
@@ -639,17 +650,18 @@ private struct ProjectClusterCard: View {
         .padding(FormaSpacing.large)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaBoneWhite.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light))
+                .fill(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.045) : Color.formaBoneWhite.opacity(0.68))
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.55 : 0.34), lineWidth: 1)
         )
     }
 }
 
 private struct NegativePatternCard: View {
     let pattern: LearnedPattern
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: FormaSpacing.standard) {
@@ -677,11 +689,11 @@ private struct NegativePatternCard: View {
         .padding(FormaSpacing.large)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaBoneWhite.opacity(Color.FormaOpacity.strong - Color.FormaOpacity.light))
+                .fill(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.04) : Color.formaBoneWhite.opacity(0.60))
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.overlay), lineWidth: 1)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.50 : 0.30), lineWidth: 1)
         )
     }
 }

@@ -61,6 +61,25 @@ final class DashboardPermissionStateTests: XCTestCase {
         XCTAssertFalse(state.permissionCancelledFolders.contains(.downloads))
     }
 
+    @MainActor
+    func testRequestAccess_ReturnsCancelledWhenOpenPanelIsCancelled() async {
+        let state = DashboardPermissionState()
+        let fileSystemService = MockFileSystemService()
+        fileSystemService.requestDownloadsAccessError = FormaError.operation(.cancelled)
+
+        let result = await state.requestAccess(for: .downloads, using: fileSystemService)
+
+        switch result {
+        case .cancelled:
+            break
+        default:
+            XCTFail("Expected folder picker cancellation to remain a cancellation result.")
+        }
+
+        XCTAssertFalse(state.hasDownloadsAccess)
+        XCTAssertTrue(state.permissionCancelledFolders.contains(.downloads))
+    }
+
     private static func restoreEnvironmentVariable(_ key: String, value: String?) {
         if let value {
             setenv(key, value, 1)

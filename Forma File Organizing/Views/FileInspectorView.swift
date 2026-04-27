@@ -226,6 +226,7 @@ struct FileInspectorView: View {
                 }
                 .foregroundColor(quickLookButtonTextColor)
                 .frame(maxWidth: .infinity)
+                .frame(minHeight: 40)
                 .padding(.vertical, FormaSpacing.tight)
                 .background(
                     RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
@@ -361,6 +362,7 @@ struct FileInspectorView: View {
                 .buttonStyle(.plain)
                 .font(.formaCaptionSemibold)
                 .foregroundColor(.formaSteelBlue)
+                .frame(minHeight: 40)
             }
         }
         .padding(FormaSpacing.large)
@@ -435,6 +437,7 @@ struct FileInspectorView: View {
                             .font(.formaCaption)
                     }
                     .foregroundColor(.formaSteelBlue)
+                    .frame(minHeight: 40)
                 }
                 .buttonStyle(.plain)
                 .help("Open the rule behind this match")
@@ -598,6 +601,7 @@ struct FileInspectorView: View {
                 .foregroundColor(.formaSteelBlue)
                 .padding(.vertical, FormaSpacing.tight)
                 .padding(.horizontal, FormaSpacing.standard)
+                .frame(minHeight: 40)
                 .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
                 .formaCornerRadius(FormaRadius.small)
             }
@@ -672,6 +676,7 @@ struct FileInspectorView: View {
                     }
                     .foregroundColor(.formaSteelBlue)
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 40)
                     .padding(.vertical, FormaSpacing.standard - FormaSpacing.micro)
                     .background(Color.clear)
                     .overlay(
@@ -691,6 +696,7 @@ struct FileInspectorView: View {
             Image(systemName: "trash")
                 .font(.formaBody)
                 .frame(maxWidth: .infinity)
+                .frame(minHeight: 40)
                 .padding(.vertical, FormaSpacing.tight)
         }
         .buttonStyle(.plain)
@@ -723,6 +729,7 @@ struct FileInspectorView: View {
                     Text("Select all \(similarFiles.count) similar files")
                         .font(.formaSmall)
                         .foregroundColor(.formaSteelBlue)
+                        .frame(minHeight: 40)
                 }
                 .buttonStyle(.plain)
                 .padding(.top, FormaSpacing.tight)
@@ -783,6 +790,7 @@ struct FileInspectorView: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(inspectorSecondaryTextColor)
                         .font(.formaH2)
+                        .frame(width: 40, height: 40)
                 }
                 .buttonStyle(.plain)
                 .help("Clear Selection")
@@ -908,6 +916,7 @@ struct FileInspectorView: View {
                 }
                 .foregroundColor(.formaSteelBlue)
                 .frame(maxWidth: .infinity)
+                .frame(minHeight: 40)
                 .padding(.vertical, FormaSpacing.standard - FormaSpacing.micro)
                 .background(Color.clear)
                 .overlay(

@@ -273,67 +273,70 @@ struct RulesManagementView: View {
             // Align with MainContentView's toolbar position (traffic lights clearance)
             Color.clear.frame(height: FormaSpacing.Toolbar.topOffset)
 
-            // Header
-            VStack(spacing: FormaSpacing.standard) {
-                if let onBackToDashboard {
-                    Button(action: onBackToDashboard) {
-                        Label("Dashboard", systemImage: "chevron.left")
-                            .font(.formaSmallSemibold)
-                            .foregroundColor(.formaSteelBlue)
+            VStack(spacing: 0) {
+                // Header
+                VStack(spacing: FormaSpacing.standard) {
+                    if let onBackToDashboard {
+                        Button(action: onBackToDashboard) {
+                            Label("Dashboard", systemImage: "chevron.left")
+                                .font(.formaSmallSemibold)
+                                .foregroundColor(.formaSteelBlue)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("backToDashboardButton")
                     }
-                    .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("backToDashboardButton")
-                }
 
-                if rightPanelLayout.isCompact {
-                    VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                        rulesHeaderSummary(totalEnabledCount: totalEnabledCount)
+                    if rightPanelLayout.isCompact {
+                        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+                            rulesHeaderSummary(totalEnabledCount: totalEnabledCount)
 
-                        if !isInitialEmptyState {
-                            newRuleButton(frameToFill: true)
+                            if !isInitialEmptyState {
+                                newRuleButton(frameToFill: true)
+                            }
+                        }
+                    } else {
+                        HStack(alignment: .center) {
+                            rulesHeaderSummary(totalEnabledCount: totalEnabledCount)
+
+                            Spacer()
+
+                            if !isInitialEmptyState {
+                                newRuleButton(frameToFill: false)
+                            }
                         }
                     }
-                } else {
-                    HStack(alignment: .center) {
-                        rulesHeaderSummary(totalEnabledCount: totalEnabledCount)
 
-                        Spacer()
-
-                        if !isInitialEmptyState {
-                            newRuleButton(frameToFill: false)
-                        }
+                    // Combined Toolbar (Search + Tabs)
+                    if !isInitialEmptyState {
+                        rulesToolbar
                     }
                 }
-                
-                // Combined Toolbar (Search + Tabs)
-                if !isInitialEmptyState {
-                    rulesToolbar
+                .padding(.horizontal, FormaSpacing.standard)
+                .padding(.vertical, FormaSpacing.standard)
+
+                if !isBootstrapLoading && !content.isInitialEmptyState {
+                    rulesOverviewStrip(content: content)
+                        .padding(.horizontal, FormaSpacing.generous)
+                        .padding(.bottom, FormaSpacing.standard)
+                }
+
+                if !isBootstrapLoading && !content.needsPermissionRules.isEmpty {
+                    needsPermissionBanner(count: content.needsPermissionRules.count)
+                        .padding(.horizontal, FormaSpacing.generous)
+                        .padding(.bottom, FormaSpacing.standard)
+                }
+
+                if !isBootstrapLoading && !content.willCreateRules.isEmpty {
+                    willCreateBanner(
+                        count: content.willCreateRules.count,
+                        createAction: { createResolvableFoldersNow(rules: content.willCreateRules) }
+                    )
+                        .padding(.horizontal, FormaSpacing.generous)
+                        .padding(.bottom, FormaSpacing.standard)
                 }
             }
-            .padding(.horizontal, FormaSpacing.standard)
-            .padding(.vertical, FormaSpacing.standard)
-
-            if !isBootstrapLoading && !content.isInitialEmptyState {
-                rulesOverviewStrip(content: content)
-                    .padding(.horizontal, FormaSpacing.generous)
-                    .padding(.bottom, FormaSpacing.standard)
-            }
-
-            if !isBootstrapLoading && !content.needsPermissionRules.isEmpty {
-                needsPermissionBanner(count: content.needsPermissionRules.count)
-                    .padding(.horizontal, FormaSpacing.generous)
-                    .padding(.bottom, FormaSpacing.standard)
-            }
-
-            if !isBootstrapLoading && !content.willCreateRules.isEmpty {
-                willCreateBanner(
-                    count: content.willCreateRules.count,
-                    createAction: { createResolvableFoldersNow(rules: content.willCreateRules) }
-                )
-                    .padding(.horizontal, FormaSpacing.generous)
-                    .padding(.bottom, FormaSpacing.standard)
-            }
+            .background(Color.formaSurfaceChrome.opacity(colorScheme == .dark ? 0.86 : 0.94))
 
             Divider()
                 .opacity(0.5)
@@ -418,7 +421,7 @@ struct RulesManagementView: View {
     }
 
     private func newRuleButton(frameToFill: Bool) -> some View {
-        PrimaryButton("New", icon: "plus", accessibilityIdentifier: "smartRulesNewRuleButton") {
+        PrimaryButton("New Rule", icon: "plus", accessibilityIdentifier: "smartRulesNewRuleButton") {
             openRuleBuilderPanel()
         }
         .frame(maxWidth: frameToFill ? .infinity : nil)
@@ -479,12 +482,15 @@ struct RulesManagementView: View {
                 Button(action: { searchText = "" }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.formaTertiaryLabelHigh)
+                        .frame(width: 40, height: 40)
+                        .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
+        .frame(minHeight: 40)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.formaControlBackground)
         .cornerRadius(8)
@@ -539,6 +545,7 @@ struct RulesManagementView: View {
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
+        .frame(minHeight: 40)
         .help("Manage categories")
     }
 
@@ -576,7 +583,7 @@ struct RulesManagementView: View {
             }
         }
         .padding(FormaSpacing.standard)
-        .background(Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.09 : Color.FormaOpacity.ultraSubtle))
+        .background(needsAccessBannerBackgroundColor)
         .cornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
@@ -649,7 +656,7 @@ struct RulesManagementView: View {
 
                 Text("These destinations are outside the folders Forma can currently access.")
                     .font(.formaCaption)
-                    .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
+                    .foregroundColor(needsAccessBodyTextColor)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -706,7 +713,7 @@ struct RulesManagementView: View {
 
                 Text("Forma already has the right parent-folder access. Create these destinations now, or they will be created the next time you save/edit those rules.")
                     .font(.formaCaption)
-                    .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -720,15 +727,15 @@ struct RulesManagementView: View {
                 Text("Create Folders Now")
                     .font(.formaCaptionSemibold)
             }
-            .foregroundColor(.formaSteelBlue)
+            .foregroundColor(.formaBoneWhite)
             .frame(maxWidth: rightPanelLayout.isCompact ? .infinity : nil)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.2 : Color.FormaOpacity.light))
+            .background(Color.formaSteelBlue)
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.55 : Color.FormaOpacity.overlay), lineWidth: 1)
+                    .stroke(Color.formaSteelBlue.opacity(0.75), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -790,24 +797,35 @@ struct RulesManagementView: View {
     }
 
     private func overviewPill(title: String, count: Int, color: Color, isEmphasized: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .firstTextBaseline, spacing: FormaSpacing.tight) {
+            Text("\(count)")
+                .font(.formaBodyBold)
+                .monospacedDigit()
+                .foregroundColor(isEmphasized ? color : .formaLabel)
+
             Text(title)
                 .font(.formaCaptionSemibold)
                 .foregroundColor(.formaSecondaryLabelHigh)
-            Text("\(count)")
-                .font(.formaBodyBold)
-                .foregroundColor(isEmphasized ? color : .formaLabel)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
         .padding(.horizontal, FormaSpacing.standard)
         .padding(.vertical, FormaSpacing.tight)
+        .frame(minWidth: 112, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(color.opacity(isEmphasized ? Color.FormaOpacity.light : Color.FormaOpacity.subtle))
+                .fill(isEmphasized ? Color.formaSurfaceWork : Color.formaSurfaceChrome.opacity(0.72))
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(color.opacity(isEmphasized ? Color.FormaOpacity.strong : Color.FormaOpacity.light), lineWidth: 1)
+                .stroke(isEmphasized ? color.opacity(0.55) : Color.formaSeparator.opacity(0.28), lineWidth: 1)
         )
+        .overlay(alignment: .leading) {
+            Capsule()
+                .fill(color.opacity(isEmphasized ? 0.8 : 0.28))
+                .frame(width: 3)
+                .padding(.vertical, 8)
+        }
     }
 
     private func flatRulesList(
@@ -936,14 +954,10 @@ struct RulesManagementView: View {
     private func duplicateRuleSection(content: ContentState) -> some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             HStack(alignment: .top, spacing: FormaSpacing.standard) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Duplicates")
-                        .font(.formaBodySemibold)
-                        .foregroundColor(.formaLabel)
-                    Text("Rules with identical conditions and destination. Safe to delete extra copies.")
-                        .font(.formaCaption)
-                        .foregroundColor(.formaSecondaryLabelHigh)
-                }
+                ruleSectionHeader(
+                    title: "Duplicates",
+                    subtitle: "Rules with identical conditions and destination. Safe to delete extra copies."
+                )
 
                 Spacer(minLength: FormaSpacing.tight)
 
@@ -985,6 +999,10 @@ struct RulesManagementView: View {
                 }
             }
         }
+        .padding(FormaSpacing.standard)
+        .background(ruleSectionBackground)
+        .overlay(ruleSectionBorder)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
         .alert(item: $duplicateCleanupConfirmationPlan) { cleanupPlan in
             Alert(
                 title: Text("Delete Duplicate Rules"),
@@ -1004,14 +1022,7 @@ struct RulesManagementView: View {
         healthByID: [UUID: RuleHealthService.RuleHealth]
     ) -> some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.formaBodySemibold)
-                    .foregroundColor(.formaLabel)
-                Text(subtitle)
-                    .font(.formaCaption)
-                    .foregroundColor(.formaSecondaryLabelHigh)
-            }
+            ruleSectionHeader(title: title, subtitle: subtitle)
 
             LazyVStack(spacing: listRowSpacing) {
                 ForEach(rules, id: \.id) { rule in
@@ -1019,6 +1030,44 @@ struct RulesManagementView: View {
                 }
             }
         }
+        .padding(FormaSpacing.standard)
+        .background(ruleSectionBackground)
+        .overlay(ruleSectionBorder)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+    }
+
+    private func ruleSectionHeader(title: String, subtitle: String) -> some View {
+        HStack(alignment: .top, spacing: FormaSpacing.tight) {
+            Capsule()
+                .fill(Color.formaSteelBlue.opacity(0.72))
+                .frame(width: 3, height: 18)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.formaBodySemibold)
+                    .foregroundColor(.formaLabel)
+                Text(subtitle)
+                    .font(.formaCaption)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var ruleSectionBackground: some View {
+        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+            .fill(Color.formaSurfaceChrome.opacity(colorScheme == .dark ? 0.72 : 0.62))
+    }
+
+    private var ruleSectionBorder: some View {
+        RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? Color.formaBoneWhite.opacity(0.12)
+                    : Color.formaObsidian.opacity(0.08),
+                lineWidth: 1
+            )
     }
 
     private func ruleCardRow(_ rule: Rule, health: RuleHealthService.RuleHealth) -> some View {
@@ -1086,12 +1135,20 @@ struct RulesManagementView: View {
         }
     }
 
+    private var needsAccessBannerBackgroundColor: Color {
+        Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.09 : Color.FormaOpacity.ultraSubtle)
+    }
+
+    private var needsAccessBodyTextColor: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.82)
+            : Color.formaSecondaryLabelHigh
+    }
+
     private var needsAccessBodyContrastRatio: Double {
-        let foreground = colorScheme == .dark ? Color.formaSecondaryLabelHigh : Color.formaSecondaryLabel
-        let background = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.09 : Color.FormaOpacity.ultraSubtle)
         return FormaContrastMetrics.contrastRatio(
-            foreground: foreground,
-            background: background,
+            foreground: needsAccessBodyTextColor,
+            background: needsAccessBannerBackgroundColor,
             colorScheme: colorScheme,
             baseBackground: colorScheme == .dark ? .formaObsidian : .formaBoneWhite
         )
@@ -1107,7 +1164,7 @@ struct RulesManagementView: View {
     }
 
     private var secondaryOnCardContrastRatio: Double {
-        let foreground = colorScheme == .dark ? Color.formaSecondaryLabelHigh : Color.formaSecondaryLabel
+        let foreground = Color.formaSecondaryLabelHigh
         return FormaContrastMetrics.contrastRatio(
             foreground: foreground,
             background: cardBackgroundColor,
@@ -1117,7 +1174,7 @@ struct RulesManagementView: View {
     }
 
     private var cardBackgroundColor: Color {
-        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.06) : .formaBoneWhite
+        .formaSurfaceWork
     }
 
     private func rulesInCategory(_ category: RuleCategory) -> Int {

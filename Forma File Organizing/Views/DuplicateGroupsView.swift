@@ -11,6 +11,7 @@ struct DuplicateGroupsView: View {
     var onDismissGroup: (DuplicateDetectionService.DuplicateGroup) -> Void
 
     @State private var expandedGroupIds: Set<UUID> = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let duplicateService = DuplicateDetectionService()
 
@@ -109,7 +110,7 @@ struct DuplicateGroupsView: View {
                         group: group,
                         isExpanded: expandedGroupIds.contains(group.id),
                         onToggleExpand: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            withAnimation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.8)) {
                                 if expandedGroupIds.contains(group.id) {
                                     expandedGroupIds.remove(group.id)
                                 } else {
@@ -200,6 +201,7 @@ private struct DuplicateGroupCard: View {
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -219,22 +221,28 @@ private struct DuplicateGroupCard: View {
         }
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(isHovered ? Color.formaBoneWhite.opacity(Color.FormaOpacity.prominent) : Color.formaBoneWhite.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light))
+                .fill(
+                    isHovered
+                        ? (colorScheme == .dark ? Color.formaBoneWhite.opacity(0.075) : Color.formaBoneWhite.opacity(0.82))
+                        : (colorScheme == .dark ? Color.formaBoneWhite.opacity(0.045) : Color.formaBoneWhite.opacity(0.68))
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .strokeBorder(
-                    isHovered ? typeColor.opacity(Color.FormaOpacity.overlay) : Color.formaSeparator.opacity(Color.FormaOpacity.strong),
+                    isHovered
+                        ? typeColor.opacity(colorScheme == .dark ? 0.52 : 0.36)
+                        : Color.formaSeparator.opacity(colorScheme == .dark ? 0.55 : 0.34),
                     lineWidth: 1
                 )
         )
         .shadow(
             color: Color.formaObsidian.opacity(
-                isHovered ? (Color.FormaOpacity.ultraSubtle * 3) : (Color.FormaOpacity.subtle - Color.FormaOpacity.ultraSubtle)
+                isHovered ? (colorScheme == .dark ? 0.16 : 0.055) : (colorScheme == .dark ? 0.08 : 0.018)
             ),
-            radius: isHovered ? 8 : 4,
+            radius: isHovered ? 7 : 1.5,
             x: 0,
-            y: 2
+            y: isHovered ? 2 : 1
         )
         .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: isHovered)
         .onHover { hovering in
@@ -250,7 +258,7 @@ private struct DuplicateGroupCard: View {
             Image(systemName: group.type.iconName)
                 .font(.formaH2)
                 .foregroundColor(typeColor)
-                .frame(width: 36, height: 36)
+                .frame(width: 40, height: 40)
                 .background(
                     Circle()
                         .fill(typeColor.opacity(Color.FormaOpacity.light))
@@ -282,12 +290,14 @@ private struct DuplicateGroupCard: View {
             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                 .font(.formaCompact)
                 .foregroundColor(.formaTertiaryLabel)
+                .frame(width: 40, height: 40)
 
             // Dismiss button
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
                     .font(.formaCompact)
                     .foregroundColor(.formaTertiaryLabel)
+                    .frame(width: 40, height: 40)
             }
             .buttonStyle(.plain)
             .help("Dismiss this group")
@@ -346,6 +356,8 @@ private struct DuplicateFileRow: View {
     let onRemove: () -> Void
 
     @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: FormaSpacing.standard) {
@@ -399,6 +411,7 @@ private struct DuplicateFileRow: View {
                             .foregroundColor(.formaSage)
                             .padding(.horizontal, FormaSpacing.tight + (FormaSpacing.micro / 2))
                             .padding(.vertical, FormaSpacing.micro)
+                            .frame(minHeight: 40)
                             .background(
                                 Capsule()
                                     .fill(Color.formaSage.opacity(Color.FormaOpacity.light))
@@ -412,6 +425,7 @@ private struct DuplicateFileRow: View {
                             .foregroundColor(.formaWarmOrange)
                             .padding(.horizontal, FormaSpacing.tight + (FormaSpacing.micro / 2))
                             .padding(.vertical, FormaSpacing.micro)
+                            .frame(minHeight: 40)
                             .background(
                                 Capsule()
                                     .fill(Color.formaWarmOrange.opacity(Color.FormaOpacity.light))
@@ -424,9 +438,9 @@ private struct DuplicateFileRow: View {
         }
         .padding(.horizontal, FormaSpacing.large)
         .padding(.vertical, FormaSpacing.standard)
-        .background(isHovered ? Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle - Color.FormaOpacity.ultraSubtle) : Color.clear)
+        .background(isHovered ? Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.13 : 0.055) : Color.clear)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(reduceMotion ? .none : .easeInOut(duration: 0.15)) {
                 isHovered = hovering
             }
         }

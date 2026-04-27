@@ -59,10 +59,8 @@ enum FileIdentityLayout {
         switch self {
         case .card:
             return .regular
-        case .list:
+        case .list, .grid:
             return .compact
-        case .grid:
-            return .regular
         }
     }
 
@@ -290,6 +288,7 @@ struct FileAccessoryActions: View {
                         label: primaryActionKind.label,
                         icon: primaryActionKind.icon,
                         color: primaryActionKind.color,
+                        isProminent: primaryActionKind == .organize,
                         action: onPrimaryAction
                     )
                     .disabled(disablesPrimaryAction)
@@ -312,6 +311,7 @@ struct FileAccessoryActions: View {
                             label: primaryActionKind.label,
                             icon: primaryActionKind.icon,
                             color: primaryActionKind.color,
+                            isProminent: primaryActionKind == .organize,
                             action: onPrimaryAction
                         )
                         .disabled(disablesPrimaryAction)
@@ -715,6 +715,7 @@ struct PrimaryActionButton: View {
     let label: String
     let icon: String
     let color: Color
+    var isProminent: Bool = false
     let action: () -> Void
 
     @State private var isHovered = false
@@ -729,13 +730,13 @@ struct PrimaryActionButton: View {
                 Text(label)
                     .font(.formaSmallSemibold)
             }
-            .foregroundStyle(color)
+            .foregroundStyle(isProminent ? Color.formaBoneWhite : color)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(
                 FormaChromeSurface(
                     cornerRadius: FormaRadius.pill,
-                    fill: Color.formaCardBackground,
+                    fill: isProminent ? color : Color.formaSurfaceWork,
                     tint: color,
                     elevation: isPressed ? .inset : (isHovered ? .raised : .resting)
                 )

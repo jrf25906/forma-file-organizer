@@ -10,6 +10,7 @@ struct ReviewView: View {
     @State private var showQuickRuleSheet = false
     @State private var selectedFileForRule: FileItem?
     @State private var expandedGroups: Set<String> = []
+    @Environment(\.colorScheme) private var colorScheme
     
     // Grouped files by destination and confidence
     private var fileGroups: [(destination: String, files: [FileItem], confidenceLevel: ConfidenceLevel)] {
@@ -99,10 +100,10 @@ struct ReviewView: View {
                 VStack(alignment: .leading, spacing: FormaSpacing.micro) {
                     Text("Review Files")
                         .formaH2Style()
-                        .foregroundColor(Color.formaObsidian)
+                        .foregroundColor(Color.formaLabel)
                     Text("\(viewModel.files.count) \(viewModel.files.count == 1 ? "file" : "files") found on Desktop")
                         .formaMetadataStyle()
-                        .foregroundColor(Color.formaObsidian.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light))
+                        .foregroundColor(Color.formaSecondaryLabel)
                 }
 
                 Spacer()
@@ -113,8 +114,8 @@ struct ReviewView: View {
                     Button(action: { Task { await viewModel.refresh() } }) {
                         Image(systemName: "arrow.clockwise")
                             .font(.formaBodyMedium)
-                            .foregroundColor(Color.formaObsidian.opacity(Color.FormaOpacity.high))
-                            .frame(width: 32, height: 28)
+                            .foregroundColor(Color.formaSecondaryLabelHigh)
+                            .frame(width: 40, height: 40)
                     }
                     .buttonStyle(.plain)
                     .disabled(viewModel.loadingState == .loading)
@@ -135,6 +136,7 @@ struct ReviewView: View {
                         .foregroundColor(Color.formaSteelBlue)
                         .padding(.horizontal, FormaSpacing.tight + (FormaSpacing.micro / 2))
                         .padding(.vertical, FormaSpacing.tight - (FormaSpacing.micro / 2))
+                        .frame(minHeight: 40)
                         .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
                         .formaCornerRadius(FormaRadius.micro)
                     }
@@ -144,8 +146,8 @@ struct ReviewView: View {
                     SettingsLink {
                         Image(systemName: "gearshape")
                             .font(.formaBodyMedium)
-                            .foregroundColor(Color.formaObsidian.opacity(Color.FormaOpacity.high))
-                            .frame(width: 32, height: 28)
+                            .foregroundColor(Color.formaSecondaryLabelHigh)
+                            .frame(width: 40, height: 40)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Settings")
@@ -164,7 +166,7 @@ struct ReviewView: View {
                 .accessibilityLabel("View mode")
             }
             .padding(FormaSpacing.generous)
-            .background(Color.formaBoneWhite)
+            .background(colorScheme == .dark ? Color.formaControlBackground.opacity(0.24) : Color.formaCardBackground.opacity(0.84))
 
             if FeatureFlagService.shared.isEnabled(.workflowEngineV2) {
                 WorkflowTemplatePicker(
@@ -173,7 +175,7 @@ struct ReviewView: View {
                 )
                 .padding(.horizontal, FormaSpacing.generous)
                 .padding(.top, FormaSpacing.tight)
-                .background(Color.formaBoneWhite)
+                .background(colorScheme == .dark ? Color.formaControlBackground.opacity(0.24) : Color.formaCardBackground.opacity(0.84))
             }
 
             // Status Messages
@@ -184,7 +186,7 @@ struct ReviewView: View {
                             .foregroundColor(.formaWarning)
                         Text(errorMessage)
                             .formaMetadataStyle()
-                            .foregroundColor(Color.formaObsidian)
+                            .foregroundColor(Color.formaLabel)
                         Spacer()
                         Button("Try Again") {
                             viewModel.clearError()
@@ -193,6 +195,7 @@ struct ReviewView: View {
                         .formaMetadataStyle()
                         .foregroundColor(Color.formaSteelBlue)
                         .buttonStyle(.plain)
+                        .frame(minHeight: 40)
                     }
 
                     // Show reset permissions option for permission-related errors
@@ -200,7 +203,7 @@ struct ReviewView: View {
                         HStack {
                             Text("Still having trouble?")
                                 .formaMetadataStyle()
-                                .foregroundColor(Color.formaObsidian.opacity(Color.FormaOpacity.high))
+                                .foregroundColor(Color.formaSecondaryLabel)
                             Button("Reset All Permissions") {
                                 viewModel.resetAllPermissions()
                             }
@@ -208,6 +211,7 @@ struct ReviewView: View {
                             .foregroundColor(Color.formaSteelBlue)
                             .buttonStyle(.plain)
                             .underline()
+                            .frame(minHeight: 40)
                         }
                         .padding(.top, FormaSpacing.micro)
                     }
@@ -225,7 +229,7 @@ struct ReviewView: View {
                         .foregroundColor(.formaSuccess)
                     Text(successMessage)
                         .formaMetadataStyle()
-                        .foregroundColor(Color.formaObsidian)
+                        .foregroundColor(Color.formaLabel)
                     Spacer()
                 }
                 .padding(FormaSpacing.standard)
@@ -371,13 +375,13 @@ struct ReviewView: View {
                                 .padding(.bottom, FormaSpacing.standard)
                             }
                         }
-                        .background(Color.formaBoneWhite.opacity(Color.FormaOpacity.strong))
+                        .background(colorScheme == .dark ? Color.formaObsidian.opacity(0.18) : Color.formaBoneWhite.opacity(0.58))
                         .overlay(alignment: .bottom) {
                             LinearGradient(
                                 colors: [
                                     Color.clear,
-                                    Color.formaBoneWhite.opacity(Color.FormaOpacity.overlay),
-                                    Color.formaBoneWhite.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light)
+                                    colorScheme == .dark ? Color.formaObsidian.opacity(0.74) : Color.formaBoneWhite.opacity(Color.FormaOpacity.overlay),
+                                    colorScheme == .dark ? Color.formaObsidian.opacity(0.88) : Color.formaBoneWhite.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light)
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
@@ -397,7 +401,7 @@ struct ReviewView: View {
                         let readyCount = viewModel.files.filter { $0.status == .ready }.count
                         Text("\(readyCount) of \(viewModel.files.count) ready to organize")
                             .formaMetadataStyle()
-                            .foregroundColor(Color.formaObsidian.opacity(Color.FormaOpacity.strong + Color.FormaOpacity.light))
+                            .foregroundColor(Color.formaSecondaryLabel)
 
                         Spacer()
 
@@ -408,11 +412,11 @@ struct ReviewView: View {
                         .disabled(readyCount == 0)
                     }
                     .padding(FormaSpacing.standard)
-                    .background(Color.formaBoneWhite)
+                    .background(colorScheme == .dark ? Color.formaControlBackground.opacity(0.24) : Color.formaCardBackground.opacity(0.84))
                 }
             }
         }
-        .background(Color.formaBoneWhite)
+        .background(Color.formaBackground)
         .onAppear {
             viewModel.setModelContext(modelContext)
         }

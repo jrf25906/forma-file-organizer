@@ -914,6 +914,14 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
     - Removes historical exact duplicate persisted rules while preserving one keeper per behavior; startup invokes this after category migration so older stores affected by repeated template application do not keep thousands of redundant enabled rules.
   - `Rule.destination`
     - Reconstructs folder placeholders from `displayName` even when bookmark data is absent, so dedupe, health checks, and template cleanup can still identify historical generated rule destinations.
+- First-run onboarding defaults
+  - `DashboardViewModel.OnboardingAccessResult`
+  - `DashboardViewModel.requestDefaultOnboardingAccess()`
+  - `DashboardTemplateController.completeOnboarding(permissionState:modelContext:)`
+  - `OnboardingFolderSelection.allStandardFolders`
+  - First-run setup now requests Desktop access, then Downloads access, before completing onboarding; cancellation returns the specific folder that still needs access so the retry message can name it.
+  - `completeOnboarding` saves a Desktop/Downloads-only `OnboardingFolderSelection`, applies `.minimal` templates to those two folders, and leaves Documents, Pictures, and Music without default templates until explicit user configuration.
+  - Per-folder template duplicate signatures include category name and category scope before generated rules are staged, so same-behavior rules scoped to different folders do not collapse into one folder's category.
 - Review celebration trust-promotion flow
   - `PanelStateManager.trustedScopeRecommendation`
   - `PanelStateManager.isTrustedScopeRecommendationPresented`
@@ -1071,6 +1079,7 @@ Canonical API reference: [Docs/API-Reference/API_REFERENCE.md](Docs/API-Referenc
   - `RuleEditorView` and `InlineRuleBuilderView` now share the same staged `When` / `Then` / `Impact` framing, primary save affordance, and live impact-preview model so panel and modal editing feel like one workflow instead of separate forms.
 - `DashboardPermissionState`
   - Granting a folder updates the per-folder access booleans without re-deriving `showOnboarding` from `hasCompletedOnboarding`, so dismissed onboarding sheets stay dismissed during JIT permission recovery.
+  - Folder-picker cancellation now remains a `.cancelled` permission result instead of surfacing as a generic error, which keeps first-run Desktop/Downloads retry copy actionable.
 - `ExternalReviewPromotionSuggestion`
   - `folderType: BookmarkFolder.FolderType`
   - `bookmarkData: Data`

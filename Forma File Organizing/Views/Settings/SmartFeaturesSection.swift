@@ -99,7 +99,7 @@ struct SmartFeaturesSection: View {
 
                     Text("Control how Forma learns from your organization habits and makes suggestions. All smart processing runs on-device.")
                         .font(.formaBody)
-                        .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
+                        .foregroundColor(.formaSecondaryLabelHigh)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, FormaSpacing.tight)
@@ -388,7 +388,7 @@ struct SmartFeaturesSection: View {
                         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                             Text("Review-earned scopes define what Forma can organize automatically. Open a scope to inspect health, recent runs, and lifecycle controls.")
                                 .font(.formaSmall)
-                                .foregroundColor(.formaSecondaryLabel)
+                                .foregroundColor(.formaSecondaryLabelHigh)
                                 .fixedSize(horizontal: false, vertical: true)
 
                             if let selectedWorkflowTemplatePreviewText {
@@ -414,7 +414,7 @@ struct SmartFeaturesSection: View {
 
                                     Text("Earn trust from the review celebration flow to add your first autopilot boundary.")
                                         .font(.formaSmall)
-                                        .foregroundColor(.formaSecondaryLabel)
+                                        .foregroundColor(.formaSecondaryLabelHigh)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -549,12 +549,16 @@ struct SmartFeaturesSection: View {
                             .foregroundColor(.formaSteelBlue)
                             .font(.formaH2)
 
-                        Text("AI features are currently disabled. Enable the master toggle above to use smart organization features.")
-                            .font(.formaSmall)
-                            .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
+                        (
+                            Text("AI features are currently disabled.")
+                                .font(.formaSmallSemibold)
+                            + Text(" Enable the master toggle above to use smart organization features.")
+                                .font(.formaSmall)
+                        )
+                        .foregroundColor(.formaSecondaryLabelHigh)
                     }
                     .padding(FormaSpacing.standard)
-                    .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
+                    .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.medium))
                     .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
                 }
 
@@ -565,12 +569,18 @@ struct SmartFeaturesSection: View {
                             "Retake Organization Style Quiz",
                             subtitle: "Discover your organization personality and get personalized template suggestions."
                         ) {
-                            Button("Take Quiz") {
+                            Button {
                                 showPersonalityQuiz = true
+                            } label: {
+                                Label("Take Quiz", systemImage: "sparkles")
+                                    .font(.formaSmallSemibold)
+                                    .foregroundColor(.formaBoneWhite)
+                                    .padding(.horizontal, FormaSpacing.standard)
+                                    .padding(.vertical, FormaSpacing.tight)
+                                    .background(Color.formaSteelBlue)
+                                    .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                             }
                             .buttonStyle(.plain)
-                            .font(.formaBodySemibold)
-                            .foregroundColor(.formaSteelBlue)
                         }
                     }
                 }
@@ -579,7 +589,8 @@ struct SmartFeaturesSection: View {
                 Button("Reset to Defaults") {
                     resetToDefaults()
                 }
-                .foregroundColor(.formaSteelBlue)
+                .font(.formaBodySemibold)
+                .foregroundColor(.formaSecondaryLabelHigh)
                 .buttonStyle(.plain)
                 .padding(.top, FormaSpacing.tight)
             }
@@ -912,7 +923,7 @@ private struct SmartFeatureRow: View {
     }
 
     private var disabledTextColor: Color {
-        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+        .formaSecondaryLabelHigh
     }
 
     var body: some View {
@@ -946,7 +957,7 @@ private struct SmartFeatureRow: View {
 
                 Text(feature.description)
                     .font(.formaSmall)
-                    .foregroundColor(colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
                     .lineLimit(2)
 
                     if let dependencySummary, !dependencyMet && masterEnabled {

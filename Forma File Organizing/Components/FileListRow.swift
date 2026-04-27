@@ -291,9 +291,9 @@ struct FileListRow: View {
                 LinearGradient(
                     colors: [
                         Color.formaBoneWhite.opacity(
-                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.24 : 0.14
+                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.20 : 0.08
                         ),
-                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.08 : 0.04),
+                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.06 : 0.02),
                         Color.formaBoneWhite.opacity(0)
                     ],
                     startPoint: .topLeading,
@@ -322,9 +322,9 @@ struct FileListRow: View {
             return Color.formaBoneWhite.opacity(0.18)
         case .rest:
             if surfaceStyle.activityState != .none {
-                return Color.formaBoneWhite.opacity(0.16)
+                return Color.formaBoneWhite.opacity(0.12)
             }
-            return Color.formaBoneWhite.opacity(0.10)
+            return Color.formaBoneWhite.opacity(0.04)
         }
     }
 

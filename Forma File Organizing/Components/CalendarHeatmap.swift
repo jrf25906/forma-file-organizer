@@ -3,6 +3,7 @@ import SwiftUI
 /// GitHub-style calendar heatmap showing file staleness over 365 days.
 struct CalendarHeatmap: View {
     let data: [DayStaleness]
+    var chrome: Bool = true
     var onNudgeCleanup: (() -> Void)?
 
     @Environment(\.colorScheme) private var colorScheme
@@ -110,15 +111,19 @@ struct CalendarHeatmap: View {
                 }
             }
         }
-        .padding(FormaSpacing.large)
-        .background(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(cardBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(cardBorder, lineWidth: 1)
-        )
+        .padding(chrome ? FormaSpacing.large : 0)
+        .background {
+            if chrome {
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .fill(cardBackground)
+            }
+        }
+        .overlay {
+            if chrome {
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .strokeBorder(cardBorder, lineWidth: 1)
+            }
+        }
     }
 
     @ViewBuilder

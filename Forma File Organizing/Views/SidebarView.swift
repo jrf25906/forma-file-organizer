@@ -11,6 +11,8 @@ struct SidebarView: View {
     @Binding var shouldFocusSearch: Bool
     @Binding var showKeyboardHelp: Bool
 
+    private let sidebarControlHitHeight: CGFloat = 40
+
     @ObservedObject private var folderService = BookmarkFolderService.shared
     @State private var isAddingFolder = false
     @State private var isSettingsHovered = false
@@ -110,6 +112,7 @@ struct SidebarView: View {
                     .foregroundColor(isSettingsHovered ? .formaLabel : .formaSecondaryLabelHigh)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
+                    .frame(minHeight: sidebarControlHitHeight)
                     .background(
                         RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                             .fill(isSettingsHovered ? footerHoverFill : Color.clear)
@@ -128,7 +131,7 @@ struct SidebarView: View {
                     Image(systemName: "questionmark.circle")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(isHelpHovered ? .formaLabel : .formaSecondaryLabelHigh)
-                        .frame(width: 26, height: 26)
+                        .frame(width: sidebarControlHitHeight, height: sidebarControlHitHeight)
                         .background(
                             RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                                 .fill(isHelpHovered ? footerHoverFill : Color.clear)
@@ -243,58 +246,25 @@ struct SidebarView: View {
         let selection = NavigationSelection.from(folderType: folder.folderType)
         let isSelected = nav.selection == selection
 
-        HStack(spacing: FormaSpacing.micro) {
-            SidebarNativeRow(
-                title: folder.displayName,
-                icon: folder.iconName,
-                isSelected: isSelected,
-                accessibilityIdentifier: "sidebarLockedFolder_\(folder.folderType.rawValue)",
-                accessibilityLabel: "\(folder.displayName), Access required",
-                accessibilityValue: "Access required",
-                accessibilityHint: "Select to open the macOS access request flow for this location."
-            ) {
-                nav.select(selection)
-            }
-
-            Button {
-                nav.select(selection)
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 9, weight: .semibold))
-                    Text("Request Access")
-                        .font(.formaCaptionSemibold)
-                        .lineLimit(1)
-                }
-                .foregroundStyle(
-                    isSelected
-                        ? Color.formaSteelBlue
-                        : Color.formaSecondaryLabelHigh
-                )
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(
-                            (isSelected ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh)
-                                .opacity(Color.FormaOpacity.light)
-                        )
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(
-                            (isSelected ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh)
-                                .opacity(Color.FormaOpacity.medium),
-                            lineWidth: 0.75
-                        )
-                )
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("sidebarRequestAccess_\(folder.folderType.rawValue)")
-            .accessibilityLabel("Request Access")
-            .accessibilityHint("Opens the macOS access request flow for \(folder.displayName).")
+        LockedFolderSidebarRow(
+            title: folder.displayName,
+            icon: folder.iconName,
+            isSelected: isSelected,
+            accessibilityIdentifier: "sidebarRequestAccess_\(folder.folderType.rawValue)",
+            accessibilityValue: "\(folder.displayName), Access required"
+        ) {
+            nav.select(selection)
         }
-        .help("Select \(folder.displayName) or Request Access to open the macOS access flow.")
+        .overlay(alignment: .topLeading) {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+                .accessibilityElement()
+                .accessibilityIdentifier("sidebarLockedFolder_\(folder.folderType.rawValue)")
+                .accessibilityLabel("\(folder.displayName), Access required")
+                .accessibilityValue("Access required")
+        }
+        .help("Select \(folder.displayName) to open the macOS access flow.")
     }
 
     // MARK: - Bookmark Folder Item
@@ -600,6 +570,113 @@ struct SidebarView: View {
     }
 }
 
+private struct LockedFolderSidebarRow: View {
+    let title: String
+    let icon: String
+    let isSelected: Bool
+    let accessibilityIdentifier: String
+    let accessibilityValue: String
+    let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovered = false
+
+    private let rowRadius: CGFloat = FormaRadius.small
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: FormaSpacing.tight) {
+                Image(systemName: icon)
+                    .font(.formaBodyMedium)
+                    .foregroundColor(iconColor)
+                    .frame(width: 18, alignment: .center)
+
+                Text(title)
+                    .font(isSelected ? .formaBodyMedium : .formaBody)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("Access")
+                        .font(.formaCaptionSemibold)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(isSelected ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill((isSelected ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh)
+                            .opacity(Color.FormaOpacity.light))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            (isSelected ? Color.formaSteelBlue : Color.formaSecondaryLabelHigh)
+                                .opacity(Color.FormaOpacity.medium),
+                            lineWidth: 0.75
+                        )
+                )
+            }
+            .foregroundColor(foregroundColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(minHeight: 40)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: rowRadius, style: .continuous)
+                    .fill(backgroundFill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: rowRadius, style: .continuous)
+                    .strokeBorder(selectedBorder, lineWidth: isSelected ? FormaBorderWidth.hairline : 0)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: rowRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityLabel("Request Access")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Select \(title) to open the permission recovery view.")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .animation(FormaEasing.microFeedback, value: isHovered)
+    }
+
+    private var iconColor: Color {
+        isSelected ? .formaSteelBlue : foregroundColor
+    }
+
+    private var foregroundColor: Color {
+        if isSelected || isHovered {
+            return .formaLabel
+        }
+        return .formaSecondaryLabelHigh
+    }
+
+    private var backgroundFill: Color {
+        if isSelected {
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.22 : 0.14)
+        }
+        if isHovered {
+            return Color.formaControlBackground.opacity(colorScheme == .dark ? 0.55 : 0.8)
+        }
+        return .clear
+    }
+
+    private var selectedBorder: Color {
+        if isSelected {
+            return Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.35 : 0.2)
+        }
+        return .clear
+    }
+}
+
 private struct SidebarNativeRow: View {
     let title: String
     let icon: String
@@ -698,7 +775,7 @@ private struct SidebarNativeRow: View {
             .foregroundColor(foregroundColor)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .frame(minHeight: 30)
+            .frame(minHeight: 40)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: rowRadius, style: .continuous)
@@ -801,7 +878,7 @@ private struct SidebarActionRow: View {
             .foregroundColor(isHovered ? .formaLabel : .formaSecondaryLabelHigh)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .frame(minHeight: 30)
+            .frame(minHeight: 40)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)

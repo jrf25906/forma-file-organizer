@@ -6,6 +6,7 @@ struct EditDestinationSheet: View {
     let file: FileItem
     let onSave: (Destination) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var destinationDisplayPath: String
     @State private var destinationBookmarkData: Data?
@@ -89,7 +90,7 @@ struct EditDestinationSheet: View {
                     .background(
                         hasValidDestination
                             ? Color.formaSteelBlue.opacity(Color.FormaOpacity.light - Color.FormaOpacity.ultraSubtle)
-                            : Color.formaControlBackground
+                            : Color.formaControlBackground.opacity(colorScheme == .dark ? 0.56 : 0.86)
                     )
                     .formaCornerRadius(FormaRadius.small)
                     .overlay(
@@ -104,7 +105,7 @@ struct EditDestinationSheet: View {
                         Image(systemName: "folder")
                             .font(.formaBodyMedium)
                             .foregroundColor(.formaSteelBlue)
-                            .padding(FormaSpacing.standard)
+                            .frame(width: 40, height: 40)
                             .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
                             .formaCornerRadius(FormaRadius.small)
                     }
@@ -135,6 +136,7 @@ struct EditDestinationSheet: View {
                     dismiss()
                 }
                 .buttonStyle(SecondaryButtonStyle())
+                .frame(minHeight: 40)
 
                 Button("Save") {
                     guard let bookmarkData = destinationBookmarkData else {
@@ -147,11 +149,13 @@ struct EditDestinationSheet: View {
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(!hasValidDestination)
+                .frame(minHeight: 40)
             }
             .padding(.top, FormaSpacing.standard)
         }
         .padding(FormaSpacing.extraLarge)
-        .frame(width: 420)
+        .frame(minWidth: 420, idealWidth: 460, maxWidth: 560)
+        .background(Color.formaBackground)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("editDestinationSheet")
     }

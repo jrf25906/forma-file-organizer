@@ -82,6 +82,7 @@ struct TrustedAutomationScopeRecommendationSheet: View {
 
     @State private var selectedScopeType: TrustedAutomationScopeType
     @State private var selectedWorkflowTemplateID: String?
+    @Environment(\.colorScheme) private var colorScheme
 
     private var selectedWorkflowTemplate: BuiltInWorkflowTemplate? {
         WorkflowTemplateCatalog.template(for: selectedWorkflowTemplateID)
@@ -197,6 +198,7 @@ struct TrustedAutomationScopeRecommendationSheet: View {
                 Button("Not now", action: onCancel)
                     .buttonStyle(.plain)
                     .foregroundColor(.formaSecondaryLabel)
+                    .frame(minHeight: 40)
 
                 Spacer()
 
@@ -206,11 +208,12 @@ struct TrustedAutomationScopeRecommendationSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.formaSteelBlue)
+                .frame(minHeight: 40)
                 .disabled(selectedWorkflowTemplateID == nil)
             }
         }
         .padding(FormaSpacing.extraLarge)
-        .frame(width: 460)
+        .frame(minWidth: 460, idealWidth: 500, maxWidth: 620)
         .background(Color.formaBackground)
     }
 
@@ -256,19 +259,24 @@ struct TrustedAutomationScopeRecommendationSheet: View {
             .padding(FormaSpacing.large)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .fill(option.scopeType == selectedScopeType ? Color.formaSteelBlue.opacity(Color.FormaOpacity.light) : Color.formaCardBackground)
+                    .fill(
+                        option.scopeType == selectedScopeType
+                            ? Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.20 : 0.12)
+                            : (colorScheme == .dark ? Color.formaBoneWhite.opacity(0.04) : Color.formaBoneWhite.opacity(0.62))
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                     .stroke(
                         option.scopeType == selectedScopeType
-                        ? Color.formaSteelBlue.opacity(Color.FormaOpacity.prominent)
-                        : Color.formaSeparator.opacity(Color.FormaOpacity.strong),
+                        ? Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.48 : 0.34)
+                        : Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34),
                         lineWidth: 1
                     )
             )
         }
         .buttonStyle(.plain)
+        .frame(minHeight: 64)
     }
 
     private func detailCard<Content: View>(
@@ -293,10 +301,10 @@ struct TrustedAutomationScopeRecommendationSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(FormaSpacing.large)
-        .background(Color.formaCardBackground)
+        .background(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.04) : Color.formaBoneWhite.opacity(0.62))
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34), lineWidth: 1)
         )
         .formaCornerRadius(FormaRadius.card)
     }

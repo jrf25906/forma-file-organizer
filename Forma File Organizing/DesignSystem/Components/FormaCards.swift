@@ -13,6 +13,7 @@ import SwiftUI
 struct FormaCard<Content: View>: View {
     let content: Content
     var isSelected: Bool = false
+    @Environment(\.colorScheme) private var colorScheme
 
     init(isSelected: Bool = false, @ViewBuilder content: () -> Content) {
         self.isSelected = isSelected
@@ -22,13 +23,15 @@ struct FormaCard<Content: View>: View {
     var body: some View {
         content
             .formaCardPadding()
-            .background(Color.formaControlBackground)
+            .background(Color.formaSurfaceWork)
             .formaCornerRadius(FormaRadius.card)
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                     .stroke(
-                        isSelected ? Color.formaSteelBlue : Color.formaSeparator,
-                        lineWidth: isSelected ? 2 : 1
+                        isSelected
+                            ? Color.formaSteelBlue.opacity(0.72)
+                            : Color.formaSeparator.opacity(colorScheme == .dark ? 0.64 : 0.48),
+                        lineWidth: isSelected ? 1.5 : 1
                     )
             )
             .formaShadow(isSelected ? .raised : .resting)
@@ -42,6 +45,7 @@ struct FormaCard<Content: View>: View {
 struct FormaListCard: ViewModifier {
     let isSelected: Bool
     let isHovered: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         content
@@ -58,9 +62,11 @@ struct FormaListCard: ViewModifier {
                             endPoint: .bottomTrailing
                         )
                     } else if isHovered {
-                        Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+                        colorScheme == .dark
+                            ? Color.formaBoneWhite.opacity(0.075)
+                            : Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle * 3)
                     } else {
-                        Color.formaBoneWhite
+                        Color.formaSurfaceWork
                     }
                 }
             )
@@ -70,7 +76,7 @@ struct FormaListCard: ViewModifier {
                     .strokeBorder(
                         isSelected
                             ? Color.formaSteelBlue.opacity(Color.FormaOpacity.strong)
-                            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle + (Color.FormaOpacity.ultraSubtle / 2)),
+                            : Color.formaSeparator.opacity(colorScheme == .dark ? 0.55 : 0.36),
                         lineWidth: isSelected ? 1.5 : 0.5
                     )
             )

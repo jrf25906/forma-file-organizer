@@ -4,6 +4,8 @@ struct BulkOperationProgressView: View {
     let totalFiles: Int
     let progress: Double
     let onCancel: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     private var processedFiles: Int {
         Int(progress * Double(totalFiles))
@@ -13,7 +15,7 @@ struct BulkOperationProgressView: View {
         VStack(spacing: FormaSpacing.large) {
             Text("Organizing \(totalFiles) \(totalFiles == 1 ? "file" : "files")...")
                 .font(.formaH2)
-                .foregroundColor(.formaObsidian)
+                .foregroundColor(.formaLabel)
             
             // Progress bar
             VStack(spacing: FormaSpacing.tight) {
@@ -28,7 +30,7 @@ struct BulkOperationProgressView: View {
                         RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
                             .fill(Color.formaSteelBlue)
                             .frame(width: geometry.size.width * CGFloat(progress), height: FormaSpacing.tight)
-                            .animation(.easeInOut(duration: 0.3), value: progress)
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: progress)
                     }
                 }
                 .frame(height: FormaSpacing.tight)
@@ -36,13 +38,13 @@ struct BulkOperationProgressView: View {
                 HStack {
                     Text("\(Int(progress * 100))%")
                         .font(.formaBody.weight(.medium))
-                        .foregroundColor(.formaObsidian)
+                        .foregroundColor(.formaLabel)
                     
                     Spacer()
                     
                     Text("(\(processedFiles) of \(totalFiles))")
                         .font(.formaBody)
-                        .foregroundColor(.formaObsidian.opacity(Color.FormaOpacity.high))
+                        .foregroundColor(.formaSecondaryLabel)
                 }
             }
             
@@ -51,15 +53,19 @@ struct BulkOperationProgressView: View {
             }
         }
         .padding(FormaSpacing.generous)
-        .background(Color.formaControlBackground)
+        .background(colorScheme == .dark ? Color.formaControlBackground.opacity(0.46) : Color.formaBoneWhite.opacity(0.78))
         .formaCornerRadius(FormaRadius.large)
-        .shadow(
-            color: Color.formaObsidian.opacity(Color.FormaOpacity.light + Color.FormaOpacity.subtle),
-            radius: FormaSpacing.generous,
-            x: 0,
-            y: FormaSpacing.tight
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.large, style: .continuous)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34), lineWidth: 1)
         )
-        .frame(width: 400)
+        .shadow(
+            color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.20 : 0.08),
+            radius: 14,
+            x: 0,
+            y: 6
+        )
+        .frame(minWidth: 360, idealWidth: 400, maxWidth: 500)
     }
 }
 

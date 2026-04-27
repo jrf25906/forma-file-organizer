@@ -24,7 +24,7 @@ struct GetStartedStepView: View {
         InfoRow(
             icon: "folder.badge.plus",
             color: .formaSteelBlue,
-            text: "A macOS folder picker will appear — pick Downloads"
+            text: "Two macOS folder pickers will appear — pick Desktop, then Downloads"
         ),
         InfoRow(
             icon: "lock.shield.fill",
@@ -53,13 +53,13 @@ struct GetStartedStepView: View {
                     .progressiveReveal(isVisible: appeared, index: 0)
 
                 VStack(spacing: FormaSpacing.tight) {
-                    Text("One folder to start")
+                    Text("Two folders to start")
                         .font(.formaDisplayHeading)
                         .foregroundColor(.formaLabel)
                         .multilineTextAlignment(.center)
                         .progressiveReveal(isVisible: appeared, index: 1)
 
-                    Text("Start with Downloads. Forma only touches what you explicitly grant,\nand it shows a visible first pass before you configure anything else.")
+                    Text("Start with Desktop and Downloads. Forma only touches what you explicitly grant,\nand it shows a visible first pass before you configure anything else.")
                         .font(.formaBodyLarge)
                         .foregroundColor(.formaSecondaryLabel)
                         .multilineTextAlignment(.center)
@@ -154,7 +154,7 @@ struct GetStartedStepView: View {
         onStartOrganizing: {},
         onBack: {},
         onSkip: {},
-        errorMessage: "Forma could not verify access to Downloads. Try selecting it again."
+        errorMessage: "Forma could not verify access to Desktop. Try selecting it again."
     )
     .frame(width: 520, height: 520)
     .background(Color.formaBackground)

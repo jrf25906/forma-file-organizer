@@ -237,8 +237,13 @@ struct MenuBarButtonStyle: ButtonStyle {
             .padding(.vertical, verticalPadding)
             .background(background(isPressed: configuration.isPressed))
             .opacity(isEnabled ? 1 : Color.FormaOpacity.high)
-            .scaleEffect(configuration.isPressed ? 0.985 : 1.0)
+            .frame(minHeight: minimumHitHeight)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private var minimumHitHeight: CGFloat {
+        40
     }
 
     private var cornerRadius: CGFloat {
@@ -262,9 +267,9 @@ struct MenuBarButtonStyle: ButtonStyle {
     private var verticalPadding: CGFloat {
         switch kind {
         case .utility:
-            return 6
-        case .primary, .secondary:
             return 8
+        case .primary, .secondary:
+            return 9
         }
     }
 

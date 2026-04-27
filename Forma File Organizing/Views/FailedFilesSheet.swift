@@ -21,6 +21,7 @@ struct FailedFilesSheet: View {
     let onDismiss: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,7 +42,7 @@ struct FailedFilesSheet: View {
             // Footer with actions
             sheetFooter
         }
-        .frame(width: 560, height: min(560, CGFloat(180 + failedFiles.count * 96)))
+        .frame(minWidth: 540, idealWidth: 560, maxWidth: 680, minHeight: 360, idealHeight: min(560, CGFloat(180 + failedFiles.count * 96)), maxHeight: 680)
         .background(Color.formaBackground)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("failedFilesSheet")
@@ -75,8 +76,8 @@ struct FailedFilesSheet: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.formaSecondaryLabel)
-                    .padding(6)
-                    .contentShape(Rectangle())
+                    .frame(width: 40, height: 40)
+                    .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
             }
             .buttonStyle(.plain)
             .help("Close")
@@ -135,6 +136,7 @@ struct FailedFilesSheet: View {
                     onDismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .frame(minHeight: 40)
                 .accessibilityHint("Close this dialog and keep these files unchanged.")
 
                 Button("Retry All") {
@@ -143,6 +145,7 @@ struct FailedFilesSheet: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(failedFiles.isEmpty)
+                .frame(minHeight: 40)
                 .help("Retry organizing all listed files")
                 .accessibilityHint("Try organizing these files again.")
             }
@@ -157,6 +160,7 @@ struct FailedFilesSheet: View {
 /// A single row showing a failed file and its error.
 private struct FailedFileRow: View {
     let file: FileItem
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(alignment: .top, spacing: FormaSpacing.standard) {
@@ -215,14 +219,22 @@ private struct FailedFileRow: View {
                 Image(systemName: "doc.on.doc")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.formaSecondaryLabelHigh)
+                    .frame(width: 40, height: 40)
+                    .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
             }
             .buttonStyle(.plain)
             .help("Copy failure details")
             .accessibilityLabel("Copy failure details for \(file.name)")
         }
         .padding(FormaSpacing.standard)
-        .background(Color.formaCardBackground)
-        .cornerRadius(FormaRadius.small)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(colorScheme == .dark ? Color.formaControlBackground.opacity(0.38) : Color.formaBoneWhite.opacity(0.70))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.26 : 0.12), lineWidth: FormaBorderWidth.thin)
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilitySummary)
     }

@@ -7,8 +7,14 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
     var mockErrors: [String: Error] = [:]  // For testing error scenarios
     var explicitSelectionResult = ExplicitSelectionScanResult(files: [], skippedItems: [], scannedRootPaths: [])
     var explicitSelectionError: Error?
+    var requestDesktopAccessResult: Bool = true
+    var requestDesktopAccessError: Error?
     var requestDownloadsAccessResult: Bool = true
+    var requestDownloadsAccessError: Error?
+    var desktopAccessStateAfterRequest: Bool?
     var downloadsAccessStateAfterRequest: Bool?
+    private(set) var requestDesktopAccessCallCount = 0
+    private(set) var requestDownloadsAccessCallCount = 0
     private(set) var explicitSelectionCallCount = 0
     private(set) var explicitSelectionRequestedURLs: [[URL]] = []
 
@@ -75,11 +81,28 @@ final class MockFileSystemService: FileSystemServiceProtocol, @unchecked Sendabl
     func hasMusicAccess() -> Bool { return hasMusic }
     
     func requestDesktopAccess() async throws -> Bool {
-        hasDesktop = true
-        return true
+        requestDesktopAccessCallCount += 1
+
+        if let requestDesktopAccessError {
+            throw requestDesktopAccessError
+        }
+
+        if let desktopAccessStateAfterRequest {
+            hasDesktop = desktopAccessStateAfterRequest
+        } else if requestDesktopAccessResult {
+            hasDesktop = true
+        }
+
+        return requestDesktopAccessResult
     }
     
     func requestDownloadsAccess() async throws -> Bool {
+        requestDownloadsAccessCallCount += 1
+
+        if let requestDownloadsAccessError {
+            throw requestDownloadsAccessError
+        }
+
         if let downloadsAccessStateAfterRequest {
             hasDownloads = downloadsAccessStateAfterRequest
         } else if requestDownloadsAccessResult {

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed - Dashboard Responsiveness
+- **First-run folder setup is lightweight**: onboarding now requests Desktop and Downloads access, applies only the minimal cleanup template to those two folders, and leaves Documents, Pictures, and Music untemplated until the user opts in from Settings. Folder-scoped template rule de-duping now includes category name and scope so Desktop and Downloads can keep distinct rules with the same behavior.
 - **Historical duplicate Smart Rules are cleaned up**: startup now removes exact duplicate rule rows while preserving one keeper per behavior, addressing older stores where per-folder templates could be applied repeatedly and leave thousands of identical enabled rules.
 - **Per-folder templates stop re-adding skipped rules**: onboarding now checks generated template-rule signatures before assigning a category relationship, preventing SwiftData from tracking duplicate skipped rules, and persisted placeholder destinations remain readable even when bookmark data is absent.
 - **Bulk destination edits stop creating repeat rules**: the `Create Rules` option now uses `RuleService` batch creation, so repeating the same bulk edit reuses semantic de-duping instead of inserting duplicate extension rules directly.

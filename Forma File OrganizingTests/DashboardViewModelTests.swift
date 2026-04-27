@@ -367,6 +367,41 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(localPipeline.scanCallCount, 1, "Multiple grants should coalesce into one refresh")
     }
 
+    func testDefaultOnboardingAccessRequestsDesktopAndDownloads() async {
+        let localService = MockFileSystemService()
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: MockFileScanPipeline()
+        )
+
+        let result = await localViewModel.requestDefaultOnboardingAccess()
+
+        XCTAssertEqual(result, .granted)
+        XCTAssertTrue(localViewModel.hasDesktopAccess)
+        XCTAssertTrue(localViewModel.hasDownloadsAccess)
+        XCTAssertEqual(localService.requestDesktopAccessCallCount, 1)
+        XCTAssertEqual(localService.requestDownloadsAccessCallCount, 1)
+    }
+
+    func testDefaultOnboardingAccessStopsWhenDesktopIsCancelled() async {
+        let localService = MockFileSystemService()
+        localService.requestDesktopAccessResult = false
+        let localViewModel = DashboardViewModel(
+            services: AppServices(),
+            fileSystemService: localService,
+            fileScanPipeline: MockFileScanPipeline()
+        )
+
+        let result = await localViewModel.requestDefaultOnboardingAccess()
+
+        XCTAssertEqual(result, .cancelled(.desktop))
+        XCTAssertFalse(localViewModel.hasDesktopAccess)
+        XCTAssertFalse(localViewModel.hasDownloadsAccess)
+        XCTAssertEqual(localService.requestDesktopAccessCallCount, 1)
+        XCTAssertEqual(localService.requestDownloadsAccessCallCount, 0)
+    }
+
     func testInit_LoadsPersistedWorkflowTemplateSelection() {
         let suiteName = "DashboardViewModelTests.Selection.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

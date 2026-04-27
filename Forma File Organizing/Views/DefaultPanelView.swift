@@ -391,7 +391,7 @@ struct DefaultPanelView: View {
             .padding(.bottom, FormaSpacing.standard)
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: FormaSpacing.generous) {
+                VStack(alignment: .leading, spacing: FormaSpacing.standard) {
                     if showsProjectSpacesSection {
                         inspectorSectionCard {
                             ProjectSpacesSection(summaries: dashboardViewModel.projectSpaces) { summary in
@@ -708,6 +708,7 @@ struct DefaultPanelView: View {
                 .foregroundStyle(Color.formaSteelBlue)
                 .padding(.horizontal, FormaSpacing.standard)
                 .padding(.vertical, FormaSpacing.tight)
+                .frame(minHeight: 40)
                 .background(
                     RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                         .fill(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
@@ -727,6 +728,7 @@ struct DefaultPanelView: View {
                 .foregroundStyle(Color.formaSecondaryLabel)
                 .padding(.horizontal, FormaSpacing.standard)
                 .padding(.vertical, FormaSpacing.tight)
+                .frame(minHeight: 40)
                 .background(
                     RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                         .fill(Color.formaLabel.opacity(Color.FormaOpacity.subtle))
@@ -973,6 +975,7 @@ struct DefaultPanelView: View {
                 }) {
                     Text("Resume \(dashboardViewModel.deferredReviewFileCount) Deferred \(dashboardViewModel.deferredReviewFileCount == 1 ? "File" : "Files")")
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 40)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.formaSteelBlue)
@@ -991,6 +994,7 @@ struct DefaultPanelView: View {
                 }) {
                     Text("Organize \(readyFiles.count) \(readyFiles.count == 1 ? "File" : "Files")")
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 40)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.formaSteelBlue)
@@ -1526,7 +1530,7 @@ struct DefaultPanelView: View {
 
     private var defaultPanelPrimaryActionContrastRatio: Double {
         let foreground = Color.formaSteelBlue
-        let background = editorialAccentColor(.warm).opacity(colorScheme == .dark ? 0.20 : 0.11)
+        let background = editorialAccentColor(.warm).opacity(colorScheme == .dark ? 0.16 : 0.11)
         return FormaContrastMetrics.contrastRatio(
             foreground: foreground,
             background: background,
@@ -1539,7 +1543,7 @@ struct DefaultPanelView: View {
         let foreground = colorScheme == .dark
             ? Color.formaBoneWhite.opacity(0.84)
             : Color.formaObsidian.opacity(0.66)
-        let background = editorialAccentColor(.warm).opacity(colorScheme == .dark ? 0.20 : 0.11)
+        let background = editorialAccentColor(.warm).opacity(colorScheme == .dark ? 0.16 : 0.11)
         return FormaContrastMetrics.contrastRatio(
             foreground: foreground,
             background: background,
@@ -1788,7 +1792,7 @@ struct QuickActionCard: View {
                                     ? Color.formaLabel
                                     : secondaryTextColor
                             )
-                            .frame(width: 28, height: 28)
+                            .frame(width: 40, height: 40)
                             .background(
                                 Circle()
                                     .fill(dismissBackgroundColor)
@@ -1853,6 +1857,7 @@ struct QuickActionCard: View {
             }
             .foregroundStyle(primaryActionTextColor)
             .frame(maxWidth: isCompactLayout ? .infinity : nil, alignment: .leading)
+            .frame(minHeight: 40)
             .padding(.horizontal, FormaSpacing.standard)
             .padding(.vertical, FormaSpacing.tight)
             .background(primaryActionBackground)

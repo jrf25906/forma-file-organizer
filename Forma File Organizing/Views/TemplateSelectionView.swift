@@ -12,6 +12,7 @@ struct TemplateSelectionView: View {
     
     @State private var hoveredTemplate: OrganizationTemplate?
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     
     init(selectedTemplate: Binding<OrganizationTemplate>, onSelect: @escaping (OrganizationTemplate) -> Void) {
         self._selectedTemplate = selectedTemplate
@@ -87,6 +88,7 @@ struct TemplateSelectionView: View {
                             .font(.formaBodySemibold)
                     }
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 40)
                     .padding(.vertical, FormaSpacing.standard - FormaSpacing.micro)
                     .background(
                         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
@@ -103,15 +105,16 @@ struct TemplateSelectionView: View {
                     onSelect(.custom)
                 }) {
                     Text("Start with no rules (Custom)")
+                        .frame(minHeight: 40)
                 }
                 .buttonStyle(.plain)
                 .font(.formaCaption)
                 .foregroundStyle(Color.formaSecondaryLabel)
             }
             .padding(FormaSpacing.extraLarge)
-            .background(Color.formaControlBackground)
+            .background(colorScheme == .dark ? Color.formaControlBackground.opacity(0.32) : Color.formaCardBackground.opacity(0.84))
         }
-        .frame(width: 900, height: 700)
+        .frame(minWidth: 760, idealWidth: 900, maxWidth: 1080, minHeight: 620, idealHeight: 700, maxHeight: 860)
         .background(Color.formaBackground)
     }
     
@@ -133,6 +136,7 @@ private struct TemplateCard: View {
     let onSelect: () -> Void
     
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         Button(action: onSelect) {
@@ -212,7 +216,7 @@ private struct TemplateCard: View {
                 }
             }
             .padding(FormaSpacing.large)
-            .frame(height: 280)
+            .frame(minHeight: 280)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(cardBackground)
             .overlay(
@@ -248,9 +252,9 @@ private struct TemplateCard: View {
         if isSelected {
             return Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle)
         } else if isHovered {
-            return Color.formaControlBackground
+            return colorScheme == .dark ? Color.formaBoneWhite.opacity(0.055) : Color.formaBoneWhite.opacity(0.74)
         } else {
-            return Color.formaBoneWhite.opacity(Color.FormaOpacity.strong)
+            return colorScheme == .dark ? Color.formaBoneWhite.opacity(0.04) : Color.formaBoneWhite.opacity(0.62)
         }
     }
     
@@ -260,7 +264,7 @@ private struct TemplateCard: View {
         } else if isHovered {
             return Color.formaSeparator.opacity(Color.FormaOpacity.prominent)
         } else {
-            return Color.formaSeparator.opacity(Color.FormaOpacity.overlay)
+            return Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34)
         }
     }
     
@@ -272,18 +276,18 @@ private struct TemplateCard: View {
         if isSelected {
             return Color.formaSteelBlue.opacity(Color.FormaOpacity.light + Color.FormaOpacity.subtle)
         } else if isHovered {
-            return Color.formaObsidian.opacity(Color.FormaOpacity.light - Color.FormaOpacity.ultraSubtle)
+            return Color.formaObsidian.opacity(colorScheme == .dark ? 0.12 : 0.035)
         } else {
             return Color.clear
         }
     }
     
     private var shadowRadius: CGFloat {
-        (isSelected || isHovered) ? 8 : 0
+        (isSelected || isHovered) ? 6 : 0
     }
     
     private var shadowY: CGFloat {
-        (isSelected || isHovered) ? 4 : 0
+        (isSelected || isHovered) ? 2 : 0
     }
 }
 

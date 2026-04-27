@@ -6,6 +6,8 @@ import SwiftData
 struct RuleEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject var nav: NavigationViewModel
     private let isUITesting = CommandLine.arguments.contains("--uitesting")
@@ -207,6 +209,17 @@ struct RuleEditorView: View {
         )
     }
 
+    private var actionTypeBadgeColor: Color {
+        switch formState.actionType {
+        case .move:
+            return .formaSteelBlue
+        case .copy:
+            return .formaSage
+        case .delete:
+            return .formaWarmOrange
+        }
+    }
+
     private var impactSummaryText: String {
         let countText = "\(matchedFilesCount) file\(matchedFilesCount == 1 ? "" : "s")"
         switch formState.actionType {
@@ -231,6 +244,30 @@ struct RuleEditorView: View {
             return .naturalLanguage(text: nlText)
         }
         return .ruleEditor
+    }
+
+    private var modalChromeBackground: Color {
+        Color.formaSurfaceAnchor
+    }
+
+    private var modalWorkBackground: Color {
+        Color.formaSurfaceChrome
+    }
+
+    private var modalFloatingBackground: Color {
+        Color.formaSurfaceFloating
+    }
+
+    private var ruleCardBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.10)
+    }
+
+    private var modalDivider: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.12)
     }
 
     var body: some View {
@@ -264,6 +301,8 @@ struct RuleEditorView: View {
                     Image(systemName: "arrow.down.right.and.arrow.up.left")
                         .font(.formaBodySemibold)
                         .foregroundColor(.secondary)
+                        .frame(width: 40, height: 40)
+                        .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Collapse to Panel")
@@ -276,42 +315,22 @@ struct RuleEditorView: View {
                     Image(systemName: "xmark")
                         .font(.formaBodySemibold)
                         .foregroundColor(.secondary)
+                        .frame(width: 40, height: 40)
+                        .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Close")
             }
             .padding(FormaSpacing.generous)
+            .background(modalChromeBackground)
 
-            Divider()
+            Rectangle()
+                .fill(modalDivider)
+                .frame(height: 1)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: FormaSpacing.generous) {
-                    // Rule Name with validation shake
-                    VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                        Text("Name")
-                            .font(.formaBodySemibold)
-                            .tracking(0.5)
-                            .foregroundColor(Color.formaSecondaryLabel)
-                        TextField("e.g., Screenshot Sweeper", text: $formState.name)
-                            .textFieldStyle(.plain)
-                            .accessibilityLabel("Rule Name")
-                            .accessibilityIdentifier("modalRuleNameField")
-                            .accessibilityValue(formState.name)
-                            .padding(FormaSpacing.tight + (FormaSpacing.micro / 2))
-                            .background(Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle))
-                            .cornerRadius(FormaRadius.control)
-                            .foregroundColor(Color.formaLabel)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                                    .stroke(
-                                        validationError != nil && formState.name.isEmpty ? Color.formaWarmOrange : Color.clear,
-                                        lineWidth: 1
-                                    )
-                            )
-
-                            .validationShake(trigger: triggerValidationShake)
-                    }
-                    .padding(.bottom, 8) // Add some breathing room
+                    modalRuleNameField
 
                     // Natural language input (creation-only)
                     if editingRule == nil {
@@ -396,8 +415,11 @@ struct RuleEditorView: View {
                 }
                 .padding(FormaSpacing.generous)
             }
+            .background(modalWorkBackground)
 
-            Divider()
+            Rectangle()
+                .fill(modalDivider)
+                .frame(height: 1)
 
             // Footer
             HStack(spacing: FormaSpacing.standard) {
@@ -422,31 +444,33 @@ struct RuleEditorView: View {
                     )
                     .padding(.horizontal, FormaSpacing.large)
                     .padding(.vertical, FormaSpacing.tight + (FormaSpacing.micro / 2))
+                    .frame(minHeight: 40)
                 }
                 .background(
                     RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                         .fill(Color.formaSteelBlue)
                 )
-                .shadow(color: Color.formaSteelBlue.opacity(Color.FormaOpacity.medium), radius: 4, x: 0, y: 2)
+                .shadow(color: Color.formaSteelBlue.opacity(Color.FormaOpacity.light), radius: 3, x: 0, y: 1)
                 .disabled(saveButtonState != .normal || !canSubmitRule)
                 .opacity(saveButtonState == .normal && canSubmitRule ? 1 : 0.6)
                 .accessibilityIdentifier("ruleComposerSaveButton")
             }
             .padding(FormaSpacing.generous)
+            .background(modalFloatingBackground)
         }
-        .frame(width: 500, height: 550)
+        .frame(minWidth: 500, idealWidth: 540, maxWidth: 620, minHeight: 550, idealHeight: 600, maxHeight: 720)
         .background(
             ZStack {
                 // Solid backing for better contrast
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .fill(Color.formaCardBackground)
+                    .fill(modalWorkBackground)
                 // Frosted glass overlay
                 VisualEffectView(material: .hudWindow, blendingMode: .withinWindow)
                     .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
             }
 	        )
 	        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
-	        .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.overlay), radius: 24, x: 0, y: 12)
+	        .shadow(color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.32 : 0.16), radius: 18, x: 0, y: 8)
         .accessibilityElement(children: .contain)
 	        .accessibilityIdentifier("ruleEditorView")
         .onAppear {
@@ -513,6 +537,48 @@ struct RuleEditorView: View {
 
     // MARK: - View Components
 
+    private var modalRuleNameField: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            HStack(spacing: FormaSpacing.tight) {
+                FormaBadge(text: "RULE", color: .formaSteelBlue, size: .small, style: .subtle)
+                Text("Rule name")
+                    .font(.formaSmallSemibold)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+            }
+
+            TextField("e.g., Screenshot Sweeper", text: $formState.name)
+                .textFieldStyle(.plain)
+                .font(.formaH3)
+                .accessibilityLabel("Rule Name")
+                .accessibilityIdentifier("modalRuleNameField")
+                .accessibilityValue(formState.name)
+                .padding(.horizontal, FormaSpacing.standard)
+                .padding(.vertical, FormaSpacing.tight)
+                .frame(minHeight: 48)
+                .background(modalFloatingBackground)
+                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+                .foregroundColor(Color.formaLabel)
+                .overlay(
+                    RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                        .strokeBorder(
+                            validationError != nil && formState.name.isEmpty
+                                ? Color.formaWarmOrange
+                                : Color.formaSeparator.opacity(colorScheme == .dark ? 0.45 : 0.36),
+                            lineWidth: FormaBorderWidth.thin
+                        )
+                )
+                .validationShake(trigger: triggerValidationShake)
+        }
+        .padding(FormaSpacing.standard)
+        .background(Color.formaSurfaceWork)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(ruleCardBorder, lineWidth: FormaBorderWidth.thin)
+        )
+        .shadow(color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.14 : 0.05), radius: 3, x: 0, y: 1)
+    }
+
     private func composerSectionCard<Content: View>(
         title: String,
         subtitle: String,
@@ -522,20 +588,54 @@ struct RuleEditorView: View {
             composerSectionHeader(title: title, subtitle: subtitle)
             content()
         }
-        .padding(20)
-        .background(Color.formaBoneWhite)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .padding(FormaSpacing.large)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaSurfaceWork)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(ruleCardBorder, lineWidth: FormaBorderWidth.thin)
+        )
+        .shadow(color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.14 : 0.05), radius: 3, x: 0, y: 1)
     }
 
     private func composerSectionHeader(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-            Text(title)
-                .font(.formaBodyBold)
-                .foregroundColor(.formaLabel)
-            Text(subtitle)
-                .font(.formaSmall)
-                .foregroundColor(.formaSecondaryLabel)
+        HStack(alignment: .top, spacing: FormaSpacing.tight) {
+            FormaBadge(text: composerStepLabel(for: title), color: composerTint(for: title), size: .small, style: .subtle)
+
+            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                Text(title)
+                    .font(.formaBodyBold)
+                    .foregroundColor(.formaLabel)
+                Text(subtitle)
+                    .font(.formaSmall)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func composerStepLabel(for title: String) -> String {
+        switch title {
+        case "When": return "1"
+        case "Then": return "2"
+        case "Category": return "3"
+        case "Impact": return "REVIEW"
+        default: return "STEP"
+        }
+    }
+
+    private func composerTint(for title: String) -> Color {
+        switch title {
+        case "Then":
+            return actionTypeBadgeColor
+        case "Category":
+            return .formaSage
+        case "Impact":
+            return impactTone.color
+        default:
+            return .formaSteelBlue
         }
     }
 
@@ -548,12 +648,17 @@ struct RuleEditorView: View {
                     .foregroundColor(.formaWarmOrange)
                 Text(message)
                     .font(.formaSmall)
-                    .foregroundColor(.formaWarmOrange)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, FormaSpacing.tight)
             .padding(.vertical, FormaSpacing.micro + 2)
-            .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light))
-            .cornerRadius(FormaRadius.control)
+            .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light - Color.FormaOpacity.ultraSubtle))
+            .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .strokeBorder(Color.formaWarmOrange.opacity(0.24), lineWidth: FormaBorderWidth.thin)
+            )
         }
     }
 

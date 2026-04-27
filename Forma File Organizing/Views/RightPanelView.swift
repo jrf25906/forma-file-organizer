@@ -5,7 +5,6 @@ struct RightPanelView: View {
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     @EnvironmentObject private var panelStateManager: PanelStateManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var panelTransition
     @State private var lastObservedMeasuredWidth: CGFloat?
 
     private var defaultPanelTopAlignmentOffset: CGFloat {
@@ -89,37 +88,30 @@ struct RightPanelView: View {
                     case .default:
                         DefaultPanelView()
                             .padding(.top, -defaultPanelTopAlignmentOffset)
-                            .matchedGeometryEffect(id: "panel", in: panelTransition)
-                            .transition(.opacity)
+                            .transition(panelContentTransition)
 
                     case .inspector(let files):
                         FileInspectorView(files: files)
-                            .matchedGeometryEffect(id: "panel", in: panelTransition)
-                            .transition(.opacity)
+                            .transition(panelContentTransition)
 
                     case .celebration(let message):
                         CelebrationView(message: message)
-                            .matchedGeometryEffect(id: "panel", in: panelTransition)
-                            .transition(.opacity)
+                            .transition(panelContentTransition)
 
                     case .completionCelebration(let filesOrganized):
                         CompletionCelebrationView(filesOrganized: filesOrganized)
-                            .matchedGeometryEffect(id: "panel", in: panelTransition)
-                            .transition(.opacity)
+                            .transition(panelContentTransition)
 
                     case .rulesManagement:
                         RulesManagementView()
-                            .matchedGeometryEffect(id: "panel", in: panelTransition)
-                            .transition(.opacity)
+                            .transition(panelContentTransition)
 
                     case .ruleBuilder(let editingRule, let fileContext):
                         InlineRuleBuilderView(editingRule: editingRule, fileContext: fileContext)
-                            .matchedGeometryEffect(id: "panel", in: panelTransition)
-                            .transition(.opacity)
+                            .transition(panelContentTransition)
                     case .analytics:
                         CompactAnalyticsPanel()
-                            .matchedGeometryEffect(id: "panel", in: panelTransition)
-                            .transition(.opacity)
+                            .transition(panelContentTransition)
                     }
                 }
             }
@@ -158,6 +150,14 @@ struct RightPanelView: View {
                 value: panelStateManager.rightPanelMode
             )
         }
+    }
+
+    private var panelContentTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .move(edge: .trailing).combined(with: .opacity),
+            removal: .move(edge: .leading).combined(with: .opacity)
+        )
     }
 
     // MARK: - Mode Header View

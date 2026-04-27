@@ -5,6 +5,7 @@ import Charts
 struct StackedAreaChart: View {
     let points: [AutomationEfficiencyPoint]
     var showLegend: Bool = true
+    var chrome: Bool = true
     @Environment(\.colorScheme) private var colorScheme
 
     /// Transform points into chart-friendly data.
@@ -76,15 +77,19 @@ struct StackedAreaChart: View {
                 }
             }
         }
-        .padding(FormaSpacing.large)
-        .background(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(cardBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(cardBorder, lineWidth: 1)
-        )
+        .padding(chrome ? FormaSpacing.large : 0)
+        .background {
+            if chrome {
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .fill(cardBackground)
+            }
+        }
+        .overlay {
+            if chrome {
+                RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                    .strokeBorder(cardBorder, lineWidth: 1)
+            }
+        }
     }
 
     @ViewBuilder

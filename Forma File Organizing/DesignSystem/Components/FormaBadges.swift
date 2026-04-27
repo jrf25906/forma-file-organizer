@@ -97,6 +97,8 @@ struct FormaBadge: View {
             }
             Text(text)
                 .font(size.font)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
         .foregroundColor(foregroundColor)
         .padding(.horizontal, size.horizontalPadding)

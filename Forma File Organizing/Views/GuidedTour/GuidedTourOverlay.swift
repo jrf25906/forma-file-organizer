@@ -18,9 +18,9 @@ struct GuidedTourOverlay: View {
 
     // MARK: - Computed Helpers
 
-    private var activeAnimation: Animation {
+    private var activeAnimation: Animation? {
         reduceMotion
-            ? .easeInOut(duration: 0.25)
+            ? nil
             : FormaAnimation.premiumSpring
     }
 

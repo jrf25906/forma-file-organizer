@@ -7,15 +7,18 @@ struct NaturalLanguageRuleView: View {
     var onApplyToEditor: (NLParsedRule) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showTimeAmbiguitySheet = false
     @State private var showGroupingAmbiguitySheet = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            // Label
-            Text("Describe what you want to automate…")
-                .font(.formaBodySemibold)
-                .foregroundColor(Color.formaSecondaryLabel)
+            HStack(spacing: FormaSpacing.tight) {
+                FormaBadge(text: "DRAFT", color: .formaSteelBlue, icon: "sparkles", size: .small, style: .subtle)
+                Text("Describe what you want to automate")
+                    .font(.formaSmallSemibold)
+                    .foregroundColor(Color.formaSecondaryLabelHigh)
+            }
 
             // Input field
             TextField(
@@ -25,8 +28,18 @@ struct NaturalLanguageRuleView: View {
             )
             .textFieldStyle(.plain)
             .padding(FormaSpacing.tight + (FormaSpacing.micro / 2))
-            .background(Color.formaObsidian.opacity(Color.FormaOpacity.subtle - Color.FormaOpacity.ultraSubtle))
-            .formaCornerRadius(FormaRadius.control)
+            .frame(minHeight: 44)
+            .background(Color.formaSurfaceFloating)
+            .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .strokeBorder(
+                        viewModel.text.isEmpty
+                            ? Color.formaSeparator.opacity(colorScheme == .dark ? 0.46 : 0.34)
+                            : Color.formaSteelBlue.opacity(0.42),
+                        lineWidth: FormaBorderWidth.thin
+                    )
+            )
             .foregroundColor(Color.formaLabel)
             .onSubmit {
                 viewModel.parseImmediately()
@@ -41,10 +54,10 @@ struct NaturalLanguageRuleView: View {
                     ForEach(hudTokens(for: parsed), id: \.self) { token in
                         Text(token)
                             .font(.formaCaption)
-                            .foregroundColor(.formaSecondaryLabel)
+                            .foregroundColor(.formaSteelBlue)
                             .padding(.horizontal, FormaSpacing.tight)
                             .padding(.vertical, FormaSpacing.micro - (FormaSpacing.micro / 4))
-                            .background(Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle * 2))
+                            .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.light))
                             .clipShape(Capsule())
                     }
 
@@ -61,7 +74,7 @@ struct NaturalLanguageRuleView: View {
             if let message = viewModel.inlineMessage {
                 Text(message)
                     .font(.formaCaption)
-                    .foregroundColor(.formaSecondaryLabel)
+                    .foregroundColor(.formaSecondaryLabelHigh)
             }
 
             // Ambiguity resolution prompts
@@ -78,6 +91,7 @@ struct NaturalLanguageRuleView: View {
                         }
                     }
                     .buttonStyle(.bordered)
+                    .frame(minHeight: 40)
                 }
 
                 if hasAmbiguousGrouping(in: parsed) {
@@ -92,6 +106,7 @@ struct NaturalLanguageRuleView: View {
                         }
                     }
                     .buttonStyle(.bordered)
+                    .frame(minHeight: 40)
                 }
             }
 
@@ -105,8 +120,12 @@ struct NaturalLanguageRuleView: View {
             }
         }
         .padding(FormaSpacing.standard)
-        .background(Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle))
-        .formaCornerRadius(FormaRadius.card)
+        .background(Color.formaSurfaceWork)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.46 : 0.30), lineWidth: FormaBorderWidth.thin)
+        )
         .sheet(isPresented: $showTimeAmbiguitySheet) {
             TimeAmbiguityResolutionSheet { customDays in
                 resolveTimeAmbiguity(customDays: customDays)
@@ -268,6 +287,7 @@ struct NaturalLanguageRuleView: View {
 /// The user can keep Forma's defaults or override the number of days.
 private struct TimeAmbiguityResolutionSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var customDaysString: String = ""
     let onResolve: (Int?) -> Void
 
@@ -297,6 +317,7 @@ private struct TimeAmbiguityResolutionSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.bordered)
+                .frame(minHeight: 40)
 
                 Button("Apply custom days") {
                     if let days = Int(customDaysString), days > 0 {
@@ -305,6 +326,7 @@ private struct TimeAmbiguityResolutionSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
+                .frame(minHeight: 40)
 
                 Spacer()
 
@@ -312,11 +334,13 @@ private struct TimeAmbiguityResolutionSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.plain)
+                .frame(minHeight: 40)
             }
             .padding(.top, FormaSpacing.standard)
         }
         .padding(FormaSpacing.large)
-        .frame(width: 380)
+        .frame(minWidth: 380, idealWidth: 420, maxWidth: 520)
+        .background(Color.formaBackground)
     }
 }
 
@@ -325,6 +349,7 @@ private struct TimeAmbiguityResolutionSheet: View {
 /// modification month, or leave grouping manual.
 private struct GroupingAmbiguityResolutionSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selection: NLGroupingResolution = .byCreationMonth
     let onResolve: (NLGroupingResolution) -> Void
 
@@ -364,18 +389,21 @@ private struct GroupingAmbiguityResolutionSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
+                .frame(minHeight: 40)
 
                 Button("Cancel") {
                     dismiss()
                 }
                 .buttonStyle(.plain)
+                .frame(minHeight: 40)
 
                 Spacer()
             }
             .padding(.top, FormaSpacing.standard)
         }
         .padding(FormaSpacing.large)
-        .frame(width: 420)
+        .frame(minWidth: 420, idealWidth: 460, maxWidth: 560)
+        .background(Color.formaBackground)
     }
 
     @ViewBuilder
@@ -400,10 +428,13 @@ private struct GroupingAmbiguityResolutionSheet: View {
             }
             .padding(FormaSpacing.tight)
             .background(
-                Color.formaObsidian.opacity(selection == value ? (Color.FormaOpacity.ultraSubtle * 3) : Color.FormaOpacity.ultraSubtle)
+                colorScheme == .dark
+                    ? Color.formaBoneWhite.opacity(selection == value ? 0.075 : 0.035)
+                    : Color.formaBoneWhite.opacity(selection == value ? 0.70 : 0.52)
             )
             .formaCornerRadius(FormaRadius.control)
         }
         .buttonStyle(.plain)
+        .frame(minHeight: 56)
     }
 }

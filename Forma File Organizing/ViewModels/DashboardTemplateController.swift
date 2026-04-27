@@ -52,11 +52,11 @@ final class DashboardTemplateController {
 
             let templateRules = template.generateRules(baseDocumentsPath: folder.title)
             for rule in templateRules {
+                rule.category = category
                 let signature = ruleSignature(rule)
                 guard !existingRuleKeys.contains(signature) else { continue }
 
                 existingRuleKeys.insert(signature)
-                rule.category = category
                 allRulesToCreate.append(rule)
             }
         }
@@ -96,16 +96,16 @@ final class DashboardTemplateController {
     ) {
         permissionState.completeOnboarding()
 
-        // Apply PARA template as default for all 5 folders
-        let defaultSelection = OnboardingFolderSelection() // all true
+        // First-run setup should stay lightweight and folder-aware.
+        let defaultSelection = OnboardingFolderSelection()
         var templateSelection = FolderTemplateSelection()
-        for folder in OnboardingFolder.allCases {
-            templateSelection.setTemplate(.para, for: folder)
+        for folder in [OnboardingFolder.desktop, .downloads] {
+            templateSelection.setTemplate(.minimal, for: folder)
         }
         defaultSelection.save()
         templateSelection.save()
 
-        // Apply per-folder template rules with PARA for all folders
+        // Apply only Desktop/Downloads cleanup rules; deeper systems belong in Settings.
         applyPerFolderTemplates(
             folderSelection: defaultSelection,
             templateSelection: templateSelection,
@@ -166,6 +166,8 @@ final class DashboardTemplateController {
             normalizedRuleSignatureValue(rule.conditionValue),
             rule.actionType.rawValue,
             normalizedRuleSignatureValue(rule.destination?.displayName ?? "Trash"),
+            normalizedRuleSignatureValue(rule.category?.name ?? "General"),
+            rule.category.map(categoryScopeSignature) ?? "global",
             rule.exclusionConditions
                 .map { "\($0.type.rawValue):\(normalizedRuleSignatureValue($0.value))" }
                 .sorted()
@@ -178,5 +180,17 @@ final class DashboardTemplateController {
             .precomposedStringWithCanonicalMapping
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
+    }
+
+    private func categoryScopeSignature(for category: RuleCategory) -> String {
+        switch category.scope {
+        case .global:
+            return "global"
+        case .folders(let folders):
+            return folders
+                .map { normalizedRuleSignatureValue($0.displayName) }
+                .sorted()
+                .joined(separator: ",")
+        }
     }
 }

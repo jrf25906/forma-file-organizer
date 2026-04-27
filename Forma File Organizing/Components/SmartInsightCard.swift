@@ -23,27 +23,25 @@ struct SmartInsightCard: View {
     }
 
     private var cardBackground: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.06)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+        Color.formaSurfaceFloating
     }
 
     private var hoverBackground: Color {
         colorScheme == .dark
             ? Color.formaBoneWhite.opacity(0.10)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
+            : Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle)
     }
 
     private var cardBorder: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.12)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.light)
+            ? Color.formaBoneWhite.opacity(0.16)
+            : Color.formaSeparator.opacity(0.44)
     }
 
     private var hoverBorder: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.18)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.medium)
+            ? Color.formaSteelBlue.opacity(0.58)
+            : Color.formaSteelBlue.opacity(0.38)
     }
 
     var body: some View {
@@ -112,6 +110,7 @@ struct SmartInsightCard: View {
                     Image(systemName: "xmark")
                         .font(.formaSmall)
                         .foregroundColor(.formaSecondaryLabelHigh)
+                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
                 .opacity(isHovered ? 1 : 0.5)
@@ -146,16 +145,7 @@ struct SmartInsightCard: View {
     }
 
     private var actionButtonTint: Color {
-        switch insight.category {
-        case .cleanup:
-            return .formaWarning
-        case .organization:
-            return .formaSteelBlue
-        case .automation:
-            return .formaSage
-        case .celebration:
-            return .formaSoftGreen
-        }
+        .formaSteelBlue
     }
 
     private var usesSettingsLink: Bool {
@@ -216,15 +206,15 @@ struct SmartInsightList: View {
                 .fill(
                     colorScheme == .dark
                         ? Color.formaBoneWhite.opacity(0.06)
-                        : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+                        : Color.formaSurfaceFloating
                 )
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .strokeBorder(
                     colorScheme == .dark
-                        ? Color.formaBoneWhite.opacity(0.12)
-                        : Color.formaObsidian.opacity(Color.FormaOpacity.light),
+                        ? Color.formaBoneWhite.opacity(0.16)
+                        : Color.formaSeparator.opacity(0.44),
                     lineWidth: 1
                 )
         )

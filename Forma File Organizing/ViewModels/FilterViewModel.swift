@@ -88,7 +88,7 @@ class FilterViewModel: ObservableObject {
     }
 
     /// Current view mode (card/list/grid)
-    @Published var currentViewMode: ViewMode = .card
+    @Published var currentViewMode: ViewMode = .list
 
     // MARK: - Cached Computed Properties
 
@@ -116,7 +116,7 @@ class FilterViewModel: ObservableObject {
 
     // MARK: - View Mode Persistence
 
-    @AppStorage("viewMode.all") private var allViewMode: ViewMode = .card
+    @AppStorage("viewMode.all") private var allViewMode: ViewMode = .list
     @AppStorage("viewMode.documents") private var documentsViewMode: ViewMode = .list
     @AppStorage("viewMode.images") private var imagesViewMode: ViewMode = .grid
     @AppStorage("viewMode.videos") private var videosViewMode: ViewMode = .card

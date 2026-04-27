@@ -3,7 +3,7 @@ import AppKit
 
 // MARK: - Welcome Step View
 
-/// Single-screen onboarding: trust signals + CTA to request Downloads access.
+/// Single-screen onboarding: trust signals + CTA to request Desktop/Downloads access.
 /// No animation delays — content is immediately visible and actionable.
 /// Respects reduceMotion by skipping entrance animations entirely.
 struct WelcomeStepView: View {

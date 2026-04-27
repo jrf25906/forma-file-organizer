@@ -990,7 +990,7 @@ struct MainContentView: View {
             .padding(.vertical, FormaSpacing.tight)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .fill(tint.opacity(Color.FormaOpacity.light))
+                    .fill(tint.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle))
             )
 
             content()
@@ -998,12 +998,13 @@ struct MainContentView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaCardBackground.opacity(0.92))
+                .fill(Color.formaSurfaceWork)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(tint.opacity(Color.FormaOpacity.medium), lineWidth: 0.75)
+                .strokeBorder(tint.opacity(Color.FormaOpacity.medium + Color.FormaOpacity.ultraSubtle), lineWidth: 0.85)
         )
+        .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.ultraSubtle), radius: 7, x: 0, y: 3)
     }
 
     private var cardView: some View {

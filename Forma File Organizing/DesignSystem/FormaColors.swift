@@ -103,6 +103,39 @@ extension Color {
         }
     )
 
+    /// Blue Slate anchor surface for strong navigation, command modules, and high-priority rails.
+    /// This adapts instead of forcing a flat dark sidebar in every appearance.
+    static let formaSurfaceAnchor = formaDynamicColor(named: "formaSurfaceAnchor") { isDark in
+        if isDark {
+            return NSColor(red: 18/255, green: 27/255, blue: 36/255, alpha: 1.0) // #121B24
+        }
+        return NSColor(red: 224/255, green: 233/255, blue: 241/255, alpha: 1.0) // #E0E9F1
+    }
+
+    /// Primary work surface for dense review rows, cards, and settings groups.
+    static let formaSurfaceWork = formaDynamicColor(named: "formaSurfaceWork") { isDark in
+        if isDark {
+            return NSColor(red: 37/255, green: 43/255, blue: 51/255, alpha: 1.0) // #252B33
+        }
+        return NSColor(red: 253/255, green: 254/255, blue: 255/255, alpha: 1.0) // #FDFEFF
+    }
+
+    /// Cooler application chrome behind work surfaces.
+    static let formaSurfaceChrome = formaDynamicColor(named: "formaSurfaceChrome") { isDark in
+        if isDark {
+            return NSColor(red: 28/255, green: 35/255, blue: 43/255, alpha: 1.0) // #1C232B
+        }
+        return NSColor(red: 237/255, green: 242/255, blue: 247/255, alpha: 1.0) // #EDF2F7
+    }
+
+    /// Floating surface for popovers, command palette chrome, and transient controls.
+    static let formaSurfaceFloating = formaDynamicColor(named: "formaSurfaceFloating") { isDark in
+        if isDark {
+            return NSColor(red: 45/255, green: 53/255, blue: 63/255, alpha: 1.0) // #2D353F
+        }
+        return NSColor(red: 251/255, green: 252/255, blue: 253/255, alpha: 1.0) // #FBFCFD
+    }
+
     /// List-row base surface. In dark mode this sits slightly above panel surfaces,
     /// preserving the elevation ladder: background -> panel -> row.
     static let formaListRowBackground = Color(

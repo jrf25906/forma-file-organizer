@@ -62,9 +62,9 @@ struct FileSurfaceStyle: Equatable {
     var fillColor: Color {
         switch fillToken {
         case .listRowBackground:
-            return .formaListRowBackground
+            return .formaSurfaceWork
         case .cardBackground:
-            return .formaCardBackground
+            return .formaSurfaceWork
         }
     }
 

@@ -27,6 +27,7 @@ struct FileGridItem: View {
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.fileSurfaceLayout) private var fileSurfaceLayout
 
     // MARK: - Constants
@@ -201,15 +202,9 @@ struct FileGridItem: View {
                     Spacer()
 
                     ZStack(alignment: .bottom) {
-                        LinearGradient(
-                            colors: [
-                                Color.clear,
-                                Color.formaObsidian.opacity(0.6)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
+                        gridControlStripBackground
                         .frame(maxWidth: .infinity)
+                        .frame(height: 52)
                         .clipShape(
                             UnevenRoundedRectangle(
                                 topLeadingRadius: 0,
@@ -243,7 +238,7 @@ struct FileGridItem: View {
                         .padding(.horizontal, FormaSpacing.standard - FormaSpacing.micro)
                         .padding(.bottom, FormaSpacing.tight)
                     }
-                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .frame(maxHeight: 56, alignment: .bottom)
                     .frame(maxWidth: .infinity)
                 }
                 .transition(.opacity)
@@ -366,9 +361,9 @@ struct FileGridItem: View {
                 LinearGradient(
                     colors: [
                         Color.formaBoneWhite.opacity(
-                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.24 : 0.16
+                            surfaceStyle.interactionState == .focused || surfaceStyle.interactionState == .selected ? 0.20 : 0.09
                         ),
-                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.08 : 0.05),
+                        Color.formaBoneWhite.opacity(surfaceStyle.interactionState == .hover ? 0.06 : 0.025),
                         Color.formaBoneWhite.opacity(0)
                     ],
                     startPoint: .topLeading,
@@ -388,6 +383,21 @@ struct FileGridItem: View {
         }
     }
 
+    private var gridControlStripBackground: some View {
+        ZStack(alignment: .top) {
+            Rectangle()
+                .fill(colorScheme == .dark
+                    ? Color.formaControlBackground.opacity(0.88)
+                    : Color.formaBoneWhite.opacity(0.90))
+
+            Rectangle()
+                .fill(.ultraThinMaterial)
+
+            Color.formaSeparator.opacity(colorScheme == .dark ? 0.22 : 0.16)
+                .frame(height: 0.5)
+        }
+    }
+
     private var tileInnerBorderColor: Color {
         switch surfaceStyle.interactionState {
         case .focused, .selected:
@@ -396,9 +406,9 @@ struct FileGridItem: View {
             return Color.formaBoneWhite.opacity(0.18)
         case .rest:
             if surfaceStyle.activityState != .none {
-                return Color.formaBoneWhite.opacity(0.16)
+                return Color.formaBoneWhite.opacity(0.12)
             }
-            return Color.formaBoneWhite.opacity(0.12)
+            return Color.formaBoneWhite.opacity(0.05)
         }
     }
 
@@ -408,8 +418,10 @@ struct FileGridItem: View {
             return FormaBorderWidth.medium
         case .selected:
             return FormaBorderWidth.thin
-        case .hover, .rest:
+        case .hover:
             return 0.75
+        case .rest:
+            return surfaceStyle.activityState == .none ? 0.5 : 0.75
         }
     }
 
@@ -422,7 +434,7 @@ struct FileGridItem: View {
         case .hover:
             return Color.formaObsidian.opacity(0.08)
         case .rest:
-            return Color.formaObsidian.opacity(0.03)
+            return surfaceStyle.activityState == .none ? .clear : Color.formaObsidian.opacity(0.02)
         }
     }
 
@@ -431,7 +443,7 @@ struct FileGridItem: View {
         case .focused: return 12
         case .selected: return 8
         case .hover: return 6
-        case .rest: return 4
+        case .rest: return surfaceStyle.activityState == .none ? 0 : 2
         }
     }
 
@@ -439,7 +451,7 @@ struct FileGridItem: View {
         switch surfaceStyle.interactionState {
         case .focused: return 4
         case .selected, .hover: return 3
-        case .rest: return 1
+        case .rest: return surfaceStyle.activityState == .none ? 0 : 1
         }
     }
 
@@ -448,7 +460,9 @@ struct FileGridItem: View {
         case .focused, .hover:
             return Color.formaObsidian.opacity(0.10)
         case .selected, .rest:
-            return Color.formaObsidian.opacity(0.05)
+            return surfaceStyle.interactionState == .selected
+                ? Color.formaObsidian.opacity(0.04)
+                : .clear
         }
     }
 
@@ -456,12 +470,19 @@ struct FileGridItem: View {
         switch surfaceStyle.interactionState {
         case .focused: return 2
         case .selected, .hover: return 1.5
-        case .rest: return 1
+        case .rest: return 0
         }
     }
 
     private var tileContactShadowY: CGFloat {
-        surfaceStyle.interactionState == .focused ? 2 : 1
+        switch surfaceStyle.interactionState {
+        case .focused:
+            return 2
+        case .selected, .hover:
+            return 1
+        case .rest:
+            return 0
+        }
     }
 }
 

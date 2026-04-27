@@ -4,6 +4,7 @@ import SwiftData
 struct ActivityFeed: View {
     let activities: [ActivityItem]
     @State private var presentedWorkflowRunID: UUID?
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
@@ -14,7 +15,7 @@ struct ActivityFeed: View {
                     .accessibilityHidden(true)
                 Text("Activity")
                     .formaH2Style()
-                    .foregroundColor(Color.formaObsidian)
+                    .foregroundColor(Color.formaLabel)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Activity feed")
@@ -57,6 +58,7 @@ struct ActivityFeed: View {
 struct ActivityRow: View {
     let activity: ActivityItem
     let onOpenWorkflowRun: (UUID) -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(alignment: .top, spacing: FormaSpacing.standard) {
@@ -64,7 +66,7 @@ struct ActivityRow: View {
             Image(systemName: activity.activityType.iconName)
                 .font(.formaBodyMedium)
                 .foregroundColor(iconColor)
-                .frame(width: 28, height: 28)
+                .frame(width: 40, height: 40)
                 .background(
                     Circle()
                         .fill(iconColor.opacity(Color.FormaOpacity.light))
@@ -76,7 +78,7 @@ struct ActivityRow: View {
                 HStack {
                     Text(activity.fileName)
                         .formaMetadataStyle()
-                        .foregroundColor(Color.formaObsidian)
+                        .foregroundColor(Color.formaLabel)
                         .fontWeight(.medium)
                         .lineLimit(1)
 
@@ -114,6 +116,7 @@ struct ActivityRow: View {
                     .buttonStyle(.plain)
                     .font(.formaCaptionSemibold)
                     .foregroundColor(.formaSteelBlue)
+                    .frame(minHeight: 40)
                 }
 
                 Text(activity.relativeTimestamp)
@@ -126,7 +129,11 @@ struct ActivityRow: View {
         .padding(FormaSpacing.tight)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                .fill(Color.formaBoneWhite.opacity(Color.FormaOpacity.strong))
+                .fill(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.035) : Color.formaBoneWhite.opacity(0.58))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.42 : 0.24), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)

@@ -910,7 +910,7 @@ class DashboardViewModel: ObservableObject {
             filterViewModel.selectedSecondaryFilter = .none
             filterViewModel.selectedFolder = .home
             reviewFilterMode = .needsReview
-            filterViewModel.setViewMode(.card)
+            filterViewModel.setViewMode(.list)
             _testSetFiles(files)
             filterViewModel.applyFilterImmediately()
         }
@@ -2634,6 +2634,12 @@ class DashboardViewModel: ObservableObject {
     typealias FolderType = DashboardPermissionState.FolderType
     typealias PermissionResult = DashboardPermissionState.PermissionResult
 
+    enum OnboardingAccessResult: Equatable {
+        case granted
+        case cancelled(FolderType)
+        case error(FolderType, String)
+    }
+
     var hasDesktopAccess: Bool { permissionState.hasDesktopAccess }
     var hasDownloadsAccess: Bool { permissionState.hasDownloadsAccess }
     var hasDocumentsAccess: Bool { permissionState.hasDocumentsAccess }
@@ -2654,6 +2660,22 @@ class DashboardViewModel: ObservableObject {
     func requestDocumentsAccess() async -> PermissionResult { await requestAccess(for: .documents) }
     func requestPicturesAccess() async -> PermissionResult { await requestAccess(for: .pictures) }
     func requestMusicAccess() async -> PermissionResult { await requestAccess(for: .music) }
+
+    func requestDefaultOnboardingAccess() async -> OnboardingAccessResult {
+        for folderType in [FolderType.desktop, .downloads] {
+            let result = await requestAccess(for: folderType)
+            switch result {
+            case .granted:
+                continue
+            case .cancelled:
+                return .cancelled(folderType)
+            case .error(let message):
+                return .error(folderType, message)
+            }
+        }
+
+        return .granted
+    }
 
     private func requestAccess(for folderType: FolderType) async -> PermissionResult {
         let result = await permissionState.requestAccess(for: folderType, using: fileSystemService)

@@ -41,7 +41,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 760, height: 600)
+        .frame(minWidth: 720, idealWidth: 760, maxWidth: 860, minHeight: 560, idealHeight: 600, maxHeight: 720)
         .background(Color.clear)
         .preferredColorScheme(AppearanceMode(rawValue: appearanceMode)?.colorScheme)
     }

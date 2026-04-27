@@ -275,6 +275,7 @@ struct ProjectSpaceDetailView: View {
     let onBack: () -> Void
     let onOpenFile: (ProjectSpaceFileRow) -> Void
     let onCorrectAssociation: (ProjectSpaceFileRow) -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     init(
         detail: ProjectSpaceDetail,
@@ -365,6 +366,7 @@ struct ProjectSpaceDetailView: View {
                 Label(snapshot.backButtonTitle, systemImage: "chevron.left")
                     .font(.formaCompactSemibold)
                     .foregroundStyle(Color.formaSteelBlue)
+                    .frame(minHeight: 40)
             }
             .buttonStyle(.plain)
             .help("Return to project spaces")
@@ -375,9 +377,9 @@ struct ProjectSpaceDetailView: View {
                 Image(systemName: "xmark")
                     .font(.formaCaptionSemibold)
                     .foregroundStyle(Color.formaSecondaryLabel)
-                    .padding(FormaSpacing.tight)
+                    .frame(width: 40, height: 40)
                     .background(
-                        Circle()
+                        RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                             .fill(Color.formaControlBackground.opacity(Color.FormaOpacity.light))
                     )
             }
@@ -688,6 +690,7 @@ struct ProjectSpaceDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .frame(minHeight: 40)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -715,12 +718,12 @@ struct ProjectSpaceDetailView: View {
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-            .fill(Color.formaControlBackground.opacity(Color.FormaOpacity.light))
+            .fill(colorScheme == .dark ? Color.formaControlBackground.opacity(0.34) : Color.formaBoneWhite.opacity(0.62))
     }
 
     private var cardBorder: some View {
         RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-            .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+            .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.26 : 0.12), lineWidth: FormaBorderWidth.thin)
     }
 
     private func statPill(text: String, tint: Color) -> some View {

@@ -20,6 +20,7 @@ import UniformTypeIdentifiers
 struct ManageCategoriesSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @Query private var categories: [RuleCategory]
 
@@ -43,7 +44,7 @@ struct ManageCategoriesSheet: View {
             HStack(spacing: 0) {
                 // Categories list
                 categoriesList
-                    .frame(width: 280)
+                    .frame(minWidth: 260, idealWidth: 280, maxWidth: 320)
 
                 Divider()
 
@@ -52,7 +53,7 @@ struct ManageCategoriesSheet: View {
                     .frame(maxWidth: .infinity)
             }
         }
-        .frame(width: 720, height: 520)
+        .frame(minWidth: 680, idealWidth: 720, maxWidth: 860, minHeight: 520, idealHeight: 560, maxHeight: 720)
         .background(Color.formaBackground)
         .alert("Delete Category?", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) {
@@ -82,7 +83,7 @@ struct ManageCategoriesSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Manage Categories")
                     .font(.formaH2)
-                    .foregroundColor(.formaObsidian)
+                    .foregroundColor(.formaLabel)
 
                 Text("\(categories.count) categories")
                     .font(.formaBody)
@@ -94,6 +95,7 @@ struct ManageCategoriesSheet: View {
             Button("Done") {
                 dismiss()
             }
+            .frame(minHeight: 40)
             .keyboardShortcut(.return, modifiers: [])
         }
         .padding(FormaSpacing.generous)
@@ -135,6 +137,7 @@ struct ManageCategoriesSheet: View {
                     Image(systemName: "plus.circle.fill")
                         .font(.formaH3)
                         .foregroundColor(.formaSteelBlue)
+                        .frame(width: 40, height: 40)
                 }
                 .menuStyle(.borderlessButton)
             }
@@ -195,7 +198,7 @@ struct ManageCategoriesSheet: View {
                 .padding(.vertical, FormaSpacing.tight)
             }
         }
-        .background(Color.formaControlBackground.opacity(Color.FormaOpacity.strong))
+        .background(colorScheme == .dark ? Color.formaControlBackground.opacity(0.32) : Color.formaControlBackground.opacity(0.72))
     }
 
     // MARK: - Editor Panel
@@ -342,6 +345,7 @@ private struct CategoryRow: View {
     let onDelete: () -> Void
 
     @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: onSelect) {
@@ -350,7 +354,7 @@ private struct CategoryRow: View {
                 ZStack {
                     Circle()
                         .fill(category.color.opacity(Color.FormaOpacity.medium))
-                        .frame(width: 32, height: 32)
+                        .frame(width: 40, height: 40)
 
                     Image(systemName: category.iconName)
                         .font(.formaBodySemibold)
@@ -361,7 +365,7 @@ private struct CategoryRow: View {
                     HStack(spacing: 4) {
                         Text(category.name)
                             .font(.formaBodyMedium)
-                            .foregroundColor(.formaObsidian)
+                            .foregroundColor(.formaLabel)
 
                         if category.isDefault {
                             Text("Default")
@@ -395,6 +399,7 @@ private struct CategoryRow: View {
                         Image(systemName: "trash")
                             .font(.formaCompact)
                             .foregroundColor(.formaError)
+                            .frame(width: 40, height: 40)
                     }
                     .buttonStyle(.plain)
                 }
@@ -403,11 +408,7 @@ private struct CategoryRow: View {
             .padding(.vertical, FormaSpacing.tight)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
-                    .fill(
-                        isSelected
-                            ? category.color.opacity(Color.FormaOpacity.light + Color.FormaOpacity.subtle)
-                            : (isHovered ? Color.formaObsidian.opacity(Color.FormaOpacity.subtle) : Color.clear)
-                    )
+                    .fill(rowBackground)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
@@ -415,9 +416,20 @@ private struct CategoryRow: View {
             )
         }
         .buttonStyle(.plain)
+        .frame(minHeight: 48)
         .onHover { hovering in
             isHovered = hovering
         }
+    }
+
+    private var rowBackground: Color {
+        if isSelected {
+            return category.color.opacity(colorScheme == .dark ? 0.22 : 0.12)
+        }
+        if isHovered {
+            return colorScheme == .dark ? Color.formaBoneWhite.opacity(0.06) : Color.formaObsidian.opacity(0.035)
+        }
+        return .clear
     }
 }
 
@@ -478,7 +490,7 @@ private struct CategoryEditorView: View {
             // Title
             Text(mode.isEditing ? "Edit Category" : "New Category")
                 .font(.formaH3)
-                .foregroundColor(.formaObsidian)
+                .foregroundColor(.formaLabel)
 
             // Form fields
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
@@ -517,7 +529,7 @@ private struct CategoryEditorView: View {
                             } label: {
                                 Circle()
                                     .fill(Color(hex: hex) ?? .formaSteelBlue)
-                                    .frame(width: 28, height: 28)
+                                    .frame(width: 32, height: 32)
                                     .overlay(
                                         Circle()
                                             .stroke(Color.formaBoneWhite, lineWidth: 2)
@@ -529,6 +541,7 @@ private struct CategoryEditorView: View {
                                     )
                             }
                             .buttonStyle(.plain)
+                            .frame(width: 40, height: 40)
                         }
                     }
                 }
@@ -539,7 +552,7 @@ private struct CategoryEditorView: View {
                         .font(.formaSmallSemibold)
                         .foregroundColor(.formaSecondaryLabel)
 
-                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(36), spacing: FormaSpacing.tight), count: 8), spacing: FormaSpacing.tight) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(40), spacing: FormaSpacing.tight), count: 8), spacing: FormaSpacing.tight) {
                         ForEach(availableIcons, id: \.self) { icon in
                             Button {
                                 iconName = icon
@@ -547,7 +560,7 @@ private struct CategoryEditorView: View {
                                 Image(systemName: icon)
                                     .font(.formaBodyLarge)
                                     .foregroundColor(iconName == icon ? .formaBoneWhite : .formaSecondaryLabel)
-                                    .frame(width: 36, height: 36)
+                                    .frame(width: 40, height: 40)
                                     .background(
                                         RoundedRectangle(cornerRadius: FormaRadius.small, style: .continuous)
                                             .fill(iconName == icon ? (Color(hex: colorHex) ?? .formaSteelBlue) : Color.formaControlBackground)
@@ -606,7 +619,7 @@ private struct CategoryEditorView: View {
             // Action buttons
             HStack {
                 FormaSecondaryButton(title: "Cancel", action: onCancel)
-                    .frame(width: 100)
+                    .frame(minWidth: 100)
 
                 Spacer()
 
@@ -690,12 +703,12 @@ private struct ScopeButton: View {
                 Image(systemName: icon)
                     .font(.formaH2)
                     .foregroundColor(isSelected ? .formaSteelBlue : .formaSecondaryLabel)
-                    .frame(width: 32)
+                    .frame(width: 40)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.formaBodyMedium)
-                        .foregroundColor(isSelected ? .formaObsidian : .formaSecondaryLabel)
+                        .foregroundColor(isSelected ? .formaLabel : .formaSecondaryLabel)
 
                     Text(subtitle)
                         .font(.formaCaption)
@@ -715,6 +728,7 @@ private struct ScopeButton: View {
             )
         }
         .buttonStyle(.plain)
+        .frame(minHeight: 64)
     }
 }
 

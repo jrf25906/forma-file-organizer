@@ -8,6 +8,8 @@ struct ImpactMetricCard: View {
     let icon: String
     let color: Color
     let trend: Trend?
+    var showsScoreRamp: Bool = false
+    @Environment(\.colorScheme) private var colorScheme
 
     enum Trend {
         case up(String)
@@ -46,7 +48,8 @@ struct ImpactMetricCard: View {
         subtitle: String? = nil,
         icon: String,
         color: Color = .formaSteelBlue,
-        trend: Trend? = nil
+        trend: Trend? = nil,
+        showsScoreRamp: Bool = false
     ) {
         self.title = title
         self.value = value
@@ -54,6 +57,7 @@ struct ImpactMetricCard: View {
         self.icon = icon
         self.color = color
         self.trend = trend
+        self.showsScoreRamp = showsScoreRamp
     }
 
     var body: some View {
@@ -72,15 +76,7 @@ struct ImpactMetricCard: View {
 
                 // Trend indicator
                 if let trend {
-                    HStack(spacing: 2) {
-                        Image(systemName: trend.icon)
-                            .font(.formaSmall)
-                        if let label = trend.label {
-                            Text(label)
-                                .font(.formaSmall)
-                        }
-                    }
-                    .foregroundColor(trend.color)
+                    trendChip(trend)
                 }
             }
 
@@ -88,6 +84,7 @@ struct ImpactMetricCard: View {
             Text(value)
                 .font(.formaHero)
                 .foregroundColor(.formaLabel)
+                .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
@@ -97,17 +94,82 @@ struct ImpactMetricCard: View {
                     .font(.formaSmall)
                     .foregroundColor(.formaSecondaryLabelHigh)
             }
+
+            if showsScoreRamp {
+                scoreRamp
+            }
         }
         .padding(FormaSpacing.generous)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                .fill(Color.formaSurfaceWork)
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: 1)
+                .strokeBorder(
+                    Color.formaSeparator.opacity(colorScheme == .dark ? 0.64 : 0.42),
+                    lineWidth: 1
+                )
         )
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(color.opacity(colorScheme == .dark ? 0.92 : 0.86))
+                .frame(width: 4)
+                .padding(.vertical, FormaSpacing.standard)
+                .padding(.leading, FormaSpacing.tight)
+        }
+        .formaShadow(.resting)
+    }
+
+    private func trendChip(_ trend: Trend) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: trend.icon)
+                .font(.formaCaptionSemibold)
+            if let label = trend.label {
+                Text(label)
+                    .font(.formaCompactMedium)
+                    .monospacedDigit()
+            }
+        }
+        .foregroundColor(trend.color)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(
+            Capsule()
+                .fill(trend.color.opacity(colorScheme == .dark ? 0.20 : 0.12))
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(trend.color.opacity(colorScheme == .dark ? 0.34 : 0.22), lineWidth: 0.75)
+        )
+    }
+
+    private var scoreRamp: some View {
+        HStack(spacing: 5) {
+            ForEach(Array(scoreRampItems.enumerated()), id: \.offset) { _, item in
+                VStack(spacing: 3) {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(item.color.opacity(colorScheme == .dark ? 0.86 : 0.78))
+                        .frame(width: 18, height: 4)
+                    Text(item.label)
+                        .font(.formaMicro)
+                        .foregroundColor(.formaTertiaryLabelHigh)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(.top, FormaSpacing.micro)
+    }
+
+    private var scoreRampItems: [(label: String, color: Color)] {
+        [
+            ("A+", .formaSoftGreen),
+            ("A", .formaSage),
+            ("B", .formaSteelBlue),
+            ("C", .formaWarning),
+            ("Fix", .formaError)
+        ]
     }
 }
 
@@ -175,7 +237,7 @@ extension ImpactMetricCard {
             value: value,
             subtitle: "from automation",
             icon: "clock.arrow.circlepath",
-            color: .formaMutedBlue,
+            color: .formaSteelBlue,
             trend: trend
         )
     }
@@ -214,7 +276,8 @@ extension ImpactMetricCard {
             value: "\(score)",
             subtitle: grade,
             icon: "chart.bar.fill",
-            color: color
+            color: color,
+            showsScoreRamp: true
         )
     }
 }

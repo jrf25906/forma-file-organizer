@@ -149,6 +149,8 @@ struct FileMetaStrip: View {
             size: density.statusSize,
             style: .subtle
         )
+        .lineLimit(1)
+        .truncationMode(.tail)
         .help(statusPresentation.accessibilityLabel)
     }
 
@@ -228,6 +230,8 @@ struct FileMetaStrip: View {
                         .font(.system(size: density.iconSize, weight: .semibold))
                     Text("Choose destination")
                         .font(density.textFont)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
                 .foregroundStyle(Color.formaSteelBlue)
                 .padding(.horizontal, density == .compact ? 6 : 8)
@@ -249,6 +253,8 @@ struct FileMetaStrip: View {
                 .font(.system(size: density.iconSize, weight: .medium))
             Text(text)
                 .font(density.textFont)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
         .foregroundStyle(colorScheme == .dark ? Color.formaTertiaryLabelHigh : Color.formaTertiaryLabel)
     }
@@ -259,7 +265,7 @@ struct FileMetaStrip: View {
                 .font(.system(size: density.iconSize, weight: .semibold))
             Text(value)
                 .font(density.textFont)
-                .lineLimit(usesCompactRows ? 2 : 1)
+                .lineLimit(1)
                 .truncationMode(.middle)
         }
         .foregroundStyle(Color.formaSecondaryLabelHigh)
@@ -277,6 +283,8 @@ struct FileMetaStrip: View {
             size: density.statusSize,
             style: .subtle
         )
+        .lineLimit(1)
+        .truncationMode(.tail)
         .help(presentation.helpText)
     }
 

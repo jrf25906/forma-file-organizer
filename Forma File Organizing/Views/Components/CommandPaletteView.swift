@@ -10,6 +10,7 @@ struct CommandPaletteView: View {
     @EnvironmentObject private var selectionViewModel: SelectionViewModel
     @EnvironmentObject var nav: NavigationViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
@@ -45,6 +46,8 @@ struct CommandPaletteView: View {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.formaBody)
                                 .foregroundColor(.formaSecondaryLabel)
+                                .frame(width: 40, height: 40)
+                                .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -78,7 +81,7 @@ struct CommandPaletteView: View {
                         .padding(.vertical, FormaSpacing.tight)
                     }
                     .onChange(of: selectedIndex) { _, newIndex in
-                        withAnimation(.easeOut(duration: 0.1)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                             proxy.scrollTo(newIndex, anchor: .center)
                         }
                     }
@@ -99,10 +102,10 @@ struct CommandPaletteView: View {
                 .frame(maxWidth: .infinity)
                 .background(Color.formaControlBackground.opacity(Color.FormaOpacity.medium))
             }
-            .frame(width: 500)
+            .frame(minWidth: 500, idealWidth: 520, maxWidth: 620)
             .background(Color.formaBackground)
             .formaCornerRadius(FormaRadius.large)
-            .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.overlay), radius: 20, x: 0, y: 10)
+            .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.strong), radius: 16, x: 0, y: 8)
         }
         .onAppear {
             isSearchFocused = true
@@ -399,7 +402,8 @@ private struct CommandRow: View {
             }
         }
         .padding(.horizontal, FormaSpacing.generous)
-        .padding(.vertical, FormaSpacing.standard)
+        .padding(.vertical, FormaSpacing.tight)
+        .frame(minHeight: 44)
         .background(isSelected ? Color.formaSteelBlue.opacity(Color.FormaOpacity.light) : Color.clear)
         .contentShape(Rectangle())
     }

@@ -85,11 +85,11 @@ private extension FileSurfaceToolbarValidationTests {
 
         ensureInspectorVisible(app: app, harness: harness)
         assertToolbarGroups(app: app)
-        harness.waitForViewMode("card")
+        harness.waitForViewMode("list")
         waitForRow(in: app)
         try captureWindowShot(
             app: app,
-            name: "file-surface-toolbar-01-pending-card-1440",
+            name: "file-surface-toolbar-01-pending-list-1440",
             outputDir: outputDir
         )
 

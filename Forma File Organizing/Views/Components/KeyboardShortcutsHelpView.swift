@@ -31,6 +31,8 @@ struct KeyboardShortcutsHelpView: View {
                         Image(systemName: "xmark.circle.fill")
                             .font(.formaH1)
                             .foregroundColor(.formaSecondaryLabel)
+                            .frame(width: 40, height: 40)
+                            .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -81,10 +83,10 @@ struct KeyboardShortcutsHelpView: View {
                     .padding(FormaSpacing.generous)
                 }
             }
-            .frame(width: 600, height: 650)
+            .frame(minWidth: 560, idealWidth: 600, maxWidth: 680, minHeight: 560, idealHeight: 650, maxHeight: 760)
             .background(Color.formaBackground)
             .formaCornerRadius(FormaRadius.large)
-            .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.overlay), radius: 20, x: 0, y: 10)
+            .shadow(color: Color.formaObsidian.opacity(Color.FormaOpacity.strong), radius: 16, x: 0, y: 8)
         }
     }
 }
@@ -106,6 +108,7 @@ private struct ShortcutGroup<Content: View>: View {
             }
             .padding(.leading, FormaSpacing.standard)
         }
+        .frame(minHeight: 40)
     }
 }
 

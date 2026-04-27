@@ -32,6 +32,7 @@ struct PrimaryButton: View {
             .padding(.vertical, FormaSpacing.Button.vertical)
             .padding(.horizontal, FormaSpacing.generous)
             .frame(maxWidth: .infinity)
+            .frame(minHeight: 40)
             .background(Color.formaSteelBlue)
             .formaCornerRadius(FormaRadius.control)
             .formaShadow(.resting)
@@ -66,6 +67,7 @@ struct SecondaryButton: View {
             .padding(.vertical, FormaSpacing.Button.vertical - (FormaSpacing.micro / 4)) // 7px: 32px total height with border
             .padding(.horizontal, FormaSpacing.generous)
             .frame(maxWidth: .infinity)
+            .frame(minHeight: 40)
             .background(Color.clear)
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
@@ -85,6 +87,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(Color.formaBoneWhite)
             .padding(.vertical, FormaSpacing.standard)
             .padding(.horizontal, FormaSpacing.large)
+            .frame(minHeight: 40)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                     .fill(
@@ -104,6 +107,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(Color.formaLabel)
             .padding(.vertical, FormaSpacing.standard)
             .padding(.horizontal, FormaSpacing.large)
+            .frame(minHeight: 40)
             .background(
                 RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
                     .fill(Color.clear)

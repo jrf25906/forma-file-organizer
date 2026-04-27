@@ -37,6 +37,7 @@ struct WorkflowRunDetailSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @State private var snapshot: Snapshot?
     @State private var hasLoadedSnapshot = false
 
@@ -125,10 +126,12 @@ struct WorkflowRunDetailSheet: View {
                     Button("Done") {
                         dismiss()
                     }
+                    .frame(minHeight: 40)
                 }
             }
         }
-        .frame(minWidth: 560, minHeight: 520)
+        .frame(minWidth: 560, idealWidth: 620, maxWidth: 760, minHeight: 520, idealHeight: 620, maxHeight: 780)
+        .background(Color.formaBackground)
         .task(id: runID) {
             snapshot = loadSnapshot()
             hasLoadedSnapshot = true
@@ -215,11 +218,11 @@ struct WorkflowRunDetailSheet: View {
             content()
         }
         .padding(FormaSpacing.large)
-        .background(Color.formaCardBackground)
+        .background(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.04) : Color.formaBoneWhite.opacity(0.64))
         .formaCornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34), lineWidth: 1)
         )
     }
 

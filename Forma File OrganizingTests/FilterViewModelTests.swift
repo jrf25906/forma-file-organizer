@@ -3,6 +3,15 @@ import XCTest
 
 @MainActor
 final class FilterViewModelTests: XCTestCase {
+    func testFilterViewModel_DefaultsAllFilesToListViewForReviewScanning() {
+        UserDefaults.standard.removeObject(forKey: "viewMode.all")
+
+        let viewModel = FilterViewModel()
+
+        XCTAssertEqual(viewModel.currentViewMode, .list)
+        XCTAssertEqual(viewModel.viewModeForCategory(.all), .list)
+    }
+
     func testFilterViewModel_SelectedFolderFiltersStandardLocation() {
         let now = Date()
         let desktopFile = FileItem(

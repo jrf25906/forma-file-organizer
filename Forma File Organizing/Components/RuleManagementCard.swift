@@ -217,7 +217,7 @@ struct RuleManagementCard: View {
     }
 
     private var secondaryTextColor: Color {
-        colorScheme == .dark ? .formaSecondaryLabelHigh : .formaSecondaryLabel
+        .formaSecondaryLabelHigh
     }
 
     private var tertiaryTextColor: Color {
@@ -235,7 +235,7 @@ struct RuleManagementCard: View {
     }
 
     private var cardBackground: Color {
-        colorScheme == .dark ? Color.formaBoneWhite.opacity(0.06) : .formaBoneWhite
+        .formaSurfaceWork
     }
 
     private var cardBorder: Color {
@@ -246,13 +246,13 @@ struct RuleManagementCard: View {
         }
         return colorScheme == .dark
             ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaSeparator.opacity(0.5)
+            : Color.formaObsidian.opacity(0.10)
     }
 
     private var cardShadowColor: Color {
         colorScheme == .dark
-            ? Color.black.opacity(isHovered ? 0.22 : 0.12)
-            : Color.black.opacity(isHovered ? 0.08 : 0.02)
+            ? Color.black.opacity(isHovered ? 0.20 : 0.08)
+            : Color.black.opacity(isHovered ? 0.06 : 0.015)
     }
 
     private var disabledBadgeBackground: Color {
@@ -308,12 +308,15 @@ struct RuleManagementCard: View {
                     Text(snapshot.name)
                         .font(.formaBodyBold)
                         .foregroundColor(snapshot.isEnabled ? .formaLabel : secondaryTextColor)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
                     if let badgeLabel = resolvedHealth.badgeLabel {
                         Text(badgeLabel)
                             .font(.system(size: 9, weight: .bold))
                             .textCase(.uppercase)
                             .foregroundColor(healthAccentColor)
+                            .lineLimit(1)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(healthBadgeBackground)
@@ -326,6 +329,7 @@ struct RuleManagementCard: View {
                             .font(.system(size: 9, weight: .bold))
                             .textCase(.uppercase)
                             .foregroundColor(categoryBadge.color)
+                            .lineLimit(1)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(categoryBadge.color.opacity(0.15))
@@ -336,6 +340,8 @@ struct RuleManagementCard: View {
                 HStack(spacing: 4) {
                     descriptionText
                         .font(.formaSmall)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
                     Image(systemName: "arrow.right")
                         .font(.system(size: 8, weight: .bold))
@@ -444,11 +450,11 @@ struct RuleManagementCard: View {
         )
         .shadow(
             color: cardShadowColor,
-            radius: isHovered ? 8 : 2,
+            radius: isHovered ? 7 : 1.5,
             x: 0,
             y: isHovered ? 2 : 1
         )
-        .scaleEffect(isHovered ? 1.005 : 1.0)
+        .scaleEffect(isHovered ? 1.003 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
@@ -574,7 +580,7 @@ private struct IconButton: View {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(isHovered ? color : secondaryColor)
-                .frame(width: 28, height: 28)
+                .frame(width: 40, height: 40)
                 .background(
                     Circle()
                         .fill(isHovered ? color.opacity(0.1) : Color.clear)

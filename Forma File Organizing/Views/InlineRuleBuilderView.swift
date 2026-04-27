@@ -60,33 +60,39 @@ struct InlineRuleBuilderView: View {
     }
 
     private var ruleCardBackground: Color {
-        colorScheme == .dark
-            ? Color.formaObsidian.opacity(0.32)
-            : Color.formaBoneWhite
+        Color.formaSurfaceWork
     }
 
     private var ruleCardBorder: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaObsidian.opacity(0.08)
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.10)
     }
 
     private var ruleCardShadow: Color {
         colorScheme == .dark
-            ? Color.black.opacity(0.18)
-            : Color.black.opacity(0.08)
+            ? Color.black.opacity(0.16)
+            : Color.formaObsidian.opacity(0.055)
     }
 
     private var chromeSurfaceBackground: Color {
-        colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.06)
-            : Color.formaBoneWhite.opacity(0.88)
+        Color.formaSurfaceAnchor
     }
 
     private var chromeSurfaceBorder: Color {
         colorScheme == .dark
-            ? Color.formaBoneWhite.opacity(0.14)
-            : Color.formaObsidian.opacity(Color.FormaOpacity.light + Color.FormaOpacity.ultraSubtle)
+            ? Color.formaBoneWhite.opacity(0.18)
+            : Color.formaObsidian.opacity(0.12)
+    }
+
+    private var floatingSurfaceBackground: Color {
+        Color.formaSurfaceFloating
+    }
+
+    private var floatingSurfaceBorder: Color {
+        colorScheme == .dark
+            ? Color.formaBoneWhite.opacity(0.20)
+            : Color.formaObsidian.opacity(0.12)
     }
 
     private var trimmedRuleName: String {
@@ -225,7 +231,7 @@ struct InlineRuleBuilderView: View {
             .overlay(
                 Rectangle()
                     .frame(height: 1)
-                    .foregroundColor(Color.formaSeparator.opacity(Color.FormaOpacity.strong)),
+                    .foregroundColor(chromeSurfaceBorder),
                 alignment: .bottom
             )
             .allowsHitTesting(true)
@@ -235,16 +241,7 @@ struct InlineRuleBuilderView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                        // 1. Rule Name (Cleaner)
-                        TextField("Name your rule...", text: $formState.name)
-                            .font(.formaH3)
-                            .textFieldStyle(.plain)
-                            .accessibilityLabel("Rule Name")
-                            .accessibilityIdentifier("inlineRuleNameField")
-                            .accessibilityValue(formState.name)
-                            .padding(.bottom, 8)
-                            .overlay(Rectangle().frame(height: 1).foregroundColor(Color.formaSeparator).padding(.top, 32), alignment: .bottom)
-                            .id("name-section")
+                        ruleNameField
 
                         // 2. Natural Language Input (Magical Entry)
                         if editingRule == nil {
@@ -262,12 +259,14 @@ struct InlineRuleBuilderView: View {
 
                     }
                     .padding(.horizontal, FormaSpacing.generous)
-                    .padding(.vertical, 20)
+                    .padding(.vertical, FormaSpacing.generous)
                 }
+                .background(Color.formaSurfaceChrome)
             }
 
             persistentActionBar
         }
+        .background(Color.formaSurfaceChrome)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("inlineRuleBuilderView")
         .accessibilityLabel(isUITesting ? "widthClass=\(rightPanelWidthClassText)" : "")
@@ -401,7 +400,8 @@ struct InlineRuleBuilderView: View {
             Image(systemName: systemImage)
                 .foregroundColor(.formaSecondaryLabelHigh)
                 .font(systemImage == "xmark.circle.fill" ? .formaH3 : .formaBodyLarge)
-                .frame(width: 28, height: 28)
+                .frame(width: 40, height: 40)
+                .contentShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
         }
         .buttonStyle(.borderless)
         .accessibilityIdentifier(accessibilityIdentifier)
@@ -447,13 +447,14 @@ struct InlineRuleBuilderView: View {
         .padding(.horizontal, FormaSpacing.generous)
         .padding(.top, 10)
         .padding(.bottom, 14)
-        .background(chromeSurfaceBackground)
+        .background(floatingSurfaceBackground)
         .overlay(
             Rectangle()
                 .frame(height: 1)
-                .foregroundColor(Color.formaSeparator.opacity(Color.FormaOpacity.strong)),
+                .foregroundColor(floatingSurfaceBorder),
             alignment: .top
         )
+        .formaShadow(.floating)
         .allowsHitTesting(true)
         .zIndex(998)
     }
@@ -506,6 +507,7 @@ struct InlineRuleBuilderView: View {
                 .foregroundColor(.formaBoneWhite)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 11)
+                .frame(minHeight: 40)
                 .background(Color.formaSteelBlue)
                 .cornerRadius(10)
         }
@@ -513,6 +515,45 @@ struct InlineRuleBuilderView: View {
         .disabled(!canSubmitRule)
         .opacity(canSubmitRule ? 1 : 0.6)
         .accessibilityIdentifier("ruleComposerSaveButton")
+    }
+
+    private var ruleNameField: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
+            HStack(spacing: FormaSpacing.tight) {
+                FormaBadge(text: "RULE", color: .formaSteelBlue, size: .small, style: .subtle)
+                Text("Rule name")
+                    .font(.formaSmallSemibold)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+            }
+
+            TextField("Name your rule...", text: $formState.name)
+                .font(.formaH3)
+                .textFieldStyle(.plain)
+                .accessibilityLabel("Rule Name")
+                .accessibilityIdentifier("inlineRuleNameField")
+                .accessibilityValue(formState.name)
+                .padding(.horizontal, FormaSpacing.standard)
+                .padding(.vertical, FormaSpacing.tight)
+                .frame(minHeight: 48)
+                .background(floatingSurfaceBackground)
+                .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                        .strokeBorder(
+                            trimmedRuleName.isEmpty ? Color.formaSeparator.opacity(colorScheme == .dark ? 0.45 : 0.36) : Color.formaSteelBlue.opacity(0.38),
+                            lineWidth: FormaBorderWidth.thin
+                        )
+                )
+        }
+        .padding(FormaSpacing.standard)
+        .background(ruleCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(ruleCardBorder, lineWidth: FormaBorderWidth.thin)
+        )
+        .shadow(color: ruleCardShadow, radius: 3, x: 0, y: 1)
+        .id("name-section")
     }
 
     /// Generates a confirmation message showing the impact of a delete rule.
@@ -542,14 +583,19 @@ struct InlineRuleBuilderView: View {
     }
 
     @ViewBuilder
-    private func ruleSectionHeader(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
-            Text(title)
-                .font(.formaBodyBold)
-                .foregroundColor(.formaLabel)
-            Text(subtitle)
-                .font(.formaSmall)
-                .foregroundColor(.formaSecondaryLabelHigh)
+    private func ruleSectionHeader(step: String, title: String, subtitle: String, tint: Color) -> some View {
+        HStack(alignment: .top, spacing: FormaSpacing.tight) {
+            FormaBadge(text: step, color: tint, size: .small, style: .subtle)
+
+            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                Text(title)
+                    .font(.formaBodyBold)
+                    .foregroundColor(.formaLabel)
+                Text(subtitle)
+                    .font(.formaSmall)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -562,12 +608,17 @@ struct InlineRuleBuilderView: View {
                     .foregroundColor(.formaWarmOrange)
                 Text(message)
                     .font(.formaSmall)
-                    .foregroundColor(.formaWarmOrange)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, FormaSpacing.tight)
             .padding(.vertical, FormaSpacing.micro + 2)
-            .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light))
-            .cornerRadius(FormaRadius.control)
+            .background(Color.formaWarmOrange.opacity(Color.FormaOpacity.light - Color.FormaOpacity.ultraSubtle))
+            .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .strokeBorder(Color.formaWarmOrange.opacity(0.24), lineWidth: FormaBorderWidth.thin)
+            )
         }
     }
 
@@ -575,22 +626,24 @@ struct InlineRuleBuilderView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         content()
-            .padding(20)
+            .padding(FormaSpacing.large)
             .background(ruleCardBackground)
             .cornerRadius(FormaRadius.card)
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                     .strokeBorder(ruleCardBorder, lineWidth: FormaBorderWidth.thin)
             )
-            .shadow(color: ruleCardShadow, radius: 6, x: 0, y: 2)
+            .shadow(color: ruleCardShadow, radius: 3, x: 0, y: 1)
     }
 
     private var whenSectionCard: some View {
         builderSectionCard {
             VStack(alignment: .leading, spacing: 18) {
                 ruleSectionHeader(
+                    step: "1",
                     title: "When",
-                    subtitle: "Choose which files this rule should target."
+                    subtitle: "Choose which files this rule should target.",
+                    tint: .formaSteelBlue
                 )
 
                 HStack {
@@ -686,7 +739,7 @@ struct InlineRuleBuilderView: View {
                         .font(.formaBodyLarge)
                         .textFieldStyle(.plain)
                         .padding(FormaSpacing.tight)
-                        .background(Color.formaControlBackground)
+                        .background(floatingSurfaceBackground)
                         .cornerRadius(FormaRadius.control)
                         .overlay(
                             RoundedRectangle(cornerRadius: FormaRadius.control)
@@ -714,8 +767,10 @@ struct InlineRuleBuilderView: View {
         builderSectionCard {
             VStack(alignment: .leading, spacing: 18) {
                 ruleSectionHeader(
+                    step: "2",
                     title: "Then",
-                    subtitle: "Define what happens to matched files."
+                    subtitle: "Define what happens to matched files.",
+                    tint: actionTypeBadgeColor
                 )
 
                 Group {
@@ -799,7 +854,7 @@ struct InlineRuleBuilderView: View {
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
-                        .background(Color.formaControlBackground)
+                        .background(floatingSurfaceBackground)
                         .cornerRadius(FormaRadius.control)
                         .overlay(
                             RoundedRectangle(cornerRadius: FormaRadius.control)
@@ -851,8 +906,10 @@ struct InlineRuleBuilderView: View {
         builderSectionCard {
             VStack(alignment: .leading, spacing: 12) {
                 ruleSectionHeader(
+                    step: "3",
                     title: "Category",
-                    subtitle: "Group this rule with related organization behavior."
+                    subtitle: "Group this rule with related organization behavior.",
+                    tint: .formaSage
                 )
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -872,7 +929,7 @@ struct InlineRuleBuilderView: View {
                                 .background(
                                     formState.categoryID == category.id
                                         ? category.color.opacity(0.2)
-                                        : Color.formaControlBackground
+                                        : floatingSurfaceBackground
                                 )
                                 .foregroundColor(formState.categoryID == category.id ? category.color : .formaSecondaryLabelHigh)
                                 .cornerRadius(FormaRadius.card)
@@ -909,7 +966,7 @@ struct InlineRuleBuilderView: View {
             }
         }
         .padding(FormaSpacing.standard)
-        .background(colorScheme == .dark ? Color.formaObsidian.opacity(0.28) : Color.formaCardBackground)
+        .background(floatingSurfaceBackground)
         .cornerRadius(FormaRadius.card)
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
@@ -1084,13 +1141,15 @@ struct InlineRuleBuilderView: View {
     }
 
     private var impactPreviewCopy: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+        HStack(alignment: .top, spacing: FormaSpacing.tight) {
+            FormaBadge(text: "REVIEW", color: impactTone.color, size: .small, style: .subtle)
+
+            VStack(alignment: .leading, spacing: FormaSpacing.micro) {
             HStack(spacing: 6) {
                 Image(systemName: impactTone.icon)
                     .foregroundColor(impactTone.color)
                 Text("Impact")
                     .font(.formaBodySemibold)
-                    .tracking(0.5)
                     .foregroundColor(.formaLabel)
             }
 
@@ -1101,6 +1160,7 @@ struct InlineRuleBuilderView: View {
             Text(impactTone.message)
                 .font(.formaSmall)
                 .foregroundColor(.formaSecondaryLabelHigh)
+            }
         }
     }
 
@@ -1473,10 +1533,25 @@ private struct NaturalLanguageInputBar: View {
     var onParsedRuleChanged: (NLParsedRule?) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-            // Compact input with inline label
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            HStack(spacing: FormaSpacing.tight) {
+                FormaBadge(text: "DRAFT", color: .formaSteelBlue, icon: "sparkles", size: .small, style: .subtle)
+                Text("Describe the automation")
+                    .font(.formaSmallSemibold)
+                    .foregroundColor(.formaSecondaryLabelHigh)
+
+                Spacer()
+
+                if viewModel.isParsing {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .frame(width: 18, height: 18)
+                }
+            }
+
             HStack(spacing: FormaSpacing.tight) {
                 Image(systemName: "sparkles.text.rectangle")
                     .font(.formaBodyLarge)
@@ -1498,16 +1573,21 @@ private struct NaturalLanguageInputBar: View {
                     viewModel.onTextChanged(newValue)
                 }
 
-                if viewModel.isParsing {
-                    ProgressView()
-                        .scaleEffect(0.5)
-                        .frame(width: 16, height: 16)
-                }
             }
             .padding(.horizontal, FormaSpacing.standard)
             .padding(.vertical, FormaSpacing.tight)
-            .background(Color.formaSteelBlue.opacity(Color.FormaOpacity.subtle))
-            .cornerRadius(FormaRadius.control)
+            .frame(minHeight: 44)
+            .background(Color.formaSurfaceFloating)
+            .clipShape(RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FormaRadius.control, style: .continuous)
+                    .strokeBorder(
+                        viewModel.text.isEmpty
+                            ? Color.formaSeparator.opacity(colorScheme == .dark ? 0.46 : 0.34)
+                            : Color.formaSteelBlue.opacity(0.42),
+                        lineWidth: FormaBorderWidth.thin
+                    )
+            )
 
             // HUD tokens showing what was parsed
             if let parsed = viewModel.parsedRule, !hudTokens(for: parsed).isEmpty {
@@ -1530,10 +1610,17 @@ private struct NaturalLanguageInputBar: View {
             if viewModel.text.isEmpty {
                 Text("Try: \"Move PDFs older than 30 days to Archive\"")
                     .font(.formaCaption)
-                    .foregroundColor(.formaSecondaryLabel.opacity(Color.FormaOpacity.high))
+                    .foregroundColor(.formaSecondaryLabelHigh)
                     .italic()
             }
         }
+        .padding(FormaSpacing.standard)
+        .background(Color.formaSurfaceWork)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.46 : 0.30), lineWidth: FormaBorderWidth.thin)
+        )
         // Observe changes to the parsed result via confidence (which is Equatable)
         .onChange(of: viewModel.parsedRule?.overallConfidence) { _, _ in
             onParsedRuleChanged(viewModel.parsedRule)

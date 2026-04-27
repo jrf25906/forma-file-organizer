@@ -116,9 +116,22 @@ struct FloatingActionBar: View {
     private var primaryButtonLabel: String {
         switch mode {
         case .selection:
-            return "Organize \(count)" // Shortened for cleaner look
+            return "Organize Selected"
         case .review:
-            return "Organize \(count)" // Match the current view count
+            return "Organize Ready"
+        }
+    }
+
+    private var showsPrimaryButton: Bool {
+        switch mode {
+        case .selection:
+            return true
+        case .review:
+            guard canOrganizeAll else { return false }
+            if case .ready = reviewState {
+                return true
+            }
+            return false
         }
     }
 
@@ -192,7 +205,7 @@ struct FloatingActionBar: View {
                 .accessibilityHint(mode == .selection ? "Skip the selected files." : "Defers the current review pass so you can resume it later.")
 
                 // Primary action (Organize)
-                if canOrganizeAll || mode == .selection {
+                if showsPrimaryButton {
                     FormaPrimaryButton(
                         title: primaryButtonLabel,
                         icon: "arrow.down.doc.fill",
@@ -200,7 +213,7 @@ struct FloatingActionBar: View {
                         tint: .formaSteelBlue,
                         cornerRadius: FormaRadius.pill
                     )
-                    .frame(width: 140, height: 36)
+                    .frame(width: mode == .selection ? 168 : 148, height: 36)
                 }
             }
 

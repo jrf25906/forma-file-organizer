@@ -4,6 +4,7 @@ struct ProjectSpaceAutomationComposerSheet: View {
     @Binding var draft: ProjectSpaceAutomationComposerDraft
     let onSave: () -> Void
     let onCancel: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -43,7 +44,8 @@ struct ProjectSpaceAutomationComposerSheet: View {
 
             footer
         }
-        .frame(minWidth: 540, minHeight: 460)
+        .frame(minWidth: 540, idealWidth: 600, maxWidth: 740, minHeight: 480, idealHeight: 560, maxHeight: 720)
+        .background(Color.formaBackground)
     }
 
     private var header: some View {
@@ -63,15 +65,17 @@ struct ProjectSpaceAutomationComposerSheet: View {
         HStack(spacing: FormaSpacing.tight) {
             Button("Cancel", action: onCancel)
                 .buttonStyle(.bordered)
+                .frame(minHeight: 40)
 
             Spacer(minLength: 0)
 
             Button("Save Draft", action: onSave)
                 .buttonStyle(.borderedProminent)
+                .frame(minHeight: 40)
                 .disabled(WorkflowTemplateCatalog.template(for: draft.workflowTemplateID) == nil)
         }
         .padding(FormaSpacing.large)
-        .background(Color.formaBackground)
+        .background(colorScheme == .dark ? Color.formaControlBackground.opacity(0.24) : Color.formaCardBackground.opacity(0.82))
     }
 
     private func toggleRow(_ title: String, kind: ProjectSpaceAutomationTriggerKind) -> some View {

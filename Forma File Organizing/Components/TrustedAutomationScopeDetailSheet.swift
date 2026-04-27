@@ -285,6 +285,7 @@ struct TrustedAutomationScopeDetailSheet: View {
     private var snapshot: Snapshot {
         Snapshot(detail: detail)
     }
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -409,28 +410,32 @@ struct TrustedAutomationScopeDetailSheet: View {
                 Button("Close", action: onClose)
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.formaSecondaryLabel)
+                    .frame(minHeight: 40)
 
                 Spacer()
 
                 if snapshot.canPause {
                     Button("Pause Scope", action: onPause)
                         .buttonStyle(.bordered)
+                        .frame(minHeight: 40)
                 }
 
                 if snapshot.canResume {
                     Button("Resume Scope", action: onResume)
                         .buttonStyle(.borderedProminent)
                         .tint(.formaSteelBlue)
+                        .frame(minHeight: 40)
                 }
 
                 if snapshot.canRevoke {
                     Button("Revoke Scope", role: .destructive, action: onRevoke)
                         .buttonStyle(.bordered)
+                        .frame(minHeight: 40)
                 }
             }
             .padding(FormaSpacing.large)
         }
-        .frame(minWidth: 560, minHeight: 640)
+        .frame(minWidth: 560, idealWidth: 620, maxWidth: 760, minHeight: 640, idealHeight: 700, maxHeight: 820)
         .background(Color.formaBackground)
     }
 
@@ -468,11 +473,11 @@ struct TrustedAutomationScopeDetailSheet: View {
         .padding(FormaSpacing.large)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaCardBackground)
+                .fill(colorScheme == .dark ? Color.formaControlBackground.opacity(0.38) : Color.formaBoneWhite.opacity(0.70))
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .stroke(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                .stroke(Color.formaSeparator.opacity(colorScheme == .dark ? 0.28 : 0.12), lineWidth: FormaBorderWidth.thin)
         )
     }
 

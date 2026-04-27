@@ -93,6 +93,13 @@ final class DashboardPermissionState: ObservableObject {
 
             permissionCancelledFolders.insert(folderType)
             return .cancelled
+        } catch let error as FormaError {
+            if case .operation(.cancelled) = error {
+                permissionCancelledFolders.insert(folderType)
+                return .cancelled
+            }
+
+            return .error(error.localizedDescription)
         } catch {
             return .error(error.localizedDescription)
         }

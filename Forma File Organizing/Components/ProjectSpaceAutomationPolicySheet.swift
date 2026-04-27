@@ -10,6 +10,7 @@ struct ProjectSpaceAutomationPolicySheet: View {
     let onPause: (() -> Void)?
     let onResume: (() -> Void)?
     let onClose: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -73,6 +74,7 @@ struct ProjectSpaceAutomationPolicySheet: View {
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
+                    .frame(minHeight: 40)
                     .disabled(isManualRunInProgress || manualRunDisabledReason != nil)
 
                     if let manualRunDisabledReason {
@@ -86,7 +88,8 @@ struct ProjectSpaceAutomationPolicySheet: View {
 
             footer
         }
-        .frame(minWidth: 520, minHeight: 420)
+        .frame(minWidth: 520, idealWidth: 580, maxWidth: 720, minHeight: 460, idealHeight: 540, maxHeight: 720)
+        .background(Color.formaBackground)
     }
 
     private var header: some View {
@@ -107,6 +110,7 @@ struct ProjectSpaceAutomationPolicySheet: View {
                 Image(systemName: "xmark")
                     .font(.formaCaptionSemibold)
                     .foregroundStyle(Color.formaSecondaryLabel)
+                    .frame(width: 40, height: 40)
             }
             .buttonStyle(.plain)
         }
@@ -118,25 +122,29 @@ struct ProjectSpaceAutomationPolicySheet: View {
             if let onActivate {
                 Button("Activate", action: onActivate)
                     .buttonStyle(.bordered)
+                    .frame(minHeight: 40)
             }
 
             if let onPause {
                 Button("Pause", action: onPause)
                     .buttonStyle(.bordered)
+                    .frame(minHeight: 40)
             }
 
             if let onResume {
                 Button("Resume", action: onResume)
                     .buttonStyle(.bordered)
+                    .frame(minHeight: 40)
             }
 
             Spacer(minLength: 0)
 
             Button("Done", action: onClose)
                 .buttonStyle(.borderedProminent)
+                .frame(minHeight: 40)
         }
         .padding(FormaSpacing.large)
-        .background(Color.formaBackground)
+        .background(colorScheme == .dark ? Color.formaControlBackground.opacity(0.24) : Color.formaCardBackground.opacity(0.82))
     }
 
     private func labeledValue(_ label: String, _ value: String) -> some View {

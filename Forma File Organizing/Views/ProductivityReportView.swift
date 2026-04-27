@@ -26,18 +26,10 @@ struct ProductivityReportView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Match MainContentView toolbar spacing
-            Color.clear.frame(height: FormaSpacing.Toolbar.topOffset)
-
-            // Pinned Header
-            header
-                .padding(FormaSpacing.generous)
-
-            Divider()
-                .opacity(0.5)
+            headerBand
 
             ScrollView(.vertical, showsIndicators: true) {
-                VStack(alignment: .leading, spacing: FormaSpacing.large) {
+                VStack(alignment: .leading, spacing: FormaSpacing.extraLarge) {
                     if let error = viewModel.errorMessage {
                         errorBanner(error)
                     }
@@ -64,7 +56,7 @@ struct ProductivityReportView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
-        .background(Color.clear) // Allow unified window glass to show through
+        .background(Color.formaSurfaceChrome)
         .onAppear {
             viewModel.onAppear()
         }
@@ -78,16 +70,27 @@ struct ProductivityReportView: View {
 
     // MARK: - Header
 
+    private var headerBand: some View {
+        VStack(spacing: 0) {
+            Color.clear.frame(height: FormaSpacing.Toolbar.topOffset)
+
+            header
+                .padding(.horizontal, FormaSpacing.generous)
+                .padding(.top, FormaSpacing.standard)
+                .padding(.bottom, FormaSpacing.generous)
+        }
+        .background(Color.formaSurfaceAnchor)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.formaSeparator.opacity(colorScheme == .dark ? 0.58 : 0.42))
+                .frame(height: FormaBorderWidth.thin)
+        }
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             if let onBackToDashboard {
-                Button(action: onBackToDashboard) {
-                    Label("Dashboard", systemImage: "chevron.left")
-                        .font(.formaSmallSemibold)
-                        .foregroundColor(.formaSteelBlue)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("backToDashboardButton")
+                backButton(action: onBackToDashboard)
             }
 
             HStack(alignment: .center) {
@@ -111,6 +114,29 @@ struct ProductivityReportView: View {
                     .tint(.formaSteelBlue)
             }
         }
+    }
+
+    private func backButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label("Dashboard", systemImage: "chevron.left")
+                .font(.formaSmallSemibold)
+                .foregroundColor(.formaSteelBlue)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(Color.formaSurfaceFloating.opacity(colorScheme == .dark ? 0.72 : 0.86))
+                )
+                .overlay(
+                    Capsule()
+                        .strokeBorder(
+                            Color.formaSteelBlue.opacity(colorScheme == .dark ? 0.30 : 0.18),
+                            lineWidth: FormaBorderWidth.thin
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("backToDashboardButton")
     }
 
     private var periodSelector: some View {
@@ -157,16 +183,19 @@ struct ProductivityReportView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.formaSteelBlue)
+                .frame(minHeight: 40)
 
                 Button("Open Pending Files") {
                     viewModel.openPendingReviewQueue()
                 }
                 .buttonStyle(.bordered)
+                .frame(minHeight: 40)
 
                 Button("Create Rule") {
                     viewModel.openRuleBuilder()
                 }
                 .buttonStyle(.bordered)
+                .frame(minHeight: 40)
             }
             .controlSize(.small)
         }
@@ -175,16 +204,16 @@ struct ProductivityReportView: View {
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .fill(
                     colorScheme == .dark
-                        ? Color.formaBoneWhite.opacity(0.08)
-                        : Color.formaObsidian.opacity(Color.FormaOpacity.subtle)
+                        ? Color.formaBoneWhite.opacity(0.05)
+                        : Color.formaBoneWhite.opacity(0.70)
                 )
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
                 .strokeBorder(
                     colorScheme == .dark
-                        ? Color.formaBoneWhite.opacity(0.16)
-                        : Color.formaObsidian.opacity(Color.FormaOpacity.light),
+                        ? Color.formaBoneWhite.opacity(0.11)
+                        : Color.formaSeparator.opacity(0.38),
                     lineWidth: FormaBorderWidth.thin
                 )
         )
@@ -271,30 +300,30 @@ struct ProductivityReportView: View {
         VStack(alignment: .leading, spacing: FormaSpacing.standard) {
             HStack {
                 RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                    .fill(Color.formaObsidian.opacity(0.1))
+                    .fill(Color.formaLabel.opacity(colorScheme == .dark ? 0.16 : 0.08))
                     .frame(width: 24, height: 24)
                 RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                    .fill(Color.formaObsidian.opacity(0.1))
+                    .fill(Color.formaLabel.opacity(colorScheme == .dark ? 0.16 : 0.08))
                     .frame(width: 80, height: 16)
             }
 
             RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                .fill(Color.formaObsidian.opacity(0.1))
+                .fill(Color.formaLabel.opacity(colorScheme == .dark ? 0.16 : 0.08))
                 .frame(width: 100, height: 36)
 
             RoundedRectangle(cornerRadius: FormaRadius.micro, style: .continuous)
-                .fill(Color.formaObsidian.opacity(0.1))
+                .fill(Color.formaLabel.opacity(colorScheme == .dark ? 0.16 : 0.08))
                 .frame(width: 60, height: 14)
         }
         .padding(FormaSpacing.generous)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                .fill(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.045) : Color.formaBoneWhite.opacity(0.68))
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: FormaBorderWidth.thin)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34), lineWidth: FormaBorderWidth.thin)
         )
     }
 
@@ -303,11 +332,7 @@ struct ProductivityReportView: View {
     private var chartsGridSection: some View {
         HStack(alignment: .top, spacing: FormaSpacing.generous) {
             // Left: Storage Treemap
-            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                Text("Storage Breakdown")
-                    .font(.formaH2)
-                    .foregroundColor(.formaLabel)
-
+            AnalyticsPanel(eyebrow: "STORAGE", title: "Storage Breakdown") {
                 if let treemap = viewModel.storageTreemap, !treemap.children.isEmpty {
                     TreemapChart(rootNode: treemap) { node in
                         viewModel.handleTreemapNodeTap(node)
@@ -325,12 +350,8 @@ struct ProductivityReportView: View {
             .frame(maxWidth: .infinity)
 
             // Right: Automation Efficiency Graph
-            VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                Text("Automation Efficiency")
-                    .font(.formaH2)
-                    .foregroundColor(.formaLabel)
-
-                StackedAreaChart(points: viewModel.automationTimeline)
+            AnalyticsPanel(eyebrow: "AUTOMATION", title: "Automation Efficiency") {
+                StackedAreaChart(points: viewModel.automationTimeline, chrome: false)
                     .frame(height: 280)
             }
             .frame(maxWidth: .infinity)
@@ -340,18 +361,14 @@ struct ProductivityReportView: View {
     // MARK: - Staleness Heatmap Section
 
     private var stalenessHeatmapSection: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            Text("File Freshness Calendar")
-                .font(.formaH2)
-                .foregroundColor(.formaLabel)
-
-            Text("How fresh are your files? Green = recently used, red = digital dust (6+ months).")
-                .font(.formaSmall)
-                .foregroundColor(.formaSecondaryLabelHigh)
-
+        AnalyticsPanel(
+            eyebrow: "FRESHNESS",
+            title: "File Freshness Calendar",
+            subtitle: "How fresh are your files? Green = recently used, red = digital dust (6+ months)."
+        ) {
             // Horizontal scroll for wide calendar (52 weeks ≈ 800px)
             ScrollView(.horizontal, showsIndicators: false) {
-                CalendarHeatmap(data: viewModel.stalenessCalendar) {
+                CalendarHeatmap(data: viewModel.stalenessCalendar, chrome: false) {
                     viewModel.nudgeCleanup()
                 }
                 .frame(minWidth: 820) // Ensure calendar has room to render
@@ -362,21 +379,20 @@ struct ProductivityReportView: View {
     // MARK: - Smart Insights Section
 
     private var smartInsightsSection: some View {
-        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-            HStack {
-                Text("Smart Insights")
-                    .font(.formaH2)
-                    .foregroundColor(.formaLabel)
-
-                Spacer()
-
+        AnalyticsPanel(
+            eyebrow: "INSIGHTS",
+            title: "Smart Insights",
+            trailing: {
                 if !viewModel.smartInsights.isEmpty {
-                    Text("\(viewModel.smartInsights.count) suggestion\(viewModel.smartInsights.count == 1 ? "" : "s")")
-                        .font(.formaSmall)
-                        .foregroundColor(.formaSecondaryLabelHigh)
-                    }
+                    FormaBadge(
+                        text: "\(viewModel.smartInsights.count) suggestion\(viewModel.smartInsights.count == 1 ? "" : "s")",
+                        color: .formaSteelBlue,
+                        size: .small,
+                        style: .subtle
+                    )
+                }
             }
-
+        ) {
             if viewModel.showsNoDataGuidance {
                 ProductivityEmptyState(
                     icon: "lightbulb",
@@ -405,6 +421,7 @@ private struct ProductivityEmptyState: View {
     let icon: String
     let title: String
     let message: String
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: FormaSpacing.tight) {
@@ -424,11 +441,95 @@ private struct ProductivityEmptyState: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .fill(Color.formaObsidian.opacity(Color.FormaOpacity.subtle))
+                .fill(colorScheme == .dark ? Color.formaBoneWhite.opacity(0.045) : Color.formaBoneWhite.opacity(0.68))
         )
         .overlay(
             RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                .strokeBorder(Color.formaObsidian.opacity(Color.FormaOpacity.light), lineWidth: FormaBorderWidth.thin)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34), lineWidth: FormaBorderWidth.thin)
+        )
+    }
+}
+
+// MARK: - Analytics Panel
+
+private struct AnalyticsPanel<Trailing: View, Content: View>: View {
+    let eyebrow: String
+    let title: String
+    let subtitle: String?
+    let trailing: Trailing
+    let content: Content
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(
+        eyebrow: String,
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder trailing: () -> Trailing,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.eyebrow = eyebrow
+        self.title = title
+        self.subtitle = subtitle
+        self.trailing = trailing()
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            HStack(alignment: .top, spacing: FormaSpacing.standard) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(eyebrow)
+                        .font(.formaCompactMedium)
+                        .foregroundColor(.formaTertiaryLabelHigh)
+                        .textCase(.uppercase)
+
+                    Text(title)
+                        .font(.formaH2)
+                        .foregroundColor(.formaLabel)
+
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.formaSmall)
+                            .foregroundColor(.formaSecondaryLabelHigh)
+                    }
+                }
+
+                Spacer(minLength: FormaSpacing.standard)
+
+                trailing
+            }
+
+            content
+        }
+        .padding(FormaSpacing.large)
+        .background(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .fill(Color.formaSurfaceWork)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(
+                    Color.formaSeparator.opacity(colorScheme == .dark ? 0.64 : 0.44),
+                    lineWidth: FormaBorderWidth.thin
+                )
+        )
+        .formaShadow(.resting)
+    }
+}
+
+private extension AnalyticsPanel where Trailing == EmptyView {
+    init(
+        eyebrow: String,
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.init(
+            eyebrow: eyebrow,
+            title: title,
+            subtitle: subtitle,
+            trailing: { EmptyView() },
+            content: content
         )
     }
 }

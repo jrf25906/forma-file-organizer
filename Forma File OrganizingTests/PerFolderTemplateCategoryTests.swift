@@ -417,7 +417,7 @@ final class PerFolderTemplateCategoryTests: XCTestCase {
         }
 
         controller.applyPerFolderTemplates(
-            folderSelection: OnboardingFolderSelection(),
+            folderSelection: .allStandardFolders,
             templateSelection: templateSelection,
             personality: nil
         )
@@ -430,6 +430,59 @@ final class PerFolderTemplateCategoryTests: XCTestCase {
             let folderRules = allRules.filter { $0.category?.name == folder.title }
             XCTAssertEqual(folderRules.count, 10, "\(folder.title) should keep one PARA rule set")
         }
+    }
+
+    func testCompleteOnboardingSeedsOnlyDesktopAndDownloadsCleanupTemplates() throws {
+        UserDefaults.standard.removeObject(forKey: OnboardingFolderSelection.storageKey)
+        UserDefaults.standard.removeObject(forKey: FolderTemplateSelection.storageKey)
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        defer {
+            UserDefaults.standard.removeObject(forKey: OnboardingFolderSelection.storageKey)
+            UserDefaults.standard.removeObject(forKey: FolderTemplateSelection.storageKey)
+            UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        }
+
+        let controller = DashboardTemplateController(
+            modelContext: modelContext,
+            filterViewModel: FilterViewModel()
+        )
+        let permissionState = DashboardPermissionState()
+        let bookmarkStore = InMemoryBookmarkStore()
+        try bookmarkStore.saveBookmark(Data("desktop-bookmark".utf8), forKey: OnboardingFolder.desktop.bookmarkKey)
+        try bookmarkStore.saveBookmark(Data("downloads-bookmark".utf8), forKey: OnboardingFolder.downloads.bookmarkKey)
+
+        BookmarkStoreProvider.$override.withValue(bookmarkStore) {
+            controller.completeOnboarding(
+                permissionState: permissionState,
+                modelContext: modelContext
+            )
+        }
+
+        let categories = try modelContext.fetch(FetchDescriptor<RuleCategory>())
+        let rules = try modelContext.fetch(FetchDescriptor<Rule>())
+        let categoryNames = Set(categories.map(\.name))
+
+        XCTAssertEqual(categoryNames, ["Desktop", "Downloads"])
+        XCTAssertEqual(rules.filter { $0.category?.name == "Desktop" }.count, 7)
+        XCTAssertEqual(rules.filter { $0.category?.name == "Downloads" }.count, 7)
+        XCTAssertTrue(rules.allSatisfy { rule in
+            guard let categoryName = rule.category?.name else { return false }
+            return categoryName == "Desktop" || categoryName == "Downloads"
+        })
+
+        let savedFolderSelection = OnboardingFolderSelection.load()
+        XCTAssertTrue(savedFolderSelection.desktop)
+        XCTAssertTrue(savedFolderSelection.downloads)
+        XCTAssertFalse(savedFolderSelection.documents)
+        XCTAssertFalse(savedFolderSelection.pictures)
+        XCTAssertFalse(savedFolderSelection.music)
+
+        let savedTemplateSelection = FolderTemplateSelection.load()
+        XCTAssertEqual(savedTemplateSelection.template(for: .desktop), .minimal)
+        XCTAssertEqual(savedTemplateSelection.template(for: .downloads), .minimal)
+        XCTAssertNil(savedTemplateSelection.template(for: .documents))
+        XCTAssertNil(savedTemplateSelection.template(for: .pictures))
+        XCTAssertNil(savedTemplateSelection.template(for: .music))
     }
 
     // MARK: - Helper Methods

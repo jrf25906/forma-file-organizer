@@ -7,6 +7,7 @@ struct QuickRuleCreationSheet: View {
     let file: FileItem
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var dashboardViewModel: DashboardViewModel
     
     @State private var ruleName: String = ""
@@ -28,7 +29,7 @@ struct QuickRuleCreationSheet: View {
                     if let reasoning = file.matchReason {
                         Text(reasoning)
                             .font(.formaBody)
-                            .foregroundStyle(Color.formaSecondaryLabel)
+                            .foregroundStyle(Color.formaSecondaryLabelHigh)
                             .lineLimit(2)
                     }
                 }
@@ -40,12 +41,13 @@ struct QuickRuleCreationSheet: View {
                         .font(.formaH2)
                         .foregroundStyle(Color.formaSecondaryLabel)
                         .symbolRenderingMode(.hierarchical)
+                        .frame(width: 40, height: 40)
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, FormaSpacing.generous)
             .padding(.vertical, FormaSpacing.generous - FormaSpacing.micro)
-            .background(Color.formaCardBackground)
+            .background(Color.formaSurfaceAnchor)
             
             Divider()
             
@@ -56,37 +58,48 @@ struct QuickRuleCreationSheet: View {
                     FileMatchPreview(file: file)
                     
                     // Rule Name
-                    FormaTextField(
-                        title: "Rule Name",
-                        placeholder: "e.g., Invoice Organizer",
-                        text: $ruleName,
-                        hasError: validationError != nil
-                    )
+                    quickSectionCard(
+                        step: "1",
+                        title: "Rule",
+                        subtitle: "Name the behavior Forma should remember.",
+                        tint: .formaSteelBlue
+                    ) {
+                        FormaTextField(
+                            title: "Rule Name",
+                            placeholder: "e.g., Invoice Organizer",
+                            text: $ruleName,
+                            hasError: validationError != nil
+                        )
+                    }
                     
                     // Destination Folder
-                    FormaFolderPicker(
-                        title: "Destination Folder",
-                        displayPath: destinationDisplayPath,
-                        hasSelection: destinationBookmarkData != nil,
-                        hasError: validationError != nil,
-                        onSelect: requestDestinationAccess,
-                        onClear: {
-                            destinationBookmarkData = nil
-                            destinationDisplayPath = ""
-                        }
-                    )
+                    quickSectionCard(
+                        step: "2",
+                        title: "Destination",
+                        subtitle: "Choose where future matches should move.",
+                        tint: .formaSage
+                    ) {
+                        FormaFolderPicker(
+                            title: "Destination Folder",
+                            displayPath: destinationDisplayPath,
+                            hasSelection: destinationBookmarkData != nil,
+                            hasError: validationError != nil,
+                            onSelect: requestDestinationAccess,
+                            onClear: {
+                                destinationBookmarkData = nil
+                                destinationDisplayPath = ""
+                            }
+                        )
+                    }
                     
                     // Conditions Preview (read-only)
                     if let reasoning = file.matchReason {
-                        VStack(alignment: .leading, spacing: FormaSpacing.tight) {
-                            Text("Conditions")
-                                .font(.formaBodySemibold)
-                                .foregroundStyle(Color.formaSecondaryLabel)
-                            
-                            Text("These conditions will be copied from the matched file:")
-                                .font(.formaCompact)
-                                .foregroundStyle(Color.formaSecondaryLabel.opacity(Color.FormaOpacity.prominent))
-                            
+                        quickSectionCard(
+                            step: "REVIEW",
+                            title: "Conditions",
+                            subtitle: "These conditions will be copied from the matched file.",
+                            tint: .formaWarmOrange
+                        ) {
                             ReasoningView(reasoning: reasoning, isExpanded: true)
                         }
                     }
@@ -107,7 +120,7 @@ struct QuickRuleCreationSheet: View {
                 }
                 .padding(FormaSpacing.generous)
             }
-            .background(Color.formaBackground)
+            .background(Color.formaSurfaceChrome)
             
             Divider()
             
@@ -128,19 +141,53 @@ struct QuickRuleCreationSheet: View {
             }
             .padding(.horizontal, FormaSpacing.generous)
             .padding(.vertical, FormaSpacing.standard)
-            .background(Color.formaCardBackground)
+            .background(Color.formaSurfaceFloating)
         }
-        .frame(width: 540, height: 640)
-        .background(Color.formaBackground)
+        .frame(minWidth: 520, idealWidth: 560, maxWidth: 680, minHeight: 600, idealHeight: 640, maxHeight: 760)
+        .background(Color.formaSurfaceChrome)
         .onAppear {
             prefillForm()
         }
     }
     
     // MARK: - Helper Views
+
+    private func quickSectionCard<Content: View>(
+        step: String,
+        title: String,
+        subtitle: String,
+        tint: Color,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: FormaSpacing.standard) {
+            HStack(alignment: .top, spacing: FormaSpacing.tight) {
+                FormaBadge(text: step, color: tint, size: .small, style: .subtle)
+
+                VStack(alignment: .leading, spacing: FormaSpacing.micro) {
+                    Text(title)
+                        .font(.formaBodyBold)
+                        .foregroundStyle(Color.formaLabel)
+                    Text(subtitle)
+                        .font(.formaSmall)
+                        .foregroundStyle(Color.formaSecondaryLabelHigh)
+                }
+            }
+
+            content()
+        }
+        .padding(FormaSpacing.large)
+        .background(Color.formaSurfaceWork)
+        .clipShape(RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
+                .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.46 : 0.32), lineWidth: FormaBorderWidth.thin)
+        )
+        .shadow(color: Color.formaObsidian.opacity(colorScheme == .dark ? 0.16 : 0.05), radius: 3, x: 0, y: 1)
+    }
     
     private struct FileMatchPreview: View {
         let file: FileItem
+        @Environment(\.colorScheme) private var colorScheme
         
         var body: some View {
             HStack(spacing: 12) {
@@ -174,11 +221,11 @@ struct QuickRuleCreationSheet: View {
                 Spacer()
             }
             .padding(FormaSpacing.standard - FormaSpacing.micro)
-            .background(Color.formaCardBackground)
+            .background(Color.formaSurfaceWork)
             .formaCornerRadius(FormaRadius.card)
             .overlay(
                 RoundedRectangle(cornerRadius: FormaRadius.card, style: .continuous)
-                    .strokeBorder(Color.formaSeparator.opacity(Color.FormaOpacity.strong), lineWidth: 1)
+                    .strokeBorder(Color.formaSeparator.opacity(colorScheme == .dark ? 0.52 : 0.34), lineWidth: FormaBorderWidth.thin)
             )
         }
     }
