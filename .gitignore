@@ -47,3 +47,6 @@ claude-oracle/
 # Large media
 forma-videos/
 *.mov
+
+# Build logs
+build_log*.txt

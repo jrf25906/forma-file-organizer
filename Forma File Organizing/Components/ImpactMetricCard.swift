@@ -194,7 +194,7 @@ struct ImpactMetricCard: View {
             ("A", .formaSage),
             ("B", .formaSteelBlue),
             ("C", .formaWarning),
-            ("Fix", .formaError)
+            ("Start", .formaError)
         ]
     }
 }
@@ -292,9 +292,12 @@ extension ImpactMetricCard {
         case 60..<70:
             grade = "C"
             color = .formaSteelBlue
-        default:
-            grade = "Needs Work"
+        case 1..<60:
+            grade = "Needs Attention"
             color = .formaWarning
+        default:
+            grade = "Getting Started"
+            color = .formaSteelBlue
         }
 
         return ImpactMetricCard(

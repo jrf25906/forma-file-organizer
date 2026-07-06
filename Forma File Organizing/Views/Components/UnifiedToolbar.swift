@@ -163,6 +163,7 @@ struct UnifiedToolbar: View {
     @EnvironmentObject private var filterViewModel: FilterViewModel
     @EnvironmentObject private var selectionViewModel: SelectionViewModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     // Calculate compression level based on available width
     private var compressionLevel: CompressionLevel {
@@ -197,10 +198,10 @@ struct UnifiedToolbar: View {
                 .accessibilityValue(isInspectorEffectivelyVisible ? "visible" : "hidden")
                 .allowsHitTesting(false)
         }
-        .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
-        .animation(.easeInOut(duration: 0.2), value: reviewFilterMode)
-        .animation(.easeInOut(duration: 0.2), value: currentViewMode)
-        .animation(.easeInOut(duration: 0.2), value: groupingMode)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: viewModel.isLoading)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: reviewFilterMode)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: currentViewMode)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: groupingMode)
     }
 
     private var isInspectorDisabled: Bool {
