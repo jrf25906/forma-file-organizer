@@ -89,6 +89,7 @@ private extension AppStoreScreenshotTests {
             outputDir: outputDir
         )
 
+        ensureHomeWorkspace(app: app, harness: harness)
         harness.tapAllFilesSegment()
         try captureWindowShot(
             app: app,
@@ -338,6 +339,29 @@ private extension AppStoreScreenshotTests {
             return false
         }
         return true
+    }
+
+    func ensureHomeWorkspace(app: XCUIApplication, harness: UITestHarness, timeout: TimeInterval = 4) {
+        let workspaceProbe = harness.dashboardWorkspaceDestinationProbe()
+        if waitForProbe(workspaceProbe, equals: "homeWorkspace", timeout: 1) {
+            return
+        }
+
+        let backButton = harness.backToDashboardButton()
+        if backButton.waitForExistence(timeout: 2) {
+            backButton.click()
+        } else {
+            app.typeKey(.escape, modifierFlags: [])
+        }
+
+        XCTAssertTrue(
+            waitForProbe(workspaceProbe, equals: "homeWorkspace", timeout: timeout),
+            "Expected screenshot flow to return to the home workspace before driving the file toolbar"
+        )
+        XCTAssertTrue(
+            harness.reviewModePicker().waitForExistence(timeout: timeout),
+            "Review mode picker should be visible on the home workspace"
+        )
     }
 
     func metrics(from element: XCUIElement) -> [String: Double] {

@@ -135,6 +135,19 @@ struct FloatingActionBar: View {
         }
     }
 
+    private var barMaxWidth: CGFloat {
+        switch mode {
+        case .selection:
+            return 760
+        case .review:
+            return 580
+        }
+    }
+
+    private var barShadow: FormaShadow {
+        mode == .review ? .resting : .floating
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             // Left: Folder icon + status
@@ -145,9 +158,12 @@ struct FloatingActionBar: View {
 
                 Text(statusText)
                     .font(.formaBodyMedium)
-                    .foregroundColor(Color.formaSecondaryLabel)
+                    .foregroundColor(Color.formaSecondaryLabelHigh)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
             .padding(.leading, FormaSpacing.standard)
+            .layoutPriority(1)
             .overlay(alignment: .topLeading) {
                 if mode == .review {
                     Color.clear
@@ -213,7 +229,7 @@ struct FloatingActionBar: View {
                         tint: .formaSteelBlue,
                         cornerRadius: FormaRadius.pill
                     )
-                    .frame(width: mode == .selection ? 168 : 148, height: 36)
+                    .frame(width: mode == .selection ? 168 : 154, height: 36)
                 }
             }
 
@@ -241,10 +257,10 @@ struct FloatingActionBar: View {
         }
         .padding(.vertical, 6)
         .frame(minHeight: Self.chromeHeight)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: barMaxWidth)
         .background {
             FormaMaterialSurface(tier: .overlay, cornerRadius: FormaRadius.pill)
-                .formaShadow(FormaShadow.floating)
+                .formaShadow(barShadow)
         }
         .padding(.horizontal, FormaSpacing.large)
         .transition(.move(edge: .bottom).combined(with: .opacity))

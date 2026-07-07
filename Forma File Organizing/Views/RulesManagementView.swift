@@ -1252,8 +1252,8 @@ struct RulesManagementView: View {
     private var initialEmptyRulesState: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: FormaSpacing.standard) {
-                emptyRulesIntro
                 starterTemplatesSection
+                emptyRulesIntro
             }
             .padding(.horizontal, FormaSpacing.generous)
             .padding(.vertical, FormaSpacing.standard)
@@ -1420,7 +1420,7 @@ struct RulesManagementView: View {
     }
 
     private func openStarterTemplate(_ template: StarterTemplate) {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? .none : .easeInOut(duration: 0.2)) {
             nav.beginRuleDraft(
                 suggestedNaturalLanguageText: template.prompt,
                 presentation: .modal,
@@ -1431,7 +1431,7 @@ struct RulesManagementView: View {
 
     private func openRuleBuilderPanel(editingRule: Rule? = nil, fileContext: FileItem? = nil) {
         if onBackToDashboard != nil {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? .none : .easeInOut(duration: 0.2)) {
                 nav.openRuleEditor(
                     editingRule: editingRule,
                     fileContext: fileContext,

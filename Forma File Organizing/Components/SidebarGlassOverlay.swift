@@ -30,18 +30,25 @@ struct SidebarGlassOverlay: View {
         )
     }
 
+    private var sidebarWashGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.formaSurfaceChrome.opacity(colorScheme == .dark ? 0.18 : 0.30),
+                Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.06 : 0.08),
+                Color.clear
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
     var body: some View {
         ZStack {
-            sheenGradient
+            sidebarWashGradient
                 .blendMode(.overlay)
 
-            HStack(spacing: 0) {
-                Spacer()
-
-                Rectangle()
-                    .fill(Color.formaBoneWhite.opacity(glassStyle.edgeOpacity))
-                    .frame(width: 1)
-            }
+            sheenGradient
+                .blendMode(.overlay)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
