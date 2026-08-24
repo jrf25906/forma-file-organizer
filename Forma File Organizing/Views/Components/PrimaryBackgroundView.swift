@@ -22,7 +22,7 @@ struct PrimaryBackgroundView: View {
 
             // Active State: Gradient Backdrop
             // This is the vibrant Forma-brand gradient content.
-            GradientBackdropView(intensity: Color.FormaOpacity.high, animated: isKeyWindow)
+            GradientBackdropView(intensity: Color.FormaOpacity.medium, animated: isKeyWindow)
                 .opacity(isKeyWindow ? 1 : 0)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isKeyWindow)
             
@@ -79,9 +79,7 @@ struct PaneMaterialBackground: View {
 
     var body: some View {
         ZStack {
-            if usesOpaquePanelSurface {
-                inspectorOpaqueBackground
-            } else if reduceTransparency {
+            if reduceTransparency {
                 fallbackColor
             } else {
                 Rectangle()
@@ -95,6 +93,11 @@ struct PaneMaterialBackground: View {
                             )
                         } else {
                             Color.clear
+                        }
+                    }
+                    .overlay {
+                        if DebugFlags.baseSurfaceEnabled {
+                            paneSurfaceWash
                         }
                     }
                     .overlay {
@@ -138,20 +141,6 @@ struct PaneMaterialBackground: View {
         }
     }
 
-    @ViewBuilder
-    private var inspectorOpaqueBackground: some View {
-        Rectangle()
-            .fill(
-                colorScheme == .dark
-                    ? Color.formaControlBackground
-                    : Color.formaBoneWhite
-            )
-    }
-
-    private var usesOpaquePanelSurface: Bool {
-        role == .inspector
-    }
-
     private var paneAmbientGradient: LinearGradient {
         let top = Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.08 : 0.10)
         let mid = tintColor.opacity(colorScheme == .dark ? 0.12 : 0.10)
@@ -165,25 +154,15 @@ struct PaneMaterialBackground: View {
     }
 
     private var materialTier: FormaMaterialTier {
-        switch role {
-        case .sidebar:
-            return .raised
-        case .content:
-            return .base
-        case .inspector:
-            return .raised
-        }
+        .raised
+    }
+
+    private var paneSurfaceWash: Color {
+        Color.formaSurfaceChrome.opacity(colorScheme == .dark ? 0.46 : 0.42)
     }
 
     private var fallbackColor: Color {
-        switch role {
-        case .sidebar:
-            return Color.formaControlBackground.opacity(colorScheme == .dark ? 0.84 : 0.95)
-        case .content:
-            return Color.formaBackground
-        case .inspector:
-            return Color.formaControlBackground.opacity(colorScheme == .dark ? 0.82 : 0.94)
-        }
+        Color.formaSurfaceChrome.opacity(colorScheme == .dark ? 0.78 : 0.66)
     }
 
     private var tintColor: Color {
@@ -193,111 +172,48 @@ struct PaneMaterialBackground: View {
         case .content:
             return Color.formaMutedBlue
         case .inspector:
-            return Color.formaSage
+            return Color.formaMutedBlue
         }
     }
 
     private var surfaceTintOpacity: Double {
         let activeMultiplier = isWindowActive ? 1.0 : 0.82
-
-        let base: Double
-        switch role {
-        case .sidebar:
-            base = colorScheme == .dark ? 0.78 : 0.62
-        case .content:
-            base = colorScheme == .dark ? 0.40 : 0.28
-        case .inspector:
-            base = colorScheme == .dark ? 0.56 : 0.44
-        }
-
+        let base = colorScheme == .dark ? 0.52 : 0.42
         return base * activeMultiplier
     }
 
     private var sheenTopOpacity: Double {
         let activeMultiplier = isWindowActive ? 1.0 : 0.78
-
-        let base: Double
-        switch role {
-        case .sidebar:
-            base = colorScheme == .dark ? 0.06 : 0.10
-        case .content:
-            base = colorScheme == .dark ? 0.025 : 0.055
-        case .inspector:
-            base = colorScheme == .dark ? 0.04 : 0.07
-        }
-
+        let base = colorScheme == .dark ? 0.026 : 0.045
         return base * activeMultiplier
     }
 
     private var sheenBottomOpacity: Double {
         let activeMultiplier = isWindowActive ? 1.0 : 0.78
-
-        let base: Double
-        switch role {
-        case .sidebar:
-            base = colorScheme == .dark ? 0.02 : 0.04
-        case .content:
-            base = colorScheme == .dark ? 0.01 : 0.03
-        case .inspector:
-            base = colorScheme == .dark ? 0.02 : 0.04
-        }
-
+        let base = colorScheme == .dark ? 0.02 : 0.04
         return base * activeMultiplier
     }
 
     private var backdropOverlayOpacity: Double {
         let activeMultiplier = isWindowActive ? 1.0 : 0.72
-
-        switch role {
-        case .sidebar:
-            return (colorScheme == .dark ? 0.30 : 0.22) * activeMultiplier
-        case .content:
-            return (colorScheme == .dark ? 0.12 : 0.08) * activeMultiplier
-        case .inspector:
-            return (colorScheme == .dark ? 0.16 : 0.12) * activeMultiplier
-        }
+        return (colorScheme == .dark ? 0.13 : 0.10) * activeMultiplier
     }
 
     private var grainIntensity: Float {
-        switch role {
-        case .sidebar:
-            return 0.72
-        case .content:
-            return 0.42
-        case .inspector:
-            return 0.50
-        }
+        0.50
     }
 
     private var grainOpacity: Double {
-        switch role {
-        case .sidebar:
-            return colorScheme == .dark ? 0.10 : 0.07
-        case .content:
-            return colorScheme == .dark ? 0.05 : 0.035
-        case .inspector:
-            return colorScheme == .dark ? 0.06 : 0.045
-        }
+        colorScheme == .dark ? 0.038 : 0.026
     }
 
     private var roleAccentGradient: LinearGradient {
-        let top: Color
-        let middle: Color
-
-        switch role {
-        case .sidebar:
-            top = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.34 : 0.24)
-            middle = Color.formaSurfaceAnchor.opacity(colorScheme == .dark ? 0.20 : 0.16)
-        case .content:
-            top = Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.18 : 0.12)
-            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.10 : 0.06)
-        case .inspector:
-            top = Color.formaSage.opacity(colorScheme == .dark ? 0.28 : 0.18)
-            middle = Color.formaWarmOrange.opacity(colorScheme == .dark ? 0.12 : 0.08)
-        }
-
         return LinearGradient(
-            colors: [top, middle, Color.clear],
+            colors: [
+                Color.formaMutedBlue.opacity(colorScheme == .dark ? 0.22 : 0.16),
+                Color.formaSurfaceAnchor.opacity(colorScheme == .dark ? 0.16 : 0.12),
+                Color.clear
+            ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -305,34 +221,27 @@ struct PaneMaterialBackground: View {
 
     private var accentOverlayOpacity: Double {
         let activeMultiplier = isWindowActive ? 1.0 : 0.75
-
-        switch role {
-        case .sidebar:
-            return (colorScheme == .dark ? 0.18 : 0.13) * activeMultiplier
-        case .content:
-            return (colorScheme == .dark ? 0.06 : 0.04) * activeMultiplier
-        case .inspector:
-            return (colorScheme == .dark ? 0.08 : 0.06) * activeMultiplier
-        }
+        return (colorScheme == .dark ? 0.040 : 0.030) * activeMultiplier
     }
 
     @ViewBuilder
     private var edgeDivider: some View {
         switch role {
         case .sidebar:
-            HStack(spacing: 0) {
-                Spacer()
-                Rectangle()
-                    .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.10 : 0.16))
-                    .frame(width: 1)
-            }
+            EmptyView()
         case .content:
             EmptyView()
         case .inspector:
             HStack(spacing: 0) {
-                Rectangle()
-                    .fill(Color.formaBoneWhite.opacity(colorScheme == .dark ? 0.08 : 0.14))
-                    .frame(width: 1)
+                LinearGradient(
+                    colors: [
+                        Color.formaObsidian.opacity(colorScheme == .dark ? 0.14 : 0.035),
+                        Color.clear
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: 22)
                 Spacer()
             }
         }

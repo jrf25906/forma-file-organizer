@@ -42,6 +42,11 @@ xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File O
   - `Forma File Organizing/Components/FileGridItem.swift`
   - `Forma File Organizing/Views/MainContentView.swift`
 
+## Path Focus
+- Start with the SwiftUI views and models — not config/build files
+- Source lives under `Sources/`, `Forma/`, and the test directories
+- Skip build artifacts (`DerivedData/`, `.build/`, `Build/`, `*.xcresult`), caches (`.swiftpm/`, `Pods/`, `Carthage/`, `*.dSYM`), generated files (`*.pbxproj` internals, `Package.resolved`, `Podfile.lock`), and Xcode state (`*.xcuserstate`, `xcuserdata/`, `IDEWorkspaceChecks.plist`)
+
 ## Watch Out For
 - Security-scoped bookmarks: always startAccessingSecurityScopedResource/stop properly
 - Update entitlements file when capabilities change

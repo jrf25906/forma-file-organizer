@@ -148,11 +148,8 @@ struct SidebarView: View {
             .padding(.vertical, FormaSpacing.tight)
         }
         .background(
-            ZStack {
-                PaneMaterialBackground(role: .sidebar)
-                SidebarGlassOverlay()
-            }
-            .ignoresSafeArea(edges: .top)
+            SidebarGlassOverlay()
+                .ignoresSafeArea(edges: .top)
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("dashboardSidebar")

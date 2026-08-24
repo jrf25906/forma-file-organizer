@@ -1,442 +1,170 @@
-# Primary Screen Design Review - Blue Slate Direction
+# Primary Screen Design Review - Combined Recommendations
 
-**Date:** 2026-04-27  
-**Status:** Working brief, pre-implementation  
-**Scope:** Native macOS app primary screens only  
+**Date:** 2026-04-27
+**Status:** Current review brief, pre-implementation
+**Scope:** Native macOS app primary screens only
 **Out of scope:** `forma-website/`, marketing pages, feature behavior, API behavior
 
-This document captures the design review baseline for Forma's primary macOS app screens. It is a durable design brief to work back from before writing implementation plans, agent assignments, or code changes.
+This document combines the requested `gpt-taste`, `frontend-skill`, `high-end-visual-design`, `ui-ux-pro-max-skill`, and `interface-craft` lenses into one native-app design review for Forma.
 
-Read this before opening any implementation plan that touches surfaces, type, ambient material, accent color, right rail hierarchy, file rows, Rule Builder, Analytics, Smart Rules, or Settings.
+The review is screenshot-grounded. It used a live Debug build of the app and current XCUITest screenshot captures, not only source-code inspection. The recommendation language below translates web-heavy skill advice into native macOS SwiftUI concerns: surface hierarchy, work density, accent discipline, reduced-motion-safe microinteractions, state clarity, and operational focus.
+
+## Current Direction
+
+The selected visual direction remains **Blue Slate**: darker slate anchors, clearer surface steps, stronger title jumps, darker text, and a more committed blue accent used sparingly.
+
+The app is already coherent and native-feeling. The highest-impact problem is not missing polish; it is that too many panes, rows, controls, cards, badges, and footer states compete at nearly the same visual level. The next pass should make the product easier to read before it makes it more decorative.
+
+## Evidence Reviewed
+
+### Commands Run
+
+- Debug build:
+  - `xcodebuild -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -configuration Debug -derivedDataPath /tmp/FormaTasteAuditDerivedData build`
+  - Result: passed.
+- Live app screenshot:
+  - `python3 /Users/jamesfarmer/.codex/skills/screenshot/scripts/take_screenshot.py --app "Forma File Organizing" --mode temp`
+  - Result: captured the running app window.
+- Current primary-screen screenshot harness:
+  - `FORMA_SCREENSHOT_OUTPUT_DIR=/tmp/forma-taste-audit-shots xcodebuild test -project "Forma File Organizing.xcodeproj" -scheme "Forma File Organizing" -testPlan "Forma File Organizing - UI" -destination 'platform=macOS' -derivedDataPath /tmp/FormaTasteAuditDerivedData -only-testing:"Forma File OrganizingUITests/AppStoreScreenshotTests/testCaptureAppStoreScreenshots"`
+  - Result: passed.
+- Exported XCUITest attachments:
+  - `/tmp/forma-taste-audit-current-shots/light/`
+  - `/tmp/forma-taste-audit-current-shots/dark/`
+
+### Screens Reviewed
+
+- Main review workspace, light and dark
+- All Files list, light and dark
+- Rule Builder, light and dark
+- Smart Rules empty state, light and dark
+- Analytics / Productivity Health, light and dark
+- Settings / General, light and dark
+
+### Evidence Caveats
+
+- The current review screenshots were exported to `/tmp` for inspection and were not added to the repository.
+- The durable screenshot naming contract is the App Store screenshot harness under `Docs/Marketing/Screenshots/AppStore/`.
+- A few screenshot captures show hover tooltip or sidebar hover artifacts from the test cursor. Treat those as capture artifacts, not product findings.
+- The XCUITest harness did not capture the File Inspector after selecting the first file because the inspector probe did not appear; the test continued and passed. That is a product-state signal worth following up during the right-rail pass.
+
+## Skill Synthesis
+
+| Lens | What It Contributed | Native App Translation |
+| --- | --- | --- |
+| `frontend-skill` | App UI should prioritize primary workspace, navigation, secondary context, and one clear accent. | Treat Forma as an operational Mac tool, not a landing page. No hero sections, card mosaics, or decorative gradients behind routine data. |
+| `gpt-taste` | Strong hierarchy, wide type rhythm, no cheap labels, no generic card sprawl, intentional motion. | Avoid narrow stacked control islands and equally weighted panels. Use motion to clarify state changes, not to perform. GSAP/AIDA rules do not apply to this native app. |
+| `high-end-visual-design` | Premium surface ladder, haptic interaction, restrained shadows, physical depth. | Create a native surface ladder with semantic materials and tokens. Use nested elevation sparingly for primary command surfaces, not every card. |
+| `ui-ux-pro-max-skill` | SwiftUI accessibility and UX rules: reduced motion, consistent type scale, loading feedback, contrast, 150-300ms microinteractions. | Gate motion with `accessibilityReduceMotion`, keep focus rings visible, improve light-mode contrast, and keep animations fast. |
+| `interface-craft` | Context-first critique: first impressions, visual design, interface design, consistency, user context, top opportunities. | Frame recommendations around the user's file-review mindset: focused, trust-seeking, and trying to reduce clutter without fear of irreversible actions. |
 
 ## Context
 
-The review used the `gpt-taste` critique lens translated for a native macOS SwiftUI app: hierarchy, contrast, breathing room, state clarity, restrained motion, and a confident visual system. Web-only recommendations such as GSAP, landing-page structure, and website motion patterns do not apply.
+Forma is a high-trust file organization app. The user is not browsing; they are making decisions about files, rules, destinations, permissions, and automation. The interface should feel calm, but it also has to be decisive. Softness helps only until it starts obscuring what is active, what is safe, and what happens next.
 
-The strongest pattern across the reviewed screenshots is not missing polish. The app is coherent and native-feeling, but too many panes, cards, rows, controls, and secondary labels live in the same tonal range. The result is a calm interface that sometimes feels washed together instead of clearly staged.
+## First Impression
 
-The selected direction remains Blue Slate: darker slate anchors, clearer surface steps, stronger title jumps, darker text, and a more committed blue accent used sparingly.
+The app looks more mature than a typical utility app, but it still reads as a set of visually polished regions rather than a strict operating surface. The main window has a strong shell, yet the toolbar, rows, right rail, floating action bar, and ambient material all ask for attention at once. In light mode, the same issue becomes paleness: many surfaces are pleasant, but too few are authoritative.
 
-## Goal
+## Ranked Recommendations
 
-Establish Blue Slate as the design baseline for Forma's primary app screens so later implementation plans have a single source of truth.
+Freshness correction: several recommendations are already partially or mostly implemented in the current app. The table below keeps the recommendation only where there is still implementation value, and calls out rows that should be treated as verification or polish rather than new work.
 
-- Codify hierarchy, contrast, breathing room, state clarity, and accent-use targets.
-- Map each design issue to the token or component layer where it should be addressed.
-- Preserve macOS-native ergonomics while sharpening the product's visual confidence.
-- Keep this brief stable and qualitative; implementation details belong in follow-on plans.
+| Priority | Current Status | Recommendation | Expected User Impact | Cost | Primary Anchors |
+| --- | --- | --- | --- | --- | --- |
+| P0 | Partially landed | Keep the three-tier surface ladder, but audit where dense scrollable data still sits over ambient material. The app already has `FormaMaterialTier` plus `formaSurfaceAnchor`, `formaSurfaceWork`, `formaSurfaceChrome`, and `formaSurfaceFloating`; the remaining work is mostly reducing active gradients/material behind the center file surface where screenshots still read soft. | Faster first read; stronger contrast in light mode; less "washed together" feeling. | S-M | `Forma File Organizing/DesignSystem/FormaColors.swift`, `Forma File Organizing/DesignSystem/FormaMaterialTiers.swift`, `Forma File Organizing/Views/Components/PrimaryBackgroundView.swift`, `Forma File Organizing/Views/MainContentView.swift` |
+| P0 | Mostly landed | Treat toolbar consolidation as a verification/polish item, not a rebuild. `UnifiedToolbar` already consolidates scope, context, arrange, view mode, and inspector toggle into one rhythm; the remaining question is whether screenshots still show too many equal chrome islands in narrow widths. | Reduces top-chrome scan cost and makes the workspace state clearer. | S-M | `Forma File Organizing/Views/Components/UnifiedToolbar.swift`, `Forma File Organizing/Views/MainContentView.swift`, `Forma File Organizing/Views/DashboardView.swift` |
+| P0 | Partially landed | Keep the contextual floating action bar, but tune review-mode prominence and label sizing. The bar is already contextual for selection/review states and uses shorter labels like "Organize Ready"; it may still read too dominant when shown for an ordinary review pass. | Removes the competing "second hero" at the bottom of the screen and makes actions feel causally tied to selection. | S-M | `Forma File Organizing/Components/FloatingActionBar.swift`, `Forma File Organizing/Views/MainContentView.swift`, `Forma File Organizing/ViewModels/SelectionViewModel.swift`, `Forma File Organizing/ViewModels/BulkOperationViewModel.swift` |
+| P1 | Partially landed | Recommit the blue accent to only primary actions, active selections, focus, and current-state indicators. Current code has stronger Blue Slate tokens, but many badges, links, and secondary controls still use blue enough that the accent can lose command meaning. | Color regains meaning; users can identify what is actionable without decoding every blue object. | S-M | `Forma File Organizing/DesignSystem/FormaColors.swift`, `Forma File Organizing/DesignSystem/Components/FormaBadges.swift`, `Forma File Organizing/DesignSystem/Components/FormaStatusPill.swift`, `Forma File Organizing/DesignSystem/Components/FormaButtons.swift` |
+| P1 | Structurally landed, visually open | Treat the right rail command-state model as structurally done. `PanelStateManager.RightPanelMode` already makes default, inspector, rules, rule builder, celebration, and analytics mutually exclusive; remaining work is visual hierarchy inside the default panel and inspector reliability from the screenshot harness caveat. | The right rail becomes a decision surface instead of a stack of useful but equal modules. | M | `Forma File Organizing/Views/RightPanelView.swift`, `Forma File Organizing/Views/DefaultPanelView.swift`, `Forma File Organizing/Views/FileInspectorView.swift`, `Forma File Organizing/Views/InlineRuleBuilderView.swift` |
+| P1 | Mostly landed | Downgrade Rule Builder to polish. `InlineRuleBuilderView` already uses a guided card with name, numbered `When`, `Then`, and review/preview sections, inline validation, impact preview, and overlap handling. Remaining work should be small visual simplification only. | Keeps rule creation feeling guided without reworking working structure. | S | `Forma File Organizing/Views/RuleEditorView.swift`, `Forma File Organizing/Views/InlineRuleBuilderView.swift`, `Forma File Organizing/Views/Components/RuleConditionBuilder.swift`, `Forma File Organizing/Views/Components/RuleDestinationPicker.swift`, `Forma File Organizing/Views/Components/RuleEditorHeaderConfig.swift` |
+| P1 | Partially landed | Rework Smart Rules empty-state emphasis, not its existence. Starter templates already exist and open directly in the builder; the remaining issue is that the intro band and `Create Rule` action still precede the templates and can dominate the first read. | Empty state feels immediately useful; users get a first successful action without hunting. | S | `Forma File Organizing/Views/RulesManagementView.swift`, `Forma File Organizing/Components/RuleManagementCard.swift`, `Forma File Organizing/Views/TemplateSelectionView.swift`, `Forma File Organizing/DesignSystem/Components/FormaEmptyStates.swift` |
+| P2 | Partially landed | Finish Analytics low-data tone. `ProductivityReportView` already has no-data guidance and a getting-started checklist; the remaining issue is the fallback `Organization Score` grade still saying "Needs Work" for very low scores, plus chart sizing in sparse states. | Reduces discouragement and makes analytics understandable before the user has meaningful history. | S-M | `Forma File Organizing/Views/ProductivityReportView.swift`, `Forma File Organizing/Components/AnalyticsStatCard.swift`, `Forma File Organizing/Components/ImpactMetricCard.swift`, `Forma File Organizing/Components/StackedAreaChart.swift`, `Forma File Organizing/Components/CalendarHeatmap.swift` |
+| P2 | Mostly landed | Treat Settings as Blue Slate tuning. `SettingsTabShell` and `SettingsSection` already use the app surface ladder and `formaSteelBlue` tint; remaining work is tab icon weight/native preference polish rather than a full restyle. | Settings stops feeling like a separate app surface. | S | `Forma File Organizing/Views/Settings/SettingsView.swift`, `Forma File Organizing/Views/Settings/SettingsComponents.swift`, `Forma File Organizing/Views/Settings/GeneralSettingsSection.swift`, `Forma File Organizing/Views/Settings/SmartFeaturesSection.swift` |
+| P2 | Partially landed | Run a targeted microinteraction audit rather than creating the motion system from scratch. The app already has `FormaAnimation`, `FormaMicroanimations`, `FormaEasing`, and broad `accessibilityReduceMotion` usage; remaining work is to find unguarded animations and decorative row motion. | Interactions feel responsive and intentional without adding visual noise or accessibility risk. | S | `Forma File Organizing/DesignSystem/FormaEasing.swift`, `Forma File Organizing/DesignSystem/FormaMicroanimations.swift`, `Forma File Organizing/DesignSystem/FormaAnimation.swift` |
 
-## Non-Goals
+## Screen Notes
 
-- This is not an implementation plan.
-- This does not authorize file diffs, PR scope, or workstream sequencing by itself.
-- This is not a redesign of information architecture or feature behavior.
-- This is not website or marketing work.
-- This is not a token rename pass.
-- This does not require `TODO.md`, `CHANGELOG.md`, or `API_REFERENCE.md` updates because no behavior changes are made here.
-- This does not block unrelated in-flight work unless that work conflicts with the principles below.
+### Main Review Workspace
 
-## Decision Principles
+**What is working:** The three-column architecture is right for the product: navigation, working queue, and secondary command context. The file rows have useful metadata, and the right rail has the right ingredients for trust.
 
-1. **Hierarchy through structure, not weight inflation.** Prefer clearer surface steps and type-size jumps before adding heavier borders, shadows, or font weights.
-2. **Contrast as a budget.** Spend contrast on titles, primary actions, active selection, current-state indicators, and focus. Do not spend it equally on every card outline.
-3. **Breathing room is a layout primitive.** Dense data screens can be compact, but rhythm must remain intentional. Cramped and spacious are separate decisions.
-4. **State and motion telegraph causality.** Hover, focus, selection, loading, and transition states should explain what changed. Motion should not exist only as decoration.
-5. **Restrained but committed.** The blue accent should be confident and predictable, not spread thin across many quiet tints.
+**What is not yet resolved:** The toolbar has already been unified in code, but screenshots should still verify whether its clusters feel too equally weighted in narrow widths. The file queue, right rail, and bottom action bar can still compete for primary status. The ambient backdrop gives the screen atmosphere but makes the dense file list feel less anchored.
 
-## Direction: Blue Slate
+**Recommendation:** Start the next implementation pass here, but avoid rebuilding already-landed toolbar structure. Focus on material quieting, bottom-bar prominence, right-rail hierarchy, and accent discipline.
 
-Blue Slate keeps Forma in a trust-and-utility lane while giving the app a stronger operating hierarchy.
+### Light Mode
 
-### Surface Intent
+**What is working:** The app feels open and friendly.
 
-The app needs a more legible surface ladder:
+**What is not yet resolved:** The light-mode surface system is too soft. Rows, metadata, right-rail cards, and disabled/passive states blend together. The solution is not simply a darker hue; it is a stronger semantic contrast ladder.
 
-- Sidebar and major anchors should read cooler and darker than the work area.
-- Primary work surfaces should lift clearly above app chrome.
-- Floating surfaces should be reserved for modals, command surfaces, key cards, and high-priority controls.
-- Borders should follow the ladder: fewer decorative hairlines, stronger borders only where state or elevation requires them.
+**Recommendation:** Audit token pairs against actual material backgrounds before changing the palette. Killing or reducing material behind dense data will likely fix much of the paleness without a broad recolor.
 
-Primary anchors:
+### Rule Builder
 
-- `Forma File Organizing/DesignSystem/FormaColors.swift`
-- `Forma File Organizing/Views/Components/PrimaryBackgroundView.swift`
-- `Forma File Organizing/Views/SidebarView.swift`
-- `Forma File Organizing/Views/DefaultPanelView.swift`
+**What is working:** The form already has good primitives: rule name, draft prompt, conditions, actions, validation, and persistent save state.
 
-### Type Intent
+**What is already done:** The inline builder already has a guided form with the main sequence users need: name the rule, define `When`, choose `Then`, review preview/impact, and save. Validation, overlap detection, and impact preview already exist.
 
-The current type scale is native and readable, but compressed for a large desktop window. Titles should become easier to identify at a glance, and secondary text should recede without washing out.
+**Recommendation:** Do not rebuild this flow. Keep future work to visual compression, badge/accent restraint, and making validation feel subordinate to the main path.
 
-Primary anchors:
+### Smart Rules
 
-- `Forma File Organizing/DesignSystem/FormaTypography.swift`
-- `Forma File Organizing/Views/Components/UnifiedToolbar.swift`
-- `Forma File Organizing/Components/ImpactMetricCard.swift`
+**What is working:** Starter templates are concrete and useful.
 
-### Accent Intent
+**What is already done:** The empty state includes starter templates and each template opens the builder directly.
 
-The blue accent should be more committed and used in fewer places.
+**Recommendation:** Let templates be the primary empty-state content. Keep Create Rule present, but tune the intro band so it does not drown out faster choices.
 
-Allowed emphasis targets:
+### Analytics
 
-- Primary action
-- Active selected row or selected segment
-- Focus ring or focused field outline
-- Current-state indicator
+**What is working:** Productivity Health has a clear headline, period selector, KPI row, and chart areas.
 
-Tints, badges, links, and secondary buttons should stay more neutral unless they communicate state.
+**What is already done:** The low/no-data path now includes explicit guidance and a getting-started checklist.
 
-Primary anchors:
+**Recommendation:** Finish the tone pass by replacing punitive low-score labels such as "Needs Work" in sparse-data contexts and shrinking or replacing chart containers when they do not yet have useful signal.
 
-- `Forma File Organizing/DesignSystem/FormaColors.swift`
-- `Forma File Organizing/DesignSystem/Components/FormaButtons.swift`
-- `Forma File Organizing/Views/DefaultPanelView.swift`
-- `Forma File Organizing/Views/RuleEditorView.swift`
+### Settings
 
-### Material Intent
+**What is working:** The Settings window follows familiar macOS preferences behavior.
 
-Ambient gradients and material effects should support hierarchy, not compete with data.
+**What is already done:** Settings now uses Blue Slate-adjacent shells, work surfaces, and the app accent tint.
 
-- On dense screens such as Files, Analytics, Rule Builder, and Settings, ambient material should be reduced or scoped.
-- On onboarding, empty states, and selected hero surfaces, ambient material can remain more expressive.
-- Grain and sheen should stay subtle enough that rows, titles, and controls remain the first read.
+**Recommendation:** Keep native preferences conventions. Treat remaining work as small tab/icon/card tuning, not a full settings redesign.
 
-Primary anchor:
+## Implementation Sequencing
 
-- `Forma File Organizing/Views/Components/PrimaryBackgroundView.swift`
+This review is not an implementation plan, but the order matters:
 
-## Visual Baseline Reviewed
+1. Surface ladder verification and ambient material quieting.
+2. Bottom action bar review-mode prominence and label sizing.
+3. Right rail default-panel hierarchy plus inspector reliability.
+4. Accent discipline sweep across badges, passive links, and secondary controls.
+5. Smart Rules empty-state emphasis and Analytics low-data tone.
+6. Settings tab polish and motion/reduced-motion audit.
 
-The review used current app screenshot artifacts as the baseline:
-
-- `Docs/Marketing/Screenshots/AppStore/Light/forma-01-hero-main-window.png`
-- `Docs/Marketing/Screenshots/AppStore/Light/forma-02-all-files-list.png`
-- `Docs/Marketing/Screenshots/AppStore/Light/forma-03-rule-builder.png`
-- `Docs/Marketing/Screenshots/AppStore/Light/forma-04-smart-rules.png`
-- `Docs/Marketing/Screenshots/AppStore/Light/forma-05-analytics.png`
-- `Docs/Marketing/Screenshots/AppStore/Light/forma-06-settings.png`
-- `Docs/Marketing/Screenshots/AppStore/Dark/forma-01-hero-main-window.png`
-- `Docs/Marketing/Screenshots/AppStore/Dark/forma-03-rule-builder.png`
-- `Docs/Marketing/Screenshots/AppStore/Dark/forma-05-analytics.png`
-- `Docs/Marketing/Screenshots/AppStore/Dark/forma-06-settings.png`
-
-## Evidence
-
-| # | Observation | Surface | Anchor files | Principle |
-|---|-------------|---------|--------------|-----------|
-| 1 | Surface ladder is too narrow across sidebar, content, right rail, cards, and controls. | Global | `Forma File Organizing/DesignSystem/FormaColors.swift`, `Forma File Organizing/Views/Components/PrimaryBackgroundView.swift`, `Forma File Organizing/Views/SidebarView.swift`, `Forma File Organizing/Views/DefaultPanelView.swift` | 1, 2 |
-| 2 | Ambient gradient and material effects are too loud on dense data screens. | Files, Analytics, Rule Builder, Settings | `Forma File Organizing/Views/Components/PrimaryBackgroundView.swift` | 2, 3 |
-| 3 | Type hierarchy is compressed; secondary text and uppercase labels either compete or wash out. | Global | `Forma File Organizing/DesignSystem/FormaTypography.swift`, `Forma File Organizing/Views/Components/UnifiedToolbar.swift`, `Forma File Organizing/Components/ImpactMetricCard.swift` | 1, 2 |
-| 4 | The right rail does not yet read as the command center for the active workflow. | Main window, right rail | `Forma File Organizing/Views/DefaultPanelView.swift`, `Forma File Organizing/Views/RightPanelView.swift` | 1, 5 |
-| 5 | File row actions, completion checks, and category indicators can overpower filenames and destinations. | File list, file grid, file cards | `Forma File Organizing/Components/FileListRow.swift`, `Forma File Organizing/Components/FileGridItem.swift`, `Forma File Organizing/Views/Components/FileRow.swift`, `Forma File Organizing/Components/Shared/FileSurfaceComponents.swift` | 2, 4 |
-| 6 | Rule Builder is fragmented across too many equally strong cards, badges, validation regions, and footer controls. | Rule Builder | `Forma File Organizing/Views/RuleEditorView.swift`, `Forma File Organizing/Views/Components/RuleConditionBuilder.swift`, `Forma File Organizing/Views/Components/RuleDestinationPicker.swift` | 1, 3 |
-| 7 | Smart Rules empty state has too much vertical air before starter templates become useful. | Smart Rules | `Forma File Organizing/Views/RulesManagementView.swift`, `Forma File Organizing/Components/RuleManagementCard.swift` | 3 |
-| 8 | Analytics cards need clearer role hierarchy between KPIs, chart containers, and zero states. | Analytics | `Forma File Organizing/Views/ProductivityReportView.swift`, `Forma File Organizing/Components/ImpactMetricCard.swift` | 1, 2 |
-| 9 | Settings is readable but visually disconnected from the main app system. | Settings | `Forma File Organizing/Views/Settings/SettingsView.swift`, `Forma File Organizing/Views/Settings/SettingsComponents.swift` | 5 |
-| 10 | The blue accent is hesitant and spread across too many quiet treatments. | Global | `Forma File Organizing/DesignSystem/FormaColors.swift`, `Forma File Organizing/DesignSystem/Components/FormaButtons.swift`, `Forma File Organizing/Views/DefaultPanelView.swift`, `Forma File Organizing/Views/RuleEditorView.swift` | 2, 5 |
-
-## Prioritized Workstreams
-
-These are design workstreams, not implementation tickets. Later agent plans should split them into bounded, independently verifiable slices.
-
-### 1. Surface Ladder and Material Quieting
-
-**Absorbs:** Observations 1, 2, 4, 10  
-**Intent:** Make the app architecture legible before tuning individual screens.
-
-Primary anchor files:
-
-- `Forma File Organizing/DesignSystem/FormaColors.swift`
-- `Forma File Organizing/Views/Components/PrimaryBackgroundView.swift`
-- `Forma File Organizing/Views/SidebarView.swift`
-- `Forma File Organizing/Views/DefaultPanelView.swift`
-- `Forma File Organizing/Views/RightPanelView.swift`
-
-Mac-native constraints to preserve:
-
-- Keep native split-view behavior.
-- Keep vibrancy where macOS expects it, especially sidebar and window chrome.
-- Respect Reduce Transparency.
-- Do not make the app feel like a website or dashboard shell.
-
-Design target:
-
-The user should immediately understand sidebar, work surface, right rail, cards, and floating controls as distinct layers.
-
-### 2. Type Ramp Recommitment
-
-**Absorbs:** Observation 3, supports Observations 4 and 8  
-**Intent:** Make headings and body copy easier to scan without abandoning SF Pro or native macOS sizing expectations.
-
-Primary anchor files:
-
-- `Forma File Organizing/DesignSystem/FormaTypography.swift`
-- `Forma File Organizing/Views/Components/UnifiedToolbar.swift`
-- `Forma File Organizing/Components/ImpactMetricCard.swift`
-- `Forma File Organizing/Views/ProductivityReportView.swift`
-
-Mac-native constraints to preserve:
-
-- Keep SF Pro as the app font.
-- Maintain accessibility scaling.
-- Preserve compact toolbar legibility.
-- Avoid theatrical display typography in operational panels.
-
-Design target:
-
-Primary screen titles should be the first read; section labels should clarify, not compete.
-
-### 3. File Surface Quieting
-
-**Absorbs:** Observation 5  
-**Intent:** Restore filenames, destinations, and scan status as the dominant row read.
-
-Primary anchor files:
-
-- `Forma File Organizing/Components/FileListRow.swift`
-- `Forma File Organizing/Components/FileGridItem.swift`
-- `Forma File Organizing/Views/Components/FileRow.swift`
-- `Forma File Organizing/Components/Shared/FileSurfaceComponents.swift`
-- `Forma File Organizing/DesignSystem/FileSurfaceStyle.swift`
-- `Forma File Organizing/Views/MainContentView.swift`
-
-Mac-native constraints to preserve:
-
-- Keep keyboard focus visible.
-- Keep hover and selection affordances.
-- Keep card, list, and grid parity.
-- Preserve Quick Look and context menu affordances.
-
-Design target:
-
-At rest, rows should scan as file identity first and action surface second. Action emphasis should rise on hover, focus, selection, or review intent.
-
-### 4. Right Rail Command Center
-
-**Absorbs:** Observation 4, depends on Workstream 1  
-**Intent:** Make the right rail feel like the active workflow owner.
-
-Primary anchor files:
-
-- `Forma File Organizing/Views/DefaultPanelView.swift`
-- `Forma File Organizing/Views/RightPanelView.swift`
-- `Forma File Organizing/Components/AutomationStatusWidget.swift`
-- `Forma File Organizing/Components/TrustedAutomationScopesSection.swift`
-
-Mac-native constraints to preserve:
-
-- Keep the panel responsive to compact right-rail widths.
-- Preserve existing mode transitions.
-- Do not add new module types unless a later plan justifies it.
-
-Design target:
-
-The current task card should own the workflow. Automation and suggestions should support it without matching its visual weight.
-
-### 5. Rule Builder Cohesion
-
-**Absorbs:** Observation 6  
-**Intent:** Make Rule Builder read as one guided form rather than several equal cards.
-
-Primary anchor files:
-
-- `Forma File Organizing/Views/RuleEditorView.swift`
-- `Forma File Organizing/Views/Components/RuleConditionBuilder.swift`
-- `Forma File Organizing/Views/Components/RuleDestinationPicker.swift`
-- `Forma File Organizing/Views/NaturalLanguageRuleView.swift`
-
-Mac-native constraints to preserve:
-
-- Keep form ergonomics.
-- Keep keyboard navigation and focus order.
-- Preserve validation clarity.
-- Preserve modal and inline-panel presentation modes.
-
-Design target:
-
-Rule name, `When`, and `Then` should form the main path. Category, impact, validation, and footer controls should support that path rather than becoming separate focal points.
-
-### 6. Smart Rules Empty-State Density
-
-**Absorbs:** Observation 7  
-**Intent:** Make the empty state feel ready to use instead of blank.
-
-Primary anchor files:
-
-- `Forma File Organizing/Views/RulesManagementView.swift`
-- `Forma File Organizing/Components/RuleManagementCard.swift`
-
-Mac-native constraints to preserve:
-
-- Keep the empty state direct and accessible.
-- Keep starter templates actionable.
-- Avoid marketing-card treatment.
-
-Design target:
-
-Starter templates should be visible in the first viewport at normal window sizes, and the screen should read as "quick starts are available" rather than "there is nothing here."
-
-### 7. Analytics Role Hierarchy
-
-**Absorbs:** Observation 8  
-**Intent:** Separate KPI hero cards, chart containers, and low-data states.
-
-Primary anchor files:
-
-- `Forma File Organizing/Views/ProductivityReportView.swift`
-- `Forma File Organizing/Components/ImpactMetricCard.swift`
-- `Forma File Organizing/Components/TreemapChart.swift`
-- `Forma File Organizing/Components/StackedAreaChart.swift`
-- `Forma File Organizing/Components/CalendarHeatmap.swift`
-
-Mac-native constraints to preserve:
-
-- Keep charts legible at default window size.
-- Preserve period selector behavior.
-- Keep no-data guidance actionable.
-
-Design target:
-
-The screen should scan in this order: headline, KPI row, chart explanation, details. Empty metrics should explain what will appear once the user has real data.
-
-### 8. Settings Reunion and Accent Discipline
-
-**Absorbs:** Observations 9 and 10  
-**Intent:** Make Settings feel like Forma, not a separate utility shell.
-
-Primary anchor files:
-
-- `Forma File Organizing/Views/Settings/SettingsView.swift`
-- `Forma File Organizing/Views/Settings/SettingsComponents.swift`
-- `Forma File Organizing/Views/Settings/GeneralSettingsSection.swift`
-- `Forma File Organizing/Views/Settings/SmartFeaturesSection.swift`
-- `Forma File Organizing/DesignSystem/FormaColors.swift`
-
-Mac-native constraints to preserve:
-
-- Keep Settings scene conventions.
-- Preserve tabbed preferences behavior.
-- Keep controls standard where native controls are clearer than custom controls.
-
-Design target:
-
-Settings should share the same surface ladder, type rhythm, and accent discipline as the primary app window.
-
-## Token and Component Anchors
-
-Later implementation plans should start from these existing anchors instead of inventing parallel styling.
-
-### Tokens
-
-- Color and surface ladder: `Forma File Organizing/DesignSystem/FormaColors.swift`
-- Typography: `Forma File Organizing/DesignSystem/FormaTypography.swift`
-- Spacing and layout: `Forma File Organizing/DesignSystem/FormaSpacing.swift`, `Forma File Organizing/DesignSystem/FormaLayout.swift`
-- Borders and shadows: `Forma File Organizing/DesignSystem/FormaBorders.swift`, `Forma File Organizing/DesignSystem/FormaShadows.swift`
-- Motion: `Forma File Organizing/DesignSystem/FormaAnimation.swift`, `Forma File Organizing/DesignSystem/FormaEasing.swift`, `Forma File Organizing/DesignSystem/FormaMicroanimations.swift`
-
-### Components
-
-- Toolbar: `Forma File Organizing/Views/Components/UnifiedToolbar.swift`
-- File surfaces: `Forma File Organizing/Views/Components/FileRow.swift`, `Forma File Organizing/Components/FileListRow.swift`, `Forma File Organizing/Components/FileGridItem.swift`
-- File surface primitives: `Forma File Organizing/Components/Shared/FileSurfaceComponents.swift`, `Forma File Organizing/DesignSystem/FileSurfaceStyle.swift`
-- Right rail: `Forma File Organizing/Views/DefaultPanelView.swift`, `Forma File Organizing/Views/RightPanelView.swift`
-- Rule Builder: `Forma File Organizing/Views/RuleEditorView.swift`
-- Smart Rules: `Forma File Organizing/Views/RulesManagementView.swift`, `Forma File Organizing/Components/RuleManagementCard.swift`
-- Analytics: `Forma File Organizing/Views/ProductivityReportView.swift`, `Forma File Organizing/Components/ImpactMetricCard.swift`
-- Settings: `Forma File Organizing/Views/Settings/SettingsView.swift`, `Forma File Organizing/Views/Settings/SettingsComponents.swift`
-
-No token rename is implied by this brief. A later implementation plan may propose new tokens or changed values, but must justify them against this anchor list.
-
-## Success Criteria
-
-The following criteria are intentionally observable rather than numeric. Quantitative thresholds belong in the implementation plans.
-
-- A user can identify sidebar, work surface, right rail, cards, and floating controls as separate layers at a glance.
-- Primary screen titles are the first read on each screen.
-- Secondary metadata recedes without disappearing.
-- Blue accent appears predictably on primary actions, active selections, focus, and current-state indicators.
-- Dense data screens feel calmer because ambient material is reduced or scoped.
-- The right rail reads as the active command center for review work.
-- File rows scan as filenames and destinations first, actions second.
-- Rule Builder reads as one guided composition with clear `When` and `Then` anchors.
-- Smart Rules empty state exposes starter templates without requiring the user to search for them.
-- Analytics distinguishes KPI cards, chart containers, and zero-state guidance.
-- Settings feels visually connected to the main app.
+Do not bundle all recommendations into one branch. The first branch should not rebuild the toolbar or Rule Builder from scratch; those are already mostly landed. It should focus on current visual evidence: material softness, action-bar prominence, right-rail hierarchy, and accent discipline.
 
 ## Validation Checklist
 
-Run this checklist against both light and dark mode after any implementation work based on this brief.
+Run visual validation against light and dark mode after each implementation slice.
 
-### Per-Screen Pass
+- Main review screen: hierarchy is clear in the first two seconds; bottom action bar appears only when causally relevant.
+- File surfaces: filenames and destinations read before badges and row actions; card/list/grid parity remains intact.
+- Right rail: there is exactly one primary "now" state at a time; file selection reliably opens or updates the inspector.
+- Rule Builder: `Name`, `When`, `Then`, and preview form the main path; validation stays near the failing input.
+- Smart Rules: templates are visible and actionable in the first viewport.
+- Analytics: low-data states are instructional, not punitive.
+- Settings: preferences remain native, but surfaces and accent usage match the main app.
+- Accessibility: focus rings remain visible, increased contrast remains legible, and Reduce Motion disables nonessential animation.
+- Material: dense data screens remain readable when Reduce Transparency is enabled.
+- Screenshot harness: rerun `AppStoreScreenshotTests` and confirm the captured surfaces do not include accidental hover artifacts before using them as marketing evidence.
 
-For each primary screen, answer these questions:
+## Non-Goals
 
-- Does hierarchy read in the first two seconds?
-- Is contrast spent on the right things?
-- Does density feel intentional rather than cramped or empty?
-- Are hover, focus, selection, loading, and disabled states legible?
-
-Screens:
-
-- Main review screen
-- All Files list
-- All Files grid
-- Right rail default task panel
-- Rule Builder
-- Smart Rules empty state and populated state
-- Analytics
-- Settings: Rules, Folders, Smart Features, General, About
-- Onboarding welcome, only if token changes affect it
-
-### Global Pass
-
-- Light mode and dark mode preserve the same hierarchy.
-- Increased Contrast remains legible.
-- Reduce Motion remains respected.
-- Reduce Transparency has an acceptable fallback.
-- Keyboard focus rings remain visible on every interactive element.
-- Sidebar collapsed and expanded states preserve the surface ladder.
-- Window resize does not collapse headings, buttons, or row metadata.
-- Card, list, and grid file surfaces remain visually related.
-- Primary CTAs remain unmistakable without shouting over data.
-
-## Open Questions For The Agent Plan
-
-These questions should be answered before implementation plans become executable.
-
-1. Does the surface ladder add a new semantic token, or retune existing `formaSurface*` tokens?
-2. Is committed blue a new accent value, or a re-spec of `formaSteelBlue`?
-3. Does ambient material survive only on onboarding and empty states, or stay on dense screens at lower intensity?
-4. Does the right rail current-task card become a distinct surface step, or stay flush with the rail while surrounding modules demote?
-5. Does Rule Builder keep all current sections but restyle them, or collapse Category and Impact into lower-emphasis rows?
-6. Does Smart Rules lead with the empty state or lead with starter templates?
-7. Does Settings receive a full visual alignment pass or only targeted token/padding updates?
-8. Should typography changes be global token changes or screen-specific overrides first?
-
-## Agent Planning Handoff
-
-The next artifact should be an implementation plan under `Docs/superpowers/specs/` or another explicitly approved planning location. It should not bundle every workstream into one branch.
-
-Recommended plan shape:
-
-- Start with Workstream 1 and Workstream 2 because surface and type changes affect everything else.
-- Split file-surface work into card, list, grid, and shared primitives only if ownership remains clear.
-- Keep Rule Builder, Analytics, Smart Rules, and Settings as separate follow-on plans unless token work makes them trivial.
-- Assign each agent or subagent a disjoint write set.
-- Require visual verification with current screenshots or live app captures for every workstream.
-- Do not touch `forma-website/`.
-
-## Out Of Brief
-
-The following belong in later artifacts:
-
-- Concrete token values
-- Exact type sizes
-- File-by-file patch plans
-- Branch sequence
-- Test commands
-- Screenshots of proposed alternatives
-- Acceptance screenshots
-- Release notes
-
+- This is not a website review.
+- This is not a code implementation plan.
+- This does not authorize touching `forma-website/`.
+- This does not require `TODO.md`, `CHANGELOG.md`, or `API_REFERENCE.md` changes because no behavior, API, or workflow has changed.
+- This does not mandate new token names. A later implementation plan may propose token additions or retuned values, but it should justify them against the current design-system anchors.

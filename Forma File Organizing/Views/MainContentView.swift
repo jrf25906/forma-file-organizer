@@ -62,6 +62,7 @@ struct MainContentView: View {
     @EnvironmentObject private var filterViewModel: FilterViewModel
     @EnvironmentObject private var selectionViewModel: SelectionViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     // Phase 4: Hover Preview
     @State private var hoveredFile: FileItem?
@@ -248,7 +249,7 @@ struct MainContentView: View {
                         }
                         .mask(scrollFadeMask)
                         .guidedTourRegion(.mainFileList)
-                        .animation(.easeInOut(duration: FormaEasing.Duration.fast), value: currentViewMode)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: FormaEasing.Duration.fast), value: currentViewMode)
                     }
                 }
 
@@ -743,7 +744,7 @@ struct MainContentView: View {
     }
 
     private func presentRuleEditor(for file: FileItem) {
-        withAnimation(.easeInOut(duration: FormaEasing.Duration.fast)) {
+        withAnimation(reduceMotion ? .none : .easeInOut(duration: FormaEasing.Duration.fast)) {
             nav.openRuleEditor(
                 fileContext: file,
                 returnTarget: .defaultPanel

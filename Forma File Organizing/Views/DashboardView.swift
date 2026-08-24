@@ -333,7 +333,11 @@ struct DashboardView: View {
                     PrimaryBackgroundView()
 
                     splitViewLayout
-                    .disabled(nav.isShowingRuleEditor || (tourState.isActive && !DebugFlags.disableGuidedTourOverlay))
+                        .background(
+                            PaneMaterialBackground(role: .content)
+                                .ignoresSafeArea(edges: .top)
+                        )
+                        .disabled(nav.isShowingRuleEditor || (tourState.isActive && !DebugFlags.disableGuidedTourOverlay))
 
                     Color.clear
                         .frame(width: 1, height: 1)
